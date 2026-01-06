@@ -33,6 +33,7 @@ LOCK_FILES = {
 }
 
 BINARY_EXTENSIONS = {
+    # Images
     ".png",
     ".jpg",
     ".jpeg",
@@ -41,6 +42,11 @@ BINARY_EXTENSIONS = {
     ".webp",
     ".bmp",
     ".svg",
+    ".tiff",
+    ".tif",
+    ".heic",
+    ".heif",
+    # Documents
     ".pdf",
     ".doc",
     ".docx",
@@ -48,32 +54,63 @@ BINARY_EXTENSIONS = {
     ".xlsx",
     ".ppt",
     ".pptx",
+    # Archives
     ".zip",
     ".tar",
     ".gz",
     ".rar",
     ".7z",
+    ".bz2",
+    ".xz",
+    ".zst",
+    # Executables and libraries
     ".exe",
     ".dll",
     ".so",
     ".dylib",
     ".bin",
+    ".msi",
+    ".app",
+    # WebAssembly
+    ".wasm",
+    # Audio
     ".mp3",
-    ".mp4",
     ".wav",
+    ".ogg",
+    ".flac",
+    ".aac",
+    ".m4a",
+    # Video
+    ".mp4",
     ".avi",
     ".mov",
     ".mkv",
+    ".webm",
+    ".wmv",
+    ".flv",
+    # Fonts
     ".woff",
     ".woff2",
     ".ttf",
     ".otf",
     ".eot",
+    # Compiled code
     ".pyc",
     ".pyo",
     ".class",
     ".o",
     ".obj",
+    # Data files
+    ".dat",
+    ".db",
+    ".sqlite",
+    ".sqlite3",
+    # Other binary formats
+    ".cur",
+    ".ani",
+    ".pbm",
+    ".pgm",
+    ".ppm",
 }
 
 # Merge lock timeout in seconds
@@ -244,6 +281,25 @@ def get_file_content_from_ref(
         cwd=project_dir,
         capture_output=True,
         text=True,
+    )
+    if result.returncode == 0:
+        return result.stdout
+    return None
+
+
+def get_binary_file_content_from_ref(
+    project_dir: Path, ref: str, file_path: str
+) -> bytes | None:
+    """Get binary file content from a git ref (branch, commit, etc.).
+
+    Unlike get_file_content_from_ref, this returns raw bytes without
+    text decoding, suitable for binary files like images, audio, etc.
+    """
+    result = subprocess.run(
+        ["git", "show", f"{ref}:{file_path}"],
+        cwd=project_dir,
+        capture_output=True,
+        text=False,  # Return bytes, not text
     )
     if result.returncode == 0:
         return result.stdout
@@ -522,5 +578,6 @@ _is_binary_file = is_binary_file
 _is_lock_file = is_lock_file
 _validate_merged_syntax = validate_merged_syntax
 _get_file_content_from_ref = get_file_content_from_ref
+_get_binary_file_content_from_ref = get_binary_file_content_from_ref
 _get_changed_files_from_branch = get_changed_files_from_branch
 _create_conflict_file_with_git = create_conflict_file_with_git

@@ -22,6 +22,7 @@ from core.workspace.git_utils import (
     get_merge_base,
     is_lock_file,
 )
+from core.worktree import WorktreeManager
 from debug import debug_warning
 from ui import (
     Icons,
@@ -827,4 +828,110 @@ def handle_merge_preview_command(
                 "autoMergeable": 0,
                 "pathMappedAIMergeCount": 0,
             },
+        }
+
+
+def cleanup_old_worktrees_command(
+    project_dir: Path, days: int = 30, dry_run: bool = False
+) -> dict:
+    """
+    Clean up old worktrees that haven't been modified in the specified number of days.
+
+    Args:
+        project_dir: Project root directory
+        days: Number of days threshold (default: 30)
+        dry_run: If True, only show what would be removed (default: False)
+
+    Returns:
+        Dictionary with cleanup results
+    """
+    try:
+        manager = WorktreeManager(project_dir)
+
+        removed, failed = manager.cleanup_old_worktrees(
+            days_threshold=days, dry_run=dry_run
+        )
+
+        return {
+            "success": True,
+            "removed": removed,
+            "failed": failed,
+            "dry_run": dry_run,
+            "days_threshold": days,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "removed": [],
+            "failed": [],
+        }
+
+
+def worktree_summary_command(project_dir: Path) -> dict:
+    """
+    Get a summary of all worktrees with age information.
+
+    Args:
+        project_dir: Project root directory
+
+    Returns:
+        Dictionary with worktree summary data
+    """
+    try:
+        manager = WorktreeManager(project_dir)
+
+        # Print to console for CLI usage
+        manager.print_worktree_summary()
+
+        # Also return data for programmatic access
+        worktrees = manager.list_all_worktrees()
+        warning = manager.get_worktree_count_warning()
+
+        # Categorize by age
+        recent = []
+        week_old = []
+        month_old = []
+        very_old = []
+        unknown_age = []
+
+        for info in worktrees:
+            data = {
+                "spec_name": info.spec_name,
+                "days_since_last_commit": info.days_since_last_commit,
+                "commit_count": info.commit_count,
+            }
+
+            if info.days_since_last_commit is None:
+                unknown_age.append(data)
+            elif info.days_since_last_commit < 7:
+                recent.append(data)
+            elif info.days_since_last_commit < 30:
+                week_old.append(data)
+            elif info.days_since_last_commit < 90:
+                month_old.append(data)
+            else:
+                very_old.append(data)
+
+        return {
+            "success": True,
+            "total_worktrees": len(worktrees),
+            "categories": {
+                "recent": recent,
+                "week_old": week_old,
+                "month_old": month_old,
+                "very_old": very_old,
+                "unknown_age": unknown_age,
+            },
+            "warning": warning,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "total_worktrees": 0,
+            "categories": {},
+            "warning": None,
         }

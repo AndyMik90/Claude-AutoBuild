@@ -20,6 +20,7 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 
@@ -42,6 +43,8 @@ class WorktreeInfo:
     files_changed: int = 0
     additions: int = 0
     deletions: int = 0
+    last_commit_date: datetime | None = None
+    days_since_last_commit: int | None = None
 
 
 class WorktreeManager:
@@ -219,8 +222,19 @@ class WorktreeManager:
     # ==================== Per-Spec Worktree Methods ====================
 
     def get_worktree_path(self, spec_name: str) -> Path:
-        """Get the worktree path for a spec."""
-        return self.worktrees_dir / spec_name
+        """Get the worktree path for a spec (checks new and legacy locations)."""
+        # New path first
+        new_path = self.worktrees_dir / spec_name
+        if new_path.exists():
+            return new_path
+
+        # Legacy fallback (.worktrees/ instead of .auto-claude/worktrees/tasks/)
+        legacy_path = self.project_dir / ".worktrees" / spec_name
+        if legacy_path.exists():
+            return legacy_path
+
+        # Return new path as default for creation
+        return new_path
 
     def get_branch_name(self, spec_name: str) -> str:
         """Get the branch name for a spec."""
@@ -281,6 +295,8 @@ class WorktreeManager:
             "files_changed": 0,
             "additions": 0,
             "deletions": 0,
+            "last_commit_date": None,
+            "days_since_last_commit": None,
         }
 
         if not worktree_path.exists():
@@ -292,6 +308,52 @@ class WorktreeManager:
         )
         if result.returncode == 0:
             stats["commit_count"] = int(result.stdout.strip() or "0")
+
+        # Last commit date (most recent commit in this worktree)
+        result = self._run_git(
+            ["log", "-1", "--format=%cd", "--date=iso"], cwd=worktree_path
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            try:
+                # Parse ISO date format: "2026-01-04 00:25:25 +0100"
+                date_str = result.stdout.strip()
+                # Convert git format to ISO format for fromisoformat()
+                # "2026-01-04 00:25:25 +0100" -> "2026-01-04T00:25:25+01:00"
+                parts = date_str.rsplit(" ", 1)
+                if len(parts) == 2:
+                    date_part, tz_part = parts
+                    # Convert timezone format: "+0100" -> "+01:00"
+                    if len(tz_part) == 5 and (
+                        tz_part.startswith("+") or tz_part.startswith("-")
+                    ):
+                        tz_formatted = f"{tz_part[:3]}:{tz_part[3:]}"
+                        iso_str = f"{date_part.replace(' ', 'T')}{tz_formatted}"
+                        last_commit_date = datetime.fromisoformat(iso_str)
+                        stats["last_commit_date"] = last_commit_date
+                        # Use timezone-aware now() for accurate comparison
+                        now_aware = datetime.now(last_commit_date.tzinfo)
+                        stats["days_since_last_commit"] = (
+                            now_aware - last_commit_date
+                        ).days
+                    else:
+                        # Fallback for unexpected timezone format
+                        last_commit_date = datetime.strptime(
+                            parts[0], "%Y-%m-%d %H:%M:%S"
+                        )
+                        stats["last_commit_date"] = last_commit_date
+                        stats["days_since_last_commit"] = (
+                            datetime.now() - last_commit_date
+                        ).days
+                else:
+                    # No timezone in output
+                    last_commit_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                    stats["last_commit_date"] = last_commit_date
+                    stats["days_since_last_commit"] = (
+                        datetime.now() - last_commit_date
+                    ).days
+            except (ValueError, TypeError) as e:
+                # If parsing fails, silently continue without date info
+                pass
 
         # Diff stats
         result = self._run_git(
@@ -519,12 +581,24 @@ class WorktreeManager:
     # ==================== Listing & Discovery ====================
 
     def list_all_worktrees(self) -> list[WorktreeInfo]:
-        """List all spec worktrees."""
+        """List all spec worktrees (includes legacy .worktrees/ location)."""
         worktrees = []
+        seen_specs = set()
 
+        # Check new location first
         if self.worktrees_dir.exists():
             for item in self.worktrees_dir.iterdir():
                 if item.is_dir():
+                    info = self.get_worktree_info(item.name)
+                    if info:
+                        worktrees.append(info)
+                        seen_specs.add(item.name)
+
+        # Check legacy location (.worktrees/)
+        legacy_dir = self.project_dir / ".worktrees"
+        if legacy_dir.exists():
+            for item in legacy_dir.iterdir():
+                if item.is_dir() and item.name not in seen_specs:
                     info = self.get_worktree_info(item.name)
                     if info:
                         worktrees.append(info)
@@ -638,3 +712,178 @@ class WorktreeManager:
                 cwd = worktree_path
         result = self._run_git(["status", "--porcelain"], cwd=cwd)
         return bool(result.stdout.strip())
+
+    # ==================== Worktree Cleanup Methods ====================
+
+    def get_old_worktrees(
+        self, days_threshold: int = 30, include_stats: bool = False
+    ) -> list[WorktreeInfo] | list[str]:
+        """
+        Find worktrees that haven't been modified in the specified number of days.
+
+        Args:
+            days_threshold: Number of days without activity to consider a worktree old (default: 30)
+            include_stats: If True, return full WorktreeInfo objects; if False, return just spec names
+
+        Returns:
+            List of old worktrees (either WorktreeInfo objects or spec names based on include_stats)
+        """
+        old_worktrees = []
+
+        for worktree_info in self.list_all_worktrees():
+            # Skip if we can't determine age
+            if worktree_info.days_since_last_commit is None:
+                continue
+
+            if worktree_info.days_since_last_commit >= days_threshold:
+                if include_stats:
+                    old_worktrees.append(worktree_info)
+                else:
+                    old_worktrees.append(worktree_info.spec_name)
+
+        return old_worktrees
+
+    def cleanup_old_worktrees(
+        self, days_threshold: int = 30, dry_run: bool = False
+    ) -> tuple[list[str], list[str]]:
+        """
+        Remove worktrees that haven't been modified in the specified number of days.
+
+        Args:
+            days_threshold: Number of days without activity to consider a worktree old (default: 30)
+            dry_run: If True, only report what would be removed without actually removing
+
+        Returns:
+            Tuple of (removed_specs, failed_specs) containing spec names
+        """
+        old_worktrees = self.get_old_worktrees(
+            days_threshold=days_threshold, include_stats=True
+        )
+
+        if not old_worktrees:
+            print(f"No worktrees found older than {days_threshold} days.")
+            return ([], [])
+
+        removed = []
+        failed = []
+
+        if dry_run:
+            print(f"\n[DRY RUN] Would remove {len(old_worktrees)} old worktrees:")
+            for info in old_worktrees:
+                print(
+                    f"  - {info.spec_name} (last activity: {info.days_since_last_commit} days ago)"
+                )
+            return ([], [])
+
+        print(f"\nRemoving {len(old_worktrees)} old worktrees...")
+        for info in old_worktrees:
+            try:
+                self.remove_worktree(info.spec_name, delete_branch=True)
+                removed.append(info.spec_name)
+                print(
+                    f"  ✓ Removed {info.spec_name} (last activity: {info.days_since_last_commit} days ago)"
+                )
+            except Exception as e:
+                failed.append(info.spec_name)
+                print(f"  ✗ Failed to remove {info.spec_name}: {e}")
+
+        if removed:
+            print(f"\nSuccessfully removed {len(removed)} worktree(s).")
+        if failed:
+            print(f"Failed to remove {len(failed)} worktree(s).")
+
+        return (removed, failed)
+
+    def get_worktree_count_warning(
+        self, warning_threshold: int = 10, critical_threshold: int = 20
+    ) -> str | None:
+        """
+        Check worktree count and return a warning message if threshold is exceeded.
+
+        Args:
+            warning_threshold: Number of worktrees to trigger a warning (default: 10)
+            critical_threshold: Number of worktrees to trigger a critical warning (default: 20)
+
+        Returns:
+            Warning message string if threshold exceeded, None otherwise
+        """
+        worktrees = self.list_all_worktrees()
+        count = len(worktrees)
+
+        if count >= critical_threshold:
+            old_worktrees = self.get_old_worktrees(days_threshold=30)
+            old_count = len(old_worktrees)
+            return (
+                f"CRITICAL: {count} worktrees detected! "
+                f"Consider cleaning up old worktrees ({old_count} are 30+ days old). "
+                f"Run cleanup to remove stale worktrees."
+            )
+        elif count >= warning_threshold:
+            old_worktrees = self.get_old_worktrees(days_threshold=30)
+            old_count = len(old_worktrees)
+            return (
+                f"WARNING: {count} worktrees detected. "
+                f"{old_count} are 30+ days old and may be safe to clean up."
+            )
+
+        return None
+
+    def print_worktree_summary(self) -> None:
+        """Print a summary of all worktrees with age information."""
+        worktrees = self.list_all_worktrees()
+
+        if not worktrees:
+            print("No worktrees found.")
+            return
+
+        print(f"\n{'=' * 80}")
+        print(f"Worktree Summary ({len(worktrees)} total)")
+        print(f"{'=' * 80}\n")
+
+        # Group by age
+        recent = []  # < 7 days
+        week_old = []  # 7-30 days
+        month_old = []  # 30-90 days
+        very_old = []  # > 90 days
+        unknown_age = []
+
+        for info in worktrees:
+            if info.days_since_last_commit is None:
+                unknown_age.append(info)
+            elif info.days_since_last_commit < 7:
+                recent.append(info)
+            elif info.days_since_last_commit < 30:
+                week_old.append(info)
+            elif info.days_since_last_commit < 90:
+                month_old.append(info)
+            else:
+                very_old.append(info)
+
+        def print_group(title: str, items: list[WorktreeInfo]):
+            if not items:
+                return
+            print(f"{title} ({len(items)}):")
+            for info in sorted(items, key=lambda x: x.spec_name):
+                age_str = (
+                    f"{info.days_since_last_commit}d ago"
+                    if info.days_since_last_commit is not None
+                    else "unknown"
+                )
+                print(f"  - {info.spec_name} (last activity: {age_str})")
+            print()
+
+        print_group("Recent (< 7 days)", recent)
+        print_group("Week Old (7-30 days)", week_old)
+        print_group("Month Old (30-90 days)", month_old)
+        print_group("Very Old (> 90 days)", very_old)
+        print_group("Unknown Age", unknown_age)
+
+        # Print cleanup suggestions
+        if month_old or very_old:
+            total_old = len(month_old) + len(very_old)
+            print(f"{'=' * 80}")
+            print(
+                f"💡 Suggestion: {total_old} worktree(s) are 30+ days old and may be safe to clean up."
+            )
+            print("   Review these worktrees and run cleanup if no longer needed.")
+            print(f"{'=' * 80}\n")

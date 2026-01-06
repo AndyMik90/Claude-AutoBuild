@@ -187,54 +187,82 @@ class ModificationTracker:
                 else changed_files,
             )
 
+            processed_count = 0
             for file_path in changed_files:
-                # Get the diff for this file (using merge-base for accurate task-only diff)
-                diff_result = subprocess.run(
-                    ["git", "diff", f"{merge_base}..HEAD", "--", file_path],
-                    cwd=worktree_path,
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-
-                # Get content before (from merge-base - the point where task branched)
                 try:
-                    show_result = subprocess.run(
-                        ["git", "show", f"{merge_base}:{file_path}"],
+                    # Get the diff for this file (using merge-base for accurate task-only diff)
+                    diff_result = subprocess.run(
+                        ["git", "diff", f"{merge_base}..HEAD", "--", file_path],
                         cwd=worktree_path,
                         capture_output=True,
                         text=True,
                         check=True,
                     )
-                    old_content = show_result.stdout
-                except subprocess.CalledProcessError:
-                    # File is new
-                    old_content = ""
 
-                current_file = worktree_path / file_path
-                if current_file.exists():
+                    # Get content before (from merge-base - the point where task branched)
                     try:
-                        new_content = current_file.read_text(encoding="utf-8")
-                    except UnicodeDecodeError:
-                        new_content = current_file.read_text(
-                            encoding="utf-8", errors="replace"
+                        show_result = subprocess.run(
+                            ["git", "show", f"{merge_base}:{file_path}"],
+                            cwd=worktree_path,
+                            capture_output=True,
+                            text=True,
+                            check=True,
                         )
-                else:
-                    # File was deleted
-                    new_content = ""
+                        old_content = show_result.stdout
+                    except subprocess.CalledProcessError:
+                        # File is new
+                        old_content = ""
 
-                # Record the modification
-                self.record_modification(
-                    task_id=task_id,
-                    file_path=file_path,
-                    old_content=old_content,
-                    new_content=new_content,
-                    evolutions=evolutions,
-                    raw_diff=diff_result.stdout,
-                )
+                    current_file = worktree_path / file_path
+                    if current_file.exists():
+                        try:
+                            new_content = current_file.read_text(encoding="utf-8")
+                        except UnicodeDecodeError:
+                            new_content = current_file.read_text(
+                                encoding="utf-8", errors="replace"
+                            )
+                    else:
+                        # File was deleted
+                        new_content = ""
+
+                    # Auto-create FileEvolution entry if not already tracked
+                    # This handles retroactive tracking when capture_baselines wasn't called
+                    rel_path = self.storage.get_relative_path(file_path)
+                    if rel_path not in evolutions:
+                        evolutions[rel_path] = FileEvolution(
+                            file_path=rel_path,
+                            baseline_commit=merge_base,
+                            baseline_captured_at=datetime.now(),
+                            baseline_content_hash=compute_content_hash(old_content),
+                            baseline_snapshot_path="",  # Not storing baseline file
+                            task_snapshots=[],
+                        )
+                        debug(
+                            MODULE,
+                            f"Auto-created evolution entry for {rel_path}",
+                            baseline_commit=merge_base[:8],
+                        )
+
+                    # Record the modification
+                    self.record_modification(
+                        task_id=task_id,
+                        file_path=file_path,
+                        old_content=old_content,
+                        new_content=new_content,
+                        evolutions=evolutions,
+                        raw_diff=diff_result.stdout,
+                    )
+                    processed_count += 1
+
+                except subprocess.CalledProcessError as e:
+                    # Log error but continue with remaining files
+                    logger.warning(
+                        f"Failed to process {file_path} in refresh_from_git: {e}"
+                    )
+                    continue
 
             logger.info(
-                f"Refreshed {len(changed_files)} files from worktree for task {task_id}"
+                f"Refreshed {processed_count}/{len(changed_files)} files from worktree for task {task_id}"
             )
 
         except subprocess.CalledProcessError as e:
@@ -260,35 +288,23 @@ class ModificationTracker:
 
     def _detect_target_branch(self, worktree_path: Path) -> str:
         """
-        Detect the target branch to compare against for a worktree.
+        Detect the base branch to compare against for a worktree.
 
-        This finds the branch that the worktree was created from by looking
-        at the merge-base between the worktree and common branch names.
+        This finds the branch that the worktree was created FROM by looking
+        for common branch names (main, master, develop) that have a valid
+        merge-base with the worktree.
+
+        Note: We don't use upstream tracking because that returns the worktree's
+        own branch (e.g., origin/auto-claude/...) rather than the base branch.
 
         Args:
             worktree_path: Path to the worktree
 
         Returns:
-            The detected target branch name, defaults to 'main' if detection fails
+            The detected base branch name, defaults to 'main' if detection fails
         """
-        # Try to get the upstream tracking branch
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
-                cwd=worktree_path,
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                upstream = result.stdout.strip()
-                # Extract branch name from origin/branch format
-                if "/" in upstream:
-                    return upstream.split("/", 1)[1]
-                return upstream
-        except subprocess.CalledProcessError:
-            pass
-
         # Try common branch names and find which one has a valid merge-base
+        # This is the reliable way to find what branch the worktree diverged from
         for branch in ["main", "master", "develop"]:
             try:
                 result = subprocess.run(
@@ -298,14 +314,39 @@ class ModificationTracker:
                     text=True,
                 )
                 if result.returncode == 0:
+                    debug(
+                        MODULE,
+                        f"Detected base branch: {branch}",
+                        worktree_path=str(worktree_path),
+                    )
                     return branch
             except subprocess.CalledProcessError:
                 continue
 
-        # Default to main
+        # Before defaulting to 'main', verify it exists
+        # This handles non-standard projects that use trunk, production, etc.
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--verify", "main"],
+                cwd=worktree_path,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                debug_warning(
+                    MODULE,
+                    "Could not find merge-base with standard branches, defaulting to 'main'",
+                    worktree_path=str(worktree_path),
+                )
+                return "main"
+        except subprocess.CalledProcessError:
+            pass
+
+        # Last resort: use HEAD~10 as a fallback comparison point
+        # This allows modification tracking even on non-standard branch setups
         debug_warning(
             MODULE,
-            "Could not detect target branch, defaulting to 'main'",
+            "No standard base branch found, modification tracking may be limited",
             worktree_path=str(worktree_path),
         )
-        return "main"
+        return "HEAD~10"

@@ -80,6 +80,68 @@ lsof -iTCP -sTCP:LISTEN | grep -E "node|python|next|vite"
 
 ---
 
+## 🚨 CRITICAL: PATH CONFUSION PREVENTION 🚨
+
+**THE #1 BUG IN MONOREPOS: Doubled paths after `cd` commands**
+
+### The Problem
+
+After running `cd ./apps/frontend`, your current directory changes. If you then use paths like `apps/frontend/src/file.ts`, you're creating **doubled paths** like `apps/frontend/apps/frontend/src/file.ts`.
+
+### The Solution: ALWAYS CHECK YOUR CWD
+
+**BEFORE every git command or file operation:**
+
+```bash
+# Step 1: Check where you are
+pwd
+
+# Step 2: Use paths RELATIVE TO CURRENT DIRECTORY
+# If pwd shows: /path/to/project/apps/frontend
+# Then use: git add src/file.ts
+# NOT: git add apps/frontend/src/file.ts
+```
+
+### Examples
+
+**❌ WRONG - Path gets doubled:**
+```bash
+cd ./apps/frontend
+git add apps/frontend/src/file.ts  # Looks for apps/frontend/apps/frontend/src/file.ts
+```
+
+**✅ CORRECT - Use relative path from current directory:**
+```bash
+cd ./apps/frontend
+pwd  # Shows: /path/to/project/apps/frontend
+git add src/file.ts  # Correctly adds apps/frontend/src/file.ts from project root
+```
+
+**✅ ALSO CORRECT - Stay at root, use full relative path:**
+```bash
+# Don't change directory at all
+git add ./apps/frontend/src/file.ts  # Works from project root
+```
+
+### Mandatory Pre-Command Check
+
+**Before EVERY git add, git commit, or file operation in a monorepo:**
+
+```bash
+# 1. Where am I?
+pwd
+
+# 2. What files am I targeting?
+ls -la [target-path]  # Verify the path exists
+
+# 3. Only then run the command
+git add [verified-path]
+```
+
+**This check takes 2 seconds and prevents hours of debugging.**
+
+---
+
 ## PHASE 3: FIX ISSUES ONE BY ONE
 
 For each issue in the fix request:
@@ -166,9 +228,45 @@ If any issue is not fixed, go back to Phase 3.
 
 ## PHASE 6: COMMIT FIXES
 
+### Path Verification (MANDATORY FIRST STEP)
+
+**🚨 BEFORE running ANY git commands, verify your current directory:**
+
 ```bash
+# Step 1: Where am I?
+pwd
+
+# Step 2: What files do I want to commit?
+# If you changed to a subdirectory (e.g., cd apps/frontend),
+# you need to use paths RELATIVE TO THAT DIRECTORY, not from project root
+
+# Step 3: Verify paths exist
+ls -la [path-to-files]  # Make sure the path is correct from your current location
+
+# Example in a monorepo:
+# If pwd shows: /project/apps/frontend
+# Then use: git add src/file.ts
+# NOT: git add apps/frontend/src/file.ts (this would look for apps/frontend/apps/frontend/src/file.ts)
+```
+
+**CRITICAL RULE:** If you're in a subdirectory, either:
+- **Option A:** Return to project root: `cd [back to working directory]`
+- **Option B:** Use paths relative to your CURRENT directory (check with `pwd`)
+
+### Create the Commit
+
+```bash
+# FIRST: Make sure you're in the working directory root
+pwd  # Should match your working directory
+
 # Add all files EXCEPT .auto-claude directory (spec files should never be committed)
 git add . ':!.auto-claude'
+
+# If git add fails with "pathspec did not match", you have a path problem:
+# 1. Run pwd to see where you are
+# 2. Run git status to see what git sees
+# 3. Adjust your paths accordingly
+
 git commit -m "fix: Address QA issues (qa-requested)
 
 Fixes:

@@ -749,6 +749,9 @@ def create_client(
         "settings": str(settings_file.resolve()),
         "env": sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess
         "max_thinking_tokens": max_thinking_tokens,  # Extended thinking budget
+        # Enable file checkpointing to track file read/write state across tool calls
+        # This prevents "File has not been read yet" errors in recovery sessions
+        "enable_file_checkpointing": True,
     }
 
     # Add structured output format if specified

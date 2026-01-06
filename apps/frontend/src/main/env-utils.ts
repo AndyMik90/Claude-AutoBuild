@@ -30,7 +30,8 @@ function getNpmGlobalPrefix(): string | null {
     // On Windows, use npm.cmd for proper command resolution
     const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
-    const rawPrefix = execFileSync(npmCommand, ['config', 'get', 'prefix'], {
+    // Use --location=global to bypass workspace context and avoid ENOWORKSPACES error
+    const rawPrefix = execFileSync(npmCommand, ['config', 'get', 'prefix', '--location=global'], {
       encoding: 'utf-8',
       timeout: 3000,
       windowsHide: true,

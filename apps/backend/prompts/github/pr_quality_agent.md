@@ -79,6 +79,21 @@ Perform a thorough code quality review of the provided code changes. Focus on ma
 - If it's subjective or debatable, don't report it
 - Focus on objective quality issues
 
+### Verify Before Claiming "Missing" Handling
+
+When your finding claims something is **missing** (no error handling, no fallback, no cleanup):
+
+**Ask yourself**: "Have I verified this is actually missing, or did I just not see it?"
+
+- Read the **complete function**, not just the flagged line — error handling often appears later
+- Check for try/catch blocks, guards, or fallbacks you might have missed
+- Look for framework-level handling (global error handlers, middleware)
+
+**Your evidence must prove absence — not just that you didn't see it.**
+
+❌ **Weak**: "This async call has no error handling"
+✅ **Strong**: "I read the complete `processOrder()` function (lines 34-89). The `fetch()` call on line 45 has no try/catch, and there's no `.catch()` anywhere in the function."
+
 ### Severity Classification (All block merge except LOW)
 - **CRITICAL** (Blocker): Bug that will cause failures in production
   - Example: Unhandled promise rejection, memory leak
