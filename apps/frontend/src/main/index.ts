@@ -36,6 +36,7 @@ import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
+import { initializeClaudeProfileManager } from './claude-profile-manager';
 import type { AppSettings } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -354,6 +355,14 @@ app.whenReady().then(() => {
   setImmediate(() => {
     preWarmToolCache(['claude']).catch((error) => {
       console.warn('[main] Failed to pre-warm CLI cache:', error);
+    });
+  });
+
+  // Pre-initialize Claude profile manager in background (non-blocking)
+  // This ensures profile data is loaded before user clicks "Start Claude Code"
+  setImmediate(() => {
+    initializeClaudeProfileManager().catch((error) => {
+      console.warn('[main] Failed to pre-initialize profile manager:', error);
     });
   });
 

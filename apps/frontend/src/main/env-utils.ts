@@ -12,10 +12,28 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
+import { promises as fsPromises } from 'fs';
 import { execFileSync, execFile } from 'child_process';
 import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Check if a path exists asynchronously (non-blocking)
+ *
+ * Uses fs.promises.access which is non-blocking, unlike fs.existsSync.
+ *
+ * @param filePath - The path to check
+ * @returns Promise resolving to true if path exists, false otherwise
+ */
+async function existsAsync(filePath: string): Promise<boolean> {
+  try {
+    await fsPromises.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // Cache for npm global prefix to avoid repeated async calls
 let npmGlobalPrefixCache: string | null | undefined = undefined;
@@ -243,9 +261,10 @@ async function getNpmGlobalPrefixAsync(): Promise<string | null> {
         : path.join(rawPrefix, 'bin');
 
       const normalizedPath = path.normalize(binPath);
-      npmGlobalPrefixCache = fs.existsSync(normalizedPath) ? normalizedPath : null;
+      npmGlobalPrefixCache = await existsAsync(normalizedPath) ? normalizedPath : null;
       return npmGlobalPrefixCache;
-    } catch {
+    } catch (error) {
+      console.warn(`[env-utils] Failed to get npm global prefix: ${error}`);
       npmGlobalPrefixCache = null;
       return null;
     } finally {
@@ -285,16 +304,19 @@ export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<
 
   const pathsToAdd: string[] = [];
 
-  // Add platform-specific paths
-  for (const p of expandedPaths) {
-    if (!currentPathSet.has(p) && fs.existsSync(p)) {
+  // Add platform-specific paths (check existence in parallel for performance)
+  const platformPathChecks = await Promise.all(
+    expandedPaths.map(async (p) => ({ path: p, exists: await existsAsync(p) }))
+  );
+  for (const { path: p, exists } of platformPathChecks) {
+    if (!currentPathSet.has(p) && exists) {
       pathsToAdd.push(p);
     }
   }
 
   // Add npm global prefix dynamically (async - non-blocking)
   const npmPrefix = await getNpmGlobalPrefixAsync();
-  if (npmPrefix && !currentPathSet.has(npmPrefix) && fs.existsSync(npmPrefix)) {
+  if (npmPrefix && !currentPathSet.has(npmPrefix) && await existsAsync(npmPrefix)) {
     pathsToAdd.push(npmPrefix);
   }
 
@@ -302,7 +324,7 @@ export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<
   if (additionalPaths) {
     for (const p of additionalPaths) {
       const expanded = p.startsWith('~') ? p.replace('~', homeDir) : p;
-      if (!currentPathSet.has(expanded) && fs.existsSync(expanded)) {
+      if (!currentPathSet.has(expanded) && await existsAsync(expanded)) {
         pathsToAdd.push(expanded);
       }
     }
@@ -336,7 +358,7 @@ export async function findExecutableAsync(command: string): Promise<string | nul
   for (const dir of pathDirs) {
     for (const ext of extensions) {
       const fullPath = path.join(dir, command + ext);
-      if (fs.existsSync(fullPath)) {
+      if (await existsAsync(fullPath)) {
         return fullPath;
       }
     }

@@ -21,7 +21,7 @@
  */
 
 import { execFileSync, execFile } from 'child_process';
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, promises as fsPromises } from 'fs';
 import path from 'path';
 import os from 'os';
 import { promisify } from 'util';
@@ -29,6 +29,23 @@ import { app } from 'electron';
 import { findExecutable, findExecutableAsync } from './env-utils';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Check if a path exists asynchronously (non-blocking)
+ *
+ * Uses fs.promises.access which is non-blocking, unlike fs.existsSync.
+ *
+ * @param filePath - The path to check
+ * @returns Promise resolving to true if path exists, false otherwise
+ */
+async function existsAsync(filePath: string): Promise<boolean> {
+  try {
+    await fsPromises.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 import type { ToolDetectionResult } from '../shared/types';
 import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 
@@ -104,6 +121,135 @@ function isWrongPlatformPath(pathStr: string | undefined): boolean {
   }
 
   return false;
+}
+
+// ============================================================================
+// SHARED HELPERS - Used by both sync and async Claude detection
+// ============================================================================
+
+/**
+ * Configuration for Claude CLI detection paths
+ */
+interface ClaudeDetectionPaths {
+  /** Homebrew paths for macOS (Apple Silicon and Intel) */
+  homebrewPaths: string[];
+  /** Platform-specific standard installation paths */
+  platformPaths: string[];
+  /** Path to NVM versions directory for Node.js-installed Claude */
+  nvmVersionsDir: string;
+}
+
+/**
+ * Get all candidate paths for Claude CLI detection.
+ *
+ * Returns platform-specific paths where Claude CLI might be installed.
+ * This pure function consolidates path configuration used by both sync
+ * and async detection methods.
+ *
+ * @param homeDir - User's home directory (from os.homedir())
+ * @returns Object containing homebrew, platform, and NVM paths
+ *
+ * @example
+ * const paths = getClaudeDetectionPaths('/Users/john');
+ * // On macOS: { homebrewPaths: ['/opt/homebrew/bin/claude', ...], ... }
+ */
+export function getClaudeDetectionPaths(homeDir: string): ClaudeDetectionPaths {
+  const homebrewPaths = [
+    '/opt/homebrew/bin/claude', // Apple Silicon
+    '/usr/local/bin/claude',    // Intel Mac
+  ];
+
+  const platformPaths = process.platform === 'win32'
+    ? [
+        path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
+        path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+        path.join(homeDir, '.local', 'bin', 'claude.exe'),
+        'C:\\Program Files\\Claude\\claude.exe',
+        'C:\\Program Files (x86)\\Claude\\claude.exe',
+      ]
+    : [
+        path.join(homeDir, '.local', 'bin', 'claude'),
+        path.join(homeDir, 'bin', 'claude'),
+      ];
+
+  const nvmVersionsDir = path.join(homeDir, '.nvm', 'versions', 'node');
+
+  return { homebrewPaths, platformPaths, nvmVersionsDir };
+}
+
+/**
+ * Sort NVM version directories by semantic version (newest first).
+ *
+ * Filters entries to only include directories starting with 'v' (version directories)
+ * and sorts them in descending order so the newest Node.js version is checked first.
+ *
+ * @param entries - Directory entries from readdir with { name, isDirectory() }
+ * @returns Array of version directory names sorted newest first
+ *
+ * @example
+ * const entries = [
+ *   { name: 'v18.0.0', isDirectory: () => true },
+ *   { name: 'v20.0.0', isDirectory: () => true },
+ *   { name: '.DS_Store', isDirectory: () => false },
+ * ];
+ * sortNvmVersionDirs(entries); // ['v20.0.0', 'v18.0.0']
+ */
+export function sortNvmVersionDirs(
+  entries: Array<{ name: string; isDirectory(): boolean }>
+): string[] {
+  return entries
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith('v'))
+    .sort((a, b) => {
+      // Parse version numbers: v20.0.0 -> [20, 0, 0]
+      const vA = a.name.slice(1).split('.').map(Number);
+      const vB = b.name.slice(1).split('.').map(Number);
+      // Compare major, minor, patch in order (descending)
+      for (let i = 0; i < 3; i++) {
+        const diff = (vB[i] ?? 0) - (vA[i] ?? 0);
+        if (diff !== 0) return diff;
+      }
+      return 0;
+    })
+    .map((entry) => entry.name);
+}
+
+/**
+ * Build a ToolDetectionResult from a validation result.
+ *
+ * Returns null if validation failed, otherwise constructs the full result object.
+ * This helper consolidates the result-building logic used throughout detection.
+ *
+ * @param claudePath - The path that was validated
+ * @param validation - The validation result from validateClaude/validateClaudeAsync
+ * @param source - The source of detection ('user-config', 'homebrew', 'system-path', 'nvm')
+ * @param messagePrefix - Prefix for the success message (e.g., 'Using Homebrew Claude CLI')
+ * @returns ToolDetectionResult if valid, null if validation failed
+ *
+ * @example
+ * const result = buildClaudeDetectionResult(
+ *   '/opt/homebrew/bin/claude',
+ *   { valid: true, version: '1.0.0', message: 'OK' },
+ *   'homebrew',
+ *   'Using Homebrew Claude CLI'
+ * );
+ * // Returns: { found: true, path: '/opt/homebrew/bin/claude', version: '1.0.0', ... }
+ */
+export function buildClaudeDetectionResult(
+  claudePath: string,
+  validation: ToolValidation,
+  source: ToolDetectionResult['source'],
+  messagePrefix: string
+): ToolDetectionResult | null {
+  if (!validation.valid) {
+    return null;
+  }
+  return {
+    found: true,
+    path: claudePath,
+    version: validation.version,
+    source,
+    message: `${messagePrefix}: ${claudePath}`,
+  };
 }
 
 /**
@@ -520,143 +666,75 @@ class CLIToolManager {
    * @returns Detection result for Claude CLI
    */
   private detectClaude(): ToolDetectionResult {
+    const homeDir = os.homedir();
+    const paths = getClaudeDetectionPaths(homeDir);
+
     // 1. User configuration
     if (this.userConfig.claudePath) {
-      // Check if path is from wrong platform (e.g., Windows path on macOS)
       if (isWrongPlatformPath(this.userConfig.claudePath)) {
         console.warn(
           `[Claude CLI] User-configured path is from different platform, ignoring: ${this.userConfig.claudePath}`
         );
       } else {
         const validation = this.validateClaude(this.userConfig.claudePath);
-        if (validation.valid) {
-          return {
-            found: true,
-            path: this.userConfig.claudePath,
-            version: validation.version,
-            source: 'user-config',
-            message: `Using user-configured Claude CLI: ${this.userConfig.claudePath}`,
-          };
-        }
-        console.warn(
-          `[Claude CLI] User-configured path invalid: ${validation.message}`
+        const result = buildClaudeDetectionResult(
+          this.userConfig.claudePath, validation, 'user-config', 'Using user-configured Claude CLI'
         );
+        if (result) return result;
+        console.warn(`[Claude CLI] User-configured path invalid: ${validation.message}`);
       }
     }
 
     // 2. Homebrew (macOS)
     if (process.platform === 'darwin') {
-      const homebrewPaths = [
-        '/opt/homebrew/bin/claude', // Apple Silicon
-        '/usr/local/bin/claude', // Intel Mac
-      ];
-
-      for (const claudePath of homebrewPaths) {
+      for (const claudePath of paths.homebrewPaths) {
         if (existsSync(claudePath)) {
           const validation = this.validateClaude(claudePath);
-          if (validation.valid) {
-            return {
-              found: true,
-              path: claudePath,
-              version: validation.version,
-              source: 'homebrew',
-              message: `Using Homebrew Claude CLI: ${claudePath}`,
-            };
-          }
+          const result = buildClaudeDetectionResult(claudePath, validation, 'homebrew', 'Using Homebrew Claude CLI');
+          if (result) return result;
         }
       }
     }
 
     // 3. System PATH (augmented)
-    const claudePath = findExecutable('claude');
-    if (claudePath) {
-      const validation = this.validateClaude(claudePath);
-      if (validation.valid) {
-        return {
-          found: true,
-          path: claudePath,
-          version: validation.version,
-          source: 'system-path',
-          message: `Using system Claude CLI: ${claudePath}`,
-        };
-      }
+    const systemClaudePath = findExecutable('claude');
+    if (systemClaudePath) {
+      const validation = this.validateClaude(systemClaudePath);
+      const result = buildClaudeDetectionResult(systemClaudePath, validation, 'system-path', 'Using system Claude CLI');
+      if (result) return result;
     }
 
-    // 4. Platform-specific standard locations
-    const homeDir = os.homedir();
-    const platformPaths = process.platform === 'win32'
-      ? [
-          path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
-          path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
-          path.join(homeDir, '.local', 'bin', 'claude.exe'),
-          'C:\\Program Files\\Claude\\claude.exe',
-          'C:\\Program Files (x86)\\Claude\\claude.exe',
-        ]
-      : [
-          path.join(homeDir, '.local', 'bin', 'claude'),
-          path.join(homeDir, 'bin', 'claude'),
-        ];
-
-    // 4.5. NVM (Node Version Manager) paths for Unix/Linux/macOS
-    // NVM installs global npm packages in ~/.nvm/versions/node/vX.X.X/bin/
-    // This is important when the app launches from GUI without NVM sourced
+    // 4. NVM paths (Unix only) - check before platform paths for better Node.js integration
     if (process.platform !== 'win32') {
-      const nvmVersionsDir = path.join(homeDir, '.nvm', 'versions', 'node');
       try {
-        if (existsSync(nvmVersionsDir)) {
-          const nodeVersions = readdirSync(nvmVersionsDir, { withFileTypes: true });
-          const versionDirs = nodeVersions
-            .filter((entry) => entry.isDirectory() && entry.name.startsWith('v'))
-            .sort((a, b) => {
-              const vA = a.name.slice(1).split('.').map(Number);
-              const vB = b.name.slice(1).split('.').map(Number);
-              for (let i = 0; i < 3; i++) {
-                const diff = (vB[i] ?? 0) - (vA[i] ?? 0);
-                if (diff !== 0) {
-                  return diff;
-                }
-              }
-              return 0;
-            });
+        if (existsSync(paths.nvmVersionsDir)) {
+          const nodeVersions = readdirSync(paths.nvmVersionsDir, { withFileTypes: true });
+          const versionNames = sortNvmVersionDirs(nodeVersions);
 
-          for (const entry of versionDirs) {
-            const nvmClaudePath = path.join(nvmVersionsDir, entry.name, 'bin', 'claude');
+          for (const versionName of versionNames) {
+            const nvmClaudePath = path.join(paths.nvmVersionsDir, versionName, 'bin', 'claude');
             if (existsSync(nvmClaudePath)) {
               const validation = this.validateClaude(nvmClaudePath);
-              if (validation.valid) {
-                return {
-                  found: true,
-                  path: nvmClaudePath,
-                  version: validation.version,
-                  source: 'nvm',
-                  message: `Using NVM Claude CLI: ${nvmClaudePath}`,
-                };
-              }
+              const result = buildClaudeDetectionResult(nvmClaudePath, validation, 'nvm', 'Using NVM Claude CLI');
+              if (result) return result;
             }
           }
         }
       } catch (error) {
-        // Silently fail if unable to read NVM directory
         console.warn(`[Claude CLI] Unable to read NVM directory: ${error}`);
       }
     }
 
-    for (const claudePath of platformPaths) {
+    // 5. Platform-specific standard locations
+    for (const claudePath of paths.platformPaths) {
       if (existsSync(claudePath)) {
         const validation = this.validateClaude(claudePath);
-        if (validation.valid) {
-          return {
-            found: true,
-            path: claudePath,
-            version: validation.version,
-            source: 'system-path',
-            message: `Using Claude CLI: ${claudePath}`,
-          };
-        }
+        const result = buildClaudeDetectionResult(claudePath, validation, 'system-path', 'Using Claude CLI');
+        if (result) return result;
       }
     }
 
-    // 5. Not found
+    // 6. Not found
     return {
       found: false,
       source: 'fallback',
@@ -935,6 +1013,9 @@ class CLIToolManager {
    * @returns Promise resolving to detection result
    */
   private async detectClaudeAsync(): Promise<ToolDetectionResult> {
+    const homeDir = os.homedir();
+    const paths = getClaudeDetectionPaths(homeDir);
+
     // 1. User configuration
     if (this.userConfig.claudePath) {
       if (isWrongPlatformPath(this.userConfig.claudePath)) {
@@ -943,105 +1024,46 @@ class CLIToolManager {
         );
       } else {
         const validation = await this.validateClaudeAsync(this.userConfig.claudePath);
-        if (validation.valid) {
-          return {
-            found: true,
-            path: this.userConfig.claudePath,
-            version: validation.version,
-            source: 'user-config',
-            message: `Using user-configured Claude CLI: ${this.userConfig.claudePath}`,
-          };
-        }
-        console.warn(
-          `[Claude CLI] User-configured path invalid: ${validation.message}`
+        const result = buildClaudeDetectionResult(
+          this.userConfig.claudePath, validation, 'user-config', 'Using user-configured Claude CLI'
         );
+        if (result) return result;
+        console.warn(`[Claude CLI] User-configured path invalid: ${validation.message}`);
       }
     }
 
     // 2. Homebrew (macOS)
     if (process.platform === 'darwin') {
-      const homebrewPaths = [
-        '/opt/homebrew/bin/claude',
-        '/usr/local/bin/claude',
-      ];
-
-      for (const claudePath of homebrewPaths) {
-        if (existsSync(claudePath)) {
+      for (const claudePath of paths.homebrewPaths) {
+        if (await existsAsync(claudePath)) {
           const validation = await this.validateClaudeAsync(claudePath);
-          if (validation.valid) {
-            return {
-              found: true,
-              path: claudePath,
-              version: validation.version,
-              source: 'homebrew',
-              message: `Using Homebrew Claude CLI: ${claudePath}`,
-            };
-          }
+          const result = buildClaudeDetectionResult(claudePath, validation, 'homebrew', 'Using Homebrew Claude CLI');
+          if (result) return result;
         }
       }
     }
 
     // 3. System PATH (augmented) - using async findExecutable
-    const claudePath = await findExecutableAsync('claude');
-    if (claudePath) {
-      const validation = await this.validateClaudeAsync(claudePath);
-      if (validation.valid) {
-        return {
-          found: true,
-          path: claudePath,
-          version: validation.version,
-          source: 'system-path',
-          message: `Using system Claude CLI: ${claudePath}`,
-        };
-      }
+    const systemClaudePath = await findExecutableAsync('claude');
+    if (systemClaudePath) {
+      const validation = await this.validateClaudeAsync(systemClaudePath);
+      const result = buildClaudeDetectionResult(systemClaudePath, validation, 'system-path', 'Using system Claude CLI');
+      if (result) return result;
     }
 
-    // 4. Platform-specific standard locations
-    const homeDir = os.homedir();
-    const platformPaths = process.platform === 'win32'
-      ? [
-          path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
-          path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
-          path.join(homeDir, '.local', 'bin', 'claude.exe'),
-          'C:\\Program Files\\Claude\\claude.exe',
-          'C:\\Program Files (x86)\\Claude\\claude.exe',
-        ]
-      : [
-          path.join(homeDir, '.local', 'bin', 'claude'),
-          path.join(homeDir, 'bin', 'claude'),
-        ];
-
-    // 4.5. NVM paths for Unix/Linux/macOS
+    // 4. NVM paths (Unix only) - check before platform paths for better Node.js integration
     if (process.platform !== 'win32') {
-      const nvmVersionsDir = path.join(homeDir, '.nvm', 'versions', 'node');
       try {
-        if (existsSync(nvmVersionsDir)) {
-          const nodeVersions = readdirSync(nvmVersionsDir, { withFileTypes: true });
-          const versionDirs = nodeVersions
-            .filter((entry) => entry.isDirectory() && entry.name.startsWith('v'))
-            .sort((a, b) => {
-              const vA = a.name.slice(1).split('.').map(Number);
-              const vB = b.name.slice(1).split('.').map(Number);
-              for (let i = 0; i < 3; i++) {
-                const diff = (vB[i] ?? 0) - (vA[i] ?? 0);
-                if (diff !== 0) return diff;
-              }
-              return 0;
-            });
+        if (await existsAsync(paths.nvmVersionsDir)) {
+          const nodeVersions = await fsPromises.readdir(paths.nvmVersionsDir, { withFileTypes: true });
+          const versionNames = sortNvmVersionDirs(nodeVersions);
 
-          for (const entry of versionDirs) {
-            const nvmClaudePath = path.join(nvmVersionsDir, entry.name, 'bin', 'claude');
-            if (existsSync(nvmClaudePath)) {
+          for (const versionName of versionNames) {
+            const nvmClaudePath = path.join(paths.nvmVersionsDir, versionName, 'bin', 'claude');
+            if (await existsAsync(nvmClaudePath)) {
               const validation = await this.validateClaudeAsync(nvmClaudePath);
-              if (validation.valid) {
-                return {
-                  found: true,
-                  path: nvmClaudePath,
-                  version: validation.version,
-                  source: 'nvm',
-                  message: `Using NVM Claude CLI: ${nvmClaudePath}`,
-                };
-              }
+              const result = buildClaudeDetectionResult(nvmClaudePath, validation, 'nvm', 'Using NVM Claude CLI');
+              if (result) return result;
             }
           }
         }
@@ -1050,22 +1072,16 @@ class CLIToolManager {
       }
     }
 
-    for (const claudePath of platformPaths) {
-      if (existsSync(claudePath)) {
+    // 5. Platform-specific standard locations
+    for (const claudePath of paths.platformPaths) {
+      if (await existsAsync(claudePath)) {
         const validation = await this.validateClaudeAsync(claudePath);
-        if (validation.valid) {
-          return {
-            found: true,
-            path: claudePath,
-            version: validation.version,
-            source: 'system-path',
-            message: `Using Claude CLI: ${claudePath}`,
-          };
-        }
+        const result = buildClaudeDetectionResult(claudePath, validation, 'system-path', 'Using Claude CLI');
+        if (result) return result;
       }
     }
 
-    // 5. Not found
+    // 6. Not found
     return {
       found: false,
       source: 'fallback',

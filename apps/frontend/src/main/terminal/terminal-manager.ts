@@ -83,7 +83,9 @@ export class TerminalManager {
         },
         onResumeNeeded: (terminalId, sessionId) => {
           // Use async version to avoid blocking main process
-          this.resumeClaudeAsync(terminalId, sessionId);
+          this.resumeClaudeAsync(terminalId, sessionId).catch((error) => {
+            console.error('[terminal-manager] Failed to resume Claude session:', error);
+          });
         }
       },
       cols,
@@ -200,7 +202,7 @@ export class TerminalManager {
       terminal,
       profileId,
       this.getWindow,
-      (terminalId, cwd, profileId) => this.invokeClaude(terminalId, cwd, profileId),
+      async (terminalId, cwd, profileId) => this.invokeClaudeAsync(terminalId, cwd, profileId),
       (terminalId) => this.lastNotifiedRateLimitReset.delete(terminalId)
     );
   }
@@ -286,7 +288,9 @@ export class TerminalManager {
         },
         onResumeNeeded: (terminalId, sessionId) => {
           // Use async version to avoid blocking main process
-          this.resumeClaudeAsync(terminalId, sessionId);
+          this.resumeClaudeAsync(terminalId, sessionId).catch((error) => {
+            console.error('[terminal-manager] Failed to resume Claude session:', error);
+          });
         }
       },
       cols,
