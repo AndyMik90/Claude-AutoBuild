@@ -58,8 +58,32 @@ export function useTerminalEvents({
   useEffect(() => {
     const cleanup = window.electronAPI.onTerminalExit((id, exitCode) => {
       if (id === terminalId) {
-        useTerminalStore.getState().setTerminalStatus(terminalId, 'exited');
+        const store = useTerminalStore.getState();
+        store.setTerminalStatus(terminalId, 'exited');
+        // Reset Claude mode when terminal exits - the Claude process has ended
+        // Use updateTerminal instead of setClaudeMode to avoid changing status back to 'running'
+        const terminal = store.getTerminal(terminalId);
+        if (terminal?.isClaudeMode) {
+          store.updateTerminal(terminalId, { isClaudeMode: false });
+        }
         onExitRef.current?.(exitCode);
+
+        // Auto-remove exited terminals from store after a short delay
+        // This prevents them from counting toward the max terminal limit
+        // and ensures they don't get persisted and restored on next launch
+        setTimeout(() => {
+          const currentStore = useTerminalStore.getState();
+          const currentTerminal = currentStore.getTerminal(terminalId);
+          // Only remove if still exited (user hasn't recreated it)
+          if (currentTerminal?.status === 'exited') {
+            // First call destroyTerminal to clean up persisted session on disk
+            // (the PTY is already dead, but this ensures session removal)
+            window.electronAPI.destroyTerminal(terminalId).catch(() => {
+              // Ignore errors - PTY may already be gone
+            });
+            currentStore.removeTerminal(terminalId);
+          }
+        }, 2000); // 2 second delay to show exit message
       }
     });
 
@@ -82,9 +106,24 @@ export function useTerminalEvents({
   useEffect(() => {
     const cleanup = window.electronAPI.onTerminalClaudeSession((id, sessionId) => {
       if (id === terminalId) {
-        useTerminalStore.getState().setClaudeSessionId(terminalId, sessionId);
+        const store = useTerminalStore.getState();
+        store.setClaudeSessionId(terminalId, sessionId);
+        // Also set Claude mode to true when we receive a session ID
+        // This ensures the Claude badge shows up after auto-resume
+        store.setClaudeMode(terminalId, true);
         console.warn('[Terminal] Captured Claude session ID:', sessionId);
         onClaudeSessionRef.current?.(sessionId);
+      }
+    });
+
+    return cleanup;
+  }, [terminalId]);
+
+  // Handle Claude busy state changes (for visual indicator)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onTerminalClaudeBusy((id, isBusy) => {
+      if (id === terminalId) {
+        useTerminalStore.getState().setClaudeBusy(terminalId, isBusy);
       }
     });
 

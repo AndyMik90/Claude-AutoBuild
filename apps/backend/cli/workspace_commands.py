@@ -67,6 +67,7 @@ def _detect_default_branch(project_dir: Path) -> str:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             return env_branch
@@ -78,6 +79,7 @@ def _detect_default_branch(project_dir: Path) -> str:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             return branch
@@ -90,18 +92,32 @@ def _get_changed_files_from_git(
     worktree_path: Path, base_branch: str = "main"
 ) -> list[str]:
     """
-    Get list of changed files from git diff between base branch and HEAD.
+    Get list of files changed by the task (not files changed on base branch).
+
+    Uses merge-base to accurately identify only the files modified in the worktree,
+    not files that changed on the base branch since the worktree was created.
 
     Args:
         worktree_path: Path to the worktree
         base_branch: Base branch to compare against (default: main)
 
     Returns:
-        List of changed file paths
+        List of changed file paths (task changes only)
     """
     try:
+        # First, get the merge-base (the point where the worktree branched)
+        merge_base_result = subprocess.run(
+            ["git", "merge-base", base_branch, "HEAD"],
+            cwd=worktree_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        merge_base = merge_base_result.stdout.strip()
+
+        # Use two-dot diff from merge-base to get only task's changes
         result = subprocess.run(
-            ["git", "diff", "--name-only", f"{base_branch}...HEAD"],
+            ["git", "diff", "--name-only", f"{merge_base}..HEAD"],
             cwd=worktree_path,
             capture_output=True,
             text=True,
@@ -113,10 +129,10 @@ def _get_changed_files_from_git(
         # Log the failure before trying fallback
         debug_warning(
             "workspace_commands",
-            f"git diff (three-dot) failed: returncode={e.returncode}, "
+            f"git diff with merge-base failed: returncode={e.returncode}, "
             f"stderr={e.stderr.strip() if e.stderr else 'N/A'}",
         )
-        # Fallback: try without the three-dot notation
+        # Fallback: try direct two-arg diff (less accurate but works)
         try:
             result = subprocess.run(
                 ["git", "diff", "--name-only", base_branch, "HEAD"],
@@ -131,7 +147,7 @@ def _get_changed_files_from_git(
             # Log the failure before returning empty list
             debug_warning(
                 "workspace_commands",
-                f"git diff (two-arg) failed: returncode={e.returncode}, "
+                f"git diff (fallback) failed: returncode={e.returncode}, "
                 f"stderr={e.stderr.strip() if e.stderr else 'N/A'}",
             )
             return []
@@ -599,6 +615,13 @@ def handle_merge_preview_command(
             f"Git diff against '{task_source_branch}' shows {len(all_changed_files)} changed files",
             changed_files=all_changed_files[:10],  # Log first 10
         )
+
+        # NOTE: We intentionally do NOT have a fast path here.
+        # Even if commits_behind == 0 (main hasn't moved), we still need to:
+        # 1. Call refresh_from_git() to update evolution data for this task
+        # 2. Call preview_merge() to detect potential conflicts with OTHER parallel tasks
+        #    that may be tracked in the evolution data but haven't been merged yet.
+        # Skipping semantic analysis when commits_behind == 0 would miss these conflicts.
 
         debug(MODULE, "Initializing MergeOrchestrator for preview...")
 

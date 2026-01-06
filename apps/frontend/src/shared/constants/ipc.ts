@@ -63,6 +63,8 @@ export const IPC_CHANNELS = {
   TERMINAL_RESIZE: 'terminal:resize',
   TERMINAL_INVOKE_CLAUDE: 'terminal:invokeClaude',
   TERMINAL_GENERATE_NAME: 'terminal:generateName',
+  TERMINAL_SET_TITLE: 'terminal:setTitle',  // Renderer -> Main: user renamed terminal
+  TERMINAL_SET_WORKTREE_CONFIG: 'terminal:setWorktreeConfig',  // Renderer -> Main: worktree association changed
 
   // Terminal session management
   TERMINAL_GET_SESSIONS: 'terminal:getSessions',
@@ -86,6 +88,7 @@ export const IPC_CHANNELS = {
   TERMINAL_CLAUDE_SESSION: 'terminal:claudeSession',  // Claude session ID captured
   TERMINAL_RATE_LIMIT: 'terminal:rateLimit',  // Claude Code rate limit detected
   TERMINAL_OAUTH_TOKEN: 'terminal:oauthToken',  // OAuth token captured from setup-token output
+  TERMINAL_CLAUDE_BUSY: 'terminal:claudeBusy',  // Claude Code busy state (for visual indicator)
 
   // Claude profile management (multi-account support)
   CLAUDE_PROFILES_GET: 'claude:profilesGet',
@@ -353,6 +356,7 @@ export const IPC_CHANNELS = {
   GITHUB_PR_REVIEW: 'github:pr:review',
   GITHUB_PR_REVIEW_CANCEL: 'github:pr:reviewCancel',
   GITHUB_PR_GET_REVIEW: 'github:pr:getReview',
+  GITHUB_PR_GET_REVIEWS_BATCH: 'github:pr:getReviewsBatch',  // Batch load reviews for multiple PRs
   GITHUB_PR_POST_REVIEW: 'github:pr:postReview',
   GITHUB_PR_DELETE_REVIEW: 'github:pr:deleteReview',
   GITHUB_PR_MERGE: 'github:pr:merge',
@@ -369,6 +373,14 @@ export const IPC_CHANNELS = {
 
   // GitHub PR Logs (for viewing AI review logs)
   GITHUB_PR_GET_LOGS: 'github:pr:getLogs',
+
+  // GitHub PR Memory operations (saves review insights to memory layer)
+  GITHUB_PR_MEMORY_GET: 'github:pr:memory:get',        // Get PR review memories
+  GITHUB_PR_MEMORY_SEARCH: 'github:pr:memory:search',  // Search PR review memories
+
+  // GitHub Workflow Approval (for fork PRs)
+  GITHUB_WORKFLOWS_AWAITING_APPROVAL: 'github:workflows:awaitingApproval',
+  GITHUB_WORKFLOW_APPROVE: 'github:workflow:approve',
 
   // GitHub Issue Triage operations
   GITHUB_TRIAGE_RUN: 'github:triage:run',
@@ -399,12 +411,6 @@ export const IPC_CHANNELS = {
   OLLAMA_LIST_EMBEDDING_MODELS: 'ollama:listEmbeddingModels',
   OLLAMA_PULL_MODEL: 'ollama:pullModel',
   OLLAMA_PULL_PROGRESS: 'ollama:pullProgress',
-
-  // Auto Claude source updates
-  AUTOBUILD_SOURCE_CHECK: 'autobuild:source:check',
-  AUTOBUILD_SOURCE_DOWNLOAD: 'autobuild:source:download',
-  AUTOBUILD_SOURCE_VERSION: 'autobuild:source:version',
-  AUTOBUILD_SOURCE_PROGRESS: 'autobuild:source:progress',
 
   // Auto Claude source environment configuration
   AUTOBUILD_SOURCE_ENV_GET: 'autobuild:source:env:get',
@@ -463,6 +469,7 @@ export const IPC_CHANNELS = {
   // App auto-update operations
   APP_UPDATE_CHECK: 'app-update:check',
   APP_UPDATE_DOWNLOAD: 'app-update:download',
+  APP_UPDATE_DOWNLOAD_STABLE: 'app-update:download-stable',  // Download stable version (for downgrade from beta)
   APP_UPDATE_INSTALL: 'app-update:install',
   APP_UPDATE_GET_VERSION: 'app-update:get-version',
 
@@ -471,6 +478,7 @@ export const IPC_CHANNELS = {
   APP_UPDATE_DOWNLOADED: 'app-update:downloaded',
   APP_UPDATE_PROGRESS: 'app-update:progress',
   APP_UPDATE_ERROR: 'app-update:error',
+  APP_UPDATE_STABLE_DOWNGRADE: 'app-update:stable-downgrade',  // Stable version available for downgrade from beta
 
   // Release operations
   RELEASE_SUGGEST_VERSION: 'release:suggestVersion',
@@ -494,5 +502,10 @@ export const IPC_CHANNELS = {
 
   // MCP Server health checks
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
-  MCP_TEST_CONNECTION: 'mcp:testConnection'      // Full MCP protocol test
+  MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
+
+  // Sentry error reporting
+  SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
+  GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
+  GET_SENTRY_CONFIG: 'sentry:get-config'         // Get full Sentry config (DSN + sample rates)
 } as const;

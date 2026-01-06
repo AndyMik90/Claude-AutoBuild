@@ -246,13 +246,29 @@ export interface GraphitiMemoryState {
   error_log: Array<{ timestamp: string; error: string }>;
 }
 
+export type MemoryType = 
+  | 'session_insight' 
+  | 'codebase_discovery' 
+  | 'codebase_map' 
+  | 'pattern' 
+  | 'gotcha' 
+  | 'task_outcome'
+  | 'pr_review'
+  | 'pr_finding'
+  | 'pr_pattern'
+  | 'pr_gotcha';
+
 export interface MemoryEpisode {
   id: string;
-  type: 'session_insight' | 'codebase_discovery' | 'codebase_map' | 'pattern' | 'gotcha' | 'task_outcome';
+  type: MemoryType;
   timestamp: string;
   content: string;
   session_number?: number;
   score?: number;
+  // For PR reviews - extracted from content for quick access
+  prNumber?: number;
+  repo?: string;
+  verdict?: 'approve' | 'request_changes' | 'comment';
 }
 
 export interface ContextSearchResult {

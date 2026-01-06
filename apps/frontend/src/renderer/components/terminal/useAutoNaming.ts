@@ -62,6 +62,8 @@ export function useAutoNaming({ terminalId, cwd }: UseAutoNamingOptions) {
       const result = await window.electronAPI.generateTerminalName(command, terminal?.cwd || cwd);
       if (result.success && result.data) {
         updateTerminal(terminalId, { title: result.data });
+        // Sync to main process so title persists across hot reloads
+        window.electronAPI.setTerminalTitle(terminalId, result.data);
       }
     } catch (error) {
       console.warn('[Terminal] Auto-naming failed:', error);
