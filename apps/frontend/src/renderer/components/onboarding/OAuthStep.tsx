@@ -26,6 +26,7 @@ import { Label } from '../ui/label';
 import { Card, CardContent } from '../ui/card';
 import { cn } from '../../lib/utils';
 import { loadClaudeProfiles as loadGlobalClaudeProfiles } from '../../stores/claude-profile-store';
+import { useClaudeLoginTerminal } from '../../hooks/useClaudeLoginTerminal';
 import type { ClaudeProfile } from '../../../shared/types';
 
 interface OAuthStepProps {
@@ -92,6 +93,9 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
     loadClaudeProfiles();
   }, []);
 
+  // Listen for login terminal creation - makes the terminal visible so user can see OAuth flow
+  useClaudeLoginTerminal();
+
   // Listen for OAuth authentication completion
   useEffect(() => {
     const unsubscribe = window.electronAPI.onTerminalOAuthToken(async (info) => {
@@ -144,11 +148,8 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
           await loadClaudeProfiles();
           setNewProfileName('');
 
-          alert(
-            `Authenticating "${profileName}"...\n\n` +
-            `A browser window will open for you to log in with your Claude account.\n\n` +
-            `The authentication will be saved automatically once complete.`
-          );
+          // Note: The terminal is now visible in the UI via the onTerminalAuthCreated event
+          // Users can see the 'claude setup-token' output directly
         } else {
           await loadClaudeProfiles();
           alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
@@ -222,15 +223,11 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
     setError(null);
     try {
       const initResult = await window.electronAPI.initializeClaudeProfile(profileId);
-      if (initResult.success) {
-        alert(
-          `Authenticating profile...\n\n` +
-          `A browser window will open for you to log in with your Claude account.\n\n` +
-          `The authentication will be saved automatically once complete.`
-        );
-      } else {
+      if (!initResult.success) {
         alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
       }
+      // Note: If successful, the terminal is now visible in the UI via the onTerminalAuthCreated event
+      // Users can see the 'claude setup-token' output and complete OAuth flow directly
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to authenticate profile');
       alert('Failed to start authentication. Please try again.');

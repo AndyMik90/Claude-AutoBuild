@@ -225,6 +225,12 @@ export interface ElectronAPI {
     message?: string;
     detectedAt: string
   }) => void) => () => void;
+  /** Listen for auth terminal creation - allows UI to display the OAuth terminal */
+  onTerminalAuthCreated: (callback: (info: {
+    terminalId: string;
+    profileId: string;
+    profileName: string
+  }) => void) => () => void;
   /** Listen for Claude busy state changes (for visual indicator: red=busy, green=idle) */
   onTerminalClaudeBusy: (callback: (id: string, isBusy: boolean) => void) => () => void;
 
