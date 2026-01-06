@@ -21,6 +21,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import shutil
+import subprocess
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -32,6 +35,7 @@ from claude_agent_sdk import AgentDefinition
 try:
     from ...core.client import create_client
     from ...phase_config import get_thinking_budget
+    from ..context_gatherer import _validate_git_ref
     from ..gh_client import GHClient
     from ..models import (
         GitHubRunnerConfig,
@@ -44,6 +48,7 @@ try:
     from .pydantic_models import ParallelFollowupResponse
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
+    from context_gatherer import _validate_git_ref
     from core.client import create_client
     from gh_client import GHClient
     from models import (
@@ -63,6 +68,9 @@ logger = logging.getLogger(__name__)
 
 # Check if debug mode is enabled
 DEBUG_MODE = os.environ.get("DEBUG", "").lower() in ("true", "1", "yes")
+
+# Directory for PR review worktrees (shared with initial reviewer)
+PR_WORKTREE_DIR = ".auto-claude/github/pr/worktrees"
 
 # Severity mapping for AI responses
 _SEVERITY_MAPPING = {
@@ -137,6 +145,122 @@ class ParallelFollowupReviewer:
             return prompt_file.read_text(encoding="utf-8")
         logger.warning(f"Prompt file not found: {prompt_file}")
         return ""
+
+    def _create_pr_worktree(self, head_sha: str, pr_number: int) -> Path:
+        """Create a temporary worktree at the PR head commit.
+
+        Args:
+            head_sha: The commit SHA of the PR head (validated before use)
+            pr_number: The PR number for naming
+
+        Returns:
+            Path to the created worktree
+
+        Raises:
+            RuntimeError: If worktree creation fails
+            ValueError: If head_sha fails validation (command injection prevention)
+        """
+        # SECURITY: Validate git ref before use in subprocess calls
+        if not _validate_git_ref(head_sha):
+            raise ValueError(
+                f"Invalid git ref: '{head_sha}'. "
+                "Must contain only alphanumeric characters, dots, slashes, underscores, and hyphens."
+            )
+
+        worktree_name = f"pr-followup-{pr_number}-{uuid.uuid4().hex[:8]}"
+        worktree_dir = self.project_dir / PR_WORKTREE_DIR
+
+        if DEBUG_MODE:
+            print(f"[Followup] DEBUG: project_dir={self.project_dir}", flush=True)
+            print(f"[Followup] DEBUG: worktree_dir={worktree_dir}", flush=True)
+            print(f"[Followup] DEBUG: head_sha={head_sha}", flush=True)
+
+        worktree_dir.mkdir(parents=True, exist_ok=True)
+        worktree_path = worktree_dir / worktree_name
+
+        if DEBUG_MODE:
+            print(f"[Followup] DEBUG: worktree_path={worktree_path}", flush=True)
+
+        # Fetch the commit if not available locally (handles fork PRs)
+        fetch_result = subprocess.run(
+            ["git", "fetch", "origin", head_sha],
+            cwd=self.project_dir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if DEBUG_MODE:
+            print(
+                f"[Followup] DEBUG: fetch returncode={fetch_result.returncode}",
+                flush=True,
+            )
+
+        # Create detached worktree at the PR commit
+        result = subprocess.run(
+            ["git", "worktree", "add", "--detach", str(worktree_path), head_sha],
+            cwd=self.project_dir,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        if DEBUG_MODE:
+            print(
+                f"[Followup] DEBUG: worktree add returncode={result.returncode}",
+                flush=True,
+            )
+            if result.stderr:
+                print(
+                    f"[Followup] DEBUG: worktree add stderr={result.stderr[:200]}",
+                    flush=True,
+                )
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to create worktree: {result.stderr}")
+
+        logger.info(f"[Followup] Created worktree at {worktree_path}")
+        return worktree_path
+
+    def _cleanup_pr_worktree(self, worktree_path: Path) -> None:
+        """Remove a temporary PR review worktree with fallback chain.
+
+        Args:
+            worktree_path: Path to the worktree to remove
+        """
+        if not worktree_path or not worktree_path.exists():
+            return
+
+        if DEBUG_MODE:
+            print(
+                f"[Followup] DEBUG: Cleaning up worktree at {worktree_path}",
+                flush=True,
+            )
+
+        # Try 1: git worktree remove
+        result = subprocess.run(
+            ["git", "worktree", "remove", "--force", str(worktree_path)],
+            cwd=self.project_dir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if result.returncode == 0:
+            logger.info(f"[Followup] Cleaned up worktree: {worktree_path.name}")
+            return
+
+        # Try 2: shutil.rmtree fallback
+        try:
+            shutil.rmtree(worktree_path, ignore_errors=True)
+            subprocess.run(
+                ["git", "worktree", "prune"],
+                cwd=self.project_dir,
+                capture_output=True,
+                timeout=30,
+            )
+            logger.warning(f"[Followup] Used shutil fallback for: {worktree_path.name}")
+        except Exception as e:
+            logger.error(f"[Followup] Failed to cleanup worktree {worktree_path}: {e}")
 
     def _define_specialist_agents(self) -> dict[str, AgentDefinition]:
         """
@@ -267,6 +391,44 @@ class ParallelFollowupReviewer:
 
         return "\n\n---\n\n".join(ai_content)
 
+    def _format_ci_status(self, context: FollowupReviewContext) -> str:
+        """Format CI status for the prompt."""
+        ci_status = context.ci_status
+        if not ci_status:
+            return "CI status not available."
+
+        passing = ci_status.get("passing", 0)
+        failing = ci_status.get("failing", 0)
+        pending = ci_status.get("pending", 0)
+        failed_checks = ci_status.get("failed_checks", [])
+        awaiting_approval = ci_status.get("awaiting_approval", 0)
+
+        lines = []
+
+        # Overall status
+        if failing > 0:
+            lines.append(f"⚠️ **{failing} CI check(s) FAILING** - PR cannot be merged")
+        elif pending > 0:
+            lines.append(f"⏳ **{pending} CI check(s) pending** - Wait for completion")
+        elif passing > 0:
+            lines.append(f"✅ **All {passing} CI check(s) passing**")
+        else:
+            lines.append("No CI checks configured")
+
+        # List failed checks
+        if failed_checks:
+            lines.append("\n**Failed checks:**")
+            for check in failed_checks:
+                lines.append(f"  - ❌ {check}")
+
+        # Awaiting approval (fork PRs)
+        if awaiting_approval > 0:
+            lines.append(
+                f"\n⏸️ **{awaiting_approval} workflow(s) awaiting maintainer approval** (fork PR)"
+            )
+
+        return "\n".join(lines)
+
     def _build_orchestrator_prompt(self, context: FollowupReviewContext) -> str:
         """Build full prompt for orchestrator with follow-up context."""
         # Load orchestrator prompt
@@ -279,6 +441,7 @@ class ParallelFollowupReviewer:
         commits = self._format_commits(context)
         contributor_comments = self._format_comments(context)
         ai_reviews = self._format_ai_reviews(context)
+        ci_status = self._format_ci_status(context)
 
         # Truncate diff if too long
         MAX_DIFF_CHARS = 100_000
@@ -296,6 +459,9 @@ class ParallelFollowupReviewer:
 **Current HEAD:** {context.current_commit_sha[:8]}
 **New Commits:** {len(context.commits_since_review)}
 **Files Changed:** {len(context.files_changed_since_review)}
+
+### CI Status (CRITICAL - Must Factor Into Verdict)
+{ci_status}
 
 ### Previous Review Summary
 {context.previous_review.summary[:500] if context.previous_review.summary else "No summary available."}
@@ -325,6 +491,7 @@ class ParallelFollowupReviewer:
 Now analyze this follow-up and delegate to the appropriate specialist agents.
 Remember: YOU decide which agents to invoke based on YOUR analysis.
 The SDK will run invoked agents in parallel automatically.
+**CRITICAL: Your verdict MUST account for CI status. Failing CI = BLOCKED verdict.**
 """
 
         return base_prompt + followup_context
@@ -343,6 +510,9 @@ The SDK will run invoked agents in parallel automatically.
             f"[ParallelFollowup] Starting follow-up review for PR #{context.pr_number}"
         )
 
+        # Track worktree for cleanup
+        worktree_path: Path | None = None
+
         try:
             self._report_progress(
                 "orchestrating",
@@ -354,12 +524,47 @@ The SDK will run invoked agents in parallel automatically.
             # Build orchestrator prompt
             prompt = self._build_orchestrator_prompt(context)
 
-            # Get project root
+            # Get project root - default to local checkout
             project_root = (
                 self.project_dir.parent.parent
                 if self.project_dir.name == "backend"
                 else self.project_dir
             )
+
+            # Create temporary worktree at PR head commit for isolated review
+            # This ensures agents read from the correct PR state, not the current checkout
+            head_sha = context.current_commit_sha
+            if head_sha and _validate_git_ref(head_sha):
+                try:
+                    if DEBUG_MODE:
+                        print(
+                            f"[Followup] DEBUG: Creating worktree for head_sha={head_sha}",
+                            flush=True,
+                        )
+                    worktree_path = self._create_pr_worktree(
+                        head_sha, context.pr_number
+                    )
+                    project_root = worktree_path
+                    print(
+                        f"[Followup] Using worktree at {worktree_path.name} for PR review",
+                        flush=True,
+                    )
+                except Exception as e:
+                    if DEBUG_MODE:
+                        print(
+                            f"[Followup] DEBUG: Worktree creation FAILED: {e}",
+                            flush=True,
+                        )
+                    logger.warning(
+                        f"[ParallelFollowup] Worktree creation failed, "
+                        f"falling back to local checkout: {e}"
+                    )
+                    # Fallback to original behavior if worktree creation fails
+            else:
+                logger.warning(
+                    f"[ParallelFollowup] Invalid or missing head_sha '{head_sha}', "
+                    "using local checkout"
+                )
 
             # Use model and thinking level from config (user settings)
             model = self.config.model or "claude-sonnet-4-5-20250929"
@@ -567,6 +772,10 @@ The SDK will run invoked agents in parallel automatically.
                 is_followup_review=True,
                 reviewed_commit_sha=context.current_commit_sha,
             )
+        finally:
+            # Always cleanup worktree, even on error
+            if worktree_path:
+                self._cleanup_pr_worktree(worktree_path)
 
     def _parse_structured_output(
         self, data: dict, context: FollowupReviewContext

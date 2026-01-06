@@ -1,5 +1,4 @@
 import { spawn } from 'child_process';
-import * as path from 'path';
 import * as os from 'os';
 import type { GitCommit } from '../../shared/types';
 import { getProfileEnv } from '../rate-limit-detector';
