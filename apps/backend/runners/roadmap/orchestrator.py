@@ -256,22 +256,22 @@ class RoadmapOrchestrator:
                 # Find the original feature dict using O(1) lookup
                 feat_dict = features_by_id.get(feature.id, {})
 
-                # Add reverse dependencies
-                feat_dict["reverseDependencies"] = validation_result.reverse_deps_map.get(
+                # Add reverse dependencies (snake_case for JSON, IPC handlers convert to camelCase)
+                feat_dict["reverse_dependencies"] = validation_result.reverse_deps_map.get(
                     feature.id, []
                 )
 
                 # Add validation metadata for features with dependencies
                 if feature.id in all_dependent_ids or len(feature.dependencies) > 0:
-                    feat_dict["dependencyValidation"] = {
-                        "hasMissing": validation_result.has_missing,
-                        "hasCircular": validation_result.has_circular,
-                        "missingIds": [
+                    feat_dict["dependency_validation"] = {
+                        "has_missing": validation_result.has_missing,
+                        "has_circular": validation_result.has_circular,
+                        "missing_ids": [
                             mid
                             for mid in validation_result.missing_ids
                             if mid in feature.dependencies
                         ],
-                        "circularPaths": [
+                        "circular_paths": [
                             cp for cp in validation_result.circular_paths if feature.id in cp
                         ],
                     }
