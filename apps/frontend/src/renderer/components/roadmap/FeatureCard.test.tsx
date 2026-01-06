@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import { FeatureCard } from './FeatureCard';
-import type { RoadmapFeature } from '../../../shared/types/roadmap';
+import type { RoadmapFeature, Roadmap } from '../../../shared/types/roadmap';
 import { TooltipProvider } from '../ui/tooltip';
 
 // Wrapper for components that need TooltipProvider
@@ -78,8 +78,8 @@ const mockFeatures: RoadmapFeature[] = [
   }
 ];
 
-// Mock Roadmap object
-const mockRoadmap = {
+// Mock Roadmap object with proper typing
+const mockRoadmap: Roadmap = {
   id: 'roadmap-1',
   projectId: 'project-1',
   projectName: 'Test Project',
