@@ -628,13 +628,20 @@ export async function resumeClaudeAsync(
     ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
     : '';
 
-  let command: string;
+  // Always use --continue which resumes the most recent session in the current directory.
+  // This is more reliable than --resume with session IDs since Auto Claude already restores
+  // terminals to their correct cwd/projectPath.
+  //
+  // Note: We clear claudeSessionId because --continue doesn't track specific sessions,
+  // and we don't want stale IDs persisting through SessionHandler.persistSession().
+  terminal.claudeSessionId = undefined;
+
+  // Deprecation warning for callers still passing sessionId
   if (sessionId) {
-    command = `${pathPrefix}${escapedClaudeCmd} --resume ${escapeShellArg(sessionId)}`;
-    terminal.claudeSessionId = sessionId;
-  } else {
-    command = `${pathPrefix}${escapedClaudeCmd} --continue`;
+    console.warn('[ClaudeIntegration:resumeClaudeAsync] sessionId parameter is deprecated and ignored; using claude --continue instead');
   }
+
+  const command = `${pathPrefix}${escapedClaudeCmd} --continue`;
 
   terminal.pty.write(`${command}\r`);
 

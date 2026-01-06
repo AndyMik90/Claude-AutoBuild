@@ -289,7 +289,7 @@ async function getNpmGlobalPrefixAsync(): Promise<string | null> {
     try {
       const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
-      const { stdout } = await execFileAsync(npmCommand, ['config', 'get', 'prefix'], {
+      const { stdout } = await execFileAsync(npmCommand, ['config', 'get', 'prefix', '--location=global'], {
         encoding: 'utf-8',
         timeout: 3000,
         windowsHide: true,

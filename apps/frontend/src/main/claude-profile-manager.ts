@@ -13,7 +13,6 @@
 
 import { app } from 'electron';
 import { join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
 import { mkdir } from 'fs/promises';
 import type {
   ClaudeProfile,
@@ -79,10 +78,8 @@ export class ClaudeProfileManager {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    // Ensure directory exists (async)
-    if (!existsSync(this.configDir)) {
-      await mkdir(this.configDir, { recursive: true });
-    }
+    // Ensure directory exists (async) - mkdir with recursive:true is idempotent
+    await mkdir(this.configDir, { recursive: true });
 
     // Load existing data asynchronously
     const loadedData = await loadProfileStoreAsync(this.storePath);
