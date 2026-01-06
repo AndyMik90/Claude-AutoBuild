@@ -36,6 +36,8 @@ SDK_ENV_VARS = [
     "DISABLE_TELEMETRY",
     "DISABLE_COST_WARNINGS",
     "API_TIMEOUT_MS",
+    # Windows-specific: Git Bash path for Claude Code CLI
+    "CLAUDE_CODE_GIT_BASH_PATH",
 ]
 
 
@@ -215,12 +217,93 @@ def require_auth_token() -> str:
     return token
 
 
+def _find_git_bash_path() -> str | None:
+    """
+    Find git-bash (bash.exe) path on Windows.
+
+    Uses 'where git' to find git.exe, then derives bash.exe location from it.
+    Git for Windows installs bash.exe in the 'bin' directory alongside git.exe
+    or in the parent 'bin' directory when git.exe is in 'cmd'.
+
+    Returns:
+        Full path to bash.exe if found, None otherwise
+    """
+    if platform.system() != "Windows":
+        return None
+
+    # If already set in environment, use that
+    existing = os.environ.get("CLAUDE_CODE_GIT_BASH_PATH")
+    if existing and os.path.exists(existing):
+        return existing
+
+    git_path = None
+
+    # Method 1: Use 'where' command to find git.exe
+    try:
+        # Use where.exe explicitly for reliability
+        result = subprocess.run(
+            ["where.exe", "git"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            shell=False,
+        )
+
+        if result.returncode == 0 and result.stdout.strip():
+            git_paths = result.stdout.strip().splitlines()
+            if git_paths:
+                git_path = git_paths[0].strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+        # Intentionally suppress errors - best-effort detection with fallback to common paths
+        pass
+
+    # Method 2: Check common installation paths if 'where' didn't work
+    if not git_path:
+        common_git_paths = [
+            os.path.expandvars(r"%PROGRAMFILES%\Git\cmd\git.exe"),
+            os.path.expandvars(r"%PROGRAMFILES%\Git\bin\git.exe"),
+            os.path.expandvars(r"%PROGRAMFILES(X86)%\Git\cmd\git.exe"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\Git\cmd\git.exe"),
+        ]
+        for path in common_git_paths:
+            if os.path.exists(path):
+                git_path = path
+                break
+
+    if not git_path:
+        return None
+
+    # Derive bash.exe location from git.exe location
+    # Git for Windows structure:
+    #   C:\...\Git\cmd\git.exe     -> bash.exe is at C:\...\Git\bin\bash.exe
+    #   C:\...\Git\bin\git.exe     -> bash.exe is at C:\...\Git\bin\bash.exe
+    #   C:\...\Git\mingw64\bin\git.exe -> bash.exe is at C:\...\Git\bin\bash.exe
+    git_dir = os.path.dirname(git_path)
+    git_parent = os.path.dirname(git_dir)
+    git_grandparent = os.path.dirname(git_parent)
+
+    # Check common bash.exe locations relative to git installation
+    possible_bash_paths = [
+        os.path.join(git_parent, "bin", "bash.exe"),  # cmd -> bin
+        os.path.join(git_dir, "bash.exe"),  # If git.exe is in bin
+        os.path.join(git_grandparent, "bin", "bash.exe"),  # mingw64/bin -> bin
+    ]
+
+    for bash_path in possible_bash_paths:
+        if os.path.exists(bash_path):
+            return bash_path
+
+    return None
+
+
 def get_sdk_env_vars() -> dict[str, str]:
     """
     Get environment variables to pass to SDK.
 
     Collects relevant env vars (ANTHROPIC_BASE_URL, etc.) that should
     be passed through to the claude-agent-sdk subprocess.
+
+    On Windows, auto-detects CLAUDE_CODE_GIT_BASH_PATH if not already set.
 
     Returns:
         Dict of env var name -> value for non-empty vars
@@ -230,6 +313,14 @@ def get_sdk_env_vars() -> dict[str, str]:
         value = os.environ.get(var)
         if value:
             env[var] = value
+
+    # On Windows, auto-detect git-bash path if not already set
+    # Claude Code CLI requires bash.exe to run on Windows
+    if platform.system() == "Windows" and "CLAUDE_CODE_GIT_BASH_PATH" not in env:
+        bash_path = _find_git_bash_path()
+        if bash_path:
+            env["CLAUDE_CODE_GIT_BASH_PATH"] = bash_path
+
     return env
 
 
