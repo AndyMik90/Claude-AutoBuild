@@ -35,6 +35,7 @@ interface RawRoadmapFeature {
   phase_id?: string;
   phaseId?: string;
   dependencies?: string[];
+  reverse_dependencies?: string[];
   status?: string;
   acceptance_criteria?: string[];
   acceptanceCriteria?: string[];
@@ -44,6 +45,17 @@ interface RawRoadmapFeature {
   linkedSpecId?: string;
   competitor_insight_ids?: string[];
   competitorInsightIds?: string[];
+  dependency_validation?: {
+    has_missing?: boolean;
+    has_circular?: boolean;
+    missing_ids?: string[];
+    circular_paths?: string[][];
+  };
+  source?: {
+    provider: string;
+    imported_at?: string;
+    last_synced_at?: string;
+  };
 }
 
 interface RawRoadmap {
@@ -107,11 +119,23 @@ function transformFeature(raw: RawRoadmapFeature): RoadmapFeature {
     impact: (raw.impact as RoadmapFeature['impact']) || 'medium',
     phaseId: raw.phase_id || raw.phaseId || '',
     dependencies: raw.dependencies || [],
+    reverseDependencies: raw.reverse_dependencies,
+    dependencyValidation: raw.dependency_validation ? {
+      hasMissing: raw.dependency_validation.has_missing ?? false,
+      hasCircular: raw.dependency_validation.has_circular ?? false,
+      missingIds: raw.dependency_validation.missing_ids || [],
+      circularPaths: raw.dependency_validation.circular_paths || []
+    } : undefined,
     status: (raw.status as RoadmapFeature['status']) || 'under_review',
     acceptanceCriteria: raw.acceptance_criteria || raw.acceptanceCriteria || [],
     userStories: raw.user_stories || raw.userStories || [],
     linkedSpecId: raw.linked_spec_id || raw.linkedSpecId,
-    competitorInsightIds: raw.competitor_insight_ids || raw.competitorInsightIds
+    competitorInsightIds: raw.competitor_insight_ids || raw.competitorInsightIds,
+    source: raw.source ? {
+      provider: raw.source.provider as 'internal' | 'canny' | 'github_issue',
+      importedAt: raw.source.imported_at ? new Date(raw.source.imported_at) : undefined,
+      lastSyncedAt: raw.source.last_synced_at ? new Date(raw.source.last_synced_at) : undefined
+    } : undefined
   };
 }
 
