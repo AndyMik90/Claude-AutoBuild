@@ -7,6 +7,8 @@ import { EventEmitter } from 'events';
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
+import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_PROJECT_SETTINGS } from '../../shared/constants';
+import type { Project, ProjectSettings, Task } from '../../shared/types';
 
 // Test data directory
 const TEST_DIR = mkdtempSync(path.join(tmpdir(), 'ipc-handlers-test-'));
@@ -153,6 +155,7 @@ describe('IPC Handlers', { timeout: 15000 }, () => {
     startQAProcess: ReturnType<typeof vi.fn>;
     killTask: ReturnType<typeof vi.fn>;
     configure: ReturnType<typeof vi.fn>;
+    isRunning: ReturnType<typeof vi.fn>;
   };
   let mockTerminalManager: {
     create: ReturnType<typeof vi.fn>;
@@ -176,6 +179,8 @@ describe('IPC Handlers', { timeout: 15000 }, () => {
     // Get mocked ipcMain
     const electron = await import('electron');
     ipcMain = electron.ipcMain as unknown as typeof ipcMain;
+    ipcMain.removeAllListeners();
+    ipcMain.handlers.clear();
 
     // Create mock window
     mockMainWindow = {
@@ -188,7 +193,8 @@ describe('IPC Handlers', { timeout: 15000 }, () => {
       startTaskExecution: vi.fn(),
       startQAProcess: vi.fn(),
       killTask: vi.fn(),
-      configure: vi.fn()
+      configure: vi.fn(),
+      isRunning: vi.fn(() => false)
     });
 
     // Create mock terminal manager
@@ -507,6 +513,372 @@ describe('IPC Handlers', { timeout: 15000 }, () => {
       const result = await ipcMain.invokeHandler('app:version', {});
 
       expect(result).toBe('0.1.0');
+    });
+  });
+
+  describe('task execution git checks', () => {
+    const taskId = 'task-1';
+    const specId = 'spec-1';
+
+    const ensureSpecDir = () => {
+      const specDir = path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs', specId);
+      mkdirSync(specDir, { recursive: true });
+      return specDir;
+    };
+
+    const writePlanFile = (specDir: string) => {
+      writeFileSync(
+        path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
+        JSON.stringify({ phases: [], status: 'in_progress', planStatus: 'in_progress' }, null, 2)
+      );
+    };
+
+    const setupTaskExecutionTest = async ({
+      useGit,
+      gitStatus,
+      taskOverrides,
+      projectOverrides
+    }: {
+      useGit?: boolean;
+      gitStatus: { isGitRepo: boolean; hasCommits: boolean; currentBranch: string | null; error?: string };
+      taskOverrides?: (specDir: string) => Partial<Task>;
+      projectOverrides?: Partial<{
+        id: string;
+        path: string;
+        autoBuildPath: string;
+        settings: Partial<ProjectSettings>;
+      }>;
+    }) => {
+      const specDir = ensureSpecDir();
+      const { settings: projectSettingsOverrides, ...projectOverridesRest } = projectOverrides ?? {};
+      const settings: ProjectSettings = {
+        ...DEFAULT_PROJECT_SETTINGS,
+        mainBranch: 'main',
+        ...(useGit === undefined ? {} : { useGit }),
+        ...projectSettingsOverrides
+      };
+      const project: Project = {
+        id: 'project-1',
+        name: 'Test Project',
+        path: TEST_PROJECT_PATH,
+        autoBuildPath: '.auto-claude',
+        settings,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...projectOverridesRest
+      };
+      const task: Task = {
+        id: taskId,
+        specId,
+        projectId: project.id,
+        status: 'backlog',
+        subtasks: [],
+        title: 'Test Task',
+        description: 'Test Task',
+        metadata: {},
+        logs: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...(taskOverrides ? taskOverrides(specDir) : {})
+      };
+
+      const sharedModule = await import('../ipc-handlers/task/shared');
+      const findTaskSpy = vi.spyOn(sharedModule, 'findTaskAndProject').mockReturnValue({ task, project });
+
+      const initializerModule = await import('../project-initializer');
+      const checkGitSpy = vi.spyOn(initializerModule, 'checkGitStatus').mockReturnValue(gitStatus);
+
+      const profileModule = await import('../claude-profile-manager');
+      const profileSpy = vi.spyOn(profileModule, 'getClaudeProfileManager').mockReturnValue({
+        hasValidAuth: () => true
+      } as never);
+
+      const watcherModule = await import('../file-watcher');
+      const watchSpy = vi.spyOn(watcherModule.fileWatcher, 'watch').mockImplementation(async () => {});
+      const unwatchSpy = vi.spyOn(watcherModule.fileWatcher, 'unwatch').mockImplementation(async () => {});
+
+      const { setupIpcHandlers } = await import('../ipc-handlers');
+      setupIpcHandlers(mockAgentManager as never, mockTerminalManager as never, () => mockMainWindow as never, mockPythonEnvManager as never);
+
+      const cleanup = () => {
+        findTaskSpy.mockRestore();
+        checkGitSpy.mockRestore();
+        profileSpy.mockRestore();
+        watchSpy.mockRestore();
+        unwatchSpy.mockRestore();
+      };
+
+      return { cleanup, checkGitSpy, specDir };
+    };
+
+    it('TASK_START skips git checks when useGit is false', async () => {
+      const { cleanup, checkGitSpy } = await setupTaskExecutionTest({
+        useGit: false,
+        gitStatus: { isGitRepo: false, hasCommits: false, currentBranch: null }
+      });
+
+      ipcMain.emit(IPC_CHANNELS.TASK_START, {}, taskId);
+
+      expect(checkGitSpy).not.toHaveBeenCalled();
+      expect(mockMainWindow.webContents.send).not.toHaveBeenCalledWith(
+        IPC_CHANNELS.TASK_ERROR,
+        taskId,
+        expect.any(String)
+      );
+      expect(mockAgentManager.startSpecCreation).toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('TASK_START reports missing git repository when useGit is undefined', async () => {
+      const { cleanup, checkGitSpy } = await setupTaskExecutionTest({
+        useGit: undefined,
+        gitStatus: { isGitRepo: false, hasCommits: false, currentBranch: null }
+      });
+
+      ipcMain.emit(IPC_CHANNELS.TASK_START, {}, taskId);
+
+      expect(checkGitSpy).toHaveBeenCalledWith(TEST_PROJECT_PATH);
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
+        IPC_CHANNELS.TASK_ERROR,
+        taskId,
+        'Git repository required. Please run "git init" in your project directory. Auto Claude uses git worktrees for isolated builds.'
+      );
+
+      cleanup();
+    });
+
+    it('TASK_START reports missing commits when useGit is true', async () => {
+      const { cleanup, checkGitSpy } = await setupTaskExecutionTest({
+        useGit: true,
+        gitStatus: { isGitRepo: true, hasCommits: false, currentBranch: 'main' }
+      });
+
+      ipcMain.emit(IPC_CHANNELS.TASK_START, {}, taskId);
+
+      expect(checkGitSpy).toHaveBeenCalledWith(TEST_PROJECT_PATH);
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
+        IPC_CHANNELS.TASK_ERROR,
+        taskId,
+        'Git repository has no commits. Please make an initial commit first (git add . && git commit -m "Initial commit").'
+      );
+
+      cleanup();
+    });
+
+    it('TASK_START proceeds when git is available and enabled', async () => {
+      const { cleanup, checkGitSpy } = await setupTaskExecutionTest({
+        useGit: true,
+        gitStatus: { isGitRepo: true, hasCommits: true, currentBranch: 'main' }
+      });
+
+      ipcMain.emit(IPC_CHANNELS.TASK_START, {}, taskId);
+
+      expect(checkGitSpy).toHaveBeenCalledWith(TEST_PROJECT_PATH);
+      expect(mockMainWindow.webContents.send).not.toHaveBeenCalledWith(
+        IPC_CHANNELS.TASK_ERROR,
+        taskId,
+        expect.any(String)
+      );
+      expect(mockAgentManager.startSpecCreation).toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('TASK_UPDATE_STATUS skips git checks when useGit is false', async () => {
+      const { cleanup, checkGitSpy } = await setupTaskExecutionTest({
+        useGit: false,
+        gitStatus: { isGitRepo: false, hasCommits: false, currentBranch: null }
+      });
+
+      const result = await ipcMain.invokeHandler(
+        IPC_CHANNELS.TASK_UPDATE_STATUS,
+        {},
+        taskId,
+        'in_progress'
+      ) as { success: boolean; error?: string };
+
+      expect(checkGitSpy).not.toHaveBeenCalled();
+      expect(mockMainWindow.webContents.send).not.toHaveBeenCalledWith(
+        IPC_CHANNELS.TASK_ERROR,
+        taskId,
+        expect.any(String)
+      );
+      expect(mockAgentManager.startSpecCreation).toHaveBeenCalled();
+      expect(result).toEqual({ success: true });
+
+      cleanup();
+    });
+
+    it('TASK_UPDATE_STATUS reports missing git repository when useGit is undefined', async () => {
+      const { cleanup, checkGitSpy } = await setupTaskExecutionTest({
+        useGit: undefined,
+        gitStatus: { isGitRepo: false, hasCommits: false, currentBranch: null }
+      });
+
+      const result = await ipcMain.invokeHandler(
+        IPC_CHANNELS.TASK_UPDATE_STATUS,
+        {},
+        taskId,
+        'in_progress'
+      ) as { success: boolean; error?: string };
+
+      expect(checkGitSpy).toHaveBeenCalledWith(TEST_PROJECT_PATH);
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
+        IPC_CHANNELS.TASK_ERROR,
+        taskId,
+        'Git repository with commits required to run tasks. Initialize git or disable Git in project settings.'
+      );
+      expect(result).toEqual({
+        success: false,
+        error: 'Git repository with commits required to run tasks. Initialize git or disable Git in project settings.'
+      });
+
+      cleanup();
+    });
+
+    it('TASK_UPDATE_STATUS reports missing commits when enabled', async () => {
+      const { cleanup, checkGitSpy } = await setupTaskExecutionTest({
+        useGit: true,
+        gitStatus: { isGitRepo: true, hasCommits: false, currentBranch: 'main' }
+      });
+
+      const result = await ipcMain.invokeHandler(
+        IPC_CHANNELS.TASK_UPDATE_STATUS,
+        {},
+        taskId,
+        'in_progress'
+      ) as { success: boolean; error?: string };
+
+      expect(checkGitSpy).toHaveBeenCalledWith(TEST_PROJECT_PATH);
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
+        IPC_CHANNELS.TASK_ERROR,
+        taskId,
+        'Git repository with commits required to run tasks. Initialize git or disable Git in project settings.'
+      );
+      expect(result).toEqual({
+        success: false,
+        error: 'Git repository with commits required to run tasks. Initialize git or disable Git in project settings.'
+      });
+
+      cleanup();
+    });
+
+    it('TASK_UPDATE_STATUS proceeds when git is available and enabled', async () => {
+      const { cleanup, checkGitSpy } = await setupTaskExecutionTest({
+        useGit: true,
+        gitStatus: { isGitRepo: true, hasCommits: true, currentBranch: 'main' }
+      });
+
+      const result = await ipcMain.invokeHandler(
+        IPC_CHANNELS.TASK_UPDATE_STATUS,
+        {},
+        taskId,
+        'in_progress'
+      ) as { success: boolean; error?: string };
+
+      expect(checkGitSpy).toHaveBeenCalledWith(TEST_PROJECT_PATH);
+      expect(mockMainWindow.webContents.send).not.toHaveBeenCalledWith(
+        IPC_CHANNELS.TASK_ERROR,
+        taskId,
+        expect.any(String)
+      );
+      expect(mockAgentManager.startSpecCreation).toHaveBeenCalled();
+      expect(result).toEqual({ success: true });
+
+      cleanup();
+    });
+
+    it('TASK_RECOVER_STUCK skips git checks when useGit is false', async () => {
+      const { cleanup, checkGitSpy, specDir } = await setupTaskExecutionTest({
+        useGit: false,
+        gitStatus: { isGitRepo: false, hasCommits: false, currentBranch: null },
+        taskOverrides: (dir) => ({ status: 'in_progress', specsPath: dir })
+      });
+      writePlanFile(specDir);
+
+      const result = await ipcMain.invokeHandler(
+        IPC_CHANNELS.TASK_RECOVER_STUCK,
+        {},
+        taskId,
+        { autoRestart: true }
+      ) as { success: boolean; data?: { autoRestarted?: boolean } };
+
+      expect(checkGitSpy).not.toHaveBeenCalled();
+      expect(mockAgentManager.startSpecCreation).toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      expect(result.data?.autoRestarted).toBe(true);
+
+      cleanup();
+    });
+
+    it('TASK_RECOVER_STUCK reports missing git repository when useGit is undefined', async () => {
+      const { cleanup, checkGitSpy, specDir } = await setupTaskExecutionTest({
+        useGit: undefined,
+        gitStatus: { isGitRepo: false, hasCommits: false, currentBranch: null },
+        taskOverrides: (dir) => ({ status: 'in_progress', specsPath: dir })
+      });
+      writePlanFile(specDir);
+
+      const result = await ipcMain.invokeHandler(
+        IPC_CHANNELS.TASK_RECOVER_STUCK,
+        {},
+        taskId,
+        { autoRestart: true }
+      ) as { success: boolean; data?: { message?: string } };
+
+      expect(checkGitSpy).toHaveBeenCalledWith(TEST_PROJECT_PATH);
+      expect(result.success).toBe(true);
+      expect(result.data?.message).toBe('Task recovered but cannot restart: Git repository with commits required.');
+      expect(mockAgentManager.startSpecCreation).not.toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('TASK_RECOVER_STUCK reports missing commits when enabled', async () => {
+      const { cleanup, checkGitSpy, specDir } = await setupTaskExecutionTest({
+        useGit: true,
+        gitStatus: { isGitRepo: true, hasCommits: false, currentBranch: 'main' },
+        taskOverrides: (dir) => ({ status: 'in_progress', specsPath: dir })
+      });
+      writePlanFile(specDir);
+
+      const result = await ipcMain.invokeHandler(
+        IPC_CHANNELS.TASK_RECOVER_STUCK,
+        {},
+        taskId,
+        { autoRestart: true }
+      ) as { success: boolean; data?: { message?: string } };
+
+      expect(checkGitSpy).toHaveBeenCalledWith(TEST_PROJECT_PATH);
+      expect(result.success).toBe(true);
+      expect(result.data?.message).toBe('Task recovered but cannot restart: Git repository with commits required.');
+      expect(mockAgentManager.startSpecCreation).not.toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('TASK_RECOVER_STUCK auto-restarts when git is available and enabled', async () => {
+      const { cleanup, checkGitSpy, specDir } = await setupTaskExecutionTest({
+        useGit: true,
+        gitStatus: { isGitRepo: true, hasCommits: true, currentBranch: 'main' },
+        taskOverrides: (dir) => ({ status: 'in_progress', specsPath: dir })
+      });
+      writePlanFile(specDir);
+
+      const result = await ipcMain.invokeHandler(
+        IPC_CHANNELS.TASK_RECOVER_STUCK,
+        {},
+        taskId,
+        { autoRestart: true }
+      ) as { success: boolean; data?: { autoRestarted?: boolean } };
+
+      expect(checkGitSpy).toHaveBeenCalledWith(TEST_PROJECT_PATH);
+      expect(mockAgentManager.startSpecCreation).toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      expect(result.data?.autoRestarted).toBe(true);
+
+      cleanup();
     });
   });
 

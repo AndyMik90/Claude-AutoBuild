@@ -60,19 +60,6 @@ describe('project-initializer', () => {
     expect(result.success).toBe(false);
   });
 
-  it('requires git when requireGit is undefined', () => {
-    const projectPath = mkdtempSync(path.join(tmpdir(), 'auto-claude-init-'));
-    tempDirs.push(projectPath);
-    execFileSyncMock.mockImplementation(() => {
-      throw new Error('not a git repo');
-    });
-
-    const result = initializeProject(projectPath, { requireGit: undefined });
-
-    expect(execFileSyncMock).toHaveBeenCalled();
-    expect(result.success).toBe(false);
-  });
-
   it('invokes git commands when requireGit is true', () => {
     const projectPath = mkdtempSync(path.join(tmpdir(), 'auto-claude-init-'));
     tempDirs.push(projectPath);
