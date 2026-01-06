@@ -287,7 +287,9 @@ def setup_workspace(
                 security_files_copied.append(filename)
             except (OSError, PermissionError) as e:
                 debug_warning(MODULE, f"Failed to copy {filename}: {e}")
-                print_status(f"Warning: Could not copy {filename} to worktree", "warning")
+                print_status(
+                    f"Warning: Could not copy {filename} to worktree", "warning"
+                )
 
     if security_files_copied:
         print_status(

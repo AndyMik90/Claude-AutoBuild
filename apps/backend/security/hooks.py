@@ -72,6 +72,7 @@ async def bash_security_hook(
     # 3. Context cwd (should be set by ClaudeSDKClient but sometimes isn't)
     # 4. Current working directory (fallback, may be incorrect in worktree mode)
     from .constants import PROJECT_DIR_ENV_VAR
+
     cwd = os.environ.get(PROJECT_DIR_ENV_VAR)
     if not cwd:
         cwd = input_data.get("cwd")

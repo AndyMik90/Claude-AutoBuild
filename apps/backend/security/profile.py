@@ -74,7 +74,11 @@ def get_security_profile(
     Returns:
         SecurityProfile for the project
     """
-    global _cached_profile, _cached_project_dir, _cached_spec_dir, _cached_profile_mtime, _cached_allowlist_mtime
+    global _cached_profile
+    global _cached_project_dir
+    global _cached_spec_dir
+    global _cached_profile_mtime
+    global _cached_allowlist_mtime
 
     project_dir = Path(project_dir).resolve()
     resolved_spec_dir = Path(spec_dir).resolve() if spec_dir else None
@@ -90,8 +94,10 @@ def get_security_profile(
         current_allowlist_mtime = _get_allowlist_mtime(project_dir)
 
         # Cache is valid if both mtimes are unchanged
-        if (current_profile_mtime == _cached_profile_mtime and
-            current_allowlist_mtime == _cached_allowlist_mtime):
+        if (
+            current_profile_mtime == _cached_profile_mtime
+            and current_allowlist_mtime == _cached_allowlist_mtime
+        ):
             return _cached_profile
 
         # File was created, modified, or deleted - invalidate cache
@@ -110,7 +116,11 @@ def get_security_profile(
 
 def reset_profile_cache() -> None:
     """Reset the cached profile (useful for testing or re-analysis)."""
-    global _cached_profile, _cached_project_dir, _cached_spec_dir, _cached_profile_mtime, _cached_allowlist_mtime
+    global _cached_profile
+    global _cached_project_dir
+    global _cached_spec_dir
+    global _cached_profile_mtime
+    global _cached_allowlist_mtime
     _cached_profile = None
     _cached_project_dir = None
     _cached_spec_dir = None
