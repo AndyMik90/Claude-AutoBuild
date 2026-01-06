@@ -6,6 +6,7 @@
 import * as pty from '@lydell/node-pty';
 import * as os from 'os';
 import { existsSync } from 'fs';
+import { spawnSync } from 'child_process';
 import type { TerminalProcess, WindowGetter } from './types';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager } from '../claude-profile-manager';
@@ -166,9 +167,26 @@ export function resizePty(terminal: TerminalProcess, cols: number, rows: number)
 }
 
 /**
- * Kill a PTY process
+ * Kill a PTY process and its children.
+ * On Windows, uses taskkill /T to kill the entire process tree
+ * since Windows doesn't propagate signals to child processes.
  */
 export function killPty(terminal: TerminalProcess): void {
+  const pid = terminal.pty.pid;
+
+  if (process.platform === 'win32' && pid) {
+    // On Windows, kill the entire process tree first
+    try {
+      spawnSync('taskkill', ['/PID', pid.toString(), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true
+      });
+    } catch {
+      // Process may already be dead
+    }
+  }
+
+  // Always call pty.kill() for cleanup
   terminal.pty.kill();
 }
 

@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
@@ -71,6 +71,31 @@ function deriveGitBashPath(gitExePath: string): string | null {
   } catch (error) {
     console.error('[AgentProcess] Error deriving git-bash path:', error);
     return null;
+  }
+}
+
+/**
+ * Kill a process and all its children (process tree).
+ * On Windows, uses taskkill /T to kill the entire process tree.
+ * On Unix, uses standard signal-based killing.
+ */
+function killProcessTree(pid: number, signal: 'SIGTERM' | 'SIGKILL' = 'SIGTERM'): void {
+  if (process.platform === 'win32') {
+    // taskkill /T kills the process tree, /F forces termination
+    try {
+      spawnSync('taskkill', ['/PID', pid.toString(), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true
+      });
+    } catch {
+      // Process may already be dead
+    }
+  } else {
+    try {
+      process.kill(pid, signal);
+    } catch {
+      // Process may already be dead
+    }
   }
 }
 
@@ -619,15 +644,24 @@ export class AgentProcessManager {
         // Mark this specific spawn as killed so its exit handler knows to ignore
         this.state.markSpawnAsKilled(agentProcess.spawnId);
 
-        // Send SIGTERM first for graceful shutdown
-        agentProcess.process.kill('SIGTERM');
+        const pid = agentProcess.process.pid;
+        if (pid) {
+          if (process.platform === 'win32') {
+            // On Windows, kill entire process tree immediately
+            // Windows doesn't propagate signals to child processes
+            killProcessTree(pid, 'SIGKILL');
+          } else {
+            // On Unix, try graceful shutdown first
+            killProcessTree(pid, 'SIGTERM');
 
-        // Force kill after timeout
-        setTimeout(() => {
-          if (!agentProcess.process.killed) {
-            agentProcess.process.kill('SIGKILL');
+            // Force kill after timeout
+            setTimeout(() => {
+              if (!agentProcess.process.killed) {
+                killProcessTree(pid, 'SIGKILL');
+              }
+            }, 5000);
           }
-        }, 5000);
+        }
 
         this.state.deleteProcess(taskId);
         return true;
