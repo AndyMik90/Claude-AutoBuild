@@ -211,7 +211,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
 
   const handleViewPR = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (task.metadata?.prUrl) {
+    if (task.metadata?.prUrl && window.electronAPI?.openExternal) {
       window.electronAPI.openExternal(task.metadata.prUrl);
     }
   };

@@ -9,6 +9,18 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import TypedDict
+
+
+class CreatePRResult(TypedDict, total=False):
+    """Result type for create PR command."""
+
+    success: bool
+    pr_url: str | None
+    already_exists: bool
+    error: str
+    message: str
+
 
 # Ensure parent directory is in path for imports (before other imports)
 _PARENT_DIR = Path(__file__).parent.parent
@@ -837,7 +849,7 @@ def handle_create_pr_command(
     target_branch: str | None = None,
     title: str | None = None,
     draft: bool = False,
-) -> dict:
+) -> CreatePRResult:
     """
     Handle the --create-pr command: push branch and create a GitHub PR.
 
@@ -849,7 +861,7 @@ def handle_create_pr_command(
         draft: Whether to create as draft PR
 
     Returns:
-        dict with success status, pr_url, and any errors
+        CreatePRResult with success status, pr_url, and any errors
     """
     from core.worktree import WorktreeManager
     from workspace import get_existing_build_worktree
@@ -865,7 +877,11 @@ def handle_create_pr_command(
         print(f"\n{icon(Icons.ERROR)} No build found for spec: {spec_name}")
         print("\nA completed build worktree is required to create a PR.")
         print("Run your build first, then use --create-pr.")
-        return {"success": False, "error": "No build found for this spec"}
+        error_result: CreatePRResult = {
+            "success": False,
+            "error": "No build found for this spec",
+        }
+        return error_result
 
     # Create worktree manager
     manager = WorktreeManager(project_dir, base_branch=target_branch)
@@ -878,13 +894,24 @@ def handle_create_pr_command(
     if draft:
         print("   Mode: Draft PR")
 
-    # Push and create PR
-    result = manager.push_and_create_pr(
-        spec_name=spec_name,
-        target_branch=target_branch,
-        title=title,
-        draft=draft,
-    )
+    # Push and create PR with exception handling for clean JSON output
+    try:
+        result = manager.push_and_create_pr(
+            spec_name=spec_name,
+            target_branch=target_branch,
+            title=title,
+            draft=draft,
+        )
+    except Exception as e:
+        debug_error(MODULE, f"Exception during PR creation: {e}")
+        error_result: CreatePRResult = {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to create PR: {e}",
+        }
+        print(f"\n{icon(Icons.ERROR)} Failed to create PR: {e}")
+        print(json.dumps(error_result))
+        return error_result
 
     if result.get("success"):
         pr_url = result.get("pr_url")

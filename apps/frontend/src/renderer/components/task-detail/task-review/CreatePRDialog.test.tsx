@@ -402,9 +402,8 @@ describe('CreatePRDialog', () => {
     await waitFor(() => {
       // Should show success message but no link
       expect(screen.getByText(/created/i)).toBeInTheDocument();
-      // Should not have any external link button (no prUrl to display)
-      // Use anchored regex to avoid CodeQL false-positive about arbitrary host matching
-      expect(screen.queryByRole('button', { name: /https:\/\/github\.com/i })).not.toBeInTheDocument();
+      // Should not have any PR link button (no prUrl to display)
+      expect(screen.queryByTestId('pr-link-button')).not.toBeInTheDocument();
     });
   });
 });

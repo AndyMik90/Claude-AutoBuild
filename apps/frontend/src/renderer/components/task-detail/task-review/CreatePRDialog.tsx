@@ -117,6 +117,7 @@ export function CreatePRDialog({
               {result.prUrl && (
                 <button
                   type="button"
+                  data-testid="pr-link-button"
                   onClick={handleOpenPR}
                   className="text-sm text-primary hover:underline flex items-center gap-1 bg-transparent border-none cursor-pointer p-0"
                 >
