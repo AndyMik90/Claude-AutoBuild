@@ -2,7 +2,6 @@
 Tests for dependency validator.
 """
 
-import pytest
 from apps.backend.runners.roadmap.validators import DependencyValidator
 from apps.backend.runners.roadmap.models import RoadmapFeature
 

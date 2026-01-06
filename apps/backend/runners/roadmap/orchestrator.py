@@ -290,6 +290,7 @@ class RoadmapOrchestrator:
                 "Enriched roadmap features",
                 features_count=len(enriched_features),
             )
+            return True
 
         except Exception as e:
             # Log enrichment failure - surface error to user rather than hiding it
