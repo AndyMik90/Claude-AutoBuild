@@ -150,12 +150,13 @@ def test_reverse_dependencies_calculation():
     validator = DependencyValidator()
     result = validator.validate_all(features)
 
+    # Use set comparisons for order-independent assertions
     # feat-3 is depended upon by feat-1 and feat-2
     assert set(result.reverse_deps_map["feat-3"]) == {"feat-1", "feat-2"}
     # feat-2 is depended upon by feat-1
-    assert result.reverse_deps_map["feat-2"] == ["feat-1"]
+    assert set(result.reverse_deps_map["feat-2"]) == {"feat-1"}
     # feat-1 is not depended upon by anyone
-    assert result.reverse_deps_map["feat-1"] == []
+    assert set(result.reverse_deps_map["feat-1"]) == set()
 
 
 def test_empty_feature_list():
