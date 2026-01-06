@@ -87,7 +87,7 @@ export function CreatePRDialog({
   };
 
   const handleOpenPR = () => {
-    if (result?.prUrl) {
+    if (result?.prUrl && window.electronAPI?.openExternal) {
       window.electronAPI.openExternal(result.prUrl);
     }
   };
