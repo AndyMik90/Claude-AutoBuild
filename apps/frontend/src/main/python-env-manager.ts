@@ -619,23 +619,40 @@ if sys.version_info >= (3, 12):
   /**
    * Get environment variables that should be set when spawning Python processes.
    * This ensures Python finds the bundled packages or venv packages.
+   *
+   * IMPORTANT: This returns a COMPLETE environment (based on process.env) with
+   * problematic Python variables removed. This fixes the "Could not find platform
+   * independent libraries <prefix>" error on Windows when PYTHONHOME is set.
+   *
+   * @see https://github.com/AndyMik90/Auto-Claude/issues/176
    */
   getPythonEnv(): Record<string, string> {
-    const env: Record<string, string> = {
+    // Start with process.env but explicitly remove problematic Python variables
+    // PYTHONHOME causes "Could not find platform independent libraries" when set
+    // to a different Python installation than the one we're spawning
+    const baseEnv: Record<string, string> = {};
+
+    for (const [key, value] of Object.entries(process.env)) {
+      // Skip PYTHONHOME - it causes the "platform independent libraries" error
+      // Use case-insensitive check for Windows compatibility (env vars are case-insensitive on Windows)
+      // Skip undefined values (TypeScript type guard)
+      if (key.toUpperCase() !== 'PYTHONHOME' && value !== undefined) {
+        baseEnv[key] = value;
+      }
+    }
+
+    // Apply our Python configuration on top
+    return {
+      ...baseEnv,
       // Don't write bytecode - not needed and avoids permission issues
       PYTHONDONTWRITEBYTECODE: '1',
       // Use UTF-8 encoding
       PYTHONIOENCODING: 'utf-8',
       // Disable user site-packages to avoid conflicts
       PYTHONNOUSERSITE: '1',
+      // Override PYTHONPATH if we have bundled packages
+      ...(this.sitePackagesPath ? { PYTHONPATH: this.sitePackagesPath } : {}),
     };
-
-    // Set PYTHONPATH to our site-packages
-    if (this.sitePackagesPath) {
-      env.PYTHONPATH = this.sitePackagesPath;
-    }
-
-    return env;
   }
 
   /**

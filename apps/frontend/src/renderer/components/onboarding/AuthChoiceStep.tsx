@@ -133,7 +133,7 @@ export function AuthChoiceStep({ onNext, onBack, onSkip, onAPIKeyPathComplete }:
             <AuthOptionCard
               icon={<Key className="h-6 w-6" />}
               title="Use Custom API Key"
-              description="Bring your own API key from Anthropic or a compatible API provider."
+              description="Bring your own API key from Anthropic or a compatible API provider. ⚠️ Highly experimental — may incur significant costs."
               onClick={handleAPIKeyChoice}
               data-testid="auth-option-apikey"
             />

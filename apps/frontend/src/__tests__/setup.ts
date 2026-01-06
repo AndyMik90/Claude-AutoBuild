@@ -28,6 +28,14 @@ Object.defineProperty(global, 'localStorage', {
   value: localStorageMock
 });
 
+// Mock scrollIntoView for Radix Select in jsdom
+if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.scrollIntoView) {
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    value: vi.fn(),
+    writable: true
+  });
+}
+
 // Test data directory for isolated file operations
 export const TEST_DATA_DIR = '/tmp/auto-claude-ui-tests';
 

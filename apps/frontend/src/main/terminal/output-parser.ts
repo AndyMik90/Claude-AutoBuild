@@ -79,3 +79,83 @@ export function hasRateLimitMessage(data: string): boolean {
 export function hasOAuthToken(data: string): boolean {
   return OAUTH_TOKEN_PATTERN.test(data);
 }
+
+/**
+ * Patterns indicating Claude Code is busy/processing
+ * These appear when Claude is actively thinking or working
+ *
+ * IMPORTANT: These must be universal patterns that work for ALL users,
+ * not just custom terminal configurations with progress bars.
+ */
+const CLAUDE_BUSY_PATTERNS = [
+  // Universal Claude Code indicators
+  /^●/m,                            // Claude's response bullet point (appears when Claude is responding)
+  /\u25cf/,                         // Unicode bullet point (●)
+
+  // Tool execution indicators (Claude is running tools)
+  /^(Read|Write|Edit|Bash|Grep|Glob|Task|WebFetch|WebSearch|TodoWrite)\(/m,
+  /^\s*\d+\s*[│|]\s*/m,            // Line numbers in file output (Claude reading/showing files)
+
+  // Streaming/thinking indicators
+  /Loading\.\.\./i,
+  /Thinking\.\.\./i,
+  /Analyzing\.\.\./i,
+  /Processing\.\.\./i,
+  /Working\.\.\./i,
+  /Searching\.\.\./i,
+  /Creating\.\.\./i,
+  /Updating\.\.\./i,
+  /Running\.\.\./i,
+
+  // Custom progress bar patterns (for users who have them)
+  /\[Opus\s*\d*\.?\d*\].*\d+%/i,   // Opus model progress
+  /\[Sonnet\s*\d*\.?\d*\].*\d+%/i, // Sonnet model progress
+  /\[Haiku\s*\d*\.?\d*\].*\d+%/i,  // Haiku model progress
+  /\[Claude\s*\d*\.?\d*\].*\d+%/i, // Generic Claude progress
+  /░+/,                             // Progress bar characters
+  /▓+/,                             // Progress bar characters
+  /█+/,                             // Progress bar characters (filled)
+];
+
+/**
+ * Patterns indicating Claude Code is idle/ready for input
+ * The prompt character at the start of a line indicates Claude is waiting
+ */
+const CLAUDE_IDLE_PATTERNS = [
+  /^>\s*$/m,                        // Just "> " prompt on its own line
+  /\n>\s*$/,                        // "> " at end after newline
+  /^\s*>\s+$/m,                     // "> " with possible whitespace
+];
+
+/**
+ * Check if output indicates Claude is busy (processing)
+ */
+export function isClaudeBusyOutput(data: string): boolean {
+  return CLAUDE_BUSY_PATTERNS.some(pattern => pattern.test(data));
+}
+
+/**
+ * Check if output indicates Claude is idle (ready for input)
+ */
+export function isClaudeIdleOutput(data: string): boolean {
+  return CLAUDE_IDLE_PATTERNS.some(pattern => pattern.test(data));
+}
+
+/**
+ * Determine Claude busy state from output
+ * Returns: 'busy' | 'idle' | null (no change detected)
+ */
+export function detectClaudeBusyState(data: string): 'busy' | 'idle' | null {
+  // Check for busy indicators FIRST - they're more definitive
+  // Progress bars and "Loading..." mean Claude is definitely working,
+  // even if there's a ">" prompt visible elsewhere in the output
+  if (isClaudeBusyOutput(data)) {
+    return 'busy';
+  }
+  // Only check for idle if no busy indicators found
+  // The ">" prompt alone at end of output means Claude is waiting for input
+  if (isClaudeIdleOutput(data)) {
+    return 'idle';
+  }
+  return null;
+}
