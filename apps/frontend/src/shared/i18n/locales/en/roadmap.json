@@ -14,7 +14,9 @@
     "goToTask": "Go to Task",
     "convertToSpec": "Convert to Spec",
     "viewInRoadmap": "View in Roadmap",
-    "closePanel": "Close panel"
+    "closePanel": "Close panel",
+    "viewDependency": "View dependency: {{title}}",
+    "viewRequiredBy": "View feature that depends on this: {{title}}"
   },
   "featureCard": {
     "deps": "{{count}} deps",

@@ -230,7 +230,7 @@ export function DependencyDetailSidePanel({
                       key={depId}
                       className="text-sm text-left px-3 py-2 rounded-md bg-muted/50 hover:bg-muted transition-colors flex items-center justify-between gap-2 group"
                       onClick={() => handleDependencyClick(depId)}
-                      title={`View dependency: ${depTitle}`}
+                      title={t('roadmap:dependencyDetailPanel.viewDependency', { title: depTitle })}
                     >
                       <span className="font-medium truncate">{depTitle}</span>
                       <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -256,7 +256,7 @@ export function DependencyDetailSidePanel({
                       key={depId}
                       className="text-sm text-left px-3 py-2 rounded-md bg-muted/50 hover:bg-muted transition-colors flex items-center justify-between gap-2 group"
                       onClick={() => handleDependencyClick(depId)}
-                      title={`View feature that depends on this: ${depTitle}`}
+                      title={t('roadmap:dependencyDetailPanel.viewRequiredBy', { title: depTitle })}
                     >
                       <span className="font-medium truncate">{depTitle}</span>
                       <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />

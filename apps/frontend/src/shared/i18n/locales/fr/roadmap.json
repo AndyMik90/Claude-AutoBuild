@@ -14,7 +14,9 @@
     "goToTask": "Aller à la tâche",
     "convertToSpec": "Convertir en spécification",
     "viewInRoadmap": "Voir dans la feuille de route",
-    "closePanel": "Fermer le panneau"
+    "closePanel": "Fermer le panneau",
+    "viewDependency": "Voir la dépendance : {{title}}",
+    "viewRequiredBy": "Voir la fonctionnalité qui dépend de ceci : {{title}}"
   },
   "featureCard": {
     "deps": "{{count}} dép.",

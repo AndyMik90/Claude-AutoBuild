@@ -211,7 +211,7 @@ export function FeatureDetailPanel({
 										key={dep}
 										className="px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer transition-all flex items-center justify-start gap-1"
 										onClick={() => handleDependencyClick(dep)}
-										title={`View dependency: ${getFeatureTitle(dep)}`}
+										title={t('roadmap:dependencyDetailPanel.viewDependency', { title: getFeatureTitle(dep) })}
 									>
 										<span>{getFeatureTitle(dep)}</span>
 										<ChevronRight className="h-3 w-3 shrink-0" />
@@ -236,7 +236,7 @@ export function FeatureDetailPanel({
 											key={dep}
 											className="px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer transition-all flex items-center justify-start gap-1"
 											onClick={() => handleDependencyClick(dep)}
-											title={`View feature that depends on this: ${getFeatureTitle(dep)}`}
+											title={t('roadmap:dependencyDetailPanel.viewRequiredBy', { title: getFeatureTitle(dep) })}
 										>
 											<ChevronRight className="h-3 w-3 -rotate-180 shrink-0" />
 											<span>{getFeatureTitle(dep)}</span>
