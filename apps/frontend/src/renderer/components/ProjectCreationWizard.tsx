@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from './ui/button';
@@ -18,6 +18,7 @@ import type { Project } from '../../shared/types';
 import type { RemoteConfig } from './remote-setup/types';
 import { ChooseStep } from './wizard-steps/ChooseStep';
 import { CreateFormStep } from './wizard-steps/CreateFormStep';
+import { InitializationStep } from './wizard-steps/InitializationStep';
 import { CompletionStep } from './wizard-steps/CompletionStep';
 import { GitHubOAuthFlow } from './project-settings/GitHubOAuthFlow';
 import { GitLabOAuthFlow } from './project-settings/GitLabOAuthFlow';
@@ -25,21 +26,24 @@ import { GitHubRepoConfigStep } from './remote-setup/GitHubRepoConfigStep';
 import { GitLabRepoConfigStep } from './remote-setup/GitLabRepoConfigStep';
 import type { Owner } from './remote-setup/types';
 
-type WizardStepId = 'choose' | 'create-form' | 'service-auth' | 'repo-config' | 'complete';
+type WizardStepId = 'choose' | 'create-form' | 'initialize' | 'service-auth' | 'repo-config' | 'complete';
 
 // Step configuration with translation keys
 const WIZARD_STEPS: { id: WizardStepId; labelKey: string }[] = [
-  { id: 'choose', labelKey: 'wizard.steps.choose' },
-  { id: 'create-form', labelKey: 'wizard.steps.createForm' },
-  { id: 'service-auth', labelKey: 'wizard.steps.serviceAuth' },
-  { id: 'repo-config', labelKey: 'wizard.steps.repoConfig' },
-  { id: 'complete', labelKey: 'wizard.steps.complete' }
+  { id: 'choose', labelKey: 'wizard.steps.choose.label' },
+  { id: 'create-form', labelKey: 'wizard.steps.createForm.label' },
+  { id: 'initialize', labelKey: 'wizard.steps.initialize.label' },
+  { id: 'service-auth', labelKey: 'wizard.steps.serviceAuth.label' },
+  { id: 'repo-config', labelKey: 'wizard.steps.repoConfig.label' },
+  { id: 'complete', labelKey: 'wizard.steps.complete.label' }
 ];
 
 interface ProjectCreationWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProjectAdded?: (project: Project, needsInit: boolean) => void;
+  /** Callback when wizard completes without Auto Claude initialization */
+  onAutoClaudeSkipped?: (projectId: string) => void;
 }
 
 /**
@@ -49,7 +53,8 @@ interface ProjectCreationWizardProps {
 export function ProjectCreationWizard({
   open,
   onOpenChange,
-  onProjectAdded
+  onProjectAdded,
+  onAutoClaudeSkipped
 }: ProjectCreationWizardProps) {
   const { t } = useTranslation('dialogs');
 
@@ -73,6 +78,14 @@ export function ProjectCreationWizard({
   // UI state
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdRemoteUrl, setCreatedRemoteUrl] = useState<string | null>(null);
+  const [createdProjectPath, setCreatedProjectPath] = useState<string | null>(null);
+  // Ref to store the created project path immediately (synchronous)
+  const createdProjectPathRef = useRef<string | null>(null);
+  // Track created project ID for skip callback
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
+  // Track whether Auto Claude was initialized in the wizard
+  const [autoClaudeInitialized, setAutoClaudeInitialized] = useState(false);
 
   // OAuth state
   const [authUsername, setAuthUsername] = useState<string | null>(null);
@@ -91,6 +104,11 @@ export function ProjectCreationWizard({
       setAuthUsername(null);
       setGithubOrgs([]);
       setGitlabGroups([]);
+      setCreatedRemoteUrl(null);
+      setCreatedProjectPath(null);
+      createdProjectPathRef.current = null;
+      setCreatedProjectId(null);
+      setAutoClaudeInitialized(false);
     }
   }, [open]);
 
@@ -109,12 +127,29 @@ export function ProjectCreationWizard({
     loadDefaultLocation();
   }, []);
 
-  // Get visible steps (hide auth/repo-config if remote is skipped)
-  const getVisibleSteps = () => {
-    if (!remoteConfig.enabled || currentStepId === 'complete') {
-      return WIZARD_STEPS.filter(s => s.id !== 'service-auth' && s.id !== 'repo-config');
+  // Handle Auto Claude skip callback when wizard closes
+  useEffect(() => {
+    // Only trigger when wizard is closing (open becomes false)
+    if (!open && createdProjectId && !autoClaudeInitialized && onAutoClaudeSkipped) {
+      onAutoClaudeSkipped(createdProjectId);
     }
-    return WIZARD_STEPS;
+  }, [open, createdProjectId, autoClaudeInitialized, onAutoClaudeSkipped]);
+
+  // Get visible steps based on remote configuration
+  const getVisibleSteps = () => {
+    if (currentStepId === 'complete') {
+      return WIZARD_STEPS.filter(s => s.id === 'choose' || s.id === 'complete');
+    }
+
+    if (!remoteConfig.enabled) {
+      // Skip flow: choose, create-form, initialize, complete
+      return WIZARD_STEPS.filter(s =>
+        s.id !== 'service-auth' && s.id !== 'repo-config'
+      );
+    }
+
+    // Remote flow: choose, create-form, service-auth, repo-config, complete
+    return WIZARD_STEPS.filter(s => s.id !== 'initialize');
   };
 
   const visibleSteps = getVisibleSteps();
@@ -128,13 +163,11 @@ export function ProjectCreationWizard({
 
   // Adjust step index for progress (based on visible steps)
   const getProgressIndex = () => {
-    if (!remoteConfig.enabled) return 0; // Only show choose and complete
+    // Don't show progress for choose or complete steps
+    if (currentStepId === 'choose' || currentStepId === 'complete') return -1;
 
     const visibleIds = visibleSteps.map(s => s.id);
     const currentIndex = visibleIds.indexOf(currentStepId);
-
-    // Don't show progress for choose or complete steps
-    if (currentStepId === 'choose' || currentStepId === 'complete') return -1;
 
     // Adjust index (exclude choose from progress)
     return currentIndex - 1;
@@ -142,17 +175,15 @@ export function ProjectCreationWizard({
 
   const progressIndex = getProgressIndex();
 
+  // Validation for create-form step
+  const isCreateFormValid = () => {
+    return projectName.trim().length > 0 && projectLocation.trim().length > 0;
+  };
+
   // Navigation handlers
   const goToNextStep = () => {
     // Mark current step as completed
     setCompletedSteps(prev => new Set(prev).add(currentStepId));
-
-    // Special handling: if skip selected, jump to complete
-    if (currentStepId === 'create-form' && !remoteConfig.enabled) {
-      setCurrentStepIndex(WIZARD_STEPS.findIndex(s => s.id === 'complete'));
-      handleCreateProject();
-      return;
-    }
 
     // Standard next step
     if (currentStepIndex < WIZARD_STEPS.length - 1) {
@@ -200,6 +231,77 @@ export function ProjectCreationWizard({
       }
     } catch {
       // User cancelled - ignore
+    }
+  };
+
+  // Create project folder and proceed to initialize step (for skip flow)
+  const handleCreateAndProceedToInitialize = async () => {
+    if (!projectName.trim()) {
+      setError(t('addProject.nameRequired'));
+      return;
+    }
+    if (!projectLocation.trim()) {
+      setError(t('addProject.locationRequired'));
+      return;
+    }
+
+    setIsCreating(true);
+    setError(null);
+
+    try {
+      // Sanitize project name the same way as CreateFormStep
+      const sanitizedName = projectName.trim()
+        .toLowerCase()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+
+      // Create the project folder (always initialize git)
+      const result = await window.electronAPI.createProjectFolder(
+        projectLocation,
+        sanitizedName, // Use sanitized name
+        true // Always init git for new projects
+      );
+
+      if (!result.success || !result.data) {
+        setError(result.error || 'Failed to create project folder');
+        setIsCreating(false);
+        return;
+      }
+
+      // Add the project to our store
+      const project = await addProject(result.data.path);
+      if (project) {
+        // Store the project ID for skip callback
+        setCreatedProjectId(project.id);
+
+        // For new projects, set main branch (git is always initialized)
+        try {
+          const mainBranchResult = await window.electronAPI.detectMainBranch(result.data.path);
+          if (mainBranchResult.success && mainBranchResult.data) {
+            await window.electronAPI.updateProjectSettings(project.id, {
+              mainBranch: mainBranchResult.data
+            });
+          }
+        } catch {
+          // Non-fatal - main branch can be set later in settings
+        }
+
+        // Store the actual created project path for InitializationStep to use
+        // Use ref for synchronous access before navigation
+        createdProjectPathRef.current = result.data.path;
+        setCreatedProjectPath(result.data.path);
+
+        setIsCreating(false);
+        // Navigate to initialize step
+        const initializeIndex = WIZARD_STEPS.findIndex(s => s.id === 'initialize');
+        setCurrentStepIndex(initializeIndex);
+      }
+    } catch (err) {
+      console.error('[handleCreateAndProceedToInitialize] Error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create project');
+      setIsCreating(false);
     }
   };
 
@@ -263,7 +365,9 @@ export function ProjectCreationWizard({
                   remoteConfig.gitlabInstanceUrl || undefined
                 );
 
-                if (!linkResult.success) {
+                if (linkResult.success && linkResult.data?.webUrl) {
+                  setCreatedRemoteUrl(linkResult.data.webUrl);
+                } else if (!linkResult.success) {
                   console.warn('Failed to link GitLab project:', linkResult.error);
                 }
               } else {
@@ -286,6 +390,9 @@ export function ProjectCreationWizard({
                     createResult.data.pathWithNamespace,
                     remoteConfig.gitlabInstanceUrl || undefined
                   );
+                  // Store the remote URL for display
+                  const instanceUrl = remoteConfig.gitlabInstanceUrl || 'https://gitlab.com';
+                  setCreatedRemoteUrl(`${instanceUrl}/${createResult.data.pathWithNamespace}`);
                 } else {
                   console.warn('Failed to create GitLab remote:', createResult.error);
                 }
@@ -298,7 +405,9 @@ export function ProjectCreationWizard({
                   remoteConfig.githubExistingRepo
                 );
 
-                if (!linkResult.success) {
+                if (linkResult.success) {
+                  setCreatedRemoteUrl(`https://github.com/${remoteConfig.githubExistingRepo}`);
+                } else {
                   console.warn('Failed to link GitHub repository:', linkResult.error);
                 }
               } else {
@@ -313,7 +422,9 @@ export function ProjectCreationWizard({
                   }
                 );
 
-                if (!createResult.success) {
+                if (createResult.success && createResult.data?.url) {
+                  setCreatedRemoteUrl(createResult.data.url);
+                } else {
                   console.warn('Failed to create GitHub remote:', createResult.error);
                 }
               }
@@ -324,11 +435,12 @@ export function ProjectCreationWizard({
           }
         }
 
-        // Mark complete step as done
+        // Mark complete step as done and navigate to it
         setCompletedSteps(prev => new Set(prev).add('complete'));
+        setCurrentStepIndex(WIZARD_STEPS.findIndex(s => s.id === 'complete'));
 
-        onProjectAdded?.(project, true); // New projects always need init
-        onOpenChange(false);
+        // Note: We don't call onProjectAdded here since the wizard handles showing completion
+        // The parent will be notified when user clicks "Done" (via handleDone -> onOpenChange)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('addProject.failedToCreate'));
@@ -352,6 +464,8 @@ export function ProjectCreationWizard({
         return renderChooseStep();
       case 'create-form':
         return renderCreateForm();
+      case 'initialize':
+        return renderInitializationStep();
       case 'service-auth':
         return renderServiceAuthStep();
       case 'repo-config':
@@ -382,9 +496,36 @@ export function ProjectCreationWizard({
         setProjectLocation={setProjectLocation}
         remoteConfig={remoteConfig}
         setRemoteConfig={setRemoteConfig}
-        onNext={goToNextStep}
+        onNext={remoteConfig.enabled ? goToNextStep : handleCreateAndProceedToInitialize}
         onBrowse={handleSelectLocation}
         isCreating={isCreating}
+      />
+    );
+  };
+
+  const renderInitializationStep = () => {
+    // Use the ref first (synchronous), then state, then fall back to constructed path
+    const projectPath = createdProjectPathRef.current || createdProjectPath || (projectLocation
+      ? `${projectLocation}/${projectName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '')}`
+      : '');
+
+    // Navigate to complete step when done with initialization
+    const handleInitializeComplete = () => {
+      const completeIndex = WIZARD_STEPS.findIndex(s => s.id === 'complete');
+      setCurrentStepIndex(completeIndex);
+    };
+
+    // Track when Auto Claude is initialized
+    const handleAutoClaudeInitialized = () => {
+      setAutoClaudeInitialized(true);
+    };
+
+    return (
+      <InitializationStep
+        projectPath={projectPath}
+        onNext={handleInitializeComplete}
+        isCreating={isCreating}
+        onAutoClaudeInitialized={handleAutoClaudeInitialized}
       />
     );
   };
@@ -398,7 +539,7 @@ export function ProjectCreationWizard({
       <CompletionStep
         projectName={projectName}
         projectPath={projectPath}
-        remoteUrl={undefined} // TODO: Extract from remote config if needed
+        remoteUrl={createdRemoteUrl || undefined}
       />
     );
   };
@@ -592,7 +733,7 @@ export function ProjectCreationWizard({
         return null;
       case 'create-form':
         return (
-          <Button onClick={goToNextStep} disabled={isCreating}>
+          <Button onClick={remoteConfig.enabled ? goToNextStep : handleCreateAndProceedToInitialize} disabled={isCreating || !isCreateFormValid()}>
             {remoteConfig.enabled ? t('wizard.navigation.next') : t('wizard.navigation.create')}
           </Button>
         );

@@ -285,6 +285,7 @@
       "choose": {
         "title": "What would you like to do?",
         "description": "Choose how you'd like to add a project",
+        "label": "Choose",
         "openExisting": "Open Existing Folder",
         "openExistingDescription": "Browse to an existing project on your computer",
         "createNew": "Create New Project",
@@ -294,19 +295,48 @@
       },
       "createForm": {
         "title": "Create New Project",
-        "description": "Enter project details and configure remote repository"
+        "description": "Enter project details and configure remote repository",
+        "label": "Details"
       },
       "serviceAuth": {
         "title": "Connect to {service}",
-        "description": "Authenticate with {service} to set up your repository"
+        "description": "Authenticate with {service} to set up your repository",
+        "label": "Connect"
       },
       "repoConfig": {
         "title": "Configure Repository",
-        "description": "Create a new repository or link to an existing one"
+        "description": "Create a new repository or link to an existing one",
+        "label": "Configure"
       },
       "complete": {
         "title": "Project Created!",
-        "description": "Your project is ready to use"
+        "description": "Your project is ready to use",
+        "label": "Complete"
+      },
+      "initialize": {
+        "title": "Initialize Project",
+        "description": "Set up your project for development",
+        "label": "Setup",
+        "git": {
+          "title": "Git Repository",
+          "description": "Initialize Git for version control",
+          "loading": "Initializing Git repository...",
+          "success": "Git repository initialized"
+        },
+        "autoClaude": {
+          "title": "Auto Claude Setup",
+          "description": "Enable AI-powered development features",
+          "initialize": "Initialize",
+          "loading": "Setting up Auto Claude...",
+          "success": "Auto Claude ready"
+        },
+        "required": "Required",
+        "retry": "Retry",
+        "errorTitle": "Some actions failed",
+        "errorDescription": "You can retry the failed actions above, or continue anyway.",
+        "proceeding": "Proceeding...",
+        "continue": "Continue",
+        "error": "Failed to initialize"
       }
     },
     "navigation": {

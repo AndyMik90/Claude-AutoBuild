@@ -110,5 +110,10 @@ export const projectMock = {
   initializeGit: async () => ({
     success: true,
     data: { success: true }
+  }),
+
+  initializeProjectByPath: async (_projectPath: string) => ({
+    success: true,
+    data: { success: true }
   })
 };

@@ -302,6 +302,7 @@ export interface ElectronAPI {
   selectDirectory: () => Promise<string | null>;
   createProjectFolder: (location: string, name: string, initGit: boolean) => Promise<IPCResult<CreateProjectFolderResult>>;
   getDefaultProjectLocation: () => Promise<string | null>;
+  initializeProjectByPath: (projectPath: string) => Promise<IPCResult<InitializationResult>>;
 
   // App info
   getAppVersion: () => Promise<string>;

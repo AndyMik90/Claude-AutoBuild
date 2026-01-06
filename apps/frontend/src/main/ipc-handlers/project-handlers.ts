@@ -505,4 +505,23 @@ export function registerProjectHandlers(
       }
     }
   );
+
+  // Initialize Auto Claude for a project by path (for wizard flow)
+  ipcMain.handle(
+    'project:initializeByPath',
+    async (_, projectPath: string): Promise<IPCResult<InitializationResult>> => {
+      try {
+        if (!existsSync(projectPath)) {
+          return { success: false, error: 'Directory does not exist' };
+        }
+        const result = initializeProject(projectPath);
+        return { success: result.success, data: result, error: result.error };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
 }

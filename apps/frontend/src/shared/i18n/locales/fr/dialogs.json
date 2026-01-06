@@ -285,6 +285,7 @@
       "choose": {
         "title": "Que souhaitez-vous faire ?",
         "description": "Choisissez comment vous souhaitez ajouter un projet",
+        "label": "Choisir",
         "openExisting": "Ouvrir un dossier existant",
         "openExistingDescription": "Parcourir vers un projet existant sur votre ordinateur",
         "createNew": "Créer un nouveau projet",
@@ -294,19 +295,48 @@
       },
       "createForm": {
         "title": "Créer un nouveau projet",
-        "description": "Entrez les détails du projet et configurez le dépôt distant"
+        "description": "Entrez les détails du projet et configurez le dépôt distant",
+        "label": "Détails"
       },
       "serviceAuth": {
         "title": "Se connecter à {service}",
-        "description": "Authentifiez-vous avec {service} pour configurer votre dépôt"
+        "description": "Authentifiez-vous avec {service} pour configurer votre dépôt",
+        "label": "Connecter"
       },
       "repoConfig": {
         "title": "Configurer le dépôt",
-        "description": "Créer un nouveau dépôt ou lier un dépôt existant"
+        "description": "Créer un nouveau dépôt ou lier un dépôt existant",
+        "label": "Configurer"
       },
       "complete": {
         "title": "Projet créé !",
-        "description": "Votre projet est prêt à être utilisé"
+        "description": "Votre projet est prêt à être utilisé",
+        "label": "Terminé"
+      },
+      "initialize": {
+        "title": "Initialiser le projet",
+        "description": "Configurez votre projet pour le développement",
+        "label": "Configuration",
+        "git": {
+          "title": "Dépôt Git",
+          "description": "Initialiser Git pour le contrôle de version",
+          "loading": "Initialisation du dépôt Git...",
+          "success": "Dépôt Git initialisé"
+        },
+        "autoClaude": {
+          "title": "Configuration Auto Claude",
+          "description": "Activer les fonctionnalités de développement IA",
+          "initialize": "Initialiser",
+          "loading": "Configuration d'Auto Claude...",
+          "success": "Auto Claude prêt"
+        },
+        "required": "Obligatoire",
+        "retry": "Réessayer",
+        "errorTitle": "Certaines actions ont échoué",
+        "errorDescription": "Vous pouvez réessayer les actions échouées ci-dessus, ou continuer quand même.",
+        "proceeding": "En cours...",
+        "continue": "Continuer",
+        "error": "Échec de l'initialisation"
       }
     },
     "navigation": {

@@ -12,15 +12,17 @@ interface AddProjectModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProjectAdded?: (project: Project, needsInit: boolean) => void;
+  onAutoClaudeSkipped?: (projectId: string) => void;
 }
 
-export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProjectModalProps) {
+export function AddProjectModal({ open, onOpenChange, onProjectAdded, onAutoClaudeSkipped }: AddProjectModalProps) {
   // Thin wrapper - just pass through to ProjectCreationWizard
   return (
     <ProjectCreationWizard
       open={open}
       onOpenChange={onOpenChange}
       onProjectAdded={onProjectAdded}
+      onAutoClaudeSkipped={onAutoClaudeSkipped}
     />
   );
 }

@@ -135,7 +135,6 @@ export function App() {
   const [isInitializing, setIsInitializing] = useState(false);
   const [initSuccess, setInitSuccess] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
-  const [skippedInitProjectId, setSkippedInitProjectId] = useState<string | null>(null);
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
 
   // GitHub setup state (shown after Auto Claude init)
@@ -162,6 +161,10 @@ export function App() {
   // Get tabs and selected project
   const projectTabs = getProjectTabs();
   const selectedProject = projects.find((p) => p.id === (activeProjectId || selectedProjectId));
+
+  // Get skip tracking methods from store
+  const skipAutoClaudeInit = useProjectStore((state) => state.skipAutoClaudeInit);
+  const isAutoClaudeInitSkipped = useProjectStore((state) => state.isAutoClaudeInitSkipped);
 
   // Initial load
   useEffect(() => {
@@ -307,18 +310,22 @@ export function App() {
     // Don't show dialog while initialization is in progress
     if (isInitializing) return;
 
+    // Don't show dialog if the add project modal (wizard) is open
+    // The wizard handles initialization for newly created projects
+    if (showAddProjectModal) return;
+
     // Don't reopen dialog after successful initialization
     // (project update with autoBuildPath may not have propagated yet)
     if (initSuccess) return;
 
-    if (selectedProject && !selectedProject.autoBuildPath && skippedInitProjectId !== selectedProject.id) {
+    if (selectedProject && !selectedProject.autoBuildPath && !isAutoClaudeInitSkipped(selectedProject.id)) {
       // Project exists but isn't initialized - show init dialog
       setPendingProject(selectedProject);
       setInitError(null); // Clear any previous errors
       setInitSuccess(false); // Reset success flag
       setShowInitDialog(true);
     }
-  }, [selectedProject, skippedInitProjectId, isInitializing, initSuccess]);
+  }, [selectedProject, isInitializing, initSuccess, showAddProjectModal, isAutoClaudeInitSkipped]);
 
   // Global keyboard shortcut: Cmd/Ctrl+T to add project (when not on terminals view)
   useEffect(() => {
@@ -663,7 +670,7 @@ export function App() {
   const handleSkipInit = () => {
     console.log('[InitDialog] User skipped initialization');
     if (pendingProject) {
-      setSkippedInitProjectId(pendingProject.id);
+      skipAutoClaudeInit(pendingProject.id);
     }
     setShowInitDialog(false);
     setPendingProject(null);
@@ -692,6 +699,7 @@ export function App() {
           onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
           activeView={activeView}
           onViewChange={setActiveView}
+          isWizardOpen={showAddProjectModal}
         />
 
         {/* Main content */}
@@ -867,6 +875,10 @@ export function App() {
           open={showAddProjectModal}
           onOpenChange={setShowAddProjectModal}
           onProjectAdded={handleProjectAdded}
+          onAutoClaudeSkipped={(projectId) => {
+            // Mark the project as skipped so the init dialog doesn't show
+            skipAutoClaudeInit(projectId);
+          }}
         />
 
         {/* Initialize Auto Claude Dialog */}

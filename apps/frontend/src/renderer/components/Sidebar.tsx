@@ -59,6 +59,8 @@ interface SidebarProps {
   onNewTaskClick: () => void;
   activeView?: SidebarView;
   onViewChange?: (view: SidebarView) => void;
+  /** Whether the add project wizard/modal is currently open */
+  isWizardOpen?: boolean;
 }
 
 interface NavItem {
@@ -97,12 +99,15 @@ export function Sidebar({
   onSettingsClick,
   onNewTaskClick,
   activeView = 'kanban',
-  onViewChange
+  onViewChange,
+  isWizardOpen = false
 }: SidebarProps) {
   const { t } = useTranslation(['navigation', 'dialogs', 'common']);
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectProject = useProjectStore((state) => state.selectProject);
+  const skipAutoClaudeInit = useProjectStore((state) => state.skipAutoClaudeInit);
+  const isAutoClaudeInitSkipped = useProjectStore((state) => state.isAutoClaudeInitSkipped);
   const settings = useSettingsStore((state) => state.settings);
 
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
@@ -194,7 +199,8 @@ export function Sidebar({
           if (result.success && result.data) {
             setGitStatus(result.data);
             // Show git setup modal if project is not a git repo or has no commits
-            if (!result.data.isGitRepo || !result.data.hasCommits) {
+            // But skip if the wizard is open (wizard handles initialization)
+            if (!isWizardOpen && (!result.data.isGitRepo || !result.data.hasCommits)) {
               setShowGitSetupModal(true);
             }
           }
@@ -206,7 +212,7 @@ export function Sidebar({
       }
     };
     checkGit();
-  }, [selectedProject]);
+  }, [selectedProject, isWizardOpen]);
 
   const handleAddProject = () => {
     setShowAddProjectModal(true);
@@ -238,6 +244,10 @@ export function Sidebar({
   };
 
   const handleSkipInit = () => {
+    if (pendingProject) {
+      // Mark the project as skipped in the store
+      skipAutoClaudeInit(pendingProject.id);
+    }
     setShowInitDialog(false);
     setPendingProject(null);
   };
@@ -450,6 +460,10 @@ export function Sidebar({
         open={showAddProjectModal}
         onOpenChange={setShowAddProjectModal}
         onProjectAdded={handleProjectAdded}
+        onAutoClaudeSkipped={(projectId) => {
+          // Mark the project as skipped in the store
+          skipAutoClaudeInit(projectId);
+        }}
       />
 
       {/* Git Setup Modal */}

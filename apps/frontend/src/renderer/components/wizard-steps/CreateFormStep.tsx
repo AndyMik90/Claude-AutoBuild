@@ -38,12 +38,32 @@ export function CreateFormStep({
 }: CreateFormStepProps) {
   const { t } = useTranslation('dialogs');
 
+  // Enhanced sanitization: lowercase, replace spaces/underscores with hyphens
   const sanitizedProjectName = projectName
     .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-_]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+    .replace(/[\s_]+/g, '-') // Replace spaces and underscores with hyphens
+    .replace(/[^a-z0-9-]/g, '') // Remove special chars except hyphens
+    .replace(/-+/g, '-') // Collapse multiple hyphens
+    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+
+  const handleProjectNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Allow user to type freely, format on blur
+    setProjectName(e.target.value);
+  };
+
+  const handleProjectNameBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Format when user leaves the field
+    const value = e.target.value;
+    if (value) {
+      const formatted = value
+        .toLowerCase()
+        .replace(/[\s_]+/g, '-') // Replace spaces and underscores with hyphens
+        .replace(/[^a-z0-9-]/g, '') // Remove special chars except hyphens
+        .replace(/-+/g, '-') // Collapse multiple hyphens
+        .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+      setProjectName(formatted);
+    }
+  };
 
   const willCreatePath = projectLocation
     ? `${projectLocation}/${sanitizedProjectName || 'project-name'}`
@@ -94,7 +114,8 @@ export function CreateFormStep({
         <Input
           id="project-name"
           value={projectName}
-          onChange={(e) => setProjectName(e.target.value)}
+          onChange={handleProjectNameChange}
+          onBlur={handleProjectNameBlur}
           placeholder={t('addProject.projectNamePlaceholder')}
           disabled={isCreating}
         />

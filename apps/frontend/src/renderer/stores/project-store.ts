@@ -18,6 +18,10 @@ interface ProjectState {
   activeProjectId: string | null; // Currently active tab
   tabOrder: string[]; // Order of tabs for drag and drop
 
+  // Track projects where user explicitly skipped Auto Claude initialization
+  // This prevents the init dialog from showing repeatedly
+  skippedAutoClaudeProjectIds: Set<string>;
+
   // Actions
   setProjects: (projects: Project[]) => void;
   addProject: (project: Project) => void;
@@ -33,6 +37,10 @@ interface ProjectState {
   setActiveProject: (projectId: string | null) => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   restoreTabState: () => void;
+
+  // Skip Auto Claude initialization for a project
+  skipAutoClaudeInit: (projectId: string) => void;
+  isAutoClaudeInitSkipped: (projectId: string) => boolean;
 
   // Selectors
   getSelectedProject: () => Project | undefined;
@@ -52,12 +60,23 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   activeProjectId: null,
   tabOrder: [],
 
+  // Track skipped Auto Claude initialization
+  skippedAutoClaudeProjectIds: new Set<string>(),
+
   setProjects: (projects) => set({ projects }),
 
   addProject: (project) =>
     set((state) => ({
       projects: [...state.projects, project]
     })),
+
+  skipAutoClaudeInit: (projectId) =>
+    set((state) => ({
+      skippedAutoClaudeProjectIds: new Set([...state.skippedAutoClaudeProjectIds, projectId])
+    })),
+
+  isAutoClaudeInitSkipped: (projectId) =>
+    get().skippedAutoClaudeProjectIds.has(projectId),
 
   removeProject: (projectId) =>
     set((state) => {

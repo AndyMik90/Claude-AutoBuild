@@ -97,6 +97,7 @@ export interface ProjectAPI {
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;
   initializeGit: (projectPath: string) => Promise<IPCResult<InitializationResult>>;
+  initializeProjectByPath: (projectPath: string) => Promise<IPCResult<InitializationResult>>;
 
   // Ollama Model Detection
   checkOllamaStatus: (baseUrl?: string) => Promise<IPCResult<{
@@ -276,6 +277,9 @@ export const createProjectAPI = (): ProjectAPI => ({
 
   initializeGit: (projectPath: string): Promise<IPCResult<InitializationResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_INITIALIZE, projectPath),
+
+  initializeProjectByPath: (projectPath: string): Promise<IPCResult<InitializationResult>> =>
+    ipcRenderer.invoke('project:initializeByPath', projectPath),
 
   // Ollama Model Detection
   checkOllamaStatus: (baseUrl?: string) =>
