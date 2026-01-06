@@ -20,7 +20,12 @@ const CLAUDE_SESSION_PATTERNS = [
 const RATE_LIMIT_PATTERN = /Limit reached\s*[·•]\s*resets\s+(.+?)$/m;
 
 /**
- * Regex pattern to capture OAuth token from `claude setup-token` output
+ * Regex pattern to capture OAuth token from Claude CLI `/login` command output.
+ * The /login command (run within an interactive Claude session) triggers a browser
+ * OAuth flow and outputs the token upon completion. Token format: sk-ant-oat01-...
+ *
+ * Note: This pattern also works with legacy `claude setup-token` output, though
+ * /login is preferred as it provides full OAuth scopes (user:inference + user:profile).
  */
 const OAUTH_TOKEN_PATTERN = /(sk-ant-oat01-[A-Za-z0-9_-]+)/;
 
