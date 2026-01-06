@@ -42,6 +42,7 @@ interface DroppableColumnProps {
   status: TaskStatus;
   tasks: Task[];
   onTaskClick: (task: Task) => void;
+  onStatusChange: (taskId: string, newStatus: TaskStatus) => unknown;
   isOver: boolean;
   onAddClick?: () => void;
   onArchiveAll?: () => void;
@@ -85,6 +86,7 @@ function droppableColumnPropsAreEqual(
   if (prevProps.status !== nextProps.status) return false;
   if (prevProps.isOver !== nextProps.isOver) return false;
   if (prevProps.onTaskClick !== nextProps.onTaskClick) return false;
+  if (prevProps.onStatusChange !== nextProps.onStatusChange) return false;
   if (prevProps.onAddClick !== nextProps.onAddClick) return false;
   if (prevProps.onArchiveAll !== nextProps.onArchiveAll) return false;
   if (prevProps.archivedCount !== nextProps.archivedCount) return false;
@@ -143,7 +145,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -161,6 +163,15 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
     return handlers;
   }, [tasks, onTaskClick]);
 
+  // Create stable onStatusChange handlers for each task
+  const onStatusChangeHandlers = useMemo(() => {
+    const handlers = new Map<string, (newStatus: TaskStatus) => unknown>();
+    tasks.forEach((task) => {
+      handlers.set(task.id, (newStatus: TaskStatus) => onStatusChange(task.id, newStatus));
+    });
+    return handlers;
+  }, [tasks, onStatusChange]);
+
   // Memoize task card elements to prevent recreation on every render
   const taskCards = useMemo(() => {
     if (tasks.length === 0) return null;
@@ -169,9 +180,10 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
         key={task.id}
         task={task}
         onClick={onClickHandlers.get(task.id)!}
+        onStatusChange={onStatusChangeHandlers.get(task.id)}
       />
     ));
-  }, [tasks, onClickHandlers]);
+  }, [tasks, onClickHandlers, onStatusChangeHandlers]);
 
   const getColumnBorderColor = (): string => {
     switch (status) {
@@ -206,7 +218,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
       <div className="flex items-center justify-between p-4 border-b border-white/5">
         <div className="flex items-center gap-2.5">
           <h2 className="font-semibold text-sm text-foreground">
-            {TASK_STATUS_LABELS[status]}
+            {t(TASK_STATUS_LABELS[status])}
           </h2>
           <span className="column-count-badge">
             {tasks.length}
@@ -482,6 +494,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               status={status}
               tasks={tasksByStatus[status]}
               onTaskClick={onTaskClick}
+              onStatusChange={persistTaskStatus}
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
