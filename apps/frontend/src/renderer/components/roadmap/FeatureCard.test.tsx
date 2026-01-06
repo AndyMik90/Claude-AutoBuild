@@ -78,6 +78,24 @@ const mockFeatures: RoadmapFeature[] = [
   }
 ];
 
+// Mock Roadmap object
+const mockRoadmap = {
+  id: 'roadmap-1',
+  projectId: 'project-1',
+  projectName: 'Test Project',
+  version: '1.0',
+  vision: 'Test vision',
+  targetAudience: {
+    primary: 'Developers',
+    secondary: []
+  },
+  features: mockFeatures,
+  phases: [],
+  status: 'draft',
+  createdAt: new Date(),
+  updatedAt: new Date()
+};
+
 describe('FeatureCard Dependencies', () => {
   beforeEach(() => {
     // Mock the roadmap store with openDependencyDetail function
@@ -127,6 +145,7 @@ describe('FeatureCard Dependencies', () => {
       <FeatureCard
         feature={mockFeatures[0]}
         features={mockFeatures}
+        roadmap={mockRoadmap}
         onClick={mockClick}
         onConvertToSpec={vi.fn()}
         onGoToTask={vi.fn()}
@@ -143,6 +162,7 @@ describe('FeatureCard Dependencies', () => {
       <FeatureCard
         feature={mockFeatures[0]}
         features={mockFeatures}
+        roadmap={mockRoadmap}
         onClick={mockClick}
         onConvertToSpec={vi.fn()}
         onGoToTask={vi.fn()}
@@ -159,6 +179,7 @@ describe('FeatureCard Dependencies', () => {
       <FeatureCard
         feature={mockFeatures[1]}
         features={mockFeatures}
+        roadmap={mockRoadmap}
         onClick={mockClick}
         onConvertToSpec={vi.fn()}
         onGoToTask={vi.fn()}
@@ -176,6 +197,7 @@ describe('FeatureCard Dependencies', () => {
       <FeatureCard
         feature={mockFeatures[0]}
         features={mockFeatures}
+        roadmap={mockRoadmap}
         onClick={mockClick}
         onConvertToSpec={vi.fn()}
         onGoToTask={vi.fn()}
@@ -202,6 +224,7 @@ describe('FeatureCard Dependencies', () => {
       <FeatureCard
         feature={featureWithMissingDep}
         features={mockFeatures}
+        roadmap={mockRoadmap}
         onClick={vi.fn()}
         onConvertToSpec={vi.fn()}
         onGoToTask={vi.fn()}
@@ -230,6 +253,7 @@ describe('FeatureCard Dependencies', () => {
       <FeatureCard
         feature={featureWithCircularDep}
         features={mockFeatures}
+        roadmap={mockRoadmap}
         onClick={vi.fn()}
         onConvertToSpec={vi.fn()}
         onGoToTask={vi.fn()}
@@ -246,6 +270,7 @@ describe('FeatureCard Dependencies', () => {
       <FeatureCard
         feature={mockFeatures[0]}
         features={mockFeatures}
+        roadmap={mockRoadmap}
         onClick={mockClick}
         onConvertToSpec={vi.fn()}
         onGoToTask={vi.fn()}
@@ -263,6 +288,7 @@ describe('FeatureCard Dependencies', () => {
       <FeatureCard
         feature={mockFeatures[0]}
         features={mockFeatures}
+        roadmap={mockRoadmap}
         onClick={mockClick}
         onConvertToSpec={vi.fn()}
         onGoToTask={vi.fn()}
@@ -287,6 +313,7 @@ describe('FeatureCard Dependencies', () => {
       <FeatureCard
         feature={featureWithMultipleDeps}
         features={mockFeatures}
+        roadmap={mockRoadmap}
         onClick={vi.fn()}
         onConvertToSpec={vi.fn()}
         onGoToTask={vi.fn()}

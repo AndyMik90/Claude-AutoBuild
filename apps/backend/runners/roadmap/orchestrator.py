@@ -9,7 +9,14 @@ import json
 from pathlib import Path
 
 from client import create_client
-from debug import debug, debug_detailed, debug_error, debug_section, debug_success, debug_warning
+from debug import (
+    debug,
+    debug_detailed,
+    debug_error,
+    debug_section,
+    debug_success,
+    debug_warning,
+)
 from init import init_auto_claude_dir
 from phase_config import get_thinking_budget
 from ui import Icons, box, icon, muted, print_section, print_status
@@ -206,7 +213,9 @@ class RoadmapOrchestrator:
         """Enrich features with dependency validation and reverse dependencies."""
         roadmap_file = self.output_dir / "roadmap.json"
         if not roadmap_file.exists():
-            debug_warning("roadmap_orchestrator", "Roadmap file not found for enrichment")
+            debug_warning(
+                "roadmap_orchestrator", "Roadmap file not found for enrichment"
+            )
             return
 
         try:
@@ -257,8 +266,8 @@ class RoadmapOrchestrator:
                 feat_dict = features_by_id.get(feature.id, {})
 
                 # Add reverse dependencies (snake_case for JSON, IPC handlers convert to camelCase)
-                feat_dict["reverse_dependencies"] = validation_result.reverse_deps_map.get(
-                    feature.id, []
+                feat_dict["reverse_dependencies"] = (
+                    validation_result.reverse_deps_map.get(feature.id, [])
                 )
 
                 # Add validation metadata for features with dependencies
@@ -272,7 +281,9 @@ class RoadmapOrchestrator:
                             if mid in feature.dependencies
                         ],
                         "circular_paths": [
-                            cp for cp in validation_result.circular_paths if feature.id in cp
+                            cp
+                            for cp in validation_result.circular_paths
+                            if feature.id in cp
                         ],
                     }
 

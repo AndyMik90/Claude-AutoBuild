@@ -51,7 +51,7 @@ class DependencyValidator:
             has_circular=len(circular_paths) > 0,
             missing_ids=missing_ids,
             circular_paths=circular_paths,
-            reverse_deps_map=reverse_deps_map
+            reverse_deps_map=reverse_deps_map,
         )
 
     def _find_missing_deps(self, features: list[RoadmapFeature]) -> list[str]:
@@ -64,7 +64,7 @@ class DependencyValidator:
                 if dep_id not in valid_ids:
                     missing.add(dep_id)
 
-        return sorted(list(missing))
+        return sorted(missing)
 
     def _detect_circular_deps(self, features: list[RoadmapFeature]) -> list[list[str]]:
         """
@@ -129,7 +129,9 @@ class DependencyValidator:
 
         return circular_paths
 
-    def _calculate_reverse_deps(self, features: list[RoadmapFeature]) -> dict[str, list[str]]:
+    def _calculate_reverse_deps(
+        self, features: list[RoadmapFeature]
+    ) -> dict[str, list[str]]:
         """Calculate which features depend on each feature."""
         reverse_deps: dict[str, list[str]] = {}
 
