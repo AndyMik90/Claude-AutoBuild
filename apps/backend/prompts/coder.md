@@ -634,7 +634,7 @@ The system **automatically scans for secrets** before every commit. If secrets a
    api_key = os.environ.get("API_KEY")
    ```
 3. **Update .env.example** - Add placeholder for the new variable
-4. **Re-stage and retry** - `git add . && git commit ...`
+4. **Re-stage and retry** - `git add . ':!.auto-claude' && git commit ...`
 
 **If it's a false positive:**
 - Add the file pattern to `.secretsignore` in the project root
@@ -643,13 +643,17 @@ The system **automatically scans for secrets** before every commit. If secrets a
 ### Create the Commit
 
 ```bash
-git add .
+# Add all files EXCEPT .auto-claude directory (spec files should never be committed)
+git add . ':!.auto-claude'
 git commit -m "auto-claude: Complete [subtask-id] - [subtask description]
 
 - Files modified: [list]
 - Verification: [type] - passed
 - Phase progress: [X]/[Y] subtasks complete"
 ```
+
+**CRITICAL**: The `:!.auto-claude` pathspec exclusion ensures spec files are NEVER committed.
+These are internal tracking files that must stay local.
 
 ### DO NOT Push to Remote
 
@@ -955,6 +959,17 @@ Prepare → Test (small batch) → Execute (full) → Cleanup
 - Verification must pass
 - Clean, working state
 - **Secret scan must pass before commit**
+
+### Git Configuration - NEVER MODIFY
+**CRITICAL**: You MUST NOT modify git user configuration. Never run:
+- `git config user.name`
+- `git config user.email`
+- `git config --local user.*`
+- `git config --global user.*`
+
+The repository inherits the user's configured git identity. Creating "Test User" or
+any other fake identity breaks attribution and causes serious issues. If you need
+to commit changes, use the existing git identity - do NOT set a new one.
 
 ### The Golden Rule
 **FIX BUGS NOW.** The next session has no memory.

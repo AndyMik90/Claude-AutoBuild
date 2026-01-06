@@ -148,7 +148,8 @@ export function registerInvestigateIssue(
           issue.title,
           taskDescription,
           issue.html_url,
-          labels
+          labels,
+          project.settings?.mainBranch  // Pass project's configured main branch
         );
 
         // NOTE: We intentionally do NOT call agentManager.startSpecCreation() here

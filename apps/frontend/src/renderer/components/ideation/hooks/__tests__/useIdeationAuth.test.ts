@@ -18,6 +18,7 @@ import { useSettingsStore } from '../../../../stores/settings-store';
 
 // Mock checkSourceToken function
 const mockCheckSourceToken = vi.fn();
+const mockGetApiProfiles = vi.fn();
 
 describe('useIdeationAuth', () => {
   beforeEach(() => {
@@ -37,12 +38,22 @@ describe('useIdeationAuth', () => {
     // Setup window.electronAPI mock
     if (window.electronAPI) {
       window.electronAPI.checkSourceToken = mockCheckSourceToken;
+      window.electronAPI.getAPIProfiles = mockGetApiProfiles;
     }
 
     // Default mock implementation - has source token
     mockCheckSourceToken.mockResolvedValue({
       success: true,
       data: { hasToken: true, sourcePath: '/mock/auto-claude' }
+    });
+
+    mockGetApiProfiles.mockResolvedValue({
+      success: true,
+      data: {
+        profiles: [],
+        activeProfileId: null,
+        version: 1
+      }
     });
   });
 
@@ -184,6 +195,62 @@ describe('useIdeationAuth', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
+      expect(result.current.hasToken).toBe(true);
+    });
+
+    it('should fall back to IPC profiles when store activeProfileId is missing', async () => {
+      mockCheckSourceToken.mockResolvedValue({
+        success: true,
+        data: { hasToken: false }
+      });
+
+      mockGetApiProfiles.mockResolvedValue({
+        success: true,
+        data: {
+          profiles: [{
+            id: 'profile-1',
+            name: 'Custom API',
+            baseUrl: 'https://api.anthropic.com',
+            apiKey: 'sk-ant-test-key',
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }],
+          activeProfileId: 'profile-1',
+          version: 1
+        }
+      });
+
+      useSettingsStore.setState({
+        activeProfileId: null
+      });
+
+      const { result } = renderHook(() => useIdeationAuth());
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(mockGetApiProfiles).toHaveBeenCalled();
+      expect(result.current.hasToken).toBe(true);
+    });
+
+    it('should not call IPC profiles when store activeProfileId is set', async () => {
+      mockCheckSourceToken.mockResolvedValue({
+        success: true,
+        data: { hasToken: false }
+      });
+
+      useSettingsStore.setState({
+        activeProfileId: 'profile-1'
+      });
+
+      const { result } = renderHook(() => useIdeationAuth());
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(mockGetApiProfiles).not.toHaveBeenCalled();
       expect(result.current.hasToken).toBe(true);
     });
 
@@ -379,8 +446,6 @@ describe('useIdeationAuth', () => {
         data: { hasToken: false }
       });
 
-      const { result } = renderHook(() => useIdeationAuth());
-
       // Initial state - active profile
       useSettingsStore.setState({
         profiles: [{
@@ -393,6 +458,8 @@ describe('useIdeationAuth', () => {
         }],
         activeProfileId: 'profile-1'
       });
+
+      const { result } = renderHook(() => useIdeationAuth());
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);

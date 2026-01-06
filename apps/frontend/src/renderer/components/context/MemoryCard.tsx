@@ -14,8 +14,9 @@ import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import type { MemoryEpisode } from '../../../shared/types';
-import { memoryTypeIcons } from './constants';
+import { memoryTypeIcons, memoryTypeColors, memoryTypeLabels } from './constants';
 import { formatDate } from './utils';
+import { PRReviewCard } from './PRReviewCard';
 
 interface MemoryCardProps {
   memory: MemoryEpisode;
@@ -88,13 +89,28 @@ function ListItem({ children, variant = 'default' }: { children: React.ReactNode
   );
 }
 
+// Check if memory content looks like a PR review
+function isPRReviewMemory(memory: MemoryEpisode): boolean {
+  // Check by type first
+  if (memory.type === 'pr_review' || memory.type === 'pr_finding' || 
+      memory.type === 'pr_pattern' || memory.type === 'pr_gotcha') {
+    return true;
+  }
+  
+  // Check by content structure (for session_insight type that's actually a PR review)
+  try {
+    const parsed = JSON.parse(memory.content);
+    return parsed.prNumber !== undefined && parsed.verdict !== undefined;
+  } catch {
+    return false;
+  }
+}
+
 export function MemoryCard({ memory }: MemoryCardProps) {
-  const Icon = memoryTypeIcons[memory.type] || memoryTypeIcons.session_insight;
   const [expanded, setExpanded] = useState(false);
-
   const parsed = useMemo(() => parseMemoryContent(memory.content), [memory.content]);
-
-  // Determine if there's meaningful content to show
+  
+  // Determine if there's meaningful content to show (must be called before early return)
   const hasContent = useMemo(() => {
     if (!parsed) return false;
     const d = parsed.discoveries || {};
@@ -109,6 +125,15 @@ export function MemoryCard({ memory }: MemoryCardProps) {
       d.approach_outcome?.approach_used
     );
   }, [parsed]);
+
+  // Delegate PR reviews to specialized component
+  if (isPRReviewMemory(memory)) {
+    return <PRReviewCard memory={memory} />;
+  }
+
+  const Icon = memoryTypeIcons[memory.type] || memoryTypeIcons.session_insight;
+  const typeColor = memoryTypeColors[memory.type] || '';
+  const typeLabel = memoryTypeLabels[memory.type] || memory.type.replace(/_/g, ' ');
 
   const sessionLabel = memory.session_number
     ? `Session #${memory.session_number}`
@@ -129,8 +154,8 @@ export function MemoryCard({ memory }: MemoryCardProps) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline" className="text-xs capitalize font-medium">
-                  {memory.type.replace(/_/g, ' ')}
+                <Badge variant="outline" className={`text-xs capitalize font-medium ${typeColor}`}>
+                  {typeLabel}
                 </Badge>
                 {sessionLabel && (
                   <span className="text-sm font-medium text-foreground">

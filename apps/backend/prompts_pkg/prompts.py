@@ -7,7 +7,9 @@ Supports dynamic prompt assembly based on project type for context optimization.
 """
 
 import json
+import os
 import re
+import subprocess
 from pathlib import Path
 
 from .project_context import (
@@ -15,6 +17,133 @@ from .project_context import (
     get_mcp_tools_for_project,
     load_project_index,
 )
+
+
+def _validate_branch_name(branch: str | None) -> str | None:
+    """
+    Validate a git branch name for safety and correctness.
+
+    Args:
+        branch: The branch name to validate
+
+    Returns:
+        The validated branch name, or None if invalid
+    """
+    if not branch or not isinstance(branch, str):
+        return None
+
+    # Trim whitespace
+    branch = branch.strip()
+
+    # Reject empty or whitespace-only strings
+    if not branch:
+        return None
+
+    # Enforce maximum length (git refs can be long, but 255 is reasonable)
+    if len(branch) > 255:
+        return None
+
+    # Require at least one alphanumeric character
+    if not any(c.isalnum() for c in branch):
+        return None
+
+    # Only allow common git-ref characters: letters, numbers, ., _, -, /
+    # This prevents prompt injection and other security issues
+    if not re.match(r"^[A-Za-z0-9._/-]+$", branch):
+        return None
+
+    # Reject suspicious patterns that could be prompt injection attempts
+    # (newlines, control characters are already blocked by the regex above)
+
+    return branch
+
+
+def _get_base_branch_from_metadata(spec_dir: Path) -> str | None:
+    """
+    Read baseBranch from task_metadata.json if it exists.
+
+    Args:
+        spec_dir: Directory containing the spec files
+
+    Returns:
+        The baseBranch from metadata, or None if not found or invalid
+    """
+    metadata_path = spec_dir / "task_metadata.json"
+    if metadata_path.exists():
+        try:
+            with open(metadata_path, encoding="utf-8") as f:
+                metadata = json.load(f)
+                base_branch = metadata.get("baseBranch")
+                # Validate the branch name before returning
+                return _validate_branch_name(base_branch)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return None
+
+
+def _detect_base_branch(spec_dir: Path, project_dir: Path) -> str:
+    """
+    Detect the base branch for a project/task.
+
+    Priority order:
+    1. baseBranch from task_metadata.json (task-level override)
+    2. DEFAULT_BRANCH environment variable
+    3. Auto-detect main/master/develop (if they exist in git)
+    4. Fall back to "main"
+
+    Args:
+        spec_dir: Directory containing the spec files
+        project_dir: Project root directory
+
+    Returns:
+        The detected base branch name
+    """
+    # 1. Check task_metadata.json for task-specific baseBranch
+    metadata_branch = _get_base_branch_from_metadata(spec_dir)
+    if metadata_branch:
+        return metadata_branch
+
+    # 2. Check for DEFAULT_BRANCH env var
+    env_branch = _validate_branch_name(os.getenv("DEFAULT_BRANCH"))
+    if env_branch:
+        # Verify the branch exists (with timeout to prevent hanging)
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--verify", env_branch],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=3,
+            )
+            if result.returncode == 0:
+                return env_branch
+        except subprocess.TimeoutExpired:
+            # Treat timeout as branch verification failure
+            pass
+
+    # 3. Auto-detect main/master/develop
+    for branch in ["main", "master", "develop"]:
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--verify", branch],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=3,
+            )
+            if result.returncode == 0:
+                return branch
+        except subprocess.TimeoutExpired:
+            # Treat timeout as branch verification failure, try next branch
+            continue
+
+    # 4. Fall back to "main"
+    return "main"
+
 
 # Directory containing prompt files
 # prompts/ is a sibling directory of prompts_pkg/, so go up one level first
@@ -304,6 +433,7 @@ def get_qa_reviewer_prompt(spec_dir: Path, project_dir: Path) -> str:
     1. Loads the base QA reviewer prompt
     2. Detects project capabilities from project_index.json
     3. Injects only relevant MCP tool documentation (Electron, Puppeteer, DB, API)
+    4. Detects and injects the correct base branch for git comparisons
 
     This saves context window by excluding irrelevant tool docs.
     For example, a CLI Python project won't get Electron validation docs.
@@ -315,8 +445,14 @@ def get_qa_reviewer_prompt(spec_dir: Path, project_dir: Path) -> str:
     Returns:
         The QA reviewer prompt with project-specific tools injected
     """
+    # Detect the base branch for this task (from task_metadata.json or auto-detect)
+    base_branch = _detect_base_branch(spec_dir, project_dir)
+
     # Load base QA reviewer prompt
     base_prompt = _load_prompt_file("qa_reviewer.md")
+
+    # Replace {{BASE_BRANCH}} placeholder with the actual base branch
+    base_prompt = base_prompt.replace("{{BASE_BRANCH}}", base_branch)
 
     # Load project index and detect capabilities
     project_index = load_project_index(project_dir)
@@ -346,6 +482,17 @@ Your spec and progress files are located at:
 - Fix request output: `{spec_dir}/QA_FIX_REQUEST.md`
 
 The project root is: `{project_dir}`
+
+## GIT BRANCH CONFIGURATION
+
+**Base branch for comparison:** `{base_branch}`
+
+When checking for unrelated changes, use three-dot diff syntax:
+```bash
+git diff {base_branch}...HEAD --name-status
+```
+
+This shows only changes made in the spec branch since it diverged from `{base_branch}`.
 
 ---
 

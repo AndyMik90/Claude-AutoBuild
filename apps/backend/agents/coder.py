@@ -62,7 +62,7 @@ from .utils import (
     get_commit_count,
     get_latest_commit,
     load_implementation_plan,
-    sync_plan_to_source,
+    sync_spec_to_source,
 )
 
 logger = logging.getLogger(__name__)
@@ -404,7 +404,7 @@ async def run_autonomous_agent(
                     print_status("Linear notified of stuck subtask", "info")
         elif is_planning_phase and source_spec_dir:
             # After planning phase, sync the newly created implementation plan back to source
-            if sync_plan_to_source(spec_dir, source_spec_dir):
+            if sync_spec_to_source(spec_dir, source_spec_dir):
                 print_status("Implementation plan synced to main project", "success")
 
         # Handle session status
