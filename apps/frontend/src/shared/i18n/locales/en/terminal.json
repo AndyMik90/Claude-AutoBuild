@@ -3,6 +3,10 @@
     "expand": "Expand terminal",
     "collapse": "Collapse terminal"
   },
+  "auth": {
+    "terminalTitle": "Auth: {{profileName}}",
+    "maxTerminalsReached": "Cannot open auth terminal: maximum terminals reached. Close a terminal first."
+  },
   "worktree": {
     "create": "Worktree",
     "createNew": "New Worktree",

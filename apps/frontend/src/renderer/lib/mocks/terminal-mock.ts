@@ -91,5 +91,6 @@ export const terminalMock = {
   onTerminalClaudeSession: () => () => {},
   onTerminalRateLimit: () => () => {},
   onTerminalOAuthToken: () => () => {},
+  onTerminalAuthCreated: () => () => {},
   onTerminalClaudeBusy: () => () => {}
 };

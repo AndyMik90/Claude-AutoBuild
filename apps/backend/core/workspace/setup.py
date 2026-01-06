@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from merge import FileTimelineTracker
+from security.constants import ALLOWLIST_FILENAME, PROFILE_FILENAME
 from ui import (
     Icons,
     MenuOption,
@@ -265,6 +266,34 @@ def setup_workspace(
     if copied_env_files:
         print_status(
             f"Environment files copied: {', '.join(copied_env_files)}", "success"
+        )
+
+    # Copy security configuration files if they exist
+    # Note: Unlike env files, security files always overwrite to ensure
+    # the worktree uses the same security rules as the main project.
+    # This prevents security bypasses through stale worktree configs.
+    security_files = [
+        ALLOWLIST_FILENAME,
+        PROFILE_FILENAME,
+    ]
+    security_files_copied = []
+
+    for filename in security_files:
+        source_file = project_dir / filename
+        if source_file.is_file():
+            target_file = worktree_info.path / filename
+            try:
+                shutil.copy2(source_file, target_file)
+                security_files_copied.append(filename)
+            except (OSError, PermissionError) as e:
+                debug_warning(MODULE, f"Failed to copy {filename}: {e}")
+                print_status(
+                    f"Warning: Could not copy {filename} to worktree", "warning"
+                )
+
+    if security_files_copied:
+        print_status(
+            f"Security config copied: {', '.join(security_files_copied)}", "success"
         )
 
     # Ensure .auto-claude/ is in the worktree's .gitignore
