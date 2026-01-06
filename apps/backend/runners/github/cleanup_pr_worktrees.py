@@ -27,8 +27,10 @@ pr_worktree_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pr_worktree_module)
 
 PRWorktreeManager = pr_worktree_module.PRWorktreeManager
-PR_WORKTREE_MAX_AGE_DAYS = pr_worktree_module.PR_WORKTREE_MAX_AGE_DAYS
-MAX_PR_WORKTREES = pr_worktree_module.MAX_PR_WORKTREES
+DEFAULT_PR_WORKTREE_MAX_AGE_DAYS = pr_worktree_module.DEFAULT_PR_WORKTREE_MAX_AGE_DAYS
+DEFAULT_MAX_PR_WORKTREES = pr_worktree_module.DEFAULT_MAX_PR_WORKTREES
+_get_max_age_days = pr_worktree_module._get_max_age_days
+_get_max_pr_worktrees = pr_worktree_module._get_max_pr_worktrees
 
 
 def find_project_root() -> Path:
@@ -64,22 +66,28 @@ def show_stats(manager: PRWorktreeManager) -> None:
     """Show worktree cleanup statistics."""
     worktrees = manager.get_worktree_info()
     registered = manager.get_registered_worktrees()
+    # Use resolved paths for consistent comparison (handles macOS symlinks)
+    registered_resolved = {p.resolve() for p in registered}
+
+    # Get current policy values (may be overridden by env vars)
+    max_age_days = _get_max_age_days()
+    max_worktrees = _get_max_pr_worktrees()
 
     total = len(worktrees)
-    orphaned = sum(1 for wt in worktrees if wt.path not in registered)
-    expired = sum(1 for wt in worktrees if wt.age_days > PR_WORKTREE_MAX_AGE_DAYS)
-    excess = max(0, total - MAX_PR_WORKTREES)
+    orphaned = sum(1 for wt in worktrees if wt.path.resolve() not in registered_resolved)
+    expired = sum(1 for wt in worktrees if wt.age_days > max_age_days)
+    excess = max(0, total - max_worktrees)
 
     print("\nPR Worktree Statistics:")
     print(f"  Total worktrees:      {total}")
     print(f"  Registered with git:  {len(registered)}")
     print(f"  Orphaned (not in git): {orphaned}")
-    print(f"  Expired (>{PR_WORKTREE_MAX_AGE_DAYS} days):    {expired}")
-    print(f"  Excess (>{MAX_PR_WORKTREES} limit):   {excess}")
+    print(f"  Expired (>{max_age_days} days):    {expired}")
+    print(f"  Excess (>{max_worktrees} limit):   {excess}")
     print()
     print("Cleanup Policies:")
-    print(f"  Max age:     {PR_WORKTREE_MAX_AGE_DAYS} days")
-    print(f"  Max count:   {MAX_PR_WORKTREES} worktrees")
+    print(f"  Max age:     {max_age_days} days")
+    print(f"  Max count:   {max_worktrees} worktrees")
     print()
 
 

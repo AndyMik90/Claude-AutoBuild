@@ -30,16 +30,24 @@ DEFAULT_PR_WORKTREE_MAX_AGE_DAYS = 7  # Max age in days
 
 def _get_max_pr_worktrees() -> int:
     """Get max worktrees setting, read at runtime for testability."""
-    return int(os.environ.get("MAX_PR_WORKTREES", str(DEFAULT_MAX_PR_WORKTREES)))
+    try:
+        value = int(os.environ.get("MAX_PR_WORKTREES", str(DEFAULT_MAX_PR_WORKTREES)))
+        return value if value > 0 else DEFAULT_MAX_PR_WORKTREES
+    except (ValueError, TypeError):
+        return DEFAULT_MAX_PR_WORKTREES
 
 
 def _get_max_age_days() -> int:
     """Get max age setting, read at runtime for testability."""
-    return int(
-        os.environ.get(
-            "PR_WORKTREE_MAX_AGE_DAYS", str(DEFAULT_PR_WORKTREE_MAX_AGE_DAYS)
+    try:
+        value = int(
+            os.environ.get(
+                "PR_WORKTREE_MAX_AGE_DAYS", str(DEFAULT_PR_WORKTREE_MAX_AGE_DAYS)
+            )
         )
-    )
+        return value if value >= 0 else DEFAULT_PR_WORKTREE_MAX_AGE_DAYS
+    except (ValueError, TypeError):
+        return DEFAULT_PR_WORKTREE_MAX_AGE_DAYS
 
 
 # Safe pattern for git refs (SHA, branch names)
