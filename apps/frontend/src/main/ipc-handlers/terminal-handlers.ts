@@ -338,7 +338,15 @@ export function registerTerminalHandlers(
         });
 
         // Create a new terminal for the login process
-        await terminalManager.create({ id: terminalId, cwd: homeDir });
+        const createResult = await terminalManager.create({ id: terminalId, cwd: homeDir });
+
+        // If terminal creation failed, return the error
+        if (!createResult.success) {
+          return {
+            success: false,
+            error: createResult.error || 'Failed to create terminal for authentication'
+          };
+        }
 
         // Wait a moment for the terminal to initialize
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -377,10 +385,11 @@ export function registerTerminalHandlers(
         // Write the login command to the terminal
         terminalManager.write(terminalId, `${loginCommand}\r`);
 
-        // Notify the renderer that a login terminal was created
+        // Notify the renderer that an auth terminal was created
+        // This allows the UI to display the terminal so users can see the OAuth flow
         const mainWindow = getMainWindow();
         if (mainWindow) {
-          mainWindow.webContents.send('claude-profile-login-terminal', {
+          mainWindow.webContents.send(IPC_CHANNELS.TERMINAL_AUTH_CREATED, {
             terminalId,
             profileId,
             profileName: profile.name
