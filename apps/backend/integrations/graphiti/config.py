@@ -622,10 +622,23 @@ def get_graphiti_status() -> dict:
         status["errors"] = errors
         # Errors are informational - embedder is optional (keyword search fallback)
 
-    # Available if is_valid() returns True (just needs enabled flag)
-    status["available"] = config.is_valid()
-    if not status["available"]:
+    # CRITICAL FIX: Actually verify packages are importable before reporting available
+    # Don't just check config.is_valid() - actually try to import the module
+    if not config.is_valid():
         status["reason"] = errors[0] if errors else "Configuration invalid"
+        return status
+
+    # Try importing the required Graphiti packages
+    try:
+        # Attempt to import the main graphiti_memory module
+        import graphiti_core  # noqa: F401
+        from graphiti_core.driver.falkordb_driver import FalkorDriver  # noqa: F401
+
+        # If we got here, packages are importable
+        status["available"] = True
+    except ImportError as e:
+        status["available"] = False
+        status["reason"] = f"Graphiti packages not installed: {e}"
 
     return status
 

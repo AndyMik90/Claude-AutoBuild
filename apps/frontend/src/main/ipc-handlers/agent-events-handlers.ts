@@ -1,5 +1,7 @@
 import type { BrowserWindow } from 'electron';
-import { IPC_CHANNELS } from '../../shared/constants';
+import path from 'path';
+import { existsSync } from 'fs';
+import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
 import type {
   SDKRateLimitInfo,
   Task,
@@ -14,6 +16,7 @@ import { fileWatcher } from '../file-watcher';
 import { projectStore } from '../project-store';
 import { notificationService } from '../notification-service';
 import { persistPlanStatusSync, getPlanPath } from './task/plan-file-utils';
+import { findTaskWorktree } from '../worktree-paths';
 
 
 /**
@@ -80,6 +83,12 @@ export function registerAgenteventsHandlers(
       try {
         const projects = projectStore.getProjects();
 
+        // IMPORTANT: Invalidate cache for all projects to ensure we get fresh data
+        // This prevents race conditions where cached task data has stale status
+        for (const p of projects) {
+          projectStore.invalidateTasksCache(p.id);
+        }
+
         for (const p of projects) {
           const tasks = projectStore.getTasks(p.id);
           task = tasks.find((t) => t.id === taskId || t.specId === taskId);
@@ -91,13 +100,39 @@ export function registerAgenteventsHandlers(
 
         if (task && project) {
           const taskTitle = task.title || task.specId;
-          const planPath = getPlanPath(project, task);
+          const mainPlanPath = getPlanPath(project, task);
+          const projectId = project.id; // Capture for closure
+
+          // Capture task values for closure
+          const taskSpecId = task.specId;
+          const projectPath = project.path;
+          const autoBuildPath = project.autoBuildPath;
 
           // Use shared utility for persisting status (prevents race conditions)
+          // Persist to both main project AND worktree (if exists) for consistency
           const persistStatus = (status: TaskStatus) => {
-            const persisted = persistPlanStatusSync(planPath, status);
-            if (persisted) {
-              console.log(`[Task ${taskId}] Persisted status to plan: ${status}`);
+            // Persist to main project
+            const mainPersisted = persistPlanStatusSync(mainPlanPath, status, projectId);
+            if (mainPersisted) {
+              console.warn(`[Task ${taskId}] Persisted status to main plan: ${status}`);
+            }
+
+            // Also persist to worktree if it exists
+            const worktreePath = findTaskWorktree(projectPath, taskSpecId);
+            if (worktreePath) {
+              const specsBaseDir = getSpecsDir(autoBuildPath);
+              const worktreePlanPath = path.join(
+                worktreePath,
+                specsBaseDir,
+                taskSpecId,
+                AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
+              );
+              if (existsSync(worktreePlanPath)) {
+                const worktreePersisted = persistPlanStatusSync(worktreePlanPath, status, projectId);
+                if (worktreePersisted) {
+                  console.warn(`[Task ${taskId}] Persisted status to worktree plan: ${status}`);
+                }
+              }
             }
           };
 
@@ -112,7 +147,7 @@ export function registerAgenteventsHandlers(
               task.subtasks.some((s) => s.status !== 'completed');
             
             if (isActiveStatus && !hasIncompleteSubtasks) {
-              console.log(`[Task ${taskId}] Fallback: Moving to human_review (process exited successfully)`);
+              console.warn(`[Task ${taskId}] Fallback: Moving to human_review (process exited successfully)`);
               persistStatus('human_review');
               mainWindow.webContents.send(
                 IPC_CHANNELS.TASK_STATUS_CHANGE,
@@ -159,18 +194,37 @@ export function registerAgenteventsHandlers(
           newStatus
         );
 
-        // CRITICAL: Persist status to plan file to prevent flip-flop on task list refresh
+        // CRITICAL: Persist status to plan file(s) to prevent flip-flop on task list refresh
         // When getTasks() is called, it reads status from the plan file. Without persisting,
         // the status in the file might differ from the UI, causing inconsistent state.
         // Uses shared utility with locking to prevent race conditions.
+        // IMPORTANT: We persist to BOTH main project AND worktree (if exists) to ensure
+        // consistency, since getTasks() prefers the worktree version.
         try {
           const projects = projectStore.getProjects();
           for (const p of projects) {
             const tasks = projectStore.getTasks(p.id);
             const task = tasks.find((t) => t.id === taskId || t.specId === taskId);
             if (task) {
-              const planPath = getPlanPath(p, task);
-              persistPlanStatusSync(planPath, newStatus);
+              // Persist to main project plan file
+              const mainPlanPath = getPlanPath(p, task);
+              persistPlanStatusSync(mainPlanPath, newStatus, p.id);
+
+              // Also persist to worktree plan file if it exists
+              // This ensures consistency since getTasks() prefers worktree version
+              const worktreePath = findTaskWorktree(p.path, task.specId);
+              if (worktreePath) {
+                const specsBaseDir = getSpecsDir(p.autoBuildPath);
+                const worktreePlanPath = path.join(
+                  worktreePath,
+                  specsBaseDir,
+                  task.specId,
+                  AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
+                );
+                if (existsSync(worktreePlanPath)) {
+                  persistPlanStatusSync(worktreePlanPath, newStatus, p.id);
+                }
+              }
               break;
             }
           }

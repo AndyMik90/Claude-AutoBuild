@@ -181,7 +181,14 @@ export class TaskLogService extends EventEmitter {
    * @param specsRelPath - Optional: Relative path to specs (e.g., "auto-claude/specs")
    */
   startWatching(specId: string, specDir: string, projectPath?: string, specsRelPath?: string): void {
-    // Stop any existing watch
+    // Check if already watching with the same parameters (prevents rapid watch/unwatch cycles)
+    const existingWatch = this.watchedPaths.get(specId);
+    if (existingWatch && existingWatch.mainSpecDir === specDir) {
+      // Already watching this spec with the same spec directory - no-op
+      return;
+    }
+
+    // Stop any existing watch (different spec dir or first time)
     this.stopWatching(specId);
 
     const mainLogFile = path.join(specDir, 'task_logs.json');

@@ -223,6 +223,24 @@ class ModificationTracker:
                     # File was deleted
                     new_content = ""
 
+                # Auto-create FileEvolution entry if not already tracked
+                # This handles retroactive tracking when capture_baselines wasn't called
+                rel_path = self.storage.get_relative_path(file_path)
+                if rel_path not in evolutions:
+                    evolutions[rel_path] = FileEvolution(
+                        file_path=rel_path,
+                        baseline_commit=merge_base,
+                        baseline_captured_at=datetime.now(),
+                        baseline_content_hash=compute_content_hash(old_content),
+                        baseline_snapshot_path="",  # Not storing baseline file
+                        task_snapshots=[],
+                    )
+                    debug(
+                        MODULE,
+                        f"Auto-created evolution entry for {rel_path}",
+                        baseline_commit=merge_base[:8],
+                    )
+
                 # Record the modification
                 self.record_modification(
                     task_id=task_id,
@@ -260,35 +278,23 @@ class ModificationTracker:
 
     def _detect_target_branch(self, worktree_path: Path) -> str:
         """
-        Detect the target branch to compare against for a worktree.
+        Detect the base branch to compare against for a worktree.
 
-        This finds the branch that the worktree was created from by looking
-        at the merge-base between the worktree and common branch names.
+        This finds the branch that the worktree was created FROM by looking
+        for common branch names (main, master, develop) that have a valid
+        merge-base with the worktree.
+
+        Note: We don't use upstream tracking because that returns the worktree's
+        own branch (e.g., origin/auto-claude/...) rather than the base branch.
 
         Args:
             worktree_path: Path to the worktree
 
         Returns:
-            The detected target branch name, defaults to 'main' if detection fails
+            The detected base branch name, defaults to 'main' if detection fails
         """
-        # Try to get the upstream tracking branch
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
-                cwd=worktree_path,
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                upstream = result.stdout.strip()
-                # Extract branch name from origin/branch format
-                if "/" in upstream:
-                    return upstream.split("/", 1)[1]
-                return upstream
-        except subprocess.CalledProcessError:
-            pass
-
         # Try common branch names and find which one has a valid merge-base
+        # This is the reliable way to find what branch the worktree diverged from
         for branch in ["main", "master", "develop"]:
             try:
                 result = subprocess.run(
@@ -298,6 +304,11 @@ class ModificationTracker:
                     text=True,
                 )
                 if result.returncode == 0:
+                    debug(
+                        MODULE,
+                        f"Detected base branch: {branch}",
+                        worktree_path=str(worktree_path),
+                    )
                     return branch
             except subprocess.CalledProcessError:
                 continue
@@ -305,7 +316,7 @@ class ModificationTracker:
         # Default to main
         debug_warning(
             MODULE,
-            "Could not detect target branch, defaulting to 'main'",
+            "Could not detect base branch, defaulting to 'main'",
             worktree_path=str(worktree_path),
         )
         return "main"

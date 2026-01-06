@@ -114,10 +114,25 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
 
   // Memoized stuck check function to avoid recreating on every render
   const performStuckCheck = useCallback(() => {
+    // IMPORTANT: If the execution phase is 'complete' or 'failed', the task is NOT stuck.
+    // It means the process has finished and status update is pending.
+    // This prevents false-positive "stuck" indicators when the process exits normally.
+    const currentPhase = task.executionProgress?.phase;
+    if (currentPhase === 'complete' || currentPhase === 'failed') {
+      setIsStuck(false);
+      return;
+    }
+
     // Use requestIdleCallback for non-blocking check when available
     const doCheck = () => {
       checkTaskRunning(task.id).then((actuallyRunning) => {
-        setIsStuck(!actuallyRunning);
+        // Double-check the phase again in case it changed while waiting
+        const latestPhase = task.executionProgress?.phase;
+        if (latestPhase === 'complete' || latestPhase === 'failed') {
+          setIsStuck(false);
+        } else {
+          setIsStuck(!actuallyRunning);
+        }
       });
     };
 
@@ -126,7 +141,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
     } else {
       doCheck();
     }
-  }, [task.id]);
+  }, [task.id, task.executionProgress?.phase]);
 
   // Check if task is stuck (status says in_progress but no actual process)
   // Add a longer grace period to avoid false positives during process spawn
