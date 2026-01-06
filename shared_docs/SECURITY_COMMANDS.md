@@ -147,6 +147,7 @@ If the file doesn't exist, no migration is needed.
 Open `.auto-claude-security.json` and add your commands to the `custom_commands` array:
 
 **Before (`.auto-claude-allowlist`):**
+
 ```text
 bazel
 terraform
@@ -154,6 +155,7 @@ terraform
 ```
 
 **After (`.auto-claude-security.json`):**
+
 ```json
 {
   "version": 2,
