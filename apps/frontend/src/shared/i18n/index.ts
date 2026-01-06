@@ -27,6 +27,9 @@ import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
 import frRoadmap from './locales/fr/roadmap.json';
 
+// Import Indonesian translation resources (roadmap only)
+import idRoadmap from './locales/id/roadmap.json';
+
 export const defaultNS = 'common';
 
 export const resources = {
@@ -55,6 +58,10 @@ export const resources = {
     taskReview: frTaskReview,
     terminal: frTerminal,
     roadmap: frRoadmap
+  },
+  id: {
+    roadmap: idRoadmap
+    // Other namespaces fallback to English (defaultNS)
   }
 } as const;
 
