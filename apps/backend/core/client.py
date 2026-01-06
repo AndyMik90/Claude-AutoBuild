@@ -488,6 +488,12 @@ def create_client(
     # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, etc.)
     sdk_env = get_sdk_env_vars()
 
+    # Debug: Log git-bash path detection on Windows
+    if "CLAUDE_CODE_GIT_BASH_PATH" in sdk_env:
+        print(f"   - Git Bash path: {sdk_env['CLAUDE_CODE_GIT_BASH_PATH']}")
+    elif os.name == "nt":
+        print("   - WARNING: Git Bash path not detected!")
+
     # Check if Linear integration is enabled
     linear_enabled = is_linear_enabled()
     linear_api_key = os.environ.get("LINEAR_API_KEY", "")
