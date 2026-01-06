@@ -11,6 +11,7 @@ import type { IPCResult, AppUpdateInfo } from '../../shared/types';
 import {
   checkForUpdates,
   downloadUpdate,
+  downloadStableVersion,
   quitAndInstall,
   getCurrentVersion
 } from '../app-updater';
@@ -60,6 +61,26 @@ export function registerAppUpdateHandlers(): void {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to download update'
+        };
+      }
+    }
+  );
+
+  /**
+   * APP_UPDATE_DOWNLOAD_STABLE: Download stable version (for downgrade from beta)
+   * Uses allowDowngrade to download an older stable version
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.APP_UPDATE_DOWNLOAD_STABLE,
+    async (): Promise<IPCResult> => {
+      try {
+        await downloadStableVersion();
+        return { success: true };
+      } catch (error) {
+        console.error('[app-update-handlers] Download stable version failed:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to download stable version'
         };
       }
     }

@@ -45,25 +45,75 @@ export const THINKING_LEVELS = [
 ] as const;
 
 // ============================================
-// Agent Profiles
+// Agent Profiles - Phase Configurations
 // ============================================
 
-// Default phase model configuration for Auto profile
-// Uses Opus across all phases for maximum quality
-export const DEFAULT_PHASE_MODELS: PhaseModelConfig = {
-  spec: 'opus',       // Best quality for spec creation
-  planning: 'opus',   // Complex architecture decisions benefit from Opus
-  coding: 'opus',     // Highest quality implementation
-  qa: 'opus'          // Thorough QA review
+// Phase configurations for each preset profile
+// Each profile has its own default phase models and thinking levels
+
+// Auto (Optimized) - Opus with optimized thinking per phase
+export const AUTO_PHASE_MODELS: PhaseModelConfig = {
+  spec: 'opus',
+  planning: 'opus',
+  coding: 'opus',
+  qa: 'opus'
 };
 
-// Default phase thinking configuration for Auto profile
-export const DEFAULT_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = {
+export const AUTO_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = {
   spec: 'ultrathink',   // Deep thinking for comprehensive spec creation
   planning: 'high',     // High thinking for planning complex features
   coding: 'low',        // Faster coding iterations
   qa: 'low'             // Efficient QA review
 };
+
+// Complex Tasks - Opus with ultrathink across all phases
+export const COMPLEX_PHASE_MODELS: PhaseModelConfig = {
+  spec: 'opus',
+  planning: 'opus',
+  coding: 'opus',
+  qa: 'opus'
+};
+
+export const COMPLEX_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = {
+  spec: 'ultrathink',
+  planning: 'ultrathink',
+  coding: 'ultrathink',
+  qa: 'ultrathink'
+};
+
+// Balanced - Sonnet with medium thinking across all phases
+export const BALANCED_PHASE_MODELS: PhaseModelConfig = {
+  spec: 'sonnet',
+  planning: 'sonnet',
+  coding: 'sonnet',
+  qa: 'sonnet'
+};
+
+export const BALANCED_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = {
+  spec: 'medium',
+  planning: 'medium',
+  coding: 'medium',
+  qa: 'medium'
+};
+
+// Quick Edits - Haiku with low thinking across all phases
+export const QUICK_PHASE_MODELS: PhaseModelConfig = {
+  spec: 'haiku',
+  planning: 'haiku',
+  coding: 'haiku',
+  qa: 'haiku'
+};
+
+export const QUICK_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = {
+  spec: 'low',
+  planning: 'low',
+  coding: 'low',
+  qa: 'low'
+};
+
+// Default phase configuration (used for fallback, matches 'Balanced' profile for cost-effectiveness)
+export const DEFAULT_PHASE_MODELS: PhaseModelConfig = BALANCED_PHASE_MODELS;
+export const DEFAULT_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = BALANCED_PHASE_THINKING;
 
 // ============================================
 // Feature Settings (Non-Pipeline Features)
@@ -100,17 +150,17 @@ export const FEATURE_LABELS: Record<keyof FeatureModelConfig, { label: string; d
 };
 
 // Default agent profiles for preset model/thinking configurations
+// All profiles have per-phase configuration for full customization
 export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
   {
     id: 'auto',
     name: 'Auto (Optimized)',
     description: 'Uses Opus across all phases with optimized thinking levels',
-    model: 'opus',  // Fallback/default model
+    model: 'opus',
     thinkingLevel: 'high',
     icon: 'Sparkles',
-    isAutoProfile: true,
-    phaseModels: DEFAULT_PHASE_MODELS,
-    phaseThinking: DEFAULT_PHASE_THINKING
+    phaseModels: AUTO_PHASE_MODELS,
+    phaseThinking: AUTO_PHASE_THINKING
   },
   {
     id: 'complex',
@@ -118,7 +168,9 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
     description: 'For intricate, multi-step implementations requiring deep analysis',
     model: 'opus',
     thinkingLevel: 'ultrathink',
-    icon: 'Brain'
+    icon: 'Brain',
+    phaseModels: COMPLEX_PHASE_MODELS,
+    phaseThinking: COMPLEX_PHASE_THINKING
   },
   {
     id: 'balanced',
@@ -126,7 +178,9 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
     description: 'Good balance of speed and quality for most tasks',
     model: 'sonnet',
     thinkingLevel: 'medium',
-    icon: 'Scale'
+    icon: 'Scale',
+    phaseModels: BALANCED_PHASE_MODELS,
+    phaseThinking: BALANCED_PHASE_THINKING
   },
   {
     id: 'quick',
@@ -134,7 +188,9 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
     description: 'Fast iterations for simple changes and quick fixes',
     model: 'haiku',
     thinkingLevel: 'low',
-    icon: 'Zap'
+    icon: 'Zap',
+    phaseModels: QUICK_PHASE_MODELS,
+    phaseThinking: QUICK_PHASE_THINKING
   }
 ];
 

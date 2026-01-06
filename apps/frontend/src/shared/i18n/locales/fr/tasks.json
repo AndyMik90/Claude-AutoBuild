@@ -59,7 +59,11 @@
     "emptyDoneHint": "Les tâches approuvées apparaissent ici",
     "emptyDefault": "Aucune tâche",
     "dropHere": "Déposer ici",
-    "showArchived": "Afficher les archivées"
+    "showArchived": "Afficher les archivées",
+    "addTaskAriaLabel": "Ajouter une nouvelle tâche au backlog",
+    "closeTaskDetailsAriaLabel": "Fermer les détails de la tâche",
+    "editTask": "Modifier la tâche",
+    "cannotEditWhileRunning": "Impossible de modifier pendant l'exécution"
   },
   "execution": {
     "phases": {
@@ -98,5 +102,9 @@
   },
   "metadata": {
     "severity": "sévérité"
+  },
+  "images": {
+    "removeImageAriaLabel": "Supprimer l'image {{filename}}",
+    "pasteHint": "Astuce : Collez des captures d'écran directement avec {{shortcut}} pour ajouter des images de référence."
   }
 }

@@ -12,6 +12,7 @@ describe('getOAuthModeClearVars', () => {
       const result = getOAuthModeClearVars({});
 
       expect(result).toEqual({
+        ANTHROPIC_API_KEY: '',
         ANTHROPIC_AUTH_TOKEN: '',
         ANTHROPIC_BASE_URL: '',
         ANTHROPIC_MODEL: '',
@@ -25,6 +26,7 @@ describe('getOAuthModeClearVars', () => {
       const result = getOAuthModeClearVars({});
 
       // Verify all known ANTHROPIC_* vars are cleared
+      expect(result.ANTHROPIC_API_KEY).toBe('');
       expect(result.ANTHROPIC_AUTH_TOKEN).toBe('');
       expect(result.ANTHROPIC_BASE_URL).toBe('');
       expect(result.ANTHROPIC_MODEL).toBe('');
@@ -85,6 +87,7 @@ describe('getOAuthModeClearVars', () => {
 
       // Should treat null as OAuth mode and return clearing vars
       expect(result).toEqual({
+        ANTHROPIC_API_KEY: '',
         ANTHROPIC_AUTH_TOKEN: '',
         ANTHROPIC_BASE_URL: '',
         ANTHROPIC_MODEL: '',
@@ -101,6 +104,7 @@ describe('getOAuthModeClearVars', () => {
       expect(result1).toEqual(result2);
       // Use specific expected keys instead of magic number
       const expectedKeys = [
+        'ANTHROPIC_API_KEY',
         'ANTHROPIC_AUTH_TOKEN',
         'ANTHROPIC_BASE_URL',
         'ANTHROPIC_MODEL',
@@ -117,6 +121,7 @@ describe('getOAuthModeClearVars', () => {
 
       // Should treat as OAuth mode since no ANTHROPIC_* keys present
       expect(result).toEqual({
+        ANTHROPIC_API_KEY: '',
         ANTHROPIC_AUTH_TOKEN: '',
         ANTHROPIC_BASE_URL: '',
         ANTHROPIC_MODEL: '',

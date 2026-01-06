@@ -38,7 +38,13 @@
     "branchDescription": "Choisissez quelle branche Auto Claude doit utiliser comme base pour créer les branches de tâches.",
     "whyBranch": "Pourquoi sélectionner une branche ?",
     "branchExplanation": "Auto Claude crée des espaces de travail isolés pour chaque tâche. Sélectionner la bonne branche de base garantit que vos tâches démarrent avec le code le plus récent de votre ligne de développement principale.",
-    "ready": "Auto Claude est prêt à l'emploi ! Vous pouvez maintenant créer des tâches qui seront automatiquement basées sur la branche {{branchName}}."
+    "ready": "Auto Claude est prêt à l'emploi ! Vous pouvez maintenant créer des tâches qui seront automatiquement basées sur la branche {{branchName}}.",
+    "createRepoAriaLabel": "Créer un nouveau dépôt sur GitHub",
+    "linkRepoAriaLabel": "Lier à un dépôt existant",
+    "goBackAriaLabel": "Retourner à la sélection du dépôt",
+    "selectOwnerAriaLabel": "Sélectionner {{owner}} comme propriétaire du dépôt",
+    "selectOrgAriaLabel": "Sélectionner {{org}} comme propriétaire du dépôt",
+    "selectVisibilityAriaLabel": "Définir la visibilité du dépôt sur {{visibility}}"
   },
   "worktrees": {
     "title": "Worktrees",
@@ -109,7 +115,9 @@
     "nameRequired": "Veuillez entrer un nom de projet",
     "locationRequired": "Veuillez sélectionner un emplacement",
     "failedToOpen": "Échec de l'ouverture du projet",
-    "failedToCreate": "Échec de la création du projet"
+    "failedToCreate": "Échec de la création du projet",
+    "openExistingAriaLabel": "Ouvrir un dossier de projet existant",
+    "createNewAriaLabel": "Créer un nouveau projet"
   },
   "customModel": {
     "title": "Configuration du modèle personnalisé",

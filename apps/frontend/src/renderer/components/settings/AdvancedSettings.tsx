@@ -3,25 +3,21 @@ import { useTranslation } from 'react-i18next';
 import {
   RefreshCw,
   CheckCircle2,
-  AlertCircle,
-  CloudDownload,
-  Loader2,
-  ExternalLink,
   Download,
-  Sparkles
+  Sparkles,
+  ArrowDownToLine,
+  X
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { Progress } from '../ui/progress';
-import { cn } from '../../lib/utils';
 import { SettingsSection } from './SettingsSection';
 import type {
   AppSettings,
-  AutoBuildSourceUpdateCheck,
-  AutoBuildSourceUpdateProgress,
   AppUpdateAvailableEvent,
   AppUpdateProgress,
+  AppUpdateInfo,
   NotificationSettings
 } from '../../../shared/types';
 
@@ -75,52 +71,21 @@ interface AdvancedSettingsProps {
 export function AdvancedSettings({ settings, onSettingsChange, section, version }: AdvancedSettingsProps) {
   const { t } = useTranslation('settings');
 
-  // Auto Claude source update state
-  const [sourceUpdateCheck, setSourceUpdateCheck] = useState<AutoBuildSourceUpdateCheck | null>(null);
-  const [isCheckingSourceUpdate, setIsCheckingSourceUpdate] = useState(false);
-  const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState<AutoBuildSourceUpdateProgress | null>(null);
-  // Local version state that can be updated after successful update
-  const [displayVersion, setDisplayVersion] = useState<string>(version);
-
   // Electron app update state
   const [appUpdateInfo, setAppUpdateInfo] = useState<AppUpdateAvailableEvent | null>(null);
-  const [_isCheckingAppUpdate, setIsCheckingAppUpdate] = useState(false);
+  const [isCheckingAppUpdate, setIsCheckingAppUpdate] = useState(false);
   const [isDownloadingAppUpdate, setIsDownloadingAppUpdate] = useState(false);
   const [appDownloadProgress, setAppDownloadProgress] = useState<AppUpdateProgress | null>(null);
   const [isAppUpdateDownloaded, setIsAppUpdateDownloaded] = useState(false);
-
-  // Sync displayVersion with prop when it changes
-  useEffect(() => {
-    setDisplayVersion(version);
-  }, [version]);
+  // Stable downgrade state (shown when user turns off beta while on prerelease)
+  const [stableDowngradeInfo, setStableDowngradeInfo] = useState<AppUpdateInfo | null>(null);
 
   // Check for updates on mount
   useEffect(() => {
     if (section === 'updates') {
-      checkForSourceUpdates();
       checkForAppUpdates();
     }
   }, [section]);
-
-  // Listen for source download progress
-  useEffect(() => {
-    const cleanup = window.electronAPI.onAutoBuildSourceUpdateProgress((progress) => {
-      setDownloadProgress(progress);
-      if (progress.stage === 'complete') {
-        setIsDownloadingUpdate(false);
-        // Update the displayed version if a new version was provided
-        if (progress.newVersion) {
-          setDisplayVersion(progress.newVersion);
-        }
-        checkForSourceUpdates();
-      } else if (progress.stage === 'error') {
-        setIsDownloadingUpdate(false);
-      }
-    });
-
-    return cleanup;
-  }, []);
 
   // Listen for app update events
   useEffect(() => {
@@ -134,16 +99,24 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
       setIsDownloadingAppUpdate(false);
       setIsAppUpdateDownloaded(true);
       setAppDownloadProgress(null);
+      // Clear downgrade info if any update downloaded
+      setStableDowngradeInfo(null);
     });
 
     const cleanupProgress = window.electronAPI.onAppUpdateProgress((progress) => {
       setAppDownloadProgress(progress);
     });
 
+    // Listen for stable downgrade available (when user turns off beta while on prerelease)
+    const cleanupStableDowngrade = window.electronAPI.onAppUpdateStableDowngrade((info) => {
+      setStableDowngradeInfo(info);
+    });
+
     return () => {
       cleanupAvailable();
       cleanupDownloaded();
       cleanupProgress();
+      cleanupStableDowngrade();
     };
   }, []);
 
@@ -167,7 +140,12 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
   const handleDownloadAppUpdate = async () => {
     setIsDownloadingAppUpdate(true);
     try {
-      await window.electronAPI.downloadAppUpdate();
+      const result = await window.electronAPI.downloadAppUpdate();
+      if (!result.success) {
+        console.error('Failed to download app update:', result.error);
+        setIsDownloadingAppUpdate(false);
+      }
+      // Note: Success case is handled by the onAppUpdateDownloaded event listener
     } catch (err) {
       console.error('Failed to download app update:', err);
       setIsDownloadingAppUpdate(false);
@@ -178,30 +156,24 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
     window.electronAPI.installAppUpdate();
   };
 
-  const checkForSourceUpdates = async () => {
-    console.log('[AdvancedSettings] Checking for source updates...');
-    setIsCheckingSourceUpdate(true);
+  const handleDownloadStableVersion = async () => {
+    setIsDownloadingAppUpdate(true);
     try {
-      const result = await window.electronAPI.checkAutoBuildSourceUpdate();
-      console.log('[AdvancedSettings] Check result:', result);
-      if (result.success && result.data) {
-        setSourceUpdateCheck(result.data);
-        // Update displayed version from the check result (most accurate)
-        if (result.data.currentVersion) {
-          setDisplayVersion(result.data.currentVersion);
-        }
+      // Use dedicated stable download API with allowDowngrade enabled
+      const result = await window.electronAPI.downloadStableUpdate();
+      if (!result.success) {
+        console.error('Failed to download stable version:', result.error);
+        setIsDownloadingAppUpdate(false);
       }
+      // Note: Success case is handled by the onAppUpdateDownloaded event listener
     } catch (err) {
-      console.error('[AdvancedSettings] Check error:', err);
-    } finally {
-      setIsCheckingSourceUpdate(false);
+      console.error('Failed to download stable version:', err);
+      setIsDownloadingAppUpdate(false);
     }
   };
 
-  const handleDownloadSourceUpdate = () => {
-    setIsDownloadingUpdate(true);
-    setDownloadProgress(null);
-    window.electronAPI.downloadAutoBuildSourceUpdate();
+  const dismissStableDowngrade = () => {
+    setStableDowngradeInfo(null);
   };
 
   if (section === 'updates') {
@@ -211,7 +183,45 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
         description={t('updates.description')}
       >
         <div className="space-y-6">
-          {/* Electron App Update Section */}
+          {/* Current Version Display */}
+          <div className="rounded-lg border border-border bg-muted/50 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{t('updates.version')}</p>
+                <p className="text-base font-medium text-foreground">
+                  {version || t('updates.loading')}
+                </p>
+              </div>
+              {isCheckingAppUpdate ? (
+                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+              ) : appUpdateInfo ? (
+                <Download className="h-6 w-6 text-info" />
+              ) : (
+                <CheckCircle2 className="h-6 w-6 text-success" />
+              )}
+            </div>
+
+            {/* Update status */}
+            {!appUpdateInfo && !isCheckingAppUpdate && (
+              <p className="text-sm text-muted-foreground">
+                {t('updates.latestVersion')}
+              </p>
+            )}
+
+            <div className="pt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={checkForAppUpdates}
+                disabled={isCheckingAppUpdate}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isCheckingAppUpdate ? 'animate-spin' : ''}`} />
+                {t('updates.checkForUpdates')}
+              </Button>
+            </div>
+          </div>
+
+          {/* Electron App Update Section - shows when update available */}
           {(appUpdateInfo || isAppUpdateDownloaded) && (
             <div className="rounded-lg border-2 border-info/50 bg-info/5 p-5 space-y-4">
               <div className="flex items-center gap-2 text-info">
@@ -302,113 +312,6 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
             </div>
           )}
 
-          {/* Unified Version Display with Update Check */}
-          <div className="rounded-lg border border-border bg-muted/50 p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{t('updates.version')}</p>
-                <p className="text-base font-medium text-foreground">
-                  {displayVersion || t('updates.loading')}
-                </p>
-              </div>
-              {isCheckingSourceUpdate ? (
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              ) : sourceUpdateCheck?.updateAvailable ? (
-                <AlertCircle className="h-6 w-6 text-info" />
-              ) : (
-                <CheckCircle2 className="h-6 w-6 text-success" />
-              )}
-            </div>
-
-            {/* Update status */}
-            {isCheckingSourceUpdate ? (
-              <p className="text-sm text-muted-foreground">
-                {t('updates.checkingForUpdates')}
-              </p>
-            ) : sourceUpdateCheck ? (
-              <>
-                {sourceUpdateCheck.latestVersion && sourceUpdateCheck.updateAvailable && (
-                  <p className="text-sm text-info">
-                    {t('updates.newVersionAvailable')} {sourceUpdateCheck.latestVersion}
-                  </p>
-                )}
-
-                {sourceUpdateCheck.error && (
-                  <p className="text-sm text-destructive">{sourceUpdateCheck.error}</p>
-                )}
-
-                {!sourceUpdateCheck.updateAvailable && !sourceUpdateCheck.error && (
-                  <p className="text-sm text-muted-foreground">
-                    {t('updates.latestVersion')}
-                  </p>
-                )}
-
-                {sourceUpdateCheck.updateAvailable && (
-                  <div className="space-y-4 pt-2">
-                    {sourceUpdateCheck.releaseNotes && (
-                      <div className="bg-background rounded-lg p-4 max-h-48 overflow-y-auto border border-border/50">
-                        <ReleaseNotesRenderer markdown={sourceUpdateCheck.releaseNotes} />
-                      </div>
-                    )}
-
-                    {sourceUpdateCheck.releaseUrl && (
-                      <button
-                        onClick={() => window.electronAPI.openExternal(sourceUpdateCheck.releaseUrl!)}
-                        className="inline-flex items-center gap-1.5 text-sm text-info hover:text-info/80 hover:underline transition-colors"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        {t('updates.viewRelease')}
-                      </button>
-                    )}
-
-                    {isDownloadingUpdate ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3 text-sm">
-                          <RefreshCw className="h-4 w-4 animate-spin" />
-                          <span>{downloadProgress?.message || 'Downloading...'}</span>
-                        </div>
-                        {downloadProgress?.percent !== undefined && (
-                          <Progress value={downloadProgress.percent} className="h-2" />
-                        )}
-                      </div>
-                    ) : downloadProgress?.stage === 'complete' ? (
-                      <div className="flex items-center gap-3 text-sm text-success">
-                        <CheckCircle2 className="h-5 w-5" />
-                        <span>{downloadProgress.message}</span>
-                      </div>
-                    ) : downloadProgress?.stage === 'error' ? (
-                      <div className="flex items-center gap-3 text-sm text-destructive">
-                        <AlertCircle className="h-5 w-5" />
-                        <span>{downloadProgress.message}</span>
-                      </div>
-                    ) : (
-                      <Button onClick={handleDownloadSourceUpdate}>
-                        <CloudDownload className="mr-2 h-4 w-4" />
-                        {t('updates.downloadUpdate')}
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {t('updates.unableToCheck')}
-              </p>
-            )}
-
-            <div className="pt-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={checkForSourceUpdates}
-                disabled={isCheckingSourceUpdate}
-              >
-                <RefreshCw className={cn('mr-2 h-4 w-4', isCheckingSourceUpdate && 'animate-spin')} />
-                {t('updates.checkForUpdates')}
-              </Button>
-            </div>
-          </div>
-
           <div className="flex items-center justify-between p-4 rounded-lg border border-border">
             <div className="space-y-1">
               <Label className="font-medium text-foreground">{t('updates.autoUpdateProjects')}</Label>
@@ -433,11 +336,113 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
             </div>
             <Switch
               checked={settings.betaUpdates ?? false}
-              onCheckedChange={(checked) =>
-                onSettingsChange({ ...settings, betaUpdates: checked })
-              }
+              onCheckedChange={(checked) => {
+                onSettingsChange({ ...settings, betaUpdates: checked });
+                if (checked) {
+                  // Clear downgrade info when enabling beta again
+                  setStableDowngradeInfo(null);
+                } else {
+                  // Clear beta update info when disabling beta, so stable downgrade UI can show
+                  setAppUpdateInfo(null);
+                }
+              }}
             />
           </div>
+
+          {/* Stable Downgrade Section - shown when user turns off beta while on prerelease */}
+          {stableDowngradeInfo && !appUpdateInfo && (
+            <div className="rounded-lg border-2 border-warning/50 bg-warning/5 p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-warning">
+                  <ArrowDownToLine className="h-5 w-5" />
+                  <h3 className="font-semibold">{t('updates.stableDowngradeAvailable')}</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={dismissStableDowngrade}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                {t('updates.stableDowngradeDescription')}
+              </p>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                    {t('updates.stableVersion')}
+                  </p>
+                  <p className="text-base font-medium text-foreground">
+                    {stableDowngradeInfo.version}
+                  </p>
+                  {stableDowngradeInfo.releaseDate && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t('updates.released')} {new Date(stableDowngradeInfo.releaseDate).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+                {isDownloadingAppUpdate ? (
+                  <RefreshCw className="h-6 w-6 animate-spin text-warning" />
+                ) : (
+                  <ArrowDownToLine className="h-6 w-6 text-warning" />
+                )}
+              </div>
+
+              {/* Release Notes */}
+              {stableDowngradeInfo.releaseNotes && (
+                <div className="bg-background rounded-lg p-4 max-h-48 overflow-y-auto border border-border/50">
+                  <ReleaseNotesRenderer markdown={stableDowngradeInfo.releaseNotes} />
+                </div>
+              )}
+
+              {/* Download Progress */}
+              {isDownloadingAppUpdate && appDownloadProgress && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{t('updates.downloading')}</span>
+                    <span className="text-foreground font-medium">
+                      {Math.round(appDownloadProgress.percent)}%
+                    </span>
+                  </div>
+                  <Progress value={appDownloadProgress.percent} className="h-2" />
+                  <p className="text-xs text-muted-foreground text-right">
+                    {(appDownloadProgress.transferred / 1024 / 1024).toFixed(2)} MB / {(appDownloadProgress.total / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleDownloadStableVersion}
+                  disabled={isDownloadingAppUpdate}
+                  variant="outline"
+                >
+                  {isDownloadingAppUpdate ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      {t('updates.downloading')}
+                    </>
+                  ) : (
+                    <>
+                      <ArrowDownToLine className="mr-2 h-4 w-4" />
+                      {t('updates.downloadStableVersion')}
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={dismissStableDowngrade}
+                >
+                  {t('common:actions.dismiss')}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </SettingsSection>
     );

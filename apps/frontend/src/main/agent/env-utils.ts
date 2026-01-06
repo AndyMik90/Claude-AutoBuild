@@ -28,7 +28,12 @@ export function getOAuthModeClearVars(apiProfileEnv: Record<string, string>): Re
   // In OAuth mode (no API profile), clear all ANTHROPIC_* vars
   // Setting to empty string ensures they override any values from process.env
   // Python's `if token:` checks treat empty strings as falsy
+  //
+  // IMPORTANT: ANTHROPIC_API_KEY is included to prevent Claude Code from using
+  // API keys that may be present in the shell environment instead of OAuth tokens.
+  // Without clearing this, Claude Code would show "Claude API" instead of "Claude Max".
   return {
+    ANTHROPIC_API_KEY: '',
     ANTHROPIC_AUTH_TOKEN: '',
     ANTHROPIC_BASE_URL: '',
     ANTHROPIC_MODEL: '',

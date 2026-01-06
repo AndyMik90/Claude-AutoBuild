@@ -159,28 +159,41 @@ async function createTerminalWorktree(
     const baseBranch = customBaseBranch || getDefaultBranch(projectPath);
     debugLog('[TerminalWorktree] Using base branch:', baseBranch, customBaseBranch ? '(custom)' : '(default)');
 
+    // Check if baseBranch is already a remote ref (e.g., "origin/feature-x")
+    const isRemoteRef = baseBranch.startsWith('origin/');
+    const remoteBranchName = isRemoteRef ? baseBranch.replace('origin/', '') : baseBranch;
+
+    // Fetch the branch from remote
     try {
-      execFileSync('git', ['fetch', 'origin', baseBranch], {
+      execFileSync('git', ['fetch', 'origin', remoteBranchName], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
       });
-      debugLog('[TerminalWorktree] Fetched latest from origin/' + baseBranch);
+      debugLog('[TerminalWorktree] Fetched latest from origin/' + remoteBranchName);
     } catch {
       debugLog('[TerminalWorktree] Could not fetch from remote, continuing with local branch');
     }
 
+    // Determine the base ref to use for worktree creation
     let baseRef = baseBranch;
-    try {
-      execFileSync('git', ['rev-parse', '--verify', `origin/${baseBranch}`], {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-      baseRef = `origin/${baseBranch}`;
-      debugLog('[TerminalWorktree] Using remote ref:', baseRef);
-    } catch {
-      debugLog('[TerminalWorktree] Remote ref not found, using local branch:', baseBranch);
+    if (isRemoteRef) {
+      // Already a remote ref, use as-is
+      baseRef = baseBranch;
+      debugLog('[TerminalWorktree] Using remote ref directly:', baseRef);
+    } else {
+      // Check if remote version exists and use it for latest code
+      try {
+        execFileSync('git', ['rev-parse', '--verify', `origin/${baseBranch}`], {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+        baseRef = `origin/${baseBranch}`;
+        debugLog('[TerminalWorktree] Using remote ref:', baseRef);
+      } catch {
+        debugLog('[TerminalWorktree] Remote ref not found, using local branch:', baseBranch);
+      }
     }
 
     if (createGitBranch) {

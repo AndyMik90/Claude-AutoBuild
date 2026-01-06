@@ -201,17 +201,19 @@ export interface FeatureThinkingConfig {
 }
 
 // Agent profile for preset model/thinking configurations
+// All profiles have per-phase configuration (phaseModels/phaseThinking)
 export interface AgentProfile {
   id: string;
   name: string;
   description: string;
-  model: ModelTypeShort;
-  thinkingLevel: ThinkingLevel;
-  icon?: string;  // Lucide icon name
-  // Auto profile specific - per-phase configuration
-  isAutoProfile?: boolean;
+  model: ModelTypeShort;           // Primary model (shown in profile card)
+  thinkingLevel: ThinkingLevel;    // Primary thinking level (shown in profile card)
+  icon?: string;                   // Lucide icon name
+  // Per-phase configuration - all profiles now have this
   phaseModels?: PhaseModelConfig;
   phaseThinking?: PhaseThinkingConfig;
+  /** @deprecated Use phaseModels and phaseThinking for per-phase configuration. Will be removed in v3.0. */
+  isAutoProfile?: boolean;
 }
 
 export interface AppSettings {
@@ -246,6 +248,9 @@ export interface AppSettings {
   memoryAzureApiKey?: string;
   memoryAzureBaseUrl?: string;
   memoryAzureEmbeddingDeployment?: string;
+  // Agent Memory Access (MCP) - app-wide defaults
+  graphitiMcpEnabled?: boolean;
+  graphitiMcpUrl?: string;
   // Onboarding wizard completion state
   onboardingCompleted?: boolean;
   // Selected agent profile for preset model/thinking configurations
@@ -274,6 +279,8 @@ export interface AppSettings {
   customIDEPath?: string;      // For 'custom' IDE
   preferredTerminal?: SupportedTerminal;
   customTerminalPath?: string; // For 'custom' terminal
+  // Anonymous error reporting (Sentry) - enabled by default to help improve the app
+  sentryEnabled?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
@@ -291,28 +298,4 @@ export interface SourceEnvCheckResult {
   hasToken: boolean;
   sourcePath?: string;
   error?: string;
-}
-
-// Auto Claude Source Update Types
-export interface AutoBuildSourceUpdateCheck {
-  updateAvailable: boolean;
-  currentVersion: string;
-  latestVersion?: string;
-  releaseNotes?: string;
-  releaseUrl?: string;
-  error?: string;
-}
-
-export interface AutoBuildSourceUpdateResult {
-  success: boolean;
-  version?: string;
-  error?: string;
-}
-
-export interface AutoBuildSourceUpdateProgress {
-  stage: 'checking' | 'downloading' | 'extracting' | 'complete' | 'error';
-  percent?: number;
-  message: string;
-  /** New version after successful update - used to refresh UI */
-  newVersion?: string;
 }

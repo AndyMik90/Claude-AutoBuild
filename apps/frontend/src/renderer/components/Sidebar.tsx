@@ -276,6 +276,7 @@ export function Sidebar({
         key={item.id}
         onClick={() => handleNavClick(item.id)}
         disabled={!selectedProjectId}
+        aria-keyshortcuts={item.shortcut}
         className={cn(
           'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200',
           'hover:bg-accent hover:text-accent-foreground',
@@ -354,6 +355,7 @@ export function Sidebar({
                   variant="ghost"
                   size="icon"
                   onClick={() => window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')}
+                  aria-label={t('tooltips.help')}
                 >
                   <HelpCircle className="h-4 w-4" />
                 </Button>

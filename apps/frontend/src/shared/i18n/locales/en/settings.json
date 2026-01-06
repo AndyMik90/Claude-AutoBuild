@@ -50,6 +50,128 @@
       "description": "Troubleshooting tools"
     }
   },
+  "apiProfiles": {
+    "title": "API Profiles",
+    "description": "Configure custom Anthropic-compatible API endpoints",
+    "addButton": "Add Profile",
+    "presets": {
+      "anthropic": "Anthropic",
+      "openrouter": "OpenRouter",
+      "groq": "Groq",
+      "glmGlobal": "GLM (Global)",
+      "glmChina": "GLM (China)"
+    },
+    "fields": {
+      "name": "Name",
+      "preset": "Preset",
+      "baseUrl": "Base URL",
+      "apiKey": "API Key"
+    },
+    "placeholders": {
+      "name": "My Custom API",
+      "preset": "Choose a provider preset",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "sk-ant-..."
+    },
+    "hints": {
+      "preset": "Presets fill the base URL; you still need to paste your API key.",
+      "baseUrl": "Example: https://api.anthropic.com or http://localhost:8080"
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "baseUrlRequired": "Base URL is required",
+      "baseUrlInvalid": "Invalid URL format (must be http:// or https://)",
+      "apiKeyRequired": "API Key is required",
+      "apiKeyInvalid": "Invalid API Key format"
+    },
+    "actions": {
+      "save": "Save Profile",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "changeKey": "Change",
+      "cancelKeyChange": "Cancel"
+    },
+    "testConnection": {
+      "label": "Test Connection",
+      "testing": "Testing...",
+      "success": "Connection Successful",
+      "failure": "Connection Failed"
+    },
+    "models": {
+      "title": "Optional: Model Name Mappings",
+      "description": "Select models from your API provider. Leave blank to use defaults.",
+      "defaultLabel": "Default Model (Optional)",
+      "haikuLabel": "Haiku Model (Optional)",
+      "sonnetLabel": "Sonnet Model (Optional)",
+      "opusLabel": "Opus Model (Optional)",
+      "defaultPlaceholder": "e.g., claude-3-5-sonnet-20241022",
+      "haikuPlaceholder": "e.g., claude-3-5-haiku-20241022",
+      "sonnetPlaceholder": "e.g., claude-3-5-sonnet-20241022",
+      "opusPlaceholder": "e.g., claude-3-5-opus-20241022"
+    },
+    "empty": {
+      "title": "No API profiles configured",
+      "description": "Create a profile to configure custom API endpoints for your builds.",
+      "action": "Create First Profile"
+    },
+    "switchToOauth": {
+      "label": "Switch to OAuth",
+      "loading": "Switching..."
+    },
+    "activeBadge": "Active",
+    "customModels": "Custom models: {{models}}",
+    "setActive": {
+      "label": "Set Active",
+      "loading": "Setting..."
+    },
+    "tooltips": {
+      "edit": "Edit profile",
+      "deleteActive": "Switch to OAuth before deleting",
+      "deleteInactive": "Delete profile"
+    },
+    "deleteAriaLabel": "Delete profile {{name}}",
+    "toast": {
+      "create": {
+        "title": "Profile created",
+        "description": "\"{{name}}\" has been added successfully."
+      },
+      "update": {
+        "title": "Profile updated",
+        "description": "\"{{name}}\" has been updated successfully."
+      },
+      "delete": {
+        "title": "Profile deleted",
+        "description": "\"{{name}}\" has been removed.",
+        "errorTitle": "Failed to delete profile",
+        "errorFallback": "An error occurred while deleting the profile."
+      },
+      "switch": {
+        "oauthTitle": "Switched to OAuth",
+        "oauthDescription": "Now using OAuth authentication",
+        "profileTitle": "Profile activated",
+        "profileDescription": "Now using {{name}}",
+        "errorTitle": "Failed to switch authentication",
+        "errorFallback": "An error occurred while switching authentication method."
+      }
+    },
+    "dialog": {
+      "createTitle": "Add API Profile",
+      "editTitle": "Edit Profile",
+      "description": "Configure a custom Anthropic-compatible API endpoint for your builds.",
+      "deleteTitle": "Delete Profile?",
+      "deleteDescription": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "deleting": "Deleting..."
+    }
+  },
+  "modelSelect": {
+    "placeholder": "Select a model or type manually",
+    "placeholderManual": "Enter model name (e.g., claude-3-5-sonnet-20241022)",
+    "searchPlaceholder": "Search models...",
+    "noResults": "No models match your search",
+    "discoveryNotAvailable": "Model discovery not available. Enter model name manually."
+  },
   "language": {
     "label": "Interface Language",
     "description": "Select the language for the application interface"
@@ -95,6 +217,7 @@
     "sourceUserConfig": "User Configuration",
     "sourceVenv": "Virtual Environment",
     "sourceHomebrew": "Homebrew",
+    "sourceNvm": "NVM",
     "sourceSystemPath": "System PATH",
     "sourceBundled": "Bundled",
     "sourceFallback": "Fallback",
@@ -161,7 +284,11 @@
     "autoUpdateProjects": "Auto-Update Projects",
     "autoUpdateProjectsDescription": "Automatically update Auto Claude in projects when a new version is available",
     "betaUpdates": "Beta Updates",
-    "betaUpdatesDescription": "Receive pre-release beta versions with new features (may be less stable)"
+    "betaUpdatesDescription": "Receive pre-release beta versions with new features (may be less stable)",
+    "stableDowngradeAvailable": "Stable Version Available",
+    "stableDowngradeDescription": "You're currently on a beta version. Since you've disabled beta updates, you can switch to the latest stable release.",
+    "stableVersion": "Stable Version",
+    "downloadStableVersion": "Download Stable Version"
   },
   "notifications": {
     "title": "Notifications",
@@ -238,7 +365,9 @@
     "selectThinkingLevel": "Select thinking level",
     "perPhaseOptimization": "(per-phase optimization)",
     "resetToDefaults": "Reset to defaults",
-    "phaseConfigNote": "These settings will be used as defaults when creating new tasks with the Auto profile. You can override them per-task in the task creation wizard.",
+    "resetToProfileDefaults": "Reset to {{profile}} defaults",
+    "customized": "Customized",
+    "phaseConfigNote": "These settings will be used as defaults when creating new tasks with this profile. You can override them per-task in the task creation wizard.",
     "phases": {
       "spec": {
         "label": "Spec Creation",
@@ -312,6 +441,10 @@
   "debug": {
     "title": "Debug & Logs",
     "description": "Access logs and debug information for troubleshooting",
+    "errorReporting": {
+      "label": "Anonymous Error Reporting",
+      "description": "Send crash reports to help improve Auto Claude. No personal data or code is collected."
+    },
     "openLogsFolder": "Open Logs Folder",
     "copyDebugInfo": "Copy Debug Info",
     "copied": "Copied!",

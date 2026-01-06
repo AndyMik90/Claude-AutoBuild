@@ -15,6 +15,7 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -26,12 +27,14 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useSettingsStore } from '../../stores/settings-store';
 import { ModelSearchableSelect } from './ModelSearchableSelect';
 import { useToast } from '../../hooks/use-toast';
 import { isValidUrl, isValidApiKey } from '../../lib/profile-utils';
 import type { APIProfile, ProfileFormData, TestConnectionResult } from '@shared/types/profile';
 import { maskApiKey } from '../../lib/profile-utils';
+import { API_PROVIDER_PRESETS } from '../../../shared/constants';
 
 interface ProfileEditDialogProps {
   /** Whether the dialog is open */
@@ -45,6 +48,7 @@ interface ProfileEditDialogProps {
 }
 
 export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: ProfileEditDialogProps) {
+  const { t } = useTranslation();
   const {
     saveProfile,
     updateProfile,
@@ -67,6 +71,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
   const [haikuModel, setHaikuModel] = useState('');
   const [sonnetModel, setSonnetModel] = useState('');
   const [opusModel, setOpusModel] = useState('');
+  const [presetId, setPresetId] = useState<string>('');
 
   // API key change state (for edit mode)
   const [isChangingApiKey, setIsChangingApiKey] = useState(false);
@@ -78,6 +83,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
 
   // AbortController ref for test connection cleanup
   const abortControllerRef = useRef<AbortController | null>(null);
+  const baseUrlInputRef = useRef<HTMLInputElement | null>(null);
 
   // Local state for auto-hiding test result display
   const [showTestResult, setShowTestResult] = useState(false);
@@ -116,6 +122,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
         setSonnetModel(profile.models?.sonnet || '');
         setOpusModel(profile.models?.opus || '');
         setIsChangingApiKey(false);
+        setPresetId('');
       } else {
         // Reset to empty form for create mode
         setName('');
@@ -126,6 +133,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
         setSonnetModel('');
         setOpusModel('');
         setIsChangingApiKey(false);
+        setPresetId('');
       }
       // Clear validation errors
       setNameError(null);
@@ -137,13 +145,23 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
     }
   }, [open]);
 
+  const applyPreset = (id: string) => {
+    const preset = API_PROVIDER_PRESETS.find((item) => item.id === id);
+    if (!preset) return;
+    setPresetId(id);
+    setBaseUrl(preset.baseUrl);
+    if (!name.trim()) {
+      setName(t(preset.labelKey));
+    }
+  };
+
   // Validate form
   const validateForm = (): boolean => {
     let isValid = true;
 
     // Name validation
     if (!name.trim()) {
-      setNameError('Name is required');
+      setNameError(t('settings:apiProfiles.validation.nameRequired'));
       isValid = false;
     } else {
       setNameError(null);
@@ -151,10 +169,10 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
 
     // Base URL validation
     if (!baseUrl.trim()) {
-      setUrlError('Base URL is required');
+      setUrlError(t('settings:apiProfiles.validation.baseUrlRequired'));
       isValid = false;
     } else if (!isValidUrl(baseUrl)) {
-      setUrlError('Invalid URL format (must be http:// or https://)');
+      setUrlError(t('settings:apiProfiles.validation.baseUrlInvalid'));
       isValid = false;
     } else {
       setUrlError(null);
@@ -163,10 +181,10 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
     // API Key validation (only in create mode or when changing key in edit mode)
     if (!isEditMode || isChangingApiKey) {
       if (!apiKey.trim()) {
-        setKeyError('API Key is required');
+        setKeyError(t('settings:apiProfiles.validation.apiKeyRequired'));
         isValid = false;
       } else if (!isValidApiKey(apiKey)) {
-        setKeyError('Invalid API Key format');
+        setKeyError(t('settings:apiProfiles.validation.apiKeyInvalid'));
         isValid = false;
       } else {
         setKeyError(null);
@@ -187,11 +205,11 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
 
     // Basic validation before testing
     if (!baseUrl.trim()) {
-      setUrlError('Base URL is required');
+      setUrlError(t('settings:apiProfiles.validation.baseUrlRequired'));
       return;
     }
     if (!apiKeyForTest.trim()) {
-      setKeyError('API Key is required');
+      setKeyError(t('settings:apiProfiles.validation.apiKeyRequired'));
       return;
     }
 
@@ -241,8 +259,10 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
       const success = await updateProfile(updatedProfile);
       if (success) {
         toast({
-          title: 'Profile updated',
-          description: `"${name.trim()}" has been updated successfully.`,
+          title: t('settings:apiProfiles.toast.update.title'),
+          description: t('settings:apiProfiles.toast.update.description', {
+            name: name.trim()
+          }),
         });
         onOpenChange(false);
         onSaved?.();
@@ -267,8 +287,10 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
       const success = await saveProfile(profileData);
       if (success) {
         toast({
-          title: 'Profile created',
-          description: `"${name.trim()}" has been added successfully.`,
+          title: t('settings:apiProfiles.toast.create.title'),
+          description: t('settings:apiProfiles.toast.create.description', {
+            name: name.trim()
+          }),
         });
         onOpenChange(false);
         onSaved?.();
@@ -278,99 +300,137 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" data-testid="profile-edit-dialog">
+      <DialogContent
+        className="w-[min(92vw,720px)] max-h-[90vh] overflow-y-auto"
+        data-testid="profile-edit-dialog"
+      >
         <DialogHeader>
-          <DialogTitle>{isEditMode ? 'Edit Profile' : 'Add API Profile'}</DialogTitle>
+          <DialogTitle>
+            {isEditMode
+              ? t('settings:apiProfiles.dialog.editTitle')
+              : t('settings:apiProfiles.dialog.createTitle')}
+          </DialogTitle>
           <DialogDescription>
-            Configure a custom Anthropic-compatible API endpoint for your builds.
+            {t('settings:apiProfiles.dialog.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Name field (required) */}
-          <div className="space-y-2">
-            <Label htmlFor="profile-name">
-              Name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="profile-name"
-              placeholder="My Custom API"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={nameError ? 'border-destructive' : ''}
-            />
-            {nameError && <p className="text-sm text-destructive">{nameError}</p>}
-          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Name field (required) */}
+            <div className={`space-y-2 ${isEditMode ? 'md:col-span-2' : ''}`}>
+              <Label htmlFor="profile-name">
+                {t('settings:apiProfiles.fields.name')} <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="profile-name"
+                placeholder={t('settings:apiProfiles.placeholders.name')}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={nameError ? 'border-destructive' : ''}
+              />
+              {nameError && <p className="text-sm text-destructive">{nameError}</p>}
+            </div>
 
-          {/* Base URL field (required) */}
-          <div className="space-y-2">
-            <Label htmlFor="profile-url">
-              Base URL <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="profile-url"
-              placeholder="https://api.anthropic.com"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              className={urlError ? 'border-destructive' : ''}
-            />
-            {urlError && <p className="text-sm text-destructive">{urlError}</p>}
-            <p className="text-xs text-muted-foreground">
-              Example: https://api.anthropic.com or http://localhost:8080
-            </p>
-          </div>
-
-          {/* API Key field (required for create, masked in edit mode) */}
-          <div className="space-y-2">
-            <Label htmlFor="profile-key">
-              API Key <span className="text-destructive">*</span>
-            </Label>
-            {isEditMode && !isChangingApiKey && profile ? (
-              // Edit mode: show masked API key
-              <div className="flex items-center gap-2">
-                <Input
-                  id="profile-key"
-                  value={maskApiKey(profile.apiKey)}
-                  disabled
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsChangingApiKey(true)}
-                >
-                  Change
-                </Button>
-              </div>
-            ) : (
-              // Create mode or changing key: show password input
-              <>
-                <Input
-                  id="profile-key"
-                  type="password"
-                  placeholder="sk-ant-..."
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className={keyError ? 'border-destructive' : ''}
-                />
-                {isEditMode && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setIsChangingApiKey(false);
-                      setApiKey('');
-                      setKeyError(null);
+            {!isEditMode && (
+              <div className="space-y-2">
+                <Label htmlFor="profile-preset">{t('settings:apiProfiles.fields.preset')}</Label>
+                <Select value={presetId} onValueChange={applyPreset}>
+                  <SelectTrigger id="profile-preset">
+                    <SelectValue placeholder={t('settings:apiProfiles.placeholders.preset')} />
+                  </SelectTrigger>
+                  <SelectContent
+                    onCloseAutoFocus={(event) => {
+                      event.preventDefault();
+                      baseUrlInputRef.current?.focus();
                     }}
                   >
-                    Cancel
-                  </Button>
-                )}
-              </>
+                    {API_PROVIDER_PRESETS.map((preset) => (
+                      <SelectItem key={preset.id} value={preset.id}>
+                        {t(preset.labelKey)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {t('settings:apiProfiles.hints.preset')}
+                </p>
+              </div>
             )}
-            {keyError && <p className="text-sm text-destructive">{keyError}</p>}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Base URL field (required) */}
+            <div className="space-y-2">
+              <Label htmlFor="profile-url">
+                {t('settings:apiProfiles.fields.baseUrl')} <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="profile-url"
+                placeholder={t('settings:apiProfiles.placeholders.baseUrl')}
+                value={baseUrl}
+                ref={baseUrlInputRef}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                className={urlError ? 'border-destructive' : ''}
+              />
+              {urlError && <p className="text-sm text-destructive">{urlError}</p>}
+              <p className="text-xs text-muted-foreground">
+                {t('settings:apiProfiles.hints.baseUrl')}
+              </p>
+            </div>
+
+            {/* API Key field (required for create, masked in edit mode) */}
+            <div className="space-y-2">
+              <Label htmlFor="profile-key">
+                {t('settings:apiProfiles.fields.apiKey')} <span className="text-destructive">*</span>
+              </Label>
+              {isEditMode && !isChangingApiKey && profile ? (
+                // Edit mode: show masked API key
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="profile-key"
+                    value={maskApiKey(profile.apiKey)}
+                    disabled
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsChangingApiKey(true)}
+                  >
+                    {t('settings:apiProfiles.actions.changeKey')}
+                  </Button>
+                </div>
+              ) : (
+                // Create mode or changing key: show password input
+                <>
+                  <Input
+                    id="profile-key"
+                    type="password"
+                    placeholder={t('settings:apiProfiles.placeholders.apiKey')}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    className={keyError ? 'border-destructive' : ''}
+                  />
+                  {isEditMode && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setIsChangingApiKey(false);
+                        setApiKey('');
+                        setKeyError(null);
+                      }}
+                    >
+                      {t('settings:apiProfiles.actions.cancelKeyChange')}
+                    </Button>
+                  )}
+                </>
+              )}
+              {keyError && <p className="text-sm text-destructive">{keyError}</p>}
+            </div>
           </div>
 
           {/* Test Connection button */}
@@ -384,10 +444,10 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
             {isTestingConnection ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Testing...
+                {t('settings:apiProfiles.testConnection.testing')}
               </>
             ) : (
-              'Test Connection'
+              t('settings:apiProfiles.testConnection.label')
             )}
           </Button>
 
@@ -410,8 +470,8 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
                     : 'text-red-800 dark:text-red-200'
                 }`}>
                   {testConnectionResult.success
-                    ? 'Connection Successful'
-                    : 'Connection Failed'}
+                    ? t('settings:apiProfiles.testConnection.success')
+                    : t('settings:apiProfiles.testConnection.failure')}
                 </p>
                 <p className={`text-sm ${
                   testConnectionResult.success
@@ -426,61 +486,63 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
 
           {/* Optional model mappings */}
           <div className="space-y-3 pt-2 border-t">
-            <Label className="text-base">Optional: Model Name Mappings</Label>
+            <Label className="text-base">{t('settings:apiProfiles.models.title')}</Label>
             <p className="text-xs text-muted-foreground">
-              Select models from your API provider. Leave blank to use defaults.
+              {t('settings:apiProfiles.models.description')}
             </p>
 
-            <div className="space-y-2">
-              <Label htmlFor="model-default" className="text-sm text-muted-foreground">
-                Default Model (Optional)
-              </Label>
-              <ModelSearchableSelect
-                value={defaultModel}
-                onChange={setDefaultModel}
-                placeholder="e.g., claude-3-5-sonnet-20241022"
-                baseUrl={baseUrl}
-                apiKey={isEditMode && !isChangingApiKey && profile ? profile.apiKey : apiKey}
-              />
-            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="model-default" className="text-sm text-muted-foreground">
+                  {t('settings:apiProfiles.models.defaultLabel')}
+                </Label>
+                <ModelSearchableSelect
+                  value={defaultModel}
+                  onChange={setDefaultModel}
+                  placeholder={t('settings:apiProfiles.models.defaultPlaceholder')}
+                  baseUrl={baseUrl}
+                  apiKey={isEditMode && !isChangingApiKey && profile ? profile.apiKey : apiKey}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="model-haiku" className="text-sm text-muted-foreground">
-                Haiku Model (Optional)
-              </Label>
-              <ModelSearchableSelect
-                value={haikuModel}
-                onChange={setHaikuModel}
-                placeholder="e.g., claude-3-5-haiku-20241022"
-                baseUrl={baseUrl}
-                apiKey={isEditMode && !isChangingApiKey && profile ? profile.apiKey : apiKey}
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="model-haiku" className="text-sm text-muted-foreground">
+                  {t('settings:apiProfiles.models.haikuLabel')}
+                </Label>
+                <ModelSearchableSelect
+                  value={haikuModel}
+                  onChange={setHaikuModel}
+                  placeholder={t('settings:apiProfiles.models.haikuPlaceholder')}
+                  baseUrl={baseUrl}
+                  apiKey={isEditMode && !isChangingApiKey && profile ? profile.apiKey : apiKey}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="model-sonnet" className="text-sm text-muted-foreground">
-                Sonnet Model (Optional)
-              </Label>
-              <ModelSearchableSelect
-                value={sonnetModel}
-                onChange={setSonnetModel}
-                placeholder="e.g., claude-3-5-sonnet-20241022"
-                baseUrl={baseUrl}
-                apiKey={isEditMode && !isChangingApiKey && profile ? profile.apiKey : apiKey}
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="model-sonnet" className="text-sm text-muted-foreground">
+                  {t('settings:apiProfiles.models.sonnetLabel')}
+                </Label>
+                <ModelSearchableSelect
+                  value={sonnetModel}
+                  onChange={setSonnetModel}
+                  placeholder={t('settings:apiProfiles.models.sonnetPlaceholder')}
+                  baseUrl={baseUrl}
+                  apiKey={isEditMode && !isChangingApiKey && profile ? profile.apiKey : apiKey}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="model-opus" className="text-sm text-muted-foreground">
-                Opus Model (Optional)
-              </Label>
-              <ModelSearchableSelect
-                value={opusModel}
-                onChange={setOpusModel}
-                placeholder="e.g., claude-3-5-opus-20241022"
-                baseUrl={baseUrl}
-                apiKey={isEditMode && !isChangingApiKey && profile ? profile.apiKey : apiKey}
-              />
+              <div className="space-y-2">
+                <Label htmlFor="model-opus" className="text-sm text-muted-foreground">
+                  {t('settings:apiProfiles.models.opusLabel')}
+                </Label>
+                <ModelSearchableSelect
+                  value={opusModel}
+                  onChange={setOpusModel}
+                  placeholder={t('settings:apiProfiles.models.opusPlaceholder')}
+                  baseUrl={baseUrl}
+                  apiKey={isEditMode && !isChangingApiKey && profile ? profile.apiKey : apiKey}
+                />
+              </div>
             </div>
           </div>
 
@@ -499,7 +561,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
             onClick={() => onOpenChange(false)}
             disabled={profilesLoading}
           >
-            Cancel
+            {t('settings:apiProfiles.actions.cancel')}
           </Button>
           <Button
             type="button"
@@ -509,10 +571,10 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
             {profilesLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                {t('settings:apiProfiles.actions.saving')}
               </>
             ) : (
-              'Save Profile'
+              t('settings:apiProfiles.actions.save')
             )}
           </Button>
         </DialogFooter>

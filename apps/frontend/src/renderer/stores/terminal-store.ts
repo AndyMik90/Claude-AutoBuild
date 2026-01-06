@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
+import { arrayMove } from '@dnd-kit/sortable';
 import type { TerminalSession, TerminalWorktreeConfig } from '../../shared/types';
 import { terminalBufferManager } from '../lib/terminal-buffer-manager';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
@@ -19,6 +20,7 @@ export interface Terminal {
   associatedTaskId?: string;  // ID of task associated with this terminal (for context loading)
   projectPath?: string;  // Project this terminal belongs to (for multi-project support)
   worktreeConfig?: TerminalWorktreeConfig;  // Associated worktree for isolated development
+  isClaudeBusy?: boolean;  // Whether Claude Code is actively processing (for visual indicator)
 }
 
 interface TerminalLayout {
@@ -47,13 +49,15 @@ interface TerminalState {
   setClaudeSessionId: (id: string, sessionId: string) => void;
   setAssociatedTask: (id: string, taskId: string | undefined) => void;
   setWorktreeConfig: (id: string, config: TerminalWorktreeConfig | undefined) => void;
+  setClaudeBusy: (id: string, isBusy: boolean) => void;
   clearAllTerminals: () => void;
   setHasRestoredSessions: (value: boolean) => void;
+  reorderTerminals: (activeId: string, overId: string) => void;
 
   // Selectors
   getTerminal: (id: string) => Terminal | undefined;
   getActiveTerminal: () => Terminal | undefined;
-  canAddTerminal: () => boolean;
+  canAddTerminal: (projectPath?: string) => boolean;
   getTerminalsForProject: (projectPath: string) => Terminal[];
   getWorktreeCount: () => number;
 }
@@ -105,11 +109,15 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       status: 'idle',  // Will be updated to 'running' when PTY is created
       cwd: session.cwd,
       createdAt: new Date(session.createdAt),
-      isClaudeMode: session.isClaudeMode,
+      // Reset Claude mode to false - Claude Code is killed on app restart
+      // Keep claudeSessionId so users can resume by clicking the invoke button
+      isClaudeMode: false,
       claudeSessionId: session.claudeSessionId,
       // outputBuffer now stored in terminalBufferManager
       isRestored: true,
       projectPath: session.projectPath,
+      // Worktree config is validated in main process before restore
+      worktreeConfig: session.worktreeConfig,
     };
 
     // Restore buffer to buffer manager
@@ -166,7 +174,13 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     set((state) => ({
       terminals: state.terminals.map((t) =>
         t.id === id
-          ? { ...t, isClaudeMode, status: isClaudeMode ? 'claude-active' : 'running' }
+          ? {
+              ...t,
+              isClaudeMode,
+              status: isClaudeMode ? 'claude-active' : 'running',
+              // Reset busy state when leaving Claude mode
+              isClaudeBusy: isClaudeMode ? t.isClaudeBusy : undefined
+            }
           : t
       ),
     }));
@@ -196,12 +210,35 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }));
   },
 
+  setClaudeBusy: (id: string, isBusy: boolean) => {
+    set((state) => ({
+      terminals: state.terminals.map((t) =>
+        t.id === id ? { ...t, isClaudeBusy: isBusy } : t
+      ),
+    }));
+  },
+
   clearAllTerminals: () => {
     set({ terminals: [], activeTerminalId: null, hasRestoredSessions: false });
   },
 
   setHasRestoredSessions: (value: boolean) => {
     set({ hasRestoredSessions: value });
+  },
+
+  reorderTerminals: (activeId: string, overId: string) => {
+    set((state) => {
+      const oldIndex = state.terminals.findIndex((t) => t.id === activeId);
+      const newIndex = state.terminals.findIndex((t) => t.id === overId);
+
+      if (oldIndex === -1 || newIndex === -1) {
+        return state;
+      }
+
+      return {
+        terminals: arrayMove(state.terminals, oldIndex, newIndex),
+      };
+    });
   },
 
   getTerminal: (id: string) => {
@@ -213,9 +250,19 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     return state.terminals.find((t) => t.id === state.activeTerminalId);
   },
 
-  canAddTerminal: () => {
+  canAddTerminal: (projectPath?: string) => {
     const state = get();
-    return state.terminals.length < state.maxTerminals;
+    // Count only non-exited terminals, optionally filtered by project
+    const activeTerminals = state.terminals.filter(t => {
+      // Exclude exited terminals from the count
+      if (t.status === 'exited') return false;
+      // If projectPath specified, only count terminals for that project (or legacy without projectPath)
+      if (projectPath) {
+        return t.projectPath === projectPath || !t.projectPath;
+      }
+      return true;
+    });
+    return activeTerminals.length < state.maxTerminals;
   },
 
   getTerminalsForProject: (projectPath: string) => {

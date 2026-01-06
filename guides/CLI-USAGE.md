@@ -182,7 +182,35 @@ python validate_spec.py --spec-dir specs/001-feature --checkpoint all
 
 ## Environment Variables
 
+Copy `.env.example` to `.env` and configure as needed:
+
+```bash
+cp .env.example .env
+```
+
+### Core Settings
+
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `CLAUDE_CODE_OAUTH_TOKEN` | Yes | OAuth token from `claude setup-token` |
 | `AUTO_BUILD_MODEL` | No | Model override (default: claude-opus-4-5-20251101) |
+| `DEFAULT_BRANCH` | No | Base branch for worktrees (auto-detects main/master) |
+| `DEBUG` | No | Enable debug logging (default: false) |
+
+### Integrations
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `LINEAR_API_KEY` | No | Linear API key for task sync |
+| `GITLAB_TOKEN` | No | GitLab Personal Access Token |
+| `GITLAB_INSTANCE_URL` | No | GitLab instance URL (defaults to gitlab.com) |
+
+### Memory Layer (Graphiti)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GRAPHITI_ENABLED` | No | Enable Memory Layer (default: true) |
+| `GRAPHITI_LLM_PROVIDER` | No | LLM provider: openai, anthropic, ollama, google, openrouter |
+| `GRAPHITI_EMBEDDER_PROVIDER` | No | Embedder: openai, voyage, ollama, google, openrouter |
+
+See `.env.example` for complete configuration options including provider-specific settings.

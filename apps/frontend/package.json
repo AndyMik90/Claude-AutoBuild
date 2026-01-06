@@ -69,6 +69,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toast": "^1.2.15",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@sentry/electron": "^7.5.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-virtual": "^3.13.13",
     "@xterm/addon-fit": "^0.11.0",
@@ -79,10 +80,12 @@
     "chokidar": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^16.6.1",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.6.2",
     "i18next": "^25.7.3",
     "lucide-react": "^0.562.0",
+    "minimatch": "^10.1.1",
     "motion": "^12.23.26",
     "proper-lockfile": "^4.1.2",
     "react": "^19.2.3",
@@ -106,6 +109,7 @@
     "@tailwindcss/postcss": "^4.1.17",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.1.0",
+    "@types/minimatch": "^5.1.2",
     "@types/node": "^25.0.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
@@ -210,7 +214,7 @@
       ]
     },
     "linux": {
-      "icon": "resources/icon.png",
+      "icon": "resources/icons",
       "target": [
         "AppImage",
         "deb",

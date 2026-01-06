@@ -7,6 +7,7 @@ import { mkdir, writeFile, readFile, stat } from 'fs/promises';
 import path from 'path';
 import type { Project } from '../../../shared/types';
 import type { GitLabAPIIssue, GitLabConfig } from './types';
+import { labelMatchesWholeWord } from '../shared/label-utils';
 
 /**
  * Simplified task info returned when creating a spec from a GitLab issue.
@@ -58,6 +59,47 @@ function debugLog(message: string, data?: unknown): void {
       console.debug(`[GitLab Spec] ${message}`);
     }
   }
+}
+
+/**
+ * Determine task category based on GitLab issue labels
+ * Maps to TaskCategory type from shared/types/task.ts
+ */
+function determineCategoryFromLabels(labels: string[]): 'feature' | 'bug_fix' | 'refactoring' | 'documentation' | 'security' | 'performance' | 'ui_ux' | 'infrastructure' | 'testing' {
+  const lowerLabels = labels.map(l => l.toLowerCase());
+
+  if (lowerLabels.some(l => l.includes('bug') || l.includes('defect') || l.includes('error') || l.includes('fix'))) {
+    return 'bug_fix';
+  }
+  if (lowerLabels.some(l => l.includes('security') || l.includes('vulnerability') || l.includes('cve'))) {
+    return 'security';
+  }
+  if (lowerLabels.some(l => l.includes('performance') || l.includes('optimization') || l.includes('speed'))) {
+    return 'performance';
+  }
+  if (lowerLabels.some(l => l.includes('ui') || l.includes('ux') || l.includes('design') || l.includes('styling'))) {
+    return 'ui_ux';
+  }
+  // Use whole-word matching for 'ci' and 'cd' to avoid false positives like 'acid' or 'decide'
+  if (lowerLabels.some(l =>
+    l.includes('infrastructure') ||
+    l.includes('devops') ||
+    l.includes('deployment') ||
+    labelMatchesWholeWord(l, 'ci') ||
+    labelMatchesWholeWord(l, 'cd')
+  )) {
+    return 'infrastructure';
+  }
+  if (lowerLabels.some(l => l.includes('test') || l.includes('testing') || l.includes('qa'))) {
+    return 'testing';
+  }
+  if (lowerLabels.some(l => l.includes('refactor') || l.includes('cleanup') || l.includes('maintenance') || l.includes('chore') || l.includes('tech-debt') || l.includes('technical debt'))) {
+    return 'refactoring';
+  }
+  if (lowerLabels.some(l => l.includes('documentation') || l.includes('docs'))) {
+    return 'documentation';
+  }
+  return 'feature';
 }
 
 function stripControlChars(value: string, allowNewlines: boolean): string {
@@ -258,7 +300,8 @@ async function pathExists(filePath: string): Promise<boolean> {
 export async function createSpecForIssue(
   project: Project,
   issue: GitLabAPIIssue,
-  config: GitLabConfig
+  config: GitLabConfig,
+  baseBranch?: string
 ): Promise<GitLabTaskInfo | null> {
   try {
     // Validate and sanitize network data before writing to disk
@@ -321,7 +364,7 @@ export async function createSpecForIssue(
     const taskContent = buildIssueContext(safeIssue, safeProject, config.instanceUrl);
     await writeFile(path.join(specDir, 'TASK.md'), taskContent, 'utf-8');
 
-    // Create metadata.json
+    // Create metadata.json (legacy format for GitLab-specific data)
     const metadata = {
       source: 'gitlab',
       gitlab: {
@@ -338,6 +381,21 @@ export async function createSpecForIssue(
       status: 'pending'
     };
     await writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+
+    // Create task_metadata.json (consistent with GitHub format for backend compatibility)
+    const taskMetadata = {
+      sourceType: 'gitlab' as const,
+      gitlabIssueIid: safeIssue.iid,
+      gitlabUrl: safeIssue.web_url,
+      category: determineCategoryFromLabels(safeIssue.labels || []),
+      // Store baseBranch for worktree creation and QA comparison
+      ...(baseBranch && { baseBranch })
+    };
+    await writeFile(
+      path.join(specDir, 'task_metadata.json'),
+      JSON.stringify(taskMetadata, null, 2),
+      'utf-8'
+    );
 
     debugLog('Created spec for issue:', { iid: safeIssue.iid, specDir });
 

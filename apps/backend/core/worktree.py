@@ -124,17 +124,37 @@ class WorktreeManager:
         return result.stdout.strip()
 
     def _run_git(
-        self, args: list[str], cwd: Path | None = None
+        self, args: list[str], cwd: Path | None = None, timeout: int = 60
     ) -> subprocess.CompletedProcess:
-        """Run a git command and return the result."""
-        return subprocess.run(
-            ["git"] + args,
-            cwd=cwd or self.project_dir,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
+        """Run a git command and return the result.
+
+        Args:
+            args: Git command arguments (without 'git' prefix)
+            cwd: Working directory for the command
+            timeout: Command timeout in seconds (default: 60)
+
+        Returns:
+            CompletedProcess with command results. On timeout, returns a
+            CompletedProcess with returncode=-1 and timeout error in stderr.
+        """
+        try:
+            return subprocess.run(
+                ["git"] + args,
+                cwd=cwd or self.project_dir,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            # Return a failed result on timeout instead of raising
+            return subprocess.CompletedProcess(
+                args=["git"] + args,
+                returncode=-1,
+                stdout="",
+                stderr=f"Command timed out after {timeout} seconds",
+            )
 
     def _unstage_gitignored_files(self) -> None:
         """
@@ -327,9 +347,33 @@ class WorktreeManager:
         # Delete branch if it exists (from previous attempt)
         self._run_git(["branch", "-D", branch_name])
 
-        # Create worktree with new branch from base
+        # Fetch latest from remote to ensure we have the most up-to-date code
+        # GitHub/remote is the source of truth, not the local branch
+        fetch_result = self._run_git(["fetch", "origin", self.base_branch])
+        if fetch_result.returncode != 0:
+            print(
+                f"Warning: Could not fetch {self.base_branch} from origin: {fetch_result.stderr}"
+            )
+            print("Falling back to local branch...")
+
+        # Determine the start point for the worktree
+        # Prefer origin/{base_branch} (remote) over local branch to ensure we have latest code
+        remote_ref = f"origin/{self.base_branch}"
+        start_point = self.base_branch  # Default to local branch
+
+        # Check if remote ref exists and use it as the source of truth
+        check_remote = self._run_git(["rev-parse", "--verify", remote_ref])
+        if check_remote.returncode == 0:
+            start_point = remote_ref
+            print(f"Creating worktree from remote: {remote_ref}")
+        else:
+            print(
+                f"Remote ref {remote_ref} not found, using local branch: {self.base_branch}"
+            )
+
+        # Create worktree with new branch from the start point (remote preferred)
         result = self._run_git(
-            ["worktree", "add", "-b", branch_name, str(worktree_path), self.base_branch]
+            ["worktree", "add", "-b", branch_name, str(worktree_path), start_point]
         )
 
         if result.returncode != 0:

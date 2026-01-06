@@ -111,7 +111,7 @@ interface ValidationStatus {
 export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
   const { settings, updateSettings } = useSettingsStore();
   const [config, setConfig] = useState<GraphitiConfig>({
-    enabled: false,
+    enabled: true,  // Enabled by default for better first-time experience
     database: 'auto_claude_memory',
     dbPath: '',
     llmProvider: 'openai',

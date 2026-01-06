@@ -208,6 +208,7 @@ export function AddFeatureDialog({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={isSaving}
+              aria-required="true"
             />
           </div>
 
@@ -223,6 +224,7 @@ export function AddFeatureDialog({
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               disabled={isSaving}
+              aria-required="true"
             />
           </div>
 
@@ -253,7 +255,7 @@ export function AddFeatureDialog({
                 onValueChange={setPhaseId}
                 disabled={isSaving}
               >
-                <SelectTrigger id="add-feature-phase">
+                <SelectTrigger id="add-feature-phase" aria-required="true">
                   <SelectValue placeholder={t('addFeature.selectPhase')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -338,7 +340,7 @@ export function AddFeatureDialog({
 
           {/* Error */}
           {error && (
-            <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
+            <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive" role="alert">
               <X className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>

@@ -4,9 +4,16 @@ Session Memory Tools
 
 Tools for recording and retrieving session memory, including discoveries,
 gotchas, and patterns.
+
+Dual-storage approach:
+- File-based: Always available, works offline, spec-specific
+- LadybugDB: When Graphiti is enabled, also saves to graph database for
+  cross-session retrieval and Memory UI display
 """
 
+import asyncio
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -18,6 +25,79 @@ try:
 except ImportError:
     SDK_TOOLS_AVAILABLE = False
     tool = None
+
+logger = logging.getLogger(__name__)
+
+
+def _save_to_graphiti_sync(
+    spec_dir: Path,
+    project_dir: Path,
+    save_type: str,
+    data: dict,
+) -> bool:
+    """
+    Save data to Graphiti/LadybugDB (synchronous wrapper for async operation).
+
+    Args:
+        spec_dir: Spec directory for GraphitiMemory initialization
+        project_dir: Project root directory
+        save_type: Type of save - 'discovery', 'gotcha', or 'pattern'
+        data: Data to save
+
+    Returns:
+        True if save succeeded, False otherwise
+    """
+    try:
+        # Check if Graphiti is enabled
+        from graphiti_config import is_graphiti_enabled
+
+        if not is_graphiti_enabled():
+            return False
+
+        from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
+
+        async def _async_save():
+            memory = GraphitiMemory(spec_dir, project_dir)
+            try:
+                if save_type == "discovery":
+                    # Save as codebase discovery
+                    # Format: {file_path: description}
+                    result = await memory.save_codebase_discoveries(
+                        {data["file_path"]: data["description"]}
+                    )
+                elif save_type == "gotcha":
+                    # Save as gotcha
+                    gotcha_text = data["gotcha"]
+                    if data.get("context"):
+                        gotcha_text += f" (Context: {data['context']})"
+                    result = await memory.save_gotcha(gotcha_text)
+                elif save_type == "pattern":
+                    # Save as pattern
+                    result = await memory.save_pattern(data["pattern"])
+                else:
+                    result = False
+                return result
+            finally:
+                await memory.close()
+
+        # Run async operation in event loop
+        try:
+            asyncio.get_running_loop()
+            # If we're already in an async context, schedule the task
+            # Don't block - just fire and forget for the Graphiti save
+            # The file-based save is the primary, Graphiti is supplementary
+            asyncio.ensure_future(_async_save())
+            return False  # Can't confirm async success, file-based is source of truth
+        except RuntimeError:
+            # No running loop, create one
+            return asyncio.run(_async_save())
+
+    except ImportError as e:
+        logger.debug(f"Graphiti not available for memory tools: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"Failed to save to Graphiti: {e}")
+        return False
 
 
 def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
@@ -45,7 +125,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
         {"file_path": str, "description": str, "category": str},
     )
     async def record_discovery(args: dict[str, Any]) -> dict[str, Any]:
-        """Record a discovery to the codebase map."""
+        """Record a discovery to the codebase map (file + Graphiti)."""
         file_path = args["file_path"]
         description = args["description"]
         category = args.get("category", "general")
@@ -54,8 +134,10 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
         memory_dir.mkdir(exist_ok=True)
 
         codebase_map_file = memory_dir / "codebase_map.json"
+        saved_to_graphiti = False
 
         try:
+            # PRIMARY: Save to file-based storage (always works)
             # Load existing map or create new
             if codebase_map_file.exists():
                 with open(codebase_map_file) as f:
@@ -77,11 +159,23 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
             with open(codebase_map_file, "w") as f:
                 json.dump(codebase_map, f, indent=2)
 
+            # SECONDARY: Also save to Graphiti/LadybugDB (for Memory UI)
+            saved_to_graphiti = _save_to_graphiti_sync(
+                spec_dir,
+                project_dir,
+                "discovery",
+                {
+                    "file_path": file_path,
+                    "description": f"[{category}] {description}",
+                },
+            )
+
+            storage_note = " (also saved to memory graph)" if saved_to_graphiti else ""
             return {
                 "content": [
                     {
                         "type": "text",
-                        "text": f"Recorded discovery for '{file_path}': {description}",
+                        "text": f"Recorded discovery for '{file_path}': {description}{storage_note}",
                     }
                 ]
             }
@@ -102,7 +196,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
         {"gotcha": str, "context": str},
     )
     async def record_gotcha(args: dict[str, Any]) -> dict[str, Any]:
-        """Record a gotcha to session memory."""
+        """Record a gotcha to session memory (file + Graphiti)."""
         gotcha = args["gotcha"]
         context = args.get("context", "")
 
@@ -110,8 +204,10 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
         memory_dir.mkdir(exist_ok=True)
 
         gotchas_file = memory_dir / "gotchas.md"
+        saved_to_graphiti = False
 
         try:
+            # PRIMARY: Save to file-based storage (always works)
             timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
 
             entry = f"\n## [{timestamp}]\n{gotcha}"
@@ -126,7 +222,20 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
                     )
                 f.write(entry)
 
-            return {"content": [{"type": "text", "text": f"Recorded gotcha: {gotcha}"}]}
+            # SECONDARY: Also save to Graphiti/LadybugDB (for Memory UI)
+            saved_to_graphiti = _save_to_graphiti_sync(
+                spec_dir,
+                project_dir,
+                "gotcha",
+                {"gotcha": gotcha, "context": context},
+            )
+
+            storage_note = " (also saved to memory graph)" if saved_to_graphiti else ""
+            return {
+                "content": [
+                    {"type": "text", "text": f"Recorded gotcha: {gotcha}{storage_note}"}
+                ]
+            }
 
         except Exception as e:
             return {

@@ -16,7 +16,8 @@
  * - Request cancellation: aborts pending fetch when closed
  */
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, ChevronDown, Search, Check, Info } from 'lucide-react';
+import { Loader2, ChevronDown, Search, Check, Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { cn } from '../../lib/utils';
@@ -57,12 +58,14 @@ interface ModelSearchableSelectProps {
 export function ModelSearchableSelect({
   value,
   onChange,
-  placeholder = 'Select a model or type manually',
+  placeholder,
   baseUrl,
   apiKey,
   disabled = false,
   className
 }: ModelSearchableSelectProps) {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t('settings:modelSelect.placeholder');
   const discoverModels = useSettingsStore((state) => state.discoverModels);
   // Dropdown open state
   const [isOpen, setIsOpen] = useState(false);
@@ -77,7 +80,7 @@ export function ModelSearchableSelect({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Manual input mode (when API doesn't support model listing)
-  const [isManualInput, setIsManualInput] = useState(false);
+  const [_isManualInput, setIsManualInput] = useState(false);
 
   // AbortController for cancelling fetch requests
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -229,7 +232,9 @@ export function ModelSearchableSelect({
               handleOpen();
             }
           }}
-          placeholder={modelDiscoveryNotSupported ? 'Enter model name (e.g., claude-3-5-sonnet-20241022)' : placeholder}
+          placeholder={modelDiscoveryNotSupported
+            ? t('settings:modelSelect.placeholderManual')
+            : resolvedPlaceholder}
           disabled={disabled}
           className="pr-10"
         />
@@ -254,7 +259,10 @@ export function ModelSearchableSelect({
 
       {/* Dropdown panel - only show when we have models to display */}
       {isOpen && !isLoading && !modelDiscoveryNotSupported && models.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col">
+        <div
+          className="absolute z-50 w-full bottom-full mb-1 bg-background border rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col"
+          data-testid="model-select-dropdown"
+        >
           {/* Search input */}
           <div className="p-2 border-b">
             <div className="relative">
@@ -262,7 +270,7 @@ export function ModelSearchableSelect({
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search models..."
+                placeholder={t('settings:modelSelect.searchPlaceholder')}
                 className="pl-8"
                 autoFocus
               />
@@ -273,7 +281,7 @@ export function ModelSearchableSelect({
           <div className="flex-1 overflow-y-auto py-1">
             {filteredModels.length === 0 ? (
               <div className="p-3 text-center text-sm text-muted-foreground">
-                No models match your search
+                {t('settings:modelSelect.noResults')}
               </div>
             ) : (
               filteredModels.map((model) => (
@@ -304,7 +312,7 @@ export function ModelSearchableSelect({
       {modelDiscoveryNotSupported && (
         <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
           <Info className="h-3 w-3" />
-          Model discovery not available. Enter model name manually.
+          {t('settings:modelSelect.discoveryNotAvailable')}
         </p>
       )}
       {error && !modelDiscoveryNotSupported && (

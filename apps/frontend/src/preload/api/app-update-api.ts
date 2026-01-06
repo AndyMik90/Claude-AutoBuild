@@ -16,6 +16,7 @@ export interface AppUpdateAPI {
   // Operations
   checkAppUpdate: () => Promise<IPCResult<AppUpdateInfo | null>>;
   downloadAppUpdate: () => Promise<IPCResult>;
+  downloadStableUpdate: () => Promise<IPCResult>;
   installAppUpdate: () => void;
   getAppVersion: () => Promise<string>;
 
@@ -29,6 +30,9 @@ export interface AppUpdateAPI {
   onAppUpdateProgress: (
     callback: (progress: AppUpdateProgress) => void
   ) => IpcListenerCleanup;
+  onAppUpdateStableDowngrade: (
+    callback: (info: AppUpdateInfo) => void
+  ) => IpcListenerCleanup;
 }
 
 /**
@@ -41,6 +45,9 @@ export const createAppUpdateAPI = (): AppUpdateAPI => ({
 
   downloadAppUpdate: (): Promise<IPCResult> =>
     invokeIpc(IPC_CHANNELS.APP_UPDATE_DOWNLOAD),
+
+  downloadStableUpdate: (): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.APP_UPDATE_DOWNLOAD_STABLE),
 
   installAppUpdate: (): void => {
     invokeIpc(IPC_CHANNELS.APP_UPDATE_INSTALL);
@@ -63,5 +70,10 @@ export const createAppUpdateAPI = (): AppUpdateAPI => ({
   onAppUpdateProgress: (
     callback: (progress: AppUpdateProgress) => void
   ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.APP_UPDATE_PROGRESS, callback)
+    createIpcListener(IPC_CHANNELS.APP_UPDATE_PROGRESS, callback),
+
+  onAppUpdateStableDowngrade: (
+    callback: (info: AppUpdateInfo) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.APP_UPDATE_STABLE_DOWNGRADE, callback)
 });

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Github, RefreshCw, Search, Filter, Wand2, Loader2, Layers } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -35,6 +36,8 @@ export function IssueListHeader({
   onAnalyzeAndGroup,
   isAnalyzing,
 }: IssueListHeaderProps) {
+  const { t } = useTranslation('common');
+
   return (
     <div className="shrink-0 p-4 border-b border-border">
       <div className="flex items-center justify-between mb-4">
@@ -60,8 +63,9 @@ export function IssueListHeader({
             size="icon"
             onClick={onRefresh}
             disabled={isLoading}
+            aria-label={t('buttons.refresh')}
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
           </Button>
         </div>
       </div>

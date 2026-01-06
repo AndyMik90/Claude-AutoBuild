@@ -570,6 +570,10 @@ class FollowupReviewContext:
         ""  # BEHIND, BLOCKED, CLEAN, DIRTY, HAS_HOOKS, UNKNOWN, UNSTABLE
     )
 
+    # CI status - passed to AI orchestrator so it can factor into verdict
+    # Dict with: passing, failing, pending, failed_checks, awaiting_approval
+    ci_status: dict = field(default_factory=dict)
+
     # Error flag - if set, context gathering failed and data may be incomplete
     error: str | None = None
 

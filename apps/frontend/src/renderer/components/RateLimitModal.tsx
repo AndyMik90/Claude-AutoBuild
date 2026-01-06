@@ -375,9 +375,11 @@ export function RateLimitModal() {
               size="sm"
               className="gap-2"
               onClick={handleUpgrade}
+              aria-label={t('accessibility.upgradeSubscriptionAriaLabel')}
             >
-              <ExternalLink className="h-4 w-4" />
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
               {t('rateLimit.upgradeSubscription')}
+              <span className="sr-only">({t('accessibility.opensInNewWindow')})</span>
             </Button>
           </div>
         </div>

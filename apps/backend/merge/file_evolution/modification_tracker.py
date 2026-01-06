@@ -87,8 +87,8 @@ class ModificationTracker:
 
         # Get or create evolution
         if rel_path not in evolutions:
-            logger.warning(f"File {rel_path} not being tracked")
-            # Note: We could auto-create here, but for now return None
+            # Debug level: this is expected for files not in baseline (e.g., from main's changes)
+            logger.debug(f"File {rel_path} not in evolution tracking - skipping")
             return None
 
         evolution = evolutions.get(rel_path)
@@ -157,9 +157,21 @@ class ModificationTracker:
         )
 
         try:
-            # Get list of files changed in the worktree vs target branch
+            # Get the merge-base to accurately identify task-only changes
+            # Using two-dot diff (merge-base..HEAD) returns only files changed by the task,
+            # not files changed on the target branch since divergence
+            merge_base_result = subprocess.run(
+                ["git", "merge-base", target_branch, "HEAD"],
+                cwd=worktree_path,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            merge_base = merge_base_result.stdout.strip()
+
+            # Get list of files changed in the worktree since the merge-base
             result = subprocess.run(
-                ["git", "diff", "--name-only", f"{target_branch}...HEAD"],
+                ["git", "diff", "--name-only", f"{merge_base}..HEAD"],
                 cwd=worktree_path,
                 capture_output=True,
                 text=True,
@@ -176,19 +188,19 @@ class ModificationTracker:
             )
 
             for file_path in changed_files:
-                # Get the diff for this file
+                # Get the diff for this file (using merge-base for accurate task-only diff)
                 diff_result = subprocess.run(
-                    ["git", "diff", f"{target_branch}...HEAD", "--", file_path],
+                    ["git", "diff", f"{merge_base}..HEAD", "--", file_path],
                     cwd=worktree_path,
                     capture_output=True,
                     text=True,
                     check=True,
                 )
 
-                # Get content before (from target branch) and after (current)
+                # Get content before (from merge-base - the point where task branched)
                 try:
                     show_result = subprocess.run(
-                        ["git", "show", f"{target_branch}:{file_path}"],
+                        ["git", "show", f"{merge_base}:{file_path}"],
                         cwd=worktree_path,
                         capture_output=True,
                         text=True,

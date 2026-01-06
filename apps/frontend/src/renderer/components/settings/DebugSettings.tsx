@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bug, FolderOpen, Copy, FileText, RefreshCw, Loader2, Check, AlertCircle } from 'lucide-react';
+import { Bug, FolderOpen, Copy, FileText, RefreshCw, Loader2, Check, AlertCircle, Shield } from 'lucide-react';
 import { Button } from '../ui/button';
+import { Switch } from '../ui/switch';
+import { Label } from '../ui/label';
 import { SettingsSection } from './SettingsSection';
+import { useSettingsStore } from '../../stores/settings-store';
+import { notifySentryStateChanged } from '../../lib/sentry';
 
 interface DebugInfo {
   systemInfo: Record<string, string>;
@@ -16,10 +20,27 @@ interface DebugInfo {
  */
 export function DebugSettings() {
   const { t } = useTranslation('settings');
+  const { settings, updateSettings } = useSettingsStore();
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle Sentry toggle
+  const handleSentryToggle = async (checked: boolean) => {
+    setError(null);
+    try {
+      const result = await window.electronAPI.saveSettings({ sentryEnabled: checked });
+      if (result.success) {
+        updateSettings({ sentryEnabled: checked });
+        notifySentryStateChanged(checked);
+      } else {
+        setError(t('debug.errorReporting.saveFailed', 'Failed to save error reporting setting'));
+      }
+    } catch (err) {
+      setError(t('debug.errorReporting.saveFailed', 'Failed to save error reporting setting'));
+    }
+  };
 
   const loadDebugInfo = async () => {
     setIsLoading(true);
@@ -65,6 +86,28 @@ export function DebugSettings() {
       description={t('debug.description', 'Access logs and debug information for troubleshooting')}
     >
       <div className="space-y-6">
+        {/* Error Reporting Toggle */}
+        <div className="rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Shield className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <Label htmlFor="sentry-toggle" className="text-sm font-medium text-foreground cursor-pointer">
+                  {t('debug.errorReporting.label', 'Anonymous Error Reporting')}
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t('debug.errorReporting.description', 'Send crash reports to help improve Auto Claude. No personal data or code is collected.')}
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="sentry-toggle"
+              checked={settings.sentryEnabled ?? true}
+              onCheckedChange={handleSentryToggle}
+            />
+          </div>
+        </div>
+
         {/* Quick Actions */}
         <div className="flex flex-wrap gap-3">
           <Button

@@ -6,6 +6,8 @@ Commands for creating and managing multiple tasks from batch files.
 """
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 from ui import highlight, print_status
@@ -212,5 +214,53 @@ def handle_batch_cleanup_command(project_dir: str, dry_run: bool = True) -> bool
                 print(f"    └─ .auto-claude/worktrees/tasks/{spec_name}/")
         print()
         print("Run with --no-dry-run to actually delete")
+    else:
+        # Actually delete specs and worktrees
+        deleted_count = 0
+        for spec_name in completed:
+            spec_path = specs_dir / spec_name
+            wt_path = worktrees_dir / spec_name
+
+            # Remove worktree first (if exists)
+            if wt_path.exists():
+                try:
+                    result = subprocess.run(
+                        ["git", "worktree", "remove", "--force", str(wt_path)],
+                        cwd=project_dir,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    if result.returncode == 0:
+                        print_status(f"Removed worktree: {spec_name}", "success")
+                    else:
+                        # Fallback: remove directory manually if git fails
+                        shutil.rmtree(wt_path, ignore_errors=True)
+                        print_status(
+                            f"Removed worktree directory: {spec_name}", "success"
+                        )
+                except subprocess.TimeoutExpired:
+                    # Timeout: fall back to manual removal
+                    shutil.rmtree(wt_path, ignore_errors=True)
+                    print_status(
+                        f"Worktree removal timed out, removed directory: {spec_name}",
+                        "warning",
+                    )
+                except Exception as e:
+                    print_status(
+                        f"Failed to remove worktree {spec_name}: {e}", "warning"
+                    )
+
+            # Remove spec directory
+            if spec_path.exists():
+                try:
+                    shutil.rmtree(spec_path)
+                    print_status(f"Removed spec: {spec_name}", "success")
+                    deleted_count += 1
+                except Exception as e:
+                    print_status(f"Failed to remove spec {spec_name}: {e}", "error")
+
+        print()
+        print_status(f"Cleaned up {deleted_count} spec(s)", "info")
 
     return True

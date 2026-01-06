@@ -21,6 +21,7 @@ from security import (
     validate_chmod_command,
     validate_rm_command,
     validate_git_commit,
+    validate_git_config,
     validate_dropdb_command,
     validate_dropuser_command,
     validate_psql_command,
@@ -391,6 +392,151 @@ class TestGitCommitValidator:
 
         allowed, reason = validate_git_commit("git push")
         assert allowed is True
+
+
+class TestGitConfigValidator:
+    """Tests for git config validation (blocking identity changes)."""
+
+    def test_blocks_user_name(self):
+        """Blocks git config user.name."""
+        allowed, reason = validate_git_config("git config user.name 'Test User'")
+        assert allowed is False
+        assert "BLOCKED" in reason
+        assert "identity" in reason.lower()
+
+    def test_blocks_user_email(self):
+        """Blocks git config user.email."""
+        allowed, reason = validate_git_config("git config user.email 'test@example.com'")
+        assert allowed is False
+        assert "BLOCKED" in reason
+
+    def test_blocks_author_name(self):
+        """Blocks git config author.name."""
+        allowed, reason = validate_git_config("git config author.name 'Fake Author'")
+        assert allowed is False
+        assert "BLOCKED" in reason
+
+    def test_blocks_committer_email(self):
+        """Blocks git config committer.email."""
+        allowed, reason = validate_git_config("git config committer.email 'fake@test.com'")
+        assert allowed is False
+        assert "BLOCKED" in reason
+
+    def test_blocks_with_global_flag(self):
+        """Blocks identity config even with --global flag."""
+        allowed, reason = validate_git_config("git config --global user.name 'Test User'")
+        assert allowed is False
+        assert "BLOCKED" in reason
+
+    def test_blocks_with_local_flag(self):
+        """Blocks identity config even with --local flag."""
+        allowed, reason = validate_git_config("git config --local user.email 'test@example.com'")
+        assert allowed is False
+        assert "BLOCKED" in reason
+
+    def test_allows_non_identity_config(self):
+        """Allows setting non-identity config options."""
+        allowed, reason = validate_git_config("git config core.autocrlf true")
+        assert allowed is True
+
+        allowed, reason = validate_git_config("git config diff.algorithm patience")
+        assert allowed is True
+
+        allowed, reason = validate_git_config("git config pull.rebase true")
+        assert allowed is True
+
+    def test_allows_config_list(self):
+        """Allows git config --list and similar read operations."""
+        allowed, reason = validate_git_config("git config --list")
+        assert allowed is True
+
+        allowed, reason = validate_git_config("git config --get user.name")
+        assert allowed is True
+
+    def test_allows_non_config_commands(self):
+        """Non-config git commands pass through."""
+        allowed, reason = validate_git_config("git status")
+        assert allowed is True
+
+        allowed, reason = validate_git_config("git commit -m 'test'")
+        assert allowed is True
+
+    def test_case_insensitive_blocking(self):
+        """Blocks identity keys regardless of case."""
+        allowed, reason = validate_git_config("git config USER.NAME 'Test'")
+        assert allowed is False
+
+        allowed, reason = validate_git_config("git config User.Email 'test@test.com'")
+        assert allowed is False
+
+    def test_handles_malformed_command(self):
+        """Handles malformed commands gracefully."""
+        # Unbalanced quotes - should fail closed
+        allowed, reason = validate_git_config("git config user.name 'Test User")
+        assert allowed is False
+        assert "parse" in reason.lower()
+
+
+class TestGitIdentityProtection:
+    """Tests for git identity protection (blocking -c flag bypass)."""
+
+    def test_blocks_inline_user_name(self):
+        """Blocks git -c user.name=... on any command."""
+        allowed, reason = validate_git_commit("git -c user.name=Evil commit -m 'test'")
+        assert allowed is False
+        assert "BLOCKED" in reason
+        assert "identity" in reason.lower()
+
+    def test_blocks_inline_user_email(self):
+        """Blocks git -c user.email=... on any command."""
+        allowed, reason = validate_git_commit("git -c user.email=fake@test.com commit -m 'test'")
+        assert allowed is False
+        assert "BLOCKED" in reason
+
+    def test_blocks_inline_author_name(self):
+        """Blocks git -c author.name=... on any command."""
+        allowed, reason = validate_git_commit("git -c author.name=FakeAuthor push")
+        assert allowed is False
+        assert "BLOCKED" in reason
+
+    def test_blocks_inline_committer_email(self):
+        """Blocks git -c committer.email=... on any command."""
+        allowed, reason = validate_git_commit("git -c committer.email=fake@test.com log")
+        assert allowed is False
+        assert "BLOCKED" in reason
+
+    def test_blocks_nospace_format(self):
+        """Blocks -ckey=value format (no space after -c)."""
+        allowed, reason = validate_git_commit("git -cuser.name=Evil commit -m 'test'")
+        assert allowed is False
+        assert "BLOCKED" in reason
+
+    def test_allows_non_identity_config(self):
+        """Allows -c with non-blocked config keys."""
+        allowed, reason = validate_git_commit("git -c core.autocrlf=true commit -m 'test'")
+        assert allowed is True
+
+        allowed, reason = validate_git_commit("git -c diff.algorithm=patience diff")
+        assert allowed is True
+
+    def test_allows_normal_git_commands(self):
+        """Normal git commands without -c identity flags pass."""
+        allowed, reason = validate_git_commit("git status")
+        assert allowed is True
+
+        allowed, reason = validate_git_commit("git log --oneline")
+        assert allowed is True
+
+        allowed, reason = validate_git_commit("git branch -a")
+        assert allowed is True
+
+    def test_case_insensitive_blocking(self):
+        """Blocks identity keys regardless of case."""
+        allowed, reason = validate_git_commit("git -c USER.NAME=Evil commit -m 'test'")
+        assert allowed is False
+
+        allowed, reason = validate_git_commit("git -c User.Email=fake@test.com push")
+        assert allowed is False
 
 
 # =============================================================================

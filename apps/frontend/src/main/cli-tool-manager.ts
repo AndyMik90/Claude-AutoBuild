@@ -21,7 +21,7 @@
  */
 
 import { execFileSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import { app } from 'electron';
@@ -593,6 +593,50 @@ class CLIToolManager {
           path.join(homeDir, '.local', 'bin', 'claude'),
           path.join(homeDir, 'bin', 'claude'),
         ];
+
+    // 4.5. NVM (Node Version Manager) paths for Unix/Linux/macOS
+    // NVM installs global npm packages in ~/.nvm/versions/node/vX.X.X/bin/
+    // This is important when the app launches from GUI without NVM sourced
+    if (process.platform !== 'win32') {
+      const nvmVersionsDir = path.join(homeDir, '.nvm', 'versions', 'node');
+      try {
+        if (existsSync(nvmVersionsDir)) {
+          const nodeVersions = readdirSync(nvmVersionsDir, { withFileTypes: true });
+          const versionDirs = nodeVersions
+            .filter((entry) => entry.isDirectory() && entry.name.startsWith('v'))
+            .sort((a, b) => {
+              const vA = a.name.slice(1).split('.').map(Number);
+              const vB = b.name.slice(1).split('.').map(Number);
+              for (let i = 0; i < 3; i++) {
+                const diff = (vB[i] ?? 0) - (vA[i] ?? 0);
+                if (diff !== 0) {
+                  return diff;
+                }
+              }
+              return 0;
+            });
+
+          for (const entry of versionDirs) {
+            const nvmClaudePath = path.join(nvmVersionsDir, entry.name, 'bin', 'claude');
+            if (existsSync(nvmClaudePath)) {
+              const validation = this.validateClaude(nvmClaudePath);
+              if (validation.valid) {
+                return {
+                  found: true,
+                  path: nvmClaudePath,
+                  version: validation.version,
+                  source: 'nvm',
+                  message: `Using NVM Claude CLI: ${nvmClaudePath}`,
+                };
+              }
+            }
+          }
+        }
+      } catch (error) {
+        // Silently fail if unable to read NVM directory
+        console.warn(`[Claude CLI] Unable to read NVM directory: ${error}`);
+      }
+    }
 
     for (const claudePath of platformPaths) {
       if (existsSync(claudePath)) {

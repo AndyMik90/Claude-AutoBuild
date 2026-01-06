@@ -6,18 +6,24 @@
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import * as OutputParser from './output-parser';
 import * as SessionHandler from './session-handler';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { escapeShellArg, buildCdCommand } from '../../shared/utils/shell-escape';
+import { getClaudeCliInvocation } from '../claude-cli-utils';
 import type {
   TerminalProcess,
   WindowGetter,
   RateLimitEvent,
   OAuthTokenEvent
 } from './types';
+
+function normalizePathForBash(envPath: string): string {
+  return process.platform === 'win32' ? envPath.replace(/;/g, ':') : envPath;
+}
 
 /**
  * Handle rate limit detection and profile switching
@@ -211,6 +217,8 @@ export function invokeClaude(
   debugLog('[ClaudeIntegration:invokeClaude] CWD:', cwd);
 
   terminal.isClaudeMode = true;
+  // Release any previously claimed session ID before starting new session
+  SessionHandler.releaseSessionId(terminal.id);
   terminal.claudeSessionId = undefined;
 
   const startTime = Date.now();
@@ -234,6 +242,11 @@ export function invokeClaude(
 
   // Use safe shell escaping to prevent command injection
   const cwdCommand = buildCdCommand(cwd);
+  const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
+  const escapedClaudeCmd = escapeShellArg(claudeCmd);
+  const pathPrefix = claudeEnv.PATH
+    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
+    : '';
   const needsEnvOverride = profileId && profileId !== previousProfileId;
 
   debugLog('[ClaudeIntegration:invokeClaude] Environment override check:', {
@@ -250,9 +263,15 @@ export function invokeClaude(
     });
 
     if (token) {
-      const tempFile = path.join(os.tmpdir(), `.claude-token-${Date.now()}`);
+      const nonce = crypto.randomBytes(8).toString('hex');
+      const tempFile = path.join(os.tmpdir(), `.claude-token-${Date.now()}-${nonce}`);
+      const escapedTempFile = escapeShellArg(tempFile);
       debugLog('[ClaudeIntegration:invokeClaude] Writing token to temp file:', tempFile);
-      fs.writeFileSync(tempFile, `export CLAUDE_CODE_OAUTH_TOKEN="${token}"\n`, { mode: 0o600 });
+      fs.writeFileSync(
+        tempFile,
+        `export CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArg(token)}\n`,
+        { mode: 0o600 }
+      );
 
       // Clear terminal and run command without adding to shell history:
       // - HISTFILE= disables history file writing for the current command
@@ -260,9 +279,25 @@ export function invokeClaude(
       // - Leading space ensures the command is ignored even if HISTCONTROL was already set
       // - Uses subshell (...) to isolate environment changes
       // This prevents temp file paths from appearing in shell history
-      const command = `clear && ${cwdCommand} HISTFILE= HISTCONTROL=ignorespace bash -c 'source "${tempFile}" && rm -f "${tempFile}" && exec claude'\r`;
+      const command = `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace ${pathPrefix}bash -c "source ${escapedTempFile} && rm -f ${escapedTempFile} && exec ${escapedClaudeCmd}"\r`;
       debugLog('[ClaudeIntegration:invokeClaude] Executing command (temp file method, history-safe)');
       terminal.pty.write(command);
+      profileManager.markProfileUsed(activeProfile.id);
+
+      // Update terminal title and persist session
+      const title = `Claude (${activeProfile.name})`;
+      terminal.title = title;
+      const win = getWindow();
+      if (win) {
+        win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, title);
+      }
+      if (terminal.projectPath) {
+        SessionHandler.persistSession(terminal);
+      }
+      if (projectPath) {
+        onSessionCapture(terminal.id, projectPath, startTime);
+      }
+
       debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (temp file) ==========');
       return;
     } else if (activeProfile.configDir) {
@@ -271,9 +306,25 @@ export function invokeClaude(
       // SECURITY: Use escapeShellArg for configDir to prevent command injection
       // Set CLAUDE_CONFIG_DIR as env var before bash -c to avoid embedding user input in the command string
       const escapedConfigDir = escapeShellArg(activeProfile.configDir);
-      const command = `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${escapedConfigDir} bash -c 'exec claude'\r`;
+      const command = `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${escapedConfigDir} ${pathPrefix}bash -c "exec ${escapedClaudeCmd}"\r`;
       debugLog('[ClaudeIntegration:invokeClaude] Executing command (configDir method, history-safe)');
       terminal.pty.write(command);
+      profileManager.markProfileUsed(activeProfile.id);
+
+      // Update terminal title and persist session
+      const title = `Claude (${activeProfile.name})`;
+      terminal.title = title;
+      const win = getWindow();
+      if (win) {
+        win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, title);
+      }
+      if (terminal.projectPath) {
+        SessionHandler.persistSession(terminal);
+      }
+      if (projectPath) {
+        onSessionCapture(terminal.id, projectPath, startTime);
+      }
+
       debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (configDir) ==========');
       return;
     } else {
@@ -285,7 +336,7 @@ export function invokeClaude(
     debugLog('[ClaudeIntegration:invokeClaude] Using terminal environment for non-default profile:', activeProfile.name);
   }
 
-  const command = `${cwdCommand}claude\r`;
+  const command = `${cwdCommand}${pathPrefix}${escapedClaudeCmd}\r`;
   debugLog('[ClaudeIntegration:invokeClaude] Executing command (default method):', command);
   terminal.pty.write(command);
 
@@ -293,11 +344,14 @@ export function invokeClaude(
     profileManager.markProfileUsed(activeProfile.id);
   }
 
+  // Update terminal title in main process and notify renderer
+  const title = activeProfile && !activeProfile.isDefault
+    ? `Claude (${activeProfile.name})`
+    : 'Claude';
+  terminal.title = title;
+
   const win = getWindow();
   if (win) {
-    const title = activeProfile && !activeProfile.isDefault
-      ? `Claude (${activeProfile.name})`
-      : 'Claude';
     win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, title);
   }
 
@@ -321,21 +375,35 @@ export function resumeClaude(
   getWindow: WindowGetter
 ): void {
   terminal.isClaudeMode = true;
+  SessionHandler.releaseSessionId(terminal.id);
+
+  const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
+  const escapedClaudeCmd = escapeShellArg(claudeCmd);
+  const pathPrefix = claudeEnv.PATH
+    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
+    : '';
 
   let command: string;
   if (sessionId) {
     // SECURITY: Escape sessionId to prevent command injection
-    command = `claude --resume ${escapeShellArg(sessionId)}`;
+    command = `${pathPrefix}${escapedClaudeCmd} --resume ${escapeShellArg(sessionId)}`;
     terminal.claudeSessionId = sessionId;
   } else {
-    command = 'claude --continue';
+    command = `${pathPrefix}${escapedClaudeCmd} --continue`;
   }
 
   terminal.pty.write(`${command}\r`);
 
+  // Update terminal title in main process and notify renderer
+  terminal.title = 'Claude';
   const win = getWindow();
   if (win) {
     win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
+  }
+
+  // Persist session with updated title
+  if (terminal.projectPath) {
+    SessionHandler.persistSession(terminal);
   }
 }
 

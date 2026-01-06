@@ -227,6 +227,54 @@ class TestFollowupReviewContext:
         assert context.error is not None
         assert "Failed to compare commits" in context.error
 
+    def test_context_rebase_detected_files_changed_no_commits(self, sample_review_result):
+        """Test follow-up context when PR was rebased (files changed but no trackable commits).
+
+        After a rebase/force-push, commit SHAs are rewritten so we can't identify "new" commits.
+        However, blob SHA comparison can still identify which files actually changed content.
+        The follow-up review should proceed based on file changes, not skip the review.
+        """
+        context = FollowupReviewContext(
+            pr_number=123,
+            previous_review=sample_review_result,
+            previous_commit_sha="abc123",  # This SHA no longer exists in PR after rebase
+            current_commit_sha="xyz789",
+            commits_since_review=[],  # Empty after rebase - can't determine "new" commits
+            files_changed_since_review=["src/db.py", "src/api.py"],  # But blob comparison found changes
+            diff_since_review="--- a/src/db.py\n+++ b/src/db.py\n@@ -1,3 +1,3 @@\n-old\n+new",
+        )
+
+        # Verify context reflects rebase scenario
+        assert context.pr_number == 123
+        assert len(context.commits_since_review) == 0  # No trackable commits
+        assert len(context.files_changed_since_review) == 2  # But files did change
+        assert context.error is None
+
+        # The key assertion: this context should NOT be treated as "no changes"
+        # The orchestrator should check both commits AND files
+        has_changes = bool(context.commits_since_review) or bool(
+            context.files_changed_since_review
+        )
+        assert has_changes is True, "Rebase with file changes should be treated as having changes"
+
+    def test_context_truly_no_changes(self, sample_review_result):
+        """Test follow-up context when there are truly no changes (same SHA, no files)."""
+        context = FollowupReviewContext(
+            pr_number=123,
+            previous_review=sample_review_result,
+            previous_commit_sha="abc123",
+            current_commit_sha="abc123",  # Same SHA
+            commits_since_review=[],
+            files_changed_since_review=[],  # No file changes either
+            diff_since_review="",
+        )
+
+        # This should be treated as no changes
+        has_changes = bool(context.commits_since_review) or bool(
+            context.files_changed_since_review
+        )
+        assert has_changes is False, "No commits and no file changes means no changes"
+
 
 # ============================================================================
 # Bot Detection Integration Tests

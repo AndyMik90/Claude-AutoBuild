@@ -4,11 +4,9 @@
 
 ![Auto Claude Kanban Board](.github/assets/Auto-Claude-Kanban.png)
 
-<!-- TOP_VERSION_BADGE -->
-[![Version](https://img.shields.io/badge/version-2.7.2-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.2)
-<!-- TOP_VERSION_BADGE_END -->
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green?style=flat-square)](./agpl-3.0.txt)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/KCXaPBr4Dj)
+[![YouTube](https://img.shields.io/badge/YouTube-Subscribe-FF0000?style=flat-square&logo=youtube&logoColor=white)](https://www.youtube.com/@AndreMikalsen)
 [![CI](https://img.shields.io/github/actions/workflow/status/AndyMik90/Auto-Claude/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/AndyMik90/Auto-Claude/actions)
 
 ---
@@ -59,7 +57,6 @@
 - **Claude Pro/Max subscription** - [Get one here](https://claude.ai/upgrade)
 - **Claude Code CLI** - `npm install -g @anthropic-ai/claude-code`
 - **Git repository** - Your project must be initialized as a git repo
-- **Python 3.12+** - Required for the backend and Memory Layer
 
 ---
 
@@ -148,113 +145,11 @@ See [guides/CLI-USAGE.md](guides/CLI-USAGE.md) for complete CLI documentation.
 
 ---
 
-## Configuration
+## Development
 
-Create `apps/backend/.env` from the example:
+Want to build from source or contribute? See [CONTRIBUTING.md](CONTRIBUTING.md) for complete development setup instructions.
 
-```bash
-cp apps/backend/.env.example apps/backend/.env
-```
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `CLAUDE_CODE_OAUTH_TOKEN` | Yes | OAuth token from `claude setup-token` |
-| `GRAPHITI_ENABLED` | No | Enable Memory Layer for cross-session context |
-| `AUTO_BUILD_MODEL` | No | Override the default Claude model |
-| `GITLAB_TOKEN` | No | GitLab Personal Access Token for GitLab integration |
-| `GITLAB_INSTANCE_URL` | No | GitLab instance URL (defaults to gitlab.com) |
-| `LINEAR_API_KEY` | No | Linear API key for task sync |
-
----
-
-## Building from Source
-
-For contributors and development:
-
-```bash
-# Clone the repository
-git clone https://github.com/AndyMik90/Auto-Claude.git
-cd Auto-Claude
-
-# Install all dependencies
-npm run install:all
-
-# Run in development mode
-npm run dev
-
-# Or build and run
-npm start
-```
-
-**System requirements for building:**
-- Node.js 24+
-- Python 3.12+
-- npm 10+
-
-**Installing dependencies by platform:**
-
-<details>
-<summary><b>Windows</b></summary>
-
-```bash
-winget install Python.Python.3.12
-winget install OpenJS.NodeJS.LTS
-```
-
-</details>
-
-<details>
-<summary><b>macOS</b></summary>
-
-```bash
-brew install python@3.12 node@24
-```
-
-</details>
-
-<details>
-<summary><b>Linux (Ubuntu/Debian)</b></summary>
-
-```bash
-sudo apt install python3.12 python3.12-venv
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt install -y nodejs
-```
-
-</details>
-
-<details>
-<summary><b>Linux (Fedora)</b></summary>
-
-```bash
-sudo dnf install python3.12 nodejs npm
-```
-
-</details>
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development setup.
-
-### Building Flatpak
-
-To build the Flatpak package, you need additional dependencies:
-
-```bash
-# Fedora/RHEL
-sudo dnf install flatpak-builder
-
-# Ubuntu/Debian
-sudo apt install flatpak-builder
-
-# Install required Flatpak runtimes
-flatpak install flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
-flatpak install flathub org.electronjs.Electron2.BaseApp//25.08
-
-# Build the Flatpak
-cd apps/frontend
-npm run package:flatpak
-```
-
-The Flatpak will be created in `apps/frontend/dist/`.
+For Linux-specific builds (Flatpak, AppImage), see [guides/linux.md](guides/linux.md).
 
 ---
 
@@ -284,7 +179,7 @@ All releases are:
 | `npm run package:mac` | Package for macOS |
 | `npm run package:win` | Package for Windows |
 | `npm run package:linux` | Package for Linux |
-| `npm run package:flatpak` | Package as Flatpak |
+| `npm run package:flatpak` | Package as Flatpak (see [guides/linux.md](guides/linux.md)) |
 | `npm run lint` | Run linter |
 | `npm test` | Run frontend tests |
 | `npm run test:backend` | Run backend tests |
@@ -316,3 +211,11 @@ We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for:
 Auto Claude is free to use. If you modify and distribute it, or run it as a service, your code must also be open source under AGPL-3.0.
 
 Commercial licensing available for closed-source use cases.
+
+---
+
+## Star History
+
+[![GitHub Repo stars](https://img.shields.io/github/stars/AndyMik90/Auto-Claude?style=social)](https://github.com/AndyMik90/Auto-Claude/stargazers)
+
+[![Star History Chart](https://api.star-history.com/svg?repos=AndyMik90/Auto-Claude&type=Date)](https://star-history.com/#AndyMik90/Auto-Claude&Date)

@@ -222,19 +222,9 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     }
   }, [task.id]);
 
-  // Auto-load merge preview when worktree is ready (eliminates need to click "Check Conflicts")
-  // NOTE: This must be placed AFTER loadMergePreview definition since it depends on that callback
-  useEffect(() => {
-    // Only auto-load if:
-    // 1. Task needs review
-    // 2. Worktree exists
-    // 3. We haven't already loaded the preview for this task
-    // 4. We're not currently loading
-    const alreadyLoaded = hasLoadedPreviewRef.current === task.id;
-    if (needsReview && worktreeStatus?.exists && !alreadyLoaded && !isLoadingPreview) {
-      loadMergePreview();
-    }
-  }, [needsReview, worktreeStatus?.exists, isLoadingPreview, task.id, loadMergePreview]);
+  // NOTE: Merge preview is NO LONGER auto-loaded on modal open.
+  // User must click "Check for Conflicts" button to trigger the expensive preview operation.
+  // This improves modal open performance significantly (avoids 1-30+ second Python subprocess).
 
   return {
     // State

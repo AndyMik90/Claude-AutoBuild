@@ -36,10 +36,8 @@ from pydantic_models import (
 )
 from models import (
     PRReviewFinding,
-    PRReviewResult,
     ReviewSeverity,
     ReviewCategory,
-    MergeVerdict,
 )
 
 

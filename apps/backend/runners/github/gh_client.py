@@ -875,6 +875,128 @@ class GHClient:
                 "error": str(e),
             }
 
+    async def get_workflows_awaiting_approval(self, pr_number: int) -> dict[str, Any]:
+        """
+        Get workflow runs awaiting approval for a PR from a fork.
+
+        Workflows from forked repositories require manual approval before running.
+        These are NOT included in `gh pr checks` and must be queried separately.
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            Dict with:
+            - awaiting_approval: Number of workflows waiting for approval
+            - workflow_runs: List of workflow runs with id, name, html_url
+            - can_approve: Whether this token can approve workflows
+        """
+        try:
+            # First, get the PR's head SHA to filter workflow runs
+            pr_args = ["pr", "view", str(pr_number), "--json", "headRefOid"]
+            pr_args = self._add_repo_flag(pr_args)
+            pr_result = await self.run(pr_args, timeout=30.0)
+            pr_data = json.loads(pr_result.stdout) if pr_result.stdout.strip() else {}
+            head_sha = pr_data.get("headRefOid", "")
+
+            if not head_sha:
+                return {
+                    "awaiting_approval": 0,
+                    "workflow_runs": [],
+                    "can_approve": False,
+                }
+
+            # Query workflow runs with action_required status
+            # Note: We need to use the API endpoint as gh CLI doesn't have direct support
+            endpoint = (
+                "repos/{owner}/{repo}/actions/runs?status=action_required&per_page=100"
+            )
+            args = ["api", "--method", "GET", endpoint]
+
+            result = await self.run(args, timeout=30.0)
+            data = json.loads(result.stdout) if result.stdout.strip() else {}
+            all_runs = data.get("workflow_runs", [])
+
+            # Filter to only runs for this PR's head SHA
+            pr_runs = [
+                {
+                    "id": run.get("id"),
+                    "name": run.get("name"),
+                    "html_url": run.get("html_url"),
+                    "workflow_name": run.get("workflow", {}).get("name", "Unknown"),
+                }
+                for run in all_runs
+                if run.get("head_sha") == head_sha
+            ]
+
+            return {
+                "awaiting_approval": len(pr_runs),
+                "workflow_runs": pr_runs,
+                "can_approve": True,  # Assume token has permission, will fail if not
+            }
+        except (GHCommandError, GHTimeoutError, json.JSONDecodeError) as e:
+            logger.warning(
+                f"Failed to get workflows awaiting approval for #{pr_number}: {e}"
+            )
+            return {
+                "awaiting_approval": 0,
+                "workflow_runs": [],
+                "can_approve": False,
+                "error": str(e),
+            }
+
+    async def approve_workflow_run(self, run_id: int) -> bool:
+        """
+        Approve a workflow run that's waiting for approval (from a fork).
+
+        Args:
+            run_id: The workflow run ID to approve
+
+        Returns:
+            True if approval succeeded, False otherwise
+        """
+        try:
+            endpoint = f"repos/{{owner}}/{{repo}}/actions/runs/{run_id}/approve"
+            args = ["api", "--method", "POST", endpoint]
+
+            await self.run(args, timeout=30.0)
+            logger.info(f"Approved workflow run {run_id}")
+            return True
+        except (GHCommandError, GHTimeoutError) as e:
+            logger.warning(f"Failed to approve workflow run {run_id}: {e}")
+            return False
+
+    async def get_pr_checks_comprehensive(self, pr_number: int) -> dict[str, Any]:
+        """
+        Get comprehensive CI status including workflows awaiting approval.
+
+        This combines:
+        - Standard check runs from `gh pr checks`
+        - Workflows awaiting approval (for fork PRs)
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            Dict with all check information including awaiting_approval count
+        """
+        # Get standard checks
+        checks = await self.get_pr_checks(pr_number)
+
+        # Get workflows awaiting approval
+        awaiting = await self.get_workflows_awaiting_approval(pr_number)
+
+        # Merge the results
+        checks["awaiting_approval"] = awaiting.get("awaiting_approval", 0)
+        checks["awaiting_workflow_runs"] = awaiting.get("workflow_runs", [])
+
+        # Update pending count to include awaiting approval
+        checks["pending"] = checks.get("pending", 0) + awaiting.get(
+            "awaiting_approval", 0
+        )
+
+        return checks
+
     async def get_pr_files(self, pr_number: int) -> list[dict[str, Any]]:
         """
         Get files changed by a PR using the PR files endpoint.
@@ -1007,7 +1129,9 @@ class GHClient:
         Returns:
             Tuple of:
             - List of file objects that are part of the PR (filtered if blob comparison used)
-            - List of commit objects that are part of the PR and after base_sha
+            - List of commit objects that are part of the PR and after base_sha.
+              NOTE: Returns empty list if rebase/force-push detected, since commit SHAs
+              are rewritten and we cannot determine which commits are truly "new".
         """
         # Get PR's canonical files (these are the actual PR changes)
         pr_files = await self.get_pr_files(pr_number)
@@ -1072,12 +1196,14 @@ class GHClient:
                     f"{unchanged_count} unchanged (skipped)"
                 )
 
-            # Return filtered files but all commits (can't filter commits after rebase)
-            return changed_files, pr_commits
+            # Return filtered files but empty commits list (can't determine "new" commits after rebase)
+            # After a rebase, all commit SHAs are rewritten so we can't identify which are truly new.
+            # The file changes via blob comparison are the reliable source of what changed.
+            return changed_files, []
 
-        # No blob data available - return all files and commits
+        # No blob data available - return all files but empty commits (can't determine new commits)
         logger.warning(
-            "No reviewed_file_blobs available for blob comparison. "
-            "Returning all PR files."
+            "No reviewed_file_blobs available for blob comparison after rebase. "
+            "Returning all PR files with empty commits list."
         )
-        return pr_files, pr_commits
+        return pr_files, []

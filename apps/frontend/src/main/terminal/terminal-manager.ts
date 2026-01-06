@@ -80,6 +80,9 @@ export class TerminalManager {
             this.terminals,
             this.getWindow
           );
+        },
+        onResumeNeeded: (terminalId, sessionId) => {
+          this.resumeClaude(terminalId, sessionId);
         }
       },
       cols,
@@ -239,6 +242,9 @@ export class TerminalManager {
             this.terminals,
             this.getWindow
           );
+        },
+        onResumeNeeded: (terminalId, sessionId) => {
+          this.resumeClaude(terminalId, sessionId);
         }
       },
       cols,
@@ -276,6 +282,20 @@ export class TerminalManager {
     const terminal = this.terminals.get(id);
     if (terminal) {
       terminal.title = title;
+    }
+  }
+
+  /**
+   * Update terminal worktree config
+   */
+  setWorktreeConfig(id: string, config: import('../../shared/types').TerminalWorktreeConfig | undefined): void {
+    const terminal = this.terminals.get(id);
+    if (terminal) {
+      terminal.worktreeConfig = config;
+      // Persist immediately when worktree config changes
+      if (terminal.projectPath) {
+        SessionHandler.persistSession(terminal);
+      }
     }
   }
 

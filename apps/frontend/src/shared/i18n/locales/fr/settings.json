@@ -50,6 +50,128 @@
       "description": "Outils de dépannage"
     }
   },
+  "apiProfiles": {
+    "title": "Profils API",
+    "description": "Configurez des endpoints API compatibles Anthropic personnalisés",
+    "addButton": "Ajouter un profil",
+    "presets": {
+      "anthropic": "Anthropic",
+      "openrouter": "OpenRouter",
+      "groq": "Groq",
+      "glmGlobal": "GLM (Global)",
+      "glmChina": "GLM (China)"
+    },
+    "fields": {
+      "name": "Nom",
+      "preset": "Préréglage",
+      "baseUrl": "URL de base",
+      "apiKey": "Clé API"
+    },
+    "placeholders": {
+      "name": "Mon API personnalisée",
+      "preset": "Choisir un préréglage de fournisseur",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "sk-ant-..."
+    },
+    "hints": {
+      "preset": "Les préréglages remplissent l'URL de base ; vous devez toujours coller votre clé API.",
+      "baseUrl": "Exemple : https://api.anthropic.com ou http://localhost:8080"
+    },
+    "validation": {
+      "nameRequired": "Le nom est requis",
+      "baseUrlRequired": "L'URL de base est requise",
+      "baseUrlInvalid": "Format d'URL invalide (doit être http:// ou https://)",
+      "apiKeyRequired": "La clé API est requise",
+      "apiKeyInvalid": "Format de clé API invalide"
+    },
+    "actions": {
+      "save": "Enregistrer le profil",
+      "saving": "Enregistrement...",
+      "cancel": "Annuler",
+      "changeKey": "Modifier",
+      "cancelKeyChange": "Annuler"
+    },
+    "testConnection": {
+      "label": "Tester la connexion",
+      "testing": "Test en cours...",
+      "success": "Connexion réussie",
+      "failure": "Échec de la connexion"
+    },
+    "models": {
+      "title": "Optionnel : correspondance des noms de modèles",
+      "description": "Sélectionnez des modèles auprès de votre fournisseur d'API. Laissez vide pour utiliser les valeurs par défaut.",
+      "defaultLabel": "Modèle par défaut (optionnel)",
+      "haikuLabel": "Modèle Haiku (optionnel)",
+      "sonnetLabel": "Modèle Sonnet (optionnel)",
+      "opusLabel": "Modèle Opus (optionnel)",
+      "defaultPlaceholder": "ex. : claude-3-5-sonnet-20241022",
+      "haikuPlaceholder": "ex. : claude-3-5-haiku-20241022",
+      "sonnetPlaceholder": "ex. : claude-3-5-sonnet-20241022",
+      "opusPlaceholder": "ex. : claude-3-5-opus-20241022"
+    },
+    "empty": {
+      "title": "Aucun profil API configuré",
+      "description": "Créez un profil pour configurer des endpoints API personnalisés pour vos builds.",
+      "action": "Créer le premier profil"
+    },
+    "switchToOauth": {
+      "label": "Passer à OAuth",
+      "loading": "Basculement..."
+    },
+    "activeBadge": "Actif",
+    "customModels": "Modèles personnalisés : {{models}}",
+    "setActive": {
+      "label": "Définir comme actif",
+      "loading": "Activation..."
+    },
+    "tooltips": {
+      "edit": "Modifier le profil",
+      "deleteActive": "Passez à OAuth avant de supprimer",
+      "deleteInactive": "Supprimer le profil"
+    },
+    "deleteAriaLabel": "Supprimer le profil {{name}}",
+    "toast": {
+      "create": {
+        "title": "Profil créé",
+        "description": "\"{{name}}\" a été ajouté avec succès."
+      },
+      "update": {
+        "title": "Profil mis à jour",
+        "description": "\"{{name}}\" a été mis à jour avec succès."
+      },
+      "delete": {
+        "title": "Profil supprimé",
+        "description": "\"{{name}}\" a été supprimé.",
+        "errorTitle": "Échec de la suppression du profil",
+        "errorFallback": "Une erreur s'est produite lors de la suppression du profil."
+      },
+      "switch": {
+        "oauthTitle": "Passé à OAuth",
+        "oauthDescription": "Authentification OAuth utilisée",
+        "profileTitle": "Profil activé",
+        "profileDescription": "Utilisation de {{name}}",
+        "errorTitle": "Échec du changement d'authentification",
+        "errorFallback": "Une erreur s'est produite lors du changement de méthode d'authentification."
+      }
+    },
+    "dialog": {
+      "createTitle": "Ajouter un profil API",
+      "editTitle": "Modifier le profil",
+      "description": "Configurez un endpoint API compatible Anthropic personnalisé pour vos builds.",
+      "deleteTitle": "Supprimer le profil ?",
+      "deleteDescription": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" ? Cette action est irréversible.",
+      "cancel": "Annuler",
+      "delete": "Supprimer",
+      "deleting": "Suppression..."
+    }
+  },
+  "modelSelect": {
+    "placeholder": "Sélectionner un modèle ou saisir manuellement",
+    "placeholderManual": "Saisir le nom du modèle (ex. : claude-3-5-sonnet-20241022)",
+    "searchPlaceholder": "Rechercher des modèles...",
+    "noResults": "Aucun modèle ne correspond à votre recherche",
+    "discoveryNotAvailable": "Découverte de modèles indisponible. Saisissez le nom du modèle manuellement."
+  },
   "language": {
     "label": "Langue de l'interface",
     "description": "Sélectionnez la langue de l'interface de l'application"
@@ -95,6 +217,7 @@
     "sourceUserConfig": "Configuration utilisateur",
     "sourceVenv": "Environnement virtuel",
     "sourceHomebrew": "Homebrew",
+    "sourceNvm": "NVM",
     "sourceSystemPath": "PATH système",
     "sourceBundled": "Intégré",
     "sourceFallback": "Valeur par défaut",
@@ -161,7 +284,11 @@
     "autoUpdateProjects": "Mise à jour automatique des projets",
     "autoUpdateProjectsDescription": "Mettre à jour automatiquement Auto Claude dans les projets quand une nouvelle version est disponible",
     "betaUpdates": "Mises à jour bêta",
-    "betaUpdatesDescription": "Recevoir les versions bêta pré-release avec de nouvelles fonctionnalités (peut être moins stable)"
+    "betaUpdatesDescription": "Recevoir les versions bêta pré-release avec de nouvelles fonctionnalités (peut être moins stable)",
+    "stableDowngradeAvailable": "Version stable disponible",
+    "stableDowngradeDescription": "Vous êtes actuellement sur une version bêta. Comme vous avez désactivé les mises à jour bêta, vous pouvez passer à la dernière version stable.",
+    "stableVersion": "Version stable",
+    "downloadStableVersion": "Télécharger la version stable"
   },
   "notifications": {
     "title": "Notifications",
@@ -238,7 +365,9 @@
     "selectThinkingLevel": "Sélectionner un niveau de réflexion",
     "perPhaseOptimization": "(optimisation par phase)",
     "resetToDefaults": "Réinitialiser par défaut",
-    "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec le profil Auto. Vous pouvez les modifier par tâche dans l'assistant de création.",
+    "resetToProfileDefaults": "Réinitialiser aux défauts de {{profile}}",
+    "customized": "Personnalisé",
+    "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec ce profil. Vous pouvez les modifier par tâche dans l'assistant de création.",
     "phases": {
       "spec": {
         "label": "Création de spec",
@@ -312,6 +441,10 @@
   "debug": {
     "title": "Debug & Logs",
     "description": "Accédez aux logs et informations de débogage pour le dépannage",
+    "errorReporting": {
+      "label": "Rapports d'erreurs anonymes",
+      "description": "Envoyer des rapports de crash pour améliorer Auto Claude. Aucune donnée personnelle ni code n'est collecté."
+    },
     "openLogsFolder": "Ouvrir le dossier des logs",
     "copyDebugInfo": "Copier les infos de débogage",
     "copied": "Copié !",

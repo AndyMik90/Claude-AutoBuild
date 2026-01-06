@@ -38,7 +38,13 @@
     "branchDescription": "Choose which branch Auto Claude should use as the base for creating task branches.",
     "whyBranch": "Why select a branch?",
     "branchExplanation": "Auto Claude creates isolated workspaces for each task. Selecting the right base branch ensures your tasks start with the latest code from your main development line.",
-    "ready": "Auto Claude is ready to use! You can now create tasks that will be automatically based on the {{branchName}} branch."
+    "ready": "Auto Claude is ready to use! You can now create tasks that will be automatically based on the {{branchName}} branch.",
+    "createRepoAriaLabel": "Create new repository on GitHub",
+    "linkRepoAriaLabel": "Link to existing repository",
+    "goBackAriaLabel": "Go back to repository selection",
+    "selectOwnerAriaLabel": "Select {{owner}} as repository owner",
+    "selectOrgAriaLabel": "Select {{org}} as repository owner",
+    "selectVisibilityAriaLabel": "Set repository visibility to {{visibility}}"
   },
   "worktrees": {
     "title": "Worktrees",
@@ -109,7 +115,9 @@
     "nameRequired": "Please enter a project name",
     "locationRequired": "Please select a location",
     "failedToOpen": "Failed to open project",
-    "failedToCreate": "Failed to create project"
+    "failedToCreate": "Failed to create project",
+    "openExistingAriaLabel": "Open existing project folder",
+    "createNewAriaLabel": "Create new project"
   },
   "customModel": {
     "title": "Custom Model Configuration",

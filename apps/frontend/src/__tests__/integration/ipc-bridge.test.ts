@@ -11,7 +11,8 @@ const mockIpcRenderer = {
   on: vi.fn(),
   once: vi.fn(),
   removeListener: vi.fn(),
-  removeAllListeners: vi.fn()
+  removeAllListeners: vi.fn(),
+  setMaxListeners: vi.fn()
 };
 
 // Mock contextBridge

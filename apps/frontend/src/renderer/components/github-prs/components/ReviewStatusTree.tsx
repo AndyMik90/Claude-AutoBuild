@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, Circle, CircleDot, Play } from 'lucide-react';
+import { CheckCircle, Circle, CircleDot, Play, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
@@ -143,7 +143,18 @@ export function ReviewStatusTree({
         id: 'analysis',
         label: t('prReview.analysisComplete', { count: reviewResult.findings.length }),
         status: 'completed',
-        date: reviewResult.reviewedAt
+        date: reviewResult.reviewedAt,
+        action: (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onRunReview}
+            className="ml-2 h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+            title={t('prReview.rerunReview')}
+          >
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+        )
       });
     }
 

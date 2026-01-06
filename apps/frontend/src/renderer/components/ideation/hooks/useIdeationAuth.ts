@@ -21,6 +21,24 @@ export function useIdeationAuth() {
   // Get active API profile info from settings store
   const activeProfileId = useSettingsStore((state) => state.activeProfileId);
 
+  const resolveHasAPIProfile = async (profileId?: string | null): Promise<boolean> => {
+    // Trust the store when it's already populated to avoid extra IPC calls; fallback to IPC only when empty.
+    if (profileId && profileId !== '') {
+      return true;
+    }
+
+    try {
+      const profilesResult = await window.electronAPI.getAPIProfiles();
+      return Boolean(
+        profilesResult.success &&
+        profilesResult.data?.activeProfileId &&
+        profilesResult.data.activeProfileId !== ''
+      );
+    } catch {
+      return false;
+    }
+  };
+
   useEffect(() => {
     const performCheck = async () => {
       setIsLoading(true);
@@ -31,11 +49,10 @@ export function useIdeationAuth() {
         const sourceTokenResult = await window.electronAPI.checkSourceToken();
         const hasSourceOAuthToken = sourceTokenResult.success && sourceTokenResult.data?.hasToken;
 
-        // Check if active API profile is configured
-        const hasAPIProfile = Boolean(activeProfileId && activeProfileId !== '');
+        const hasAPIProfile = await resolveHasAPIProfile(activeProfileId);
 
         // Auth is valid if either source token or API profile exists
-        setHasToken(hasSourceOAuthToken || hasAPIProfile);
+        setHasToken(Boolean(hasSourceOAuthToken || hasAPIProfile));
       } catch (err) {
         setHasToken(false);
         setError(err instanceof Error ? err.message : 'Unknown error');
@@ -55,8 +72,10 @@ export function useIdeationAuth() {
     try {
       const sourceTokenResult = await window.electronAPI.checkSourceToken();
       const hasSourceOAuthToken = sourceTokenResult.success && sourceTokenResult.data?.hasToken;
-      const hasAPIProfile = Boolean(activeProfileId && activeProfileId !== '');
-      setHasToken(hasSourceOAuthToken || hasAPIProfile);
+
+      const hasAPIProfile = await resolveHasAPIProfile(activeProfileId);
+
+      setHasToken(Boolean(hasSourceOAuthToken || hasAPIProfile));
     } catch (err) {
       setHasToken(false);
       setError(err instanceof Error ? err.message : 'Unknown error');

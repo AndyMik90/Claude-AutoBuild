@@ -25,7 +25,7 @@ import {
 } from '../memory-service';
 import { validateOpenAIApiKey } from '../api-validation-service';
 import { parsePythonCommand } from '../python-detector';
-import { getConfiguredPythonPath } from '../python-env-manager';
+import { getConfiguredPythonPath, pythonEnvManager } from '../python-env-manager';
 import { openTerminalWithCommand } from './claude-code-handlers';
 
 /**
@@ -296,6 +296,9 @@ async function executeOllamaDetector(
     let resolved = false;
     const proc = spawn(pythonExe, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
+      // Use sanitized Python environment to prevent PYTHONHOME contamination
+      // Fixes "Could not find platform independent libraries" error on Windows
+      env: pythonEnvManager.getPythonEnv(),
     });
 
     let stdout = '';
@@ -769,6 +772,9 @@ export function registerMemoryHandlers(): void {
           const proc = spawn(pythonExe, args, {
             stdio: ['ignore', 'pipe', 'pipe'],
             timeout: 600000, // 10 minute timeout for large models
+            // Use sanitized Python environment to prevent PYTHONHOME contamination
+            // Fixes "Could not find platform independent libraries" error on Windows
+            env: pythonEnvManager.getPythonEnv(),
           });
 
           let stdout = '';

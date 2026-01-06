@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -9,15 +9,27 @@ interface UseXtermOptions {
   terminalId: string;
   onCommandEnter?: (command: string) => void;
   onResize?: (cols: number, rows: number) => void;
+  onDimensionsReady?: (cols: number, rows: number) => void;
 }
 
-export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptions) {
+// Debounce helper function
+function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  return ((...args: unknown[]) => {
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), ms);
+  }) as T;
+}
+
+export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsReady }: UseXtermOptions) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const serializeAddonRef = useRef<SerializeAddon | null>(null);
   const commandBufferRef = useRef<string>('');
   const isDisposedRef = useRef<boolean>(false);
+  const dimensionsReadyCalledRef = useRef<boolean>(false);
+  const [dimensions, setDimensions] = useState<{ cols: number; rows: number }>({ cols: 80, rows: 24 });
 
   // Initialize xterm.js UI
   useEffect(() => {
@@ -109,13 +121,35 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
       return true;
     });
 
-    setTimeout(() => {
-      fitAddon.fit();
-    }, 50);
-
     xtermRef.current = xterm;
     fitAddonRef.current = fitAddon;
     serializeAddonRef.current = serializeAddon;
+
+    // Use requestAnimationFrame to wait for layout, then fit
+    // This is more reliable than a fixed timeout
+    const performInitialFit = () => {
+      requestAnimationFrame(() => {
+        if (fitAddonRef.current && xtermRef.current && terminalRef.current) {
+          // Check if container has valid dimensions
+          const rect = terminalRef.current.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            fitAddonRef.current.fit();
+            const cols = xtermRef.current.cols;
+            const rows = xtermRef.current.rows;
+            setDimensions({ cols, rows });
+            // Call onDimensionsReady once when we have valid dimensions
+            if (!dimensionsReadyCalledRef.current && cols > 0 && rows > 0) {
+              dimensionsReadyCalledRef.current = true;
+              onDimensionsReady?.(cols, rows);
+            }
+          } else {
+            // Container not ready yet, retry after a short delay
+            setTimeout(performInitialFit, 50);
+          }
+        }
+      });
+    };
+    performInitialFit();
 
     // Replay buffered output if this is a remount or restored session
     // This now includes ANSI codes for proper formatting/colors/prompt
@@ -156,23 +190,36 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
     return () => {
       // Cleanup handled by parent component
     };
-  }, [terminalId, onCommandEnter, onResize]);
+  }, [terminalId, onCommandEnter, onResize, onDimensionsReady]);
 
-  // Handle resize on container resize
+  // Handle resize on container resize with debouncing
   useEffect(() => {
-    const handleResize = () => {
-      if (fitAddonRef.current && xtermRef.current) {
-        fitAddonRef.current.fit();
+    const handleResize = debounce(() => {
+      if (fitAddonRef.current && xtermRef.current && terminalRef.current) {
+        // Check if container has valid dimensions before fitting
+        const rect = terminalRef.current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          fitAddonRef.current.fit();
+          const cols = xtermRef.current.cols;
+          const rows = xtermRef.current.rows;
+          setDimensions({ cols, rows });
+          // Notify when dimensions become valid (for late PTY creation)
+          if (!dimensionsReadyCalledRef.current && cols > 0 && rows > 0) {
+            dimensionsReadyCalledRef.current = true;
+            onDimensionsReady?.(cols, rows);
+          }
+        }
       }
-    };
+    }, 100); // 100ms debounce to prevent layout thrashing
 
-    const container = terminalRef.current?.parentElement;
+    // Observe the terminalRef directly (not parent) for accurate resize detection
+    const container = terminalRef.current;
     if (container) {
       const resizeObserver = new ResizeObserver(handleResize);
       resizeObserver.observe(container);
       return () => resizeObserver.disconnect();
     }
-  }, []);
+  }, [onDimensionsReady]);
 
   const fit = useCallback(() => {
     if (fitAddonRef.current && xtermRef.current) {
@@ -243,7 +290,8 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
     writeln,
     focus,
     dispose,
-    cols: xtermRef.current?.cols || 80,
-    rows: xtermRef.current?.rows || 24,
+    cols: dimensions.cols,
+    rows: dimensions.rows,
+    dimensionsReady: dimensionsReadyCalledRef.current,
   };
 }

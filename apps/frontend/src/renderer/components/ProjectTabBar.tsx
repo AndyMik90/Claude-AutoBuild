@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
@@ -26,6 +27,8 @@ export function ProjectTabBar({
   className,
   onSettingsClick
 }: ProjectTabBarProps) {
+  const { t } = useTranslation('common');
+
   // Keyboard shortcuts for tab navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -115,7 +118,7 @@ export function ProjectTabBar({
           size="icon"
           className="h-8 w-8"
           onClick={onAddProject}
-          title="Add Project"
+          aria-label={t('projectTab.addProjectAriaLabel')}
         >
           <Plus className="h-4 w-4" />
         </Button>

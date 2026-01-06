@@ -59,7 +59,11 @@
     "emptyDoneHint": "Approved tasks appear here",
     "emptyDefault": "No tasks",
     "dropHere": "Drop here",
-    "showArchived": "Show archived"
+    "showArchived": "Show archived",
+    "addTaskAriaLabel": "Add new task to backlog",
+    "closeTaskDetailsAriaLabel": "Close task details",
+    "editTask": "Edit task",
+    "cannotEditWhileRunning": "Cannot edit while task is running"
   },
   "execution": {
     "phases": {
@@ -98,5 +102,9 @@
   },
   "metadata": {
     "severity": "severity"
+  },
+  "images": {
+    "removeImageAriaLabel": "Remove image {{filename}}",
+    "pasteHint": "Tip: Paste screenshots directly with {{shortcut}} to add reference images."
   }
 }

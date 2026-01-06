@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import '../../../shared/i18n';
 import { ModelSearchableSelect } from './ModelSearchableSelect';
 import { useSettingsStore } from '../../stores/settings-store';
 
@@ -130,6 +131,31 @@ describe('ModelSearchableSelect', () => {
       expect(screen.getByText('Claude Sonnet 3.5')).toBeInTheDocument();
       expect(screen.getByText('claude-3-5-sonnet-20241022')).toBeInTheDocument();
     });
+  });
+
+  it('should render dropdown above the input', async () => {
+    mockDiscoverModels.mockResolvedValue([
+      { id: 'claude-3-5-sonnet-20241022', display_name: 'Claude Sonnet 3.5' }
+    ]);
+
+    render(
+      <ModelSearchableSelect
+        value=""
+        onChange={mockOnChange}
+        baseUrl="https://api.anthropic.com"
+        apiKey="sk-test-key-12chars"
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Select a model or type manually');
+    fireEvent.focus(input);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('model-select-dropdown')).toBeInTheDocument();
+    });
+
+    const dropdown = screen.getByTestId('model-select-dropdown');
+    expect(dropdown).toHaveClass('bottom-full');
   });
 
   it('should select model and close dropdown', async () => {
@@ -355,4 +381,3 @@ describe('ModelSearchableSelect', () => {
     });
   });
 });
-

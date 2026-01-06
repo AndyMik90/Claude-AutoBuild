@@ -1,5 +1,6 @@
 import type * as pty from '@lydell/node-pty';
 import type { BrowserWindow } from 'electron';
+import type { TerminalWorktreeConfig } from '../../shared/types';
 
 /**
  * Terminal process tracking
@@ -14,6 +15,8 @@ export interface TerminalProcess {
   claudeProfileId?: string;
   outputBuffer: string;
   title: string;
+  /** Associated worktree configuration (persisted across restarts) */
+  worktreeConfig?: TerminalWorktreeConfig;
 }
 
 /**

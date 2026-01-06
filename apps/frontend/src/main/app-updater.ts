@@ -18,11 +18,15 @@
  */
 
 import { autoUpdater } from 'electron-updater';
-import { app } from 'electron';
+import { app, net } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../shared/constants';
 import type { AppUpdateInfo } from '../shared/types';
 import { compareVersions } from './updater/version-manager';
+
+// GitHub repo info for API calls
+const GITHUB_OWNER = 'AndyMik90';
+const GITHUB_REPO = 'Auto-Claude';
 
 // Debug mode - DEBUG_UPDATER=true or development mode
 const DEBUG_UPDATER = process.env.DEBUG_UPDATER === 'true' || process.env.NODE_ENV === 'development';
@@ -250,4 +254,215 @@ export function quitAndInstall(): void {
  */
 export function getCurrentVersion(): string {
   return autoUpdater.currentVersion.version;
+}
+
+/**
+ * Check if a version string represents a prerelease (beta, alpha, rc, etc.)
+ */
+export function isPrerelease(version: string): boolean {
+  return /-(alpha|beta|rc|dev|canary)\.\d+$/i.test(version) || version.includes('-');
+}
+
+// Timeout for GitHub API requests (10 seconds)
+const GITHUB_API_TIMEOUT = 10000;
+
+/**
+ * Fetch the latest stable release from GitHub API
+ * Returns the latest non-prerelease version
+ */
+async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
+  const fetchPromise = new Promise<AppUpdateInfo | null>((resolve) => {
+    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
+    console.warn('[app-updater] Fetching releases from:', url);
+
+    const request = net.request({
+      url,
+      method: 'GET'
+    });
+
+    request.setHeader('Accept', 'application/vnd.github.v3+json');
+    request.setHeader('User-Agent', `Auto-Claude/${getCurrentVersion()}`);
+
+    let data = '';
+
+    request.on('response', (response) => {
+      // Validate HTTP status code
+      const statusCode = response.statusCode;
+      if (statusCode !== 200) {
+        // Sanitize statusCode to prevent log injection
+        // Convert to number and validate range to ensure it's a valid HTTP status code
+        const numericCode = Number(statusCode);
+        const safeStatusCode = (Number.isInteger(numericCode) && numericCode >= 100 && numericCode < 600)
+          ? String(numericCode)
+          : 'unknown';
+        console.error(`[app-updater] GitHub API error: HTTP ${safeStatusCode}`);
+        if (statusCode === 403) {
+          console.error('[app-updater] Rate limit may have been exceeded');
+        } else if (statusCode === 404) {
+          console.error('[app-updater] Repository or releases not found');
+        }
+        resolve(null);
+        return;
+      }
+
+      response.on('data', (chunk) => {
+        data += chunk.toString();
+      });
+
+      response.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+
+          // Validate response is an array
+          if (!Array.isArray(parsed)) {
+            console.error('[app-updater] Unexpected response format - expected array, got:', typeof parsed);
+            resolve(null);
+            return;
+          }
+
+          const releases = parsed as Array<{
+            tag_name: string;
+            prerelease: boolean;
+            draft: boolean;
+            body?: string;
+            published_at?: string;
+            html_url?: string;
+          }>;
+
+          // Find the first non-prerelease, non-draft release
+          const latestStable = releases.find(r => !r.prerelease && !r.draft);
+
+          if (!latestStable) {
+            console.warn('[app-updater] No stable release found');
+            resolve(null);
+            return;
+          }
+
+          const version = latestStable.tag_name.replace(/^v/, '');
+          // Sanitize version string for logging (remove control characters and limit length)
+          // eslint-disable-next-line no-control-regex
+          const safeVersion = String(version).replace(/[\x00-\x1f\x7f]/g, '').slice(0, 50);
+          console.warn('[app-updater] Found latest stable release:', safeVersion);
+
+          resolve({
+            version,
+            releaseNotes: latestStable.body,
+            releaseDate: latestStable.published_at
+          });
+        } catch (e) {
+          // Sanitize error message for logging (prevent log injection from malformed JSON)
+          const safeError = e instanceof Error ? e.message : 'Unknown parse error';
+          console.error('[app-updater] Failed to parse releases JSON:', safeError);
+          resolve(null);
+        }
+      });
+    });
+
+    request.on('error', (error) => {
+      // Sanitize error message for logging (use only the message property)
+      const safeErrorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[app-updater] Failed to fetch releases:', safeErrorMessage);
+      resolve(null);
+    });
+
+    request.end();
+  });
+
+  // Add timeout to prevent hanging indefinitely
+  const timeoutPromise = new Promise<AppUpdateInfo | null>((resolve) => {
+    setTimeout(() => {
+      console.error(`[app-updater] GitHub API request timed out after ${GITHUB_API_TIMEOUT}ms`);
+      resolve(null);
+    }, GITHUB_API_TIMEOUT);
+  });
+
+  return Promise.race([fetchPromise, timeoutPromise]);
+}
+
+/**
+ * Check if we should offer a downgrade to stable
+ * Called when user disables beta updates while on a prerelease version
+ *
+ * Returns the latest stable version if:
+ * 1. Current version is a prerelease
+ * 2. A stable version exists
+ */
+export async function checkForStableDowngrade(): Promise<AppUpdateInfo | null> {
+  const currentVersion = getCurrentVersion();
+
+  // Only check for downgrade if currently on a prerelease
+  if (!isPrerelease(currentVersion)) {
+    console.warn('[app-updater] Current version is not a prerelease, no downgrade needed');
+    return null;
+  }
+
+  console.warn('[app-updater] Current version is prerelease:', currentVersion);
+  console.warn('[app-updater] Checking for stable version to downgrade to...');
+
+  const latestStable = await fetchLatestStableRelease();
+
+  if (!latestStable) {
+    console.warn('[app-updater] No stable release available for downgrade');
+    return null;
+  }
+
+  console.warn('[app-updater] Stable downgrade available:', latestStable.version);
+  return latestStable;
+}
+
+/**
+ * Set update channel with optional downgrade check
+ * When switching from beta to stable, checks if user should be offered a downgrade
+ *
+ * @param channel - The update channel to switch to
+ * @param triggerDowngradeCheck - Whether to check for stable downgrade (when disabling beta)
+ */
+export async function setUpdateChannelWithDowngradeCheck(
+  channel: UpdateChannel,
+  triggerDowngradeCheck = false
+): Promise<AppUpdateInfo | null> {
+  autoUpdater.channel = channel;
+  console.warn(`[app-updater] Update channel set to: ${channel}`);
+
+  // If switching to stable and downgrade check requested, look for stable version
+  if (channel === 'latest' && triggerDowngradeCheck) {
+    const stableVersion = await checkForStableDowngrade();
+
+    if (stableVersion && mainWindow) {
+      // Notify the renderer about the available stable downgrade
+      mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_STABLE_DOWNGRADE, stableVersion);
+    }
+
+    return stableVersion;
+  }
+
+  return null;
+}
+
+/**
+ * Download a specific version (for downgrade)
+ * Uses electron-updater with allowDowngrade enabled to download older stable versions
+ */
+export async function downloadStableVersion(): Promise<void> {
+  // Switch to stable channel
+  autoUpdater.channel = 'latest';
+  // Enable downgrade to allow downloading older versions (e.g., stable when on beta)
+  autoUpdater.allowDowngrade = true;
+  console.warn('[app-updater] Downloading stable version (allowDowngrade=true)...');
+
+  try {
+    // Force a fresh check on the stable channel, then download
+    const result = await autoUpdater.checkForUpdates();
+    if (result) {
+      await autoUpdater.downloadUpdate();
+    } else {
+      throw new Error('No stable version available for download');
+    }
+  } catch (error) {
+    console.error('[app-updater] Failed to download stable version:', error);
+    throw error;
+  } finally {
+    // Reset allowDowngrade to prevent unintended downgrades in normal update checks
+    autoUpdater.allowDowngrade = false;
+  }
 }

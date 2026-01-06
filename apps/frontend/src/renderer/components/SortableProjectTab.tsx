@@ -160,7 +160,7 @@ export function SortableProjectTab({
                 isActive && 'opacity-100'
               )}
               onClick={onClose}
-              aria-label={t('projectTab.closeTab')}
+              aria-label={t('projectTab.closeTabAriaLabel')}
             >
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
