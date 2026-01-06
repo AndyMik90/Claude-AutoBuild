@@ -12,7 +12,7 @@ import {
   ROADMAP_COMPLEXITY_COLORS,
   ROADMAP_IMPACT_COLORS,
 } from '../../../shared/constants';
-import { hasCompetitorInsight } from './utils';
+import { getFeatureById, hasCompetitorInsight } from './utils';
 import type { RoadmapTabsProps } from './types';
 import type { RoadmapFeature, RoadmapPhase } from '../../../shared/types';
 
@@ -26,7 +26,7 @@ export function RoadmapTabs({
   onSave,
 }: RoadmapTabsProps) {
   const handleDependencyClick = (depId: string) => {
-    const depFeature = roadmap.features.find(f => f.id === depId);
+    const depFeature = getFeatureById(roadmap, depId);
     if (depFeature) {
       onFeatureSelect(depFeature);
     }
@@ -77,6 +77,7 @@ export function RoadmapTabs({
               key={feature.id}
               feature={feature}
               features={roadmap.features}
+              roadmap={roadmap}
               onClick={() => onFeatureSelect(feature)}
               onConvertToSpec={onConvertToSpec}
               onGoToTask={onGoToTask}

@@ -6,10 +6,11 @@ import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { ROADMAP_PRIORITY_LABELS, ROADMAP_STATUS_LABELS } from '../../../shared/constants/roadmap';
 import { useTranslation } from 'react-i18next';
+import { getFeatureById } from './utils';
 
 interface DependencyDetailSidePanelProps {
   feature: RoadmapFeature | null;
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   onGoToFeature?: (featureId: string) => void;
   onConvertToSpec?: (featureId: string) => void;
@@ -18,7 +19,7 @@ interface DependencyDetailSidePanelProps {
 
 export function DependencyDetailSidePanel({
   feature,
-  isOpen,
+  isOpen = true,
   onClose,
   onGoToFeature,
   onConvertToSpec,
@@ -30,8 +31,7 @@ export function DependencyDetailSidePanel({
 
   // Helper to get feature title by ID
   const getFeatureTitle = (featureId: string): string => {
-    if (!roadmap) return featureId;
-    const foundFeature = roadmap.features.find((f) => f.id === featureId);
+    const foundFeature = getFeatureById(roadmap, featureId);
     return foundFeature?.title || featureId;
   };
 

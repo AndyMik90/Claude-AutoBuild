@@ -20,6 +20,7 @@ import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import type { FeatureCardProps } from "./types";
+import { getFeatureById } from "./utils";
 
 export function FeatureCard({
 	feature,
@@ -29,6 +30,7 @@ export function FeatureCard({
 	hasCompetitorInsight = false,
 	onDependencyClick,
 	features,
+	roadmap,
 }: FeatureCardProps) {
 	const openDependencyDetail = useRoadmapStore((s) => s.openDependencyDetail);
 
@@ -91,7 +93,7 @@ export function FeatureCard({
 								</div>
 								<div className="flex flex-wrap gap-2">
 									{feature.dependencies.map((depId) => {
-										const depFeature = features.find((f) => f.id === depId);
+										const depFeature = getFeatureById(roadmap, depId);
 										const isMissing = !depFeature;
 
 										return (
@@ -145,7 +147,7 @@ export function FeatureCard({
 										</div>
 										<div className="flex flex-wrap gap-2">
 											{feature.reverseDependencies.map((depId) => {
-												const depFeature = features.find((f) => f.id === depId);
+												const depFeature = getFeatureById(roadmap, depId);
 												return (
 													<button
 														type="button"

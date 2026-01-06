@@ -1,4 +1,15 @@
-import type { RoadmapFeature, CompetitorAnalysis, CompetitorPainPoint } from '../../../shared/types';
+import type { Roadmap, RoadmapFeature, CompetitorAnalysis, CompetitorPainPoint } from '../../../shared/types';
+
+/**
+ * Get a feature by ID from a roadmap.
+ * Shared utility to avoid duplicating `.features.find(f => f.id === ...)` logic.
+ */
+export function getFeatureById(
+	roadmap: Roadmap | undefined | null,
+	featureId: string
+): RoadmapFeature | undefined {
+	return roadmap?.features.find((f) => f.id === featureId);
+}
 
 /**
  * Get competitor insights for a specific feature

@@ -22,6 +22,7 @@ export interface FeatureCardProps {
   hasCompetitorInsight?: boolean;
   onDependencyClick?: (featureId: string) => void;
   features: RoadmapFeature[];
+  roadmap?: Roadmap;
 }
 
 export interface FeatureDetailPanelProps {

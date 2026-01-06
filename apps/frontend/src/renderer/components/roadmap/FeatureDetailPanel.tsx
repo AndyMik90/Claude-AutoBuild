@@ -19,6 +19,7 @@ import {
 	ROADMAP_PRIORITY_LABELS,
 } from "../../../shared/constants";
 import { useRoadmapStore } from "../../stores/roadmap-store";
+import { getFeatureById } from "./utils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -41,8 +42,7 @@ export function FeatureDetailPanel({
 
 	// Helper to get feature title by ID
 	const getFeatureTitle = (featureId: string): string => {
-		if (!roadmap) return featureId;
-		const foundFeature = roadmap.features.find((f) => f.id === featureId);
+		const foundFeature = getFeatureById(roadmap, featureId);
 		return foundFeature?.title || featureId;
 	};
 

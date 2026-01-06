@@ -18,6 +18,7 @@ import {
 	ROADMAP_PRIORITY_LABELS,
 } from "../../shared/constants";
 import type { Roadmap, RoadmapFeature } from "../../shared/types";
+import { getFeatureById } from "./roadmap/utils";
 import { cn } from "../lib/utils";
 import { useRoadmapStore } from "../stores/roadmap-store";
 import { Badge } from "./ui/badge";
@@ -71,10 +72,6 @@ export function SortableFeatureCard({
 	// Check if feature has external source (e.g., Canny)
 	const isExternal =
 		feature.source?.provider && feature.source.provider !== "internal";
-
-	// Helper function to get a feature by ID
-	const getFeatureById = (featureId: string) =>
-		roadmap?.features.find((f) => f.id === featureId);
 
 	return (
 		<div
@@ -273,7 +270,7 @@ export function SortableFeatureCard({
 										<div className="space-y-1">
 											<p className="text-xs font-medium">Dependencies:</p>
 											{feature.dependencies.slice(0, 3).map((depId) => {
-												const dep = getFeatureById(depId);
+												const dep = getFeatureById(roadmap, depId);
 												return (
 													<button
 														type="button"
@@ -335,7 +332,7 @@ export function SortableFeatureCard({
 												<div className="space-y-1">
 													<p className="text-xs font-medium">Required by:</p>
 													{reverseDeps.slice(0, 3).map((depId) => {
-														const dep = getFeatureById(depId);
+														const dep = getFeatureById(roadmap, depId);
 														return (
 															<button
 																type="button"

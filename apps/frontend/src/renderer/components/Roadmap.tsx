@@ -11,7 +11,7 @@ import { FeatureDetailPanel } from './roadmap/FeatureDetailPanel';
 import { DependencyDetailSidePanel } from './roadmap/DependencyDetailSidePanel';
 import { useRoadmapData, useFeatureActions, useRoadmapGeneration, useRoadmapSave, useFeatureDelete } from './roadmap/hooks';
 import { useRoadmapStore } from '../stores/roadmap-store';
-import { getCompetitorInsightsForFeature } from './roadmap/utils';
+import { getFeatureById, getCompetitorInsightsForFeature } from './roadmap/utils';
 import type { RoadmapFeature } from '../../shared/types';
 import type { RoadmapProps } from './roadmap/types';
 
@@ -61,7 +61,7 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   };
 
   const handleDependencyClick = (depId: string) => {
-    const depFeature = roadmap?.features.find(f => f.id === depId);
+    const depFeature = getFeatureById(roadmap, depId);
     if (depFeature) {
       setSelectedFeature(depFeature);
     }
@@ -146,12 +146,11 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
       {/* Dependency Detail Side Panel */}
       {dependencyDetailFeatureId && (
         <DependencyDetailSidePanel
-          feature={roadmap.features.find(f => f.id === dependencyDetailFeatureId) || null}
-          isOpen={true}
+          feature={getFeatureById(roadmap, dependencyDetailFeatureId) || null}
           onClose={closeDependencyDetail}
           roadmap={roadmap}
           onGoToFeature={(featureId) => {
-            const feature = roadmap.features.find(f => f.id === featureId);
+            const feature = getFeatureById(roadmap, featureId);
             if (feature) {
               setSelectedFeature(feature);
               closeDependencyDetail();
