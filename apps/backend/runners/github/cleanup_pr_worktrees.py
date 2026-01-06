@@ -74,7 +74,9 @@ def show_stats(manager: PRWorktreeManager) -> None:
     max_worktrees = _get_max_pr_worktrees()
 
     total = len(worktrees)
-    orphaned = sum(1 for wt in worktrees if wt.path.resolve() not in registered_resolved)
+    orphaned = sum(
+        1 for wt in worktrees if wt.path.resolve() not in registered_resolved
+    )
     expired = sum(1 for wt in worktrees if wt.age_days > max_age_days)
     excess = max(0, total - max_worktrees)
 
