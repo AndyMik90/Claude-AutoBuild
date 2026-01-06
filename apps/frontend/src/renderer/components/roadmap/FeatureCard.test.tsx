@@ -28,6 +28,40 @@ vi.mock('../../stores/roadmap-store', () => ({
 }));
 
 import { useRoadmapStore } from '../../stores/roadmap-store';
+import type { RoadmapState } from '../../stores/roadmap-store';
+
+/**
+ * Create a mock roadmap store with default values and optional overrides.
+ * This helper reduces duplication in test setup and makes mocks maintainable.
+ */
+function createMockRoadmapStore(overrides: Partial<RoadmapState> = {}): RoadmapState {
+  return {
+    openDependencyDetail: vi.fn(),
+    closeDependencyDetail: vi.fn(),
+    dependencyDetailFeatureId: null,
+    roadmap: null as any,
+    setRoadmap: vi.fn(),
+    competitorAnalysis: null,
+    setCompetitorAnalysis: vi.fn(),
+    generationStatus: {
+      phase: 'idle',
+      progress: 0,
+      message: ''
+    },
+    setGenerationStatus: vi.fn(),
+    currentProjectId: null,
+    setCurrentProjectId: vi.fn(),
+    updateFeatureStatus: vi.fn(),
+    markFeatureDoneBySpecId: vi.fn(),
+    updateFeatureLinkedSpec: vi.fn(),
+    deleteFeature: vi.fn(),
+    clearRoadmap: vi.fn(),
+    reorderFeatures: vi.fn(),
+    updateFeaturePhase: vi.fn(),
+    addFeature: vi.fn(),
+    ...overrides
+  };
+}
 
 // Test feature data
 const mockFeatures: RoadmapFeature[] = [
@@ -98,45 +132,8 @@ const mockRoadmap: Roadmap = {
 
 describe('FeatureCard Dependencies', () => {
   beforeEach(() => {
-    // Mock the roadmap store with openDependencyDetail function
-    vi.mocked(useRoadmapStore).mockReturnValue({
-      openDependencyDetail: vi.fn(),
-      closeDependencyDetail: vi.fn(),
-      dependencyDetailFeatureId: null,
-      // Add other required store properties with defaults
-      roadmap: null as any,
-      setRoadmap: vi.fn(),
-      loading: false,
-      error: null,
-      setLoading: vi.fn(),
-      setError: vi.fn(),
-      generateRoadmap: vi.fn(),
-      saveRoadmap: vi.fn(),
-      loadRoadmap: vi.fn(),
-      addFeature: vi.fn(),
-      updateFeature: vi.fn(),
-      deleteFeature: vi.fn(),
-      reorderPhases: vi.fn(),
-      reorderFeatures: vi.fn(),
-      updatePhase: vi.fn(),
-      deletePhase: vi.fn(),
-      selectedFeatureId: null,
-      setSelectedFeatureId: vi.fn(),
-      generationStatus: {
-        phase: 'idle',
-        progress: 0,
-        message: ''
-      },
-      setGenerationStatus: vi.fn(),
-      competitorAnalysis: null,
-      setCompetitorAnalysis: vi.fn(),
-      clearRoadmap: vi.fn(),
-      refreshRoadmap: vi.fn(),
-      importFromCanny: vi.fn(),
-      importFromGitHubIssues: vi.fn(),
-      features: [],
-      phases: []
-    });
+    // Mock the roadmap store with default mock factory
+    vi.mocked(useRoadmapStore).mockReturnValue(createMockRoadmapStore());
   });
 
   it('renders dependencies section when feature has dependencies', () => {

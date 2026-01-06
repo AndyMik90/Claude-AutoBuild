@@ -64,7 +64,7 @@ function migrateRoadmapIfNeeded(roadmap: Roadmap): Roadmap {
   return roadmap;
 }
 
-interface RoadmapState {
+export interface RoadmapState {
   // Data
   roadmap: Roadmap | null;
   competitorAnalysis: CompetitorAnalysis | null;
