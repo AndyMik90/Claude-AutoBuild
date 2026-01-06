@@ -29,7 +29,7 @@ def test_missing_dependency_detection():
     validator = DependencyValidator()
     result = validator.validate_all(features)
 
-    assert result.has_missing == True
+    assert result.has_missing
     assert "feat-3" in result.missing_ids
     assert len(result.missing_ids) == 1
 
@@ -56,7 +56,7 @@ def test_no_missing_dependencies():
     validator = DependencyValidator()
     result = validator.validate_all(features)
 
-    assert result.has_missing == False
+    assert not result.has_missing
     assert len(result.missing_ids) == 0
 
 
@@ -89,7 +89,7 @@ def test_circular_dependency_detection():
     validator = DependencyValidator()
     result = validator.validate_all(features)
 
-    assert result.has_circular == True
+    assert result.has_circular
     assert len(result.circular_paths) > 0
     # Check that the circular path is detected
     assert any("feat-1" in path and "feat-2" in path and "feat-3" in path
@@ -118,7 +118,7 @@ def test_no_circular_dependencies():
     validator = DependencyValidator()
     result = validator.validate_all(features)
 
-    assert result.has_circular == False
+    assert not result.has_circular
     assert len(result.circular_paths) == 0
 
 
@@ -166,8 +166,8 @@ def test_empty_feature_list():
     validator = DependencyValidator()
     result = validator.validate_all(features)
 
-    assert result.has_missing == False
-    assert result.has_circular == False
+    assert not result.has_missing
+    assert not result.has_circular
     assert len(result.missing_ids) == 0
     assert len(result.circular_paths) == 0
     assert len(result.reverse_deps_map) == 0
@@ -188,6 +188,6 @@ def test_feature_with_no_dependencies():
     validator = DependencyValidator()
     result = validator.validate_all(features)
 
-    assert result.has_missing == False
-    assert result.has_circular == False
+    assert not result.has_missing
+    assert not result.has_circular
     assert result.reverse_deps_map["feat-1"] == []

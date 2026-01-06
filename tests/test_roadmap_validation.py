@@ -231,8 +231,8 @@ def test_full_validation_workflow():
     result = validator.validate_all(features)
 
     # Should have no issues
-    assert result.has_missing == False
-    assert result.has_circular == False
+    assert not result.has_missing
+    assert not result.has_circular
 
     # Reverse dependencies should be correct
     assert result.reverse_deps_map["feat-1"] == ["feat-2"]
