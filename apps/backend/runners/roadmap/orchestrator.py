@@ -290,10 +290,18 @@ class RoadmapOrchestrator:
             )
 
         except Exception as e:
+            # Log enrichment failure but don't fail the entire run
+            # The roadmap is still usable without enrichment, just lacks reverse dependencies
+            # This is intentional graceful degradation - enrichment is an enhancement, not critical
             debug_error(
                 "roadmap_orchestrator",
                 "Failed to enrich roadmap features",
                 error=str(e),
+            )
+            debug_warning(
+                "roadmap_orchestrator",
+                "Roadmap generated but reverse dependencies may not be available. "
+                "Run enrichment script manually if needed."
             )
 
     def _print_summary(self):

@@ -3,13 +3,13 @@ Dependency validators for roadmap features.
 """
 
 from dataclasses import dataclass
-from typing import List, Dict, Set
 
-try:
-    # Try relative import first (when run as module)
+# Import RoadmapFeature based on execution context
+# When run as module: use relative import
+# When run as script: use absolute import
+if __package__:
     from .models import RoadmapFeature
-except ImportError:
-    # Fallback to absolute import (when run from apps/backend)
+else:
     from runners.roadmap.models import RoadmapFeature
 
 
@@ -19,15 +19,15 @@ class ValidationResult:
 
     has_missing: bool
     has_circular: bool
-    missing_ids: List[str]
-    circular_paths: List[List[str]]
-    reverse_deps_map: Dict[str, List[str]]
+    missing_ids: list[str]
+    circular_paths: list[list[str]]
+    reverse_deps_map: dict[str, list[str]]
 
 
 class DependencyValidator:
     """Validates and enriches feature dependencies."""
 
-    def validate_all(self, features: List[RoadmapFeature]) -> ValidationResult:
+    def validate_all(self, features: list[RoadmapFeature]) -> ValidationResult:
         """
         Validates all dependencies in the roadmap.
 
@@ -54,7 +54,7 @@ class DependencyValidator:
             reverse_deps_map=reverse_deps_map
         )
 
-    def _find_missing_deps(self, features: List[RoadmapFeature]) -> List[str]:
+    def _find_missing_deps(self, features: list[RoadmapFeature]) -> list[str]:
         """Find dependencies that reference non-existent features."""
         valid_ids = {f.id for f in features}
         missing = set()
@@ -66,59 +66,72 @@ class DependencyValidator:
 
         return sorted(list(missing))
 
-    def _detect_circular_deps(self, features: List[RoadmapFeature]) -> List[List[str]]:
-        """Detect circular dependencies using DFS."""
+    def _detect_circular_deps(self, features: list[RoadmapFeature]) -> list[list[str]]:
+        """
+        Detect circular dependencies using three-color DFS.
+
+        Uses WHITE (0), GRAY (1), BLACK (2) marking:
+        - WHITE: Not yet visited
+        - GRAY: Currently being processed (in current path)
+        - BLACK: Fully processed
+
+        Time complexity: O(V + E) where V = features, E = dependencies
+        """
         graph = {f.id: f.dependencies for f in features}
         circular_paths = []
-        seen_cycles = set()  # Track normalized cycles
+        seen_cycles = set()  # Track normalized cycles for deduplication
 
-        def normalize_cycle(cycle: List[str]) -> str:
+        # Three-color DFS: WHITE=0, GRAY=1, BLACK=2
+        WHITE, GRAY, BLACK = 0, 1, 2
+        color = {f.id: WHITE for f in features}
+
+        def normalize_cycle(cycle: list[str]) -> str:
             """Rotate cycle to start from smallest ID for deduplication."""
-            if not cycle:
+            if not cycle or len(cycle) < 2:
                 return ""
-            # Find rotation that starts with minimal element (exclude last duplicate)
-            cycle_without_dup = cycle[:-1]  # Remove last element (duplicate of first)
-            if not cycle_without_dup:
-                return ""
+            # Remove last element (duplicate of first)
+            cycle_without_dup = cycle[:-1]
             min_idx = cycle_without_dup.index(min(cycle_without_dup))
             # Rotate to start from minimal element
             rotated = cycle_without_dup[min_idx:] + cycle_without_dup[:min_idx]
             return ",".join(rotated)
 
-        def dfs(node: str, path: List[str], visited: Set[str]) -> bool:
-            if node in path:
-                # Found a cycle
-                cycle_start = path.index(node)
-                cycle = path[cycle_start:] + [node]
-                # Normalize and check if we've seen this cycle
-                normalized = normalize_cycle(cycle)
-                if normalized not in seen_cycles:
-                    seen_cycles.add(normalized)
-                    circular_paths.append(cycle)
-                return True
-
-            if node in visited:
-                return False
-
-            visited.add(node)
+        def dfs(node: str, path: list[str]) -> None:
+            """DFS with backtracking - O(V + E) complexity."""
+            color[node] = GRAY
             path.append(node)
 
             for neighbor in graph.get(node, []):
-                if neighbor in graph:  # Only check existing nodes
-                    dfs(neighbor, path.copy(), visited.copy())
+                if neighbor not in graph:
+                    continue  # Skip non-existent nodes
 
-            return False
+                if color[neighbor] == GRAY:
+                    # Found a cycle - neighbor is in current path
+                    cycle_start = path.index(neighbor)
+                    cycle = path[cycle_start:] + [neighbor]
+                    # Normalize and deduplicate
+                    normalized = normalize_cycle(cycle)
+                    if normalized not in seen_cycles:
+                        seen_cycles.add(normalized)
+                        circular_paths.append(cycle)
+                elif color[neighbor] == WHITE:
+                    # Recurse into unvisited nodes
+                    dfs(neighbor, path)
 
-        visited = set()
+            # Backtrack
+            path.pop()
+            color[node] = BLACK
+
+        # Run DFS from each unvisited node
         for feature_id in graph:
-            if feature_id not in visited:
-                dfs(feature_id, [], set())
+            if color[feature_id] == WHITE:
+                dfs(feature_id, [])
 
         return circular_paths
 
-    def _calculate_reverse_deps(self, features: List[RoadmapFeature]) -> Dict[str, List[str]]:
+    def _calculate_reverse_deps(self, features: list[RoadmapFeature]) -> dict[str, list[str]]:
         """Calculate which features depend on each feature."""
-        reverse_deps = {}
+        reverse_deps: dict[str, list[str]] = {}
 
         # Initialize all features with empty list
         for feature in features:

@@ -4,7 +4,6 @@ Data models for roadmap generation.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 
 
 @dataclass
@@ -36,7 +35,7 @@ class RoadmapFeature:
     id: str
     title: str
     description: str
-    dependencies: List[str]  # List of feature IDs this feature depends on
+    dependencies: list[str]  # List of feature IDs this feature depends on
     status: str  # e.g., "planned", "in_progress", "completed"
-    reverseDependencies: List[str] | None = None  # List of feature IDs that depend on this feature
+    reverseDependencies: list[str] | None = None  # List of feature IDs that depend on this feature
     dependencyValidation: dict | None = None  # Validation metadata for dependencies
