@@ -246,13 +246,15 @@ class RoadmapOrchestrator:
             # Pre-compute all dependent IDs for efficient lookup
             all_dependent_ids = {dep for f in features for dep in f.dependencies}
 
+            # Create a mapping of feature IDs to feature data for O(1) lookup
+            # This avoids O(N^2) complexity from repeated linear searches
+            features_by_id = {f.get("id"): f for f in features_data}
+
             # Enrich each feature
             enriched_features = []
             for feature in features:
-                # Find the original feature dict
-                feat_dict = next(
-                    (f for f in features_data if f.get("id") == feature.id), {}
-                )
+                # Find the original feature dict using O(1) lookup
+                feat_dict = features_by_id.get(feature.id, {})
 
                 # Add reverse dependencies
                 feat_dict["reverseDependencies"] = validation_result.reverse_deps_map.get(
