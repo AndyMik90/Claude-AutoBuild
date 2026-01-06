@@ -20,7 +20,7 @@ for (const envPath of possibleEnvPaths) {
   }
 }
 
-import { app, BrowserWindow, shell, nativeImage, session } from 'electron';
+import { app, BrowserWindow, shell, nativeImage, session, screen } from 'electron';
 import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
@@ -36,6 +36,23 @@ import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import type { AppSettings } from '../shared/types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Window sizing constants
+// ─────────────────────────────────────────────────────────────────────────────
+/** Preferred window width on startup */
+const WINDOW_PREFERRED_WIDTH: number = 1400;
+/** Preferred window height on startup */
+const WINDOW_PREFERRED_HEIGHT: number = 900;
+/** Absolute minimum window width (supports high DPI displays with scaling) */
+const WINDOW_MIN_WIDTH: number = 800;
+/** Absolute minimum window height (supports high DPI displays with scaling) */
+const WINDOW_MIN_HEIGHT: number = 500;
+/** Margin from screen edges to avoid edge-to-edge windows */
+const WINDOW_SCREEN_MARGIN: number = 20;
+/** Default screen dimensions used as fallback when screen.getPrimaryDisplay() fails */
+const DEFAULT_SCREEN_WIDTH: number = 1920;
+const DEFAULT_SCREEN_HEIGHT: number = 1080;
 
 // Setup error logging early (captures uncaught exceptions)
 setupErrorLogging();
@@ -106,12 +123,51 @@ let agentManager: AgentManager | null = null;
 let terminalManager: TerminalManager | null = null;
 
 function createWindow(): void {
+  // Get the primary display's work area (accounts for taskbar, dock, etc.)
+  // Wrapped in try/catch to handle potential failures with fallback to safe defaults
+  let workAreaSize: { width: number; height: number };
+  try {
+    const display = screen.getPrimaryDisplay();
+    // Validate the returned object has expected structure with valid dimensions
+    if (
+      display &&
+      display.workAreaSize &&
+      typeof display.workAreaSize.width === 'number' &&
+      typeof display.workAreaSize.height === 'number' &&
+      display.workAreaSize.width > 0 &&
+      display.workAreaSize.height > 0
+    ) {
+      workAreaSize = display.workAreaSize;
+    } else {
+      console.error(
+        '[main] screen.getPrimaryDisplay() returned unexpected structure:',
+        JSON.stringify(display)
+      );
+      workAreaSize = { width: DEFAULT_SCREEN_WIDTH, height: DEFAULT_SCREEN_HEIGHT };
+    }
+  } catch (error: unknown) {
+    console.error('[main] Failed to get primary display, using fallback dimensions:', error);
+    workAreaSize = { width: DEFAULT_SCREEN_WIDTH, height: DEFAULT_SCREEN_HEIGHT };
+  }
+
+  // Calculate available space with a small margin to avoid edge-to-edge windows
+  const availableWidth: number = workAreaSize.width - WINDOW_SCREEN_MARGIN;
+  const availableHeight: number = workAreaSize.height - WINDOW_SCREEN_MARGIN;
+
+  // Calculate actual dimensions (preferred, but capped to margin-adjusted available space)
+  const width: number = Math.min(WINDOW_PREFERRED_WIDTH, availableWidth);
+  const height: number = Math.min(WINDOW_PREFERRED_HEIGHT, availableHeight);
+
+  // Ensure minimum dimensions don't exceed the actual initial window size
+  const minWidth: number = Math.min(WINDOW_MIN_WIDTH, width);
+  const minHeight: number = Math.min(WINDOW_MIN_HEIGHT, height);
+
   // Create the browser window
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1000,
-    minHeight: 700,
+    width,
+    height,
+    minWidth,
+    minHeight,
     show: false,
     autoHideMenuBar: true,
     titleBarStyle: 'hiddenInset',
