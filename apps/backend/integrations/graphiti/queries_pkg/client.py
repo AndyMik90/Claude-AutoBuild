@@ -71,6 +71,7 @@ class GraphitiClient:
         self._driver = None
         self._llm_client = None
         self._embedder = None
+        self._cross_encoder = None
         self._initialized = False
 
     @property
@@ -106,6 +107,9 @@ class GraphitiClient:
                 ProviderNotInstalled,
                 create_embedder,
                 create_llm_client,
+            )
+            from integrations.graphiti.providers_pkg.cross_encoder import (
+                create_cross_encoder,
             )
 
             # Create providers using factory pattern
@@ -167,11 +171,19 @@ class GraphitiClient:
                 logger.warning(f"KuzuDriver not available: {e}")
                 return False
 
+            # Create cross-encoder (returns NoOpCrossEncoder for non-OpenAI providers)
+            # This prevents graphiti-core from defaulting to OpenAIRerankerClient
+            self._cross_encoder = create_cross_encoder(self.config, self._llm_client)
+            logger.info(
+                f"Created cross-encoder: {type(self._cross_encoder).__name__}"
+            )
+
             # Initialize Graphiti with the custom providers
             self._graphiti = Graphiti(
                 graph_driver=self._driver,
                 llm_client=self._llm_client,
                 embedder=self._embedder,
+                cross_encoder=self._cross_encoder,
             )
 
             # Build indices (first time only)
@@ -220,4 +232,5 @@ class GraphitiClient:
                 self._driver = None
                 self._llm_client = None
                 self._embedder = None
+                self._cross_encoder = None
                 self._initialized = False

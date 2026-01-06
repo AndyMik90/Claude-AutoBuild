@@ -8,6 +8,8 @@ Uses the google-generativeai SDK for text embeddings.
 
 from typing import TYPE_CHECKING, Any
 
+from graphiti_core.embedder.client import EmbedderClient
+
 from ..exceptions import ProviderError, ProviderNotInstalled
 
 if TYPE_CHECKING:
@@ -18,7 +20,7 @@ if TYPE_CHECKING:
 DEFAULT_GOOGLE_EMBEDDING_MODEL = "text-embedding-004"
 
 
-class GoogleEmbedder:
+class GoogleEmbedder(EmbedderClient):
     """
     Google AI Embedder using the Gemini API.
 

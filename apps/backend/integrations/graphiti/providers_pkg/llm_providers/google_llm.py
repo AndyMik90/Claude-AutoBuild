@@ -9,6 +9,8 @@ Uses the google-generativeai SDK.
 import logging
 from typing import TYPE_CHECKING, Any
 
+from graphiti_core.llm_client.client import LLMClient
+
 from ..exceptions import ProviderError, ProviderNotInstalled
 
 logger = logging.getLogger(__name__)
@@ -21,7 +23,7 @@ if TYPE_CHECKING:
 DEFAULT_GOOGLE_LLM_MODEL = "gemini-2.0-flash"
 
 
-class GoogleLLMClient:
+class GoogleLLMClient(LLMClient):
     """
     Google AI LLM Client using the Gemini API.
 
@@ -36,6 +38,16 @@ class GoogleLLMClient:
             api_key: Google AI API key
             model: Model name (default: gemini-2.0-flash)
         """
+        # Initialize parent with config
+        from graphiti_core.llm_client.config import LLMConfig
+
+        config = LLMConfig(
+            api_key=api_key,
+            model=model,
+            small_model=model,  # Use same model for small
+        )
+        super().__init__(config=config, cache=False)
+
         try:
             import google.generativeai as genai
         except ImportError as e:
@@ -46,40 +58,47 @@ class GoogleLLMClient:
             )
 
         self.api_key = api_key
-        self.model = model
 
         # Configure the Google AI client
         genai.configure(api_key=api_key)
         self._genai = genai
         self._model = genai.GenerativeModel(model)
 
-    async def generate_response(
+    async def _generate_response(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[Any],
         response_model: Any = None,
-        **kwargs: Any,
-    ) -> Any:
+        max_tokens: int = 8192,
+        model_size: Any = None,
+    ) -> dict[str, Any]:
         """
         Generate a response from the LLM.
 
         Args:
-            messages: List of message dicts with 'role' and 'content'
+            messages: List of Message objects with role and content
             response_model: Optional Pydantic model for structured output
-            **kwargs: Additional arguments
+            max_tokens: Maximum tokens to generate
+            model_size: Model size enum (unused for Google)
 
         Returns:
-            Generated response (string or structured object)
+            Dict containing the response
         """
         import asyncio
 
         # Convert messages to Google format
         # Google uses 'user' and 'model' roles
+        # Messages can be Message objects (with .role/.content) or dicts
         google_messages = []
         system_instruction = None
 
         for msg in messages:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
+            # Handle both Message objects and dicts
+            if hasattr(msg, 'role'):
+                role = msg.role
+                content = msg.content
+            else:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
 
             if role == "system":
                 # Google handles system messages as system_instruction
@@ -103,7 +122,8 @@ class GoogleLLMClient:
         if response_model:
             # For structured output, use JSON mode
             generation_config = self._genai.GenerationConfig(
-                response_mime_type="application/json"
+                response_mime_type="application/json",
+                max_output_tokens=max_tokens,
             )
 
             response = await loop.run_in_executor(
@@ -113,24 +133,35 @@ class GoogleLLMClient:
                 ),
             )
 
-            # Parse JSON response into the model
+            # Parse JSON response - return dict, not model instance
+            # graphiti-core will instantiate the model itself
             import json
 
             try:
                 data = json.loads(response.text)
-                return response_model(**data)
+                return data  # Return dict, not model instance
             except json.JSONDecodeError:
-                # If JSON parsing fails, return raw text
+                # If JSON parsing fails, return raw text in dict format
                 logger.warning(
                     "Failed to parse JSON response from Google AI, returning raw text"
                 )
-                return response.text
+                return {"content": response.text}
         else:
+            generation_config = self._genai.GenerationConfig(
+                max_output_tokens=max_tokens,
+            )
             response = await loop.run_in_executor(
-                None, lambda: model.generate_content(google_messages)
+                None,
+                lambda: model.generate_content(
+                    google_messages, generation_config=generation_config
+                ),
             )
 
-            return response.text
+            return {"content": response.text}
+
+    def set_tracer(self, tracer: Any) -> None:
+        """Set tracer for distributed tracing (no-op for Google client)."""
+        pass
 
     async def generate_response_with_tools(
         self,
