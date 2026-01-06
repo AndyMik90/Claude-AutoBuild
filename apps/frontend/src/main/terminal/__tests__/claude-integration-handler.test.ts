@@ -369,7 +369,7 @@ describe('claude-integration-handler', () => {
     expect(mockPersistSession).toHaveBeenCalledWith(terminal);
   });
 
-  it('uses the resolved CLI path for resume and continue', async () => {
+  it('uses --continue regardless of sessionId (sessionId is deprecated)', async () => {
     mockGetClaudeCliInvocation.mockReturnValue({
       command: '/opt/claude/bin/claude',
       env: { PATH: '/opt/claude/bin:/usr/bin' },
@@ -382,19 +382,22 @@ describe('claude-integration-handler', () => {
     });
 
     const { resumeClaude } = await import('../claude-integration-handler');
+
+    // Even when sessionId is passed, it should be ignored and --continue used
     resumeClaude(terminal, 'abc123', () => null);
 
     const resumeCall = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
     expect(resumeCall).toContain("PATH='/opt/claude/bin:/usr/bin' ");
-    expect(resumeCall).toContain("'/opt/claude/bin/claude' --resume 'abc123'");
-    expect(terminal.claudeSessionId).toBe('abc123');
+    expect(resumeCall).toContain("'/opt/claude/bin/claude' --continue");
+    expect(resumeCall).not.toContain('--resume');
+    // sessionId is cleared because --continue doesn't track specific sessions
+    expect(terminal.claudeSessionId).toBeUndefined();
     expect(terminal.isClaudeMode).toBe(true);
     expect(mockPersistSession).toHaveBeenCalledWith(terminal);
 
     vi.mocked(terminal.pty.write).mockClear();
     mockPersistSession.mockClear();
     terminal.projectPath = undefined;
-    terminal.claudeSessionId = undefined;
     terminal.isClaudeMode = false;
     resumeClaude(terminal, undefined, () => null);
     const continueCall = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
