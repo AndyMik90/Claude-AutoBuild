@@ -52,6 +52,7 @@ import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
 import { useToast } from '../hooks/use-toast';
+import { showGitPreferenceSaveError } from '../lib/toast-utils';
 import type { Project, AutoBuildVersionInfo, GitStatus, ProjectEnvConfig } from '../../shared/types';
 
 export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
@@ -227,20 +228,12 @@ export function Sidebar({
     }
   };
 
-  const showSaveGitPreferenceError = () => {
-    toast({
-      title: t('common:labels.error'),
-      description: t('dialogs:addProject.failedToSaveGitPreference'),
-      variant: 'destructive'
-    });
-  };
-
   const handleGitSetupSkip = async () => {
     if (!selectedProject) return;
     try {
       const success = await updateProjectSettings(selectedProject.id, { useGit: false });
       if (!success) {
-        showSaveGitPreferenceError();
+        showGitPreferenceSaveError(toast, t);
         return;
       }
       setShowGitSetupModal(false);
@@ -250,7 +243,7 @@ export function Sidebar({
         useGit: false,
         error
       });
-      showSaveGitPreferenceError();
+      showGitPreferenceSaveError(toast, t);
     }
   };
 

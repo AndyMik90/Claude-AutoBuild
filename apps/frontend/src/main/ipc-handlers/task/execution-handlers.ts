@@ -532,15 +532,17 @@ export function registerTaskExecutionHandlers(
             // Check git status before auto-starting
             const gitStatusCheck = checkGitStatus(project.path);
             if (!gitStatusCheck.isGitRepo || !gitStatusCheck.hasCommits) {
+              const gitRequirementMessage = gitStatusCheck.error
+                || 'Git repository with commits required to run tasks. Initialize git or disable Git in project settings.';
               console.warn('[TASK_UPDATE_STATUS] Git check failed, cannot auto-start task');
               if (mainWindow) {
                 mainWindow.webContents.send(
                   IPC_CHANNELS.TASK_ERROR,
                   taskId,
-                  gitStatusCheck.error || 'Git repository with commits required to run tasks.'
+                  gitRequirementMessage
                 );
               }
-              return { success: false, error: gitStatusCheck.error || 'Git repository required' };
+              return { success: false, error: gitRequirementMessage };
             }
           }
 

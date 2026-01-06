@@ -13,6 +13,7 @@ import {
   DialogTitle
 } from './ui/dialog';
 import { cn } from '../lib/utils';
+import { showGitPreferenceSaveError } from '../lib/toast-utils';
 import { addProject, updateProjectSettings } from '../stores/project-store';
 import { useToast } from '../hooks/use-toast';
 import type { Project } from '../../shared/types';
@@ -129,18 +130,17 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
       if (project) {
         if (!initGit) {
           try {
-            await updateProjectSettings(project.id, { useGit: false });
+            const saved = await updateProjectSettings(project.id, { useGit: false });
+            if (!saved) {
+              showGitPreferenceSaveError(toast, t);
+            }
           } catch (err) {
             console.warn('[AddProjectModal] Failed to persist git preference', {
               projectId: project.id,
               useGit: false,
               error: err
             });
-            toast({
-              title: t('common:labels.error'),
-              description: t('dialogs:addProject.failedToSaveGitPreference'),
-              variant: 'destructive'
-            });
+            showGitPreferenceSaveError(toast, t);
           }
         }
         // For new projects with git init, set main branch
