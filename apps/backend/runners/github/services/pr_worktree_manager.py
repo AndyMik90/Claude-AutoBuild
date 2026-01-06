@@ -337,6 +337,9 @@ class PRWorktreeManager:
         except subprocess.TimeoutExpired:
             logger.warning("Timeout pruning worktrees, continuing anyway")
 
+        # Refresh registered worktrees after prune (git's internal registry may have changed)
+        registered_resolved = {p.resolve() for p in self.get_registered_worktrees()}
+
         # Get fresh worktree info for remaining worktrees (use resolved paths)
         worktrees = [
             wt

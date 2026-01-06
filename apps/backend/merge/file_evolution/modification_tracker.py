@@ -323,10 +323,30 @@ class ModificationTracker:
             except subprocess.CalledProcessError:
                 continue
 
-        # Default to main
+        # Before defaulting to 'main', verify it exists
+        # This handles non-standard projects that use trunk, production, etc.
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--verify", "main"],
+                cwd=worktree_path,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                debug_warning(
+                    MODULE,
+                    "Could not find merge-base with standard branches, defaulting to 'main'",
+                    worktree_path=str(worktree_path),
+                )
+                return "main"
+        except subprocess.CalledProcessError:
+            pass
+
+        # Last resort: use HEAD~10 as a fallback comparison point
+        # This allows modification tracking even on non-standard branch setups
         debug_warning(
             MODULE,
-            "Could not detect base branch, defaulting to 'main'",
+            "No standard base branch found, modification tracking may be limited",
             worktree_path=str(worktree_path),
         )
-        return "main"
+        return "HEAD~10"
