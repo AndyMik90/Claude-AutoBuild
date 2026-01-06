@@ -38,6 +38,8 @@ interface RemoteSetupModalProps {
   projectName: string;
   projectLocation: string;
   onComplete: (config: RemoteConfig) => void;
+  /** Pre-selected service to skip service selection step */
+  initialService?: RemoteService | null;
 }
 
 /**
@@ -54,10 +56,15 @@ export function RemoteSetupModal({
   projectName,
   projectLocation,
   onComplete,
+  initialService,
 }: RemoteSetupModalProps) {
   const { t } = useTranslation('dialogs');
-  const [step, setStep] = useState<Step>('service-select');
-  const [selectedService, setSelectedService] = useState<RemoteService | null>(null);
+  const [step, setStep] = useState<Step>(
+    initialService ? 'auth' : 'service-select'
+  );
+  const [selectedService, setSelectedService] = useState<RemoteService | null>(
+    initialService ?? null
+  );
 
   // Auth state
   const [authUsername, setAuthUsername] = useState<string | null>(null);
@@ -77,15 +84,16 @@ export function RemoteSetupModal({
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
-      setStep('service-select');
-      setSelectedService(null);
+      const service = initialService ?? null;
+      setStep(service ? 'auth' : 'service-select');
+      setSelectedService(service);
       setAuthUsername(null);
       setGithubOrgs([]);
       setGitlabGroups([]);
       setGithubConfig({});
       setGitlabConfig({});
     }
-  }, [open]);
+  }, [open, initialService]);
 
   const handleServiceSelect = (service: RemoteService | null) => {
     if (service === null) {
