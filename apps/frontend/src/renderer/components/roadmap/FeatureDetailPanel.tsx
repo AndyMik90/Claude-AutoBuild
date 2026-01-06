@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   ChevronRight,
   Lightbulb,
@@ -35,18 +35,14 @@ export function FeatureDetailPanel({
 }: FeatureDetailPanelProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const openDependencyDetail = useRoadmapStore(s => s.openDependencyDetail);
+  const roadmap = useRoadmapStore(s => s.roadmap);
 
-  // Debug: log feature data
-  useEffect(() => {
-    console.log('[FeatureDetailPanel] Feature data:', {
-      id: feature.id,
-      title: feature.title,
-      dependencies: feature.dependencies,
-      reverseDependencies: feature.reverseDependencies,
-      hasReverseDeps: !!feature.reverseDependencies,
-      reverseDepsLength: feature.reverseDependencies?.length || 0,
-    });
-  }, [feature]);
+  // Helper to get feature title by ID
+  const getFeatureTitle = (featureId: string): string => {
+    if (!roadmap) return featureId;
+    const foundFeature = roadmap.features.find(f => f.id === featureId);
+    return foundFeature?.title || featureId;
+  };
 
   const handleDependencyClick = (depId: string) => {
     if (onDependencyClick) {
@@ -190,9 +186,9 @@ export function FeatureDetailPanel({
                   key={dep}
                   className="px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer transition-all flex items-center gap-1"
                   onClick={() => handleDependencyClick(dep)}
-                  title={`View dependency: ${dep}`}
+                  title={`View dependency: ${getFeatureTitle(dep)}`}
                 >
-                  <span>{dep}</span>
+                  <span>{getFeatureTitle(dep)}</span>
                   <ChevronRight className="h-3 w-3" />
                 </button>
               ))}
@@ -211,12 +207,12 @@ export function FeatureDetailPanel({
               {feature.reverseDependencies.map((dep) => (
                 <button
                   key={dep}
-                  className="px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer transition-all flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-md text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer transition-all flex items-center gap-1.5"
                   onClick={() => handleDependencyClick(dep)}
-                  title={`View feature that depends on this: ${dep}`}
+                  title={`View feature that depends on this: ${getFeatureTitle(dep)}`}
                 >
-                  <ChevronRight className="h-3 w-3 -rotate-180" />
-                  <span>{dep}</span>
+                  <ChevronRight className="h-3.5 w-3.5 -rotate-180" />
+                  <span>{getFeatureTitle(dep)}</span>
                 </button>
               ))}
             </div>
