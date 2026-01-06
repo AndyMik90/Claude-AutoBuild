@@ -4,7 +4,13 @@ Dependency validators for roadmap features.
 
 from dataclasses import dataclass
 from typing import List, Dict, Set
-from apps.backend.runners.roadmap.models import RoadmapFeature
+
+try:
+    # Try relative import first (when run as module)
+    from .models import RoadmapFeature
+except ImportError:
+    # Fallback to absolute import (when run from apps/backend)
+    from runners.roadmap.models import RoadmapFeature
 
 
 @dataclass
