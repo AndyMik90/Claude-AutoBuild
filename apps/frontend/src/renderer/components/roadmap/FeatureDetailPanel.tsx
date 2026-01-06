@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ChevronRight,
   Lightbulb,
@@ -35,6 +35,18 @@ export function FeatureDetailPanel({
 }: FeatureDetailPanelProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const openDependencyDetail = useRoadmapStore(s => s.openDependencyDetail);
+
+  // Debug: log feature data
+  useEffect(() => {
+    console.log('[FeatureDetailPanel] Feature data:', {
+      id: feature.id,
+      title: feature.title,
+      dependencies: feature.dependencies,
+      reverseDependencies: feature.reverseDependencies,
+      hasReverseDeps: !!feature.reverseDependencies,
+      reverseDepsLength: feature.reverseDependencies?.length || 0,
+    });
+  }, [feature]);
 
   const handleDependencyClick = (depId: string) => {
     if (onDependencyClick) {

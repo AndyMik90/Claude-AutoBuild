@@ -17,7 +17,25 @@ function migrateRoadmapIfNeeded(roadmap: Roadmap): Roadmap {
   let needsMigration = false;
 
   const migratedFeatures = roadmap.features.map((feature) => {
-    const migratedFeature = { ...feature };
+    // Explicitly preserve all properties including reverseDependencies
+    const migratedFeature: RoadmapFeature = {
+      id: feature.id,
+      title: feature.title,
+      description: feature.description,
+      rationale: feature.rationale,
+      priority: feature.priority,
+      complexity: feature.complexity,
+      impact: feature.impact,
+      phaseId: feature.phaseId,
+      dependencies: feature.dependencies || [],
+      reverseDependencies: feature.reverseDependencies,
+      dependencyValidation: feature.dependencyValidation,
+      status: feature.status,
+      acceptanceCriteria: feature.acceptanceCriteria || [],
+      userStories: feature.userStories || [],
+      source: feature.source,
+      linkedSpecId: feature.linkedSpecId,
+    };
 
     // Migrate 'idea' status to 'under_review'
     if ((feature.status as string) === 'idea') {

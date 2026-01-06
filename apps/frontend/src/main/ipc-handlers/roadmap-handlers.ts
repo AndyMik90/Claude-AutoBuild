@@ -74,6 +74,21 @@ export function registerRoadmapHandlers(
         const content = readFileSync(roadmapPath, 'utf-8');
         const rawRoadmap = JSON.parse(content);
 
+        // Debug: log reverseDependencies from JSON
+        if (rawRoadmap.features && rawRoadmap.features.length > 0) {
+          const sampleFeature = rawRoadmap.features.find((f: Record<string, unknown>) => f.id === 'feature-2');
+          if (sampleFeature) {
+            debugLog('[Roadmap IPC] feature-2 from JSON:', {
+              id: sampleFeature.id,
+              title: sampleFeature.title,
+              dependencies: sampleFeature.dependencies,
+              reverseDependencies: sampleFeature.reverseDependencies,
+              reverseDepsType: typeof sampleFeature.reverseDependencies,
+              reverseDepsLength: Array.isArray(sampleFeature.reverseDependencies) ? sampleFeature.reverseDependencies.length : 'N/A'
+            });
+          }
+        }
+
         // Load competitor analysis if available (competitor_analysis.json)
         const competitorAnalysisPath = path.join(
           project.path,
@@ -170,6 +185,13 @@ export function registerRoadmapHandlers(
             impact: feature.impact || 'medium',
             phaseId: feature.phase_id,
             dependencies: feature.dependencies || [],
+            reverseDependencies: feature.reverseDependencies as string[] | undefined,
+            dependencyValidation: feature.dependency_validation as {
+              hasMissing: boolean;
+              hasCircular: boolean;
+              missingIds: string[];
+              circularPaths: string[][];
+            } | undefined,
             status: feature.status || 'under_review',
             acceptanceCriteria: feature.acceptance_criteria || [],
             userStories: feature.user_stories || [],
