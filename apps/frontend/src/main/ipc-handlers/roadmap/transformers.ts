@@ -5,6 +5,28 @@ import type {
   RoadmapMilestone
 } from '../../../shared/types';
 
+// Valid provider values for feature source
+const VALID_PROVIDERS = ['internal', 'canny', 'github_issue'] as const;
+type ValidProvider = typeof VALID_PROVIDERS[number];
+
+/**
+ * Validate and normalize provider value from source data.
+ * Returns the provider if valid, otherwise defaults to 'internal'.
+ */
+function validateProvider(provider: string): ValidProvider {
+  if (VALID_PROVIDERS.includes(provider as ValidProvider)) {
+    return provider as ValidProvider;
+  }
+  // Log warning for invalid provider values (in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.warn(
+      `[transformers] Invalid provider value: "${provider}". ` +
+      `Valid values: ${VALID_PROVIDERS.join(', ')}. Defaulting to "internal".`
+    );
+  }
+  return 'internal';
+}
+
 interface RawRoadmapMilestone {
   id: string;
   title: string;
@@ -132,7 +154,7 @@ function transformFeature(raw: RawRoadmapFeature): RoadmapFeature {
     linkedSpecId: raw.linked_spec_id || raw.linkedSpecId,
     competitorInsightIds: raw.competitor_insight_ids || raw.competitorInsightIds,
     source: raw.source ? {
-      provider: raw.source.provider as 'internal' | 'canny' | 'github_issue',
+      provider: validateProvider(raw.source.provider),
       importedAt: raw.source.imported_at ? new Date(raw.source.imported_at) : undefined,
       lastSyncedAt: raw.source.last_synced_at ? new Date(raw.source.last_synced_at) : undefined
     } : undefined
