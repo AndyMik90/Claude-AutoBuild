@@ -149,6 +149,7 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
           feature={roadmap.features.find(f => f.id === dependencyDetailFeatureId) || null}
           isOpen={dependencyDetailFeatureId !== null}
           onClose={closeDependencyDetail}
+          roadmap={roadmap}
           onGoToFeature={(featureId) => {
             const feature = roadmap.features.find(f => f.id === featureId);
             if (feature) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { X, ExternalLink } from 'lucide-react';
-import { RoadmapFeature } from '../../../shared/types/roadmap';
+import { X, ExternalLink, ChevronRight } from 'lucide-react';
+import type { Roadmap, RoadmapFeature } from '../../../shared/types';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
@@ -13,6 +13,7 @@ interface DependencyDetailSidePanelProps {
   onClose: () => void;
   onGoToFeature?: (featureId: string) => void;
   onConvertToSpec?: (featureId: string) => void;
+  roadmap?: Roadmap;
 }
 
 export function DependencyDetailSidePanel({
@@ -20,11 +21,24 @@ export function DependencyDetailSidePanel({
   isOpen,
   onClose,
   onGoToFeature,
-  onConvertToSpec
+  onConvertToSpec,
+  roadmap
 }: DependencyDetailSidePanelProps) {
   const { t } = useTranslation(['roadmap', 'common']);
   const panelRef = useRef<HTMLDivElement>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
+
+  // Helper to get feature title by ID
+  const getFeatureTitle = (featureId: string): string => {
+    if (!roadmap) return featureId;
+    const foundFeature = roadmap.features.find((f) => f.id === featureId);
+    return foundFeature?.title || featureId;
+  };
+
+  const handleDependencyClick = (depId: string) => {
+    onGoToFeature?.(depId);
+    onClose();
+  };
 
   // Handle ESC key to close panel
   useEffect(() => {
@@ -204,34 +218,52 @@ export function DependencyDetailSidePanel({
           {/* Dependencies Info */}
           {feature.dependencies && feature.dependencies.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">
                 {t('roadmap:dependencyDetailPanel.dependenciesCount', { count: feature.dependencies.length })}
               </h3>
-              <ul className="space-y-1">
-                {feature.dependencies.map(depId => (
-                  <li key={depId} className="text-sm flex items-center gap-2">
-                    <span className="text-muted-foreground">•</span>
-                    <span className="font-mono text-xs">{depId}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex flex-col gap-2">
+                {feature.dependencies.map((depId) => {
+                  const depTitle = getFeatureTitle(depId);
+                  return (
+                    <button
+                      type="button"
+                      key={depId}
+                      className="text-sm text-left px-3 py-2 rounded-md bg-muted/50 hover:bg-muted transition-colors flex items-center justify-between gap-2 group"
+                      onClick={() => handleDependencyClick(depId)}
+                      title={`View dependency: ${depTitle}`}
+                    >
+                      <span className="font-medium truncate">{depTitle}</span>
+                      <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
           {/* Reverse Dependencies Info */}
           {feature.reverseDependencies && feature.reverseDependencies.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">
                 {t('roadmap:dependencyDetailPanel.requiredByCount', { count: feature.reverseDependencies.length })}
               </h3>
-              <ul className="space-y-1">
-                {feature.reverseDependencies.map(depId => (
-                  <li key={depId} className="text-sm flex items-center gap-2">
-                    <span className="text-muted-foreground">•</span>
-                    <span className="font-mono text-xs">{depId}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex flex-col gap-2">
+                {feature.reverseDependencies.map((depId) => {
+                  const depTitle = getFeatureTitle(depId);
+                  return (
+                    <button
+                      type="button"
+                      key={depId}
+                      className="text-sm text-left px-3 py-2 rounded-md bg-muted/50 hover:bg-muted transition-colors flex items-center justify-between gap-2 group"
+                      onClick={() => handleDependencyClick(depId)}
+                      title={`View feature that depends on this: ${depTitle}`}
+                    >
+                      <span className="font-medium truncate">{depTitle}</span>
+                      <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </ScrollArea>
