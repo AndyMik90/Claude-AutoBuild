@@ -19,7 +19,12 @@
     "viewRequiredBy": "Voir la fonctionnalité qui dépend de ceci : {{title}}"
   },
   "featureDetailPanel": {
+    "description": "Description",
+    "rationale": "Raison",
+    "complexity": "Complexité",
+    "impact": "Impact",
     "dependencies": "Dépendances",
+    "userStories": "Récits utilisateurs",
     "requiredBy": "Requis par ({{count}})",
     "goToTask": "Aller à la tâche",
     "convertToAutoBuildTask": "Convertir en tâche de construction automatique"

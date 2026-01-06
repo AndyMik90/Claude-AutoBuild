@@ -19,7 +19,12 @@
     "viewRequiredBy": "View feature that depends on this: {{title}}"
   },
   "featureDetailPanel": {
+    "description": "Description",
+    "rationale": "Rationale",
+    "complexity": "Complexity",
+    "impact": "Impact",
     "dependencies": "Dependencies",
+    "userStories": "User Stories",
     "requiredBy": "Required By ({{count}})",
     "goToTask": "Go to Task",
     "convertToAutoBuildTask": "Convert to Auto-Build Task"

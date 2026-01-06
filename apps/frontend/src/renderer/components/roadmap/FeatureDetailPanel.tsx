@@ -115,7 +115,7 @@ export function FeatureDetailPanel({
 				<div className="p-4 space-y-6">
 					{/* Description */}
 					<div>
-						<h3 className="text-sm font-medium mb-2">Description</h3>
+						<h3 className="text-sm font-medium mb-2">{t('roadmap:featureDetailPanel.description')}</h3>
 						<p className="text-sm text-muted-foreground">
 							{feature.description}
 						</p>
@@ -125,7 +125,7 @@ export function FeatureDetailPanel({
 					<div>
 						<h3 className="text-sm font-medium mb-2 flex items-center gap-2">
 							<Lightbulb className="h-4 w-4" />
-							Rationale
+							{t('roadmap:featureDetailPanel.rationale')}
 						</h3>
 						<p className="text-sm text-muted-foreground">{feature.rationale}</p>
 					</div>
@@ -138,7 +138,7 @@ export function FeatureDetailPanel({
 							>
 								{feature.complexity}
 							</div>
-							<div className="text-xs text-muted-foreground">Complexity</div>
+							<div className="text-xs text-muted-foreground">{t('roadmap:featureDetailPanel.complexity')}</div>
 						</Card>
 						<Card className="p-3 text-center">
 							<div
@@ -146,13 +146,13 @@ export function FeatureDetailPanel({
 							>
 								{feature.impact}
 							</div>
-							<div className="text-xs text-muted-foreground">Impact</div>
+							<div className="text-xs text-muted-foreground">{t('roadmap:featureDetailPanel.impact')}</div>
 						</Card>
 						<Card className="p-3 text-center">
 							<div className="text-lg font-semibold">
 								{feature.dependencies.length}
 							</div>
-							<div className="text-xs text-muted-foreground">Dependencies</div>
+							<div className="text-xs text-muted-foreground">{t('roadmap:featureDetailPanel.dependencies')}</div>
 						</Card>
 					</div>
 
@@ -161,7 +161,7 @@ export function FeatureDetailPanel({
 						<div>
 							<h3 className="text-sm font-medium mb-2 flex items-center gap-2">
 								<Users className="h-4 w-4" />
-								User Stories
+								{t('roadmap:featureDetailPanel.userStories')}
 							</h3>
 							<div className="space-y-2">
 								{feature.userStories.map((story) => (
