@@ -18,6 +18,10 @@
     "viewDependency": "Voir la dépendance : {{title}}",
     "viewRequiredBy": "Voir la fonctionnalité qui dépend de ceci : {{title}}"
   },
+  "featureDetailPanel": {
+    "dependencies": "Dépendances",
+    "requiredBy": "Requis par ({{count}})"
+  },
   "featureCard": {
     "deps": "{{count}} dép.",
     "deps_one": "{{count}} dép.",

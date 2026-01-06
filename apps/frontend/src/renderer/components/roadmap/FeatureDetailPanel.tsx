@@ -35,7 +35,7 @@ export function FeatureDetailPanel({
 	competitorInsights = [],
 	onDependencyClick,
 }: FeatureDetailPanelProps) {
-	const { t } = useTranslation("common");
+	const { t } = useTranslation(["common", "roadmap"]);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 	const openDependencyDetail = useRoadmapStore((s) => s.openDependencyDetail);
 	const roadmap = useRoadmapStore((s) => s.roadmap);
@@ -202,7 +202,7 @@ export function FeatureDetailPanel({
 						<div>
 							<h3 className="text-sm font-medium mb-2 flex items-center gap-2">
 								<Link className="h-4 w-4" />
-								Dependencies
+								{t('roadmap:featureDetailPanel.dependencies')}
 							</h3>
 							<div className="flex flex-wrap gap-1">
 								{feature.dependencies.map((dep) => (
@@ -227,7 +227,7 @@ export function FeatureDetailPanel({
 							<div>
 								<h3 className="text-sm font-medium mb-2 flex items-center gap-2">
 									<Link className="h-4 w-4 rotate-180" />
-									Required By ({feature.reverseDependencies.length})
+									{t('roadmap:featureDetailPanel.requiredBy', { count: feature.reverseDependencies.length })}
 								</h3>
 								<div className="flex flex-wrap gap-1">
 									{feature.reverseDependencies.map((dep) => (
