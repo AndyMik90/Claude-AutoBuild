@@ -294,6 +294,52 @@ async function savePRReviewToMemory(
       debugLog('Failed to save PR review to memory', { error: saveResult.error });
     }
 
+    // =========================================================================
+    // FIX: Save patterns and gotchas as separate episodes for searchability
+    //
+    // ROOT CAUSE: The backend's get_patterns_and_gotchas() searches for episodes
+    // with type='pattern' or type='gotcha', but we were embedding them as JSON
+    // fields within 'pr_review' episodes - making them unsearchable.
+    //
+    // This fix saves each pattern/gotcha as a separate episode with the correct
+    // type so they can be retrieved by the backend's pattern/gotcha queries.
+    // =========================================================================
+    const groupId = `pr_review_${repo.replace('/', '_')}`;
+
+    // Save each pattern as a separate 'pattern' episode
+    for (const pattern of patternsToSave) {
+      try {
+        await memoryService.addEpisode(
+          `Pattern: ${pattern.split(':')[0]}`, // Use category as name
+          `[PR #${result.prNumber}] ${pattern}`,
+          'pattern',
+          groupId
+        );
+      } catch (err) {
+        debugLog('Failed to save pattern to memory', { pattern, error: err instanceof Error ? err.message : err });
+      }
+    }
+
+    // Save each gotcha as a separate 'gotcha' episode
+    for (const gotcha of gotchasToSave) {
+      try {
+        await memoryService.addEpisode(
+          `Gotcha: ${gotcha.substring(0, 50)}...`, // Truncate for name
+          `[PR #${result.prNumber}] ${gotcha}`,
+          'gotcha',
+          groupId
+        );
+      } catch (err) {
+        debugLog('Failed to save gotcha to memory', { gotcha, error: err instanceof Error ? err.message : err });
+      }
+    }
+
+    debugLog('Saved patterns and gotchas as separate episodes', {
+      patternCount: patternsToSave.length,
+      gotchaCount: gotchasToSave.length
+    });
+    // =========================================================================
+
   } catch (error) {
     // Don't fail the review if memory save fails
     debugLog('Error saving PR review to memory', { 
