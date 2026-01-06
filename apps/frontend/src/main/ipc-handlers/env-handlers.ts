@@ -671,14 +671,28 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       const claudeEnv = resolved.env;
 
       try {
-        // Run claude setup-token which will open browser for OAuth
+        // Spawn interactive Claude session and send /login command for full OAuth scopes
+        // The /login command within an interactive Claude session provides full OAuth scopes
+        // (user:inference + user:profile) needed for usage monitoring, unlike the deprecated
+        // setup-token which only provided user:inference scope.
+        //
+        // NOTE: For a better interactive experience with PTY terminal support, prefer using
+        // CLAUDE_PROFILE_INITIALIZE from terminal-handlers.ts instead of this handler.
         const result = await new Promise<ClaudeAuthResult>((resolve) => {
-          const proc = spawn(claudeCmd, ['setup-token'], {
+          // Spawn interactive Claude session (no arguments) with stdin pipe
+          const proc = spawn(claudeCmd, [], {
             cwd: project.path,
             env: claudeEnv,
             shell: false,
-            stdio: 'inherit' // This allows the terminal to handle the interactive auth
+            stdio: ['pipe', 'inherit', 'inherit'] // pipe stdin, inherit stdout/stderr
           });
+
+          // Wait for Claude to initialize, then send /login command
+          setTimeout(() => {
+            if (proc.stdin && !proc.stdin.destroyed) {
+              proc.stdin.write('/login\n');
+            }
+          }, 2000);
 
           proc.on('close', (code: number | null) => {
             if (code === 0) {
@@ -690,7 +704,7 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
               resolve({
                 success: false,
                 authenticated: false,
-                error: 'Setup cancelled or failed'
+                error: 'Authentication cancelled or failed'
               });
             }
           });
@@ -705,13 +719,13 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         });
 
         if (!result.success) {
-          return { success: false, error: result.error || 'Failed to invoke Claude setup' };
+          return { success: false, error: result.error || 'Failed to invoke Claude authentication' };
         }
         return { success: true, data: result };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to invoke Claude setup'
+          error: error instanceof Error ? error.message : 'Failed to invoke Claude authentication'
         };
       }
     }
