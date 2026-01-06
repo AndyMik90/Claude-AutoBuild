@@ -1,4 +1,5 @@
 import { writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type * as pty from '@lydell/node-pty';
 import type { TerminalProcess } from '../types';
@@ -221,7 +222,8 @@ describe('claude-integration-handler', () => {
 
     const tokenPath = vi.mocked(writeFileSync).mock.calls[0]?.[0] as string;
     const tokenContents = vi.mocked(writeFileSync).mock.calls[0]?.[1] as string;
-    expect(tokenPath).toMatch(/^\/tmp\/\.claude-token-1234-[0-9a-f]{16}$/);
+    const tmpDir = tmpdir().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    expect(tokenPath).toMatch(new RegExp(`^${tmpDir}/\\.claude-token-1234-[0-9a-f]{16}$`));
     expect(tokenContents).toBe("export CLAUDE_CODE_OAUTH_TOKEN='token-value'\n");
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
     expect(written).toContain("HISTFILE= HISTCONTROL=ignorespace ");
@@ -263,7 +265,8 @@ describe('claude-integration-handler', () => {
 
     const tokenPath = vi.mocked(writeFileSync).mock.calls[0]?.[0] as string;
     const tokenContents = vi.mocked(writeFileSync).mock.calls[0]?.[1] as string;
-    expect(tokenPath).toMatch(/^\/tmp\/\.claude-token-5678-[0-9a-f]{16}$/);
+    const tmpDir = tmpdir().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    expect(tokenPath).toMatch(new RegExp(`^${tmpDir}/\\.claude-token-5678-[0-9a-f]{16}$`));
     expect(tokenContents).toBe("export CLAUDE_CODE_OAUTH_TOKEN='token-value'\n");
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
     expect(written).toContain(`source '${tokenPath}'`);
