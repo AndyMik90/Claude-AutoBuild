@@ -19,6 +19,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -328,14 +329,51 @@ class WorktreeManager:
         self._run_git(["branch", "-D", branch_name])
 
         # Create worktree with new branch from base
-        result = self._run_git(
-            ["worktree", "add", "-b", branch_name, str(worktree_path), self.base_branch]
-        )
-
-        if result.returncode != 0:
-            raise WorktreeError(
-                f"Failed to create worktree for {spec_name}: {result.stderr}"
+        # On Windows, git worktree add can fail with "Could not reset index file"
+        # if another process has the git index open. Use --no-checkout to avoid this,
+        # then checkout in the worktree's own directory.
+        if sys.platform == "win32":
+            # Windows: Create worktree without checkout first, then populate separately
+            # This avoids the index lock issue caused by other processes reading git status
+            # The --no-checkout flag creates the worktree structure but skips populating files
+            result = self._run_git(
+                ["worktree", "add", "--no-checkout", "-b", branch_name, str(worktree_path), self.base_branch]
             )
+
+            if result.returncode != 0:
+                raise WorktreeError(
+                    f"Failed to create worktree for {spec_name}: {result.stderr}"
+                )
+
+            # Now populate the worktree using read-tree + checkout-index
+            # These low-level commands avoid the index lock issues that affect reset/checkout
+            # Step 1: Read the tree into the worktree's index
+            read_result = self._run_git(["read-tree", "HEAD"], cwd=worktree_path)
+            if read_result.returncode != 0:
+                self._run_git(["worktree", "remove", "--force", str(worktree_path)])
+                self._run_git(["branch", "-D", branch_name])
+                raise WorktreeError(
+                    f"Failed to read tree for {spec_name}: {read_result.stderr}"
+                )
+
+            # Step 2: Checkout files from index to working directory
+            checkout_result = self._run_git(["checkout-index", "-a", "-f"], cwd=worktree_path)
+            if checkout_result.returncode != 0:
+                self._run_git(["worktree", "remove", "--force", str(worktree_path)])
+                self._run_git(["branch", "-D", branch_name])
+                raise WorktreeError(
+                    f"Failed to checkout files for {spec_name}: {checkout_result.stderr}"
+                )
+        else:
+            # Non-Windows: Use standard worktree add
+            result = self._run_git(
+                ["worktree", "add", "-b", branch_name, str(worktree_path), self.base_branch]
+            )
+
+            if result.returncode != 0:
+                raise WorktreeError(
+                    f"Failed to create worktree for {spec_name}: {result.stderr}"
+                )
 
         print(f"Created worktree: {worktree_path.name} on branch {branch_name}")
 
