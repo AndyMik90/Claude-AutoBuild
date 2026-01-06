@@ -27,6 +27,7 @@ from typing import TypedDict
 
 class PushBranchResult(TypedDict, total=False):
     """Result of pushing a branch to remote."""
+
     success: bool
     branch: str
     remote: str
@@ -35,6 +36,7 @@ class PushBranchResult(TypedDict, total=False):
 
 class PullRequestResult(TypedDict, total=False):
     """Result of creating a pull request."""
+
     success: bool
     pr_url: str | None  # None when PR was created but URL couldn't be extracted
     already_exists: bool
@@ -44,6 +46,7 @@ class PullRequestResult(TypedDict, total=False):
 
 class PushAndCreatePRResult(TypedDict, total=False):
     """Result of push_and_create_pr operation."""
+
     success: bool
     pushed: bool
     remote: str
@@ -691,9 +694,7 @@ class WorktreeManager:
 
     # ==================== PR Creation Methods ====================
 
-    def push_branch(
-        self, spec_name: str, force: bool = False
-    ) -> PushBranchResult:
+    def push_branch(self, spec_name: str, force: bool = False) -> PushBranchResult:
         """
         Push a spec's branch to the remote origin with retry logic.
 
@@ -744,9 +745,10 @@ class WorktreeManager:
 
                 # Check if error is retryable (network/connection issues)
                 stderr_lower = result.stderr.lower()
-                is_retryable = any(term in stderr_lower for term in [
-                    "connection", "network", "timeout", "reset", "refused"
-                ])
+                is_retryable = any(
+                    term in stderr_lower
+                    for term in ["connection", "network", "timeout", "reset", "refused"]
+                )
 
                 if attempt < max_retries and is_retryable:
                     backoff = 2 ** (attempt - 1)
@@ -811,11 +813,17 @@ class WorktreeManager:
 
         # Build gh pr create command
         gh_args = [
-            "gh", "pr", "create",
-            "--base", target,
-            "--head", info.branch,
-            "--title", pr_title,
-            "--body", pr_body,
+            "gh",
+            "pr",
+            "create",
+            "--base",
+            target,
+            "--head",
+            info.branch,
+            "--title",
+            pr_title,
+            "--body",
+            pr_body,
         ]
         if draft:
             gh_args.append("--draft")
@@ -844,7 +852,9 @@ class WorktreeManager:
                         already_exists=True,
                     )
                     if existing_url is None:
-                        result_dict["message"] = "PR already exists but URL could not be retrieved"
+                        result_dict["message"] = (
+                            "PR already exists but URL could not be retrieved"
+                        )
                     return result_dict
 
                 if result.returncode == 0:
@@ -852,7 +862,9 @@ class WorktreeManager:
                     pr_url = result.stdout.strip()
                     if not pr_url.startswith("http"):
                         # Try to find URL in output
-                        match = re.search(r"https://github\.com/[^\s]+/pull/\d+", result.stdout)
+                        match = re.search(
+                            r"https://github\.com/[^\s]+/pull/\d+", result.stdout
+                        )
                         if match:
                             pr_url = match.group(0)
                         else:
@@ -867,9 +879,17 @@ class WorktreeManager:
 
                 # Check if error is retryable (network/connection issues)
                 stderr_lower = result.stderr.lower()
-                is_retryable = any(term in stderr_lower for term in [
-                    "connection", "network", "timeout", "reset", "refused", "http"
-                ])
+                is_retryable = any(
+                    term in stderr_lower
+                    for term in [
+                        "connection",
+                        "network",
+                        "timeout",
+                        "reset",
+                        "refused",
+                        "http",
+                    ]
+                )
 
                 if attempt < max_retries and is_retryable:
                     backoff = 2 ** (attempt - 1)
@@ -907,7 +927,9 @@ class WorktreeManager:
 
         if not spec_path.exists():
             # Try project spec path
-            spec_path = self.project_dir / ".auto-claude" / "specs" / spec_name / "spec.md"
+            spec_path = (
+                self.project_dir / ".auto-claude" / "specs" / spec_name / "spec.md"
+            )
 
         if not spec_path.exists():
             return "Auto-generated PR from Auto-Claude build."
@@ -939,7 +961,10 @@ class WorktreeManager:
         except (OSError, UnicodeDecodeError) as e:
             # Silently fall back to default - file read errors shouldn't block PR creation
             from debug import debug_warning
-            debug_warning("worktree", f"Could not extract spec summary for PR body: {e}")
+
+            debug_warning(
+                "worktree", f"Could not extract spec summary for PR body: {e}"
+            )
 
         return "Auto-generated PR from Auto-Claude build."
 
@@ -961,11 +986,16 @@ class WorktreeManager:
             )
             if result.returncode == 0:
                 return result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError) as e:
+        except (
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+            subprocess.SubprocessError,
+        ) as e:
             # Silently ignore errors when fetching existing PR URL - this is a best-effort
             # lookup that may fail due to network issues, missing gh CLI, or auth problems.
             # Returning None allows the caller to handle missing URLs gracefully.
             from debug import debug_warning
+
             debug_warning("worktree", f"Could not get existing PR URL: {e}")
 
         return None

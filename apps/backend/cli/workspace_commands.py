@@ -851,9 +851,8 @@ def handle_create_pr_command(
     Returns:
         dict with success status, pr_url, and any errors
     """
-    from workspace import get_existing_build_worktree
-
     from core.worktree import WorktreeManager
+    from workspace import get_existing_build_worktree
 
     print_banner()
     print("\n" + "=" * 70)
@@ -877,7 +876,7 @@ def handle_create_pr_command(
     if title:
         print(f"   Title: {title}")
     if draft:
-        print(f"   Mode: Draft PR")
+        print("   Mode: Draft PR")
 
     # Push and create PR
     result = manager.push_and_create_pr(

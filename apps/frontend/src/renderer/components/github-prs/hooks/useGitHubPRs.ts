@@ -151,7 +151,7 @@ export function useGitHubPRs(projectId?: string, options: UseGitHubPRsOptions = 
             if (prsNeedingPreload.length > 0) {
               const prNumbers = prsNeedingPreload.map(pr => pr.number);
               const batchReviews = await window.electronAPI.github.getPRReviewsBatch(projectId, prNumbers);
-              
+
               // Update store with loaded results
               for (const reviewResult of Object.values(batchReviews)) {
                 if (reviewResult) {
@@ -246,7 +246,7 @@ export function useGitHubPRs(projectId?: string, options: UseGitHubPRsOptions = 
             // Update store with the loaded result
             // Preserve newCommitsCheck when loading existing review from disk
             usePRReviewStore.getState().setPRReviewResult(projectId, result, { preserveNewCommitsCheck: true });
-            
+
             // Check for new commits if this PR has been reviewed (lazy check on selection)
             const reviewedCommitSha = result.reviewedCommitSha || (result as any).reviewed_commit_sha;
             if (reviewedCommitSha && !existingState?.newCommitsCheck) {

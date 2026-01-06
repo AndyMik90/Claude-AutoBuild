@@ -49,12 +49,12 @@ describe('runPythonSubprocess', () => {
     // Arrange
     const pythonPath = '/path/with spaces/python';
     const mockArgs = ['-c', 'print("hello")'];
-    
-    // Mock parsePythonCommand to return the path split logic if needed, 
-    // or just rely on the mock above. 
+
+    // Mock parsePythonCommand to return the path split logic if needed,
+    // or just rely on the mock above.
     // Let's make sure our mock enables the scenario we want.
     vi.mocked(parsePythonCommand).mockReturnValue(['/path/with spaces/python', []]);
-    
+
     // Act
     runPythonSubprocess({
       pythonPath,
@@ -76,7 +76,7 @@ describe('runPythonSubprocess', () => {
     const pythonPath = 'python';
     const pythonBaseArgs = ['-u', '-X', 'utf8'];
     const userArgs = ['script.py', '--verbose'];
-    
+
     // Setup mock to simulate what parsePythonCommand would return for a standard python path
     vi.mocked(parsePythonCommand).mockReturnValue(['python', pythonBaseArgs]);
 
@@ -91,7 +91,7 @@ describe('runPythonSubprocess', () => {
     // The critical check: verify the ORDER of arguments in the second parameter of spawn
     // expect call to be: spawn('python', ['-u', '-X', 'utf8', 'script.py', '--verbose'], ...)
     const expectedArgs = [...pythonBaseArgs, ...userArgs];
-    
+
     expect(mockSpawn).toHaveBeenCalledWith(
       expect.any(String),
       expectedArgs, // Exact array match verifies order
