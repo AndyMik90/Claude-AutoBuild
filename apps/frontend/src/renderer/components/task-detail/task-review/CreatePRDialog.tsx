@@ -48,6 +48,7 @@ export function CreatePRDialog({
       setTargetBranch(worktreeStatus?.baseBranch || '');
       setPrTitle(task.title);
       setIsDraft(false);
+      setIsCreating(false);
       setResult(null);
       setError(null);
     }
