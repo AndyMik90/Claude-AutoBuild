@@ -16,13 +16,13 @@ export const TASK_STATUS_COLUMNS = [
   'done'
 ] as const;
 
-// Human-readable status labels
+// Status label translation keys (use with t() from react-i18next)
 export const TASK_STATUS_LABELS: Record<string, string> = {
-  backlog: 'Planning',
-  in_progress: 'In Progress',
-  ai_review: 'AI Review',
-  human_review: 'Human Review',
-  done: 'Done'
+  backlog: 'columns.backlog',
+  in_progress: 'columns.in_progress',
+  ai_review: 'columns.ai_review',
+  human_review: 'columns.human_review',
+  done: 'columns.done'
 };
 
 // Status colors for UI

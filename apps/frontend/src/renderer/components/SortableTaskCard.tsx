@@ -3,11 +3,12 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TaskCard } from './TaskCard';
 import { cn } from '../lib/utils';
-import type { Task } from '../../shared/types';
+import type { Task, TaskStatus } from '../../shared/types';
 
 interface SortableTaskCardProps {
   task: Task;
   onClick: () => void;
+  onStatusChange?: (newStatus: TaskStatus) => unknown;
 }
 
 // Custom comparator - only re-render when task or onClick actually changed
@@ -19,11 +20,12 @@ function sortableTaskCardPropsAreEqual(
   // for the task object and onClick handler
   return (
     prevProps.task === nextProps.task &&
-    prevProps.onClick === nextProps.onClick
+    prevProps.onClick === nextProps.onClick &&
+    prevProps.onStatusChange === nextProps.onStatusChange
   );
 }
 
-export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick }: SortableTaskCardProps) {
+export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, onStatusChange }: SortableTaskCardProps) {
   const {
     attributes,
     listeners,
@@ -58,7 +60,7 @@ export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick }
       {...attributes}
       {...listeners}
     >
-      <TaskCard task={task} onClick={handleClick} />
+      <TaskCard task={task} onClick={handleClick} onStatusChange={onStatusChange} />
     </div>
   );
 }, sortableTaskCardPropsAreEqual);

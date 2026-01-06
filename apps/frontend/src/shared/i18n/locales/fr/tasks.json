@@ -14,7 +14,9 @@
     "resume": "Reprendre",
     "archive": "Archiver",
     "delete": "Supprimer",
-    "view": "Voir les détails"
+    "view": "Voir les détails",
+    "moveTo": "Déplacer vers",
+    "taskActions": "Actions de la tâche"
   },
   "labels": {
     "running": "En cours",
@@ -45,6 +47,13 @@
   "empty": {
     "title": "Aucune tâche",
     "description": "Créez votre première tâche pour commencer"
+  },
+  "columns": {
+    "backlog": "Planification",
+    "in_progress": "En cours",
+    "ai_review": "Révision IA",
+    "human_review": "Révision humaine",
+    "done": "Terminé"
   },
   "kanban": {
     "emptyBacklog": "Aucune tâche planifiée",
