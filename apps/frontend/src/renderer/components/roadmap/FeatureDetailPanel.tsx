@@ -188,6 +188,29 @@ export function FeatureDetailPanel({
           </div>
         )}
 
+        {/* Reverse Dependencies */}
+        {feature.reverseDependencies && feature.reverseDependencies.length > 0 && (
+          <div>
+            <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+              <Link className="h-4 w-4 rotate-180" />
+              Required By ({feature.reverseDependencies.length})
+            </h3>
+            <div className="flex flex-wrap gap-1">
+              {feature.reverseDependencies.map((dep) => (
+                <button
+                  key={dep}
+                  className="px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer transition-all flex items-center gap-1"
+                  onClick={() => handleDependencyClick(dep)}
+                  title={`View feature that depends on this: ${dep}`}
+                >
+                  <ChevronRight className="h-3 w-3 -rotate-180" />
+                  <span>{dep}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Competitor Insights */}
         {competitorInsights.length > 0 && (
           <div>

@@ -228,13 +228,17 @@ export function SortableFeatureCard({
                       className="flex items-center gap-1 hover:text-foreground transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Open the first dependency
-                        if (feature.dependencies && feature.dependencies.length > 0) {
+                        // If only 1 dependency, open it directly
+                        // If 2+ dependencies, open the feature's own detail panel to see all
+                        if (feature.dependencies.length === 1) {
                           if (onDependencyClick) {
                             onDependencyClick(feature.dependencies[0]);
                           } else {
                             openDependencyDetail(feature.dependencies[0]);
                           }
+                        } else {
+                          // Open this feature's detail panel to show all dependencies
+                          onClick();
                         }
                       }}
                     >
@@ -278,13 +282,17 @@ export function SortableFeatureCard({
                       className="flex items-center gap-1 hover:text-foreground transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Open the first reverse dependency
-                        if (feature.reverseDependencies && feature.reverseDependencies.length > 0) {
+                        // If only 1 reverse dependency, open it directly
+                        // If 2+ reverse dependencies, open the feature's own detail panel to see all
+                        if (feature.reverseDependencies.length === 1) {
                           if (onDependencyClick) {
                             onDependencyClick(feature.reverseDependencies[0]);
                           } else {
                             openDependencyDetail(feature.reverseDependencies[0]);
                           }
+                        } else {
+                          // Open this feature's detail panel to show all reverse dependencies
+                          onClick();
                         }
                       }}
                     >
