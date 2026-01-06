@@ -15,7 +15,7 @@ import {
   setupIdeationListeners
 } from '../../../stores/ideation-store';
 import { loadTasks } from '../../../stores/task-store';
-import { useClaudeTokenCheck } from '../../EnvConfigModal';
+import { useIdeationAuth } from './useIdeationAuth';
 import type { Idea, IdeationType } from '../../../../shared/types';
 import { ALL_IDEATION_TYPES } from '../constants';
 
@@ -49,7 +49,7 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
   const [showAddMoreDialog, setShowAddMoreDialog] = useState(false);
   const [typesToAdd, setTypesToAdd] = useState<IdeationType[]>([]);
 
-  const { hasToken, isLoading: isCheckingToken, checkToken } = useClaudeTokenCheck();
+  const { hasToken, isLoading: isCheckingToken, checkAuth } = useIdeationAuth();
 
   // Set up IPC listeners and load ideation on mount
   useEffect(() => {
@@ -85,7 +85,7 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
   };
 
   const handleEnvConfigured = () => {
-    checkToken();
+    checkAuth();
     if (pendingAction === 'generate') {
       generateIdeation(projectId);
     } else if (pendingAction === 'refresh') {

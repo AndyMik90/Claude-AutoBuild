@@ -185,24 +185,31 @@ def cmd_get_memories(args):
         """
 
         result = conn.execute(query, parameters={"limit": limit})
-        df = result.get_as_df()
 
+        # Process results without pandas (iterate through result set directly)
         memories = []
-        for _, row in df.iterrows():
+        while result.has_next():
+            row = result.get_next()
+            # Row order: uuid, name, created_at, content, description, group_id
+            uuid_val = serialize_value(row[0]) if len(row) > 0 else None
+            name_val = serialize_value(row[1]) if len(row) > 1 else ""
+            created_at_val = serialize_value(row[2]) if len(row) > 2 else None
+            content_val = serialize_value(row[3]) if len(row) > 3 else ""
+            description_val = serialize_value(row[4]) if len(row) > 4 else ""
+            group_id_val = serialize_value(row[5]) if len(row) > 5 else ""
+
             memory = {
-                "id": row.get("uuid") or row.get("name", "unknown"),
-                "name": row.get("name", ""),
-                "type": infer_episode_type(row.get("name", ""), row.get("content", "")),
-                "timestamp": row.get("created_at") or datetime.now().isoformat(),
-                "content": row.get("content")
-                or row.get("description")
-                or row.get("name", ""),
-                "description": row.get("description", ""),
-                "group_id": row.get("group_id", ""),
+                "id": uuid_val or name_val or "unknown",
+                "name": name_val or "",
+                "type": infer_episode_type(name_val or "", content_val or ""),
+                "timestamp": created_at_val or datetime.now().isoformat(),
+                "content": content_val or description_val or name_val or "",
+                "description": description_val or "",
+                "group_id": group_id_val or "",
             }
 
             # Extract session number if present
-            session_num = extract_session_number(row.get("name", ""))
+            session_num = extract_session_number(name_val or "")
             if session_num:
                 memory["session_number"] = session_num
 
@@ -251,24 +258,31 @@ def cmd_search(args):
         result = conn.execute(
             query, parameters={"search_query": search_query, "limit": limit}
         )
-        df = result.get_as_df()
 
+        # Process results without pandas
         memories = []
-        for _, row in df.iterrows():
+        while result.has_next():
+            row = result.get_next()
+            # Row order: uuid, name, created_at, content, description, group_id
+            uuid_val = serialize_value(row[0]) if len(row) > 0 else None
+            name_val = serialize_value(row[1]) if len(row) > 1 else ""
+            created_at_val = serialize_value(row[2]) if len(row) > 2 else None
+            content_val = serialize_value(row[3]) if len(row) > 3 else ""
+            description_val = serialize_value(row[4]) if len(row) > 4 else ""
+            group_id_val = serialize_value(row[5]) if len(row) > 5 else ""
+
             memory = {
-                "id": row.get("uuid") or row.get("name", "unknown"),
-                "name": row.get("name", ""),
-                "type": infer_episode_type(row.get("name", ""), row.get("content", "")),
-                "timestamp": row.get("created_at") or datetime.now().isoformat(),
-                "content": row.get("content")
-                or row.get("description")
-                or row.get("name", ""),
-                "description": row.get("description", ""),
-                "group_id": row.get("group_id", ""),
+                "id": uuid_val or name_val or "unknown",
+                "name": name_val or "",
+                "type": infer_episode_type(name_val or "", content_val or ""),
+                "timestamp": created_at_val or datetime.now().isoformat(),
+                "content": content_val or description_val or name_val or "",
+                "description": description_val or "",
+                "group_id": group_id_val or "",
                 "score": 1.0,  # Keyword match score
             }
 
-            session_num = extract_session_number(row.get("name", ""))
+            session_num = extract_session_number(name_val or "")
             if session_num:
                 memory["session_number"] = session_num
 
@@ -461,19 +475,26 @@ def cmd_get_entities(args):
         """
 
         result = conn.execute(query, parameters={"limit": limit})
-        df = result.get_as_df()
 
+        # Process results without pandas
         entities = []
-        for _, row in df.iterrows():
-            if not row.get("summary"):
+        while result.has_next():
+            row = result.get_next()
+            # Row order: uuid, name, summary, created_at
+            uuid_val = serialize_value(row[0]) if len(row) > 0 else None
+            name_val = serialize_value(row[1]) if len(row) > 1 else ""
+            summary_val = serialize_value(row[2]) if len(row) > 2 else ""
+            created_at_val = serialize_value(row[3]) if len(row) > 3 else None
+
+            if not summary_val:
                 continue
 
             entity = {
-                "id": row.get("uuid") or row.get("name", "unknown"),
-                "name": row.get("name", ""),
-                "type": infer_entity_type(row.get("name", "")),
-                "timestamp": row.get("created_at") or datetime.now().isoformat(),
-                "content": row.get("summary", ""),
+                "id": uuid_val or name_val or "unknown",
+                "name": name_val or "",
+                "type": infer_entity_type(name_val or ""),
+                "timestamp": created_at_val or datetime.now().isoformat(),
+                "content": summary_val or "",
             }
             entities.append(entity)
 
@@ -486,6 +507,118 @@ def cmd_get_entities(args):
             output_json(True, data={"entities": [], "count": 0})
         else:
             output_error(f"Query failed: {e}")
+
+
+def cmd_add_episode(args):
+    """
+    Add a new episode to the memory database.
+
+    This is called from the Electron main process to save PR review insights,
+    patterns, gotchas, and other memories directly to the LadybugDB database.
+
+    Args:
+        args.db_path: Path to database directory
+        args.database: Database name
+        args.name: Episode name/title
+        args.content: Episode content (JSON string)
+        args.episode_type: Type of episode (session_insight, pattern, gotcha, task_outcome, pr_review)
+        args.group_id: Optional group ID for namespacing
+    """
+    if not apply_monkeypatch():
+        output_error("Neither kuzu nor LadybugDB is installed")
+        return
+
+    try:
+        import uuid as uuid_module
+
+        try:
+            import kuzu
+        except ImportError:
+            import real_ladybug as kuzu
+
+        # Parse content from JSON if provided
+        content = args.content
+        if content:
+            try:
+                # Try to parse as JSON to validate
+                parsed = json.loads(content)
+                # Re-serialize to ensure consistent formatting
+                content = json.dumps(parsed)
+            except json.JSONDecodeError:
+                # If not valid JSON, use as-is
+                pass
+
+        # Generate unique ID
+        episode_uuid = str(uuid_module.uuid4())
+        created_at = datetime.now().isoformat()
+
+        # Get database path - create directory if needed
+        full_path = Path(args.db_path) / args.database
+        if not full_path.exists():
+            # For new databases, create the parent directory
+            Path(args.db_path).mkdir(parents=True, exist_ok=True)
+
+        # Open database (creates it if it doesn't exist)
+        db = kuzu.Database(str(full_path))
+        conn = kuzu.Connection(db)
+
+        # Always try to create the Episodic table if it doesn't exist
+        # This handles both new databases and existing databases without the table
+        try:
+            conn.execute("""
+                CREATE NODE TABLE IF NOT EXISTS Episodic (
+                    uuid STRING PRIMARY KEY,
+                    name STRING,
+                    content STRING,
+                    source_description STRING,
+                    group_id STRING,
+                    created_at STRING
+                )
+            """)
+        except Exception as schema_err:
+            # Table might already exist with different schema - that's ok
+            # The insert will fail if schema is incompatible
+            sys.stderr.write(f"Schema creation note: {schema_err}\n")
+
+        # Insert the episode
+        try:
+            insert_query = """
+                CREATE (e:Episodic {
+                    uuid: $uuid,
+                    name: $name,
+                    content: $content,
+                    source_description: $description,
+                    group_id: $group_id,
+                    created_at: $created_at
+                })
+            """
+            conn.execute(
+                insert_query,
+                parameters={
+                    "uuid": episode_uuid,
+                    "name": args.name,
+                    "content": content,
+                    "description": f"[{args.episode_type}] {args.name}",
+                    "group_id": args.group_id or "",
+                    "created_at": created_at,
+                },
+            )
+
+            output_json(
+                True,
+                data={
+                    "id": episode_uuid,
+                    "name": args.name,
+                    "type": args.episode_type,
+                    "timestamp": created_at,
+                },
+            )
+
+        except Exception as e:
+            output_error(f"Failed to insert episode: {e}")
+
+    except Exception as e:
+        output_error(f"Failed to add episode: {e}")
 
 
 def infer_episode_type(name: str, content: str = "") -> str:
@@ -580,6 +713,27 @@ def main():
         "--limit", type=int, default=20, help="Maximum results"
     )
 
+    # add-episode command (for saving memories from Electron app)
+    add_parser = subparsers.add_parser(
+        "add-episode",
+        help="Add an episode to the memory database (called from Electron)",
+    )
+    add_parser.add_argument("db_path", help="Path to database directory")
+    add_parser.add_argument("database", help="Database name")
+    add_parser.add_argument("--name", required=True, help="Episode name/title")
+    add_parser.add_argument(
+        "--content", required=True, help="Episode content (JSON string)"
+    )
+    add_parser.add_argument(
+        "--type",
+        dest="episode_type",
+        default="session_insight",
+        help="Episode type (session_insight, pattern, gotcha, task_outcome, pr_review)",
+    )
+    add_parser.add_argument(
+        "--group-id", dest="group_id", help="Optional group ID for namespacing"
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -594,6 +748,7 @@ def main():
         "search": cmd_search,
         "semantic-search": cmd_semantic_search,
         "get-entities": cmd_get_entities,
+        "add-episode": cmd_add_episode,
     }
 
     handler = commands.get(args.command)

@@ -1,6 +1,5 @@
 import type { BrowserWindow } from 'electron';
-import path from 'path';
-import { IPC_CHANNELS, getSpecsDir, AUTO_BUILD_PATHS } from '../../shared/constants';
+import { IPC_CHANNELS } from '../../shared/constants';
 import type {
   SDKRateLimitInfo,
   Task,

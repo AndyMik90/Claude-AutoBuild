@@ -29,6 +29,8 @@ export interface TerminalSession {
   outputBuffer: string;
   createdAt: string;
   lastActiveAt: string;
+  /** Associated worktree configuration (validated on restore) */
+  worktreeConfig?: TerminalWorktreeConfig;
 }
 
 export interface TerminalRestoreResult {
