@@ -184,12 +184,12 @@ export function FeatureDetailPanel({
               {feature.dependencies.map((dep) => (
                 <button
                   key={dep}
-                  className="px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer transition-all flex items-center gap-1"
+                  className="px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer transition-all flex items-center justify-start gap-1"
                   onClick={() => handleDependencyClick(dep)}
                   title={`View dependency: ${getFeatureTitle(dep)}`}
                 >
                   <span>{getFeatureTitle(dep)}</span>
-                  <ChevronRight className="h-3 w-3" />
+                  <ChevronRight className="h-3 w-3 shrink-0" />
                 </button>
               ))}
             </div>
@@ -207,11 +207,11 @@ export function FeatureDetailPanel({
               {feature.reverseDependencies.map((dep) => (
                 <button
                   key={dep}
-                  className="px-3 py-1.5 rounded-md text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer transition-all flex items-center gap-1.5"
+                  className="px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer transition-all flex items-center justify-start gap-1"
                   onClick={() => handleDependencyClick(dep)}
                   title={`View feature that depends on this: ${getFeatureTitle(dep)}`}
                 >
-                  <ChevronRight className="h-3.5 w-3.5 -rotate-180" />
+                  <ChevronRight className="h-3 w-3 -rotate-180 shrink-0" />
                   <span>{getFeatureTitle(dep)}</span>
                 </button>
               ))}
