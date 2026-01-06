@@ -189,15 +189,6 @@ def test_original_bug_scenario():
     ), "Should identify the type error"
 
 
-if __name__ == "__main__":
-    # Run tests manually if needed
-    test_target_audience_validation_logic()
-    test_roadmap_file_validation_simulation()
-    test_original_bug_scenario()
-    test_full_validation_workflow()
-    print("All validation tests passed!")
-
-
 def test_full_validation_workflow():
     """Test complete validation workflow with multiple features."""
     from apps.backend.runners.roadmap.models import RoadmapFeature
@@ -238,3 +229,12 @@ def test_full_validation_workflow():
     assert result.reverse_deps_map["feat-1"] == ["feat-2"]
     assert result.reverse_deps_map["feat-2"] == ["feat-3"]
     assert result.reverse_deps_map["feat-3"] == []
+
+
+if __name__ == "__main__":
+    # Run tests manually if needed
+    test_target_audience_validation_logic()
+    test_roadmap_file_validation_simulation()
+    test_original_bug_scenario()
+    test_full_validation_workflow()
+    print("All validation tests passed!")
