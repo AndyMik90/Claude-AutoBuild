@@ -239,9 +239,11 @@ export function Worktrees({ projectId }: WorktreesProps) {
         }
         return result.data;
       }
-      return { success: false, error: result.error || 'Failed to create PR' };
+      // Propagate IPC error; let CreatePRDialog use its i18n fallback
+      return { success: false, error: result.error, prUrl: undefined, alreadyExists: false };
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+      // Propagate actual error message; let CreatePRDialog handle i18n fallback for undefined
+      return { success: false, error: err instanceof Error ? err.message : undefined, prUrl: undefined, alreadyExists: false };
     }
   };
 
