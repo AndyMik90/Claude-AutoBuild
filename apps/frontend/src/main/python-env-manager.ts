@@ -125,6 +125,7 @@ export class PythonEnvManager extends EventEmitter {
     // Critical packages that must exist for proper functionality
     // This fixes GitHub issue #416 where marker exists but packages are missing
     // Note: Same list exists in download-python.cjs - keep them in sync
+    // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
     const criticalPackages = ['claude_agent_sdk', 'dotenv'];
 
     // Check each package exists with valid structure (directory + __init__.py)
