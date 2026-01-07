@@ -149,6 +149,11 @@ function updateBackendInit(newVersion) {
   return true;
 }
 
+// Escape special regex characters to prevent regex injection
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Check if CHANGELOG.md has an entry for the version
 function checkChangelogEntry(version) {
   const changelogPath = path.join(__dirname, '..', 'CHANGELOG.md');
@@ -161,7 +166,8 @@ function checkChangelogEntry(version) {
   const content = fs.readFileSync(changelogPath, 'utf8');
 
   // Look for "## X.Y.Z" or "## X.Y.Z -" header
-  const versionPattern = new RegExp(`^## ${version.replace(/\./g, '\\.')}(\\s|-)`, 'm');
+  const escapedVersion = escapeRegex(version);
+  const versionPattern = new RegExp(`^## ${escapedVersion}(\\s|-)`, 'm');
 
   if (versionPattern.test(content)) {
     return true;
