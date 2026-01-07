@@ -122,7 +122,7 @@ class StatusManager:
             return BuildStatus()
 
         try:
-            with open(self.status_file) as f:
+            with open(self.status_file, encoding="utf-8") as f:
                 data = json.load(f)
             self._status = BuildStatus.from_dict(data)
             return self._status
@@ -146,7 +146,7 @@ class StatusManager:
             status_dict = self._status.to_dict()
 
         try:
-            with open(self.status_file, "w") as f:
+            with open(self.status_file, "w", encoding="utf-8") as f:
                 json.dump(status_dict, f, indent=2)
 
             if debug:

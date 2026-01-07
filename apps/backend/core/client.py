@@ -642,7 +642,7 @@ def create_client(
 
     # Write settings to a file in the project directory
     settings_file = project_dir / ".claude_settings.json"
-    with open(settings_file, "w") as f:
+    with open(settings_file, "w", encoding="utf-8") as f:
         json.dump(security_settings, f, indent=2)
 
     print(f"Security settings: {settings_file}")

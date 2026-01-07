@@ -285,7 +285,7 @@ def handle_followup_command(
     # Check for prior follow-ups (for sequential follow-up context)
     prior_followup_count = 0
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan_data = json.load(f)
         phases = plan_data.get("phases", [])
         # Count phases that look like follow-up phases (name contains "Follow" or high phase number)

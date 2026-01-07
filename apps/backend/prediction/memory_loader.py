@@ -89,7 +89,7 @@ class MemoryLoader:
             return []
 
         try:
-            with open(self.history_file) as f:
+            with open(self.history_file, encoding="utf-8") as f:
                 history = json.load(f)
                 return history.get("attempts", [])
         except (OSError, json.JSONDecodeError):
