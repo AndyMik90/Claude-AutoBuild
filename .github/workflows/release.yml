@@ -201,6 +201,9 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    permissions:
+      id-token: write  # Required for OIDC authentication with Azure
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -255,8 +258,33 @@ jobs:
         run: cd apps/frontend && npm run package:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.WIN_CERTIFICATE }}
-          CSC_KEY_PASSWORD: ${{ secrets.WIN_CERTIFICATE_PASSWORD }}
+          # Disable electron-builder's built-in signing (we use Azure Trusted Signing instead)
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Azure Login (OIDC)
+        if: env.AZURE_CLIENT_ID != ''
+        uses: azure/login@v2
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign Windows executable with Azure Trusted Signing
+        uses: azure/trusted-signing-action@v0.5.1
+        if: env.AZURE_CLIENT_ID != ''
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        with:
+          endpoint: https://neu.codesigning.azure.net/
+          trusted-signing-account-name: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_CERTIFICATE_PROFILE }}
+          files-folder: apps/frontend/dist
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
