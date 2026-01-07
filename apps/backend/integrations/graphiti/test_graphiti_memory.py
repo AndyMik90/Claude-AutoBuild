@@ -36,6 +36,7 @@ import asyncio
 import json
 import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -431,12 +432,9 @@ async def test_graphiti_memory_class(db_path: str, database: str) -> bool:
     try:
         from integrations.graphiti.memory import GraphitiMemory
 
-        # Create temporary directories for testing
-        test_spec_dir = Path("/tmp/graphiti_test_spec")
-        test_spec_dir.mkdir(parents=True, exist_ok=True)
-
-        test_project_dir = Path("/tmp/graphiti_test_project")
-        test_project_dir.mkdir(parents=True, exist_ok=True)
+        # Create temporary directories for testing (cross-platform)
+        test_spec_dir = Path(tempfile.mkdtemp(prefix="graphiti_test_spec_"))
+        test_project_dir = Path(tempfile.mkdtemp(prefix="graphiti_test_project_"))
 
         print(f"  Spec dir: {test_spec_dir}")
         print(f"  Project dir: {test_project_dir}")
