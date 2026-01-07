@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Load .env file with centralized error handling
 from cli.utils import import_dotenv
+
 import_dotenv()
 
 from dotenv import load_dotenv
