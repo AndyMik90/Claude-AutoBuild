@@ -142,6 +142,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       // Handle CTRL+V paste (Windows and Linux only)
       const isPasteShortcut = event.ctrlKey && (event.key === 'v' || event.key === 'V') && event.type === 'keydown';
       if (isPasteShortcut && (isWindows || isLinux)) {
+        event.preventDefault(); // Prevent browser's default paste behavior
         navigator.clipboard.readText()
           .then((text) => {
             if (text) {
@@ -173,6 +174,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       // Handle CTRL+SHIFT+V paste (Linux only - alternative to CTRL+V)
       const isLinuxPasteShortcut = event.ctrlKey && event.shiftKey && (event.key === 'V' || event.key === 'v') && event.type === 'keydown';
       if (isLinuxPasteShortcut && isLinux) {
+        event.preventDefault(); // Prevent browser's default paste behavior
         navigator.clipboard.readText()
           .then((text) => {
             if (text) {
