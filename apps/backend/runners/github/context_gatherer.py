@@ -764,7 +764,7 @@ class PRContextGatherer:
         # Check for package.json (Node.js)
         if (self.project_dir / "package.json").exists():
             try:
-                with open(self.project_dir / "package.json") as f:
+                with open(self.project_dir / "package.json", encoding="utf-8") as f:
                     pkg_data = json.load(f)
                     if "workspaces" in pkg_data:
                         structure_info.append(

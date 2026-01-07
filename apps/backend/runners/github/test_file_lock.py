@@ -55,7 +55,7 @@ async def test_locked_write():
         print(f"✓ Written to {test_file.name}")
 
         # Verify data was written correctly
-        with open(test_file) as f:
+        with open(test_file, encoding="utf-8") as f:
             loaded = json.load(f)
             assert loaded == data
             print(f"✓ Data verified: {loaded}")
@@ -118,7 +118,7 @@ async def test_concurrent_updates_without_lock():
         async def unsafe_increment():
             """Increment without locking - RACE CONDITION!"""
             # Read
-            with open(test_file) as f:
+            with open(test_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Simulate some processing
@@ -126,14 +126,14 @@ async def test_concurrent_updates_without_lock():
 
             # Write
             data["count"] += 1
-            with open(test_file, "w") as f:
+            with open(test_file, "w", encoding="utf-8") as f:
                 json.dump(data, f)
 
         # Run 10 concurrent increments
         await asyncio.gather(*[unsafe_increment() for _ in range(10)])
 
         # Check final count
-        with open(test_file) as f:
+        with open(test_file, encoding="utf-8") as f:
             final = json.load(f)
 
         print("✗ Expected count: 10")

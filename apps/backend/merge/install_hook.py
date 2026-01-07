@@ -104,7 +104,7 @@ def install_hook(project_path: Path) -> bool:
         print(f"Backed up existing hook to {backup_path}")
 
         # Append our hook to existing
-        with open(hook_path, "a") as f:
+        with open(hook_path, "a", encoding="utf-8") as f:
             f.write("\n\n# FileTimelineTracker integration\n")
             f.write(HOOK_SCRIPT.split("#!/bin/bash", 1)[1])  # Skip shebang
         print(f"Appended FileTimelineTracker hook to {hook_path}")

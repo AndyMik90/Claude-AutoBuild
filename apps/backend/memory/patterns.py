@@ -47,7 +47,7 @@ def append_gotcha(spec_dir: Path, gotcha: str) -> None:
     gotcha_stripped = gotcha.strip()
     if gotcha_stripped and gotcha_stripped not in existing_gotchas:
         # Append to file
-        with open(gotchas_file, "a") as f:
+        with open(gotchas_file, "a", encoding="utf-8") as f:
             if gotchas_file.stat().st_size == 0:
                 # First entry - add header
                 f.write("# Gotchas and Pitfalls\n\n")
@@ -123,7 +123,7 @@ def append_pattern(spec_dir: Path, pattern: str) -> None:
     pattern_stripped = pattern.strip()
     if pattern_stripped and pattern_stripped not in existing_patterns:
         # Append to file
-        with open(patterns_file, "a") as f:
+        with open(patterns_file, "a", encoding="utf-8") as f:
             if patterns_file.stat().st_size == 0:
                 # First entry - add header
                 f.write("# Code Patterns\n\n")

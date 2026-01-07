@@ -37,7 +37,7 @@ class ContextBuilder:
         """Load project index from file or create new one (.auto-claude is the installed instance)."""
         index_file = self.project_dir / ".auto-claude" / "project_index.json"
         if index_file.exists():
-            with open(index_file) as f:
+            with open(index_file, encoding="utf-8") as f:
                 return json.load(f)
 
         # Try to create one

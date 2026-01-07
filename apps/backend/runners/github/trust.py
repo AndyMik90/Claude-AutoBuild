@@ -420,7 +420,7 @@ class TrustManager:
 
         state_file = self._get_state_file(repo)
         if state_file.exists():
-            with open(state_file) as f:
+            with open(state_file, encoding="utf-8") as f:
                 data = json.load(f)
                 state = TrustState.from_dict(data)
         else:
@@ -514,7 +514,7 @@ class TrustManager:
         """Get trust states for all repos."""
         states = []
         for file in self.trust_dir.glob("*.json"):
-            with open(file) as f:
+            with open(file, encoding="utf-8") as f:
                 data = json.load(f)
                 states.append(TrustState.from_dict(data))
         return states
