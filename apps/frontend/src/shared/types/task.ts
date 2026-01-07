@@ -228,6 +228,7 @@ export interface TaskMetadata {
 
   // Git/Worktree configuration
   baseBranch?: string;  // Override base branch for this task's worktree
+  useWorktree?: boolean;  // If false, use direct mode (no worktree isolation) - default is true for safety
 
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
