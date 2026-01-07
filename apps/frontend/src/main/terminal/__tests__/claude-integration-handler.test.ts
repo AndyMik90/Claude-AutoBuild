@@ -60,6 +60,14 @@ vi.mock('../session-handler', () => ({
   releaseSessionId: mockReleaseSessionId,
 }));
 
+vi.mock('os', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('os')>();
+  return {
+    ...actual,
+    tmpdir: vi.fn(() => '/tmp'),
+  };
+});
+
 describe('claude-integration-handler', () => {
   beforeEach(() => {
     mockGetClaudeCliInvocation.mockClear();
@@ -405,5 +413,197 @@ describe('claude-integration-handler', () => {
     expect(terminal.isClaudeMode).toBe(true);
     expect(terminal.claudeSessionId).toBeUndefined();
     expect(mockPersistSession).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Unit tests for helper functions
+ */
+describe('claude-integration-handler - Helper Functions', () => {
+  describe('buildClaudeShellCommand', () => {
+    it('should build default command without cwd or PATH prefix', async () => {
+      const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+      const result = buildClaudeShellCommand('', '', "'/opt/bin/claude'", { method: 'default' });
+
+      expect(result).toBe("'/opt/bin/claude'\r");
+    });
+
+    it('should build command with cwd', async () => {
+      const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+      const result = buildClaudeShellCommand("cd '/tmp/project' && ", '', "'/opt/bin/claude'", { method: 'default' });
+
+      expect(result).toBe("cd '/tmp/project' && '/opt/bin/claude'\r");
+    });
+
+    it('should build command with PATH prefix', async () => {
+      const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+      const result = buildClaudeShellCommand('', "PATH='/custom/path' ", "'/opt/bin/claude'", { method: 'default' });
+
+      expect(result).toBe("PATH='/custom/path' '/opt/bin/claude'\r");
+    });
+
+    it('should build temp-file method command with history-safe prefixes', async () => {
+      const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+      const result = buildClaudeShellCommand(
+        "cd '/tmp/project' && ",
+        "PATH='/opt/bin' ",
+        "'/opt/bin/claude'",
+        { method: 'temp-file', escapedTempFile: "'/tmp/.token-123'" }
+      );
+
+      expect(result).toContain('clear && ');
+      expect(result).toContain("cd '/tmp/project' && ");
+      expect(result).toContain('HISTFILE= HISTCONTROL=ignorespace');
+      expect(result).toContain("PATH='/opt/bin' ");
+      expect(result).toContain("source '/tmp/.token-123'");
+      expect(result).toContain("rm -f '/tmp/.token-123'");
+      expect(result).toContain("exec '/opt/bin/claude'");
+    });
+
+    it('should build config-dir method command with CLAUDE_CONFIG_DIR', async () => {
+      const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+      const result = buildClaudeShellCommand(
+        "cd '/tmp/project' && ",
+        "PATH='/opt/bin' ",
+        "'/opt/bin/claude'",
+        { method: 'config-dir', escapedConfigDir: "'/home/user/.claude-work'" }
+      );
+
+      expect(result).toContain('clear && ');
+      expect(result).toContain("cd '/tmp/project' && ");
+      expect(result).toContain('HISTFILE= HISTCONTROL=ignorespace');
+      expect(result).toContain("CLAUDE_CONFIG_DIR='/home/user/.claude-work'");
+      expect(result).toContain("PATH='/opt/bin' ");
+      expect(result).toContain("exec '/opt/bin/claude'");
+    });
+
+    it('should handle empty cwdCommand for temp-file method', async () => {
+      const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+      const result = buildClaudeShellCommand(
+        '',
+        '',
+        "'/opt/bin/claude'",
+        { method: 'temp-file', escapedTempFile: "'/tmp/.token'" }
+      );
+
+      expect(result).toContain('clear && ');
+      expect(result).toContain('HISTFILE= HISTCONTROL=ignorespace');
+      expect(result).not.toContain('cd ');
+      expect(result).toContain("source '/tmp/.token'");
+    });
+  });
+
+  describe('finalizeClaudeInvoke', () => {
+    it('should set terminal title to "Claude" for default profile', async () => {
+      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const terminal = createMockTerminal();
+      const mockWindow = {
+        webContents: { send: vi.fn() }
+      };
+
+      finalizeClaudeInvoke(
+        terminal,
+        { name: 'Default', isDefault: true },
+        '/tmp/project',
+        Date.now(),
+        () => mockWindow as any,
+        vi.fn()
+      );
+
+      expect(terminal.title).toBe('Claude');
+    });
+
+    it('should set terminal title to "Claude (ProfileName)" for non-default profile', async () => {
+      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const terminal = createMockTerminal();
+      const mockWindow = {
+        webContents: { send: vi.fn() }
+      };
+
+      finalizeClaudeInvoke(
+        terminal,
+        { name: 'Work Profile', isDefault: false },
+        '/tmp/project',
+        Date.now(),
+        () => mockWindow as any,
+        vi.fn()
+      );
+
+      expect(terminal.title).toBe('Claude (Work Profile)');
+    });
+
+    it('should send IPC message to renderer', async () => {
+      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const terminal = createMockTerminal();
+      const mockSend = vi.fn();
+      const mockWindow = {
+        webContents: { send: mockSend }
+      };
+
+      finalizeClaudeInvoke(
+        terminal,
+        undefined,
+        '/tmp/project',
+        Date.now(),
+        () => mockWindow as any,
+        vi.fn()
+      );
+
+      expect(mockSend).toHaveBeenCalledWith(
+        expect.stringContaining('title'),
+        terminal.id,
+        'Claude'
+      );
+    });
+
+    it('should persist session when terminal has projectPath', async () => {
+      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const terminal = createMockTerminal({ projectPath: '/tmp/project' });
+
+      finalizeClaudeInvoke(
+        terminal,
+        undefined,
+        '/tmp/project',
+        Date.now(),
+        () => null,
+        vi.fn()
+      );
+
+      expect(mockPersistSession).toHaveBeenCalledWith(terminal);
+    });
+
+    it('should call onSessionCapture when projectPath is provided', async () => {
+      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const terminal = createMockTerminal();
+      const mockOnSessionCapture = vi.fn();
+      const startTime = Date.now();
+
+      finalizeClaudeInvoke(
+        terminal,
+        undefined,
+        '/tmp/project',
+        startTime,
+        () => null,
+        mockOnSessionCapture
+      );
+
+      expect(mockOnSessionCapture).toHaveBeenCalledWith(terminal.id, '/tmp/project', startTime);
+    });
+
+    it('should not crash when getWindow returns null', async () => {
+      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const terminal = createMockTerminal();
+
+      expect(() => {
+        finalizeClaudeInvoke(
+          terminal,
+          undefined,
+          '/tmp/project',
+          Date.now(),
+          () => null,
+          vi.fn()
+        );
+      }).not.toThrow();
+    });
   });
 });

@@ -35,6 +35,8 @@ import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
+import { preWarmToolCache } from './cli-tool-manager';
+import { initializeClaudeProfileManager } from './claude-profile-manager';
 import type { AppSettings } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -347,6 +349,23 @@ app.whenReady().then(() => {
 
   // Create window
   createWindow();
+
+  // Pre-warm CLI tool cache in background (non-blocking)
+  // This ensures CLI detection is done before user needs it
+  // Include all commonly used tools to prevent sync blocking on first use
+  setImmediate(() => {
+    preWarmToolCache(['claude', 'git', 'gh', 'python']).catch((error) => {
+      console.warn('[main] Failed to pre-warm CLI cache:', error);
+    });
+  });
+
+  // Pre-initialize Claude profile manager in background (non-blocking)
+  // This ensures profile data is loaded before user clicks "Start Claude Code"
+  setImmediate(() => {
+    initializeClaudeProfileManager().catch((error) => {
+      console.warn('[main] Failed to pre-initialize profile manager:', error);
+    });
+  });
 
   // Initialize usage monitoring after window is created
   if (mainWindow) {
