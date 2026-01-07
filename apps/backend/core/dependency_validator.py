@@ -27,8 +27,8 @@ def validate_platform_dependencies() -> None:
 
 def _exit_with_pywin32_error() -> None:
     """Exit with helpful error message for missing pywin32."""
-    # Use sys.prefix to detect the actual virtual environment path
-    # This works for venv, conda, poetry, and other environment managers
+    # Use sys.prefix to detect the virtual environment path
+    # This works for venv and poetry environments
     venv_activate = Path(sys.prefix) / "Scripts" / "activate"
 
     sys.exit(
