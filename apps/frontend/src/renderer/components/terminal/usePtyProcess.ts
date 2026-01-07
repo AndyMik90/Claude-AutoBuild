@@ -105,10 +105,18 @@ export function usePtyProcess({
           onCreated?.();
         } else {
           const error = `Error restoring session: ${result.data?.error || result.error}`;
+          // Clear recreation flag on failure to prevent terminal from being stuck
+          if (isRecreatingRef?.current) {
+            isRecreatingRef.current = false;
+          }
           onError?.(error);
         }
         isCreatingRef.current = false;
       }).catch((err) => {
+        // Clear recreation flag on failure to prevent terminal from being stuck
+        if (isRecreatingRef?.current) {
+          isRecreatingRef.current = false;
+        }
         onError?.(err.message);
         isCreatingRef.current = false;
       });
@@ -132,10 +140,18 @@ export function usePtyProcess({
           }
           onCreated?.();
         } else {
+          // Clear recreation flag on failure to prevent terminal from being stuck
+          if (isRecreatingRef?.current) {
+            isRecreatingRef.current = false;
+          }
           onError?.(result.error || 'Unknown error');
         }
         isCreatingRef.current = false;
       }).catch((err) => {
+        // Clear recreation flag on failure to prevent terminal from being stuck
+        if (isRecreatingRef?.current) {
+          isRecreatingRef.current = false;
+        }
         onError?.(err.message);
         isCreatingRef.current = false;
       });

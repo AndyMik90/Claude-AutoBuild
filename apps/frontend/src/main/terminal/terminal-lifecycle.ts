@@ -192,6 +192,9 @@ export async function restoreTerminal(
   // Use storedIsClaudeMode which comes from the persisted store,
   // not the renderer-passed values (renderer always passes isClaudeMode: false)
   if (options.resumeClaudeSession && storedIsClaudeMode) {
+    // Set Claude mode so it persists correctly across app restarts
+    // Without this, storedIsClaudeMode would be false on next restore
+    terminal.isClaudeMode = true;
     // Mark terminal as having a pending Claude resume
     // The actual resume will be triggered when the terminal becomes active
     terminal.pendingClaudeResume = true;
@@ -203,7 +206,7 @@ export async function restoreTerminal(
       win.webContents.send(IPC_CHANNELS.TERMINAL_PENDING_RESUME, terminal.id, storedClaudeSessionId);
     }
 
-    // Persist the pending resume state
+    // Persist the Claude mode and pending resume state
     if (terminal.projectPath) {
       SessionHandler.persistSession(terminal);
     }

@@ -55,14 +55,6 @@ vi.mock('fs', async (importOriginal) => {
   };
 });
 
-vi.mock('os', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('os')>();
-  return {
-    ...actual,
-    tmpdir: () => '/tmp',
-  };
-});
-
 vi.mock('../session-handler', () => ({
   persistSession: mockPersistSession,
   releaseSessionId: mockReleaseSessionId,
