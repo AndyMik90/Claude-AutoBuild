@@ -53,7 +53,7 @@ class ServiceContextGenerator:
         """Load project index from file (.auto-claude is the installed instance)."""
         index_file = self.project_dir / ".auto-claude" / "project_index.json"
         if index_file.exists():
-            with open(index_file) as f:
+            with open(index_file, encoding="utf-8") as f:
                 return json.load(f)
         return {"services": {}}
 
@@ -147,7 +147,7 @@ class ServiceContextGenerator:
         package_json = service_path / "package.json"
         if package_json.exists():
             try:
-                with open(package_json) as f:
+                with open(package_json, encoding="utf-8") as f:
                     pkg = json.load(f)
                     deps = list(pkg.get("dependencies", {}).keys())[:15]
                     context.dependencies.extend(
@@ -187,7 +187,7 @@ class ServiceContextGenerator:
         package_json = service_path / "package.json"
         if package_json.exists():
             try:
-                with open(package_json) as f:
+                with open(package_json, encoding="utf-8") as f:
                     pkg = json.load(f)
                     scripts = pkg.get("scripts", {})
                     for name in ["dev", "start", "build", "test", "lint"]:
@@ -446,7 +446,7 @@ def main():
     # Load project index if specified
     project_index = None
     if args.index and args.index.exists():
-        with open(args.index) as f:
+        with open(args.index, encoding="utf-8") as f:
             project_index = json.load(f)
 
     if args.all:

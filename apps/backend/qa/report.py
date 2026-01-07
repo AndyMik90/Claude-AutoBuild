@@ -460,7 +460,7 @@ def check_test_discovery(spec_dir: Path) -> dict[str, Any] | None:
         return None
 
     try:
-        with open(discovery_file) as f:
+        with open(discovery_file, encoding="utf-8") as f:
             return json.load(f)
     except (OSError, json.JSONDecodeError):
         return None

@@ -235,7 +235,7 @@ def _get_subtask_description(spec_dir: Path, subtask_id: str) -> str:
         return f"Subtask: {subtask_id}"
 
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
 
         # Search through phases for the subtask

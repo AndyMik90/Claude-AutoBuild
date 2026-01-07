@@ -232,7 +232,7 @@ class IdeationOrchestrator:
         """Print summary of ideation generation results."""
         ideation_file = self.output_dir / "ideation.json"
         if ideation_file.exists():
-            with open(ideation_file) as f:
+            with open(ideation_file, encoding="utf-8") as f:
                 ideation = json.load(f)
 
             ideas = ideation.get("ideas", [])
