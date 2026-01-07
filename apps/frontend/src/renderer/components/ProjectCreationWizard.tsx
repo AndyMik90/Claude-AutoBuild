@@ -11,7 +11,7 @@ import {
   DialogTitle
 } from './ui/dialog';
 import { cn } from '../lib/utils';
-import { addProject } from '../stores/project-store';
+import { addProject, useProjectStore } from '../stores/project-store';
 import { WizardProgress } from './onboarding/WizardProgress';
 import type { WizardStep } from './onboarding/WizardProgress';
 import type { Project } from '../../shared/types';
@@ -57,6 +57,20 @@ export function ProjectCreationWizard({
   onAutoClaudeSkipped
 }: ProjectCreationWizardProps) {
   const { t } = useTranslation('dialogs');
+  const updateProject = useProjectStore((state) => state.updateProject);
+
+  // Map step IDs to i18n key prefix (step IDs use kebab-case, i18n uses camelCase)
+  const getStepI18nKey = (stepId: WizardStepId): string => {
+    const keyMap: Record<WizardStepId, string> = {
+      'choose': 'choose',
+      'create-form': 'createForm',
+      'initialize': 'initialize',
+      'service-auth': 'serviceAuth',
+      'repo-config': 'repoConfig',
+      'complete': 'complete'
+    };
+    return keyMap[stepId];
+  };
 
   // Step management
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -154,23 +168,52 @@ export function ProjectCreationWizard({
 
   const visibleSteps = getVisibleSteps();
 
-  // Build step data for progress indicator
-  const steps: WizardStep[] = visibleSteps.map((step, index) => ({
-    id: step.id,
-    label: t(step.labelKey),
-    completed: completedSteps.has(step.id) || index < currentStepIndex
-  }));
+  // Build step data for progress indicator with context-aware labels
+  // Filter out 'choose' step from progress - it's the entry point, not a progress step
+  const progressSteps = visibleSteps.filter(s => s.id !== 'choose');
 
-  // Adjust step index for progress (based on visible steps)
+  // Helper to check if a step is before the current step in the wizard
+  const isBeforeCurrentStep = (stepId: WizardStepId) => {
+    const currentStepPosition = WIZARD_STEPS.findIndex(s => s.id === currentStepId);
+    const stepPosition = WIZARD_STEPS.findIndex(s => s.id === stepId);
+    return stepPosition < currentStepPosition;
+  };
+
+  const steps: WizardStep[] = progressSteps.map((step) => {
+    // For skip flow, use simplified labels: Start, Initialize, Complete
+    if (!remoteConfig.enabled) {
+      switch (step.id) {
+        case 'create-form':
+          return { id: step.id, label: t('wizard.steps.start.label'), completed: completedSteps.has(step.id) || isBeforeCurrentStep(step.id) };
+        case 'initialize':
+          return { id: step.id, label: t('wizard.steps.initialize.progressLabel'), completed: completedSteps.has(step.id) || isBeforeCurrentStep(step.id) };
+        default:
+          return { id: step.id, label: t(step.labelKey), completed: completedSteps.has(step.id) || isBeforeCurrentStep(step.id) };
+      }
+    }
+
+    // For remote flow (GitHub/GitLab): Connect, Configure, Complete
+    switch (step.id) {
+      case 'create-form':
+        return { id: step.id, label: t('wizard.steps.start.label'), completed: completedSteps.has(step.id) || isBeforeCurrentStep(step.id) };
+      case 'service-auth':
+        return { id: step.id, label: t('wizard.steps.serviceAuth.progressLabel'), completed: completedSteps.has(step.id) || isBeforeCurrentStep(step.id) };
+      case 'repo-config':
+        return { id: step.id, label: t('wizard.steps.repoConfig.progressLabel'), completed: completedSteps.has(step.id) || isBeforeCurrentStep(step.id) };
+      default:
+        return { id: step.id, label: t(step.labelKey), completed: completedSteps.has(step.id) || isBeforeCurrentStep(step.id) };
+    }
+  });
+
+  // Adjust step index for progress (based on progressSteps which excludes 'choose')
   const getProgressIndex = () => {
     // Don't show progress for choose or complete steps
     if (currentStepId === 'choose' || currentStepId === 'complete') return -1;
 
-    const visibleIds = visibleSteps.map(s => s.id);
-    const currentIndex = visibleIds.indexOf(currentStepId);
+    const progressIds = progressSteps.map(s => s.id);
+    const currentIndex = progressIds.indexOf(currentStepId);
 
-    // Adjust index (exclude choose from progress)
-    return currentIndex - 1;
+    return currentIndex;
   };
 
   const progressIndex = getProgressIndex();
@@ -518,6 +561,10 @@ export function ProjectCreationWizard({
     // Track when Auto Claude is initialized
     const handleAutoClaudeInitialized = () => {
       setAutoClaudeInitialized(true);
+      // Update the project in the store so the init modal doesn't show
+      if (createdProjectId) {
+        updateProject(createdProjectId, { autoBuildPath: '.auto-claude' });
+      }
     };
 
     return (
@@ -752,9 +799,9 @@ export function ProjectCreationWizard({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>{t(`wizard.steps.${currentStepId}.title`)}</DialogTitle>
+          <DialogTitle>{t(`wizard.steps.${getStepI18nKey(currentStepId)}.title`)}</DialogTitle>
           <DialogDescription>
-            {t(`wizard.steps.${currentStepId}.description`)}
+            {t(`wizard.steps.${getStepI18nKey(currentStepId)}.description`)}
           </DialogDescription>
 
           {/* Progress indicator - show for steps 2-4 */}

@@ -293,6 +293,9 @@
         "openExistingAriaLabel": "Ouvrir un dossier de projet existant",
         "createNewAriaLabel": "Créer un nouveau projet"
       },
+      "start": {
+        "label": "Démarrer"
+      },
       "createForm": {
         "title": "Créer un nouveau projet",
         "description": "Entrez les détails du projet et configurez le dépôt distant",
@@ -301,12 +304,14 @@
       "serviceAuth": {
         "title": "Se connecter à {service}",
         "description": "Authentifiez-vous avec {service} pour configurer votre dépôt",
-        "label": "Connecter"
+        "label": "Connecter",
+        "progressLabel": "Connecter"
       },
       "repoConfig": {
         "title": "Configurer le dépôt",
         "description": "Créer un nouveau dépôt ou lier un dépôt existant",
-        "label": "Configurer"
+        "label": "Configurer",
+        "progressLabel": "Configurer"
       },
       "complete": {
         "title": "Projet créé !",
@@ -317,6 +322,7 @@
         "title": "Initialiser le projet",
         "description": "Configurez votre projet pour le développement",
         "label": "Configuration",
+        "progressLabel": "Initialiser",
         "git": {
           "title": "Dépôt Git",
           "description": "Initialiser Git pour le contrôle de version",

@@ -293,6 +293,9 @@
         "openExistingAriaLabel": "Open existing project folder",
         "createNewAriaLabel": "Create new project"
       },
+      "start": {
+        "label": "Start"
+      },
       "createForm": {
         "title": "Create New Project",
         "description": "Enter project details and configure remote repository",
@@ -301,12 +304,14 @@
       "serviceAuth": {
         "title": "Connect to {service}",
         "description": "Authenticate with {service} to set up your repository",
-        "label": "Connect"
+        "label": "Connect",
+        "progressLabel": "Connect"
       },
       "repoConfig": {
         "title": "Configure Repository",
         "description": "Create a new repository or link to an existing one",
-        "label": "Configure"
+        "label": "Configure",
+        "progressLabel": "Configure"
       },
       "complete": {
         "title": "Project Created!",
@@ -317,6 +322,7 @@
         "title": "Initialize Project",
         "description": "Set up your project for development",
         "label": "Setup",
+        "progressLabel": "Initialize",
         "git": {
           "title": "Git Repository",
           "description": "Initialize Git for version control",

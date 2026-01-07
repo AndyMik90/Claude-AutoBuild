@@ -26,6 +26,10 @@ vi.mock('react-i18next', () => ({
         'wizard.steps.createForm.description': 'Enter project details',
         'wizard.steps.createForm.label': 'Details',
         'wizard.steps.initialize.label': 'Setup',
+        'wizard.steps.initialize.progressLabel': 'Initialize',
+        'wizard.steps.start.label': 'Start',
+        'wizard.steps.serviceAuth.progressLabel': 'Connect',
+        'wizard.steps.repoConfig.progressLabel': 'Configure',
         'wizard.navigation.cancel': 'Cancel',
         'wizard.navigation.back': 'Back',
         'wizard.navigation.next': 'Next',
@@ -49,6 +53,14 @@ vi.mock('../../stores/project-store', () => ({
     name: 'test-project',
     path: '/test/path',
     autoBuildPath: null,
+  }),
+  useProjectStore: vi.fn((selector) => {
+    const state = {
+      updateProject: vi.fn(),
+      projects: [],
+      selectedProjectId: null,
+    };
+    return selector ? selector(state) : state;
   }),
 }));
 
