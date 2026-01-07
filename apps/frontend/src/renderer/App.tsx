@@ -443,8 +443,14 @@ export function App() {
       const updatedTask = tasks.find(
         (t) => t.id === selectedTask.id || t.specId === selectedTask.specId
       );
-      if (updatedTask && updatedTask !== selectedTask) {
-        setSelectedTask(updatedTask);
+      if (updatedTask) {
+        // Check if task actually changed by comparing subtasks
+        // Use JSON.stringify for deep comparison of subtasks arrays
+        const selectedTaskJson = JSON.stringify(selectedTask);
+        const updatedTaskJson = JSON.stringify(updatedTask);
+        if (selectedTaskJson !== updatedTaskJson) {
+          setSelectedTask(updatedTask);
+        }
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally omit selectedTask object to prevent infinite re-render loop
