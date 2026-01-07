@@ -238,6 +238,37 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     }
   }, [task.id]);
 
+  // Handle "Review Again" - clears staged state and reloads worktree info
+  const handleReviewAgain = useCallback(async () => {
+    // Clear staged success state if it was set in this session
+    setStagedSuccess(null);
+    setStagedProjectPath(undefined);
+    setSuggestedCommitMessage(undefined);
+    
+    // Reset merge preview to force re-check
+    setMergePreview(null);
+    hasLoadedPreviewRef.current = null;
+    
+    // Reload worktree status
+    setIsLoadingWorktree(true);
+    try {
+      const [statusResult, diffResult] = await Promise.all([
+        window.electronAPI.getWorktreeStatus(task.id),
+        window.electronAPI.getWorktreeDiff(task.id)
+      ]);
+      if (statusResult.success && statusResult.data) {
+        setWorktreeStatus(statusResult.data);
+      }
+      if (diffResult.success && diffResult.data) {
+        setWorktreeDiff(diffResult.data);
+      }
+    } catch (err) {
+      console.error('Failed to reload worktree info:', err);
+    } finally {
+      setIsLoadingWorktree(false);
+    }
+  }, [task.id]);
+
   // NOTE: Merge preview is NO LONGER auto-loaded on modal open.
   // User must click "Check for Conflicts" button to trigger the expensive preview operation.
   // This improves modal open performance significantly (avoids 1-30+ second Python subprocess).
@@ -318,5 +349,6 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     handleLogsScroll,
     togglePhase,
     loadMergePreview,
+    handleReviewAgain,
   };
 }

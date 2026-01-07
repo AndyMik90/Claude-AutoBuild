@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow, shell, app } from 'electron';
-import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING, MODEL_ID_MAP, THINKING_BUDGET_MAP } from '../../../shared/constants';
+import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING, MODEL_ID_MAP, THINKING_BUDGET_MAP, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, SupportedIDE, SupportedTerminal, AppSettings } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
@@ -2532,6 +2532,72 @@ export function registerWorktreeHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to open in terminal'
+        };
+      }
+    }
+  );
+
+  /**
+   * Clear the staged state for a task
+   * This allows the user to re-stage changes if needed
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_CLEAR_STAGED_STATE,
+    async (_, taskId: string): Promise<IPCResult<{ cleared: boolean }>> => {
+      try {
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          return { success: false, error: 'Task not found' };
+        }
+
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specDir = path.join(project.path, specsBaseDir, task.specId);
+        const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+        if (!existsSync(planPath)) {
+          return { success: false, error: 'Implementation plan not found' };
+        }
+
+        // Read, update, and write the plan file
+        const { promises: fsPromises } = require('fs');
+        const planContent = await fsPromises.readFile(planPath, 'utf-8');
+        const plan = JSON.parse(planContent);
+
+        // Clear the staged state flags
+        delete plan.stagedInMainProject;
+        delete plan.stagedAt;
+        plan.updated_at = new Date().toISOString();
+
+        await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
+
+        // Also update worktree plan if it exists
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        if (worktreePath) {
+          const worktreePlanPath = path.join(worktreePath, specsBaseDir, task.specId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+          if (existsSync(worktreePlanPath)) {
+            try {
+              const worktreePlanContent = await fsPromises.readFile(worktreePlanPath, 'utf-8');
+              const worktreePlan = JSON.parse(worktreePlanContent);
+              delete worktreePlan.stagedInMainProject;
+              delete worktreePlan.stagedAt;
+              worktreePlan.updated_at = new Date().toISOString();
+              await fsPromises.writeFile(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
+            } catch (e) {
+              // Non-fatal - worktree plan update is best-effort
+              console.warn('[CLEAR_STAGED_STATE] Failed to update worktree plan:', e);
+            }
+          }
+        }
+
+        // Invalidate tasks cache to force reload
+        projectStore.invalidateTasksCache(project.id);
+
+        return { success: true, data: { cleared: true } };
+      } catch (error) {
+        console.error('Failed to clear staged state:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to clear staged state'
         };
       }
     }

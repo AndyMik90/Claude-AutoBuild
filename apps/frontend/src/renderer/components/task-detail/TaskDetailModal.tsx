@@ -442,6 +442,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             onClose={handleClose}
                             onSwitchToTerminals={onSwitchToTerminals}
                             onOpenInbuiltTerminal={onOpenInbuiltTerminal}
+                            onReviewAgain={state.handleReviewAgain}
                           />
                         </>
                       )}
