@@ -372,7 +372,7 @@ def main():
             debug(
                 "insights_runner", "Loading history from file", file=args.history_file
             )
-            with open(args.history_file, encoding="utf-8", encoding="utf-8") as f:
+            with open(args.history_file, encoding="utf-8") as f:
                 history = json.load(f)
             debug_detailed(
                 "insights_runner",

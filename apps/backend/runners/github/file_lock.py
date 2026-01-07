@@ -459,7 +459,7 @@ async def locked_json_update(
         )
 
         try:
-            with os.fdopen(fd, "w") as f:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(updated_data, f, indent=indent)
 
             await asyncio.get_running_loop().run_in_executor(
