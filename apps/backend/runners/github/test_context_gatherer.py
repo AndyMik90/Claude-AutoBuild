@@ -75,7 +75,7 @@ def test_find_test_files(tmp_path):
 
     # Create source file
     source_file = src_dir / "utils.ts"
-    source_file.write_text("export const add = (a, b, encoding="utf-8") => a + b;")
+    source_file.write_text("export const add = (a, b) => a + b;", encoding="utf-8")
 
     # Create test file
     test_file = src_dir / "utils.test.ts"
@@ -99,7 +99,7 @@ def test_resolve_import_path(tmp_path):
 
     # Create imported file
     utils_file = src_dir / "utils.ts"
-    utils_file.write_text("export const helper = (, encoding="utf-8") => {};")
+    utils_file.write_text("export const helper = () => {};", encoding="utf-8")
 
     # Create importing file
     app_file = src_dir / "app.ts"
