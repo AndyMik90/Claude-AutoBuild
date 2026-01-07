@@ -1677,6 +1677,88 @@ export function registerWorktreeHandlers(
                 planStatus = 'completed';
                 message = 'Changes merged successfully';
                 staged = false;
+
+                // Clean up worktree after successful full merge (fixes #243)
+                // NEW: Add verification before cleanup to prevent data loss (fixes #797)
+                try {
+                  if (worktreePath && existsSync(worktreePath)) {
+                    const taskBranch = `auto-claude/${task.specId}`;
+                    
+                    // Verify the branch is fully merged before deleting worktree
+                    debug('Verifying merge before worktree cleanup...');
+                    try {
+                      const mergedBranches = execFileSync(
+                        getToolPath('git'),
+                        ['branch', '--merged', 'HEAD'],
+                        { cwd: project.path, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+                      );
+                      
+                      // Check if our task branch appears in the merged branches list
+                      const branchLines = mergedBranches.split('\n').map(line => line.trim());
+                      const isBranchMerged = branchLines.some(line => 
+                        line === taskBranch || line === `* ${taskBranch}`
+                      );
+                      
+                      if (!isBranchMerged) {
+                        debug('WARNING: Branch not fully merged. Keeping worktree for safety.');
+                        // Update message to warn user
+                        message = 'Merge completed but worktree kept for safety. Please verify with: git log --oneline -n 10';
+                        newStatus = 'human_review';
+                        planStatus = 'review';
+                        
+                        resolve({
+                          success: true,
+                          data: {
+                            success: true,
+                            message,
+                            staged: false,
+                            projectPath: project.path
+                          }
+                        });
+                        return;
+                      }
+                      
+                      debug('✓ Verified branch is fully merged. Safe to delete worktree.');
+                    } catch (verifyErr) {
+                      debug('Could not verify merge status. Keeping worktree for safety:', verifyErr);
+                      message = 'Merge completed but worktree kept (verification failed). Please check: git log';
+                      newStatus = 'human_review';
+                      planStatus = 'review';
+                      
+                      resolve({
+                        success: true,
+                        data: {
+                          success: true,
+                          message,
+                          staged: false,
+                          projectPath: project.path
+                        }
+                      });
+                      return;
+                    }
+                    
+                    // Verification passed - safe to delete worktree
+                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+                      cwd: project.path,
+                      encoding: 'utf-8'
+                    });
+                    debug('Worktree cleaned up after full merge:', worktreePath);
+
+                    // Also delete the task branch since we merged successfully
+                    try {
+                      execFileSync(getToolPath('git'), ['branch', '-D', taskBranch], {
+                        cwd: project.path,
+                        encoding: 'utf-8'
+                      });
+                      debug('Task branch deleted:', taskBranch);
+                    } catch {
+                      // Branch might not exist or already deleted
+                    }
+                  }
+                } catch (cleanupErr) {
+                  debug('Worktree cleanup failed (non-fatal):', cleanupErr);
+                  // Non-fatal - merge succeeded, cleanup can be done manually
+                }
               }
 
               debug('Merge result. isStageOnly:', isStageOnly, 'newStatus:', newStatus, 'staged:', staged);

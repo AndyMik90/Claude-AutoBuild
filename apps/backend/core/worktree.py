@@ -391,69 +391,97 @@ class WorktreeManager:
 
         self._run_git(["worktree", "prune"])
 
-    def merge_worktree(
-        self, spec_name: str, delete_after: bool = False, no_commit: bool = False
-    ) -> bool:
-        """
-        Merge a spec's worktree branch back to base branch.
+   def merge_worktree(
+    self, spec_name: str, delete_after:  bool = False, no_commit: bool = False
+) -> bool:
+    """
+    Merge a spec's worktree branch back to base branch. 
 
-        Args:
-            spec_name: The spec folder name
-            delete_after: Whether to remove worktree and branch after merge
-            no_commit: If True, merge changes but don't commit (stage only for review)
+    Args:
+        spec_name: The spec folder name
+        delete_after: Whether to remove worktree and branch after merge
+        no_commit: If True, merge changes but don't commit (stage only for review)
 
-        Returns:
-            True if merge succeeded
-        """
-        info = self.get_worktree_info(spec_name)
-        if not info:
-            print(f"No worktree found for spec: {spec_name}")
-            return False
+    Returns:
+        True if merge succeeded
+    """
+    info = self.get_worktree_info(spec_name)
+    if not info:
+        print(f"No worktree found for spec: {spec_name}")
+        return False
 
-        if no_commit:
-            print(
-                f"Merging {info.branch} into {self.base_branch} (staged, not committed)..."
-            )
-        else:
-            print(f"Merging {info.branch} into {self.base_branch}...")
+    if no_commit:
+        print(
+            f"Merging {info.branch} into {self.base_branch} (staged, not committed)..."
+        )
+    else:
+        print(f"Merging {info.branch} into {self.base_branch}...")
 
-        # Switch to base branch in main project
-        result = self._run_git(["checkout", self.base_branch])
-        if result.returncode != 0:
-            print(f"Error: Could not checkout base branch: {result.stderr}")
-            return False
+    # Switch to base branch in main project
+    result = self._run_git(["checkout", self.base_branch])
+    if result.returncode != 0:
+        print(f"Error:  Could not checkout base branch:  {result.stderr}")
+        return False
 
-        # Merge the spec branch
-        merge_args = ["merge", "--no-ff", info.branch]
-        if no_commit:
-            # --no-commit stages the merge but doesn't create the commit
-            merge_args.append("--no-commit")
-        else:
-            merge_args.extend(["-m", f"auto-claude: Merge {info.branch}"])
+    # Merge the spec branch
+    merge_args = ["merge", "--no-ff", info. branch]
+    if no_commit:
+        # --no-commit stages the merge but doesn't create the commit
+        merge_args.append("--no-commit")
+    else:
+        merge_args.extend(["-m", f"auto-claude: Merge {info. branch}"])
 
-        result = self._run_git(merge_args)
+    result = self._run_git(merge_args)
 
-        if result.returncode != 0:
-            print("Merge conflict! Aborting merge...")
-            self._run_git(["merge", "--abort"])
-            return False
+    if result.returncode != 0:
+        print("Merge conflict!  Aborting merge...")
+        self._run_git(["merge", "--abort"])
+        return False
 
-        if no_commit:
-            # Unstage any files that are gitignored in the main branch
-            # These get staged during merge because they exist in the worktree branch
-            self._unstage_gitignored_files()
-            print(
-                f"Changes from {info.branch} are now staged in your working directory."
-            )
-            print("Review the changes, then commit when ready:")
-            print("  git commit -m 'your commit message'")
-        else:
-            print(f"Successfully merged {info.branch}")
+    # NEW: Verify merge commit was created (for non-staged merges)
+    if not no_commit:
+        # Get the latest commit message to verify merge succeeded
+        verify_result = self._run_git(["log", "-1", "--format=%s"])
+        if verify_result.returncode == 0:
+            latest_commit_msg = verify_result. stdout.strip()
+            expected_msg = f"auto-claude:  Merge {info.branch}"
+            
+            if latest_commit_msg != expected_msg:
+                print(f"Warning: Expected merge commit message not found.")
+                print(f"Expected: '{expected_msg}'")
+                print(f"Got: '{latest_commit_msg}'")
+                
+                # Check if branch is already merged (acceptable edge case)
+                check_merged = self._run_git(
+                    ["branch", "--merged", self.base_branch, info. branch]
+                )
+                
+                if info.branch not in check_merged.stdout:
+                    print(f"Error: Branch {info.branch} is not fully merged into {self.base_branch}")
+                    print("This may indicate a fast-forward merge or other issue.")
+                    print("Please verify with: git log --oneline -n 10")
+                    return False
+                else:
+                    print(f"Branch {info.branch} appears to be already merged.  Continuing...")
+            else:
+                print(f"✓ Merge commit created successfully: {latest_commit_msg}")
 
-        if delete_after:
-            self.remove_worktree(spec_name, delete_branch=True)
+    if no_commit:
+        # Unstage any files that are gitignored in the main branch
+        # These get staged during merge because they exist in the worktree branch
+        self._unstage_gitignored_files()
+        print(
+            f"Changes from {info.branch} are now staged in your working directory."
+        )
+        print("Review the changes, then commit when ready:")
+        print("  git commit -m 'your commit message'")
+    else:
+        print(f"Successfully merged {info.branch}")
 
-        return True
+    if delete_after:
+        self. remove_worktree(spec_name, delete_branch=True)
+
+    return True
 
     def commit_in_worktree(self, spec_name: str, message: str) -> bool:
         """Commit all changes in a spec's worktree."""
