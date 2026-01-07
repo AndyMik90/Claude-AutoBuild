@@ -5,6 +5,16 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
 
+// Type augmentation for navigator.userAgentData (modern User-Agent Client Hints API)
+interface NavigatorUAData {
+  platform: string;
+}
+declare global {
+  interface Navigator {
+    userAgentData?: NavigatorUAData;
+  }
+}
+
 interface UseXtermOptions {
   terminalId: string;
   onCommandEnter?: (command: string) => void;
@@ -80,14 +90,23 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
     xterm.open(terminalRef.current);
 
-    // Platform detection for copy/paste shortcuts (renderer process uses navigator)
+    // Platform detection for copy/paste shortcuts
     // macOS uses system Cmd+V, no custom handler needed
-    const navigatorPlatform = navigator.platform.toLowerCase();
-    const isWindows = navigatorPlatform.includes('win');
-    const isLinux = navigatorPlatform.includes('linux');
+    const getPlatform = (): string => {
+      // Prefer navigator.userAgentData.platform (modern, non-deprecated)
+      if (navigator.userAgentData?.platform) {
+        return navigator.userAgentData.platform.toLowerCase();
+      }
+      // Fallback to navigator.platform (deprecated but widely supported)
+      return navigator.platform.toLowerCase();
+    };
+    const platform = getPlatform();
+    const isWindows = platform.includes('win');
+    const isLinux = platform.includes('linux');
 
     // Helper function to handle copy to clipboard
-    // Returns true if copy was performed, false otherwise
+    // Returns true if selection exists and copy was attempted, false if no selection
+    // Note: return value does not reflect actual clipboard write success/failure
     const handleCopyToClipboard = (): boolean => {
       if (xterm.hasSelection()) {
         const selection = xterm.getSelection();
@@ -95,10 +114,10 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
           navigator.clipboard.writeText(selection).catch((err) => {
             console.error('[useXterm] Failed to copy selection:', err);
           });
-          return true; // Copy performed
+          return true; // Copy attempted (has selection)
         }
       }
-      return false; // No selection or copy failed
+      return false; // No selection or nothing to copy
     };
 
     // Helper function to handle paste from clipboard

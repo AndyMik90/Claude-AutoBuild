@@ -61,6 +61,9 @@ vi.mock('../../../../lib/terminal-buffer-manager', () => ({
 // Mock navigator.platform for platform detection
 const originalNavigatorPlatform = navigator.platform;
 
+// Mock requestAnimationFrame for jsdom environment (not provided by default)
+global.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => setTimeout(cb, 0) as unknown as number);
+
 /**
  * Helper function to set up XTerm mocks and render the hook
  * Reduces test boilerplate from ~100 lines to ~20 lines per test
