@@ -478,7 +478,7 @@ class SpecOrchestrator:
         if not requirements_file.exists():
             return ""
 
-        with open(requirements_file) as f:
+        with open(requirements_file, encoding="utf-8") as f:
             req = json.load(f)
             self.task_description = req.get("task_description", self.task_description)
             return f"""
@@ -581,7 +581,7 @@ class SpecOrchestrator:
         project_index = {}
         auto_build_index = self.project_dir / "auto-claude" / "project_index.json"
         if auto_build_index.exists():
-            with open(auto_build_index) as f:
+            with open(auto_build_index, encoding="utf-8") as f:
                 project_index = json.load(f)
 
         analyzer = complexity.ComplexityAnalyzer(project_index)
