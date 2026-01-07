@@ -49,6 +49,7 @@ import {
   hasValidToken,
   expandHomePath
 } from './claude-profile/profile-utils';
+import { getCredentialsFromKeychain } from './claude-profile/keychain-utils';
 
 /**
  * Manages Claude Code profiles for multi-account support.
@@ -115,10 +116,36 @@ export class ClaudeProfileManager {
 
   /**
    * Get all profiles and settings
+   *
+   * For the Default profile on macOS:
+   * - If no oauthToken is stored, attempt to retrieve from Keychain
+   * - This allows users who authenticated via `claude setup-token` to use their token
    */
   getSettings(): ClaudeProfileSettings {
+    // Clone ALL profiles to avoid mutating stored data
+    const profiles = this.data.profiles.map(profile => {
+      // Clone the profile object
+      const clonedProfile = { ...profile };
+
+      // Only enrich Default profile with Keychain token
+      if (profile.isDefault && !profile.oauthToken && profile.configDir) {
+        const keychainCreds = getCredentialsFromKeychain();
+        if (keychainCreds.token) {
+          // Enrich with Keychain token (encrypted) - runtime only, not saved to disk
+          console.warn('[ClaudeProfileManager] Enriching Default profile with Keychain token');
+          clonedProfile.oauthToken = encryptToken(keychainCreds.token);
+          // Use nullish coalescing to preserve empty strings
+          clonedProfile.email = profile.email ?? keychainCreds.email ?? undefined;
+          // Add tokenCreatedAt for expiry tracking
+          clonedProfile.tokenCreatedAt = new Date();
+        }
+      }
+
+      return clonedProfile;
+    });
+
     return {
-      profiles: this.data.profiles,
+      profiles,
       activeProfileId: this.data.activeProfileId,
       autoSwitch: this.data.autoSwitch || DEFAULT_AUTO_SWITCH_SETTINGS
     };
