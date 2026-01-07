@@ -46,6 +46,7 @@ export interface TerminalAPI {
   ) => Promise<IPCResult<import('../../shared/types').TerminalRestoreResult>>;
   clearTerminalSessions: (projectPath: string) => Promise<IPCResult>;
   resumeClaudeInTerminal: (id: string, sessionId?: string) => void;
+  activateDeferredClaudeResume: (id: string) => void;
   getTerminalSessionDates: (projectPath?: string) => Promise<IPCResult<import('../../shared/types').SessionDateInfo[]>>;
   getTerminalSessionsForDate: (
     date: string,
@@ -77,6 +78,7 @@ export interface TerminalAPI {
     callback: (info: { terminalId: string; profileId: string; profileName: string }) => void
   ) => () => void;
   onTerminalClaudeBusy: (callback: (id: string, isBusy: boolean) => void) => () => void;
+  onTerminalPendingResume: (callback: (id: string, sessionId?: string) => void) => () => void;
 
   // Claude Profile Management
   getClaudeProfiles: () => Promise<IPCResult<ClaudeProfileSettings>>;
@@ -142,6 +144,9 @@ export const createTerminalAPI = (): TerminalAPI => ({
 
   resumeClaudeInTerminal: (id: string, sessionId?: string): void =>
     ipcRenderer.send(IPC_CHANNELS.TERMINAL_RESUME_CLAUDE, id, sessionId),
+
+  activateDeferredClaudeResume: (id: string): void =>
+    ipcRenderer.send(IPC_CHANNELS.TERMINAL_ACTIVATE_DEFERRED_RESUME, id),
 
   getTerminalSessionDates: (projectPath?: string): Promise<IPCResult<import('../../shared/types').SessionDateInfo[]>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_GET_SESSION_DATES, projectPath),
@@ -296,6 +301,22 @@ export const createTerminalAPI = (): TerminalAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TERMINAL_CLAUDE_BUSY, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_CLAUDE_BUSY, handler);
+    };
+  },
+
+  onTerminalPendingResume: (
+    callback: (id: string, sessionId?: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      id: string,
+      sessionId?: string
+    ): void => {
+      callback(id, sessionId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TERMINAL_PENDING_RESUME, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_PENDING_RESUME, handler);
     };
   },
 
