@@ -189,10 +189,10 @@ test.describe('Terminal Copy/Paste Flows', () => {
       // Wait for interrupt to be processed
       await window.waitForTimeout(1000);
 
-      // Verify process was interrupted (should see command prompt again)
-      // The terminal should show a new prompt line
+      // Verify process was interrupted (should see interrupt marker or new prompt)
+      // The terminal should show ^C or a new shell prompt ($, #, or >)
       const terminalText = await terminal.textContent();
-      expect(terminalText).toBeTruthy();
+      expect(terminalText).toMatch(/\^C|[$#>]\s*$/);
 
     } catch (error) {
       console.error('Interrupt signal test error:', error);
@@ -406,7 +406,7 @@ test.describe('Terminal Copy/Paste Flows', () => {
           await navigator.clipboard.readText();
         } catch (_error) {
           // Expected - clipboard may not be accessible in test environment
-          console.log('Clipboard not accessible (expected in some environments)');
+          console.warn('Clipboard not accessible (expected in some environments)');
         }
       });
 

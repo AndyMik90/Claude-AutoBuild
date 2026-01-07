@@ -58,40 +58,8 @@ vi.mock('../../../../lib/terminal-buffer-manager', () => ({
   }
 }));
 
-// Mock process.platform for platform detection
-const originalPlatform = process.platform;
-
-/**
- * Factory to create XTerm mock with customizable overrides
- * @returns Object containing mock instance and getter for captured key event handler
- */
-function _createXTermMock(overrides: Partial<ReturnType<typeof vi.fn>> = {}) {
-  let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
-
-  const mockInstance = {
-    open: vi.fn(),
-    loadAddon: vi.fn(),
-    attachCustomKeyEventHandler: vi.fn((handler: (event: KeyboardEvent) => boolean) => {
-      keyEventHandler = handler;
-    }),
-    hasSelection: vi.fn(() => false),
-    getSelection: vi.fn(() => ''),
-    paste: vi.fn(),
-    input: vi.fn(),
-    onData: vi.fn(),
-    onResize: vi.fn(),
-    dispose: vi.fn(),
-    write: vi.fn(),
-    cols: 80,
-    rows: 24,
-    ...overrides
-  };
-
-  return {
-    mockInstance,
-    getKeyEventHandler: () => keyEventHandler
-  };
-}
+// Mock navigator.platform for platform detection
+const originalNavigatorPlatform = navigator.platform;
 
 describe('useXterm keyboard handlers', () => {
   let mockClipboard: {
@@ -131,9 +99,9 @@ describe('useXterm keyboard handlers', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    // Reset process.platform to original value
-    Object.defineProperty(process, 'platform', {
-      value: originalPlatform,
+    // Reset navigator.platform to original value
+    Object.defineProperty(navigator, 'platform', {
+      value: originalNavigatorPlatform,
       writable: true
     });
   });
@@ -437,9 +405,9 @@ describe('useXterm keyboard handlers', () => {
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
       const mockPaste = vi.fn();
 
-      // Mock Windows platform
-      Object.defineProperty(process, 'platform', {
-        value: 'win32',
+      // Mock Windows platform (navigator)
+      Object.defineProperty(navigator, 'platform', {
+        value: 'Win32',
         writable: true
       });
 
@@ -523,9 +491,9 @@ describe('useXterm keyboard handlers', () => {
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
       const mockPaste = vi.fn();
 
-      // Mock Linux platform
-      Object.defineProperty(process, 'platform', {
-        value: 'linux',
+      // Mock Linux platform (navigator)
+      Object.defineProperty(navigator, 'platform', {
+        value: 'Linux',
         writable: true
       });
 
@@ -607,9 +575,9 @@ describe('useXterm keyboard handlers', () => {
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
       const mockPaste = vi.fn();
 
-      // Mock macOS platform
-      Object.defineProperty(process, 'platform', {
-        value: 'darwin',
+      // Mock macOS platform (navigator)
+      Object.defineProperty(navigator, 'platform', {
+        value: 'MacIntel',
         writable: true
       });
 
@@ -695,9 +663,9 @@ describe('useXterm keyboard handlers', () => {
       const mockHasSelection = vi.fn(() => true);
       const mockGetSelection = vi.fn(() => 'selected text');
 
-      // Mock Linux platform
-      Object.defineProperty(process, 'platform', {
-        value: 'linux',
+      // Mock Linux platform (navigator)
+      Object.defineProperty(navigator, 'platform', {
+        value: 'Linux',
         writable: true
       });
 
@@ -778,9 +746,9 @@ describe('useXterm keyboard handlers', () => {
     it('should not trigger CTRL+SHIFT+C on Windows', async () => {
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
 
-      // Mock Windows platform
-      Object.defineProperty(process, 'platform', {
-        value: 'win32',
+      // Mock Windows platform (navigator)
+      Object.defineProperty(navigator, 'platform', {
+        value: 'Win32',
         writable: true
       });
 
@@ -862,9 +830,9 @@ describe('useXterm keyboard handlers', () => {
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
       const mockPaste = vi.fn();
 
-      // Mock Linux platform
-      Object.defineProperty(process, 'platform', {
-        value: 'linux',
+      // Mock Linux platform (navigator)
+      Object.defineProperty(navigator, 'platform', {
+        value: 'Linux',
         writable: true
       });
 
@@ -1035,6 +1003,12 @@ describe('useXterm keyboard handlers', () => {
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const mockPaste = vi.fn();
+
+      // Mock Windows platform to enable custom paste handler
+      Object.defineProperty(navigator, 'platform', {
+        value: 'Win32',
+        writable: true
+      });
 
       // Mock clipboard read failure
       mockClipboard.readText = vi.fn().mockRejectedValue(new Error('Clipboard read failed'));

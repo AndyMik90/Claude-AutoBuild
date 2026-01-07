@@ -80,11 +80,11 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
     xterm.open(terminalRef.current);
 
-    // Platform detection for copy/paste shortcuts
-    const platform = process.platform;
-    const isMac = platform === 'darwin';
-    const isWindows = platform === 'win32';
-    const isLinux = platform === 'linux';
+    // Platform detection for copy/paste shortcuts (renderer process uses navigator)
+    const navigatorPlatform = navigator.platform.toLowerCase();
+    const isMac = navigatorPlatform.includes('mac');
+    const isWindows = navigatorPlatform.includes('win');
+    const isLinux = navigatorPlatform.includes('linux');
 
     // Allow certain key combinations to bubble up to window-level handlers
     // This enables global shortcuts like Cmd/Ctrl+1-9 for project switching

@@ -250,13 +250,27 @@ describe('Terminal copy/paste integration', () => {
   });
 
   describe('clipboard read with xterm paste integration', () => {
+    let originalNavigatorPlatform: string;
+
+    beforeEach(() => {
+      // Capture original navigator.platform
+      originalNavigatorPlatform = navigator.platform;
+    });
+
+    afterEach(() => {
+      // Restore navigator.platform
+      Object.defineProperty(navigator, 'platform', {
+        value: originalNavigatorPlatform,
+        writable: true
+      });
+    });
+
     it('should integrate clipboard.readText() with xterm.paste()', async () => {
       const { useXterm } = await import('../../renderer/components/terminal/useXterm');
 
       // Mock Windows platform
-      const originalPlatformValue = process.platform;
-      Object.defineProperty(process, 'platform', {
-        value: 'win32',
+      Object.defineProperty(navigator, 'platform', {
+        value: 'Win32',
         writable: true
       });
 
@@ -328,20 +342,14 @@ describe('Terminal copy/paste integration', () => {
 
       // Verify integration: xterm.paste() called with clipboard content
       expect(mockPaste).toHaveBeenCalledWith('pasted text');
-
-      // Restore original platform
-      Object.defineProperty(process, 'platform', {
-        value: originalPlatformValue,
-        writable: true
-      });
     });
 
     it('should not paste when clipboard is empty', async () => {
       const { useXterm } = await import('../../renderer/components/terminal/useXterm');
 
-      const originalPlatformValue = process.platform;
-      Object.defineProperty(process, 'platform', {
-        value: 'linux',
+      // Mock Linux platform
+      Object.defineProperty(navigator, 'platform', {
+        value: 'Linux',
         writable: true
       });
 
@@ -414,12 +422,6 @@ describe('Terminal copy/paste integration', () => {
 
       // Verify paste was NOT called for empty clipboard
       expect(mockPaste).not.toHaveBeenCalled();
-
-      // Restore original platform
-      Object.defineProperty(process, 'platform', {
-        value: originalPlatformValue,
-        writable: true
-      });
     });
   });
 
@@ -618,6 +620,12 @@ describe('Terminal copy/paste integration', () => {
   describe('clipboard error handling without breaking terminal', () => {
     it('should continue terminal operation after clipboard error', async () => {
       const { useXterm } = await import('../../renderer/components/terminal/useXterm');
+
+      // Mock Windows platform to enable custom paste handler
+      Object.defineProperty(navigator, 'platform', {
+        value: 'Win32',
+        writable: true
+      });
 
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
       const mockPaste = vi.fn();
