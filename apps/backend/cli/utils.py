@@ -17,21 +17,23 @@ if str(_PARENT_DIR) not in sys.path:
 from core.auth import get_auth_token, get_auth_token_source
 
 
-def import_dotenv() -> None:
+def import_dotenv():
     """
-    Import dotenv with helpful error message if not installed.
+    Import and return load_dotenv with helpful error message if not installed.
 
     This centralized function ensures consistent error messaging across all
     runner scripts when python-dotenv is not available.
+
+    Returns:
+        The load_dotenv function
 
     Raises:
         SystemExit: If dotenv cannot be imported, with helpful installation instructions.
     """
     try:
-        from dotenv import load_dotenv
+        from dotenv import load_dotenv as _load_dotenv
 
-        # Store in module namespace for backward compatibility
-        sys.modules["cli.utils"].load_dotenv = load_dotenv
+        return _load_dotenv
     except ImportError:
         sys.exit(
             "Error: Required Python package 'python-dotenv' is not installed.\n"
@@ -52,9 +54,7 @@ def import_dotenv() -> None:
 
 
 # Load .env with helpful error if dependencies not installed
-import_dotenv()
-
-from dotenv import load_dotenv
+load_dotenv = import_dotenv()
 from graphiti_config import get_graphiti_status
 from linear_integration import LinearManager
 from linear_updater import is_linear_enabled
