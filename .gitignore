@@ -23,7 +23,6 @@ Desktop.ini
 .secrets
 secrets/
 credentials/
-/config.json
 
 # ===========================
 # IDE & Editors
@@ -52,7 +51,6 @@ lerna-debug.log*
 # Git Worktrees (parallel builds)
 # ===========================
 .worktrees/
-/config.json
 
 # ===========================
 # Auto Claude Generated
@@ -63,7 +61,6 @@ lerna-debug.log*
 .auto-claude-status
 .claude_settings.json
 .update-metadata.json
-/config.json
 
 # ===========================
 # Python (apps/backend)
@@ -168,4 +165,3 @@ _bmad-output/
 /docs
 OPUS_ANALYSIS_AND_IDEAS.md
 /.github/agents
-/config.json
