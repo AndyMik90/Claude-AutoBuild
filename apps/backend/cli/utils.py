@@ -16,26 +16,43 @@ if str(_PARENT_DIR) not in sys.path:
 
 from core.auth import get_auth_token, get_auth_token_source
 
+
+def import_dotenv() -> None:
+    """
+    Import dotenv with helpful error message if not installed.
+
+    This centralized function ensures consistent error messaging across all
+    runner scripts when python-dotenv is not available.
+
+    Raises:
+        SystemExit: If dotenv cannot be imported, with helpful installation instructions.
+    """
+    try:
+        from dotenv import load_dotenv
+        # Store in module namespace for backward compatibility
+        sys.modules['cli.utils'].load_dotenv = load_dotenv
+    except ImportError:
+        sys.exit(
+            "Error: Required Python package 'python-dotenv' is not installed.\n"
+            "\n"
+            "This usually means you're not using the virtual environment.\n"
+            "\n"
+            "To fix this:\n"
+            "1. From the 'apps/backend/' directory, activate the venv:\n"
+            "   source .venv/bin/activate  # Linux/macOS\n"
+            "   .venv\\Scripts\\activate   # Windows\n"
+            "\n"
+            "2. Or install dependencies directly:\n"
+            "   pip install python-dotenv\n"
+            "   pip install -r requirements.txt\n"
+            "\n"
+            f"Current Python: {sys.executable}\n"
+        )
+
+
 # Load .env with helpful error if dependencies not installed
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    sys.exit(
-        "Error: Required Python package 'python-dotenv' is not installed.\n"
-        "\n"
-        "This usually means you're not using the virtual environment.\n"
-        "\n"
-        "To fix this:\n"
-        "1. From the 'apps/backend/' directory, activate the venv:\n"
-        "   source .venv/bin/activate  # Linux/macOS\n"
-        "   .venv\\Scripts\\activate   # Windows\n"
-        "\n"
-        "2. Or install dependencies directly:\n"
-        "   pip install python-dotenv\n"
-        "   pip install -r requirements.txt\n"
-        "\n"
-        f"Current Python: {sys.executable}\n"
-    )
+import_dotenv()
+from dotenv import load_dotenv
 
 from graphiti_config import get_graphiti_status
 from linear_integration import LinearManager
