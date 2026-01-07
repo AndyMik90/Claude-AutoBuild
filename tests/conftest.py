@@ -162,6 +162,41 @@ def pytest_runtest_setup(item):
 
 
 # =============================================================================
+# ENVIRONMENT SAFEGUARDS - Prevent real API calls during tests
+# =============================================================================
+
+# API key environment variables that should be cleared during tests
+_API_KEY_ENV_VARS = [
+    'ANTHROPIC_API_KEY',
+    'OPENAI_API_KEY',
+    'CLAUDE_CODE_OAUTH_TOKEN',
+    'GOOGLE_API_KEY',
+    'AZURE_OPENAI_API_KEY',
+    'AZURE_OPENAI_ENDPOINT',
+    'VOYAGE_API_KEY',
+    'GRAPHITI_ENABLED',
+    'LINEAR_API_KEY',
+    'GITHUB_TOKEN',
+]
+
+
+@pytest.fixture(autouse=True)
+def prevent_real_api_calls(monkeypatch):
+    """
+    Automatically clear API keys during tests to prevent real API calls.
+
+    This fixture runs before every test and clears known API key environment
+    variables to ensure tests don't accidentally make real API calls.
+    Tests that need to mock API behavior should use dedicated mock fixtures.
+
+    The original environment is automatically restored after each test by
+    pytest's monkeypatch fixture.
+    """
+    for env_var in _API_KEY_ENV_VARS:
+        monkeypatch.delenv(env_var, raising=False)
+
+
+# =============================================================================
 # DIRECTORY FIXTURES
 # =============================================================================
 
