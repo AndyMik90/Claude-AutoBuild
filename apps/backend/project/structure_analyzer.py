@@ -3,8 +3,7 @@ Project Structure Analyzer
 ==========================
 
 Analyzes project structure for custom scripts (npm scripts,
-Makefile targets, Poetry scripts, shell scripts) and custom
-command allowlists.
+Makefile targets, Poetry scripts, shell scripts).
 """
 
 import re
