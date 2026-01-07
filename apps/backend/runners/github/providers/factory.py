@@ -12,6 +12,7 @@ from collections.abc import Callable
 from typing import Any
 
 from .github_provider import GitHubProvider
+from .azure_devops_provider import AzureDevOpsProvider
 from .protocol import GitProvider, ProviderType
 
 # Provider registry for dynamic registration
@@ -99,9 +100,19 @@ def get_provider(
         )
 
     if provider_type == ProviderType.AZURE_DEVOPS:
-        raise NotImplementedError(
-            "Azure DevOps provider not yet implemented. "
-            "See providers/azure_devops_provider.py.stub for interface."
+        # Extract ADO-specific kwargs
+        organization = kwargs.pop("organization", None)
+        project = kwargs.pop("project", None)
+        repo_name = kwargs.pop("repo_name", None)
+        pat = kwargs.pop("pat", None)
+        instance_url = kwargs.pop("instance_url", None)
+
+        return AzureDevOpsProvider(
+            _organization=organization,
+            _project=project,
+            _repo_name=repo_name or repo.split("/")[-1] if "/" in repo else repo,
+            _pat=pat,
+            _instance_url=instance_url,
         )
 
     raise ValueError(f"Unsupported provider type: {provider_type}")
@@ -114,7 +125,7 @@ def list_available_providers() -> list[ProviderType]:
     Returns:
         List of available ProviderType values
     """
-    available = [ProviderType.GITHUB]  # Built-in
+    available = [ProviderType.GITHUB, ProviderType.AZURE_DEVOPS]  # Built-in
 
     # Add registered providers
     for provider_type in _PROVIDER_REGISTRY:
@@ -140,8 +151,8 @@ def is_provider_available(provider_type: ProviderType | str) -> bool:
         except ValueError:
             return False
 
-    # GitHub is always available
-    if provider_type == ProviderType.GITHUB:
+    # GitHub and Azure DevOps are always available
+    if provider_type in (ProviderType.GITHUB, ProviderType.AZURE_DEVOPS):
         return True
 
     # Check registry
