@@ -68,6 +68,7 @@ class ModificationTracker:
         new_content: str,
         evolutions: dict[str, FileEvolution],
         raw_diff: str | None = None,
+        skip_semantic_analysis: bool = False,
     ) -> TaskSnapshot | None:
         """
         Record a file modification by a task.
@@ -79,6 +80,9 @@ class ModificationTracker:
             new_content: File content after modification
             evolutions: Current evolution data (will be updated)
             raw_diff: Optional unified diff for reference
+            skip_semantic_analysis: If True, skip expensive semantic analysis.
+                Use this for lightweight file tracking when only conflict
+                detection is needed (not conflict resolution).
 
         Returns:
             Updated TaskSnapshot, or None if file not being tracked
@@ -105,9 +109,19 @@ class ModificationTracker:
                 content_hash_before=compute_content_hash(old_content),
             )
 
-        # Analyze semantic changes
-        analysis = self.analyzer.analyze_diff(rel_path, old_content, new_content)
-        semantic_changes = analysis.changes
+        # Analyze semantic changes (or skip for lightweight tracking)
+        if skip_semantic_analysis:
+            # Fast path: just track the file change without analysis
+            # This is used for files that don't have conflicts
+            semantic_changes = []
+            debug(
+                MODULE,
+                f"Skipping semantic analysis for {rel_path} (lightweight tracking)",
+            )
+        else:
+            # Full analysis (only for conflict files)
+            analysis = self.analyzer.analyze_diff(rel_path, old_content, new_content)
+            semantic_changes = analysis.changes
 
         # Update snapshot
         snapshot.completed_at = datetime.now()
@@ -121,6 +135,7 @@ class ModificationTracker:
         logger.info(
             f"Recorded modification to {rel_path} by {task_id}: "
             f"{len(semantic_changes)} semantic changes"
+            + (" (lightweight)" if skip_semantic_analysis else "")
         )
         return snapshot
 
@@ -130,6 +145,7 @@ class ModificationTracker:
         worktree_path: Path,
         evolutions: dict[str, FileEvolution],
         target_branch: str | None = None,
+        analyze_only_files: set[str] | None = None,
     ) -> None:
         """
         Refresh task snapshots by analyzing git diff from worktree.
@@ -142,6 +158,10 @@ class ModificationTracker:
             worktree_path: Path to the task's worktree
             evolutions: Current evolution data (will be updated)
             target_branch: Branch to compare against (default: detect from worktree)
+            analyze_only_files: If provided, only run full semantic analysis on
+                these files. Other files will be tracked with lightweight mode
+                (no semantic analysis). This optimizes performance by only
+                analyzing files that have actual conflicts.
         """
         # Determine the target branch to compare against
         if not target_branch:
@@ -154,6 +174,9 @@ class ModificationTracker:
             task_id=task_id,
             worktree_path=str(worktree_path),
             target_branch=target_branch,
+            analyze_only_files=list(analyze_only_files)[:10]
+            if analyze_only_files
+            else "all",
         )
 
         try:
@@ -243,6 +266,13 @@ class ModificationTracker:
                             baseline_commit=merge_base[:8],
                         )
 
+                    # Determine if this file needs full semantic analysis
+                    # If analyze_only_files is provided, only analyze files in that set
+                    # Otherwise, analyze all files (backward compatible)
+                    skip_analysis = False
+                    if analyze_only_files is not None:
+                        skip_analysis = rel_path not in analyze_only_files
+
                     # Record the modification
                     self.record_modification(
                         task_id=task_id,
@@ -251,6 +281,7 @@ class ModificationTracker:
                         new_content=new_content,
                         evolutions=evolutions,
                         raw_diff=diff_result.stdout,
+                        skip_semantic_analysis=skip_analysis,
                     )
                     processed_count += 1
 
@@ -261,9 +292,21 @@ class ModificationTracker:
                     )
                     continue
 
-            logger.info(
-                f"Refreshed {processed_count}/{len(changed_files)} files from worktree for task {task_id}"
-            )
+            # Calculate how many files were fully analyzed vs just tracked
+            if analyze_only_files is not None:
+                analyzed_count = len(
+                    [f for f in changed_files if f in analyze_only_files]
+                )
+                tracked_only_count = processed_count - analyzed_count
+                logger.info(
+                    f"Refreshed {processed_count}/{len(changed_files)} files from worktree for task {task_id} "
+                    f"(analyzed: {analyzed_count}, tracked only: {tracked_only_count})"
+                )
+            else:
+                logger.info(
+                    f"Refreshed {processed_count}/{len(changed_files)} files from worktree for task {task_id} "
+                    "(full analysis on all files)"
+                )
 
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to refresh from git: {e}")

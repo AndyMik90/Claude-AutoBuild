@@ -1621,11 +1621,18 @@ export function registerWorktreeHandlers(
           args.push('--no-commit');
         }
 
-        // Add --base-branch if task was created with a specific base branch
+        // Add --base-branch with proper priority:
+        // 1. Task metadata baseBranch (explicit task-level override)
+        // 2. Project settings mainBranch (project-level default)
+        // This matches the logic in execution-handlers.ts
         const taskBaseBranch = getTaskBaseBranch(specDir);
-        if (taskBaseBranch) {
-          args.push('--base-branch', taskBaseBranch);
-          debug('Using stored base branch:', taskBaseBranch);
+        const projectMainBranch = project.settings?.mainBranch;
+        const effectiveBaseBranch = taskBaseBranch || projectMainBranch;
+        
+        if (effectiveBaseBranch) {
+          args.push('--base-branch', effectiveBaseBranch);
+          debug('Using base branch:', effectiveBaseBranch, 
+            `(source: ${taskBaseBranch ? 'task metadata' : 'project settings'})`);
         }
 
         // Use configured Python path (venv if ready, otherwise bundled/system)
@@ -2146,11 +2153,18 @@ export function registerWorktreeHandlers(
           '--merge-preview'
         ];
 
-        // Add --base-branch if task was created with a specific base branch
+        // Add --base-branch with proper priority:
+        // 1. Task metadata baseBranch (explicit task-level override)
+        // 2. Project settings mainBranch (project-level default)
+        // This matches the logic in execution-handlers.ts
         const taskBaseBranch = getTaskBaseBranch(specDir);
-        if (taskBaseBranch) {
-          args.push('--base-branch', taskBaseBranch);
-          console.warn('[IPC] Using stored base branch for preview:', taskBaseBranch);
+        const projectMainBranch = project.settings?.mainBranch;
+        const effectiveBaseBranch = taskBaseBranch || projectMainBranch;
+        
+        if (effectiveBaseBranch) {
+          args.push('--base-branch', effectiveBaseBranch);
+          console.warn('[IPC] Using base branch for preview:', effectiveBaseBranch, 
+            `(source: ${taskBaseBranch ? 'task metadata' : 'project settings'})`);
         }
 
         // Use configured Python path (venv if ready, otherwise bundled/system)
