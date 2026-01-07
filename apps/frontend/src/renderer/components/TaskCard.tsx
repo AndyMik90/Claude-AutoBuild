@@ -44,28 +44,27 @@ const CategoryIcon: Record<TaskCategory, typeof Zap> = {
   testing: FileCode
 };
 
+// Data-driven tool styles for live action status
+const TOOL_STYLES: Array<{
+  patterns: string[];
+  icon: typeof FileText;
+  color: string;
+}> = [
+  { patterns: ['reading'], icon: FileText, color: 'text-blue-500 bg-blue-500/10' },
+  { patterns: ['searching files', 'globbing'], icon: FolderSearch, color: 'text-amber-500 bg-amber-500/10' },
+  { patterns: ['searching code', 'grep'], icon: Search, color: 'text-green-500 bg-green-500/10' },
+  { patterns: ['editing'], icon: Pencil, color: 'text-purple-500 bg-purple-500/10' },
+  { patterns: ['writing'], icon: FileCode, color: 'text-cyan-500 bg-cyan-500/10' },
+  { patterns: ['running', 'executing'], icon: Terminal, color: 'text-orange-500 bg-orange-500/10' },
+];
+
 // Helper to detect tool type from execution message and return styling
 function getToolStyleFromMessage(message: string): { icon: typeof FileText; color: string } | null {
   const lowerMessage = message.toLowerCase();
-  if (lowerMessage.startsWith("reading")) {
-    return { icon: FileText, color: "text-blue-500 bg-blue-500/10" };
-  }
-  if (lowerMessage.startsWith("searching files") || lowerMessage.startsWith("globbing")) {
-    return { icon: FolderSearch, color: "text-amber-500 bg-amber-500/10" };
-  }
-  if (lowerMessage.startsWith("searching code") || lowerMessage.startsWith("grep")) {
-    return { icon: Search, color: "text-green-500 bg-green-500/10" };
-  }
-  if (lowerMessage.startsWith("editing")) {
-    return { icon: Pencil, color: "text-purple-500 bg-purple-500/10" };
-  }
-  if (lowerMessage.startsWith("writing")) {
-    return { icon: FileCode, color: "text-cyan-500 bg-cyan-500/10" };
-  }
-  if (lowerMessage.startsWith("running") || lowerMessage.startsWith("executing")) {
-    return { icon: Terminal, color: "text-orange-500 bg-orange-500/10" };
-  }
-  return null;
+  const match = TOOL_STYLES.find(style =>
+    style.patterns.some(pattern => lowerMessage.startsWith(pattern))
+  );
+  return match ? { icon: match.icon, color: match.color } : null;
 }
 
 interface TaskCardProps {
@@ -161,6 +160,18 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
       </DropdownMenuItem>
     ));
   }, [task.status, onStatusChange, t]);
+
+  // Memoize live action status to avoid recreating on every render
+  const liveActionStatus = useMemo(() => {
+    const message = task.executionProgress?.message;
+    if (!message) return null;
+    const toolStyle = getToolStyleFromMessage(message);
+    return {
+      icon: toolStyle?.icon ?? Loader2,
+      colorClass: toolStyle?.color ?? 'text-muted-foreground bg-muted/50',
+      message,
+    };
+  }, [task.executionProgress?.message]);
 
   // Memoized stuck check function to avoid recreating on every render
   const performStuckCheck = useCallback(() => {
@@ -506,20 +517,13 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
         )}
 
         {/* Live action status - shows current tool activity */}
-        {isRunning && !isStuck && task.executionProgress?.message && (
-          (() => {
-            const toolStyle = getToolStyleFromMessage(task.executionProgress!.message!);
-            const Icon = toolStyle?.icon || Loader2;
-            const colorClass = toolStyle?.color || "text-muted-foreground bg-muted/50";
-            return (
-              <div className={cn("mt-2 flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px]", colorClass)}>
-                <Icon className="h-3 w-3 shrink-0 animate-pulse" />
-                <span className="truncate" title={task.executionProgress!.message}>
-                  {task.executionProgress!.message}
-                </span>
-              </div>
-            );
-          })()
+        {isRunning && !isStuck && liveActionStatus && (
+          <div className={cn("mt-2 flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px]", liveActionStatus.colorClass)}>
+            <liveActionStatus.icon className="h-3 w-3 shrink-0 animate-pulse" />
+            <span className="truncate" title={liveActionStatus.message}>
+              {liveActionStatus.message}
+            </span>
+          </div>
         )}
 
         {/* Footer */}
