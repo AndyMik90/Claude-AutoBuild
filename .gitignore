@@ -24,6 +24,7 @@ Desktop.ini
 secrets/
 credentials/
 config.json
+/config.json
 
 # ===========================
 # IDE & Editors
@@ -63,6 +64,7 @@ lerna-debug.log*
 .auto-claude-status
 .claude_settings.json
 .update-metadata.json
+/config.json
 
 # ===========================
 # Python (apps/backend)
@@ -167,3 +169,4 @@ _bmad-output/
 /docs
 OPUS_ANALYSIS_AND_IDEAS.md
 /.github/agents
+/config.json
