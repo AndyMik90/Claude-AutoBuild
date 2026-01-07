@@ -360,9 +360,22 @@ export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<
   // Get all candidate paths (platform + additional)
   const candidatePaths = getExpandedPlatformPaths(additionalPaths);
 
+  // Ensure essential system paths are present (for macOS Keychain access)
+  let currentPath = env.PATH || '';
+
+  if (platform !== 'win32') {
+    const pathSetForEssentials = new Set(currentPath.split(pathSeparator).filter(Boolean));
+    const missingEssentials = ESSENTIAL_SYSTEM_PATHS.filter(p => !pathSetForEssentials.has(p));
+
+    if (missingEssentials.length > 0) {
+      currentPath = currentPath
+        ? `${currentPath}${pathSeparator}${missingEssentials.join(pathSeparator)}`
+        : missingEssentials.join(pathSeparator);
+    }
+  }
+
   // Collect paths to add (only if they exist and aren't already in PATH)
-  const currentPath = env.PATH || '';
-  const currentPathSet = new Set(currentPath.split(pathSeparator));
+  const currentPathSet = new Set(currentPath.split(pathSeparator).filter(Boolean));
 
   // Check existence asynchronously in parallel for performance
   const pathChecks = await Promise.all(
@@ -382,9 +395,7 @@ export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<
   const pathsToAdd = buildPathsToAdd(candidatePaths, currentPathSet, existingPaths, npmPrefix);
 
   // Prepend new paths to PATH (prepend so they take priority)
-  if (pathsToAdd.length > 0) {
-    env.PATH = [...pathsToAdd, currentPath].filter(Boolean).join(pathSeparator);
-  }
+  env.PATH = [...pathsToAdd, currentPath].filter(Boolean).join(pathSeparator);
 
   return env;
 }
