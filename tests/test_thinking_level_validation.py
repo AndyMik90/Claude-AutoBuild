@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 # Add auto-claude to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "auto-claude"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
 from phase_config import THINKING_BUDGET_MAP, get_thinking_budget
 

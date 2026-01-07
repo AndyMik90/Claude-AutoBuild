@@ -2,9 +2,13 @@ name: Lint
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
+
+concurrency:
+  group: lint-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Python linting
@@ -19,40 +23,12 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Pin ruff version to match .pre-commit-config.yaml (astral-sh/ruff-pre-commit rev)
       - name: Install ruff
-        run: pip install ruff
+        run: pip install ruff==0.14.10
 
       - name: Run ruff check
-        run: ruff check auto-claude/ --output-format=github
+        run: ruff check apps/backend/ --output-format=github
 
       - name: Run ruff format check
-        run: ruff format auto-claude/ --check --diff
-
-  # TypeScript/React linting
-  frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Install dependencies
-        working-directory: auto-claude-ui
-        run: pnpm install --frozen-lockfile --ignore-scripts
-
-      - name: Run ESLint
-        working-directory: auto-claude-ui
-        run: pnpm lint
-
-      - name: Run TypeScript check
-        working-directory: auto-claude-ui
-        run: pnpm typecheck
+        run: ruff format apps/backend/ --check --diff

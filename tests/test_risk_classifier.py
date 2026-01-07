@@ -17,7 +17,7 @@ from pathlib import Path
 
 import sys
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "auto-claude"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
 from risk_classifier import (
     RiskClassifier,

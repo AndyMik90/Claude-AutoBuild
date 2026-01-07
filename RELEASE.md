@@ -1,186 +1,255 @@
 # Release Process
 
-This document describes how to create a new release of Auto Claude.
+This document describes how releases are created for Auto Claude.
 
-## Automated Release Process (Recommended)
+## Overview
 
-We provide an automated script that handles version bumping, git commits, and tagging to ensure version consistency.
-
-### Prerequisites
-
-- Clean git working directory (no uncommitted changes)
-- You're on the branch you want to release from (usually `main`)
-
-### Steps
-
-1. **Run the version bump script:**
-
-   ```bash
-   # Bump patch version (2.5.5 -> 2.5.6)
-   node scripts/bump-version.js patch
-
-   # Bump minor version (2.5.5 -> 2.6.0)
-   node scripts/bump-version.js minor
-
-   # Bump major version (2.5.5 -> 3.0.0)
-   node scripts/bump-version.js major
-
-   # Set specific version
-   node scripts/bump-version.js 2.6.0
-   ```
-
-   This script will:
-   - ✅ Update `auto-claude-ui/package.json` with the new version
-   - ✅ Create a git commit with the version change
-   - ✅ Create a git tag (e.g., `v2.5.6`)
-   - ⚠️  **NOT** push to remote (you control when to push)
-
-2. **Review the changes:**
-
-   ```bash
-   git log -1              # View the commit
-   git show v2.5.6         # View the tag
-   ```
-
-3. **Push to GitHub:**
-
-   ```bash
-   # Push the commit
-   git push origin main
-
-   # Push the tag
-   git push origin v2.5.6
-   ```
-
-4. **Create GitHub Release:**
-
-   - Go to [GitHub Releases](https://github.com/AndyMik90/Auto-Claude/releases)
-   - Click "Draft a new release"
-   - Select the tag you just pushed (e.g., `v2.5.6`)
-   - Add release notes (describe what changed)
-   - Click "Publish release"
-
-5. **Automated builds will trigger:**
-
-   - ✅ Version validation workflow will verify version consistency
-   - ✅ Tests will run (`test-on-tag.yml`)
-   - ✅ Native module prebuilds will be created (`build-prebuilds.yml`)
-   - ✅ Discord notification will be sent (`discord-release.yml`)
-
-## Manual Release Process (Not Recommended)
-
-If you need to create a release manually, follow these steps **carefully** to avoid version mismatches:
-
-1. **Update `auto-claude-ui/package.json`:**
-
-   ```json
-   {
-     "version": "2.5.6"
-   }
-   ```
-
-2. **Commit the change:**
-
-   ```bash
-   git add auto-claude-ui/package.json
-   git commit -m "chore: bump version to 2.5.6"
-   ```
-
-3. **Create and push tag:**
-
-   ```bash
-   git tag -a v2.5.6 -m "Release v2.5.6"
-   git push origin main
-   git push origin v2.5.6
-   ```
-
-4. **Create GitHub Release** (same as step 4 above)
-
-## Version Validation
-
-A GitHub Action automatically validates that the version in `package.json` matches the git tag.
-
-If there's a mismatch, the workflow will **fail** with a clear error message:
+Auto Claude uses an automated release pipeline that ensures releases are only published after all builds succeed. This prevents version mismatches between documentation and actual releases.
 
 ```
-❌ ERROR: Version mismatch detected!
-
-The version in package.json (2.5.0) does not match
-the git tag version (2.5.5).
-
-To fix this:
-  1. Delete this tag: git tag -d v2.5.5
-  2. Update package.json version to 2.5.5
-  3. Commit the change
-  4. Recreate the tag: git tag -a v2.5.5 -m 'Release v2.5.5'
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           RELEASE FLOW                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   develop branch                    main branch                              │
+│   ──────────────                    ───────────                              │
+│        │                                 │                                   │
+│        │  1. bump-version.js             │                                   │
+│        │     (creates commit)            │                                   │
+│        │                                 │                                   │
+│        ▼                                 │                                   │
+│   ┌─────────┐                           │                                   │
+│   │ v2.8.0  │  2. Create PR             │                                   │
+│   │ commit  │ ────────────────────►     │                                   │
+│   └─────────┘                           │                                   │
+│                                          │                                   │
+│                           3. Merge PR    ▼                                   │
+│                                    ┌──────────┐                              │
+│                                    │ v2.8.0   │                              │
+│                                    │ on main  │                              │
+│                                    └────┬─────┘                              │
+│                                         │                                    │
+│                     ┌───────────────────┴───────────────────┐               │
+│                     │     GitHub Actions (automatic)         │               │
+│                     ├───────────────────────────────────────┤               │
+│                     │ 4. prepare-release.yml                 │               │
+│                     │    - Detects version > latest tag      │               │
+│                     │    - Creates tag v2.8.0                │               │
+│                     │                                        │               │
+│                     │ 5. release.yml (triggered by tag)      │               │
+│                     │    - Builds macOS (Intel + ARM)        │               │
+│                     │    - Builds Windows                    │               │
+│                     │    - Builds Linux                      │               │
+│                     │    - Generates changelog               │               │
+│                     │    - Creates GitHub release            │               │
+│                     │    - Updates README                    │               │
+│                     └───────────────────────────────────────┘               │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-This validation ensures we never ship a release where the updater shows the wrong version.
+## For Maintainers: Creating a Release
 
-## Troubleshooting
+### Step 1: Bump the Version
 
-### Version Mismatch Error
-
-If you see a version mismatch error in GitHub Actions:
-
-1. **Delete the incorrect tag:**
-   ```bash
-   git tag -d v2.5.6                    # Delete locally
-   git push origin :refs/tags/v2.5.6    # Delete remotely
-   ```
-
-2. **Use the automated script:**
-   ```bash
-   node scripts/bump-version.js 2.5.6
-   git push origin main
-   git push origin v2.5.6
-   ```
-
-### Git Working Directory Not Clean
-
-If the version bump script fails with "Git working directory is not clean":
+On your development branch (typically `develop` or a feature branch):
 
 ```bash
-# Commit or stash your changes first
-git status
-git add .
-git commit -m "your changes"
+# Navigate to project root
+cd /path/to/auto-claude
 
-# Then run the version bump script
-node scripts/bump-version.js patch
+# Bump version (choose one)
+node scripts/bump-version.js patch   # 2.7.1 -> 2.7.2 (bug fixes)
+node scripts/bump-version.js minor   # 2.7.1 -> 2.8.0 (new features)
+node scripts/bump-version.js major   # 2.7.1 -> 3.0.0 (breaking changes)
+node scripts/bump-version.js 2.8.0   # Set specific version
 ```
 
-## Release Checklist
+This will:
+- Update `apps/frontend/package.json`
+- Update `package.json` (root)
+- Update `apps/backend/__init__.py`
+- Check if `CHANGELOG.md` has an entry for the new version (warns if missing)
+- Create a commit with message `chore: bump version to X.Y.Z`
 
-Use this checklist when creating a new release:
+### Step 2: Update CHANGELOG.md (REQUIRED)
 
-- [ ] All tests passing on main branch
-- [ ] CHANGELOG updated (if applicable)
-- [ ] Run `node scripts/bump-version.js <type>`
-- [ ] Review commit and tag
-- [ ] Push commit and tag to GitHub
-- [ ] Create GitHub Release with release notes
-- [ ] Verify version validation passed
-- [ ] Verify builds completed successfully
-- [ ] Test the updater shows correct version
+**IMPORTANT: The release will fail if CHANGELOG.md doesn't have an entry for the new version.**
 
-## What Gets Released
+Add release notes to `CHANGELOG.md` at the top of the file:
 
-When you create a release, the following are built and published:
+```markdown
+## 2.8.0 - Your Release Title
 
-1. **Native module prebuilds** - Windows node-pty binaries
-2. **Electron app packages** - Desktop installers (triggered manually or via electron-builder)
-3. **Discord notification** - Sent to the Auto Claude community
+### ✨ New Features
+- Feature description
+
+### 🛠️ Improvements
+- Improvement description
+
+### 🐛 Bug Fixes
+- Fix description
+
+---
+```
+
+Then amend the version bump commit:
+
+```bash
+git add CHANGELOG.md
+git commit --amend --no-edit
+```
+
+### Step 3: Push and Create PR
+
+```bash
+# Push your branch
+git push origin your-branch
+
+# Create PR to main (via GitHub UI or gh CLI)
+gh pr create --base main --title "Release v2.8.0"
+```
+
+### Step 4: Merge to Main
+
+Once the PR is approved and merged to `main`, GitHub Actions will automatically:
+
+1. **Detect the version bump** (`prepare-release.yml`)
+2. **Validate CHANGELOG.md** has an entry for the new version (FAILS if missing)
+3. **Extract release notes** from CHANGELOG.md
+4. **Create a git tag** (e.g., `v2.8.0`)
+5. **Trigger the release workflow** (`release.yml`)
+6. **Build binaries** for all platforms:
+   - macOS Intel (x64) - code signed & notarized
+   - macOS Apple Silicon (arm64) - code signed & notarized
+   - Windows (NSIS installer) - code signed
+   - Linux (AppImage + .deb)
+7. **Scan binaries** with VirusTotal
+8. **Create GitHub release** with release notes from CHANGELOG.md
+9. **Update README** with new version badge and download links
+
+### Step 5: Verify
+
+After merging, check:
+- [GitHub Actions](https://github.com/AndyMik90/Auto-Claude/actions) - ensure all workflows pass
+- [Releases](https://github.com/AndyMik90/Auto-Claude/releases) - verify release was created
+- [README](https://github.com/AndyMik90/Auto-Claude#download) - confirm version updated
 
 ## Version Numbering
 
-We follow [Semantic Versioning (SemVer)](https://semver.org/):
+We follow [Semantic Versioning](https://semver.org/):
 
-- **MAJOR** version (X.0.0) - Breaking changes
-- **MINOR** version (0.X.0) - New features (backward compatible)
-- **PATCH** version (0.0.X) - Bug fixes (backward compatible)
+- **MAJOR** (X.0.0): Breaking changes, incompatible API changes
+- **MINOR** (0.X.0): New features, backwards compatible
+- **PATCH** (0.0.X): Bug fixes, backwards compatible
 
-Examples:
-- `2.5.5 -> 2.5.6` - Bug fix
-- `2.5.6 -> 2.6.0` - New feature
-- `2.6.0 -> 3.0.0` - Breaking change
+## Changelog Management
+
+Release notes are managed in `CHANGELOG.md` and used for GitHub releases.
+
+### Changelog Format
+
+Each version entry in `CHANGELOG.md` should follow this format:
+
+```markdown
+## X.Y.Z - Release Title
+
+### ✨ New Features
+- Feature description with context
+
+### 🛠️ Improvements
+- Improvement description
+
+### 🐛 Bug Fixes
+- Fix description
+
+---
+```
+
+### Changelog Validation
+
+The release workflow **validates** that `CHANGELOG.md` has an entry for the version being released:
+
+- If the entry is **missing**, the release is **blocked** with a clear error message
+- If the entry **exists**, its content is used for the GitHub release notes
+
+### Writing Good Release Notes
+
+- **Be specific**: Instead of "Fixed bug", write "Fixed crash when opening large files"
+- **Group by impact**: Features first, then improvements, then fixes
+- **Credit contributors**: Mention contributors for significant changes
+- **Link issues**: Reference GitHub issues where relevant (e.g., "Fixes #123")
+
+## Workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `prepare-release.yml` | Push to `main` | Detects version bump, **validates CHANGELOG.md**, creates tag |
+| `release.yml` | Tag `v*` pushed | Builds binaries, extracts changelog, creates release |
+| `validate-version.yml` | Tag `v*` pushed | Validates tag matches package.json |
+| `update-readme` (in release.yml) | After release | Updates README with new version |
+
+## Troubleshooting
+
+### Release didn't trigger after merge
+
+1. Check if version in `package.json` is greater than latest tag:
+   ```bash
+   git tag -l 'v*' --sort=-version:refname | head -1
+   cat apps/frontend/package.json | grep version
+   ```
+
+2. Ensure the merge commit touched `package.json`:
+   ```bash
+   git diff HEAD~1 --name-only | grep package.json
+   ```
+
+### Release blocked: Missing changelog entry
+
+If you see "CHANGELOG VALIDATION FAILED" in the workflow:
+
+1. The `prepare-release.yml` workflow validated that `CHANGELOG.md` doesn't have an entry for the new version
+2. **Fix**: Add an entry to `CHANGELOG.md` with the format `## X.Y.Z - Title`
+3. Commit and push the changelog update
+4. The workflow will automatically retry when the changes are pushed to `main`
+
+```bash
+# Add changelog entry, then:
+git add CHANGELOG.md
+git commit -m "docs: add changelog for vX.Y.Z"
+git push origin main
+```
+
+### Build failed after tag was created
+
+- The release won't be published if builds fail
+- Fix the issue and create a new patch version
+- Don't reuse failed version numbers
+
+### README shows wrong version
+
+- README is only updated after successful release
+- If release failed, README keeps the previous version (this is intentional)
+- Once you successfully release, README will update automatically
+
+## Manual Release (Emergency Only)
+
+In rare cases where you need to bypass the automated flow:
+
+```bash
+# Create tag manually (NOT RECOMMENDED)
+git tag -a v2.8.0 -m "Release v2.8.0"
+git push origin v2.8.0
+
+# This will trigger release.yml directly
+```
+
+**Warning:** Only do this if you're certain the version in package.json matches the tag.
+
+## Security
+
+- All macOS binaries are code signed with Apple Developer certificate
+- All macOS binaries are notarized by Apple
+- Windows binaries are code signed
+- All binaries are scanned with VirusTotal
+- SHA256 checksums are generated for all artifacts

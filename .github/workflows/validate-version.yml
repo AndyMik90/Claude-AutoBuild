@@ -26,7 +26,7 @@ jobs:
         id: package_version
         run: |
           # Read version from package.json
-          PACKAGE_VERSION=$(node -p "require('./auto-claude-ui/package.json').version")
+          PACKAGE_VERSION=$(node -p "require('./apps/frontend/package.json').version")
           echo "version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
           echo "Package.json version: $PACKAGE_VERSION"
 

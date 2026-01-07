@@ -19,7 +19,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch, AsyncMock
 
 # Add auto-claude directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "auto-claude"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
 # Store original modules for cleanup
 _original_modules = {}
@@ -122,17 +122,6 @@ class TestGetSpecsDir:
 
             mock_init.assert_called_once_with(temp_dir)
 
-    def test_dev_mode_param_ignored(self, temp_dir: Path):
-        """dev_mode parameter is deprecated and ignored."""
-        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
-            mock_init.return_value = (temp_dir / ".auto-claude", False)
-
-            result1 = get_specs_dir(temp_dir, dev_mode=False)
-            result2 = get_specs_dir(temp_dir, dev_mode=True)
-
-            assert result1 == result2
-
-
 class TestSpecOrchestratorInit:
     """Tests for SpecOrchestrator initialization."""
 
@@ -195,7 +184,7 @@ class TestSpecOrchestratorInit:
             assert orchestrator.spec_dir == custom_spec_dir
 
     def test_init_default_model(self, temp_dir: Path):
-        """Uses default model."""
+        """Uses default model (shorthand)."""
         with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
             mock_init.return_value = (temp_dir / ".auto-claude", False)
             specs_dir = temp_dir / ".auto-claude" / "specs"
@@ -203,7 +192,8 @@ class TestSpecOrchestratorInit:
 
             orchestrator = SpecOrchestrator(project_dir=temp_dir)
 
-            assert orchestrator.model == "claude-sonnet-4-5-20250929"
+            # Default is now "sonnet" shorthand (resolved via API Profile if configured)
+            assert orchestrator.model == "sonnet"
 
     def test_init_custom_model(self, temp_dir: Path):
         """Uses custom model."""
@@ -572,35 +562,6 @@ class TestComplexityOverride:
             )
 
             assert orchestrator.use_ai_assessment is False
-
-
-class TestSpecOrchestratorDevMode:
-    """Tests for dev mode configuration."""
-
-    def test_default_dev_mode_false(self, temp_dir: Path):
-        """Dev mode is False by default."""
-        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
-            mock_init.return_value = (temp_dir / ".auto-claude", False)
-            specs_dir = temp_dir / ".auto-claude" / "specs"
-            specs_dir.mkdir(parents=True, exist_ok=True)
-
-            orchestrator = SpecOrchestrator(project_dir=temp_dir)
-
-            assert orchestrator.dev_mode is False
-
-    def test_enable_dev_mode(self, temp_dir: Path):
-        """Can enable dev mode."""
-        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
-            mock_init.return_value = (temp_dir / ".auto-claude", False)
-            specs_dir = temp_dir / ".auto-claude" / "specs"
-            specs_dir.mkdir(parents=True, exist_ok=True)
-
-            orchestrator = SpecOrchestrator(
-                project_dir=temp_dir,
-                dev_mode=True,
-            )
-
-            assert orchestrator.dev_mode is True
 
 
 class TestSpecOrchestratorValidator:

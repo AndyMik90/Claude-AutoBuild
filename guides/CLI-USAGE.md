@@ -13,12 +13,34 @@ This document covers terminal-only usage of Auto Claude. **For most users, we re
 - Python 3.9+
 - Claude Code CLI (`npm install -g @anthropic-ai/claude-code`)
 
+### Installing Python
+
+**Windows:**
+```bash
+winget install Python.Python.3.12
+```
+
+**macOS:**
+```bash
+brew install python@3.12
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt install python3.12 python3.12-venv
+```
+
+**Linux (Fedora):**
+```bash
+sudo dnf install python3.12
+```
+
 ## Setup
 
-**Step 1:** Navigate to the auto-claude directory
+**Step 1:** Navigate to the backend directory
 
 ```bash
-cd auto-claude
+cd apps/backend
 ```
 
 **Step 2:** Set up Python environment
@@ -39,27 +61,29 @@ cp .env.example .env
 # Get your OAuth token
 claude setup-token
 
-# Add the token to .env
+# Add the token to apps/backend/.env
 # CLAUDE_CODE_OAUTH_TOKEN=your-token-here
 ```
 
 ## Creating Specs
 
+All commands below should be run from the `apps/backend/` directory:
+
 ```bash
-# Activate the virtual environment
+# Activate the virtual environment (if not already active)
 source .venv/bin/activate
 
 # Create a spec interactively
-python spec_runner.py --interactive
+python runners/spec_runner.py --interactive
 
 # Or with a task description
-python spec_runner.py --task "Add user authentication with OAuth"
+python runners/spec_runner.py --task "Add user authentication with OAuth"
 
 # Force a specific complexity level
-python spec_runner.py --task "Fix button color" --complexity simple
+python runners/spec_runner.py --task "Fix button color" --complexity simple
 
 # Continue an interrupted spec
-python spec_runner.py --continue 001-feature
+python runners/spec_runner.py --continue 001-feature
 ```
 
 ### Complexity Tiers
@@ -116,6 +140,9 @@ Auto Claude uses Git worktrees for isolated builds:
 cd .worktrees/auto-claude/
 npm run dev  # or your project's run command
 
+# Return to backend directory to run management commands
+cd apps/backend
+
 # See what was changed
 python run.py --spec 001 --review
 
@@ -155,7 +182,35 @@ python validate_spec.py --spec-dir specs/001-feature --checkpoint all
 
 ## Environment Variables
 
+Copy `.env.example` to `.env` and configure as needed:
+
+```bash
+cp .env.example .env
+```
+
+### Core Settings
+
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `CLAUDE_CODE_OAUTH_TOKEN` | Yes | OAuth token from `claude setup-token` |
 | `AUTO_BUILD_MODEL` | No | Model override (default: claude-opus-4-5-20251101) |
+| `DEFAULT_BRANCH` | No | Base branch for worktrees (auto-detects main/master) |
+| `DEBUG` | No | Enable debug logging (default: false) |
+
+### Integrations
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `LINEAR_API_KEY` | No | Linear API key for task sync |
+| `GITLAB_TOKEN` | No | GitLab Personal Access Token |
+| `GITLAB_INSTANCE_URL` | No | GitLab instance URL (defaults to gitlab.com) |
+
+### Memory Layer (Graphiti)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GRAPHITI_ENABLED` | No | Enable Memory Layer (default: true) |
+| `GRAPHITI_LLM_PROVIDER` | No | LLM provider: openai, anthropic, ollama, google, openrouter |
+| `GRAPHITI_EMBEDDER_PROVIDER` | No | Embedder: openai, voyage, ollama, google, openrouter |
+
+See `.env.example` for complete configuration options including provider-specific settings.

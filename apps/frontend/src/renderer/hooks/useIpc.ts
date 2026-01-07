@@ -1,0 +1,335 @@
+import { useEffect } from 'react';
+import { unstable_batchedUpdates } from 'react-dom';
+import { useTaskStore } from '../stores/task-store';
+import { useRoadmapStore } from '../stores/roadmap-store';
+import { useRateLimitStore } from '../stores/rate-limit-store';
+import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo } from '../../shared/types';
+
+/**
+ * Batched update queue for IPC events.
+ * Collects updates within a 16ms window (one frame) and flushes them together.
+ * This prevents multiple sequential re-renders when multiple IPC events arrive.
+ */
+interface BatchedUpdate {
+  status?: TaskStatus;
+  progress?: ExecutionProgress;
+  plan?: ImplementationPlan;
+  logs?: string[]; // Batched log lines
+  queuedAt?: number; // For debug timing
+}
+
+/**
+ * Store action references type for batch flushing.
+ */
+interface StoreActions {
+  updateTaskStatus: (taskId: string, status: TaskStatus) => void;
+  updateExecutionProgress: (taskId: string, progress: ExecutionProgress) => void;
+  updateTaskFromPlan: (taskId: string, plan: ImplementationPlan) => void;
+  batchAppendLogs: (taskId: string, logs: string[]) => void;
+}
+
+/**
+ * Module-level batch state.
+ *
+ * DESIGN NOTE: These module-level variables are intentionally shared across all hook instances.
+ * This is acceptable because:
+ * 1. There's only one Zustand store instance (singleton pattern)
+ * 2. The app has a single main window that uses this hook
+ * 3. Batching IPC updates at module level ensures all events within a frame are coalesced
+ *
+ * The storeActionsRef pattern ensures we always have the latest action references when
+ * flushing, avoiding stale closure issues from component re-renders.
+ */
+const batchQueue = new Map<string, BatchedUpdate>();
+let batchTimeout: NodeJS.Timeout | null = null;
+let storeActionsRef: StoreActions | null = null;
+
+function flushBatch(): void {
+  if (batchQueue.size === 0 || !storeActionsRef) return;
+
+  const flushStart = performance.now();
+  const updateCount = batchQueue.size;
+  let totalUpdates = 0;
+  let totalLogs = 0;
+
+  // Capture current actions reference to avoid stale closures during batch processing
+  const actions = storeActionsRef;
+
+  // Batch all React updates together
+  unstable_batchedUpdates(() => {
+    batchQueue.forEach((updates, taskId) => {
+      // Apply updates in order: plan first (has most data), then status, then progress, then logs
+      if (updates.plan) {
+        actions.updateTaskFromPlan(taskId, updates.plan);
+        totalUpdates++;
+      }
+      if (updates.status) {
+        actions.updateTaskStatus(taskId, updates.status);
+        totalUpdates++;
+      }
+      if (updates.progress) {
+        actions.updateExecutionProgress(taskId, updates.progress);
+        totalUpdates++;
+      }
+      // Batch append all logs at once (instead of one state update per log line)
+      if (updates.logs && updates.logs.length > 0) {
+        actions.batchAppendLogs(taskId, updates.logs);
+        totalLogs += updates.logs.length;
+        totalUpdates++;
+      }
+    });
+  });
+
+  if (window.DEBUG) {
+    const flushDuration = performance.now() - flushStart;
+    console.warn(`[IPC Batch] Flushed ${totalUpdates} updates (${totalLogs} logs) for ${updateCount} tasks in ${flushDuration.toFixed(2)}ms`);
+  }
+
+  batchQueue.clear();
+  batchTimeout = null;
+}
+
+function queueUpdate(taskId: string, update: BatchedUpdate): void {
+  const existing = batchQueue.get(taskId) || {};
+
+  // For logs, accumulate rather than replace
+  let mergedLogs = existing.logs;
+  if (update.logs) {
+    mergedLogs = [...(existing.logs || []), ...update.logs];
+  }
+
+  batchQueue.set(taskId, {
+    ...existing,
+    ...update,
+    logs: mergedLogs,
+    queuedAt: existing.queuedAt || performance.now()
+  });
+
+  // Schedule flush after 16ms (one frame at 60fps)
+  if (!batchTimeout) {
+    batchTimeout = setTimeout(flushBatch, 16);
+  }
+}
+
+/**
+ * Hook to set up IPC event listeners for task updates
+ */
+export function useIpcListeners(): void {
+  const updateTaskFromPlan = useTaskStore((state) => state.updateTaskFromPlan);
+  const updateTaskStatus = useTaskStore((state) => state.updateTaskStatus);
+  const updateExecutionProgress = useTaskStore((state) => state.updateExecutionProgress);
+  const appendLog = useTaskStore((state) => state.appendLog);
+  const batchAppendLogs = useTaskStore((state) => state.batchAppendLogs);
+  const setError = useTaskStore((state) => state.setError);
+
+  // Update module-level store actions reference for batch flushing
+  // This ensures flushBatch() always has access to current action implementations
+  storeActionsRef = { updateTaskStatus, updateExecutionProgress, updateTaskFromPlan, batchAppendLogs };
+
+  useEffect(() => {
+    // Set up listeners with batched updates
+    const cleanupProgress = window.electronAPI.onTaskProgress(
+      (taskId: string, plan: ImplementationPlan) => {
+        queueUpdate(taskId, { plan });
+      }
+    );
+
+    const cleanupError = window.electronAPI.onTaskError(
+      (taskId: string, error: string) => {
+        // Errors are not batched - show immediately
+        setError(`Task ${taskId}: ${error}`);
+        appendLog(taskId, `[ERROR] ${error}`);
+      }
+    );
+
+    const cleanupLog = window.electronAPI.onTaskLog(
+      (taskId: string, log: string) => {
+        // Logs are now batched to reduce state updates (was causing 100+ updates/sec)
+        queueUpdate(taskId, { logs: [log] });
+      }
+    );
+
+    const cleanupStatus = window.electronAPI.onTaskStatusChange(
+      (taskId: string, status: TaskStatus) => {
+        queueUpdate(taskId, { status });
+      }
+    );
+
+    const cleanupExecutionProgress = window.electronAPI.onTaskExecutionProgress(
+      (taskId: string, progress: ExecutionProgress) => {
+        queueUpdate(taskId, { progress });
+      }
+    );
+
+    // Roadmap event listeners
+    // Helper to check if event is for the currently viewed project
+    const isCurrentProject = (eventProjectId: string): boolean => {
+      const currentProjectId = useRoadmapStore.getState().currentProjectId;
+      return currentProjectId === eventProjectId;
+    };
+
+    const cleanupRoadmapProgress = window.electronAPI.onRoadmapProgress(
+      (projectId: string, status: RoadmapGenerationStatus) => {
+        // Debug logging
+        if (window.DEBUG) {
+          console.warn('[Roadmap] Progress update:', {
+            projectId,
+            currentProjectId: useRoadmapStore.getState().currentProjectId,
+            phase: status.phase,
+            progress: status.progress,
+            message: status.message
+          });
+        }
+        // Only update if this is for the currently viewed project
+        if (isCurrentProject(projectId)) {
+          useRoadmapStore.getState().setGenerationStatus(status);
+        }
+      }
+    );
+
+    const cleanupRoadmapComplete = window.electronAPI.onRoadmapComplete(
+      (projectId: string, roadmap: Roadmap) => {
+        // Debug logging
+        if (window.DEBUG) {
+          console.warn('[Roadmap] Generation complete:', {
+            projectId,
+            currentProjectId: useRoadmapStore.getState().currentProjectId,
+            featuresCount: roadmap.features?.length || 0,
+            phasesCount: roadmap.phases?.length || 0
+          });
+        }
+        // Only update if this is for the currently viewed project
+        if (isCurrentProject(projectId)) {
+          useRoadmapStore.getState().setRoadmap(roadmap);
+          useRoadmapStore.getState().setGenerationStatus({
+            phase: 'complete',
+            progress: 100,
+            message: 'Roadmap ready'
+          });
+        }
+      }
+    );
+
+    const cleanupRoadmapError = window.electronAPI.onRoadmapError(
+      (projectId: string, error: string) => {
+        // Debug logging
+        if (window.DEBUG) {
+          console.error('[Roadmap] Error received:', {
+            projectId,
+            currentProjectId: useRoadmapStore.getState().currentProjectId,
+            error
+          });
+        }
+        // Only update if this is for the currently viewed project
+        if (isCurrentProject(projectId)) {
+          useRoadmapStore.getState().setGenerationStatus({
+            phase: 'error',
+            progress: 0,
+            message: 'Generation failed',
+            error
+          });
+        }
+      }
+    );
+
+    const cleanupRoadmapStopped = window.electronAPI.onRoadmapStopped(
+      (projectId: string) => {
+        // Debug logging
+        if (window.DEBUG) {
+          console.warn('[Roadmap] Generation stopped:', {
+            projectId,
+            currentProjectId: useRoadmapStore.getState().currentProjectId
+          });
+        }
+        // Only update if this is for the currently viewed project
+        if (isCurrentProject(projectId)) {
+          useRoadmapStore.getState().setGenerationStatus({
+            phase: 'idle',
+            progress: 0,
+            message: 'Generation stopped'
+          });
+        }
+      }
+    );
+
+    // Terminal rate limit listener
+    const showRateLimitModal = useRateLimitStore.getState().showRateLimitModal;
+    const cleanupRateLimit = window.electronAPI.onTerminalRateLimit(
+      (info: RateLimitInfo) => {
+        // Convert detectedAt string to Date if needed
+        showRateLimitModal({
+          ...info,
+          detectedAt: typeof info.detectedAt === 'string'
+            ? new Date(info.detectedAt)
+            : info.detectedAt
+        });
+      }
+    );
+
+    // SDK rate limit listener (for changelog, tasks, roadmap, ideation)
+    const showSDKRateLimitModal = useRateLimitStore.getState().showSDKRateLimitModal;
+    const cleanupSDKRateLimit = window.electronAPI.onSDKRateLimit(
+      (info: SDKRateLimitInfo) => {
+        // Convert detectedAt string to Date if needed
+        showSDKRateLimitModal({
+          ...info,
+          detectedAt: typeof info.detectedAt === 'string'
+            ? new Date(info.detectedAt)
+            : info.detectedAt
+        });
+      }
+    );
+
+    // Cleanup on unmount
+    return () => {
+      // Flush any pending batched updates before cleanup
+      if (batchTimeout) {
+        clearTimeout(batchTimeout);
+        flushBatch();
+        batchTimeout = null;
+      }
+      cleanupProgress();
+      cleanupError();
+      cleanupLog();
+      cleanupStatus();
+      cleanupExecutionProgress();
+      cleanupRoadmapProgress();
+      cleanupRoadmapComplete();
+      cleanupRoadmapError();
+      cleanupRoadmapStopped();
+      cleanupRateLimit();
+      cleanupSDKRateLimit();
+    };
+  }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, batchAppendLogs, setError]);
+}
+
+/**
+ * Hook to manage app settings
+ */
+export function useAppSettings() {
+  const getSettings = async () => {
+    const result = await window.electronAPI.getSettings();
+    if (result.success && result.data) {
+      return result.data;
+    }
+    return null;
+  };
+
+  const saveSettings = async (settings: Parameters<typeof window.electronAPI.saveSettings>[0]) => {
+    const result = await window.electronAPI.saveSettings(settings);
+    return result.success;
+  };
+
+  return { getSettings, saveSettings };
+}
+
+/**
+ * Hook to get the app version
+ */
+export function useAppVersion() {
+  const getVersion = async () => {
+    return window.electronAPI.getAppVersion();
+  };
+
+  return { getVersion };
+}

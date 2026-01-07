@@ -1,0 +1,191 @@
+name: PR Status Gate
+
+on:
+  workflow_run:
+    workflows: [CI, Lint, Quality Security]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  checks: read
+
+jobs:
+  update-status:
+    name: Update PR Status
+    runs-on: ubuntu-latest
+    # Only run if this workflow_run is associated with a PR
+    if: github.event.workflow_run.pull_requests[0] != null
+    timeout-minutes: 5
+    steps:
+      - name: Check all required checks and update label
+        uses: actions/github-script@v7
+        with:
+          retries: 3
+          retry-exempt-status-codes: 400,401,403,404,422
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = context.payload.workflow_run.pull_requests[0].number;
+            const headSha = context.payload.workflow_run.head_sha;
+            const triggerWorkflow = context.payload.workflow_run.name;
+
+            // ═══════════════════════════════════════════════════════════════════════
+            // REQUIRED CHECK RUNS - Job-level checks (not workflow-level)
+            // ═══════════════════════════════════════════════════════════════════════
+            // Format: "{Workflow Name} / {Job Name}" or "{Workflow Name} / {Job Custom Name}"
+            //
+            // To find check names: Go to PR → Checks tab → copy exact name
+            // To update: Edit this list when workflow jobs are added/renamed/removed
+            //
+            // Last validated: 2026-01-02
+            // ═══════════════════════════════════════════════════════════════════════
+            const requiredChecks = [
+              // CI workflow (ci.yml) - 3 checks
+              'CI / test-frontend',
+              'CI / test-python (3.12)',
+              'CI / test-python (3.13)',
+              // Lint workflow (lint.yml) - 1 check
+              'Lint / python',
+              // Quality Security workflow (quality-security.yml) - 4 checks
+              'Quality Security / CodeQL (javascript-typescript)',
+              'Quality Security / CodeQL (python)',
+              'Quality Security / Python Security (Bandit)',
+              'Quality Security / Security Summary'
+            ];
+
+            const statusLabels = {
+              checking: '🔄 Checking',
+              passed: '✅ Ready for Review',
+              failed: '❌ Checks Failed'
+            };
+
+            console.log(`::group::PR #${prNumber} - Checking required checks`);
+            console.log(`Triggered by: ${triggerWorkflow}`);
+            console.log(`Head SHA: ${headSha}`);
+            console.log(`Required checks: ${requiredChecks.length}`);
+            console.log('');
+
+            // Fetch all check runs for this commit
+            let allCheckRuns = [];
+            try {
+              const { data } = await github.rest.checks.listForRef({
+                owner,
+                repo,
+                ref: headSha,
+                per_page: 100
+              });
+              allCheckRuns = data.check_runs;
+              console.log(`Found ${allCheckRuns.length} total check runs`);
+            } catch (error) {
+              // Add warning annotation so maintainers are alerted
+              core.warning(`Failed to fetch check runs for PR #${prNumber}: ${error.message}. PR label may be outdated.`);
+              console.log(`::error::Failed to fetch check runs: ${error.message}`);
+              console.log('::endgroup::');
+              return;
+            }
+
+            let allComplete = true;
+            let anyFailed = false;
+            const results = [];
+
+            // Check each required check
+            for (const checkName of requiredChecks) {
+              const check = allCheckRuns.find(c => c.name === checkName);
+
+              if (!check) {
+                results.push({ name: checkName, status: '⏳ Pending', complete: false });
+                allComplete = false;
+              } else if (check.status !== 'completed') {
+                results.push({ name: checkName, status: '🔄 Running', complete: false });
+                allComplete = false;
+              } else if (check.conclusion === 'success') {
+                results.push({ name: checkName, status: '✅ Passed', complete: true });
+              } else if (check.conclusion === 'skipped') {
+                // Skipped checks are treated as passed (e.g., path filters, conditional jobs)
+                results.push({ name: checkName, status: '⏭️ Skipped', complete: true, skipped: true });
+              } else {
+                results.push({ name: checkName, status: '❌ Failed', complete: true, failed: true });
+                anyFailed = true;
+              }
+            }
+
+            // Print results table
+            console.log('');
+            console.log('Check Status:');
+            console.log('─'.repeat(70));
+            for (const r of results) {
+              const shortName = r.name.length > 55 ? r.name.substring(0, 52) + '...' : r.name;
+              console.log(`  ${r.status.padEnd(12)} ${shortName}`);
+            }
+            console.log('─'.repeat(70));
+            console.log('::endgroup::');
+
+            // Only update label if all required checks are complete
+            if (!allComplete) {
+              const pending = results.filter(r => !r.complete).length;
+              console.log(`⏳ ${pending}/${requiredChecks.length} checks still pending - keeping current label`);
+              return;
+            }
+
+            // Determine final label
+            const newLabel = anyFailed ? statusLabels.failed : statusLabels.passed;
+
+            console.log(`::group::Updating PR #${prNumber} label`);
+
+            // Remove old status labels
+            for (const label of Object.values(statusLabels)) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  name: label
+                });
+                console.log(`  ✓ Removed: ${label}`);
+              } catch (e) {
+                if (e.status !== 404) {
+                  console.log(`  ⚠ Could not remove ${label}: ${e.message}`);
+                }
+              }
+            }
+
+            // Add final status label
+            try {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: prNumber,
+                labels: [newLabel]
+              });
+              console.log(`  ✓ Added: ${newLabel}`);
+            } catch (e) {
+              if (e.status === 404) {
+                core.warning(`Label '${newLabel}' does not exist. Please create it in repository settings.`);
+              }
+              throw e;
+            }
+
+            console.log('::endgroup::');
+
+            // Summary
+            const passedCount = results.filter(r => r.status === '✅ Passed').length;
+            const skippedCount = results.filter(r => r.skipped).length;
+            const failedCount = results.filter(r => r.failed).length;
+
+            if (anyFailed) {
+              console.log(`❌ PR #${prNumber} has ${failedCount} failing check(s)`);
+              core.summary.addRaw(`## ❌ PR #${prNumber} - Checks Failed\n\n`);
+              core.summary.addRaw(`**${failedCount}** of **${requiredChecks.length}** required checks failed.\n\n`);
+            } else {
+              const skippedNote = skippedCount > 0 ? ` (${skippedCount} skipped)` : '';
+              const totalSuccessful = passedCount + skippedCount;
+              console.log(`✅ PR #${prNumber} is ready for review (${totalSuccessful}/${requiredChecks.length} checks succeeded${skippedNote})`);
+              core.summary.addRaw(`## ✅ PR #${prNumber} - Ready for Review\n\n`);
+              core.summary.addRaw(`All **${requiredChecks.length}** required checks succeeded${skippedNote}.\n\n`);
+            }
+
+            // Add results to summary
+            core.summary.addTable([
+              [{data: 'Check', header: true}, {data: 'Status', header: true}],
+              ...results.map(r => [r.name, r.status])
+            ]);
+            await core.summary.write();

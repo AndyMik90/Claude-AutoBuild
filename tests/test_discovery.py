@@ -18,7 +18,7 @@ import pytest
 
 # Add auto-claude to path for imports
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "auto-claude"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
 from test_discovery import (
     TestFramework,
@@ -77,6 +77,12 @@ class TestPackageManagerDetection:
     def test_detect_bun(self, discovery, temp_dir):
         """Test bun detection via bun.lockb."""
         (temp_dir / "bun.lockb").write_bytes(b"")
+        result = discovery.discover(temp_dir)
+        assert result.package_manager == "bun"
+
+    def test_detect_bun_text_lockfile(self, discovery, temp_dir):
+        """Test bun detection via bun.lock (text format, Bun 1.2.0+)."""
+        (temp_dir / "bun.lock").write_text("")
         result = discovery.discover(temp_dir)
         assert result.package_manager == "bun"
 

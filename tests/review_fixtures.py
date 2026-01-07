@@ -12,7 +12,7 @@ from typing import Generator
 
 import pytest
 
-from review import ReviewState
+from review.state import ReviewState
 
 
 @pytest.fixture

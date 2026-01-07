@@ -1,31 +1,69 @@
-# OS
+# ===========================
+# OS Files
+# ===========================
 .DS_Store
+.DS_Store?
+._*
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Environment files (contain API keys)
+# ===========================
+# Security - Environment & Secrets
+# ===========================
 .env
-.env.local
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+.secrets
+secrets/
+credentials/
 
-# Git worktrees (used by auto-build parallel mode)
-.worktrees/
-
-# IDE
+# ===========================
+# IDE & Editors
+# ===========================
 .idea/
 .vscode/
 *.swp
 *.swo
+*.sublime-workspace
+*.sublime-project
+.project
+.classpath
+.settings/
 
+# ===========================
 # Logs
+# ===========================
 logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
-# Personal notes
-OPUS_ANALYSIS_AND_IDEAS.md
+# ===========================
+# Git Worktrees (parallel builds)
+# ===========================
+.worktrees/
 
-# Documentation
-docs/
+# ===========================
+# Auto Claude Generated
+# ===========================
+.auto-claude/
+.auto-build-security.json
+.auto-claude-security.json
+.auto-claude-status
+.claude_settings.json
+.update-metadata.json
 
-# Python
+# ===========================
+# Python (apps/backend)
+# ===========================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -33,25 +71,19 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
-downloads/
 eggs/
 .eggs/
-/lib/
-/lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual environments
 .venv/
 venv/
 ENV/
 env/
+.conda/
 
 # Testing
 .pytest_cache/
@@ -64,26 +96,71 @@ coverage.xml
 *.py,cover
 .hypothesis/
 
-# mypy
+# Type checking
 .mypy_cache/
 .dmypy.json
 dmypy.json
+.pytype/
+.pyre/
 
-# Auto-build generated files
-.auto-build-security.json
-.auto-claude-security.json
-.auto-claude-status
-.claude_settings.json
-.update-metadata.json
+# ===========================
+# Node.js (apps/frontend)
+# ===========================
+node_modules/
+.npm
+.yarn/
+.pnp.*
 
-# Development of Auto Build with Auto Build
+# Build output
+dist/
+out/
+*.tsbuildinfo
+apps/frontend/python-runtime/
+
+# Cache
+.cache/
+.parcel-cache/
+.turbo/
+.eslintcache
+.prettiercache
+
+# ===========================
+# Electron
+# ===========================
+apps/frontend/dist/
+apps/frontend/out/
+*.asar
+*.blockmap
+*.snap
+*.deb
+*.rpm
+*.AppImage
+*.dmg
+*.exe
+*.msi
+
+# ===========================
+# Testing
+# ===========================
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# ===========================
+# Misc
+# ===========================
+*.local
+*.bak
+*.tmp
+*.temp
+
+# Development
 dev/
-
-.auto-claude/
-
+_bmad/
+_bmad-output/
+.claude/
 /docs
-
-_bmad
-_bmad-output
-
-.claude
+OPUS_ANALYSIS_AND_IDEAS.md
+/.github/agents
