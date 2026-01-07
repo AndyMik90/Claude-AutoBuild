@@ -645,6 +645,17 @@ export function registerTerminalHandlers(
     }
   );
 
+  // Activate deferred Claude resume when terminal becomes active
+  // This is triggered by the renderer when a terminal with pendingClaudeResume becomes the active tab
+  ipcMain.on(
+    IPC_CHANNELS.TERMINAL_ACTIVATE_DEFERRED_RESUME,
+    (_, id: string) => {
+      terminalManager.activateDeferredResume(id).catch((error) => {
+        console.error('[terminal-handlers] Failed to activate deferred Claude resume:', error);
+      });
+    }
+  );
+
   // Get available session dates for a project
   ipcMain.handle(
     IPC_CHANNELS.TERMINAL_GET_SESSION_DATES,
