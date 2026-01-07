@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, RefreshCw, AlertCircle } from 'lucide-react';
+import { debugLog } from '../shared/utils/debug-logger';
 import {
   DndContext,
   DragOverlay,
@@ -439,7 +440,7 @@ export function App() {
 
   // Update selected task when tasks change (for real-time updates)
   useEffect(() => {
-    console.log('[App] selectedTask update effect triggered', {
+    debugLog('[App] selectedTask update effect triggered', {
       hasSelectedTask: !!selectedTask,
       selectedTaskId: selectedTask?.id,
       selectedTaskSpecId: selectedTask?.specId,
@@ -453,7 +454,7 @@ export function App() {
         (t) => t.id === selectedTask.id || t.specId === selectedTask.specId
       );
 
-      console.log('[App] Updated task lookup result', {
+      debugLog('[App] Updated task lookup result', {
         found: !!updatedTask,
         updatedTaskId: updatedTask?.id,
         updatedTaskSpecId: updatedTask?.specId,
@@ -461,16 +462,18 @@ export function App() {
       });
 
       if (updatedTask) {
-        // Check if task actually changed by comparing subtasks
-        // Use JSON.stringify for deep comparison of subtasks arrays
-        const selectedTaskJson = JSON.stringify(selectedTask);
-        const updatedTaskJson = JSON.stringify(updatedTask);
+        // Compare specific fields instead of entire task object
+        const subtasksChanged =
+          JSON.stringify(selectedTask.subtasks || []) !==
+          JSON.stringify(updatedTask.subtasks || []);
+        const statusChanged = selectedTask.status !== updatedTask.status;
 
         const subtasksBefore = selectedTask.subtasks || [];
         const subtasksAfter = updatedTask.subtasks || [];
 
-        console.log('[App] Task comparison', {
-          tasksDiffer: selectedTaskJson !== updatedTaskJson,
+        debugLog('[App] Task comparison', {
+          subtasksChanged,
+          statusChanged,
           subtasksCountBefore: subtasksBefore.length,
           subtasksCountAfter: subtasksAfter.length,
           subtasksBefore: subtasksBefore.map(st => ({ id: st.id, title: st.title })),
@@ -478,30 +481,30 @@ export function App() {
           timestamp: new Date().toISOString()
         });
 
-        if (selectedTaskJson !== updatedTaskJson) {
-          console.log('[App] Updating selectedTask', {
+        if (subtasksChanged || statusChanged) {
+          debugLog('[App] Updating selectedTask', {
             taskId: updatedTask.id,
             taskSpecId: updatedTask.specId,
-            reason: 'Task data changed',
+            reason: subtasksChanged ? 'Subtasks changed' : 'Status changed',
             timestamp: new Date().toISOString()
           });
           setSelectedTask(updatedTask);
         } else {
-          console.log('[App] No update needed - task data unchanged', {
+          debugLog('[App] No update needed - task data unchanged', {
             taskId: selectedTask.id,
             taskSpecId: selectedTask.specId,
             timestamp: new Date().toISOString()
           });
         }
       } else {
-        console.log('[App] Updated task not found in tasks array', {
+        debugLog('[App] Updated task not found in tasks array', {
           selectedTaskId: selectedTask.id,
           selectedTaskSpecId: selectedTask.specId,
           timestamp: new Date().toISOString()
         });
       }
     } else {
-      console.log('[App] No selected task to update', {
+      debugLog('[App] No selected task to update', {
         timestamp: new Date().toISOString()
       });
     }
