@@ -29,8 +29,9 @@ def import_dotenv() -> None:
     """
     try:
         from dotenv import load_dotenv
+
         # Store in module namespace for backward compatibility
-        sys.modules['cli.utils'].load_dotenv = load_dotenv
+        sys.modules["cli.utils"].load_dotenv = load_dotenv
     except ImportError:
         sys.exit(
             "Error: Required Python package 'python-dotenv' is not installed.\n"
