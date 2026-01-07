@@ -702,9 +702,32 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
     try {
       const version = verifyPythonBinary(pythonBin);
       console.log(`[download-python] Verified: ${version}`);
-      return { success: true, pythonPath: pythonBin, sitePackagesPath: sitePackagesDir };
-    } catch {
-      console.log(`[download-python] Existing installation is broken, re-downloading...`);
+
+      // Verify critical packages exist (fixes GitHub issue #416)
+      // Without this check, corrupted caches with missing packages would be accepted
+      // Note: Same list exists in python-env-manager.ts - keep them in sync
+      // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
+      const criticalPackages = ['claude_agent_sdk', 'dotenv'];
+      const missingPackages = criticalPackages.filter(pkg => {
+        const pkgPath = path.join(sitePackagesDir, pkg);
+        // Check both directory and __init__.py for more robust validation
+        const initFile = path.join(pkgPath, '__init__.py');
+        return !fs.existsSync(pkgPath) || !fs.existsSync(initFile);
+      });
+
+      if (missingPackages.length > 0) {
+        console.log(`[download-python] Critical packages missing or incomplete: ${missingPackages.join(', ')}`);
+        console.log(`[download-python] Reinstalling packages...`);
+        // Remove site-packages to force reinstall, keep Python binary
+        // Flow continues below to re-install packages (skipPackages check at line 794)
+        fs.rmSync(sitePackagesDir, { recursive: true, force: true });
+      } else {
+        console.log(`[download-python] All critical packages verified`);
+        return { success: true, pythonPath: pythonBin, sitePackagesPath: sitePackagesDir };
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.log(`[download-python] Existing installation is broken: ${errorMsg}`);
       fs.rmSync(platformDir, { recursive: true, force: true });
     }
   }
@@ -783,6 +806,22 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
 
       // Install packages
       installPackages(pythonBin, requirementsPath, sitePackagesDir);
+
+      // Verify critical packages were installed before creating marker (fixes #416)
+      // Note: Same list exists in python-env-manager.ts - keep them in sync
+      // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
+      const criticalPackages = ['claude_agent_sdk', 'dotenv'];
+      const postInstallMissing = criticalPackages.filter(pkg => {
+        const pkgPath = path.join(sitePackagesDir, pkg);
+        const initFile = path.join(pkgPath, '__init__.py');
+        return !fs.existsSync(pkgPath) || !fs.existsSync(initFile);
+      });
+
+      if (postInstallMissing.length > 0) {
+        throw new Error(`Package installation failed - missing critical packages: ${postInstallMissing.join(', ')}`);
+      }
+
+      console.log(`[download-python] All critical packages verified after installation`);
 
       // Create marker file to indicate successful bundling
       fs.writeFileSync(packagesMarker, JSON.stringify({
