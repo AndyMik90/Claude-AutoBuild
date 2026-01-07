@@ -93,7 +93,7 @@ def ensure_all_gitignore_entries(project_dir: Path) -> list[str]:
 
     # Read existing content or start fresh
     if gitignore_path.exists():
-        content = gitignore_path.read_text()
+        content = gitignore_path.read_text(encoding="utf-8")
         lines = content.splitlines()
     else:
         content = ""
@@ -119,7 +119,7 @@ def ensure_all_gitignore_entries(project_dir: Path) -> list[str]:
         content += entry + "\n"
         added_entries.append(entry)
 
-    gitignore_path.write_text(content)
+    gitignore_path.write_text(content, encoding="utf-8")
     return added_entries
 
 
