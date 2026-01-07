@@ -162,9 +162,7 @@ export function getAugmentedEnv(additionalPaths?: string[]): Record<string, stri
   }
 
   // Prepend new paths to PATH (prepend so they take priority)
-  if (pathsToAdd.length > 0) {
-    env.PATH = [...pathsToAdd, currentPath].filter(Boolean).join(pathSeparator);
-  }
+  env.PATH = [...pathsToAdd, currentPath].filter(Boolean).join(pathSeparator);
 
   return env;
 }
