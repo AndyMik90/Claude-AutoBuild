@@ -52,8 +52,8 @@ def import_dotenv() -> None:
 
 # Load .env with helpful error if dependencies not installed
 import_dotenv()
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
 from graphiti_config import get_graphiti_status
 from linear_integration import LinearManager
 from linear_updater import is_linear_enabled
