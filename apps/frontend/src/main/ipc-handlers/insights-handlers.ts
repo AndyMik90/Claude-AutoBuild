@@ -51,7 +51,17 @@ export function registerInsightsHandlers(
       } catch (error) {
         // Errors during sendMessage (executor errors) are already emitted via
         // the 'error' event, but we catch here to prevent unhandled rejection
+        // and ensure all error types are reported to the UI
         console.error('[Insights IPC] Error in sendMessage:', error);
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          mainWindow.webContents.send(
+            IPC_CHANNELS.INSIGHTS_ERROR,
+            projectId,
+            `Failed to send message: ${errorMessage}`
+          );
+        }
       }
     }
   );
