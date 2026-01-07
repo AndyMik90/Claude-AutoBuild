@@ -167,7 +167,7 @@ test.describe('Terminal Copy/Paste Flows', () => {
     await window.keyboard.press('Control+c');
 
     // Wait for interrupt to be processed - look for ^C or new prompt
-    await expect(terminal).toMatch(/\^C|[$#>]/, { timeout: 3000 });
+    await expect(terminal).toContainText(/\^C|[$#>]/, { timeout: 3000 });
   });
 
   test('should paste clipboard text into terminal', async () => {
