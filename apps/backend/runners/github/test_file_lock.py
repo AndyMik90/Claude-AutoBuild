@@ -113,7 +113,7 @@ async def test_concurrent_updates_without_lock():
         test_file = Path(tmpdir) / "unsafe.json"
 
         # Initialize counter
-        test_file.write_text(json.dumps({"count": 0}, encoding="utf-8"))
+        test_file.write_text(json.dumps({"count": 0}), encoding="utf-8")
 
         async def unsafe_increment():
             """Increment without locking - RACE CONDITION!"""
@@ -182,7 +182,7 @@ async def test_lock_timeout():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         test_file = Path(tmpdir) / "timeout.json"
-        test_file.write_text(json.dumps({"data": "test"}, encoding="utf-8"))
+        test_file.write_text(json.dumps({"data": "test"}), encoding="utf-8")
 
         # Acquire lock and hold it
         lock1 = FileLock(test_file, timeout=1.0)

@@ -57,5 +57,5 @@ class CacheManager:
         Args:
             result: Analysis result to cache
         """
-        self.cache_file.write_text(json.dumps(result, indent=2, encoding="utf-8"))
+        self.cache_file.write_text(json.dumps(result, indent=2), encoding="utf-8")
         print(f"\n✓ AI insights cached to: {self.cache_file}")

@@ -93,7 +93,7 @@ class MergeLock:
                 os.close(fd)
 
                 # Write our PID to the lock file
-                self.lock_file.write_text(str(os.getpid(, encoding="utf-8")))
+                self.lock_file.write_text(str(os.getpid()), encoding="utf-8")
                 self.acquired = True
                 return self
 
@@ -183,7 +183,7 @@ class SpecNumberLock:
                 os.close(fd)
 
                 # Write our PID to the lock file
-                self.lock_file.write_text(str(os.getpid(, encoding="utf-8")))
+                self.lock_file.write_text(str(os.getpid()), encoding="utf-8")
                 self.acquired = True
                 return self
 
