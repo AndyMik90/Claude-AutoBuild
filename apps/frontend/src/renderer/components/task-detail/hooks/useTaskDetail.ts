@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
 import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress } from '../../../stores/task-store';
-import type { Task, TaskLogs, TaskLogPhase, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo } from '../../../../shared/types';
+import type { Task, TaskLogs, TaskLogPhase, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, ImageAttachment } from '../../../../shared/types';
 
 export interface UseTaskDetailOptions {
   task: Task;
@@ -9,6 +9,7 @@ export interface UseTaskDetailOptions {
 
 export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [feedback, setFeedback] = useState('');
+  const [feedbackImages, setFeedbackImages] = useState<ImageAttachment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
@@ -211,6 +212,26 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     });
   }, []);
 
+  // Add a feedback image
+  const addFeedbackImage = useCallback((image: ImageAttachment) => {
+    setFeedbackImages(prev => [...prev, image]);
+  }, []);
+
+  // Add multiple feedback images at once
+  const addFeedbackImages = useCallback((images: ImageAttachment[]) => {
+    setFeedbackImages(prev => [...prev, ...images]);
+  }, []);
+
+  // Remove a feedback image by ID
+  const removeFeedbackImage = useCallback((imageId: string) => {
+    setFeedbackImages(prev => prev.filter(img => img.id !== imageId));
+  }, []);
+
+  // Clear all feedback images
+  const clearFeedbackImages = useCallback(() => {
+    setFeedbackImages([]);
+  }, []);
+
   // Track if we've already loaded preview for this task to prevent infinite loops
   const hasLoadedPreviewRef = useRef<string | null>(null);
 
@@ -245,6 +266,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   return {
     // State
     feedback,
+    feedbackImages,
     isSubmitting,
     activeTab,
     isUserScrolledUp,
@@ -285,6 +307,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
 
     // Setters
     setFeedback,
+    setFeedbackImages,
     setIsSubmitting,
     setActiveTab,
     setIsUserScrolledUp,
@@ -318,5 +341,9 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     handleLogsScroll,
     togglePhase,
     loadMergePreview,
+    addFeedbackImage,
+    addFeedbackImages,
+    removeFeedbackImage,
+    clearFeedbackImages,
   };
 }
