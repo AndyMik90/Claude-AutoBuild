@@ -51,6 +51,7 @@ lerna-debug.log*
 # Git Worktrees (parallel builds)
 # ===========================
 .worktrees/
+/config.json
 
 # ===========================
 # Auto Claude Generated
