@@ -15,6 +15,7 @@ if str(_PARENT_DIR) not in sys.path:
     sys.path.insert(0, str(_PARENT_DIR))
 
 from core.auth import get_auth_token, get_auth_token_source
+from core.dependency_validator import validate_platform_dependencies
 
 
 def import_dotenv():
@@ -154,6 +155,9 @@ def validate_environment(spec_dir: Path) -> bool:
     Returns:
         True if valid, False otherwise (with error messages printed)
     """
+    # Validate platform-specific dependencies first (exits if missing)
+    validate_platform_dependencies()
+
     valid = True
 
     # Check for OAuth token (API keys are not supported)
