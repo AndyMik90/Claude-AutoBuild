@@ -1128,13 +1128,11 @@ class GitHubOrchestrator:
         ci = ci_status or {}
         pending_ci = ci.get("pending", 0)
         failing_ci = ci.get("failing", 0)
-        awaiting_approval = ci.get("awaiting_approval", False)
+        awaiting_approval = ci.get("awaiting_approval", 0)
 
         # Count blocking findings and issues
         blocking_findings = [
-            f
-            for f in findings
-            if f.severity.value in ("critical", "high", "medium")
+            f for f in findings if f.severity.value in ("critical", "high", "medium")
         ]
         code_blockers = [
             b for b in blockers if "CI" not in b and "Merge Conflict" not in b
@@ -1143,14 +1141,16 @@ class GitHubOrchestrator:
 
         # Determine the bottom line based on verdict and context
         if verdict == MergeVerdict.READY_TO_MERGE:
-            return "**✅ Ready to merge** - All checks passing, no blocking issues found."
+            return (
+                "**✅ Ready to merge** - All checks passing, no blocking issues found."
+            )
 
         elif verdict == MergeVerdict.BLOCKED:
             if has_merge_conflicts:
                 return "**🔴 Blocked** - Merge conflicts must be resolved before merge."
             elif failing_ci > 0:
                 return f"**🔴 Blocked** - {failing_ci} CI check(s) failing. Fix CI before merge."
-            elif awaiting_approval:
+            elif awaiting_approval > 0:
                 return "**🔴 Blocked** - Awaiting maintainer approval for fork PR workflow."
             elif blocking_findings:
                 return f"**🔴 Blocked** - {len(blocking_findings)} critical/high/medium issue(s) must be fixed."
@@ -1159,18 +1159,22 @@ class GitHubOrchestrator:
 
         elif verdict == MergeVerdict.NEEDS_REVISION:
             # Key insight: distinguish "waiting on CI" from "needs code fixes"
-            if pending_ci > 0 and not code_blockers and not blocking_findings:
-                return f"**⏳ Ready once CI passes** - {pending_ci} check(s) pending, no blocking code issues."
-            elif blocking_findings:
+            # Check code issues FIRST before checking pending CI
+            if blocking_findings:
                 return f"**🟠 Needs revision** - {len(blocking_findings)} issue(s) require attention."
+            elif code_blockers:
+                return f"**🟠 Needs revision** - {len(code_blockers)} structural/other issue(s) require attention."
             elif pending_ci > 0:
-                return f"**⏳ Ready once CI passes** - {pending_ci} check(s) pending."
+                # Only show "Ready once CI passes" when no code issues exist
+                return f"**⏳ Ready once CI passes** - {pending_ci} check(s) pending, no blocking code issues."
             else:
                 return "**🟠 Needs revision** - See details below."
 
         elif verdict == MergeVerdict.MERGE_WITH_CHANGES:
             if pending_ci > 0:
-                return "**🟡 Can merge once CI passes** - Minor suggestions, no blockers."
+                return (
+                    "**🟡 Can merge once CI passes** - Minor suggestions, no blockers."
+                )
             else:
                 return "**🟡 Can merge** - Minor suggestions noted, no blockers."
 

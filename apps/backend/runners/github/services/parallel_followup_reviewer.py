@@ -1058,10 +1058,12 @@ Agents invoked: {agents_str}
         ci = ci_status or {}
         pending_ci = ci.get("pending", 0)
         failing_ci = ci.get("failing", 0)
-        awaiting_approval = ci.get("awaiting_approval", False)
+        awaiting_approval = ci.get("awaiting_approval", 0)
 
         # Count blocking issues (excluding CI-related ones)
-        code_blockers = [b for b in blockers if "CI" not in b and "Merge Conflict" not in b]
+        code_blockers = [
+            b for b in blockers if "CI" not in b and "Merge Conflict" not in b
+        ]
         has_merge_conflicts = any("Merge Conflict" in b for b in blockers)
 
         # Determine the bottom line based on verdict and context
@@ -1070,33 +1072,37 @@ Agents invoked: {agents_str}
 
         elif verdict == MergeVerdict.BLOCKED:
             if has_merge_conflicts:
-                return "**🚫 Blocked** - Merge conflicts must be resolved before merge."
+                return "**🔴 Blocked** - Merge conflicts must be resolved before merge."
             elif failing_ci > 0:
-                return f"**🚫 Blocked** - {failing_ci} CI check(s) failing. Fix CI before merge."
-            elif awaiting_approval:
-                return "**🚫 Blocked** - Awaiting maintainer approval for fork PR workflow."
+                return f"**🔴 Blocked** - {failing_ci} CI check(s) failing. Fix CI before merge."
+            elif awaiting_approval > 0:
+                return "**🔴 Blocked** - Awaiting maintainer approval for fork PR workflow."
             elif code_blockers:
-                return f"**🚫 Blocked** - {len(code_blockers)} blocking issue(s) require fixes."
+                return f"**🔴 Blocked** - {len(code_blockers)} blocking issue(s) require fixes."
             else:
-                return "**🚫 Blocked** - Critical issues must be resolved before merge."
+                return "**🔴 Blocked** - Critical issues must be resolved before merge."
 
         elif verdict == MergeVerdict.NEEDS_REVISION:
             # Key insight: distinguish "waiting on CI" from "needs code fixes"
-            if pending_ci > 0 and unresolved_count == 0 and not code_blockers:
-                return f"**⏳ Ready once CI passes** - {pending_ci} check(s) pending, all findings addressed."
-            elif unresolved_count > 0:
+            # Check code issues FIRST before checking pending CI
+            if unresolved_count > 0:
                 return f"**🔄 Needs revision** - {unresolved_count} unresolved finding(s) from previous review."
-            elif new_count > 0 and code_blockers:
+            elif code_blockers:
+                return f"**🔄 Needs revision** - {len(code_blockers)} blocking issue(s) require fixes."
+            elif new_count > 0:
                 return f"**🔄 Needs revision** - {new_count} new issue(s) found in recent changes."
             elif pending_ci > 0:
-                return f"**⏳ Ready once CI passes** - {pending_ci} check(s) pending."
+                # Only show "Ready once CI passes" when no code issues exist
+                return f"**⏳ Ready once CI passes** - {pending_ci} check(s) pending, all findings addressed."
             else:
                 return "**🔄 Needs revision** - See details below."
 
         elif verdict == MergeVerdict.MERGE_WITH_CHANGES:
             if pending_ci > 0:
-                return "**⚠️ Can merge once CI passes** - Minor suggestions, no blockers."
+                return (
+                    "**🟡 Can merge once CI passes** - Minor suggestions, no blockers."
+                )
             else:
-                return "**⚠️ Can merge** - Minor suggestions noted, no blockers."
+                return "**🟡 Can merge** - Minor suggestions noted, no blockers."
 
         return "**📝 Review complete** - See details below."
