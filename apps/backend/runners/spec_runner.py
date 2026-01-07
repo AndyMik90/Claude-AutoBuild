@@ -26,11 +26,11 @@ The AI considers:
 - Risk factors and edge cases
 
 Usage:
-    python auto-claude/spec_runner.py --task "Add user authentication"
-    python auto-claude/spec_runner.py --interactive
-    python auto-claude/spec_runner.py --continue 001-feature
-    python auto-claude/spec_runner.py --task "Fix button color" --complexity simple
-    python auto-claude/spec_runner.py --task "Simple fix" --no-ai-assessment
+    python runners/spec_runner.py --task "Add user authentication"
+    python runners/spec_runner.py --interactive
+    python runners/spec_runner.py --continue 001-feature
+    python runners/spec_runner.py --task "Fix button color" --complexity simple
+    python runners/spec_runner.py --task "Simple fix" --no-ai-assessment
 """
 
 import sys
@@ -81,8 +81,25 @@ if sys.platform == "win32":
 # Add auto-claude to path (parent of runners/)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Load .env file
-from dotenv import load_dotenv
+# Load .env file - with helpful error if dependencies not installed
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    sys.exit(
+        "Error: Required Python dependencies are not installed.\n"
+        "\n"
+        "This usually means you're not using the virtual environment.\n"
+        "\n"
+        "To fix this:\n"
+        "1. From the 'apps/backend/' directory, activate the venv:\n"
+        "   source .venv/bin/activate  # Linux/macOS\n"
+        "   .venv\\Scripts\\activate   # Windows\n"
+        "\n"
+        "2. Or install dependencies directly:\n"
+        "   pip install -r requirements.txt\n"
+        "\n"
+        f"Current Python: {sys.executable}\n"
+    )
 
 env_file = Path(__file__).parent.parent / ".env"
 dev_env_file = Path(__file__).parent.parent.parent / "dev" / "auto-claude" / ".env"

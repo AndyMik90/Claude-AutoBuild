@@ -26,8 +26,25 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-# Load .env file
-from dotenv import load_dotenv
+# Load .env file with helpful error if dependencies not installed
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    sys.exit(
+        "Error: Required Python dependencies are not installed.\n"
+        "\n"
+        "This usually means you're not using the virtual environment.\n"
+        "\n"
+        "To fix this:\n"
+        "1. From the 'apps/backend/' directory, activate the venv:\n"
+        "   source .venv/bin/activate  # Linux/macOS\n"
+        "   .venv\\Scripts\\activate   # Windows\n"
+        "\n"
+        "2. Or install dependencies directly:\n"
+        "   pip install -r requirements.txt\n"
+        "\n"
+        f"Current Python: {sys.executable}\n"
+    )
 
 env_file = Path(__file__).parent.parent.parent / ".env"
 if env_file.exists():
