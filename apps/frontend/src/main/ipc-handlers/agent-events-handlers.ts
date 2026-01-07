@@ -17,6 +17,7 @@ import { projectStore } from '../project-store';
 import { notificationService } from '../notification-service';
 import { persistPlanStatusSync, getPlanPath } from './task/plan-file-utils';
 import { findTaskWorktree } from '../worktree-paths';
+import { findTaskAndProject } from './task/shared';
 
 
 /**
@@ -33,14 +34,18 @@ export function registerAgenteventsHandlers(
   agentManager.on('log', (taskId: string, log: string) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
-      mainWindow.webContents.send(IPC_CHANNELS.TASK_LOG, taskId, log);
+      // Include projectId for multi-project filtering (issue #723)
+      const { project } = findTaskAndProject(taskId);
+      mainWindow.webContents.send(IPC_CHANNELS.TASK_LOG, taskId, log, project?.id);
     }
   });
 
   agentManager.on('error', (taskId: string, error: string) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
-      mainWindow.webContents.send(IPC_CHANNELS.TASK_ERROR, taskId, error);
+      // Include projectId for multi-project filtering (issue #723)
+      const { project } = findTaskAndProject(taskId);
+      mainWindow.webContents.send(IPC_CHANNELS.TASK_ERROR, taskId, error, project?.id);
     }
   });
 
@@ -178,18 +183,9 @@ export function registerAgenteventsHandlers(
   agentManager.on('execution-progress', (taskId: string, progress: ExecutionProgressData) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
-      // Find the project that owns this task to include projectId in events
-      // This enables multi-project support by allowing the renderer to filter events
-      let taskProjectId: string | undefined;
-      const projects = projectStore.getProjects();
-      for (const p of projects) {
-        const tasks = projectStore.getTasks(p.id);
-        const task = tasks.find((t) => t.id === taskId || t.specId === taskId);
-        if (task) {
-          taskProjectId = p.id;
-          break;
-        }
-      }
+      // Use shared helper to find task and project (issue #723 - deduplicate lookup)
+      const { task, project } = findTaskAndProject(taskId);
+      const taskProjectId = project?.id;
 
       // Include projectId in execution progress event for multi-project filtering
       mainWindow.webContents.send(IPC_CHANNELS.TASK_EXECUTION_PROGRESS, taskId, progress, taskProjectId);
@@ -220,36 +216,31 @@ export function registerAgenteventsHandlers(
         // Uses shared utility with locking to prevent race conditions.
         // IMPORTANT: We persist to BOTH main project AND worktree (if exists) to ensure
         // consistency, since getTasks() prefers the worktree version.
-        try {
-          for (const p of projects) {
-            const tasks = projectStore.getTasks(p.id);
-            const task = tasks.find((t) => t.id === taskId || t.specId === taskId);
-            if (task) {
-              // Persist to main project plan file
-              const mainPlanPath = getPlanPath(p, task);
-              persistPlanStatusSync(mainPlanPath, newStatus, p.id);
+        if (task && project) {
+          try {
+            // Persist to main project plan file
+            const mainPlanPath = getPlanPath(project, task);
+            persistPlanStatusSync(mainPlanPath, newStatus, project.id);
 
-              // Also persist to worktree plan file if it exists
-              // This ensures consistency since getTasks() prefers worktree version
-              const worktreePath = findTaskWorktree(p.path, task.specId);
-              if (worktreePath) {
-                const specsBaseDir = getSpecsDir(p.autoBuildPath);
-                const worktreePlanPath = path.join(
-                  worktreePath,
-                  specsBaseDir,
-                  task.specId,
-                  AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
-                );
-                if (existsSync(worktreePlanPath)) {
-                  persistPlanStatusSync(worktreePlanPath, newStatus, p.id);
-                }
+            // Also persist to worktree plan file if it exists
+            // This ensures consistency since getTasks() prefers worktree version
+            const worktreePath = findTaskWorktree(project.path, task.specId);
+            if (worktreePath) {
+              const specsBaseDir = getSpecsDir(project.autoBuildPath);
+              const worktreePlanPath = path.join(
+                worktreePath,
+                specsBaseDir,
+                task.specId,
+                AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
+              );
+              if (existsSync(worktreePlanPath)) {
+                persistPlanStatusSync(worktreePlanPath, newStatus, project.id);
               }
-              break;
             }
+          } catch (err) {
+            // Ignore persistence errors - UI will still work, just might flip on refresh
+            console.warn('[execution-progress] Could not persist status:', err);
           }
-        } catch (err) {
-          // Ignore persistence errors - UI will still work, just might flip on refresh
-          console.warn('[execution-progress] Could not persist status:', err);
         }
       }
     }
@@ -262,25 +253,18 @@ export function registerAgenteventsHandlers(
   fileWatcher.on('progress', (taskId: string, plan: ImplementationPlan) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
-      // Find projectId for this task to enable multi-project filtering
-      let taskProjectId: string | undefined;
-      const projects = projectStore.getProjects();
-      for (const p of projects) {
-        const tasks = projectStore.getTasks(p.id);
-        const task = tasks.find((t) => t.id === taskId || t.specId === taskId);
-        if (task) {
-          taskProjectId = p.id;
-          break;
-        }
-      }
-      mainWindow.webContents.send(IPC_CHANNELS.TASK_PROGRESS, taskId, plan, taskProjectId);
+      // Use shared helper to find project (issue #723 - deduplicate lookup)
+      const { project } = findTaskAndProject(taskId);
+      mainWindow.webContents.send(IPC_CHANNELS.TASK_PROGRESS, taskId, plan, project?.id);
     }
   });
 
   fileWatcher.on('error', (taskId: string, error: string) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
-      mainWindow.webContents.send(IPC_CHANNELS.TASK_ERROR, taskId, error);
+      // Include projectId for multi-project filtering (issue #723)
+      const { project } = findTaskAndProject(taskId);
+      mainWindow.webContents.send(IPC_CHANNELS.TASK_ERROR, taskId, error, project?.id);
     }
   });
 }

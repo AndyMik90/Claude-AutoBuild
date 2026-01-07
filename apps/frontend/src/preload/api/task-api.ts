@@ -61,8 +61,8 @@ export interface TaskAPI {
   // Task Event Listeners
   // Note: projectId is optional for backward compatibility - events without projectId will still work
   onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan, projectId?: string) => void) => () => void;
-  onTaskError: (callback: (taskId: string, error: string) => void) => () => void;
-  onTaskLog: (callback: (taskId: string, log: string) => void) => () => void;
+  onTaskError: (callback: (taskId: string, error: string, projectId?: string) => void) => () => void;
+  onTaskLog: (callback: (taskId: string, log: string, projectId?: string) => void) => () => void;
   onTaskStatusChange: (callback: (taskId: string, status: TaskStatus, projectId?: string) => void) => () => void;
   onTaskExecutionProgress: (
     callback: (taskId: string, progress: import('../../shared/types').ExecutionProgress, projectId?: string) => void
@@ -179,14 +179,15 @@ export const createTaskAPI = (): TaskAPI => ({
   },
 
   onTaskError: (
-    callback: (taskId: string, error: string) => void
+    callback: (taskId: string, error: string, projectId?: string) => void
   ): (() => void) => {
     const handler = (
       _event: Electron.IpcRendererEvent,
       taskId: string,
-      error: string
+      error: string,
+      projectId?: string
     ): void => {
-      callback(taskId, error);
+      callback(taskId, error, projectId);
     };
     ipcRenderer.on(IPC_CHANNELS.TASK_ERROR, handler);
     return () => {
@@ -195,14 +196,15 @@ export const createTaskAPI = (): TaskAPI => ({
   },
 
   onTaskLog: (
-    callback: (taskId: string, log: string) => void
+    callback: (taskId: string, log: string, projectId?: string) => void
   ): (() => void) => {
     const handler = (
       _event: Electron.IpcRendererEvent,
       taskId: string,
-      log: string
+      log: string,
+      projectId?: string
     ): void => {
-      callback(taskId, log);
+      callback(taskId, log, projectId);
     };
     ipcRenderer.on(IPC_CHANNELS.TASK_LOG, handler);
     return () => {

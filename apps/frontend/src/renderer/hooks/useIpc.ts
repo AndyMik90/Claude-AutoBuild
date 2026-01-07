@@ -113,6 +113,21 @@ function queueUpdate(taskId: string, update: BatchedUpdate): void {
 }
 
 /**
+ * Check if a task event is for the currently selected project.
+ * This prevents multi-project interference where events from one project's
+ * running task incorrectly update another project's task state (issue #723).
+ * Handles backward compatibility and no-project-selected cases.
+ */
+function isTaskForCurrentProject(eventProjectId?: string): boolean {
+  // If no projectId provided (backward compatibility), accept the event
+  if (!eventProjectId) return true;
+  const currentProjectId = useProjectStore.getState().selectedProjectId;
+  // If no project selected, accept the event
+  if (!currentProjectId) return true;
+  return currentProjectId === eventProjectId;
+}
+
+/**
  * Hook to set up IPC event listeners for task updates
  */
 export function useIpcListeners(): void {
@@ -128,18 +143,6 @@ export function useIpcListeners(): void {
   storeActionsRef = { updateTaskStatus, updateExecutionProgress, updateTaskFromPlan, batchAppendLogs };
 
   useEffect(() => {
-    // Helper to check if a task event is for the currently selected project
-    // This prevents multi-project interference where events from one project's
-    // running task incorrectly update another project's task state (issue #723)
-    const isTaskForCurrentProject = (eventProjectId?: string): boolean => {
-      // If no projectId provided (backward compatibility), accept the event
-      if (!eventProjectId) return true;
-      const currentProjectId = useProjectStore.getState().selectedProjectId;
-      // If no project selected, accept the event
-      if (!currentProjectId) return true;
-      return currentProjectId === eventProjectId;
-    };
-
     // Set up listeners with batched updates
     const cleanupProgress = window.electronAPI.onTaskProgress(
       (taskId: string, plan: ImplementationPlan, projectId?: string) => {
@@ -150,18 +153,20 @@ export function useIpcListeners(): void {
     );
 
     const cleanupError = window.electronAPI.onTaskError(
-      (taskId: string, error: string) => {
+      (taskId: string, error: string, projectId?: string) => {
+        // Filter by project to prevent multi-project interference (issue #723)
+        if (!isTaskForCurrentProject(projectId)) return;
         // Errors are not batched - show immediately
-        // Note: Errors don't have projectId yet, but they're important to show regardless
         setError(`Task ${taskId}: ${error}`);
         appendLog(taskId, `[ERROR] ${error}`);
       }
     );
 
     const cleanupLog = window.electronAPI.onTaskLog(
-      (taskId: string, log: string) => {
+      (taskId: string, log: string, projectId?: string) => {
+        // Filter by project to prevent multi-project interference (issue #723)
+        if (!isTaskForCurrentProject(projectId)) return;
         // Logs are now batched to reduce state updates (was causing 100+ updates/sec)
-        // Note: Logs don't have projectId yet, but they're associated with taskId which is unique
         queueUpdate(taskId, { logs: [log] });
       }
     );
