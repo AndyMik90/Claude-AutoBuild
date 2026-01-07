@@ -9,44 +9,21 @@ Tests the qa/criteria.py module functionality including:
 - QA readiness checks (should_run_qa, should_run_fixes)
 - Status display functions
 
-Note: This test module mocks all dependencies to avoid importing
-the Claude SDK which is not available in the test environment.
+Note: SDK modules are pre-mocked by conftest.py. This module only mocks
+additional dependencies (ui, progress, etc.) needed for the qa.criteria module.
 """
 
 import json
 import sys
-import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 # =============================================================================
-# MOCK SETUP - Must happen before ANY imports from auto-claude
+# MOCK SETUP - SDK mocking handled by conftest.py
+# Additional module mocks needed for qa.criteria imports
 # =============================================================================
-
-# Store original modules for cleanup
-_original_modules = {}
-_mocked_module_names = [
-    'claude_agent_sdk',
-    'ui',
-    'progress',
-    'task_logger',
-    'linear_updater',
-    'client',
-]
-
-for name in _mocked_module_names:
-    if name in sys.modules:
-        _original_modules[name] = sys.modules[name]
-
-# Mock claude_agent_sdk FIRST (before any other imports)
-mock_sdk = MagicMock()
-mock_sdk.ClaudeSDKClient = MagicMock()
-mock_sdk.ClaudeAgentOptions = MagicMock()
-mock_sdk.ClaudeCodeOptions = MagicMock()
-sys.modules['claude_agent_sdk'] = mock_sdk
 
 # Mock UI module (used by progress)
 mock_ui = MagicMock()
@@ -99,9 +76,6 @@ mock_client = MagicMock()
 mock_client.create_client = MagicMock()
 sys.modules['client'] = mock_client
 
-# Now we can safely add the auto-claude path and import
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
-
 # Import criteria functions directly to avoid going through qa/__init__.py
 # which imports reviewer and fixer that need the SDK
 from qa.criteria import (
@@ -124,84 +98,8 @@ mock_report.get_recurring_issue_summary = MagicMock(return_value={})
 
 
 # =============================================================================
-# FIXTURES
+# TEST CLASSES
 # =============================================================================
-
-
-# Cleanup fixture to restore original modules after all tests in this module
-@pytest.fixture(scope="module", autouse=True)
-def cleanup_mocked_modules():
-    """Restore original modules after all tests in this module complete."""
-    yield  # Run all tests first
-    # Cleanup: restore original modules or remove mocks
-    for name in _mocked_module_names:
-        if name in _original_modules:
-            sys.modules[name] = _original_modules[name]
-        elif name in sys.modules:
-            del sys.modules[name]
-
-
-@pytest.fixture
-def temp_dir():
-    """Create a temporary directory for tests."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir)
-
-
-@pytest.fixture
-def spec_dir(temp_dir):
-    """Create a spec directory with basic structure."""
-    spec = temp_dir / "spec"
-    spec.mkdir()
-    return spec
-
-
-@pytest.fixture
-def qa_signoff_approved():
-    """Return an approved QA signoff structure."""
-    return {
-        "status": "approved",
-        "qa_session": 1,
-        "timestamp": "2024-01-01T12:00:00",
-        "tests_passed": {
-            "unit": True,
-            "integration": True,
-            "e2e": True,
-        },
-    }
-
-
-@pytest.fixture
-def qa_signoff_rejected():
-    """Return a rejected QA signoff structure."""
-    return {
-        "status": "rejected",
-        "qa_session": 1,
-        "timestamp": "2024-01-01T12:00:00",
-        "issues_found": [
-            {"title": "Test failure", "type": "unit_test"},
-            {"title": "Missing validation", "type": "acceptance"},
-        ],
-    }
-
-
-@pytest.fixture
-def sample_implementation_plan():
-    """Return a sample implementation plan structure."""
-    return {
-        "feature": "User Avatar Upload",
-        "workflow_type": "feature",
-        "services_involved": ["backend", "worker", "frontend"],
-        "phases": [
-            {
-                "phase": 1,
-                "name": "Backend Foundation",
-                "subtasks": [
-                    {"id": "subtask-1-1", "description": "Add avatar fields", "status": "completed"},
-                ],
-            },
-        ],
-    }
 
 
 class TestImplementationPlanIO:
