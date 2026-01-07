@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, type RefObject } from 'react';
 import { useTerminalStore } from '../../stores/terminal-store';
 
 interface UsePtyProcessOptions {
@@ -8,6 +8,9 @@ interface UsePtyProcessOptions {
   cols: number;
   rows: number;
   skipCreation?: boolean; // Skip PTY creation until dimensions are ready
+  // Track deliberate recreation scenarios (e.g., worktree switching)
+  // When true, resets terminal status to 'idle' to allow proper recreation
+  isRecreatingRef?: RefObject<boolean>;
   onCreated?: () => void;
   onError?: (error: string) => void;
 }
@@ -19,6 +22,7 @@ export function usePtyProcess({
   cols,
   rows,
   skipCreation = false,
+  isRecreatingRef,
   onCreated,
   onError,
 }: UsePtyProcessOptions) {
@@ -59,9 +63,16 @@ export function usePtyProcess({
     if (skipCreation) return;
     if (isCreatingRef.current || isCreatedRef.current) return;
 
-    const terminalState = useTerminalStore.getState().terminals.find((t) => t.id === terminalId);
+    const store = getStore();
+    const terminalState = store.terminals.find((t) => t.id === terminalId);
     const alreadyRunning = terminalState?.status === 'running' || terminalState?.status === 'claude-active';
     const isRestored = terminalState?.isRestored;
+
+    // When recreating (e.g., worktree switching), reset status from 'exited' to 'idle'
+    // This allows proper recreation after deliberate terminal destruction
+    if (isRecreatingRef?.current && terminalState?.status === 'exited') {
+      store.setTerminalStatus(terminalId, 'idle');
+    }
 
     isCreatingRef.current = true;
 
@@ -77,23 +88,37 @@ export function usePtyProcess({
           claudeSessionId: terminalState.claudeSessionId,
           outputBuffer: '',
           createdAt: terminalState.createdAt.toISOString(),
-          lastActiveAt: new Date().toISOString()
+          lastActiveAt: new Date().toISOString(),
+          // Pass worktreeConfig so backend can restore it and persist correctly
+          worktreeConfig: terminalState.worktreeConfig,
         },
         cols,
         rows
       ).then((result) => {
         if (result.success && result.data?.success) {
           isCreatedRef.current = true;
+          // Clear recreation flag after successful PTY creation
+          if (isRecreatingRef?.current) {
+            isRecreatingRef.current = false;
+          }
           const store = getStore();
           store.setTerminalStatus(terminalId, terminalState.isClaudeMode ? 'claude-active' : 'running');
           store.updateTerminal(terminalId, { isRestored: false });
           onCreated?.();
         } else {
           const error = `Error restoring session: ${result.data?.error || result.error}`;
+          // Clear recreation flag on failure to prevent terminal from being stuck
+          if (isRecreatingRef?.current) {
+            isRecreatingRef.current = false;
+          }
           onError?.(error);
         }
         isCreatingRef.current = false;
       }).catch((err) => {
+        // Clear recreation flag on failure to prevent terminal from being stuck
+        if (isRecreatingRef?.current) {
+          isRecreatingRef.current = false;
+        }
         onError?.(err.message);
         isCreatingRef.current = false;
       });
@@ -108,15 +133,27 @@ export function usePtyProcess({
       }).then((result) => {
         if (result.success) {
           isCreatedRef.current = true;
+          // Clear recreation flag after successful PTY creation
+          if (isRecreatingRef?.current) {
+            isRecreatingRef.current = false;
+          }
           if (!alreadyRunning) {
             getStore().setTerminalStatus(terminalId, 'running');
           }
           onCreated?.();
         } else {
+          // Clear recreation flag on failure to prevent terminal from being stuck
+          if (isRecreatingRef?.current) {
+            isRecreatingRef.current = false;
+          }
           onError?.(result.error || 'Unknown error');
         }
         isCreatingRef.current = false;
       }).catch((err) => {
+        // Clear recreation flag on failure to prevent terminal from being stuck
+        if (isRecreatingRef?.current) {
+          isRecreatingRef.current = false;
+        }
         onError?.(err.message);
         isCreatingRef.current = false;
       });

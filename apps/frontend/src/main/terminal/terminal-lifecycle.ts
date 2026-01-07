@@ -179,42 +179,42 @@ export async function restoreTerminal(
     debugLog('[TerminalLifecycle] Cleared worktree config for terminal with deleted worktree:', session.id);
   }
 
+  // Re-persist after restoring title and worktreeConfig
+  // (createTerminal persists before these are set, so we need to persist again)
+  if (terminal.projectPath) {
+    SessionHandler.persistSession(terminal);
+  }
+
   // Send title change event for all restored terminals so renderer updates
   const win = getWindow();
   if (win) {
     win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, session.title);
   }
 
-  // Auto-resume Claude if session was in Claude mode
+  // Defer Claude resume until terminal becomes active (is viewed by user)
+  // This prevents all terminals from resuming Claude simultaneously on app startup,
+  // which can cause crashes and resource contention.
+  //
   // Use storedIsClaudeMode which comes from the persisted store,
   // not the renderer-passed values (renderer always passes isClaudeMode: false)
-  //
-  // Note: We no longer require storedClaudeSessionId because resumeClaude uses
-  // `claude --continue` which resumes the most recent session in the directory
-  // automatically. Session IDs are deprecated and ignored.
   if (options.resumeClaudeSession && storedIsClaudeMode) {
+    // Set Claude mode so it persists correctly across app restarts
+    // Without this, storedIsClaudeMode would be false on next restore
     terminal.isClaudeMode = true;
-    // Don't set claudeSessionId - it's deprecated and --continue doesn't use it
-    debugLog('[TerminalLifecycle] Auto-resuming Claude session using --continue');
+    // Mark terminal as having a pending Claude resume
+    // The actual resume will be triggered when the terminal becomes active
+    terminal.pendingClaudeResume = true;
+    debugLog('[TerminalLifecycle] Marking terminal for deferred Claude resume:', terminal.id);
 
-    // Notify renderer that we're in Claude mode (session ID is deprecated)
-    // This prevents the renderer from also trying to resume (duplicate command)
+    // Notify renderer that this terminal has a pending Claude resume
+    // The renderer will trigger the resume when the terminal tab becomes active
     if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_SESSION, terminal.id, storedClaudeSessionId);
+      win.webContents.send(IPC_CHANNELS.TERMINAL_PENDING_RESUME, terminal.id, storedClaudeSessionId);
     }
 
-    // Persist the restored Claude mode state immediately to avoid data loss
-    // if app closes before the 30-second periodic save
+    // Persist the Claude mode and pending resume state
     if (terminal.projectPath) {
       SessionHandler.persistSession(terminal);
-    }
-
-    // Small delay to ensure PTY is ready before sending resume command
-    // Note: sessionId parameter is deprecated and ignored by resumeClaude
-    if (options.onResumeNeeded) {
-      setTimeout(() => {
-        options.onResumeNeeded!(terminal.id, storedClaudeSessionId);
-      }, 500);
     }
   }
 
