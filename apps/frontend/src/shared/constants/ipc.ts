@@ -513,6 +513,7 @@ export const IPC_CHANNELS = {
 
   // Azure DevOps integration
   ADO_CHECK_CONNECTION: 'ado:checkConnection',
+  ADO_TEST_CONNECTION: 'ado:testConnection',  // Test credentials before saving
   ADO_GET_WORK_ITEMS: 'ado:getWorkItems',
   ADO_GET_WORK_ITEM: 'ado:getWorkItem',
   ADO_CREATE_WORK_ITEM: 'ado:createWorkItem',

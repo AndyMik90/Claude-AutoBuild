@@ -57,7 +57,7 @@ function transformWorkItem(wi: ADOAPIWorkItem, config: { instanceUrl: string; or
 }
 
 /**
- * Check ADO connection
+ * Check ADO connection (using saved project config)
  */
 export function registerCheckConnection(): void {
   ipcMain.handle(
@@ -72,6 +72,49 @@ export function registerCheckConnection(): void {
       if (!config) {
         return { success: false, error: 'No Azure DevOps configuration found. Set ADO_ORGANIZATION, ADO_PROJECT, and ADO_PAT in .env' };
       }
+
+      try {
+        // Test connection by fetching project info
+        await adoFetch(config, '/projects');
+        return { success: true, data: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to connect to Azure DevOps',
+        };
+      }
+    }
+  );
+}
+
+/**
+ * Test ADO connection with provided credentials (before saving)
+ */
+export function registerTestConnection(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.ADO_TEST_CONNECTION,
+    async (
+      _,
+      credentials: {
+        organization: string;
+        project: string;
+        repoName: string;
+        pat: string;
+        instanceUrl: string;
+      }
+    ): Promise<IPCResult<boolean>> => {
+      if (!credentials.organization || !credentials.project || !credentials.pat) {
+        return { success: false, error: 'Organization, project, and PAT are required' };
+      }
+
+      // Build config from provided credentials
+      const config = {
+        organization: credentials.organization,
+        project: credentials.project,
+        repoName: credentials.repoName || credentials.project,
+        pat: credentials.pat,
+        instanceUrl: credentials.instanceUrl || 'https://dev.azure.com',
+      };
 
       try {
         // Test connection by fetching project info
@@ -338,6 +381,7 @@ export function registerUpdateWorkItem(): void {
  */
 export function registerWorkItemHandlers(): void {
   registerCheckConnection();
+  registerTestConnection();
   registerGetWorkItems();
   registerGetWorkItem();
   registerGetWorkItemComments();

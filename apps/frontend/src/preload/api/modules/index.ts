@@ -11,5 +11,6 @@ export * from './insights-api';
 export * from './changelog-api';
 export * from './linear-api';
 export * from './github-api';
+export * from './ado-api';
 export * from './shell-api';
 export * from './debug-api';

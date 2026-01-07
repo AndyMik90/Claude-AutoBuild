@@ -8,6 +8,8 @@ export * from './AppSettings';
 export * from './Context';
 export * from './Ideation';
 export * from './GitHubIssues';
+export * from './ADOWorkItems';
+export * from './ADOSetupModal';
 export * from './Changelog';
 export * from './WelcomeScreen';
 export * from './EnvConfigModal';
