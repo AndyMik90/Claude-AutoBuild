@@ -413,7 +413,7 @@
     "manualTokenEntry": "Ручной ввод токена",
     "runSetupToken": "Запустите claude setup-token для получения токена",
     "tokenPlaceholder": "sk-ant-oat01-...",
-    "emailPlaceholder": "Email (опционально, для отображения)",
+    "emailPlaceholder": "Email (необязательно, для отображения)",
     "saveToken": "Сохранить токен",
     "accountNamePlaceholder": "Название аккаунта (например, Работа, Личный)",
     "autoSwitching": "Автоматическое переключение аккаунтов",
