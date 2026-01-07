@@ -8,75 +8,19 @@ Tests the PhaseExecutor class in auto-claude/spec/phases.py covering:
 - All phase methods (discovery, requirements, context, etc.)
 - Retry logic and error handling
 - File existence checks and caching
+
+Note: SDK mocking is handled by conftest.py which pre-mocks claude_code_sdk,
+claude_agent_sdk, graphiti_providers, validate_spec, and client modules.
+Module cleanup is handled by pytest_runtest_setup in conftest.py.
 """
 
 import json
 import pytest
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, AsyncMock, patch
 
-# Store original modules before mocking (for cleanup)
-_original_modules = {}
-_mocked_module_names = [
-    'claude_code_sdk',
-    'claude_code_sdk.types',
-    'claude_agent_sdk',
-    'graphiti_providers',
-    'validate_spec',
-    'client',
-]
-
-for name in _mocked_module_names:
-    if name in sys.modules:
-        _original_modules[name] = sys.modules[name]
-
-# Mock ALL external dependencies before ANY imports from the spec module
-# The import chain is: spec.phases -> spec.__init__ -> spec.pipeline -> client -> claude_agent_sdk
-mock_sdk = MagicMock()
-mock_sdk.ClaudeSDKClient = MagicMock()
-mock_sdk.ClaudeCodeOptions = MagicMock()
-mock_sdk.HookMatcher = MagicMock()
-sys.modules['claude_code_sdk'] = mock_sdk
-sys.modules['claude_code_sdk.types'] = mock_sdk
-
-# Mock claude_agent_sdk
-mock_agent_sdk = MagicMock()
-mock_agent_sdk.ClaudeSDKClient = MagicMock()
-mock_agent_sdk.ClaudeAgentOptions = MagicMock()
-sys.modules['claude_agent_sdk'] = mock_agent_sdk
-
-# Mock graphiti_providers module
-mock_graphiti = MagicMock()
-mock_graphiti.is_graphiti_enabled = MagicMock(return_value=False)
-mock_graphiti.get_graph_hints = AsyncMock(return_value=[])
-sys.modules['graphiti_providers'] = mock_graphiti
-
-# Mock validate_spec module
-mock_validate_spec = MagicMock()
-mock_validate_spec.auto_fix_plan = MagicMock(return_value=False)
-sys.modules['validate_spec'] = mock_validate_spec
-
-# Mock client module to avoid circular imports
-mock_client = MagicMock()
-mock_client.create_client = MagicMock()
-sys.modules['client'] = mock_client
-
-# Now import the phases module directly (bypasses __init__.py issues)
+# Import from spec.phases - SDK modules are pre-mocked by conftest.py
 from spec.phases import PhaseExecutor, PhaseResult, MAX_RETRIES
-
-
-# Cleanup fixture to restore original modules after all tests in this module
-@pytest.fixture(scope="module", autouse=True)
-def cleanup_mocked_modules():
-    """Restore original modules after all tests in this module complete."""
-    yield  # Run all tests first
-    # Cleanup: restore original modules or remove mocks
-    for name in _mocked_module_names:
-        if name in _original_modules:
-            sys.modules[name] = _original_modules[name]
-        elif name in sys.modules:
-            del sys.modules[name]
 
 
 class TestPhaseResult:
