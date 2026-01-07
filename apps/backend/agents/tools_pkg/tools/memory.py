@@ -169,7 +169,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
             # PRIMARY: Save to file-based storage (always works)
             # Load existing map or create new
             if codebase_map_file.exists():
-                with open(codebase_map_file) as f:
+                with open(codebase_map_file, encoding="utf-8") as f:
                     codebase_map = json.load(f)
             else:
                 codebase_map = {
@@ -185,7 +185,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
             }
             codebase_map["last_updated"] = datetime.now(timezone.utc).isoformat()
 
-            with open(codebase_map_file, "w") as f:
+            with open(codebase_map_file, "w", encoding="utf-8") as f:
                 json.dump(codebase_map, f, indent=2)
 
             # SECONDARY: Also save to Graphiti/LadybugDB (for Memory UI)
@@ -244,7 +244,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
                 entry += f"\n\n_Context: {context}_"
             entry += "\n"
 
-            with open(gotchas_file, "a") as f:
+            with open(gotchas_file, "a", encoding="utf-8") as f:
                 if not gotchas_file.exists() or gotchas_file.stat().st_size == 0:
                     f.write(
                         "# Gotchas & Pitfalls\n\nThings to watch out for in this codebase.\n"
@@ -301,7 +301,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
         codebase_map_file = memory_dir / "codebase_map.json"
         if codebase_map_file.exists():
             try:
-                with open(codebase_map_file) as f:
+                with open(codebase_map_file, encoding="utf-8") as f:
                     codebase_map = json.load(f)
 
                 discoveries = codebase_map.get("discovered_files", {})

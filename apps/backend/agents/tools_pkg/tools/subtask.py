@@ -72,7 +72,7 @@ def create_subtask_tools(spec_dir: Path, project_dir: Path) -> list:
             }
 
         try:
-            with open(plan_file) as f:
+            with open(plan_file, encoding="utf-8") as f:
                 plan = json.load(f)
 
             # Find and update the subtask
@@ -102,7 +102,7 @@ def create_subtask_tools(spec_dir: Path, project_dir: Path) -> list:
             # Update plan metadata
             plan["last_updated"] = datetime.now(timezone.utc).isoformat()
 
-            with open(plan_file, "w") as f:
+            with open(plan_file, "w", encoding="utf-8") as f:
                 json.dump(plan, f, indent=2)
 
             return {

@@ -395,7 +395,7 @@ def initialize_timeline_tracking(
         if source_spec_dir:
             plan_path = source_spec_dir / "implementation_plan.json"
             if plan_path.exists():
-                with open(plan_path) as f:
+                with open(plan_path, encoding="utf-8") as f:
                     plan = json.load(f)
                 task_title = plan.get("title", spec_name)
                 task_intent = plan.get("description", "")

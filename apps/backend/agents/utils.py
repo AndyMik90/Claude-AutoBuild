@@ -48,7 +48,7 @@ def load_implementation_plan(spec_dir: Path) -> dict | None:
     if not plan_file.exists():
         return None
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             return json.load(f)
     except (OSError, json.JSONDecodeError):
         return None

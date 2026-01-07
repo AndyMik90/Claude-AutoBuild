@@ -89,7 +89,7 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
             except json.JSONDecodeError:
                 tests_passed = {}
 
-            with open(plan_file) as f:
+            with open(plan_file, encoding="utf-8") as f:
                 plan = json.load(f)
 
             # Get current QA session number
@@ -118,7 +118,7 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
 
             plan["last_updated"] = datetime.now(timezone.utc).isoformat()
 
-            with open(plan_file, "w") as f:
+            with open(plan_file, "w", encoding="utf-8") as f:
                 json.dump(plan, f, indent=2)
 
             return {
