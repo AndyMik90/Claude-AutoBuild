@@ -28,8 +28,7 @@ import {
   AlertTriangle,
   Pencil,
   X,
-  GitPullRequest,
-  ExternalLink
+  GitPullRequest
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
@@ -342,18 +341,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                         </>
                       ) : (
                         <>
-                          <Badge
-                            variant={task.status === 'done' ? 'success' : task.status === 'pr_created' ? 'success' : task.status === 'human_review' ? 'purple' : task.status === 'in_progress' ? 'info' : 'secondary'}
-                            className={cn('text-xs', (task.status === 'in_progress' && !state.isStuck) && 'status-running')}
-                          >
-                            {t(TASK_STATUS_LABELS[task.status])}
-                          </Badge>
-                          {/* Show PR Created badge for pr_created status */}
-                          {task.status === 'pr_created' && (
-                            <Badge variant="info" className="text-xs">
-                              {t(TASK_STATUS_LABELS[task.status])}
-                            </Badge>
-                          )}
+                           <Badge
+                             variant={task.status === 'done' ? 'success' : task.status === 'pr_created' ? 'success' : task.status === 'human_review' ? 'purple' : task.status === 'in_progress' ? 'info' : 'secondary'}
+                             className={cn('text-xs', (task.status === 'in_progress' && !state.isStuck) && 'status-running')}
+                           >
+                             {t(TASK_STATUS_LABELS[task.status])}
+                           </Badge>
                           {task.status === 'human_review' && task.reviewReason && (
                             <Badge
                               variant={task.reviewReason === 'completed' ? 'success' : task.reviewReason === 'errors' ? 'destructive' : 'warning'}
