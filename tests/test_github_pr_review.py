@@ -101,13 +101,11 @@ def mock_bot_detector(tmp_path):
 class TestPRReviewResult:
     """Test PRReviewResult model."""
 
-    def test_save_and_load(self, temp_github_dir, sample_review_result):
+    @pytest.mark.asyncio
+    async def test_save_and_load(self, temp_github_dir, sample_review_result):
         """Test saving and loading review result."""
         # Save
-        import asyncio
-        asyncio.get_event_loop().run_until_complete(
-            sample_review_result.save(temp_github_dir)
-        )
+        await sample_review_result.save(temp_github_dir)
 
         # Verify file exists
         review_file = temp_github_dir / "pr" / f"review_{sample_review_result.pr_number}.json"
@@ -337,14 +335,11 @@ class TestBotDetectionIntegration:
 class TestOrchestratorSkipLogic:
     """Test orchestrator behavior when bot detection skips."""
 
-    def test_skip_returns_existing_review(self, temp_github_dir, sample_review_result):
+    @pytest.mark.asyncio
+    async def test_skip_returns_existing_review(self, temp_github_dir, sample_review_result):
         """Test that skipping 'Already reviewed' returns existing review."""
-        import asyncio
-
         # Save existing review
-        asyncio.get_event_loop().run_until_complete(
-            sample_review_result.save(temp_github_dir)
-        )
+        await sample_review_result.save(temp_github_dir)
 
         # Simulate the orchestrator logic for "Already reviewed" skip
         skip_reason = "Already reviewed commit abc123"
@@ -466,19 +461,16 @@ class TestPostedFindingsTracking:
         assert sample_review_result.has_posted_findings is True
         assert len(sample_review_result.posted_finding_ids) == 1
 
-    def test_posted_findings_serialization(self, temp_github_dir, sample_review_result):
+    @pytest.mark.asyncio
+    async def test_posted_findings_serialization(self, temp_github_dir, sample_review_result):
         """Test that posted findings are serialized correctly."""
-        import asyncio
-
         # Set posted findings
         sample_review_result.has_posted_findings = True
         sample_review_result.posted_finding_ids = ["finding-001"]
         sample_review_result.posted_at = "2025-01-01T10:00:00"
 
         # Save
-        asyncio.get_event_loop().run_until_complete(
-            sample_review_result.save(temp_github_dir)
-        )
+        await sample_review_result.save(temp_github_dir)
 
         # Load and verify
         loaded = PRReviewResult.load(temp_github_dir, sample_review_result.pr_number)
