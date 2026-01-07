@@ -30,6 +30,12 @@ import { cn } from '../lib/utils';
 import { persistTaskStatus, archiveTasks } from '../stores/task-store';
 import type { Task, TaskStatus } from '../../shared/types';
 
+// Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
+const VALID_DROP_COLUMNS = new Set<string>(TASK_STATUS_COLUMNS);
+function isValidDropColumn(id: string): id is typeof TASK_STATUS_COLUMNS[number] {
+  return VALID_DROP_COLUMNS.has(id);
+}
+
 interface KanbanBoardProps {
   tasks: Task[];
   onTaskClick: (task: Task) => void;
@@ -420,7 +426,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const overId = over.id as string;
 
     // Check if over a column
-    if ((TASK_STATUS_COLUMNS as readonly string[]).includes(overId)) {
+    if (isValidDropColumn(overId)) {
       setOverColumnId(overId);
       return;
     }
@@ -443,8 +449,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const overId = over.id as string;
 
     // Check if dropped on a column
-    if ((TASK_STATUS_COLUMNS as readonly string[]).includes(overId)) {
-      const newStatus = overId as TaskStatus;
+    if (isValidDropColumn(overId)) {
+      const newStatus = overId;
       const task = tasks.find((t) => t.id === activeTaskId);
 
       if (task && task.status !== newStatus) {

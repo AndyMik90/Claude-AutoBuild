@@ -281,7 +281,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
       case 'human_review':
         return t('labels.needsReview');
       case 'pr_created':
-        return t('status.prCreated');
+        return t('columns.pr_created');
       case 'done':
         return t('status.complete');
       default:

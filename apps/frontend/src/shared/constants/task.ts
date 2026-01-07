@@ -24,7 +24,7 @@ export const TASK_STATUS_LABELS: Record<string, string> = {
   ai_review: 'columns.ai_review',
   human_review: 'columns.human_review',
   done: 'columns.done',
-  pr_created: 'status.prCreated'
+  pr_created: 'columns.pr_created'
 };
 
 // Status colors for UI

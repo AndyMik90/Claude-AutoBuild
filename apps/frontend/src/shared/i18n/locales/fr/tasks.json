@@ -56,7 +56,8 @@
     "in_progress": "En cours",
     "ai_review": "Révision IA",
     "human_review": "Révision humaine",
-    "done": "Terminé"
+    "done": "Terminé",
+    "pr_created": "PR créée"
   },
   "kanban": {
     "emptyBacklog": "Aucune tâche planifiée",

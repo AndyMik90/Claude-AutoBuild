@@ -56,7 +56,8 @@
     "in_progress": "In Progress",
     "ai_review": "AI Review",
     "human_review": "Human Review",
-    "done": "Done"
+    "done": "Done",
+    "pr_created": "PR Created"
   },
   "kanban": {
     "emptyBacklog": "No tasks planned",

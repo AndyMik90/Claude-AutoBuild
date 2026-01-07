@@ -275,10 +275,10 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
             <button
               type="button"
               onClick={() => window.electronAPI.openExternal(task.metadata!.prUrl!)}
-              className="completion-state text-sm flex items-center gap-2 text-success cursor-pointer hover:underline bg-transparent border-none p-0"
+              className="completion-state text-sm flex items-center gap-2 text-info cursor-pointer hover:underline bg-transparent border-none p-0"
             >
-              <CheckCircle2 className="h-5 w-5" />
-              <span className="font-medium">{t('tasks:status.prCreated')}</span>
+              <GitPullRequest className="h-5 w-5" />
+              <span className="font-medium">{t(TASK_STATUS_LABELS[task.status])}</span>
             </button>
           )}
         </div>
@@ -351,7 +351,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                           {/* Show PR Created badge for pr_created status */}
                           {task.status === 'pr_created' && (
                             <Badge variant="info" className="text-xs">
-                              {t('tasks:status.prCreated')}
+                              {t(TASK_STATUS_LABELS[task.status])}
                             </Badge>
                           )}
                           {task.status === 'human_review' && task.reviewReason && (
