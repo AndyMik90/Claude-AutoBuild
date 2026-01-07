@@ -923,7 +923,13 @@ class CLIToolManager {
       const needsShell = process.platform === 'win32' &&
         (claudeCmd.endsWith('.cmd') || claudeCmd.endsWith('.bat'));
 
-      const version = execFileSync(claudeCmd, ['--version'], {
+      // When using shell: true on Windows, paths with spaces must be quoted
+      // to prevent cmd.exe from splitting at spaces
+      const cmdToRun = needsShell && claudeCmd.includes(' ')
+        ? `"${claudeCmd}"`
+        : claudeCmd;
+
+      const version = execFileSync(cmdToRun, ['--version'], {
         encoding: 'utf-8',
         timeout: 5000,
         windowsHide: true,
