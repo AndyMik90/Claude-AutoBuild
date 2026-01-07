@@ -109,7 +109,7 @@ class ProjectAnalyzer:
                         spec_file = spec_dir / "spec.md"
                         if spec_file.exists():
                             # Extract title from spec
-                            content = spec_file.read_text()
+                            content = spec_file.read_text(encoding="utf-8")
                             lines = content.split("\n")
                             for line in lines:
                                 if line.startswith("# "):

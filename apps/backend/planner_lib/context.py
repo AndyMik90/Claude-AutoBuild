@@ -41,7 +41,7 @@ class ContextLoader:
         """Load all context files from spec directory."""
         # Read spec.md
         spec_file = self.spec_dir / "spec.md"
-        spec_content = spec_file.read_text() if spec_file.exists() else ""
+        spec_content = spec_file.read_text(encoding="utf-8") if spec_file.exists() else ""
 
         # Read project_index.json
         index_file = self.spec_dir / "project_index.json"

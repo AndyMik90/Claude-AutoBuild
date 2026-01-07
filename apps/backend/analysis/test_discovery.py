@@ -398,7 +398,7 @@ class TestDiscovery:
         # Check pyproject.toml
         pyproject = project_dir / "pyproject.toml"
         if pyproject.exists():
-            content = pyproject.read_text()
+            content = pyproject.read_text(encoding="utf-8")
 
             # Check for pytest
             if "pytest" in content:
@@ -418,7 +418,7 @@ class TestDiscovery:
         # Check requirements.txt
         requirements = project_dir / "requirements.txt"
         if requirements.exists():
-            content = requirements.read_text().lower()
+            content = requirements.read_text(encoding="utf-8").lower()
             if "pytest" in content and not any(
                 f.name == "pytest" for f in result.frameworks
             ):
@@ -496,7 +496,7 @@ class TestDiscovery:
         if not gemfile.exists():
             return
 
-        content = gemfile.read_text().lower()
+        content = gemfile.read_text(encoding="utf-8").lower()
 
         if "rspec" in content or (project_dir / ".rspec").exists():
             result.frameworks.append(

@@ -50,7 +50,7 @@ def ensure_gitignore_entry(project_dir: Path, entry: str = ".auto-claude/") -> b
 
     # Check if .gitignore exists and if entry is already present
     if gitignore_path.exists():
-        content = gitignore_path.read_text()
+        content = gitignore_path.read_text(encoding="utf-8")
         lines = content.splitlines()
 
         if _entry_exists_in_gitignore(lines, entry):
@@ -65,14 +65,14 @@ def ensure_gitignore_entry(project_dir: Path, entry: str = ".auto-claude/") -> b
         content += "\n# Auto Claude data directory\n"
         content += entry + "\n"
 
-        gitignore_path.write_text(content)
+        gitignore_path.write_text(content, encoding="utf-8")
         return True
     else:
         # Create new .gitignore with the entry
         content = "# Auto Claude data directory\n"
         content += entry + "\n"
 
-        gitignore_path.write_text(content)
+        gitignore_path.write_text(content, encoding="utf-8")
         return True
 
 

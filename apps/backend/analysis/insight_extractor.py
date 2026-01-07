@@ -278,7 +278,7 @@ def _build_extraction_prompt(inputs: dict) -> str:
     prompt_file = Path(__file__).parent / "prompts" / "insight_extractor.md"
 
     if prompt_file.exists():
-        base_prompt = prompt_file.read_text()
+        base_prompt = prompt_file.read_text(encoding="utf-8")
     else:
         # Fallback if prompt file missing
         base_prompt = """Extract structured insights from this coding session.

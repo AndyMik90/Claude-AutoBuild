@@ -230,7 +230,7 @@ class ContextBuilder:
         if context_file.exists():
             return {
                 "source": "SERVICE_CONTEXT.md",
-                "content": context_file.read_text()[:2000],  # First 2000 chars
+                "content": context_file.read_text(encoding="utf-8")[:2000],  # First 2000 chars
             }
 
         # Generate basic context from service info

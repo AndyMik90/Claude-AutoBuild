@@ -317,7 +317,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
         gotchas_file = memory_dir / "gotchas.md"
         if gotchas_file.exists():
             try:
-                content = gotchas_file.read_text()
+                content = gotchas_file.read_text(encoding="utf-8")
                 if content.strip():
                     result_parts.append("\n## Gotchas")
                     # Take last 1000 chars to avoid too much context
@@ -331,7 +331,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
         patterns_file = memory_dir / "patterns.md"
         if patterns_file.exists():
             try:
-                content = patterns_file.read_text()
+                content = patterns_file.read_text(encoding="utf-8")
                 if content.strip():
                     result_parts.append("\n## Patterns")
                     result_parts.append(

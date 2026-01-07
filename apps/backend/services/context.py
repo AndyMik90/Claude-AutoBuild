@@ -132,7 +132,7 @@ class ServiceContextGenerator:
         requirements = service_path / "requirements.txt"
         if requirements.exists():
             try:
-                content = requirements.read_text()
+                content = requirements.read_text(encoding="utf-8")
                 for line in content.split("\n")[:20]:  # Top 20 deps
                     line = line.strip()
                     if line and not line.startswith("#"):
@@ -170,7 +170,7 @@ class ServiceContextGenerator:
 
         for route_file in route_files[:5]:  # Check first 5
             try:
-                content = route_file.read_text()
+                content = route_file.read_text(encoding="utf-8")
                 # Look for common route patterns
                 if "@app.route" in content or "@router." in content:
                     context.api_patterns.append(
@@ -200,7 +200,7 @@ class ServiceContextGenerator:
         makefile = service_path / "Makefile"
         if makefile.exists():
             try:
-                content = makefile.read_text()
+                content = makefile.read_text(encoding="utf-8")
                 for line in content.split("\n"):
                     if line and not line.startswith("\t") and ":" in line:
                         target = line.split(":")[0].strip()
@@ -236,7 +236,7 @@ class ServiceContextGenerator:
             env_path = service_path / env_file
             if env_path.exists():
                 try:
-                    content = env_path.read_text()
+                    content = env_path.read_text(encoding="utf-8")
                     for line in content.split("\n"):
                         line = line.strip()
                         if line and not line.startswith("#") and "=" in line:
@@ -381,7 +381,7 @@ class ServiceContextGenerator:
             output_path = service_path / "SERVICE_CONTEXT.md"
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(markdown)
+        output_path.write_text(markdown, encoding="utf-8")
 
         print(f"Generated SERVICE_CONTEXT.md for {service_name}: {output_path}")
         return output_path

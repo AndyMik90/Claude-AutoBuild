@@ -347,7 +347,7 @@ def ensure_timeline_hook_installed(project_dir: Path) -> None:
 
         # Handle worktrees (where .git is a file, not directory)
         if git_dir.is_file():
-            content = git_dir.read_text().strip()
+            content = git_dir.read_text(encoding="utf-8").strip()
             if content.startswith("gitdir:"):
                 git_dir = Path(content.split(":", 1)[1].strip())
             else:
@@ -357,7 +357,7 @@ def ensure_timeline_hook_installed(project_dir: Path) -> None:
 
         # Check if hook already installed
         if hook_path.exists():
-            if "FileTimelineTracker" in hook_path.read_text():
+            if "FileTimelineTracker" in hook_path.read_text(encoding="utf-8"):
                 debug(MODULE, "FileTimelineTracker hook already installed")
                 return
 

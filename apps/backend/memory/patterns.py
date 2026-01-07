@@ -36,7 +36,7 @@ def append_gotcha(spec_dir: Path, gotcha: str) -> None:
     # Load existing gotchas
     existing_gotchas = set()
     if gotchas_file.exists():
-        content = gotchas_file.read_text()
+        content = gotchas_file.read_text(encoding="utf-8")
         # Extract bullet points
         for line in content.split("\n"):
             line = line.strip()
@@ -80,7 +80,7 @@ def load_gotchas(spec_dir: Path) -> list[str]:
     if not gotchas_file.exists():
         return []
 
-    content = gotchas_file.read_text()
+    content = gotchas_file.read_text(encoding="utf-8")
     gotchas = []
 
     for line in content.split("\n"):
@@ -112,7 +112,7 @@ def append_pattern(spec_dir: Path, pattern: str) -> None:
     # Load existing patterns
     existing_patterns = set()
     if patterns_file.exists():
-        content = patterns_file.read_text()
+        content = patterns_file.read_text(encoding="utf-8")
         # Extract bullet points
         for line in content.split("\n"):
             line = line.strip()
@@ -156,7 +156,7 @@ def load_patterns(spec_dir: Path) -> list[str]:
     if not patterns_file.exists():
         return []
 
-    content = patterns_file.read_text()
+    content = patterns_file.read_text(encoding="utf-8")
     patterns = []
 
     for line in content.split("\n"):
