@@ -6,9 +6,34 @@ Workspace Models
 Data classes and enums for workspace management.
 """
 
+import sys
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+
+
+def _is_process_running(pid: int) -> bool:
+    """Check if a process with the given PID is running (cross-platform)."""
+    import os
+
+    if sys.platform == "win32":
+        # On Windows, os.kill(pid, 0) doesn't work - it throws OSError
+        # Use ctypes to call OpenProcess instead
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
+        return False
+    else:
+        try:
+            os.kill(pid, 0)
+            return True
+        except (OSError, ProcessLookupError):
+            return False
 
 
 class WorkspaceMode(Enum):
@@ -102,14 +127,7 @@ class MergeLock:
                 if self.lock_file.exists():
                     try:
                         pid = int(self.lock_file.read_text().strip())
-                        # Import locally to avoid circular dependency
-                        import os as _os
-
-                        try:
-                            _os.kill(pid, 0)
-                            is_running = True
-                        except (OSError, ProcessLookupError):
-                            is_running = False
+                        is_running = _is_process_running(pid)
 
                         if not is_running:
                             # Stale lock - remove it
@@ -192,13 +210,7 @@ class SpecNumberLock:
                 if self.lock_file.exists():
                     try:
                         pid = int(self.lock_file.read_text().strip())
-                        import os as _os
-
-                        try:
-                            _os.kill(pid, 0)
-                            is_running = True
-                        except (OSError, ProcessLookupError):
-                            is_running = False
+                        is_running = _is_process_running(pid)
 
                         if not is_running:
                             # Stale lock - remove it

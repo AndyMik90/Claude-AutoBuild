@@ -361,12 +361,26 @@ def _is_auto_claude_file(file_path: str) -> bool:
 def is_process_running(pid: int) -> bool:
     """Check if a process with the given PID is running."""
     import os
+    import sys
 
-    try:
-        os.kill(pid, 0)
-        return True
-    except (OSError, ProcessLookupError):
+    if sys.platform == "win32":
+        # On Windows, os.kill(pid, 0) doesn't work - it throws OSError
+        # Use ctypes to call OpenProcess instead
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
         return False
+    else:
+        try:
+            os.kill(pid, 0)
+            return True
+        except (OSError, ProcessLookupError):
+            return False
 
 
 def is_binary_file(file_path: str) -> bool:
