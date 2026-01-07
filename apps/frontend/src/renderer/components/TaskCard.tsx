@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, FileText, Search, FolderSearch, Terminal, Pencil } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -44,6 +44,30 @@ const CategoryIcon: Record<TaskCategory, typeof Zap> = {
   testing: FileCode
 };
 
+// Helper to detect tool type from execution message and return styling
+function getToolStyleFromMessage(message: string): { icon: typeof FileText; color: string } | null {
+  const lowerMessage = message.toLowerCase();
+  if (lowerMessage.startsWith("reading")) {
+    return { icon: FileText, color: "text-blue-500 bg-blue-500/10" };
+  }
+  if (lowerMessage.startsWith("searching files") || lowerMessage.startsWith("globbing")) {
+    return { icon: FolderSearch, color: "text-amber-500 bg-amber-500/10" };
+  }
+  if (lowerMessage.startsWith("searching code") || lowerMessage.startsWith("grep")) {
+    return { icon: Search, color: "text-green-500 bg-green-500/10" };
+  }
+  if (lowerMessage.startsWith("editing")) {
+    return { icon: Pencil, color: "text-purple-500 bg-purple-500/10" };
+  }
+  if (lowerMessage.startsWith("writing")) {
+    return { icon: FileCode, color: "text-cyan-500 bg-cyan-500/10" };
+  }
+  if (lowerMessage.startsWith("running") || lowerMessage.startsWith("executing")) {
+    return { icon: Terminal, color: "text-orange-500 bg-orange-500/10" };
+  }
+  return null;
+}
+
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
@@ -70,6 +94,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.reviewReason === nextTask.reviewReason &&
     prevTask.executionProgress?.phase === nextTask.executionProgress?.phase &&
     prevTask.executionProgress?.phaseProgress === nextTask.executionProgress?.phaseProgress &&
+    prevTask.executionProgress?.message === nextTask.executionProgress?.message &&
     prevTask.subtasks.length === nextTask.subtasks.length &&
     prevTask.metadata?.category === nextTask.metadata?.category &&
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
@@ -478,6 +503,23 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
               isRunning={isRunning}
             />
           </div>
+        )}
+
+        {/* Live action status - shows current tool activity */}
+        {isRunning && !isStuck && task.executionProgress?.message && (
+          (() => {
+            const toolStyle = getToolStyleFromMessage(task.executionProgress!.message!);
+            const Icon = toolStyle?.icon || Loader2;
+            const colorClass = toolStyle?.color || "text-muted-foreground bg-muted/50";
+            return (
+              <div className={cn("mt-2 flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px]", colorClass)}>
+                <Icon className="h-3 w-3 shrink-0 animate-pulse" />
+                <span className="truncate" title={task.executionProgress!.message}>
+                  {task.executionProgress!.message}
+                </span>
+              </div>
+            );
+          })()
         )}
 
         {/* Footer */}
