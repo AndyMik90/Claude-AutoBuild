@@ -19,7 +19,9 @@ def open_editor_for_input(field_name: str) -> str:
     editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "nano"))
 
     # Create temp file with helpful instructions
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as f:
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".md", delete=False, encoding="utf-8"
+    ) as f:
         f.write(f"# Enter your {field_name.replace('_', ' ')} below\n")
         f.write("# Lines starting with # will be ignored\n")
         f.write("# Save and close the editor when done\n\n")
