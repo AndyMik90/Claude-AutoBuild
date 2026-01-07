@@ -84,6 +84,7 @@ repos:
         entry: python scripts/check_encoding.py
         language: system
         types: [python]
+        files: ^apps/backend/
         description: Ensures all file operations specify encoding="utf-8"
 
   # Python linting (apps/backend/)

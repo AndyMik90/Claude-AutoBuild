@@ -49,12 +49,13 @@ class EncodingChecker:
         for match in re.finditer(r'open\s*\([^)]+\)', content):
             call = match.group()
 
-            # Skip if it's binary mode (rb, wb, etc.)
-            if re.search(r'["\']r?[wb]["\']', call):
+            # Skip if it's binary mode (must contain 'b' in mode string)
+            # Matches: "rb", "wb", "ab", "r+b", "w+b", etc.
+            if re.search(r'["\'][rwax+]*b[rwax+]*["\']', call):
                 continue
 
-            # Skip if it already has encoding
-            if 'encoding=' in call:
+            # Skip if it already has encoding (use word boundary for robustness)
+            if re.search(r'\bencoding\s*=', call):
                 continue
 
             # Get line number
@@ -67,8 +68,8 @@ class EncodingChecker:
         for match in re.finditer(r'\.read_text\s*\([^)]*\)', content):
             call = match.group()
 
-            # Skip if it already has encoding
-            if 'encoding=' in call:
+            # Skip if it already has encoding (use word boundary for robustness)
+            if re.search(r'\bencoding\s*=', call):
                 continue
 
             line_num = content[:match.start()].count('\n') + 1
@@ -80,8 +81,8 @@ class EncodingChecker:
         for match in re.finditer(r'\.write_text\s*\([^)]+\)', content):
             call = match.group()
 
-            # Skip if it already has encoding
-            if 'encoding=' in call:
+            # Skip if it already has encoding (use word boundary for robustness)
+            if re.search(r'\bencoding\s*=', call):
                 continue
 
             line_num = content[:match.start()].count('\n') + 1
@@ -93,8 +94,8 @@ class EncodingChecker:
         for match in re.finditer(r'json\.load\s*\(\s*open\s*\([^)]+\)', content):
             call = match.group()
 
-            # Skip if open() has encoding
-            if 'encoding=' in call:
+            # Skip if open() has encoding (use word boundary for robustness)
+            if re.search(r'\bencoding\s*=', call):
                 continue
 
             line_num = content[:match.start()].count('\n') + 1
@@ -106,8 +107,8 @@ class EncodingChecker:
         for match in re.finditer(r'json\.dump\s*\([^,]+,\s*open\s*\([^)]+\)', content):
             call = match.group()
 
-            # Skip if open() has encoding
-            if 'encoding=' in call:
+            # Skip if open() has encoding (use word boundary for robustness)
+            if re.search(r'\bencoding\s*=', call):
                 continue
 
             line_num = content[:match.start()].count('\n') + 1
@@ -125,8 +126,6 @@ class EncodingChecker:
         Returns:
             Number of files with issues
         """
-        failed_count = 0
-
         for filepath in filepaths:
             if not filepath.exists():
                 continue
@@ -134,10 +133,9 @@ class EncodingChecker:
             if not filepath.suffix == '.py':
                 continue
 
-            if not self.check_file(filepath):
-                failed_count += 1
+            self.check_file(filepath)
 
-        return failed_count
+        return len([f for f in self.issues if f])
 
 
 def main():

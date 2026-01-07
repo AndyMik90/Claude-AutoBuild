@@ -3,8 +3,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
-
 # Import the checker
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
@@ -76,6 +74,67 @@ def read_file(path):
         finally:
             temp_path.unlink()
 
+    def test_allows_write_binary_mode_without_encoding(self):
+        """Should allow write binary mode (wb) without encoding."""
+        code = '''
+def write_file(path, data):
+    with open(path, "wb") as f:
+        f.write(data)
+'''
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding="utf-8") as f:
+            f.write(code)
+            temp_path = Path(f.name)
+
+        try:
+            checker = EncodingChecker()
+            result = checker.check_file(temp_path)
+
+            assert result is True
+            assert len(checker.issues) == 0
+        finally:
+            temp_path.unlink()
+
+    def test_allows_append_binary_mode_without_encoding(self):
+        """Should allow append binary mode (ab) without encoding."""
+        code = '''
+def append_file(path, data):
+    with open(path, "ab") as f:
+        f.write(data)
+'''
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding="utf-8") as f:
+            f.write(code)
+            temp_path = Path(f.name)
+
+        try:
+            checker = EncodingChecker()
+            result = checker.check_file(temp_path)
+
+            assert result is True
+            assert len(checker.issues) == 0
+        finally:
+            temp_path.unlink()
+
+    def test_detects_text_write_mode_without_encoding(self):
+        """Should detect text write mode (w) without encoding."""
+        code = '''
+def write_file(path, content):
+    with open(path, "w") as f:
+        f.write(content)
+'''
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding="utf-8") as f:
+            f.write(code)
+            temp_path = Path(f.name)
+
+        try:
+            checker = EncodingChecker()
+            result = checker.check_file(temp_path)
+
+            assert result is False
+            assert len(checker.issues) == 1
+            assert "open() without encoding" in checker.issues[0]
+        finally:
+            temp_path.unlink()
+
     def test_detects_path_read_text_without_encoding(self):
         """Should detect Path.read_text() without encoding."""
         code = '''
@@ -138,8 +197,8 @@ def read_json(path):
             result = checker.check_file(temp_path)
 
             assert result is False
-            assert len(checker.issues) >= 1
-            # Should detect both open() and json.load
+            assert len(checker.issues) == 1
+            # Detects the open() call without encoding
         finally:
             temp_path.unlink()
 
@@ -185,6 +244,51 @@ def write_file(path, content):
         finally:
             temp_path.unlink()
 
+    def test_allows_json_dump_with_encoding(self):
+        """Should allow json.dump() with encoding in open()."""
+        code = '''
+import json
+
+def write_json(path, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+'''
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding="utf-8") as f:
+            f.write(code)
+            temp_path = Path(f.name)
+
+        try:
+            checker = EncodingChecker()
+            result = checker.check_file(temp_path)
+
+            assert result is True
+            assert len(checker.issues) == 0
+        finally:
+            temp_path.unlink()
+
+    def test_detects_json_dump_without_encoding(self):
+        """Should detect json.dump() with open() without encoding."""
+        code = '''
+import json
+
+def write_json(path, data):
+    with open(path, "w") as f:
+        json.dump(data, f)
+'''
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding="utf-8") as f:
+            f.write(code)
+            temp_path = Path(f.name)
+
+        try:
+            checker = EncodingChecker()
+            result = checker.check_file(temp_path)
+
+            assert result is False
+            assert len(checker.issues) == 1
+            # Detects the open() call without encoding
+        finally:
+            temp_path.unlink()
+
     def test_multiple_issues_in_single_file(self):
         """Should detect multiple encoding issues in a single file."""
         code = '''
@@ -224,6 +328,28 @@ def process_files(input_path, output_path):
             failed_count = checker.check_files([temp_path])
 
             assert failed_count == 0
+            assert len(checker.issues) == 0
+        finally:
+            temp_path.unlink()
+
+    def test_detects_encoding_with_spaces(self):
+        """Should detect encoding parameter even with spaces around equals sign."""
+        code = '''
+def read_file(path):
+    # This has spaces: encoding = "utf-8"
+    with open(path, encoding = "utf-8") as f:
+        return f.read()
+'''
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding="utf-8") as f:
+            f.write(code)
+            temp_path = Path(f.name)
+
+        try:
+            checker = EncodingChecker()
+            result = checker.check_file(temp_path)
+
+            # Should pass because word boundary regex handles spaces
+            assert result is True
             assert len(checker.issues) == 0
         finally:
             temp_path.unlink()
