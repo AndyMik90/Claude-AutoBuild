@@ -64,6 +64,10 @@ jobs:
 
       - name: Build application
         run: cd apps/frontend && npm run build
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
+          SENTRY_PROFILES_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILES_SAMPLE_RATE }}
 
       - name: Package macOS (Intel)
         run: cd apps/frontend && npm run package:mac -- --x64
@@ -151,6 +155,10 @@ jobs:
 
       - name: Build application
         run: cd apps/frontend && npm run build
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
+          SENTRY_PROFILES_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILES_SAMPLE_RATE }}
 
       - name: Package macOS (Apple Silicon)
         run: cd apps/frontend && npm run package:mac -- --arm64
@@ -238,6 +246,10 @@ jobs:
 
       - name: Build application
         run: cd apps/frontend && npm run build
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
+          SENTRY_PROFILES_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILES_SAMPLE_RATE }}
 
       - name: Package Windows
         run: cd apps/frontend && npm run package:win
@@ -309,6 +321,10 @@ jobs:
 
       - name: Build application
         run: cd apps/frontend && npm run build
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
+          SENTRY_PROFILES_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILES_SAMPLE_RATE }}
 
       - name: Package Linux
         run: cd apps/frontend && npm run package:linux
