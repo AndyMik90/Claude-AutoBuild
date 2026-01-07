@@ -167,6 +167,17 @@ export function Terminal({
     }
   }, [isActive, focus]);
 
+  // Trigger deferred Claude resume when terminal becomes active
+  // This ensures Claude sessions are only resumed when the user actually views the terminal,
+  // preventing all terminals from resuming simultaneously on app startup (which can crash the app)
+  useEffect(() => {
+    if (isActive && terminal?.pendingClaudeResume) {
+      // Clear the pending flag and trigger the actual resume
+      useTerminalStore.getState().setPendingClaudeResume(id, false);
+      window.electronAPI.activateDeferredClaudeResume(id);
+    }
+  }, [isActive, id, terminal?.pendingClaudeResume]);
+
   // Handle keyboard shortcuts for this terminal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

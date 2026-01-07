@@ -141,4 +141,15 @@ export function useTerminalEvents({
 
     return cleanup;
   }, [terminalId]);
+
+  // Handle pending Claude resume notification (for deferred resume on tab activation)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onTerminalPendingResume((id, _sessionId) => {
+      if (id === terminalId) {
+        useTerminalStore.getState().setPendingClaudeResume(terminalId, true);
+      }
+    });
+
+    return cleanup;
+  }, [terminalId]);
 }
