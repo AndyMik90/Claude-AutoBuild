@@ -27,7 +27,9 @@ def validate_platform_dependencies() -> None:
 
 def _exit_with_pywin32_error() -> None:
     """Exit with helpful error message for missing pywin32."""
-    backend_dir = Path(__file__).parent.parent
+    # Use sys.prefix to detect the actual virtual environment path
+    # This works for venv, conda, poetry, and other environment managers
+    venv_activate = Path(sys.prefix) / "Scripts" / "activate"
 
     sys.exit(
         "Error: Required Windows dependency 'pywin32' is not installed.\n"
@@ -36,7 +38,7 @@ def _exit_with_pywin32_error() -> None:
         "\n"
         "To fix this:\n"
         "1. Activate your virtual environment:\n"
-        f"   {backend_dir}/.venv/Scripts/activate\n"
+        f"   {venv_activate}\n"
         "\n"
         "2. Install pywin32:\n"
         "   pip install pywin32>=306\n"
