@@ -107,31 +107,353 @@ describe('useXterm keyboard handlers', () => {
   });
 
   describe('Platform detection', () => {
-    it('should detect Windows platform correctly', () => {
-      // Platform detection happens in the hook implementation
-      // This test verifies the hook can be created without errors
-      const { result } = renderHook(() =>
-        useXterm({ terminalId: 'test-terminal' })
-      );
+    it('should enable paste shortcuts on Windows (CTRL+V)', async () => {
+      let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
+      const mockPaste = vi.fn();
 
-      expect(result.current).toBeDefined();
-      expect(result.current.terminalRef).toBeDefined();
+      // Mock Windows platform
+      Object.defineProperty(navigator, 'platform', {
+        value: 'Win32',
+        writable: true
+      });
+
+      (XTerm as unknown as Mock).mockImplementation(function() {
+        return {
+          open: vi.fn(),
+          loadAddon: vi.fn(),
+          attachCustomKeyEventHandler: vi.fn((handler: (event: KeyboardEvent) => boolean) => {
+            keyEventHandler = handler;
+          }),
+          hasSelection: vi.fn(),
+          getSelection: vi.fn(),
+          paste: mockPaste,
+          input: vi.fn(),
+          onData: vi.fn(),
+          onResize: vi.fn(),
+          dispose: vi.fn(),
+          cols: 80,
+          rows: 24
+        };
+      });
+
+      const { FitAddon } = await import('@xterm/addon-fit');
+      (FitAddon as unknown as Mock).mockImplementation(function() {
+        return { fit: vi.fn() };
+      });
+
+      const { WebLinksAddon } = await import('@xterm/addon-web-links');
+      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+        return {};
+      });
+
+      const { SerializeAddon } = await import('@xterm/addon-serialize');
+      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+        return {
+          serialize: vi.fn(() => ''),
+          dispose: vi.fn()
+        };
+      });
+
+      global.ResizeObserver = vi.fn().mockImplementation(function() {
+        return {
+          observe: vi.fn(),
+          unobserve: vi.fn(),
+          disconnect: vi.fn()
+        };
+      });
+
+      const TestWrapper = () => {
+        const { terminalRef } = useXterm({ terminalId: 'test-terminal' });
+        return React.createElement('div', { ref: terminalRef });
+      };
+
+      render(React.createElement(TestWrapper));
+
+      await act(async () => {
+        const event = new KeyboardEvent('keydown', {
+          key: 'v',
+          ctrlKey: true,
+          shiftKey: false
+        });
+
+        if (keyEventHandler) {
+          keyEventHandler(event);
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      });
+
+      // Windows should enable CTRL+V paste
+      expect(mockPaste).toHaveBeenCalledWith('test clipboard content');
     });
 
-    it('should detect Linux platform correctly', () => {
-      const { result } = renderHook(() =>
-        useXterm({ terminalId: 'test-terminal' })
-      );
+    it('should enable paste shortcuts on Linux (both CTRL+V and CTRL+SHIFT+V)', async () => {
+      let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
+      const mockPaste = vi.fn();
 
-      expect(result.current).toBeDefined();
+      // Mock Linux platform
+      Object.defineProperty(navigator, 'platform', {
+        value: 'Linux',
+        writable: true
+      });
+
+      (XTerm as unknown as Mock).mockImplementation(function() {
+        return {
+          open: vi.fn(),
+          loadAddon: vi.fn(),
+          attachCustomKeyEventHandler: vi.fn((handler: (event: KeyboardEvent) => boolean) => {
+            keyEventHandler = handler;
+          }),
+          hasSelection: vi.fn(),
+          getSelection: vi.fn(),
+          paste: mockPaste,
+          input: vi.fn(),
+          onData: vi.fn(),
+          onResize: vi.fn(),
+          dispose: vi.fn(),
+          cols: 80,
+          rows: 24
+        };
+      });
+
+      const { FitAddon } = await import('@xterm/addon-fit');
+      (FitAddon as unknown as Mock).mockImplementation(function() {
+        return { fit: vi.fn() };
+      });
+
+      const { WebLinksAddon } = await import('@xterm/addon-web-links');
+      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+        return {};
+      });
+
+      const { SerializeAddon } = await import('@xterm/addon-serialize');
+      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+        return {
+          serialize: vi.fn(() => ''),
+          dispose: vi.fn()
+        };
+      });
+
+      global.ResizeObserver = vi.fn().mockImplementation(function() {
+        return {
+          observe: vi.fn(),
+          unobserve: vi.fn(),
+          disconnect: vi.fn()
+        };
+      });
+
+      const TestWrapper = () => {
+        const { terminalRef } = useXterm({ terminalId: 'test-terminal' });
+        return React.createElement('div', { ref: terminalRef });
+      };
+
+      render(React.createElement(TestWrapper));
+
+      // Test CTRL+V
+      await act(async () => {
+        const event = new KeyboardEvent('keydown', {
+          key: 'v',
+          ctrlKey: true,
+          shiftKey: false
+        });
+
+        if (keyEventHandler) {
+          keyEventHandler(event);
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      });
+
+      expect(mockPaste).toHaveBeenCalledTimes(1);
+
+      // Test CTRL+SHIFT+V (Linux-specific)
+      await act(async () => {
+        const event = new KeyboardEvent('keydown', {
+          key: 'V',
+          ctrlKey: true,
+          shiftKey: true
+        });
+
+        if (keyEventHandler) {
+          keyEventHandler(event);
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      });
+
+      expect(mockPaste).toHaveBeenCalledTimes(2);
     });
 
-    it('should detect macOS platform correctly', () => {
-      const { result } = renderHook(() =>
-        useXterm({ terminalId: 'test-terminal' })
-      );
+    it('should enable copy shortcuts on Linux (both CTRL+C and CTRL+SHIFT+C)', async () => {
+      let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
+      const mockHasSelection = vi.fn(() => true);
+      const mockGetSelection = vi.fn(() => 'selected text');
 
-      expect(result.current).toBeDefined();
+      // Mock Linux platform
+      Object.defineProperty(navigator, 'platform', {
+        value: 'Linux',
+        writable: true
+      });
+
+      (XTerm as unknown as Mock).mockImplementation(function() {
+        return {
+          open: vi.fn(),
+          loadAddon: vi.fn(),
+          attachCustomKeyEventHandler: vi.fn((handler: (event: KeyboardEvent) => boolean) => {
+            keyEventHandler = handler;
+          }),
+          hasSelection: mockHasSelection,
+          getSelection: mockGetSelection,
+          paste: vi.fn(),
+          input: vi.fn(),
+          onData: vi.fn(),
+          onResize: vi.fn(),
+          dispose: vi.fn(),
+          cols: 80,
+          rows: 24
+        };
+      });
+
+      const { FitAddon } = await import('@xterm/addon-fit');
+      (FitAddon as unknown as Mock).mockImplementation(function() {
+        return { fit: vi.fn() };
+      });
+
+      const { WebLinksAddon } = await import('@xterm/addon-web-links');
+      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+        return {};
+      });
+
+      const { SerializeAddon } = await import('@xterm/addon-serialize');
+      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+        return {
+          serialize: vi.fn(() => ''),
+          dispose: vi.fn()
+        };
+      });
+
+      global.ResizeObserver = vi.fn().mockImplementation(function() {
+        return {
+          observe: vi.fn(),
+          unobserve: vi.fn(),
+          disconnect: vi.fn()
+        };
+      });
+
+      const TestWrapper = () => {
+        const { terminalRef } = useXterm({ terminalId: 'test-terminal' });
+        return React.createElement('div', { ref: terminalRef });
+      };
+
+      render(React.createElement(TestWrapper));
+
+      // Test CTRL+C (should copy)
+      await act(async () => {
+        const event = new KeyboardEvent('keydown', {
+          key: 'c',
+          ctrlKey: true,
+          shiftKey: false
+        });
+
+        if (keyEventHandler) {
+          keyEventHandler(event);
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      });
+
+      expect(mockClipboard.writeText).toHaveBeenCalledTimes(1);
+
+      // Test CTRL+SHIFT+C (Linux-specific, should also copy)
+      await act(async () => {
+        const event = new KeyboardEvent('keydown', {
+          key: 'C',
+          ctrlKey: true,
+          shiftKey: true
+        });
+
+        if (keyEventHandler) {
+          keyEventHandler(event);
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      });
+
+      expect(mockClipboard.writeText).toHaveBeenCalledTimes(2);
+    });
+
+    it('should NOT enable custom paste handler on macOS (uses system Cmd+V)', async () => {
+      let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
+      const mockPaste = vi.fn();
+
+      // Mock macOS platform
+      Object.defineProperty(navigator, 'platform', {
+        value: 'MacIntel',
+        writable: true
+      });
+
+      (XTerm as unknown as Mock).mockImplementation(function() {
+        return {
+          open: vi.fn(),
+          loadAddon: vi.fn(),
+          attachCustomKeyEventHandler: vi.fn((handler: (event: KeyboardEvent) => boolean) => {
+            keyEventHandler = handler;
+          }),
+          hasSelection: vi.fn(),
+          getSelection: vi.fn(),
+          paste: mockPaste,
+          input: vi.fn(),
+          onData: vi.fn(),
+          onResize: vi.fn(),
+          dispose: vi.fn(),
+          cols: 80,
+          rows: 24
+        };
+      });
+
+      const { FitAddon } = await import('@xterm/addon-fit');
+      (FitAddon as unknown as Mock).mockImplementation(function() {
+        return { fit: vi.fn() };
+      });
+
+      const { WebLinksAddon } = await import('@xterm/addon-web-links');
+      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+        return {};
+      });
+
+      const { SerializeAddon } = await import('@xterm/addon-serialize');
+      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+        return {
+          serialize: vi.fn(() => ''),
+          dispose: vi.fn()
+        };
+      });
+
+      global.ResizeObserver = vi.fn().mockImplementation(function() {
+        return {
+          observe: vi.fn(),
+          unobserve: vi.fn(),
+          disconnect: vi.fn()
+        };
+      });
+
+      const TestWrapper = () => {
+        const { terminalRef } = useXterm({ terminalId: 'test-terminal' });
+        return React.createElement('div', { ref: terminalRef });
+      };
+
+      render(React.createElement(TestWrapper));
+
+      await act(async () => {
+        const event = new KeyboardEvent('keydown', {
+          key: 'v',
+          ctrlKey: true,
+          shiftKey: false
+        });
+
+        if (keyEventHandler) {
+          keyEventHandler(event);
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      });
+
+      // macOS should NOT use custom CTRL+V handler (uses system Cmd+V instead)
+      expect(mockPaste).not.toHaveBeenCalled();
     });
   });
 

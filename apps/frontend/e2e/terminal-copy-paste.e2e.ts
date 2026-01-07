@@ -107,331 +107,232 @@ test.describe('Terminal Copy/Paste Flows', () => {
     test.skip(!isAppReady, 'App not ready');
     test.skip(!shouldRunForPlatform('all'), 'Test not applicable to this platform');
 
-    try {
-      // Navigate to a page with terminal (or wait for it to load)
-      await window.waitForTimeout(2000);
+    // Look for terminal element - skip if not found
+    const terminalSelector = '.xterm';
+    const terminalExists = await window.locator(terminalSelector).count() > 0;
+    test.skip(!terminalExists, 'Terminal element not found');
 
-      // Look for terminal element
-      const terminalSelector = '.xterm';
-      const terminalExists = await window.locator(terminalSelector).count() > 0;
+    // Run a command to produce output
+    const terminal = window.locator(terminalSelector).first();
+    await terminal.click();
 
-      if (!terminalExists) {
-        test.skip(true, 'Terminal element not found - skipping test');
-        return;
-      }
+    // Type echo command and press enter
+    await window.keyboard.type('echo "test output for copy"');
+    await window.keyboard.press('Enter');
 
-      // Run a command to produce output
-      const terminal = window.locator(terminalSelector).first();
-      await terminal.click();
+    // Wait for output to appear in terminal
+    await expect(terminal).toContainText('test output for copy', { timeout: 5000 });
 
-      // Type echo command and press enter
-      await window.keyboard.type('echo "test output for copy"');
-      await window.keyboard.press('Enter');
+    // Select text (triple click to select line)
+    await terminal.click({ clickCount: 3 });
 
-      // Wait for output
-      await window.waitForTimeout(1000);
+    // Wait for selection to be active
+    await window.waitForTimeout(100);
 
-      // Select text (triple click to select line)
-      await terminal.click({ clickCount: 3 });
+    // Press copy shortcut (Cmd+C on Mac, Ctrl+C on Windows/Linux)
+    const copyKey = getCopyShortcutKey();
+    await window.keyboard.press(`${copyKey}+c`);
 
-      // Wait for selection
-      await window.waitForTimeout(500);
+    // Wait briefly for clipboard operation
+    await window.waitForTimeout(100);
 
-      // Press copy shortcut (Cmd+C on Mac, Ctrl+C on Windows/Linux)
-      const copyKey = getCopyShortcutKey();
-      await window.keyboard.press(`${copyKey}+c`);
+    // Verify clipboard contains selected text
+    const clipboardText = await window.evaluate(async () => {
+      return await navigator.clipboard.readText();
+    });
 
-      // Wait for copy operation
-      await window.waitForTimeout(500);
-
-      // Verify clipboard contains selected text
-      const clipboardText = await window.evaluate(async () => {
-        return await navigator.clipboard.readText();
-      });
-
-      expect(clipboardText).toContain('test output for copy');
-
-    } catch (error) {
-      console.error('Copy test error:', error);
-      test.skip(true, `Test failed with error: ${error}`);
-    }
+    expect(clipboardText).toContain('test output for copy');
   });
 
   test('should send interrupt signal when no text selected', async () => {
     test.skip(!isAppReady, 'App not ready');
     test.skip(!shouldRunForPlatform('all'), 'Test not applicable to this platform');
 
-    try {
-      await window.waitForTimeout(2000);
+    const terminalSelector = '.xterm';
+    const terminalExists = await window.locator(terminalSelector).count() > 0;
+    test.skip(!terminalExists, 'Terminal element not found');
 
-      const terminalSelector = '.xterm';
-      const terminalExists = await window.locator(terminalSelector).count() > 0;
+    const terminal = window.locator(terminalSelector).first();
+    await terminal.click();
 
-      if (!terminalExists) {
-        test.skip(true, 'Terminal element not found - skipping test');
-        return;
-      }
+    // Start a long-running process (sleep on Linux/Mac, timeout on Windows)
+    const sleepCommand = isWindows ? 'timeout 10' : 'sleep 10';
+    await window.keyboard.type(sleepCommand);
+    await window.keyboard.press('Enter');
 
-      const terminal = window.locator(terminalSelector).first();
-      await terminal.click();
+    // Wait for process to start
+    await window.waitForTimeout(500);
 
-      // Start a long-running process (sleep on Linux/Mac, timeout on Windows)
-      const sleepCommand = isWindows ? 'timeout 10' : 'sleep 10';
-      await window.keyboard.type(sleepCommand);
-      await window.keyboard.press('Enter');
+    // Press Ctrl+C without selection (should send interrupt)
+    await window.keyboard.press('Control+c');
 
-      // Wait for process to start
-      await window.waitForTimeout(1000);
-
-      // Press Ctrl+C without selection (should send interrupt)
-      await window.keyboard.press('Control+c');
-
-      // Wait for interrupt to be processed
-      await window.waitForTimeout(1000);
-
-      // Verify process was interrupted (should see interrupt marker or new prompt)
-      // The terminal should show ^C or a new shell prompt ($, #, or >)
-      const terminalText = await terminal.textContent();
-      expect(terminalText).toMatch(/\^C|[$#>]\s*$/);
-
-    } catch (error) {
-      console.error('Interrupt signal test error:', error);
-      test.skip(true, `Test failed with error: ${error}`);
-    }
+    // Wait for interrupt to be processed - look for ^C or new prompt
+    await expect(terminal).toMatch(/\^C|[$#>]/, { timeout: 3000 });
   });
 
   test('should paste clipboard text into terminal', async () => {
     test.skip(!isAppReady, 'App not ready');
     test.skip(!shouldRunForPlatform('all'), 'Test not applicable to this platform');
 
-    try {
-      await window.waitForTimeout(2000);
+    const terminalSelector = '.xterm';
+    const terminalExists = await window.locator(terminalSelector).count() > 0;
+    test.skip(!terminalExists, 'Terminal element not found');
 
-      const terminalSelector = '.xterm';
-      const terminalExists = await window.locator(terminalSelector).count() > 0;
+    // Set clipboard content
+    const testText = 'hello world from clipboard';
+    await window.evaluate(async (text) => {
+      await navigator.clipboard.writeText(text);
+    }, testText);
 
-      if (!terminalExists) {
-        test.skip(true, 'Terminal element not found - skipping test');
-        return;
-      }
+    const terminal = window.locator(terminalSelector).first();
+    await terminal.click();
 
-      // Set clipboard content
-      const testText = 'hello world from clipboard';
-      await window.evaluate(async (text) => {
-        await navigator.clipboard.writeText(text);
-      }, testText);
+    // Press paste shortcut
+    const pasteKey = isMac ? 'Meta' : 'Control';
+    await window.keyboard.press(`${pasteKey}+v`);
 
-      const terminal = window.locator(terminalSelector).first();
-      await terminal.click();
+    // Wait briefly for paste to complete
+    await window.waitForTimeout(100);
 
-      // Press paste shortcut
-      const pasteKey = isMac ? 'Meta' : 'Control';
-      await window.keyboard.press(`${pasteKey}+v`);
+    // Press Enter to execute the pasted command
+    await window.keyboard.press('Enter');
 
-      // Wait for paste
-      await window.waitForTimeout(500);
-
-      // Press Enter to execute the pasted command
-      await window.keyboard.press('Enter');
-
-      // Wait for output
-      await window.waitForTimeout(1000);
-
-      // Verify text was pasted (terminal should show the pasted text)
-      const terminalText = await terminal.textContent();
-      expect(terminalText).toContain(testText);
-
-    } catch (error) {
-      console.error('Paste test error:', error);
-      test.skip(true, `Test failed with error: ${error}`);
-    }
+    // Verify text was pasted (terminal should show the pasted text or output)
+    await expect(terminal).toContainText(testText, { timeout: 5000 });
   });
 
   test('should handle Linux CTRL+SHIFT+C copy shortcut', async () => {
     test.skip(!isAppReady, 'App not ready');
     test.skip(!shouldRunForPlatform('linux'), 'Linux-specific test');
 
-    try {
-      await window.waitForTimeout(2000);
+    const terminalSelector = '.xterm';
+    const terminalExists = await window.locator(terminalSelector).count() > 0;
+    test.skip(!terminalExists, 'Terminal element not found');
 
-      const terminalSelector = '.xterm';
-      const terminalExists = await window.locator(terminalSelector).count() > 0;
+    const terminal = window.locator(terminalSelector).first();
+    await terminal.click();
 
-      if (!terminalExists) {
-        test.skip(true, 'Terminal element not found - skipping test');
-        return;
-      }
+    // Type command to generate output
+    await window.keyboard.type('echo "linux copy test"');
+    await window.keyboard.press('Enter');
 
-      const terminal = window.locator(terminalSelector).first();
-      await terminal.click();
+    // Wait for output
+    await expect(terminal).toContainText('linux copy test', { timeout: 5000 });
 
-      // Type command to generate output
-      await window.keyboard.type('echo "linux copy test"');
-      await window.keyboard.press('Enter');
+    // Select text
+    await terminal.click({ clickCount: 3 });
+    await window.waitForTimeout(100);
 
-      await window.waitForTimeout(1000);
+    // Press CTRL+SHIFT+C (Linux copy shortcut)
+    await window.keyboard.down('Control');
+    await window.keyboard.down('Shift');
+    await window.keyboard.press('c');
+    await window.keyboard.up('Shift');
+    await window.keyboard.up('Control');
 
-      // Select text
-      await terminal.click({ clickCount: 3 });
-      await window.waitForTimeout(500);
+    // Wait briefly for clipboard operation
+    await window.waitForTimeout(100);
 
-      // Press CTRL+SHIFT+C (Linux copy shortcut)
-      await window.keyboard.down('Control');
-      await window.keyboard.down('Shift');
-      await window.keyboard.press('c');
-      await window.keyboard.up('Shift');
-      await window.keyboard.up('Control');
+    // Verify clipboard contains selected text
+    const clipboardText = await window.evaluate(async () => {
+      return await navigator.clipboard.readText();
+    });
 
-      await window.waitForTimeout(500);
-
-      // Verify clipboard contains selected text
-      const clipboardText = await window.evaluate(async () => {
-        return await navigator.clipboard.readText();
-      });
-
-      expect(clipboardText).toContain('linux copy test');
-
-    } catch (error) {
-      console.error('Linux copy shortcut test error:', error);
-      test.skip(true, `Test failed with error: ${error}`);
-    }
+    expect(clipboardText).toContain('linux copy test');
   });
 
   test('should handle Linux CTRL+SHIFT+V paste shortcut', async () => {
     test.skip(!isAppReady, 'App not ready');
     test.skip(!shouldRunForPlatform('linux'), 'Linux-specific test');
 
-    try {
-      await window.waitForTimeout(2000);
+    const terminalSelector = '.xterm';
+    const terminalExists = await window.locator(terminalSelector).count() > 0;
+    test.skip(!terminalExists, 'Terminal element not found');
 
-      const terminalSelector = '.xterm';
-      const terminalExists = await window.locator(terminalSelector).count() > 0;
+    // Set clipboard content
+    const testText = 'pasted via ctrl+shift+v';
+    await window.evaluate(async (text) => {
+      await navigator.clipboard.writeText(text);
+    }, testText);
 
-      if (!terminalExists) {
-        test.skip(true, 'Terminal element not found - skipping test');
-        return;
-      }
+    const terminal = window.locator(terminalSelector).first();
+    await terminal.click();
 
-      // Set clipboard content
-      const testText = 'pasted via ctrl+shift+v';
-      await window.evaluate(async (text) => {
-        await navigator.clipboard.writeText(text);
-      }, testText);
+    // Press CTRL+SHIFT+V (Linux paste shortcut)
+    await window.keyboard.down('Control');
+    await window.keyboard.down('Shift');
+    await window.keyboard.press('v');
+    await window.keyboard.up('Shift');
+    await window.keyboard.up('Control');
 
-      const terminal = window.locator(terminalSelector).first();
-      await terminal.click();
+    // Wait briefly for paste to complete
+    await window.waitForTimeout(100);
 
-      // Press CTRL+SHIFT+V (Linux paste shortcut)
-      await window.keyboard.down('Control');
-      await window.keyboard.down('Shift');
-      await window.keyboard.press('v');
-      await window.keyboard.up('Shift');
-      await window.keyboard.up('Control');
+    // Press Enter to execute
+    await window.keyboard.press('Enter');
 
-      await window.waitForTimeout(500);
-
-      // Press Enter to execute
-      await window.keyboard.press('Enter');
-
-      await window.waitForTimeout(1000);
-
-      // Verify text was pasted
-      const terminalText = await terminal.textContent();
-      expect(terminalText).toContain(testText);
-
-    } catch (error) {
-      console.error('Linux paste shortcut test error:', error);
-      test.skip(true, `Test failed with error: ${error}`);
-    }
+    // Verify text was pasted
+    await expect(terminal).toContainText(testText, { timeout: 5000 });
   });
 
   test('should verify existing shortcuts still work', async () => {
     test.skip(!isAppReady, 'App not ready');
     test.skip(!shouldRunForPlatform('all'), 'Test not applicable to this platform');
 
-    try {
-      await window.waitForTimeout(2000);
+    const terminalSelector = '.xterm';
+    const terminalExists = await window.locator(terminalSelector).count() > 0;
+    test.skip(!terminalExists, 'Terminal element not found');
 
-      const terminalSelector = '.xterm';
-      const terminalExists = await window.locator(terminalSelector).count() > 0;
+    const terminal = window.locator(terminalSelector).first();
+    await terminal.click();
 
-      if (!terminalExists) {
-        test.skip(true, 'Terminal element not found - skipping test');
-        return;
-      }
+    // Test SHIFT+Enter (multi-line input)
+    await window.keyboard.type('echo "line 1"');
+    await window.keyboard.down('Shift');
+    await window.keyboard.press('Enter');
+    await window.keyboard.up('Shift');
+    await window.keyboard.type('echo "line 2"');
+    await window.keyboard.press('Enter');
 
-      const terminal = window.locator(terminalSelector).first();
-      await terminal.click();
-
-      // Test SHIFT+Enter (multi-line input)
-      await window.keyboard.type('echo "line 1"');
-      await window.keyboard.down('Shift');
-      await window.keyboard.press('Enter');
-      await window.keyboard.up('Shift');
-      await window.keyboard.type('echo "line 2"');
-      await window.keyboard.press('Enter');
-
-      await window.waitForTimeout(1000);
-
-      // Verify multi-line input worked (both commands should execute)
-      const terminalText = await terminal.textContent();
-      expect(terminalText).toContain('line 1');
-      expect(terminalText).toContain('line 2');
-
-    } catch (error) {
-      console.error('Existing shortcuts test error:', error);
-      test.skip(true, `Test failed with error: ${error}`);
-    }
+    // Verify multi-line input worked (both commands should execute)
+    await expect(terminal).toContainText('line 1', { timeout: 5000 });
+    await expect(terminal).toContainText('line 2', { timeout: 5000 });
   });
 
   test('should handle clipboard errors gracefully', async () => {
     test.skip(!isAppReady, 'App not ready');
     test.skip(!shouldRunForPlatform('all'), 'Test not applicable to this platform');
 
-    try {
-      await window.waitForTimeout(2000);
+    const terminalSelector = '.xterm';
+    const terminalExists = await window.locator(terminalSelector).count() > 0;
+    test.skip(!terminalExists, 'Terminal element not found');
 
-      const terminalSelector = '.xterm';
-      const terminalExists = await window.locator(terminalSelector).count() > 0;
-
-      if (!terminalExists) {
-        test.skip(true, 'Terminal element not found - skipping test');
-        return;
+    // Mock clipboard permission denial by clearing clipboard
+    await window.evaluate(async () => {
+      // Try to read clipboard (may fail if permission denied)
+      try {
+        await navigator.clipboard.readText();
+      } catch (_error) {
+        // Expected - clipboard may not be accessible in test environment
+        console.warn('Clipboard not accessible (expected in some environments)');
       }
+    });
 
-      // Mock clipboard permission denial by clearing clipboard
-      await window.evaluate(async () => {
-        // Try to read clipboard (may fail if permission denied)
-        try {
-          await navigator.clipboard.readText();
-        } catch (_error) {
-          // Expected - clipboard may not be accessible in test environment
-          console.warn('Clipboard not accessible (expected in some environments)');
-        }
-      });
+    const terminal = window.locator(terminalSelector).first();
+    await terminal.click();
 
-      const terminal = window.locator(terminalSelector).first();
-      await terminal.click();
+    // Try to paste even if clipboard is not accessible
+    const pasteKey = isMac ? 'Meta' : 'Control';
+    await window.keyboard.press(`${pasteKey}+v`);
 
-      // Try to paste even if clipboard is not accessible
-      const pasteKey = isMac ? 'Meta' : 'Control';
-      await window.keyboard.press(`${pasteKey}+v`);
+    // Wait briefly to ensure terminal remains stable
+    await window.waitForTimeout(100);
 
-      // Terminal should still be functional after clipboard error
-      await window.waitForTimeout(500);
+    // Try typing to verify terminal still works
+    await window.keyboard.type('echo "terminal still works"');
+    await window.keyboard.press('Enter');
 
-      // Try typing to verify terminal still works
-      await window.keyboard.type('echo "terminal still works"');
-      await window.keyboard.press('Enter');
-
-      await window.waitForTimeout(1000);
-
-      const terminalText = await terminal.textContent();
-      expect(terminalText).toContain('terminal still works');
-
-    } catch (error) {
-      console.error('Clipboard error handling test error:', error);
-      test.skip(true, `Test failed with error: ${error}`);
-    }
+    // Verify terminal still functions after clipboard error
+    await expect(terminal).toContainText('terminal still works', { timeout: 5000 });
   });
 });
