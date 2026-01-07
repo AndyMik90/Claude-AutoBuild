@@ -556,10 +556,11 @@ def create_client(
     resolved_project_path = project_dir.resolve()
 
     # Check for worktree paths and extract original project directory
-    # This handles both new (.auto-claude/worktrees/tasks/) and legacy (.worktrees/) paths
+    # This handles spec worktrees, PR review worktrees, and legacy worktrees
     # Note: Windows paths are normalized to forward slashes before comparison
     worktree_markers = [
-        "/.auto-claude/worktrees/tasks/",  # New worktree location
+        "/.auto-claude/worktrees/tasks/",  # Spec/task worktrees
+        "/.auto-claude/github/pr/worktrees/",  # PR review worktrees
         "/.worktrees/",  # Legacy worktree location
     ]
     project_path_posix = str(resolved_project_path).replace("\\", "/")
