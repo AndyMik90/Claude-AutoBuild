@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from core.git_executable import run_git
+
 
 class WorktreeError(Exception):
     """Error during worktree operations."""
@@ -77,13 +79,9 @@ class WorktreeManager:
         env_branch = os.getenv("DEFAULT_BRANCH")
         if env_branch:
             # Verify the branch exists
-            result = subprocess.run(
-                ["git", "rev-parse", "--verify", env_branch],
+            result = run_git(
+                ["rev-parse", "--verify", env_branch],
                 cwd=self.project_dir,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
             )
             if result.returncode == 0:
                 return env_branch
@@ -94,13 +92,9 @@ class WorktreeManager:
 
         # 2. Auto-detect main/master
         for branch in ["main", "master"]:
-            result = subprocess.run(
-                ["git", "rev-parse", "--verify", branch],
+            result = run_git(
+                ["rev-parse", "--verify", branch],
                 cwd=self.project_dir,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
             )
             if result.returncode == 0:
                 return branch
@@ -114,13 +108,9 @@ class WorktreeManager:
 
     def _get_current_branch(self) -> str:
         """Get the current git branch."""
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        result = run_git(
+            ["rev-parse", "--abbrev-ref", "HEAD"],
             cwd=self.project_dir,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
         )
         if result.returncode != 0:
             raise WorktreeError(f"Failed to get current branch: {result.stderr}")
@@ -140,24 +130,7 @@ class WorktreeManager:
             CompletedProcess with command results. On timeout, returns a
             CompletedProcess with returncode=-1 and timeout error in stderr.
         """
-        try:
-            return subprocess.run(
-                ["git"] + args,
-                cwd=cwd or self.project_dir,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout,
-            )
-        except subprocess.TimeoutExpired:
-            # Return a failed result on timeout instead of raising
-            return subprocess.CompletedProcess(
-                args=["git"] + args,
-                returncode=-1,
-                stdout="",
-                stderr=f"Command timed out after {timeout} seconds",
-            )
+        return run_git(args, cwd=cwd or self.project_dir, timeout=timeout)
 
     def _unstage_gitignored_files(self) -> None:
         """
@@ -180,14 +153,10 @@ class WorktreeManager:
 
         # 1. Check which staged files are gitignored
         # git check-ignore returns the files that ARE ignored
-        result = subprocess.run(
-            ["git", "check-ignore", "--stdin"],
+        result = run_git(
+            ["check-ignore", "--stdin"],
             cwd=self.project_dir,
-            input="\n".join(staged_files),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
+            input_data="\n".join(staged_files),
         )
 
         if result.stdout.strip():
@@ -202,8 +171,10 @@ class WorktreeManager:
             file = file.strip()
             if not file:
                 continue
+            # Normalize path separators for cross-platform (Windows backslash support)
+            normalized = file.replace("\\", "/")
             for pattern in auto_claude_patterns:
-                if file.startswith(pattern) or f"/{pattern}" in file:
+                if normalized.startswith(pattern) or f"/{pattern}" in normalized:
                     files_to_unstage.add(file)
                     break
 

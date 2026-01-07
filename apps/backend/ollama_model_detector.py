@@ -16,12 +16,17 @@ Output:
 
 import argparse
 import json
+import re
 import sys
 import urllib.error
 import urllib.request
 from typing import Any
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
+
+# Minimum Ollama version required for newer embedding models (qwen3-embedding, etc.)
+# These models were added in Ollama 0.10.0
+MIN_OLLAMA_VERSION_FOR_NEW_MODELS = "0.10.0"
 
 # Known embedding models and their dimensions
 # This list helps identify embedding models from the model name
@@ -31,10 +36,26 @@ KNOWN_EMBEDDING_MODELS = {
         "dim": 768,
         "description": "Google EmbeddingGemma (lightweight)",
     },
-    "qwen3-embedding": {"dim": 1024, "description": "Qwen3 Embedding (0.6B)"},
-    "qwen3-embedding:0.6b": {"dim": 1024, "description": "Qwen3 Embedding 0.6B"},
-    "qwen3-embedding:4b": {"dim": 2560, "description": "Qwen3 Embedding 4B"},
-    "qwen3-embedding:8b": {"dim": 4096, "description": "Qwen3 Embedding 8B"},
+    "qwen3-embedding": {
+        "dim": 1024,
+        "description": "Qwen3 Embedding (0.6B)",
+        "min_version": "0.10.0",
+    },
+    "qwen3-embedding:0.6b": {
+        "dim": 1024,
+        "description": "Qwen3 Embedding 0.6B",
+        "min_version": "0.10.0",
+    },
+    "qwen3-embedding:4b": {
+        "dim": 2560,
+        "description": "Qwen3 Embedding 4B",
+        "min_version": "0.10.0",
+    },
+    "qwen3-embedding:8b": {
+        "dim": 4096,
+        "description": "Qwen3 Embedding 8B",
+        "min_version": "0.10.0",
+    },
     "bge-base-en": {"dim": 768, "description": "BAAI General Embedding - Base"},
     "bge-large-en": {"dim": 1024, "description": "BAAI General Embedding - Large"},
     "bge-small-en": {"dim": 384, "description": "BAAI General Embedding - Small"},
@@ -63,6 +84,7 @@ RECOMMENDED_EMBEDDING_MODELS = [
         "size_estimate": "3.1 GB",
         "dim": 2560,
         "badge": "recommended",
+        "min_ollama_version": "0.10.0",
     },
     {
         "name": "qwen3-embedding:8b",
@@ -70,6 +92,7 @@ RECOMMENDED_EMBEDDING_MODELS = [
         "size_estimate": "6.0 GB",
         "dim": 4096,
         "badge": "quality",
+        "min_ollama_version": "0.10.0",
     },
     {
         "name": "qwen3-embedding:0.6b",
@@ -77,6 +100,7 @@ RECOMMENDED_EMBEDDING_MODELS = [
         "size_estimate": "494 MB",
         "dim": 1024,
         "badge": "fast",
+        "min_ollama_version": "0.10.0",
     },
     {
         "name": "embeddinggemma",
@@ -112,6 +136,22 @@ EMBEDDING_PATTERNS = [
 ]
 
 
+def parse_version(version_str: str | None) -> tuple[int, ...]:
+    """Parse a version string like '0.10.0' into a tuple for comparison."""
+    if not version_str or not isinstance(version_str, str):
+        return (0, 0, 0)
+    # Extract just the numeric parts (handles versions like "0.10.0-rc1")
+    match = re.match(r"(\d+)\.(\d+)\.(\d+)", version_str)
+    if match:
+        return tuple(int(x) for x in match.groups())
+    return (0, 0, 0)
+
+
+def version_gte(version: str | None, min_version: str | None) -> bool:
+    """Check if version >= min_version."""
+    return parse_version(version) >= parse_version(min_version)
+
+
 def output_json(success: bool, data: Any = None, error: str | None = None) -> None:
     """Output JSON result to stdout and exit."""
     result = {"success": success}
@@ -143,6 +183,14 @@ def fetch_ollama_api(base_url: str, endpoint: str, timeout: int = 5) -> dict | N
         return None
     except Exception:
         return None
+
+
+def get_ollama_version(base_url: str) -> str | None:
+    """Get the Ollama server version."""
+    result = fetch_ollama_api(base_url, "api/version")
+    if result:
+        return result.get("version")
+    return None
 
 
 def is_embedding_model(model_name: str) -> bool:
@@ -192,6 +240,19 @@ def get_embedding_description(model_name: str) -> str:
     return "Embedding model"
 
 
+def get_model_min_version(model_name: str) -> str | None:
+    """Get the minimum Ollama version required for a model."""
+    name_lower = model_name.lower()
+
+    # Sort keys by length descending to match more specific names first
+    # e.g., "qwen3-embedding:8b" before "qwen3-embedding"
+    for known_model in sorted(KNOWN_EMBEDDING_MODELS.keys(), key=len, reverse=True):
+        if known_model in name_lower:
+            return KNOWN_EMBEDDING_MODELS[known_model].get("min_version")
+
+    return None
+
+
 def cmd_check_status(args) -> None:
     """Check if Ollama is running and accessible."""
     base_url = args.base_url or DEFAULT_OLLAMA_URL
@@ -200,12 +261,18 @@ def cmd_check_status(args) -> None:
     result = fetch_ollama_api(base_url, "api/version")
 
     if result:
+        version = result.get("version", "unknown")
         output_json(
             True,
             data={
                 "running": True,
                 "url": base_url,
-                "version": result.get("version", "unknown"),
+                "version": version,
+                "supports_new_models": version_gte(
+                    version, MIN_OLLAMA_VERSION_FOR_NEW_MODELS
+                )
+                if version != "unknown"
+                else None,
             },
         )
     else:
@@ -319,6 +386,9 @@ def cmd_get_recommended_models(args) -> None:
     """Get recommended embedding models with install status."""
     base_url = args.base_url or DEFAULT_OLLAMA_URL
 
+    # Get Ollama version for compatibility checking
+    ollama_version = get_ollama_version(base_url)
+
     # Get currently installed models
     result = fetch_ollama_api(base_url, "api/tags")
     installed_names = set()
@@ -330,17 +400,30 @@ def cmd_get_recommended_models(args) -> None:
             installed_names.add(name)
             installed_names.add(base_name)
 
-    # Build recommended list with install status
+    # Build recommended list with install status and compatibility
     recommended = []
     for model in RECOMMENDED_EMBEDDING_MODELS:
         name = model["name"]
         base_name = name.split(":")[0] if ":" in name else name
         is_installed = name in installed_names or base_name in installed_names
 
+        # Check version compatibility
+        min_version = model.get("min_ollama_version")
+        is_compatible = True
+        compatibility_note = None
+        if min_version and ollama_version:
+            is_compatible = version_gte(ollama_version, min_version)
+            if not is_compatible:
+                compatibility_note = f"Requires Ollama {min_version}+"
+        elif min_version and not ollama_version:
+            compatibility_note = "Version compatibility could not be verified"
+
         recommended.append(
             {
                 **model,
                 "installed": is_installed,
+                "compatible": is_compatible,
+                "compatibility_note": compatibility_note,
             }
         )
 
@@ -350,6 +433,7 @@ def cmd_get_recommended_models(args) -> None:
             "recommended": recommended,
             "count": len(recommended),
             "url": base_url,
+            "ollama_version": ollama_version,
         },
     )
 
@@ -363,6 +447,19 @@ def cmd_pull_model(args) -> None:
         output_error("Model name is required")
         return
 
+    # Check Ollama version compatibility before attempting pull
+    ollama_version = get_ollama_version(base_url)
+    min_version = get_model_min_version(model_name)
+
+    if min_version and ollama_version:
+        if not version_gte(ollama_version, min_version):
+            output_error(
+                f"Model '{model_name}' requires Ollama {min_version} or newer. "
+                f"Your version is {ollama_version}. "
+                f"Please upgrade Ollama: https://ollama.com/download"
+            )
+            return
+
     try:
         url = f"{base_url.rstrip('/')}/api/pull"
         data = json.dumps({"name": model_name}).encode("utf-8")
@@ -375,6 +472,22 @@ def cmd_pull_model(args) -> None:
             for line in response:
                 try:
                     progress = json.loads(line.decode("utf-8"))
+
+                    # Check for error in the streaming response
+                    # This handles cases like "requires newer version of Ollama"
+                    if "error" in progress:
+                        error_msg = progress["error"]
+                        # Clean up the error message (remove extra whitespace/newlines)
+                        error_msg = " ".join(error_msg.split())
+                        # Check if it's a version-related error
+                        if "newer version" in error_msg.lower():
+                            error_msg = (
+                                f"Model '{model_name}' requires a newer version of Ollama. "
+                                f"Your version: {ollama_version or 'unknown'}. "
+                                f"Please upgrade: https://ollama.com/download"
+                            )
+                        output_error(error_msg)
+                        return
 
                     # Emit progress as NDJSON to stderr for main process to parse
                     if "completed" in progress and "total" in progress:
