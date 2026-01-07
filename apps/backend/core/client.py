@@ -16,6 +16,7 @@ import copy
 import json
 import logging
 import os
+import platform
 import threading
 import time
 from pathlib import Path
@@ -488,6 +489,12 @@ def create_client(
     # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, etc.)
     sdk_env = get_sdk_env_vars()
 
+    # Debug: Log git-bash path detection on Windows
+    if "CLAUDE_CODE_GIT_BASH_PATH" in sdk_env:
+        logger.info(f"Git Bash path found: {sdk_env['CLAUDE_CODE_GIT_BASH_PATH']}")
+    elif platform.system() == "Windows":
+        logger.warning("Git Bash path not detected on Windows!")
+
     # Check if Linear integration is enabled
     linear_enabled = is_linear_enabled()
     linear_api_key = os.environ.get("LINEAR_API_KEY", "")
@@ -742,6 +749,9 @@ def create_client(
         "settings": str(settings_file.resolve()),
         "env": sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess
         "max_thinking_tokens": max_thinking_tokens,  # Extended thinking budget
+        # Enable file checkpointing to track file read/write state across tool calls
+        # This prevents "File has not been read yet" errors in recovery sessions
+        "enable_file_checkpointing": True,
     }
 
     # Add structured output format if specified

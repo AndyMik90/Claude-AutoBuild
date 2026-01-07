@@ -289,7 +289,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             variant={task.status === 'done' ? 'success' : task.status === 'human_review' ? 'purple' : task.status === 'in_progress' ? 'info' : 'secondary'}
                             className={cn('text-xs', (task.status === 'in_progress' && !state.isStuck) && 'status-running')}
                           >
-                            {TASK_STATUS_LABELS[task.status]}
+                            {t(TASK_STATUS_LABELS[task.status])}
                           </Badge>
                           {task.status === 'human_review' && task.reviewReason && (
                             <Badge
@@ -393,7 +393,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 {/* Overview Tab */}
                 <TabsContent value="overview" className="flex-1 min-h-0 overflow-hidden mt-0">
                   <ScrollArea className="h-full">
-                    <div className="p-5 space-y-5">
+                    <div className="p-5 space-y-5 overflow-x-hidden max-w-full">
                       {/* Metadata */}
                       <TaskMetadata task={task} />
 

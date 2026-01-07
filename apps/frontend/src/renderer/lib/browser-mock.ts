@@ -197,6 +197,7 @@ const browserMockAPI: ElectronAPI = {
     onAutoFixComplete: () => () => {},
     onAutoFixError: () => () => {},
     listPRs: async () => [],
+    getPR: async () => null,
     runPRReview: () => {},
     cancelPRReview: async () => true,
     postPRReview: async () => true,
@@ -204,10 +205,14 @@ const browserMockAPI: ElectronAPI = {
     mergePR: async () => true,
     assignPR: async () => true,
     getPRReview: async () => null,
+    getPRReviewsBatch: async () => ({}),
     deletePRReview: async () => true,
     checkNewCommits: async () => ({ hasNewCommits: false, newCommitCount: 0 }),
+    checkMergeReadiness: async () => ({ isDraft: false, mergeable: 'UNKNOWN' as const, ciStatus: 'none' as const, blockers: [] }),
     runFollowupReview: () => {},
     getPRLogs: async () => null,
+    getWorkflowsAwaitingApproval: async () => ({ awaiting_approval: 0, workflow_runs: [], can_approve: false }),
+    approveWorkflow: async () => true,
     onPRReviewProgress: () => () => {},
     onPRReviewComplete: () => () => {},
     onPRReviewError: () => () => {},
@@ -244,6 +249,20 @@ const browserMockAPI: ElectronAPI = {
   installClaudeCode: async () => ({
     success: true,
     data: { command: 'npm install -g @anthropic-ai/claude-code' }
+  }),
+
+  // Terminal Worktree Operations
+  createTerminalWorktree: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+  listTerminalWorktrees: async () => ({
+    success: true,
+    data: []
+  }),
+  removeTerminalWorktree: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
   }),
 
   // MCP Server Health Check Operations

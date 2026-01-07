@@ -40,7 +40,7 @@ from .utils import (
     get_commit_count,
     get_latest_commit,
     load_implementation_plan,
-    sync_plan_to_source,
+    sync_spec_to_source,
 )
 
 logger = logging.getLogger(__name__)
@@ -82,7 +82,7 @@ async def post_session_processing(
     print(muted("--- Post-Session Processing ---"))
 
     # Sync implementation plan back to source (for worktree mode)
-    if sync_plan_to_source(spec_dir, source_spec_dir):
+    if sync_spec_to_source(spec_dir, source_spec_dir):
         print_status("Implementation plan synced to main project", "success")
 
     # Check if implementation plan was updated
@@ -445,8 +445,9 @@ async def run_agent_session(
                         result_content = getattr(block, "content", "")
                         is_error = getattr(block, "is_error", False)
 
-                        # Check if command was blocked by security hook
-                        if "blocked" in str(result_content).lower():
+                        # Check if this is an error (not just content containing "blocked")
+                        if is_error and "blocked" in str(result_content).lower():
+                            # Actual blocked command by security hook
                             debug_error(
                                 "session",
                                 f"Tool BLOCKED: {current_tool}",

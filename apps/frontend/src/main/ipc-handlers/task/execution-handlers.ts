@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, TaskStartOptions, TaskStatus } from '../../../shared/types';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, unlinkSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'fs';
 import { spawnSync } from 'child_process';
 import { AgentManager } from '../../agent';
 import { fileWatcher } from '../../file-watcher';
@@ -12,9 +12,10 @@ import { getClaudeProfileManager } from '../../claude-profile-manager';
 import {
   getPlanPath,
   persistPlanStatus,
-  persistPlanStatusSync,
   createPlanIfNotExists
 } from './plan-file-utils';
+import { findTaskWorktree } from '../../worktree-paths';
+import { projectStore } from '../../project-store';
 
 /**
  * Atomic file write to prevent TOCTOU race conditions.
@@ -236,7 +237,7 @@ export function registerTaskExecutionHandlers(
       setImmediate(async () => {
         const persistStart = Date.now();
         try {
-          const persisted = await persistPlanStatus(planPath, 'in_progress');
+          const persisted = await persistPlanStatus(planPath, 'in_progress', project.id);
           if (persisted) {
             console.warn('[TASK_START] Updated plan status to: in_progress');
           }
@@ -288,7 +289,7 @@ export function registerTaskExecutionHandlers(
       setImmediate(async () => {
         const persistStart = Date.now();
         try {
-          const persisted = await persistPlanStatus(planPath, 'backlog');
+          const persisted = await persistPlanStatus(planPath, 'backlog', project.id);
           if (persisted) {
             console.warn('[TASK_STOP] Updated plan status to backlog');
           }
@@ -332,9 +333,9 @@ export function registerTaskExecutionHandlers(
       );
 
       // Check if worktree exists - QA needs to run in the worktree where the build happened
-      const worktreePath = path.join(project.path, '.worktrees', task.specId);
-      const worktreeSpecDir = path.join(worktreePath, specsBaseDir, task.specId);
-      const hasWorktree = existsSync(worktreePath);
+      const worktreePath = findTaskWorktree(project.path, task.specId);
+      const worktreeSpecDir = worktreePath ? path.join(worktreePath, specsBaseDir, task.specId) : null;
+      const hasWorktree = worktreePath !== null;
 
       if (approved) {
         // Write approval to QA report
@@ -382,14 +383,14 @@ export function registerTaskExecutionHandlers(
           }
 
           // Step 3: Clean untracked files that came from the merge
-          // IMPORTANT: Exclude .auto-claude and .worktrees directories to preserve specs and worktree data
-          const cleanResult = spawnSync('git', ['clean', '-fd', '-e', '.auto-claude', '-e', '.worktrees'], {
+          // IMPORTANT: Exclude .auto-claude directory to preserve specs and worktree data
+          const cleanResult = spawnSync('git', ['clean', '-fd', '-e', '.auto-claude'], {
             cwd: project.path,
             encoding: 'utf-8',
             stdio: 'pipe'
           });
           if (cleanResult.status === 0) {
-            console.log('[TASK_REVIEW] Cleaned untracked files in main (excluding .auto-claude and .worktrees)');
+            console.log('[TASK_REVIEW] Cleaned untracked files in main (excluding .auto-claude)');
           }
 
           console.log('[TASK_REVIEW] Main branch restored to pre-merge state');
@@ -397,7 +398,7 @@ export function registerTaskExecutionHandlers(
 
         // Write feedback for QA fixer - write to WORKTREE spec dir if it exists
         // The QA process runs in the worktree where the build and implementation_plan.json are
-        const targetSpecDir = hasWorktree ? worktreeSpecDir : specDir;
+        const targetSpecDir = hasWorktree && worktreeSpecDir ? worktreeSpecDir : specDir;
         const fixRequestPath = path.join(targetSpecDir, 'QA_FIX_REQUEST.md');
 
         console.warn('[TASK_REVIEW] Writing QA fix request to:', fixRequestPath);
@@ -453,9 +454,9 @@ export function registerTaskExecutionHandlers(
       // Validate status transition - 'done' can only be set through merge handler
       // UNLESS there's no worktree (limbo state - already merged/discarded or failed)
       if (status === 'done') {
-        // Check if worktree exists
-        const worktreePath = path.join(project.path, '.worktrees', taskId);
-        const hasWorktree = existsSync(worktreePath);
+        // Check if worktree exists (task.specId matches worktree folder name)
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        const hasWorktree = worktreePath !== null;
 
         if (hasWorktree) {
           // Worktree exists - must use merge workflow
@@ -508,11 +509,13 @@ export function registerTaskExecutionHandlers(
 
       try {
         // Use shared utility for thread-safe plan file updates
-        const persisted = await persistPlanStatus(planPath, status);
+        const persisted = await persistPlanStatus(planPath, status, project.id);
 
         if (!persisted) {
           // If no implementation plan exists yet, create a basic one
           await createPlanIfNotExists(planPath, task, status);
+          // Invalidate cache after creating new plan
+          projectStore.invalidateTasksCache(project.id);
         }
 
         // Auto-stop task when status changes AWAY from 'in_progress' and process IS running
@@ -671,17 +674,35 @@ export function registerTaskExecutionHandlers(
         return { success: false, error: 'Task not found' };
       }
 
-      // Get the spec directory
-      const autoBuildDir = project.autoBuildPath || '.auto-claude';
-      const specDir = path.join(
+      // Get the spec directory - use task.specsPath if available (handles worktree vs main)
+      // This is critical: task might exist in worktree, and getTasks() prefers worktree version.
+      // If we write to main project but task is in worktree, the worktree's old status takes precedence on refresh.
+      const specDir = task.specsPath || path.join(
         project.path,
-        autoBuildDir,
-        'specs',
+        getSpecsDir(project.autoBuildPath),
         task.specId
       );
 
       // Update implementation_plan.json
       const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      console.log(`[Recovery] Writing to plan file at: ${planPath} (task location: ${task.location || 'main'})`);
+
+      // Also update the OTHER location if task exists in both main and worktree
+      // This ensures consistency regardless of which version getTasks() prefers
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
+      const mainSpecDir = path.join(project.path, specsBaseDir, task.specId);
+      const worktreePath = findTaskWorktree(project.path, task.specId);
+      const worktreeSpecDir = worktreePath ? path.join(worktreePath, specsBaseDir, task.specId) : null;
+
+      // Collect all plan file paths that need updating
+      const planPathsToUpdate: string[] = [planPath];
+      if (mainSpecDir !== specDir && existsSync(path.join(mainSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN))) {
+        planPathsToUpdate.push(path.join(mainSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN));
+      }
+      if (worktreeSpecDir && worktreeSpecDir !== specDir && existsSync(path.join(worktreeSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN))) {
+        planPathsToUpdate.push(path.join(worktreeSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN));
+      }
+      console.log(`[Recovery] Will update ${planPathsToUpdate.length} plan file(s):`, planPathsToUpdate);
 
       try {
         // Read the plan to analyze subtask progress
@@ -743,14 +764,25 @@ export function registerTaskExecutionHandlers(
             // Just update status in plan file (project store reads from file, no separate update needed)
             plan.status = 'human_review';
             plan.planStatus = 'review';
-            try {
-              // Use atomic write to prevent TOCTOU race conditions
-              atomicWriteFileSync(planPath, JSON.stringify(plan, null, 2));
-            } catch (writeError) {
-              console.error('[Recovery] Failed to write plan file:', writeError);
+
+            // Write to ALL plan file locations to ensure consistency
+            const planContent = JSON.stringify(plan, null, 2);
+            let writeSucceededForComplete = false;
+            for (const pathToUpdate of planPathsToUpdate) {
+              try {
+                atomicWriteFileSync(pathToUpdate, planContent);
+                console.log(`[Recovery] Successfully wrote to: ${pathToUpdate}`);
+                writeSucceededForComplete = true;
+              } catch (writeError) {
+                console.error(`[Recovery] Failed to write plan file at ${pathToUpdate}:`, writeError);
+                // Continue trying other paths
+              }
+            }
+
+            if (!writeSucceededForComplete) {
               return {
                 success: false,
-                error: 'Failed to write plan file'
+                error: 'Failed to write plan file during recovery (all locations failed)'
               };
             }
 
@@ -797,11 +829,19 @@ export function registerTaskExecutionHandlers(
             }
           }
 
-          try {
-            // Use atomic write to prevent TOCTOU race conditions
-            atomicWriteFileSync(planPath, JSON.stringify(plan, null, 2));
-          } catch (writeError) {
-            console.error('[Recovery] Failed to write plan file:', writeError);
+          // Write to ALL plan file locations to ensure consistency
+          const planContent = JSON.stringify(plan, null, 2);
+          let writeSucceeded = false;
+          for (const pathToUpdate of planPathsToUpdate) {
+            try {
+              atomicWriteFileSync(pathToUpdate, planContent);
+              console.log(`[Recovery] Successfully wrote to: ${pathToUpdate}`);
+              writeSucceeded = true;
+            } catch (writeError) {
+              console.error(`[Recovery] Failed to write plan file at ${pathToUpdate}:`, writeError);
+            }
+          }
+          if (!writeSucceeded) {
             return {
               success: false,
               error: 'Failed to write plan file during recovery'
@@ -853,17 +893,20 @@ export function registerTaskExecutionHandlers(
             // Set status to in_progress for the restart
             newStatus = 'in_progress';
 
-            // Update plan status for restart
+            // Update plan status for restart - write to ALL locations
             if (plan) {
               plan.status = 'in_progress';
               plan.planStatus = 'in_progress';
-              try {
-                // Use atomic write to prevent TOCTOU race conditions
-                atomicWriteFileSync(planPath, JSON.stringify(plan, null, 2));
-              } catch (writeError) {
-                console.error('[Recovery] Failed to write plan file for restart:', writeError);
-                // Continue with restart attempt even if file write fails
-                // The plan status will be updated by the agent when it starts
+              const restartPlanContent = JSON.stringify(plan, null, 2);
+              for (const pathToUpdate of planPathsToUpdate) {
+                try {
+                  atomicWriteFileSync(pathToUpdate, restartPlanContent);
+                  console.log(`[Recovery] Wrote restart status to: ${pathToUpdate}`);
+                } catch (writeError) {
+                  console.error(`[Recovery] Failed to write plan file for restart at ${pathToUpdate}:`, writeError);
+                  // Continue with restart attempt even if file write fails
+                  // The plan status will be updated by the agent when it starts
+                }
               }
             }
 

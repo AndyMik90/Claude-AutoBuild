@@ -79,7 +79,7 @@ def handle_build_command(
         base_branch: Base branch for worktree creation (default: current branch)
     """
     # Lazy imports to avoid loading heavy modules
-    from agent import run_autonomous_agent, sync_plan_to_source
+    from agent import run_autonomous_agent, sync_spec_to_source
     from debug import (
         debug,
         debug_info,
@@ -274,7 +274,7 @@ def handle_build_command(
 
                 # Sync implementation plan to main project after QA
                 # This ensures the main project has the latest status (human_review)
-                if sync_plan_to_source(spec_dir, source_spec_dir):
+                if sync_spec_to_source(spec_dir, source_spec_dir):
                     debug_info(
                         "run.py", "Implementation plan synced to main project after QA"
                     )

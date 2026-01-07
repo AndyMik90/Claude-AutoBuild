@@ -18,10 +18,6 @@ from pathlib import Path
 import pytest
 from project_analyzer import (
     BASE_COMMANDS,
-    DATABASE_COMMANDS,
-    FRAMEWORK_COMMANDS,
-    INFRASTRUCTURE_COMMANDS,
-    LANGUAGE_COMMANDS,
     CustomScripts,
     ProjectAnalyzer,
     SecurityProfile,

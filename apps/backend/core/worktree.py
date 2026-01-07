@@ -4,7 +4,7 @@ Git Worktree Manager - Per-Spec Architecture
 =============================================
 
 Each spec gets its own worktree:
-- Worktree path: .worktrees/{spec-name}/
+- Worktree path: .auto-claude/worktrees/tasks/{spec-name}/
 - Branch name: auto-claude/{spec-name}
 
 This allows:
@@ -20,6 +20,7 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 
@@ -42,20 +43,22 @@ class WorktreeInfo:
     files_changed: int = 0
     additions: int = 0
     deletions: int = 0
+    last_commit_date: datetime | None = None
+    days_since_last_commit: int | None = None
 
 
 class WorktreeManager:
     """
     Manages per-spec Git worktrees.
 
-    Each spec gets its own worktree in .worktrees/{spec-name}/ with
+    Each spec gets its own worktree in .auto-claude/worktrees/tasks/{spec-name}/ with
     a corresponding branch auto-claude/{spec-name}.
     """
 
     def __init__(self, project_dir: Path, base_branch: str | None = None):
         self.project_dir = project_dir
         self.base_branch = base_branch or self._detect_base_branch()
-        self.worktrees_dir = project_dir / ".worktrees"
+        self.worktrees_dir = project_dir / ".auto-claude" / "worktrees" / "tasks"
         self._merge_lock = asyncio.Lock()
 
     def _detect_base_branch(self) -> str:
@@ -124,17 +127,37 @@ class WorktreeManager:
         return result.stdout.strip()
 
     def _run_git(
-        self, args: list[str], cwd: Path | None = None
+        self, args: list[str], cwd: Path | None = None, timeout: int = 60
     ) -> subprocess.CompletedProcess:
-        """Run a git command and return the result."""
-        return subprocess.run(
-            ["git"] + args,
-            cwd=cwd or self.project_dir,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
+        """Run a git command and return the result.
+
+        Args:
+            args: Git command arguments (without 'git' prefix)
+            cwd: Working directory for the command
+            timeout: Command timeout in seconds (default: 60)
+
+        Returns:
+            CompletedProcess with command results. On timeout, returns a
+            CompletedProcess with returncode=-1 and timeout error in stderr.
+        """
+        try:
+            return subprocess.run(
+                ["git"] + args,
+                cwd=cwd or self.project_dir,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            # Return a failed result on timeout instead of raising
+            return subprocess.CompletedProcess(
+                args=["git"] + args,
+                returncode=-1,
+                stdout="",
+                stderr=f"Command timed out after {timeout} seconds",
+            )
 
     def _unstage_gitignored_files(self) -> None:
         """
@@ -194,13 +217,24 @@ class WorktreeManager:
 
     def setup(self) -> None:
         """Create worktrees directory if needed."""
-        self.worktrees_dir.mkdir(exist_ok=True)
+        self.worktrees_dir.mkdir(parents=True, exist_ok=True)
 
     # ==================== Per-Spec Worktree Methods ====================
 
     def get_worktree_path(self, spec_name: str) -> Path:
-        """Get the worktree path for a spec."""
-        return self.worktrees_dir / spec_name
+        """Get the worktree path for a spec (checks new and legacy locations)."""
+        # New path first
+        new_path = self.worktrees_dir / spec_name
+        if new_path.exists():
+            return new_path
+
+        # Legacy fallback (.worktrees/ instead of .auto-claude/worktrees/tasks/)
+        legacy_path = self.project_dir / ".worktrees" / spec_name
+        if legacy_path.exists():
+            return legacy_path
+
+        # Return new path as default for creation
+        return new_path
 
     def get_branch_name(self, spec_name: str) -> str:
         """Get the branch name for a spec."""
@@ -261,6 +295,8 @@ class WorktreeManager:
             "files_changed": 0,
             "additions": 0,
             "deletions": 0,
+            "last_commit_date": None,
+            "days_since_last_commit": None,
         }
 
         if not worktree_path.exists():
@@ -272,6 +308,52 @@ class WorktreeManager:
         )
         if result.returncode == 0:
             stats["commit_count"] = int(result.stdout.strip() or "0")
+
+        # Last commit date (most recent commit in this worktree)
+        result = self._run_git(
+            ["log", "-1", "--format=%cd", "--date=iso"], cwd=worktree_path
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            try:
+                # Parse ISO date format: "2026-01-04 00:25:25 +0100"
+                date_str = result.stdout.strip()
+                # Convert git format to ISO format for fromisoformat()
+                # "2026-01-04 00:25:25 +0100" -> "2026-01-04T00:25:25+01:00"
+                parts = date_str.rsplit(" ", 1)
+                if len(parts) == 2:
+                    date_part, tz_part = parts
+                    # Convert timezone format: "+0100" -> "+01:00"
+                    if len(tz_part) == 5 and (
+                        tz_part.startswith("+") or tz_part.startswith("-")
+                    ):
+                        tz_formatted = f"{tz_part[:3]}:{tz_part[3:]}"
+                        iso_str = f"{date_part.replace(' ', 'T')}{tz_formatted}"
+                        last_commit_date = datetime.fromisoformat(iso_str)
+                        stats["last_commit_date"] = last_commit_date
+                        # Use timezone-aware now() for accurate comparison
+                        now_aware = datetime.now(last_commit_date.tzinfo)
+                        stats["days_since_last_commit"] = (
+                            now_aware - last_commit_date
+                        ).days
+                    else:
+                        # Fallback for unexpected timezone format
+                        last_commit_date = datetime.strptime(
+                            parts[0], "%Y-%m-%d %H:%M:%S"
+                        )
+                        stats["last_commit_date"] = last_commit_date
+                        stats["days_since_last_commit"] = (
+                            datetime.now() - last_commit_date
+                        ).days
+                else:
+                    # No timezone in output
+                    last_commit_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                    stats["last_commit_date"] = last_commit_date
+                    stats["days_since_last_commit"] = (
+                        datetime.now() - last_commit_date
+                    ).days
+            except (ValueError, TypeError) as e:
+                # If parsing fails, silently continue without date info
+                pass
 
         # Diff stats
         result = self._run_git(
@@ -327,9 +409,33 @@ class WorktreeManager:
         # Delete branch if it exists (from previous attempt)
         self._run_git(["branch", "-D", branch_name])
 
-        # Create worktree with new branch from base
+        # Fetch latest from remote to ensure we have the most up-to-date code
+        # GitHub/remote is the source of truth, not the local branch
+        fetch_result = self._run_git(["fetch", "origin", self.base_branch])
+        if fetch_result.returncode != 0:
+            print(
+                f"Warning: Could not fetch {self.base_branch} from origin: {fetch_result.stderr}"
+            )
+            print("Falling back to local branch...")
+
+        # Determine the start point for the worktree
+        # Prefer origin/{base_branch} (remote) over local branch to ensure we have latest code
+        remote_ref = f"origin/{self.base_branch}"
+        start_point = self.base_branch  # Default to local branch
+
+        # Check if remote ref exists and use it as the source of truth
+        check_remote = self._run_git(["rev-parse", "--verify", remote_ref])
+        if check_remote.returncode == 0:
+            start_point = remote_ref
+            print(f"Creating worktree from remote: {remote_ref}")
+        else:
+            print(
+                f"Remote ref {remote_ref} not found, using local branch: {self.base_branch}"
+            )
+
+        # Create worktree with new branch from the start point (remote preferred)
         result = self._run_git(
-            ["worktree", "add", "-b", branch_name, str(worktree_path), self.base_branch]
+            ["worktree", "add", "-b", branch_name, str(worktree_path), start_point]
         )
 
         if result.returncode != 0:
@@ -475,17 +581,27 @@ class WorktreeManager:
     # ==================== Listing & Discovery ====================
 
     def list_all_worktrees(self) -> list[WorktreeInfo]:
-        """List all spec worktrees."""
+        """List all spec worktrees (includes legacy .worktrees/ location)."""
         worktrees = []
+        seen_specs = set()
 
-        if not self.worktrees_dir.exists():
-            return worktrees
+        # Check new location first
+        if self.worktrees_dir.exists():
+            for item in self.worktrees_dir.iterdir():
+                if item.is_dir():
+                    info = self.get_worktree_info(item.name)
+                    if info:
+                        worktrees.append(info)
+                        seen_specs.add(item.name)
 
-        for item in self.worktrees_dir.iterdir():
-            if item.is_dir():
-                info = self.get_worktree_info(item.name)
-                if info:
-                    worktrees.append(info)
+        # Check legacy location (.worktrees/)
+        legacy_dir = self.project_dir / ".worktrees"
+        if legacy_dir.exists():
+            for item in legacy_dir.iterdir():
+                if item.is_dir() and item.name not in seen_specs:
+                    info = self.get_worktree_info(item.name)
+                    if info:
+                        worktrees.append(info)
 
         return worktrees
 
@@ -587,81 +703,187 @@ class WorktreeManager:
 
         return commands
 
-    # ==================== Backward Compatibility ====================
-    # These methods provide backward compatibility with the old single-worktree API
-
-    def get_staging_path(self) -> Path | None:
-        """
-        Backward compatibility: Get path to any existing spec worktree.
-        Prefer using get_worktree_path(spec_name) instead.
-        """
-        worktrees = self.list_all_worktrees()
-        if worktrees:
-            return worktrees[0].path
-        return None
-
-    def get_staging_info(self) -> WorktreeInfo | None:
-        """
-        Backward compatibility: Get info about any existing spec worktree.
-        Prefer using get_worktree_info(spec_name) instead.
-        """
-        worktrees = self.list_all_worktrees()
-        if worktrees:
-            return worktrees[0]
-        return None
-
-    def merge_staging(self, delete_after: bool = True) -> bool:
-        """
-        Backward compatibility: Merge first found worktree.
-        Prefer using merge_worktree(spec_name) instead.
-        """
-        worktrees = self.list_all_worktrees()
-        if worktrees:
-            return self.merge_worktree(worktrees[0].spec_name, delete_after)
-        return False
-
-    def remove_staging(self, delete_branch: bool = True) -> None:
-        """
-        Backward compatibility: Remove first found worktree.
-        Prefer using remove_worktree(spec_name) instead.
-        """
-        worktrees = self.list_all_worktrees()
-        if worktrees:
-            self.remove_worktree(worktrees[0].spec_name, delete_branch)
-
-    def get_or_create_staging(self, spec_name: str) -> WorktreeInfo:
-        """
-        Backward compatibility: Alias for get_or_create_worktree.
-        """
-        return self.get_or_create_worktree(spec_name)
-
-    def staging_exists(self) -> bool:
-        """
-        Backward compatibility: Check if any spec worktree exists.
-        Prefer using worktree_exists(spec_name) instead.
-        """
-        return len(self.list_all_worktrees()) > 0
-
-    def commit_in_staging(self, message: str) -> bool:
-        """
-        Backward compatibility: Commit in first found worktree.
-        Prefer using commit_in_worktree(spec_name, message) instead.
-        """
-        worktrees = self.list_all_worktrees()
-        if worktrees:
-            return self.commit_in_worktree(worktrees[0].spec_name, message)
-        return False
-
-    def has_uncommitted_changes(self, in_staging: bool = False) -> bool:
+    def has_uncommitted_changes(self, spec_name: str | None = None) -> bool:
         """Check if there are uncommitted changes."""
-        worktrees = self.list_all_worktrees()
-        if in_staging and worktrees:
-            cwd = worktrees[0].path
-        else:
-            cwd = None
+        cwd = None
+        if spec_name:
+            worktree_path = self.get_worktree_path(spec_name)
+            if worktree_path.exists():
+                cwd = worktree_path
         result = self._run_git(["status", "--porcelain"], cwd=cwd)
         return bool(result.stdout.strip())
 
+    # ==================== Worktree Cleanup Methods ====================
 
-# Keep STAGING_WORKTREE_NAME for backward compatibility in imports
-STAGING_WORKTREE_NAME = "auto-claude"
+    def get_old_worktrees(
+        self, days_threshold: int = 30, include_stats: bool = False
+    ) -> list[WorktreeInfo] | list[str]:
+        """
+        Find worktrees that haven't been modified in the specified number of days.
+
+        Args:
+            days_threshold: Number of days without activity to consider a worktree old (default: 30)
+            include_stats: If True, return full WorktreeInfo objects; if False, return just spec names
+
+        Returns:
+            List of old worktrees (either WorktreeInfo objects or spec names based on include_stats)
+        """
+        old_worktrees = []
+
+        for worktree_info in self.list_all_worktrees():
+            # Skip if we can't determine age
+            if worktree_info.days_since_last_commit is None:
+                continue
+
+            if worktree_info.days_since_last_commit >= days_threshold:
+                if include_stats:
+                    old_worktrees.append(worktree_info)
+                else:
+                    old_worktrees.append(worktree_info.spec_name)
+
+        return old_worktrees
+
+    def cleanup_old_worktrees(
+        self, days_threshold: int = 30, dry_run: bool = False
+    ) -> tuple[list[str], list[str]]:
+        """
+        Remove worktrees that haven't been modified in the specified number of days.
+
+        Args:
+            days_threshold: Number of days without activity to consider a worktree old (default: 30)
+            dry_run: If True, only report what would be removed without actually removing
+
+        Returns:
+            Tuple of (removed_specs, failed_specs) containing spec names
+        """
+        old_worktrees = self.get_old_worktrees(
+            days_threshold=days_threshold, include_stats=True
+        )
+
+        if not old_worktrees:
+            print(f"No worktrees found older than {days_threshold} days.")
+            return ([], [])
+
+        removed = []
+        failed = []
+
+        if dry_run:
+            print(f"\n[DRY RUN] Would remove {len(old_worktrees)} old worktrees:")
+            for info in old_worktrees:
+                print(
+                    f"  - {info.spec_name} (last activity: {info.days_since_last_commit} days ago)"
+                )
+            return ([], [])
+
+        print(f"\nRemoving {len(old_worktrees)} old worktrees...")
+        for info in old_worktrees:
+            try:
+                self.remove_worktree(info.spec_name, delete_branch=True)
+                removed.append(info.spec_name)
+                print(
+                    f"  ✓ Removed {info.spec_name} (last activity: {info.days_since_last_commit} days ago)"
+                )
+            except Exception as e:
+                failed.append(info.spec_name)
+                print(f"  ✗ Failed to remove {info.spec_name}: {e}")
+
+        if removed:
+            print(f"\nSuccessfully removed {len(removed)} worktree(s).")
+        if failed:
+            print(f"Failed to remove {len(failed)} worktree(s).")
+
+        return (removed, failed)
+
+    def get_worktree_count_warning(
+        self, warning_threshold: int = 10, critical_threshold: int = 20
+    ) -> str | None:
+        """
+        Check worktree count and return a warning message if threshold is exceeded.
+
+        Args:
+            warning_threshold: Number of worktrees to trigger a warning (default: 10)
+            critical_threshold: Number of worktrees to trigger a critical warning (default: 20)
+
+        Returns:
+            Warning message string if threshold exceeded, None otherwise
+        """
+        worktrees = self.list_all_worktrees()
+        count = len(worktrees)
+
+        if count >= critical_threshold:
+            old_worktrees = self.get_old_worktrees(days_threshold=30)
+            old_count = len(old_worktrees)
+            return (
+                f"CRITICAL: {count} worktrees detected! "
+                f"Consider cleaning up old worktrees ({old_count} are 30+ days old). "
+                f"Run cleanup to remove stale worktrees."
+            )
+        elif count >= warning_threshold:
+            old_worktrees = self.get_old_worktrees(days_threshold=30)
+            old_count = len(old_worktrees)
+            return (
+                f"WARNING: {count} worktrees detected. "
+                f"{old_count} are 30+ days old and may be safe to clean up."
+            )
+
+        return None
+
+    def print_worktree_summary(self) -> None:
+        """Print a summary of all worktrees with age information."""
+        worktrees = self.list_all_worktrees()
+
+        if not worktrees:
+            print("No worktrees found.")
+            return
+
+        print(f"\n{'=' * 80}")
+        print(f"Worktree Summary ({len(worktrees)} total)")
+        print(f"{'=' * 80}\n")
+
+        # Group by age
+        recent = []  # < 7 days
+        week_old = []  # 7-30 days
+        month_old = []  # 30-90 days
+        very_old = []  # > 90 days
+        unknown_age = []
+
+        for info in worktrees:
+            if info.days_since_last_commit is None:
+                unknown_age.append(info)
+            elif info.days_since_last_commit < 7:
+                recent.append(info)
+            elif info.days_since_last_commit < 30:
+                week_old.append(info)
+            elif info.days_since_last_commit < 90:
+                month_old.append(info)
+            else:
+                very_old.append(info)
+
+        def print_group(title: str, items: list[WorktreeInfo]):
+            if not items:
+                return
+            print(f"{title} ({len(items)}):")
+            for info in sorted(items, key=lambda x: x.spec_name):
+                age_str = (
+                    f"{info.days_since_last_commit}d ago"
+                    if info.days_since_last_commit is not None
+                    else "unknown"
+                )
+                print(f"  - {info.spec_name} (last activity: {age_str})")
+            print()
+
+        print_group("Recent (< 7 days)", recent)
+        print_group("Week Old (7-30 days)", week_old)
+        print_group("Month Old (30-90 days)", month_old)
+        print_group("Very Old (> 90 days)", very_old)
+        print_group("Unknown Age", unknown_age)
+
+        # Print cleanup suggestions
+        if month_old or very_old:
+            total_old = len(month_old) + len(very_old)
+            print(f"{'=' * 80}")
+            print(
+                f"💡 Suggestion: {total_old} worktree(s) are 30+ days old and may be safe to clean up."
+            )
+            print("   Review these worktrees and run cleanup if no longer needed.")
+            print(f"{'=' * 80}\n")

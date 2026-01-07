@@ -242,7 +242,9 @@ class PRReviewEngine:
                     msg_type = type(msg).__name__
                     if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                         for block in msg.content:
-                            if hasattr(block, "text"):
+                            # Must check block type - only TextBlock has .text attribute
+                            block_type = type(block).__name__
+                            if block_type == "TextBlock" and hasattr(block, "text"):
                                 result_text += block.text
 
             if review_pass == ReviewPass.QUICK_SCAN:
@@ -502,7 +504,9 @@ class PRReviewEngine:
                     msg_type = type(msg).__name__
                     if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                         for block in msg.content:
-                            if hasattr(block, "text"):
+                            # Must check block type - only TextBlock has .text attribute
+                            block_type = type(block).__name__
+                            if block_type == "TextBlock" and hasattr(block, "text"):
                                 result_text += block.text
         except Exception as e:
             print(f"[AI] Structural pass error: {e}", flush=True)
@@ -558,7 +562,9 @@ class PRReviewEngine:
                     msg_type = type(msg).__name__
                     if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                         for block in msg.content:
-                            if hasattr(block, "text"):
+                            # Must check block type - only TextBlock has .text attribute
+                            block_type = type(block).__name__
+                            if block_type == "TextBlock" and hasattr(block, "text"):
                                 result_text += block.text
         except Exception as e:
             print(f"[AI] AI triage pass error: {e}", flush=True)

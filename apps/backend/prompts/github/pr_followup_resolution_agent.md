@@ -10,6 +10,23 @@ For each previous finding, determine whether it has been:
 - **unresolved**: The issue remains or wasn't addressed
 - **cant_verify**: Not enough information to determine status
 
+## CRITICAL: Verify Finding is In-Scope
+
+**Before verifying any finding, check if it's within THIS PR's scope:**
+
+1. **Is the file in the PR's changed files list?** - If not AND the finding isn't about impact, mark as `cant_verify`
+2. **Does the line number exist?** - If finding cites line 710 but file has 600 lines, it was hallucinated
+3. **Was this from a merged branch?** - Commits with PR references like `(#584)` are from other PRs
+
+**Mark as `cant_verify` if:**
+- Finding references a file not in PR AND is not about impact of PR changes on that file
+- Line number doesn't exist (hallucinated finding)
+- Finding is about code from another PR's commits
+
+**Findings can reference files outside the PR if they're about:**
+- Impact of PR changes (e.g., "change to X breaks caller in Y")
+- Missing related updates (e.g., "you updated A but forgot B")
+
 ## Verification Process
 
 For each previous finding:
@@ -31,12 +48,26 @@ If the file was modified:
 - Is the fix approach sound?
 - Are there edge cases the fix misses?
 
-### 4. Assign Confidence
-Rate your confidence (0.0-1.0):
-- **>0.9**: Clear evidence of resolution/non-resolution
-- **0.7-0.9**: Strong indicators but some uncertainty
-- **0.5-0.7**: Mixed signals, moderate confidence
-- **<0.5**: Unclear, consider marking as cant_verify
+### 4. Provide Evidence
+For each verification, provide actual code evidence:
+- **Copy-paste the relevant code** you examined
+- **Show what changed** - before vs after
+- **Explain WHY** this proves resolution/non-resolution
+
+## NEVER ASSUME - ALWAYS VERIFY
+
+**Before marking ANY finding as resolved or unresolved:**
+
+1. **NEVER assume a fix is correct** based on commit messages alone - READ the actual code
+2. **NEVER assume the original finding was accurate** - The line might not even exist
+3. **NEVER assume a renamed variable fixes a bug** - Check the actual logic changed
+4. **NEVER assume "file was modified" means "issue was fixed"** - Verify the specific fix
+
+**You MUST:**
+- Read the actual code at the cited location
+- Verify the problematic pattern no longer exists (for resolved)
+- Verify the pattern still exists (for unresolved)
+- Check surrounding context for alternative fixes you might miss
 
 ## Resolution Criteria
 
@@ -84,23 +115,20 @@ Return verifications in this structure:
   {
     "finding_id": "SEC-001",
     "status": "resolved",
-    "confidence": 0.92,
-    "evidence": "The SQL query at line 45 now uses parameterized queries instead of string concatenation. The fix properly escapes all user inputs.",
-    "resolution_notes": "Changed from f-string to cursor.execute() with parameters"
+    "evidence": "cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))",
+    "resolution_notes": "Changed from f-string to cursor.execute() with parameters. The code at line 45 now uses parameterized queries."
   },
   {
     "finding_id": "QUAL-002",
     "status": "partially_resolved",
-    "confidence": 0.75,
-    "evidence": "Error handling was added for the main path, but the fallback path at line 78 still lacks try-catch.",
+    "evidence": "try:\n    result = process(data)\nexcept Exception as e:\n    log.error(e)\n# But fallback path at line 78 still has: result = fallback(data)  # no try-catch",
     "resolution_notes": "Main function fixed, helper function still needs work"
   },
   {
     "finding_id": "LOGIC-003",
     "status": "unresolved",
-    "confidence": 0.88,
-    "evidence": "The off-by-one error remains. The loop still uses `<= length` instead of `< length`.",
-    "resolution_notes": null
+    "evidence": "for i in range(len(items) + 1):  # Still uses <= length",
+    "resolution_notes": "The off-by-one error remains at line 52."
   }
 ]
 ```

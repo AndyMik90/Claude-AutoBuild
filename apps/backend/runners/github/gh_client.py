@@ -822,14 +822,17 @@ class GHClient:
 
         Returns:
             Dict with:
-            - checks: List of check runs with name, status, conclusion
+            - checks: List of check runs with name, state
             - passing: Number of passing checks
             - failing: Number of failing checks
             - pending: Number of pending checks
             - failed_checks: List of failed check names
         """
         try:
-            args = ["pr", "checks", str(pr_number), "--json", "name,state,conclusion"]
+            # Note: gh pr checks --json only supports: bucket, completedAt, description,
+            # event, link, name, startedAt, state, workflow
+            # The 'state' field directly contains the result (SUCCESS, FAILURE, PENDING, etc.)
+            args = ["pr", "checks", str(pr_number), "--json", "name,state"]
             args = self._add_repo_flag(args)
 
             result = await self.run(args, timeout=30.0)
@@ -842,15 +845,14 @@ class GHClient:
 
             for check in checks:
                 state = check.get("state", "").upper()
-                conclusion = check.get("conclusion", "").upper()
                 name = check.get("name", "Unknown")
 
-                if state == "COMPLETED":
-                    if conclusion in ("SUCCESS", "NEUTRAL", "SKIPPED"):
-                        passing += 1
-                    elif conclusion in ("FAILURE", "TIMED_OUT", "CANCELLED"):
-                        failing += 1
-                        failed_checks.append(name)
+                # gh pr checks 'state' directly contains: SUCCESS, FAILURE, PENDING, NEUTRAL, etc.
+                if state in ("SUCCESS", "NEUTRAL", "SKIPPED"):
+                    passing += 1
+                elif state in ("FAILURE", "TIMED_OUT", "CANCELLED", "STARTUP_FAILURE"):
+                    failing += 1
+                    failed_checks.append(name)
                 else:
                     # PENDING, QUEUED, IN_PROGRESS, etc.
                     pending += 1
@@ -872,3 +874,336 @@ class GHClient:
                 "failed_checks": [],
                 "error": str(e),
             }
+
+    async def get_workflows_awaiting_approval(self, pr_number: int) -> dict[str, Any]:
+        """
+        Get workflow runs awaiting approval for a PR from a fork.
+
+        Workflows from forked repositories require manual approval before running.
+        These are NOT included in `gh pr checks` and must be queried separately.
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            Dict with:
+            - awaiting_approval: Number of workflows waiting for approval
+            - workflow_runs: List of workflow runs with id, name, html_url
+            - can_approve: Whether this token can approve workflows
+        """
+        try:
+            # First, get the PR's head SHA to filter workflow runs
+            pr_args = ["pr", "view", str(pr_number), "--json", "headRefOid"]
+            pr_args = self._add_repo_flag(pr_args)
+            pr_result = await self.run(pr_args, timeout=30.0)
+            pr_data = json.loads(pr_result.stdout) if pr_result.stdout.strip() else {}
+            head_sha = pr_data.get("headRefOid", "")
+
+            if not head_sha:
+                return {
+                    "awaiting_approval": 0,
+                    "workflow_runs": [],
+                    "can_approve": False,
+                }
+
+            # Query workflow runs with action_required status
+            # Note: We need to use the API endpoint as gh CLI doesn't have direct support
+            endpoint = (
+                "repos/{owner}/{repo}/actions/runs?status=action_required&per_page=100"
+            )
+            args = ["api", "--method", "GET", endpoint]
+
+            result = await self.run(args, timeout=30.0)
+            data = json.loads(result.stdout) if result.stdout.strip() else {}
+            all_runs = data.get("workflow_runs", [])
+
+            # Filter to only runs for this PR's head SHA
+            pr_runs = [
+                {
+                    "id": run.get("id"),
+                    "name": run.get("name"),
+                    "html_url": run.get("html_url"),
+                    "workflow_name": run.get("workflow", {}).get("name", "Unknown"),
+                }
+                for run in all_runs
+                if run.get("head_sha") == head_sha
+            ]
+
+            return {
+                "awaiting_approval": len(pr_runs),
+                "workflow_runs": pr_runs,
+                "can_approve": True,  # Assume token has permission, will fail if not
+            }
+        except (GHCommandError, GHTimeoutError, json.JSONDecodeError) as e:
+            logger.warning(
+                f"Failed to get workflows awaiting approval for #{pr_number}: {e}"
+            )
+            return {
+                "awaiting_approval": 0,
+                "workflow_runs": [],
+                "can_approve": False,
+                "error": str(e),
+            }
+
+    async def approve_workflow_run(self, run_id: int) -> bool:
+        """
+        Approve a workflow run that's waiting for approval (from a fork).
+
+        Args:
+            run_id: The workflow run ID to approve
+
+        Returns:
+            True if approval succeeded, False otherwise
+        """
+        try:
+            endpoint = f"repos/{{owner}}/{{repo}}/actions/runs/{run_id}/approve"
+            args = ["api", "--method", "POST", endpoint]
+
+            await self.run(args, timeout=30.0)
+            logger.info(f"Approved workflow run {run_id}")
+            return True
+        except (GHCommandError, GHTimeoutError) as e:
+            logger.warning(f"Failed to approve workflow run {run_id}: {e}")
+            return False
+
+    async def get_pr_checks_comprehensive(self, pr_number: int) -> dict[str, Any]:
+        """
+        Get comprehensive CI status including workflows awaiting approval.
+
+        This combines:
+        - Standard check runs from `gh pr checks`
+        - Workflows awaiting approval (for fork PRs)
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            Dict with all check information including awaiting_approval count
+        """
+        # Get standard checks
+        checks = await self.get_pr_checks(pr_number)
+
+        # Get workflows awaiting approval
+        awaiting = await self.get_workflows_awaiting_approval(pr_number)
+
+        # Merge the results
+        checks["awaiting_approval"] = awaiting.get("awaiting_approval", 0)
+        checks["awaiting_workflow_runs"] = awaiting.get("workflow_runs", [])
+
+        # Update pending count to include awaiting approval
+        checks["pending"] = checks.get("pending", 0) + awaiting.get(
+            "awaiting_approval", 0
+        )
+
+        return checks
+
+    async def get_pr_files(self, pr_number: int) -> list[dict[str, Any]]:
+        """
+        Get files changed by a PR using the PR files endpoint.
+
+        IMPORTANT: This returns only files that are part of the PR's actual changes,
+        NOT files that came in from merging another branch (e.g., develop).
+        This is crucial for follow-up reviews to avoid reviewing code from other PRs.
+
+        Uses: GET /repos/{owner}/{repo}/pulls/{pr_number}/files
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            List of file objects with:
+            - filename: Path to the file
+            - status: added, removed, modified, renamed, copied, changed
+            - additions: Number of lines added
+            - deletions: Number of lines deleted
+            - changes: Total number of line changes
+            - patch: The unified diff patch for this file (may be absent for large files)
+        """
+        files = []
+        page = 1
+        per_page = 100
+
+        while True:
+            endpoint = f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/files?page={page}&per_page={per_page}"
+            args = ["api", "--method", "GET", endpoint]
+
+            result = await self.run(args, timeout=60.0)
+            page_files = json.loads(result.stdout) if result.stdout.strip() else []
+
+            if not page_files:
+                break
+
+            files.extend(page_files)
+
+            # Check if we got a full page (more pages might exist)
+            if len(page_files) < per_page:
+                break
+
+            page += 1
+
+            # Safety limit to prevent infinite loops
+            if page > 50:
+                logger.warning(
+                    f"PR #{pr_number} has more than 5000 files, stopping pagination"
+                )
+                break
+
+        return files
+
+    async def get_pr_commits(self, pr_number: int) -> list[dict[str, Any]]:
+        """
+        Get commits that are part of a PR using the PR commits endpoint.
+
+        IMPORTANT: This returns only commits that are part of the PR's branch,
+        NOT commits that came in from merging another branch (e.g., develop).
+        This is crucial for follow-up reviews to avoid reviewing commits from other PRs.
+
+        Uses: GET /repos/{owner}/{repo}/pulls/{pr_number}/commits
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            List of commit objects with:
+            - sha: Commit SHA
+            - commit: Object with message, author, committer info
+            - author: GitHub user who authored the commit
+            - committer: GitHub user who committed
+            - parents: List of parent commit SHAs
+        """
+        commits = []
+        page = 1
+        per_page = 100
+
+        while True:
+            endpoint = f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/commits?page={page}&per_page={per_page}"
+            args = ["api", "--method", "GET", endpoint]
+
+            result = await self.run(args, timeout=60.0)
+            page_commits = json.loads(result.stdout) if result.stdout.strip() else []
+
+            if not page_commits:
+                break
+
+            commits.extend(page_commits)
+
+            # Check if we got a full page (more pages might exist)
+            if len(page_commits) < per_page:
+                break
+
+            page += 1
+
+            # Safety limit
+            if page > 10:
+                logger.warning(
+                    f"PR #{pr_number} has more than 1000 commits, stopping pagination"
+                )
+                break
+
+        return commits
+
+    async def get_pr_files_changed_since(
+        self,
+        pr_number: int,
+        base_sha: str,
+        reviewed_file_blobs: dict[str, str] | None = None,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """
+        Get files and commits that are part of the PR and changed since a specific commit.
+
+        This method solves the "merge introduced commits" problem by:
+        1. Getting the canonical list of PR files (excludes files from merged branches)
+        2. Getting the canonical list of PR commits (excludes commits from merged branches)
+        3. Filtering to only include commits after base_sha
+
+        When a rebase/force-push is detected (base_sha not found in commits), and
+        reviewed_file_blobs is provided, uses blob SHA comparison to identify which
+        files actually changed content. This prevents re-reviewing unchanged files.
+
+        Args:
+            pr_number: PR number
+            base_sha: The commit SHA to compare from (e.g., last reviewed commit)
+            reviewed_file_blobs: Optional dict mapping filename -> blob SHA from the
+                previous review. Used as fallback when base_sha is not found (rebase).
+
+        Returns:
+            Tuple of:
+            - List of file objects that are part of the PR (filtered if blob comparison used)
+            - List of commit objects that are part of the PR and after base_sha.
+              NOTE: Returns empty list if rebase/force-push detected, since commit SHAs
+              are rewritten and we cannot determine which commits are truly "new".
+        """
+        # Get PR's canonical files (these are the actual PR changes)
+        pr_files = await self.get_pr_files(pr_number)
+
+        # Get PR's canonical commits
+        pr_commits = await self.get_pr_commits(pr_number)
+
+        # Find the position of base_sha in PR commits
+        # Use minimum 7-char prefix comparison (git's default short SHA length)
+        base_index = -1
+        min_prefix_len = 7
+        base_prefix = (
+            base_sha[:min_prefix_len] if len(base_sha) >= min_prefix_len else base_sha
+        )
+        for i, commit in enumerate(pr_commits):
+            commit_prefix = commit["sha"][:min_prefix_len]
+            if commit_prefix == base_prefix:
+                base_index = i
+                break
+
+        # Commits after base_sha (these are the new commits to review)
+        if base_index >= 0:
+            new_commits = pr_commits[base_index + 1 :]
+            return pr_files, new_commits
+
+        # base_sha not found in PR commits - this happens when:
+        # 1. The base_sha was from a merge commit (not a direct PR commit)
+        # 2. The PR was rebased/force-pushed
+        logger.warning(
+            f"base_sha {base_sha[:8]} not found in PR #{pr_number} commits. "
+            "PR was likely rebased or force-pushed."
+        )
+
+        # If we have blob SHAs from the previous review, use them to filter files
+        # Blob SHAs persist across rebases - same content = same blob SHA
+        if reviewed_file_blobs:  # Only use blob comparison if we have actual blob data
+            changed_files = []
+            unchanged_count = 0
+            for file in pr_files:
+                filename = file.get("filename", "")
+                current_blob_sha = file.get("sha", "")
+                file_status = file.get("status", "")
+                previous_blob_sha = reviewed_file_blobs.get(filename, "")
+
+                # Always include files that were added, removed, or renamed
+                # These are significant changes regardless of blob SHA
+                if file_status in ("added", "removed", "renamed"):
+                    changed_files.append(file)
+                elif not previous_blob_sha:
+                    # File wasn't in previous review - include it
+                    changed_files.append(file)
+                elif current_blob_sha != previous_blob_sha:
+                    # File content changed - include it
+                    changed_files.append(file)
+                else:
+                    # Same blob SHA = same content - skip it
+                    unchanged_count += 1
+
+            if unchanged_count > 0:
+                logger.info(
+                    f"Blob comparison: {len(changed_files)} files changed, "
+                    f"{unchanged_count} unchanged (skipped)"
+                )
+
+            # Return filtered files but empty commits list (can't determine "new" commits after rebase)
+            # After a rebase, all commit SHAs are rewritten so we can't identify which are truly new.
+            # The file changes via blob comparison are the reliable source of what changed.
+            return changed_files, []
+
+        # No blob data available - return all files but empty commits (can't determine new commits)
+        logger.warning(
+            "No reviewed_file_blobs available for blob comparison after rebase. "
+            "Returning all PR files with empty commits list."
+        )
+        return pr_files, []

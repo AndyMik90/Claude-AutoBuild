@@ -1,9 +1,17 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, MoreVertical } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
 import {
@@ -16,10 +24,12 @@ import {
   TASK_PRIORITY_COLORS,
   TASK_PRIORITY_LABELS,
   EXECUTION_PHASE_LABELS,
-  EXECUTION_PHASE_BADGE_COLORS
+  EXECUTION_PHASE_BADGE_COLORS,
+  TASK_STATUS_COLUMNS,
+  TASK_STATUS_LABELS
 } from '../../shared/constants';
 import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks } from '../stores/task-store';
-import type { Task, TaskCategory, ReviewReason } from '../../shared/types';
+import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
 // Category icon mapping
 const CategoryIcon: Record<TaskCategory, typeof Zap> = {
@@ -37,6 +47,7 @@ const CategoryIcon: Record<TaskCategory, typeof Zap> = {
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
+  onStatusChange?: (newStatus: TaskStatus) => unknown;
 }
 
 // Custom comparator for React.memo - only re-render when relevant task data changes
@@ -45,7 +56,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
   const nextTask = nextProps.task;
 
   // Fast path: same reference
-  if (prevTask === nextTask && prevProps.onClick === nextProps.onClick) {
+  if (prevTask === nextTask && prevProps.onClick === nextProps.onClick && prevProps.onStatusChange === nextProps.onStatusChange) {
     return true;
   }
 
@@ -83,7 +94,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
   return isEqual;
 }
 
-export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps) {
+export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }: TaskCardProps) {
   const { t } = useTranslation('tasks');
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
@@ -100,8 +111,9 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
   const isIncomplete = isIncompleteHumanReview(task);
 
   // Memoize expensive computations to avoid running on every render
+  // Truncate description for card display - full description shown in modal
   const sanitizedDescription = useMemo(
-    () => task.description ? sanitizeMarkdownForDisplay(task.description, 150) : null,
+    () => task.description ? sanitizeMarkdownForDisplay(task.description, 120) : null,
     [task.description]
   );
 
@@ -111,12 +123,40 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
     [task.updatedAt]
   );
 
+  // Memoize status menu items to avoid recreating on every render
+  const statusMenuItems = useMemo(() => {
+    if (!onStatusChange) return null;
+    return TASK_STATUS_COLUMNS.filter(status => status !== task.status).map((status) => (
+      <DropdownMenuItem
+        key={status}
+        onClick={() => onStatusChange(status)}
+      >
+        {t(TASK_STATUS_LABELS[status])}
+      </DropdownMenuItem>
+    ));
+  }, [task.status, onStatusChange, t]);
+
   // Memoized stuck check function to avoid recreating on every render
   const performStuckCheck = useCallback(() => {
+    // IMPORTANT: If the execution phase is 'complete' or 'failed', the task is NOT stuck.
+    // It means the process has finished and status update is pending.
+    // This prevents false-positive "stuck" indicators when the process exits normally.
+    const currentPhase = task.executionProgress?.phase;
+    if (currentPhase === 'complete' || currentPhase === 'failed') {
+      setIsStuck(false);
+      return;
+    }
+
     // Use requestIdleCallback for non-blocking check when available
     const doCheck = () => {
       checkTaskRunning(task.id).then((actuallyRunning) => {
-        setIsStuck(!actuallyRunning);
+        // Double-check the phase again in case it changed while waiting
+        const latestPhase = task.executionProgress?.phase;
+        if (latestPhase === 'complete' || latestPhase === 'failed') {
+          setIsStuck(false);
+        } else {
+          setIsStuck(!actuallyRunning);
+        }
       });
     };
 
@@ -125,7 +165,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
     } else {
       doCheck();
     }
-  }, [task.id]);
+  }, [task.id, task.executionProgress?.phase]);
 
   // Check if task is stuck (status says in_progress but no actual process)
   // Add a longer grace period to avoid false positives during process spawn
@@ -420,68 +460,92 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
             <span>{relativeTime}</span>
           </div>
 
-          {/* Action buttons */}
-          {isStuck ? (
-            <Button
-              variant="warning"
-              size="sm"
-              className="h-7 px-2.5"
-              onClick={handleRecover}
-              disabled={isRecovering}
-            >
-              {isRecovering ? (
-                <>
-                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                  {t('labels.recovering')}
-                </>
-              ) : (
-                <>
-                  <RotateCcw className="mr-1.5 h-3 w-3" />
-                  {t('actions.recover')}
-                </>
-              )}
-            </Button>
-          ) : isIncomplete ? (
-            <Button
-              variant="default"
-              size="sm"
-              className="h-7 px-2.5"
-              onClick={handleStartStop}
-            >
-              <Play className="mr-1.5 h-3 w-3" />
-              {t('actions.resume')}
-            </Button>
-          ) : task.status === 'done' && !task.metadata?.archivedAt ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2.5 hover:bg-muted-foreground/10"
-              onClick={handleArchive}
-              title={t('tooltips.archiveTask')}
-            >
-              <Archive className="mr-1.5 h-3 w-3" />
-              {t('actions.archive')}
-            </Button>
-          ) : (task.status === 'backlog' || task.status === 'in_progress') && (
-            <Button
-              variant={isRunning ? 'destructive' : 'default'}
-              size="sm"
-              className="h-7 px-2.5"
-              onClick={handleStartStop}
-            >
-              {isRunning ? (
-                <>
-                  <Square className="mr-1.5 h-3 w-3" />
-                  {t('actions.stop')}
-                </>
-              ) : (
-                <>
-                  <Play className="mr-1.5 h-3 w-3" />
-                  {t('actions.start')}
-                </>
-              )}
-            </Button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {/* Action buttons */}
+            {isStuck ? (
+              <Button
+                variant="warning"
+                size="sm"
+                className="h-7 px-2.5"
+                onClick={handleRecover}
+                disabled={isRecovering}
+              >
+                {isRecovering ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                    {t('labels.recovering')}
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="mr-1.5 h-3 w-3" />
+                    {t('actions.recover')}
+                  </>
+                )}
+              </Button>
+            ) : isIncomplete ? (
+              <Button
+                variant="default"
+                size="sm"
+                className="h-7 px-2.5"
+                onClick={handleStartStop}
+              >
+                <Play className="mr-1.5 h-3 w-3" />
+                {t('actions.resume')}
+              </Button>
+            ) : task.status === 'done' && !task.metadata?.archivedAt ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2.5 hover:bg-muted-foreground/10"
+                onClick={handleArchive}
+                title={t('tooltips.archiveTask')}
+              >
+                <Archive className="mr-1.5 h-3 w-3" />
+                {t('actions.archive')}
+              </Button>
+            ) : (task.status === 'backlog' || task.status === 'in_progress') && (
+              <Button
+                variant={isRunning ? 'destructive' : 'default'}
+                size="sm"
+                className="h-7 px-2.5"
+                onClick={handleStartStop}
+              >
+                {isRunning ? (
+                  <>
+                    <Square className="mr-1.5 h-3 w-3" />
+                    {t('actions.stop')}
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-1.5 h-3 w-3" />
+                    {t('actions.start')}
+                  </>
+                )}
+              </Button>
+            )}
+
+            {/* Move to menu for keyboard accessibility */}
+            {statusMenuItems && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={t('actions.taskActions')}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuLabel>{t('actions.moveTo')}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {statusMenuItems}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

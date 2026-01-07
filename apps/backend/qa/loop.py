@@ -6,6 +6,7 @@ Main QA loop that coordinates reviewer and fixer sessions until
 approval or max iterations.
 """
 
+import os
 import time as time_module
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from linear_updater import (
 from phase_config import get_phase_model, get_phase_thinking_budget
 from phase_event import ExecutionPhase, emit_phase
 from progress import count_subtasks, is_build_complete
+from security.constants import PROJECT_DIR_ENV_VAR
 from task_logger import (
     LogPhase,
     get_task_logger,
@@ -83,6 +85,10 @@ async def run_qa_validation_loop(
     Returns:
         True if QA approved, False otherwise
     """
+    # Set environment variable for security hooks to find the correct project directory
+    # This is needed because os.getcwd() may return the wrong directory in worktree mode
+    os.environ[PROJECT_DIR_ENV_VAR] = str(project_dir.resolve())
+
     debug_section("qa_loop", "QA Validation Loop")
     debug(
         "qa_loop",

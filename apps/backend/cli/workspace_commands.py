@@ -22,6 +22,7 @@ from core.workspace.git_utils import (
     get_merge_base,
     is_lock_file,
 )
+from core.worktree import WorktreeManager
 from debug import debug_warning
 from ui import (
     Icons,
@@ -67,6 +68,7 @@ def _detect_default_branch(project_dir: Path) -> str:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             return env_branch
@@ -78,6 +80,7 @@ def _detect_default_branch(project_dir: Path) -> str:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             return branch
@@ -90,18 +93,32 @@ def _get_changed_files_from_git(
     worktree_path: Path, base_branch: str = "main"
 ) -> list[str]:
     """
-    Get list of changed files from git diff between base branch and HEAD.
+    Get list of files changed by the task (not files changed on base branch).
+
+    Uses merge-base to accurately identify only the files modified in the worktree,
+    not files that changed on the base branch since the worktree was created.
 
     Args:
         worktree_path: Path to the worktree
         base_branch: Base branch to compare against (default: main)
 
     Returns:
-        List of changed file paths
+        List of changed file paths (task changes only)
     """
     try:
+        # First, get the merge-base (the point where the worktree branched)
+        merge_base_result = subprocess.run(
+            ["git", "merge-base", base_branch, "HEAD"],
+            cwd=worktree_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        merge_base = merge_base_result.stdout.strip()
+
+        # Use two-dot diff from merge-base to get only task's changes
         result = subprocess.run(
-            ["git", "diff", "--name-only", f"{base_branch}...HEAD"],
+            ["git", "diff", "--name-only", f"{merge_base}..HEAD"],
             cwd=worktree_path,
             capture_output=True,
             text=True,
@@ -113,10 +130,10 @@ def _get_changed_files_from_git(
         # Log the failure before trying fallback
         debug_warning(
             "workspace_commands",
-            f"git diff (three-dot) failed: returncode={e.returncode}, "
+            f"git diff with merge-base failed: returncode={e.returncode}, "
             f"stderr={e.stderr.strip() if e.stderr else 'N/A'}",
         )
-        # Fallback: try without the three-dot notation
+        # Fallback: try direct two-arg diff (less accurate but works)
         try:
             result = subprocess.run(
                 ["git", "diff", "--name-only", base_branch, "HEAD"],
@@ -131,7 +148,7 @@ def _get_changed_files_from_git(
             # Log the failure before returning empty list
             debug_warning(
                 "workspace_commands",
-                f"git diff (two-arg) failed: returncode={e.returncode}, "
+                f"git diff (fallback) failed: returncode={e.returncode}, "
                 f"stderr={e.stderr.strip() if e.stderr else 'N/A'}",
             )
             return []
@@ -600,6 +617,13 @@ def handle_merge_preview_command(
             changed_files=all_changed_files[:10],  # Log first 10
         )
 
+        # NOTE: We intentionally do NOT have a fast path here.
+        # Even if commits_behind == 0 (main hasn't moved), we still need to:
+        # 1. Call refresh_from_git() to update evolution data for this task
+        # 2. Call preview_merge() to detect potential conflicts with OTHER parallel tasks
+        #    that may be tracked in the evolution data but haven't been merged yet.
+        # Skipping semantic analysis when commits_behind == 0 would miss these conflicts.
+
         debug(MODULE, "Initializing MergeOrchestrator for preview...")
 
         # Initialize the orchestrator
@@ -804,4 +828,110 @@ def handle_merge_preview_command(
                 "autoMergeable": 0,
                 "pathMappedAIMergeCount": 0,
             },
+        }
+
+
+def cleanup_old_worktrees_command(
+    project_dir: Path, days: int = 30, dry_run: bool = False
+) -> dict:
+    """
+    Clean up old worktrees that haven't been modified in the specified number of days.
+
+    Args:
+        project_dir: Project root directory
+        days: Number of days threshold (default: 30)
+        dry_run: If True, only show what would be removed (default: False)
+
+    Returns:
+        Dictionary with cleanup results
+    """
+    try:
+        manager = WorktreeManager(project_dir)
+
+        removed, failed = manager.cleanup_old_worktrees(
+            days_threshold=days, dry_run=dry_run
+        )
+
+        return {
+            "success": True,
+            "removed": removed,
+            "failed": failed,
+            "dry_run": dry_run,
+            "days_threshold": days,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "removed": [],
+            "failed": [],
+        }
+
+
+def worktree_summary_command(project_dir: Path) -> dict:
+    """
+    Get a summary of all worktrees with age information.
+
+    Args:
+        project_dir: Project root directory
+
+    Returns:
+        Dictionary with worktree summary data
+    """
+    try:
+        manager = WorktreeManager(project_dir)
+
+        # Print to console for CLI usage
+        manager.print_worktree_summary()
+
+        # Also return data for programmatic access
+        worktrees = manager.list_all_worktrees()
+        warning = manager.get_worktree_count_warning()
+
+        # Categorize by age
+        recent = []
+        week_old = []
+        month_old = []
+        very_old = []
+        unknown_age = []
+
+        for info in worktrees:
+            data = {
+                "spec_name": info.spec_name,
+                "days_since_last_commit": info.days_since_last_commit,
+                "commit_count": info.commit_count,
+            }
+
+            if info.days_since_last_commit is None:
+                unknown_age.append(data)
+            elif info.days_since_last_commit < 7:
+                recent.append(data)
+            elif info.days_since_last_commit < 30:
+                week_old.append(data)
+            elif info.days_since_last_commit < 90:
+                month_old.append(data)
+            else:
+                very_old.append(data)
+
+        return {
+            "success": True,
+            "total_worktrees": len(worktrees),
+            "categories": {
+                "recent": recent,
+                "week_old": week_old,
+                "month_old": month_old,
+                "very_old": very_old,
+                "unknown_age": unknown_age,
+            },
+            "warning": warning,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "total_worktrees": 0,
+            "categories": {},
+            "warning": None,
         }

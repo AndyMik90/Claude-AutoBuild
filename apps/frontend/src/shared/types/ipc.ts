@@ -50,7 +50,10 @@ import type {
   SessionDateRestoreResult,
   RateLimitInfo,
   SDKRateLimitInfo,
-  RetryWithProfileRequest
+  RetryWithProfileRequest,
+  CreateTerminalWorktreeRequest,
+  TerminalWorktreeConfig,
+  TerminalWorktreeResult,
 } from './terminal';
 import type {
   ClaudeProfileSettings,
@@ -59,7 +62,7 @@ import type {
   ClaudeAuthResult,
   ClaudeUsageSnapshot
 } from './agent';
-import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult, AutoBuildSourceUpdateCheck, AutoBuildSourceUpdateProgress } from './settings';
+import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult } from './settings';
 import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent } from './app-update';
 import type {
   ChangelogTask,
@@ -188,6 +191,8 @@ export interface ElectronAPI {
   resizeTerminal: (id: string, cols: number, rows: number) => void;
   invokeClaudeInTerminal: (id: string, cwd?: string) => void;
   generateTerminalName: (command: string, cwd?: string) => Promise<IPCResult<string>>;
+  setTerminalTitle: (id: string, title: string) => void;
+  setTerminalWorktreeConfig: (id: string, config: TerminalWorktreeConfig | undefined) => void;
 
   // Terminal session management (persistence/restore)
   getTerminalSessions: (projectPath: string) => Promise<IPCResult<TerminalSession[]>>;
@@ -199,6 +204,11 @@ export interface ElectronAPI {
   restoreTerminalSessionsFromDate: (date: string, projectPath: string, cols?: number, rows?: number) => Promise<IPCResult<SessionDateRestoreResult>>;
   saveTerminalBuffer: (terminalId: string, serialized: string) => Promise<void>;
   checkTerminalPtyAlive: (terminalId: string) => Promise<IPCResult<{ alive: boolean }>>;
+
+  // Terminal worktree operations (isolated development)
+  createTerminalWorktree: (request: CreateTerminalWorktreeRequest) => Promise<TerminalWorktreeResult>;
+  listTerminalWorktrees: (projectPath: string) => Promise<IPCResult<TerminalWorktreeConfig[]>>;
+  removeTerminalWorktree: (projectPath: string, name: string, deleteBranch?: boolean) => Promise<IPCResult>;
 
   // Terminal event listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
@@ -215,6 +225,14 @@ export interface ElectronAPI {
     message?: string;
     detectedAt: string
   }) => void) => () => void;
+  /** Listen for auth terminal creation - allows UI to display the OAuth terminal */
+  onTerminalAuthCreated: (callback: (info: {
+    terminalId: string;
+    profileId: string;
+    profileName: string
+  }) => void) => () => void;
+  /** Listen for Claude busy state changes (for visual indicator: red=busy, green=idle) */
+  onTerminalClaudeBusy: (callback: (id: string, isBusy: boolean) => void) => () => void;
 
   // Claude profile management (multi-account support)
   getClaudeProfiles: () => Promise<IPCResult<ClaudeProfileSettings>>;
@@ -257,6 +275,12 @@ export interface ElectronAPI {
   // App settings
   getSettings: () => Promise<IPCResult<AppSettings>>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<IPCResult>;
+
+  // Sentry error reporting
+  notifySentryStateChanged: (enabled: boolean) => void;
+  getSentryDsn: () => Promise<string>;
+  getSentryConfig: () => Promise<{ dsn: string; tracesSampleRate: number; profilesSampleRate: number }>;
+
   getCliToolsInfo: () => Promise<IPCResult<{
     python: import('./cli').ToolDetectionResult;
     git: import('./cli').ToolDetectionResult;
@@ -553,19 +577,10 @@ export interface ElectronAPI {
     callback: (projectId: string, ideationType: string) => void
   ) => () => void;
 
-  // Auto Claude source update operations
-  checkAutoBuildSourceUpdate: () => Promise<IPCResult<AutoBuildSourceUpdateCheck>>;
-  downloadAutoBuildSourceUpdate: () => void;
-  getAutoBuildSourceVersion: () => Promise<IPCResult<string>>;
-
-  // Auto Claude source update event listeners
-  onAutoBuildSourceUpdateProgress: (
-    callback: (progress: AutoBuildSourceUpdateProgress) => void
-  ) => () => void;
-
   // Electron app update operations
   checkAppUpdate: () => Promise<IPCResult<AppUpdateInfo | null>>;
   downloadAppUpdate: () => Promise<IPCResult>;
+  downloadStableUpdate: () => Promise<IPCResult>;
   installAppUpdate: () => void;
 
   // Electron app update event listeners
@@ -577,6 +592,9 @@ export interface ElectronAPI {
   ) => () => void;
   onAppUpdateProgress: (
     callback: (progress: AppUpdateProgress) => void
+  ) => () => void;
+  onAppUpdateStableDowngrade: (
+    callback: (info: AppUpdateInfo) => void
   ) => () => void;
 
   // Shell operations

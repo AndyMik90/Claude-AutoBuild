@@ -7,6 +7,7 @@ Main autonomous agent loop that runs the coder agent to implement subtasks.
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 
 from core.client import create_client
@@ -37,6 +38,7 @@ from prompt_generator import (
 )
 from prompts import is_first_run
 from recovery import RecoveryManager
+from security.constants import PROJECT_DIR_ENV_VAR
 from task_logger import (
     LogPhase,
     get_task_logger,
@@ -62,7 +64,7 @@ from .utils import (
     get_commit_count,
     get_latest_commit,
     load_implementation_plan,
-    sync_plan_to_source,
+    sync_spec_to_source,
 )
 
 logger = logging.getLogger(__name__)
@@ -90,6 +92,10 @@ async def run_autonomous_agent(
         verbose: Whether to show detailed output
         source_spec_dir: Original spec directory in main project (for syncing from worktree)
     """
+    # Set environment variable for security hooks to find the correct project directory
+    # This is needed because os.getcwd() may return the wrong directory in worktree mode
+    os.environ[PROJECT_DIR_ENV_VAR] = str(project_dir.resolve())
+
     # Initialize recovery manager (handles memory persistence)
     recovery_manager = RecoveryManager(spec_dir, project_dir)
 
@@ -404,7 +410,7 @@ async def run_autonomous_agent(
                     print_status("Linear notified of stuck subtask", "info")
         elif is_planning_phase and source_spec_dir:
             # After planning phase, sync the newly created implementation plan back to source
-            if sync_plan_to_source(spec_dir, source_spec_dir):
+            if sync_spec_to_source(spec_dir, source_spec_dir):
                 print_status("Implementation plan synced to main project", "success")
 
         # Handle session status

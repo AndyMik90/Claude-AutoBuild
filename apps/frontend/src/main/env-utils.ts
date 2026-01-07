@@ -30,7 +30,8 @@ function getNpmGlobalPrefix(): string | null {
     // On Windows, use npm.cmd for proper command resolution
     const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
-    const rawPrefix = execFileSync(npmCommand, ['config', 'get', 'prefix'], {
+    // Use --location=global to bypass workspace context and avoid ENOWORKSPACES error
+    const rawPrefix = execFileSync(npmCommand, ['config', 'get', 'prefix', '--location=global'], {
       encoding: 'utf-8',
       timeout: 3000,
       windowsHide: true,
@@ -64,15 +65,18 @@ const COMMON_BIN_PATHS: Record<string, string[]> = {
   darwin: [
     '/opt/homebrew/bin',      // Apple Silicon Homebrew
     '/usr/local/bin',         // Intel Homebrew / system
+    '/usr/local/share/dotnet', // .NET SDK
     '/opt/homebrew/sbin',     // Apple Silicon Homebrew sbin
     '/usr/local/sbin',        // Intel Homebrew sbin
     '~/.local/bin',           // User-local binaries (Claude CLI)
+    '~/.dotnet/tools',        // .NET global tools
   ],
   linux: [
     '/usr/local/bin',
     '/usr/bin',               // System binaries (Python, etc.)
     '/snap/bin',              // Snap packages
     '~/.local/bin',           // User-local binaries
+    '~/.dotnet/tools',        // .NET global tools
     '/usr/sbin',              // System admin binaries
   ],
   win32: [

@@ -21,13 +21,18 @@
  */
 
 import { execFileSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import { app } from 'electron';
-import { findExecutable } from './env-utils';
+import { findExecutable, getAugmentedEnv } from './env-utils';
 import type { ToolDetectionResult } from '../shared/types';
 import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
+import {
+  getWindowsExecutablePaths,
+  WINDOWS_GIT_PATHS,
+  findWindowsExecutableViaWhere,
+} from './utils/windows-paths';
 
 /**
  * Supported CLI tools managed by this system
@@ -392,7 +397,40 @@ class CLIToolManager {
       }
     }
 
-    // 4. Not found - fallback to 'git'
+    // 4. Windows-specific detection using 'where' command (most reliable for custom installs)
+    if (process.platform === 'win32') {
+      // First try 'where' command - finds git regardless of installation location
+      const whereGitPath = findWindowsExecutableViaWhere('git', '[Git]');
+      if (whereGitPath) {
+        const validation = this.validateGit(whereGitPath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: whereGitPath,
+            version: validation.version,
+            source: 'system-path',
+            message: `Using Windows Git: ${whereGitPath}`,
+          };
+        }
+      }
+
+      // Fallback to checking common installation paths
+      const windowsPaths = getWindowsExecutablePaths(WINDOWS_GIT_PATHS, '[Git]');
+      for (const winGitPath of windowsPaths) {
+        const validation = this.validateGit(winGitPath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: winGitPath,
+            version: validation.version,
+            source: 'system-path',
+            message: `Using Windows Git: ${winGitPath}`,
+          };
+        }
+      }
+    }
+
+    // 5. Not found - fallback to 'git'
     return {
       found: false,
       source: 'fallback',
@@ -594,6 +632,50 @@ class CLIToolManager {
           path.join(homeDir, 'bin', 'claude'),
         ];
 
+    // 4.5. NVM (Node Version Manager) paths for Unix/Linux/macOS
+    // NVM installs global npm packages in ~/.nvm/versions/node/vX.X.X/bin/
+    // This is important when the app launches from GUI without NVM sourced
+    if (process.platform !== 'win32') {
+      const nvmVersionsDir = path.join(homeDir, '.nvm', 'versions', 'node');
+      try {
+        if (existsSync(nvmVersionsDir)) {
+          const nodeVersions = readdirSync(nvmVersionsDir, { withFileTypes: true });
+          const versionDirs = nodeVersions
+            .filter((entry) => entry.isDirectory() && entry.name.startsWith('v'))
+            .sort((a, b) => {
+              const vA = a.name.slice(1).split('.').map(Number);
+              const vB = b.name.slice(1).split('.').map(Number);
+              for (let i = 0; i < 3; i++) {
+                const diff = (vB[i] ?? 0) - (vA[i] ?? 0);
+                if (diff !== 0) {
+                  return diff;
+                }
+              }
+              return 0;
+            });
+
+          for (const entry of versionDirs) {
+            const nvmClaudePath = path.join(nvmVersionsDir, entry.name, 'bin', 'claude');
+            if (existsSync(nvmClaudePath)) {
+              const validation = this.validateClaude(nvmClaudePath);
+              if (validation.valid) {
+                return {
+                  found: true,
+                  path: nvmClaudePath,
+                  version: validation.version,
+                  source: 'nvm',
+                  message: `Using NVM Claude CLI: ${nvmClaudePath}`,
+                };
+              }
+            }
+          }
+        }
+      } catch (error) {
+        // Silently fail if unable to read NVM directory
+        console.warn(`[Claude CLI] Unable to read NVM directory: ${error}`);
+      }
+    }
+
     for (const claudePath of platformPaths) {
       if (existsSync(claudePath)) {
         const validation = this.validateClaude(claudePath);
@@ -759,6 +841,7 @@ class CLIToolManager {
         timeout: 5000,
         windowsHide: true,
         shell: needsShell,
+        env: getAugmentedEnv(),
       }).trim();
 
       // Claude CLI version output format: "claude-code version X.Y.Z" or similar

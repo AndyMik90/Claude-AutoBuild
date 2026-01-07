@@ -126,6 +126,26 @@ export interface AnalyzePreviewResult {
 }
 
 /**
+ * Workflow run awaiting approval (for fork PRs)
+ */
+export interface WorkflowAwaitingApproval {
+  id: number;
+  name: string;
+  html_url: string;
+  workflow_name: string;
+}
+
+/**
+ * Workflows awaiting approval result
+ */
+export interface WorkflowsAwaitingApprovalResult {
+  awaiting_approval: number;
+  workflow_runs: WorkflowAwaitingApproval[];
+  can_approve: boolean;
+  error?: string;
+}
+
+/**
  * GitHub Integration API operations
  */
 export interface GitHubAPI {
@@ -234,22 +254,29 @@ export interface GitHubAPI {
   ) => IpcListenerCleanup;
 
   // PR operations
-  listPRs: (projectId: string) => Promise<PRData[]>;
+  listPRs: (projectId: string, page?: number) => Promise<PRData[]>;
+  getPR: (projectId: string, prNumber: number) => Promise<PRData | null>;
   runPRReview: (projectId: string, prNumber: number) => void;
   cancelPRReview: (projectId: string, prNumber: number) => Promise<boolean>;
-  postPRReview: (projectId: string, prNumber: number, selectedFindingIds?: string[]) => Promise<boolean>;
+  postPRReview: (projectId: string, prNumber: number, selectedFindingIds?: string[], options?: { forceApprove?: boolean }) => Promise<boolean>;
   deletePRReview: (projectId: string, prNumber: number) => Promise<boolean>;
   postPRComment: (projectId: string, prNumber: number, body: string) => Promise<boolean>;
   mergePR: (projectId: string, prNumber: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
   assignPR: (projectId: string, prNumber: number, username: string) => Promise<boolean>;
   getPRReview: (projectId: string, prNumber: number) => Promise<PRReviewResult | null>;
+  getPRReviewsBatch: (projectId: string, prNumbers: number[]) => Promise<Record<number, PRReviewResult | null>>;
 
   // Follow-up review operations
   checkNewCommits: (projectId: string, prNumber: number) => Promise<NewCommitsCheck>;
+  checkMergeReadiness: (projectId: string, prNumber: number) => Promise<MergeReadiness>;
   runFollowupReview: (projectId: string, prNumber: number) => void;
 
   // PR logs
   getPRLogs: (projectId: string, prNumber: number) => Promise<PRLogs | null>;
+
+  // Workflow approval (for fork PRs)
+  getWorkflowsAwaitingApproval: (projectId: string, prNumber: number) => Promise<WorkflowsAwaitingApprovalResult>;
+  approveWorkflow: (projectId: string, runId: number) => Promise<boolean>;
 
   // PR event listeners
   onPRReviewProgress: (
@@ -320,6 +347,7 @@ export interface PRReviewResult {
   error?: string;
   // Follow-up review fields
   reviewedCommitSha?: string;
+  reviewedFileBlobs?: Record<string, string>; // filename → blob SHA for rebase-resistant follow-ups
   isFollowupReview?: boolean;
   previousReviewId?: number;
   resolvedFindings?: string[];
@@ -341,6 +369,21 @@ export interface NewCommitsCheck {
   currentHeadCommit?: string;
   /** Whether new commits happened AFTER findings were posted (for "Ready for Follow-up" status) */
   hasCommitsAfterPosting?: boolean;
+}
+
+/**
+ * Lightweight merge readiness check result
+ * Used for real-time validation of AI verdict freshness
+ */
+export interface MergeReadiness {
+  /** PR is in draft mode */
+  isDraft: boolean;
+  /** GitHub's mergeable status */
+  mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+  /** Simplified CI status */
+  ciStatus: 'passing' | 'failing' | 'pending' | 'none';
+  /** List of blockers that contradict a "ready to merge" verdict */
+  blockers: string[];
 }
 
 /**
@@ -585,8 +628,11 @@ export const createGitHubAPI = (): GitHubAPI => ({
     createIpcListener(IPC_CHANNELS.GITHUB_AUTOFIX_ANALYZE_PREVIEW_ERROR, callback),
 
   // PR operations
-  listPRs: (projectId: string): Promise<PRData[]> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST, projectId),
+  listPRs: (projectId: string, page: number = 1): Promise<PRData[]> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST, projectId, page),
+
+  getPR: (projectId: string, prNumber: number): Promise<PRData | null> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_GET, projectId, prNumber),
 
   runPRReview: (projectId: string, prNumber: number): void =>
     sendIpc(IPC_CHANNELS.GITHUB_PR_REVIEW, projectId, prNumber),
@@ -594,8 +640,8 @@ export const createGitHubAPI = (): GitHubAPI => ({
   cancelPRReview: (projectId: string, prNumber: number): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_REVIEW_CANCEL, projectId, prNumber),
 
-  postPRReview: (projectId: string, prNumber: number, selectedFindingIds?: string[]): Promise<boolean> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_PR_POST_REVIEW, projectId, prNumber, selectedFindingIds),
+  postPRReview: (projectId: string, prNumber: number, selectedFindingIds?: string[], options?: { forceApprove?: boolean }): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_POST_REVIEW, projectId, prNumber, selectedFindingIds, options),
 
   deletePRReview: (projectId: string, prNumber: number): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_DELETE_REVIEW, projectId, prNumber),
@@ -612,9 +658,15 @@ export const createGitHubAPI = (): GitHubAPI => ({
   getPRReview: (projectId: string, prNumber: number): Promise<PRReviewResult | null> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_GET_REVIEW, projectId, prNumber),
 
+  getPRReviewsBatch: (projectId: string, prNumbers: number[]): Promise<Record<number, PRReviewResult | null>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_GET_REVIEWS_BATCH, projectId, prNumbers),
+
   // Follow-up review operations
   checkNewCommits: (projectId: string, prNumber: number): Promise<NewCommitsCheck> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_CHECK_NEW_COMMITS, projectId, prNumber),
+
+  checkMergeReadiness: (projectId: string, prNumber: number): Promise<MergeReadiness> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_CHECK_MERGE_READINESS, projectId, prNumber),
 
   runFollowupReview: (projectId: string, prNumber: number): void =>
     sendIpc(IPC_CHANNELS.GITHUB_PR_FOLLOWUP_REVIEW, projectId, prNumber),
@@ -622,6 +674,13 @@ export const createGitHubAPI = (): GitHubAPI => ({
   // PR logs
   getPRLogs: (projectId: string, prNumber: number): Promise<PRLogs | null> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_GET_LOGS, projectId, prNumber),
+
+  // Workflow approval (for fork PRs)
+  getWorkflowsAwaitingApproval: (projectId: string, prNumber: number): Promise<WorkflowsAwaitingApprovalResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_WORKFLOWS_AWAITING_APPROVAL, projectId, prNumber),
+
+  approveWorkflow: (projectId: string, runId: number): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_WORKFLOW_APPROVE, projectId, runId),
 
   // PR event listeners
   onPRReviewProgress: (
