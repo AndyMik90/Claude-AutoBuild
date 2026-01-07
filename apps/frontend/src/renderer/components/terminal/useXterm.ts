@@ -80,6 +80,12 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
     xterm.open(terminalRef.current);
 
+    // Platform detection for copy/paste shortcuts
+    const platform = process.platform;
+    const isMac = platform === 'darwin';
+    const isWindows = platform === 'win32';
+    const isLinux = platform === 'linux';
+
     // Allow certain key combinations to bubble up to window-level handlers
     // This enables global shortcuts like Cmd/Ctrl+1-9 for project switching
     xterm.attachCustomKeyEventHandler((event) => {
@@ -115,6 +121,68 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       // Let Cmd/Ctrl + W pass through for close terminal shortcut
       if (isMod && (event.key === 't' || event.key === 'T' || event.key === 'w' || event.key === 'W')) {
         return false;
+      }
+
+      // Handle CMD/Ctrl+C - Smart copy (copy if text selected, send ^C if not)
+      const isCopyShortcut = isMod && (event.key === 'c' || event.key === 'C') && event.type === 'keydown';
+      if (isCopyShortcut) {
+        if (xterm.hasSelection()) {
+          const selection = xterm.getSelection();
+          if (selection) {
+            navigator.clipboard.writeText(selection).catch((err) => {
+              console.error('[useXterm] Failed to copy selection:', err);
+            });
+          }
+          return false; // Prevent xterm from handling
+        }
+        // No selection - let ^C pass through to terminal (sends interrupt signal)
+        return true;
+      }
+
+      // Handle CTRL+V paste (Windows and Linux only)
+      const isPasteShortcut = event.ctrlKey && (event.key === 'v' || event.key === 'V') && event.type === 'keydown';
+      if (isPasteShortcut && (isWindows || isLinux)) {
+        navigator.clipboard.readText()
+          .then((text) => {
+            if (text) {
+              xterm.paste(text);
+            }
+          })
+          .catch((err) => {
+            console.error('[useXterm] Failed to read clipboard:', err);
+          });
+        return false; // Prevent xterm from sending literal ^V
+      }
+
+      // Handle CTRL+SHIFT+C copy (Linux only - alternative to CTRL+C)
+      const isLinuxCopyShortcut = event.ctrlKey && event.shiftKey && (event.key === 'C' || event.key === 'c') && event.type === 'keydown';
+      if (isLinuxCopyShortcut && isLinux) {
+        if (xterm.hasSelection()) {
+          const selection = xterm.getSelection();
+          if (selection) {
+            navigator.clipboard.writeText(selection).catch((err) => {
+              console.error('[useXterm] Failed to copy selection:', err);
+            });
+          }
+          return false; // Prevent xterm from handling
+        }
+        // No selection - let ^C pass through to terminal
+        return true;
+      }
+
+      // Handle CTRL+SHIFT+V paste (Linux only - alternative to CTRL+V)
+      const isLinuxPasteShortcut = event.ctrlKey && event.shiftKey && (event.key === 'V' || event.key === 'v') && event.type === 'keydown';
+      if (isLinuxPasteShortcut && isLinux) {
+        navigator.clipboard.readText()
+          .then((text) => {
+            if (text) {
+              xterm.paste(text);
+            }
+          })
+          .catch((err) => {
+            console.error('[useXterm] Failed to read clipboard:', err);
+          });
+        return false; // Prevent xterm from sending literal ^V
       }
 
       // Handle all other keys in xterm
