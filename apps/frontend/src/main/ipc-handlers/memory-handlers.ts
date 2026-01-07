@@ -212,11 +212,7 @@ function checkOllamaInstalled(): OllamaInstallStatus {
  * - Official method per https://winstall.app/apps/Ollama.Ollama
  * - Winget is pre-installed on Windows 10 (1709+) and Windows 11
  *
- * macOS: Uses Homebrew (most common package manager on macOS)
- * - Official method: brew install ollama
- * - Reference: https://ollama.com/download/mac
- *
- * Linux: Uses official install script from https://ollama.com/download
+ * macOS/Linux: Uses official install script from https://ollama.com/download
  *
  * @returns {string} The install command to run in terminal
  */
@@ -226,13 +222,8 @@ function getOllamaInstallCommand(): string {
     // This is an official installation method for Ollama on Windows
     // Reference: https://winstall.app/apps/Ollama.Ollama
     return 'winget install --id Ollama.Ollama --accept-source-agreements';
-  } else if (process.platform === 'darwin') {
-    // macOS: Use Homebrew (most widely used package manager on macOS)
-    // Official Ollama installation method for macOS
-    // Reference: https://ollama.com/download/mac
-    return 'brew install ollama';
   } else {
-    // Linux: Use shell script from official Ollama
+    // macOS/Linux: Use shell script from official Ollama
     // Reference: https://ollama.com/download
     return 'curl -fsSL https://ollama.com/install.sh | sh';
   }

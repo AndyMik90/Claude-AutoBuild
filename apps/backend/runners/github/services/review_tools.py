@@ -140,9 +140,7 @@ async def spawn_security_review(
                 msg_type = type(msg).__name__
                 if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                     for block in msg.content:
-                        # Must check block type - only TextBlock has .text attribute
-                        block_type = type(block).__name__
-                        if block_type == "TextBlock" and hasattr(block, "text"):
+                        if hasattr(block, "text"):
                             result_text += block.text
 
         # Parse findings
@@ -225,9 +223,7 @@ async def spawn_quality_review(
                 msg_type = type(msg).__name__
                 if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                     for block in msg.content:
-                        # Must check block type - only TextBlock has .text attribute
-                        block_type = type(block).__name__
-                        if block_type == "TextBlock" and hasattr(block, "text"):
+                        if hasattr(block, "text"):
                             result_text += block.text
 
         findings = _parse_findings_from_response(result_text, source="quality_agent")
@@ -320,9 +316,7 @@ Output findings in JSON format:
                 msg_type = type(msg).__name__
                 if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                     for block in msg.content:
-                        # Must check block type - only TextBlock has .text attribute
-                        block_type = type(block).__name__
-                        if block_type == "TextBlock" and hasattr(block, "text"):
+                        if hasattr(block, "text"):
                             result_text += block.text
 
         findings = _parse_findings_from_response(result_text, source="deep_analysis")

@@ -268,7 +268,6 @@ export interface GitHubAPI {
 
   // Follow-up review operations
   checkNewCommits: (projectId: string, prNumber: number) => Promise<NewCommitsCheck>;
-  checkMergeReadiness: (projectId: string, prNumber: number) => Promise<MergeReadiness>;
   runFollowupReview: (projectId: string, prNumber: number) => void;
 
   // PR logs
@@ -369,21 +368,6 @@ export interface NewCommitsCheck {
   currentHeadCommit?: string;
   /** Whether new commits happened AFTER findings were posted (for "Ready for Follow-up" status) */
   hasCommitsAfterPosting?: boolean;
-}
-
-/**
- * Lightweight merge readiness check result
- * Used for real-time validation of AI verdict freshness
- */
-export interface MergeReadiness {
-  /** PR is in draft mode */
-  isDraft: boolean;
-  /** GitHub's mergeable status */
-  mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
-  /** Simplified CI status */
-  ciStatus: 'passing' | 'failing' | 'pending' | 'none';
-  /** List of blockers that contradict a "ready to merge" verdict */
-  blockers: string[];
 }
 
 /**
@@ -664,9 +648,6 @@ export const createGitHubAPI = (): GitHubAPI => ({
   // Follow-up review operations
   checkNewCommits: (projectId: string, prNumber: number): Promise<NewCommitsCheck> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_CHECK_NEW_COMMITS, projectId, prNumber),
-
-  checkMergeReadiness: (projectId: string, prNumber: number): Promise<MergeReadiness> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_PR_CHECK_MERGE_READINESS, projectId, prNumber),
 
   runFollowupReview: (projectId: string, prNumber: number): void =>
     sendIpc(IPC_CHANNELS.GITHUB_PR_FOLLOWUP_REVIEW, projectId, prNumber),

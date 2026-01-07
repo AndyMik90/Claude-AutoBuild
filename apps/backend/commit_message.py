@@ -231,9 +231,7 @@ async def _call_claude(prompt: str) -> str:
                 msg_type = type(msg).__name__
                 if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                     for block in msg.content:
-                        # Must check block type - only TextBlock has .text attribute
-                        block_type = type(block).__name__
-                        if block_type == "TextBlock" and hasattr(block, "text"):
+                        if hasattr(block, "text"):
                             response_text += block.text
 
             logger.info(f"Generated commit message: {len(response_text)} chars")

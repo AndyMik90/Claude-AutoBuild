@@ -82,10 +82,7 @@ export class TerminalManager {
           );
         },
         onResumeNeeded: (terminalId, sessionId) => {
-          // Use async version to avoid blocking main process
-          this.resumeClaudeAsync(terminalId, sessionId).catch((error) => {
-            console.error('[terminal-manager] Failed to resume Claude session:', error);
-          });
+          this.resumeClaude(terminalId, sessionId);
         }
       },
       cols,
@@ -137,34 +134,7 @@ export class TerminalManager {
   }
 
   /**
-   * Invoke Claude in a terminal with optional profile override (async - non-blocking)
-   */
-  async invokeClaudeAsync(id: string, cwd?: string, profileId?: string): Promise<void> {
-    const terminal = this.terminals.get(id);
-    if (!terminal) {
-      return;
-    }
-
-    await ClaudeIntegration.invokeClaudeAsync(
-      terminal,
-      cwd,
-      profileId,
-      this.getWindow,
-      (terminalId, projectPath, startTime) => {
-        SessionHandler.captureClaudeSessionId(
-          terminalId,
-          projectPath,
-          startTime,
-          this.terminals,
-          this.getWindow
-        );
-      }
-    );
-  }
-
-  /**
    * Invoke Claude in a terminal with optional profile override
-   * @deprecated Use invokeClaudeAsync for non-blocking behavior
    */
   invokeClaude(id: string, cwd?: string, profileId?: string): void {
     const terminal = this.terminals.get(id);
@@ -202,26 +172,13 @@ export class TerminalManager {
       terminal,
       profileId,
       this.getWindow,
-      async (terminalId, cwd, profileId) => this.invokeClaudeAsync(terminalId, cwd, profileId),
+      (terminalId, cwd, profileId) => this.invokeClaude(terminalId, cwd, profileId),
       (terminalId) => this.lastNotifiedRateLimitReset.delete(terminalId)
     );
   }
 
   /**
-   * Resume Claude in a terminal asynchronously (non-blocking)
-   */
-  async resumeClaudeAsync(id: string, sessionId?: string): Promise<void> {
-    const terminal = this.terminals.get(id);
-    if (!terminal) {
-      return;
-    }
-
-    await ClaudeIntegration.resumeClaudeAsync(terminal, sessionId, this.getWindow);
-  }
-
-  /**
    * Resume Claude in a terminal with a specific session ID
-   * @deprecated Use resumeClaudeAsync for non-blocking behavior
    */
   resumeClaude(id: string, sessionId?: string): void {
     const terminal = this.terminals.get(id);
@@ -287,10 +244,7 @@ export class TerminalManager {
           );
         },
         onResumeNeeded: (terminalId, sessionId) => {
-          // Use async version to avoid blocking main process
-          this.resumeClaudeAsync(terminalId, sessionId).catch((error) => {
-            console.error('[terminal-manager] Failed to resume Claude session:', error);
-          });
+          this.resumeClaude(terminalId, sessionId);
         }
       },
       cols,

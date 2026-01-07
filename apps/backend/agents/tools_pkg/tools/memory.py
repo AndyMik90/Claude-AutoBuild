@@ -29,14 +29,14 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-async def _save_to_graphiti_async(
+def _save_to_graphiti_sync(
     spec_dir: Path,
     project_dir: Path,
     save_type: str,
     data: dict,
 ) -> bool:
     """
-    Save data to Graphiti/LadybugDB (async implementation).
+    Save data to Graphiti/LadybugDB (synchronous wrapper for async operation).
 
     Args:
         spec_dir: Spec directory for GraphitiMemory initialization
@@ -56,74 +56,45 @@ async def _save_to_graphiti_async(
 
         from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-        memory = GraphitiMemory(spec_dir, project_dir)
+        async def _async_save():
+            memory = GraphitiMemory(spec_dir, project_dir)
+            try:
+                if save_type == "discovery":
+                    # Save as codebase discovery
+                    # Format: {file_path: description}
+                    result = await memory.save_codebase_discoveries(
+                        {data["file_path"]: data["description"]}
+                    )
+                elif save_type == "gotcha":
+                    # Save as gotcha
+                    gotcha_text = data["gotcha"]
+                    if data.get("context"):
+                        gotcha_text += f" (Context: {data['context']})"
+                    result = await memory.save_gotcha(gotcha_text)
+                elif save_type == "pattern":
+                    # Save as pattern
+                    result = await memory.save_pattern(data["pattern"])
+                else:
+                    result = False
+                return result
+            finally:
+                await memory.close()
+
+        # Run async operation in event loop
         try:
-            if save_type == "discovery":
-                # Save as codebase discovery
-                # Format: {file_path: description}
-                result = await memory.save_codebase_discoveries(
-                    {data["file_path"]: data["description"]}
-                )
-            elif save_type == "gotcha":
-                # Save as gotcha
-                gotcha_text = data["gotcha"]
-                if data.get("context"):
-                    gotcha_text += f" (Context: {data['context']})"
-                result = await memory.save_gotcha(gotcha_text)
-            elif save_type == "pattern":
-                # Save as pattern
-                result = await memory.save_pattern(data["pattern"])
-            else:
-                result = False
-            return result
-        finally:
-            await memory.close()
+            asyncio.get_running_loop()
+            # If we're already in an async context, schedule the task
+            # Don't block - just fire and forget for the Graphiti save
+            # The file-based save is the primary, Graphiti is supplementary
+            asyncio.ensure_future(_async_save())
+            return False  # Can't confirm async success, file-based is source of truth
+        except RuntimeError:
+            # No running loop, create one
+            return asyncio.run(_async_save())
 
     except ImportError as e:
         logger.debug(f"Graphiti not available for memory tools: {e}")
         return False
-    except Exception as e:
-        logger.warning(f"Failed to save to Graphiti: {e}")
-        return False
-
-
-def _save_to_graphiti_sync(
-    spec_dir: Path,
-    project_dir: Path,
-    save_type: str,
-    data: dict,
-) -> bool:
-    """
-    Save data to Graphiti/LadybugDB (synchronous wrapper for sync contexts only).
-
-    NOTE: This should only be called from synchronous code. For async callers,
-    use _save_to_graphiti_async() directly to ensure proper resource cleanup.
-
-    Args:
-        spec_dir: Spec directory for GraphitiMemory initialization
-        project_dir: Project root directory
-        save_type: Type of save - 'discovery', 'gotcha', or 'pattern'
-        data: Data to save
-
-    Returns:
-        True if save succeeded, False otherwise
-    """
-    try:
-        # Check if we're already in an async context
-        try:
-            asyncio.get_running_loop()
-            # We're in an async context - caller should use _save_to_graphiti_async
-            # Log a warning and return False to avoid the resource leak bug
-            logger.warning(
-                "_save_to_graphiti_sync called from async context. "
-                "Use _save_to_graphiti_async instead for proper cleanup."
-            )
-            return False
-        except RuntimeError:
-            # No running loop - safe to create one
-            return asyncio.run(
-                _save_to_graphiti_async(spec_dir, project_dir, save_type, data)
-            )
     except Exception as e:
         logger.warning(f"Failed to save to Graphiti: {e}")
         return False
@@ -189,7 +160,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
                 json.dump(codebase_map, f, indent=2)
 
             # SECONDARY: Also save to Graphiti/LadybugDB (for Memory UI)
-            saved_to_graphiti = await _save_to_graphiti_async(
+            saved_to_graphiti = _save_to_graphiti_sync(
                 spec_dir,
                 project_dir,
                 "discovery",
@@ -252,7 +223,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
                 f.write(entry)
 
             # SECONDARY: Also save to Graphiti/LadybugDB (for Memory UI)
-            saved_to_graphiti = await _save_to_graphiti_async(
+            saved_to_graphiti = _save_to_graphiti_sync(
                 spec_dir,
                 project_dir,
                 "gotcha",

@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IPC_CHANNELS } from '../../shared/constants';
 const {
   mockGetClaudeCliInvocation,
-  mockGetClaudeCliInvocationAsync,
   mockGetProject,
   spawnMock,
   mockIpcMain,
@@ -23,7 +22,6 @@ const {
 
   return {
     mockGetClaudeCliInvocation: vi.fn(),
-    mockGetClaudeCliInvocationAsync: vi.fn(),
     mockGetProject: vi.fn(),
     spawnMock: vi.fn(),
     mockIpcMain: ipcMain,
@@ -32,7 +30,6 @@ const {
 
 vi.mock('../claude-cli-utils', () => ({
   getClaudeCliInvocation: mockGetClaudeCliInvocation,
-  getClaudeCliInvocationAsync: mockGetClaudeCliInvocationAsync,
 }));
 
 vi.mock('../project-store', () => ({
@@ -67,15 +64,9 @@ function createProc(): EventEmitter & { stdout?: EventEmitter; stderr?: EventEmi
   return proc;
 }
 
-// Helper to flush all pending promises (needed for async mock resolution)
-function flushPromises(): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, 0));
-}
-
 describe('env-handlers Claude CLI usage', () => {
   beforeEach(() => {
     mockGetClaudeCliInvocation.mockReset();
-    mockGetClaudeCliInvocationAsync.mockReset();
     mockGetProject.mockReset();
     spawnMock.mockReset();
   });
@@ -83,7 +74,7 @@ describe('env-handlers Claude CLI usage', () => {
   it('uses resolved Claude CLI path/env for auth checks', async () => {
     const claudeEnv = { PATH: '/opt/claude/bin:/usr/bin' };
     const command = '/opt/claude/bin/claude';
-    mockGetClaudeCliInvocationAsync.mockResolvedValue({
+    mockGetClaudeCliInvocation.mockReturnValue({
       command,
       env: claudeEnv,
     });
@@ -103,8 +94,6 @@ describe('env-handlers Claude CLI usage', () => {
     }
 
     const resultPromise = handler({}, 'p1');
-    // Wait for async CLI resolution before checking spawn
-    await flushPromises();
     expect(spawnMock).toHaveBeenCalledTimes(1);
     expect(spawnMock).toHaveBeenCalledWith(
       command,
@@ -131,7 +120,7 @@ describe('env-handlers Claude CLI usage', () => {
   it('uses resolved Claude CLI path/env for setup-token', async () => {
     const claudeEnv = { PATH: '/opt/claude/bin:/usr/bin' };
     const command = '/opt/claude/bin/claude';
-    mockGetClaudeCliInvocationAsync.mockResolvedValue({
+    mockGetClaudeCliInvocation.mockReturnValue({
       command,
       env: claudeEnv,
     });
@@ -147,8 +136,6 @@ describe('env-handlers Claude CLI usage', () => {
     }
 
     const resultPromise = handler({}, 'p2');
-    // Wait for async CLI resolution before checking spawn
-    await flushPromises();
     expect(spawnMock).toHaveBeenCalledWith(
       command,
       ['setup-token'],
@@ -166,7 +153,9 @@ describe('env-handlers Claude CLI usage', () => {
   });
 
   it('returns an error when Claude CLI resolution throws', async () => {
-    mockGetClaudeCliInvocationAsync.mockRejectedValue(new Error('Claude CLI exploded'));
+    mockGetClaudeCliInvocation.mockImplementation(() => {
+      throw new Error('Claude CLI exploded');
+    });
     mockGetProject.mockReturnValue({ id: 'p3', path: '/tmp/project' });
 
     registerEnvHandlers(() => null);
@@ -182,7 +171,7 @@ describe('env-handlers Claude CLI usage', () => {
   });
 
   it('returns an error when Claude CLI command is missing', async () => {
-    mockGetClaudeCliInvocationAsync.mockResolvedValue({ command: '', env: {} });
+    mockGetClaudeCliInvocation.mockReturnValue({ command: '', env: {} });
     mockGetProject.mockReturnValue({ id: 'p4', path: '/tmp/project' });
 
     registerEnvHandlers(() => null);
@@ -200,7 +189,7 @@ describe('env-handlers Claude CLI usage', () => {
   it('returns an error when Claude CLI exits with a non-zero code', async () => {
     const claudeEnv = { PATH: '/opt/claude/bin:/usr/bin' };
     const command = '/opt/claude/bin/claude';
-    mockGetClaudeCliInvocationAsync.mockResolvedValue({
+    mockGetClaudeCliInvocation.mockReturnValue({
       command,
       env: claudeEnv,
     });
@@ -216,8 +205,6 @@ describe('env-handlers Claude CLI usage', () => {
     }
 
     const resultPromise = handler({}, 'p5');
-    // Wait for async CLI resolution before checking spawn
-    await flushPromises();
     expect(spawnMock).toHaveBeenCalledWith(
       command,
       ['--version'],

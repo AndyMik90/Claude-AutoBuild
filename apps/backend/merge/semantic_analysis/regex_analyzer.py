@@ -1,5 +1,5 @@
 """
-Regex-based semantic analysis for code changes.
+Regex-based fallback analysis when tree-sitter is not available.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ def analyze_with_regex(
     ext: str,
 ) -> FileAnalysis:
     """
-    Analyze code changes using regex patterns.
+    Fallback analysis using regex when tree-sitter isn't available.
 
     Args:
         file_path: Path to the file being analyzed

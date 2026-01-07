@@ -247,10 +247,9 @@ export function useGitHubPRs(projectId?: string, options: UseGitHubPRsOptions = 
             // Preserve newCommitsCheck when loading existing review from disk
             usePRReviewStore.getState().setPRReviewResult(projectId, result, { preserveNewCommitsCheck: true });
             
-            // Always check for new commits when selecting a reviewed PR
-            // This ensures fresh data even if we have a cached check from earlier in the session
+            // Check for new commits if this PR has been reviewed (lazy check on selection)
             const reviewedCommitSha = result.reviewedCommitSha || (result as any).reviewed_commit_sha;
-            if (reviewedCommitSha) {
+            if (reviewedCommitSha && !existingState?.newCommitsCheck) {
               window.electronAPI.github.checkNewCommits(projectId, prNumber).then(newCommitsResult => {
                 setNewCommitsCheckAction(projectId, prNumber, newCommitsResult);
               }).catch(err => {
@@ -259,8 +258,8 @@ export function useGitHubPRs(projectId?: string, options: UseGitHubPRsOptions = 
             }
           }
         });
-      } else if (existingState?.result) {
-        // Review already in store - always check for new commits to get fresh status
+      } else if (existingState?.result && !existingState?.newCommitsCheck) {
+        // Review already in store but no new commits check yet - do it now
         const reviewedCommitSha = existingState.result.reviewedCommitSha || (existingState.result as any).reviewed_commit_sha;
         if (reviewedCommitSha) {
           window.electronAPI.github.checkNewCommits(projectId, prNumber).then(newCommitsResult => {

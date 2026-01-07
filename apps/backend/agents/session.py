@@ -445,9 +445,8 @@ async def run_agent_session(
                         result_content = getattr(block, "content", "")
                         is_error = getattr(block, "is_error", False)
 
-                        # Check if this is an error (not just content containing "blocked")
-                        if is_error and "blocked" in str(result_content).lower():
-                            # Actual blocked command by security hook
+                        # Check if command was blocked by security hook
+                        if "blocked" in str(result_content).lower():
                             debug_error(
                                 "session",
                                 f"Tool BLOCKED: {current_tool}",

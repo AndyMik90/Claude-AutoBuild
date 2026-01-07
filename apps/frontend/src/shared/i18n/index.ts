@@ -78,11 +78,21 @@ export const resources = {
   }
 } as const;
 
+// Detect system locale and fall back to 'en'
+const systemLocale = typeof navigator !== 'undefined' ? navigator.language.split('-')[0] : 'en'; // e.g., 'ja' from 'ja-JP'
+const supportedLanguages = ['en', 'fr', 'ja'];
+let defaultLanguage = supportedLanguages.includes(systemLocale) ? systemLocale : 'en';
+
+// Force 'en' in test environment
+if (process.env.NODE_ENV === 'test') {
+  defaultLanguage = 'en';
+}
+
 i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: 'ja', // Default language (will be overridden by settings)
+    lng: defaultLanguage, // Use system locale or default to 'en'
     fallbackLng: 'en',
     defaultNS,
     ns: ['common', 'navigation', 'settings', 'tasks', 'welcome', 'onboarding', 'dialogs', 'gitlab', 'taskReview', 'terminal'],

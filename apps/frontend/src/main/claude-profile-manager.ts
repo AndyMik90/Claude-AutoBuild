@@ -13,7 +13,7 @@
 
 import { app } from 'electron';
 import { join } from 'path';
-import { mkdir } from 'fs/promises';
+import { existsSync, mkdirSync } from 'fs';
 import type {
   ClaudeProfile,
   ClaudeProfileSettings,
@@ -32,7 +32,6 @@ import {
 } from './claude-profile/rate-limit-manager';
 import {
   loadProfileStore,
-  loadProfileStoreAsync,
   saveProfileStore,
   ProfileStoreData,
   DEFAULT_AUTO_SWITCH_SETTINGS
@@ -58,45 +57,19 @@ import {
  */
 export class ClaudeProfileManager {
   private storePath: string;
-  private configDir: string;
   private data: ProfileStoreData;
-  private initialized: boolean = false;
 
   constructor() {
-    this.configDir = join(app.getPath('userData'), 'config');
-    this.storePath = join(this.configDir, 'claude-profiles.json');
+    const configDir = join(app.getPath('userData'), 'config');
+    this.storePath = join(configDir, 'claude-profiles.json');
 
-    // DON'T do file I/O here - defer to async initialize()
-    // Start with default data until initialized
-    this.data = this.createDefaultData();
-  }
-
-  /**
-   * Initialize the profile manager asynchronously (non-blocking)
-   * This should be called at app startup via initializeClaudeProfileManager()
-   */
-  async initialize(): Promise<void> {
-    if (this.initialized) return;
-
-    // Ensure directory exists (async) - mkdir with recursive:true is idempotent
-    await mkdir(this.configDir, { recursive: true });
-
-    // Load existing data asynchronously
-    const loadedData = await loadProfileStoreAsync(this.storePath);
-    if (loadedData) {
-      this.data = loadedData;
+    // Ensure directory exists
+    if (!existsSync(configDir)) {
+      mkdirSync(configDir, { recursive: true });
     }
-    // else: keep the default data from constructor
 
-    this.initialized = true;
-    console.warn('[ClaudeProfileManager] Initialized asynchronously');
-  }
-
-  /**
-   * Check if the profile manager has been initialized
-   */
-  isInitialized(): boolean {
-    return this.initialized;
+    // Load existing data or initialize with default profile
+    this.data = this.load();
   }
 
   /**
@@ -549,42 +522,15 @@ export class ClaudeProfileManager {
   }
 }
 
-// Singleton instance and initialization promise
+// Singleton instance
 let profileManager: ClaudeProfileManager | null = null;
-let initPromise: Promise<ClaudeProfileManager> | null = null;
 
 /**
  * Get the singleton Claude profile manager instance
- * Note: For async contexts, prefer initializeClaudeProfileManager() to ensure initialization
  */
 export function getClaudeProfileManager(): ClaudeProfileManager {
   if (!profileManager) {
     profileManager = new ClaudeProfileManager();
   }
   return profileManager;
-}
-
-/**
- * Initialize and get the singleton Claude profile manager instance (async)
- * This ensures the profile manager is fully initialized before use.
- * Uses promise caching to prevent concurrent initialization.
- */
-export async function initializeClaudeProfileManager(): Promise<ClaudeProfileManager> {
-  if (!profileManager) {
-    profileManager = new ClaudeProfileManager();
-  }
-
-  // If already initialized, return immediately
-  if (profileManager.isInitialized()) {
-    return profileManager;
-  }
-
-  // If initialization is in progress, wait for it (promise caching)
-  if (!initPromise) {
-    initPromise = profileManager.initialize().then(() => {
-      return profileManager!;
-    });
-  }
-
-  return initPromise;
 }

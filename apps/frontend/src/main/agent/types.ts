@@ -44,7 +44,6 @@ export interface TaskExecutionOptions {
   parallel?: boolean;
   workers?: number;
   baseBranch?: string;
-  useWorktree?: boolean; // If false, use --direct mode (no worktree isolation)
 }
 
 export interface SpecCreationMetadata {
@@ -66,8 +65,6 @@ export interface SpecCreationMetadata {
   // Non-auto profile - single model and thinking level
   model?: 'haiku' | 'sonnet' | 'opus';
   thinkingLevel?: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
-  // Workspace mode - whether to use worktree isolation
-  useWorktree?: boolean; // If false, use --direct mode (no worktree isolation)
 }
 
 export interface IdeationProgressData {

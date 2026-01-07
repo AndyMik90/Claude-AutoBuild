@@ -8,7 +8,7 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { spawn } from 'child_process';
 import { projectStore } from '../project-store';
 import { parseEnvFile } from './utils';
-import { getClaudeCliInvocation, getClaudeCliInvocationAsync } from '../claude-cli-utils';
+import { getClaudeCliInvocation } from '../claude-cli-utils';
 import { debugError } from '../../shared/utils/debug-logger';
 
 // GitLab environment variable keys
@@ -34,24 +34,6 @@ type ResolvedClaudeCliInvocation =
 function resolveClaudeCliInvocation(): ResolvedClaudeCliInvocation {
   try {
     const invocation = getClaudeCliInvocation();
-    if (!invocation?.command) {
-      throw new Error('Claude CLI path not resolved');
-    }
-    return { command: invocation.command, env: invocation.env };
-  } catch (error) {
-    debugError('[IPC] Failed to resolve Claude CLI path:', error);
-    return {
-      error: error instanceof Error ? error.message : 'Failed to resolve Claude CLI path',
-    };
-  }
-}
-
-/**
- * Async version of resolveClaudeCliInvocation - non-blocking for main process
- */
-async function resolveClaudeCliInvocationAsync(): Promise<ResolvedClaudeCliInvocation> {
-  try {
-    const invocation = await getClaudeCliInvocationAsync();
     if (!invocation?.command) {
       throw new Error('Claude CLI path not resolved');
     }
@@ -591,8 +573,7 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         return { success: false, error: 'Project not found' };
       }
 
-      // Use async version to avoid blocking main process during CLI detection
-      const resolved = await resolveClaudeCliInvocationAsync();
+      const resolved = resolveClaudeCliInvocation();
       if ('error' in resolved) {
         return { success: false, error: resolved.error };
       }
@@ -682,8 +663,7 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         return { success: false, error: 'Project not found' };
       }
 
-      // Use async version to avoid blocking main process during CLI detection
-      const resolved = await resolveClaudeCliInvocationAsync();
+      const resolved = resolveClaudeCliInvocation();
       if ('error' in resolved) {
         return { success: false, error: resolved.error };
       }

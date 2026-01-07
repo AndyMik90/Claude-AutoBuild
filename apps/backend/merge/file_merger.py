@@ -64,16 +64,10 @@ def apply_single_task_changes(
     Returns:
         Modified content with changes applied
     """
-    # Detect line ending style before normalizing
-    original_line_ending = detect_line_ending(baseline)
+    content = baseline
 
-    # Normalize to LF for consistent matching with regex_analyzer output
-    # The regex_analyzer normalizes content to LF when extracting content_before/after,
-    # so we must also normalize baseline to ensure replace() matches correctly
-    content = baseline.replace("\r\n", "\n").replace("\r", "\n")
-
-    # Use LF for internal processing
-    line_ending = "\n"
+    # Detect line ending style once at the start to use consistently
+    line_ending = detect_line_ending(content)
 
     for change in snapshot.semantic_changes:
         if change.content_before and change.content_after:
@@ -90,12 +84,6 @@ def apply_single_task_changes(
             elif change.change_type == ChangeType.ADD_FUNCTION:
                 # Add function at end (before exports)
                 content += f"{line_ending}{line_ending}{change.content_after}"
-
-    # Restore original line ending style if it was CRLF
-    if original_line_ending == "\r\n":
-        content = content.replace("\n", "\r\n")
-    elif original_line_ending == "\r":
-        content = content.replace("\n", "\r")
 
     return content
 
@@ -116,16 +104,10 @@ def combine_non_conflicting_changes(
     Returns:
         Combined content with all changes applied
     """
-    # Detect line ending style before normalizing
-    original_line_ending = detect_line_ending(baseline)
+    content = baseline
 
-    # Normalize to LF for consistent matching with regex_analyzer output
-    # The regex_analyzer normalizes content to LF when extracting content_before/after,
-    # so we must also normalize baseline to ensure replace() matches correctly
-    content = baseline.replace("\r\n", "\n").replace("\r", "\n")
-
-    # Use LF for internal processing
-    line_ending = "\n"
+    # Detect line ending style once at the start to use consistently
+    line_ending = detect_line_ending(content)
 
     # Group changes by type for proper ordering
     imports: list[SemanticChange] = []
@@ -173,12 +155,6 @@ def combine_non_conflicting_changes(
             content += f"{line_ending}{change.content_after}"
         elif change.content_before and change.content_after:
             content = content.replace(change.content_before, change.content_after)
-
-    # Restore original line ending style if it was CRLF
-    if original_line_ending == "\r\n":
-        content = content.replace("\n", "\r\n")
-    elif original_line_ending == "\r":
-        content = content.replace("\n", "\r")
 
     return content
 

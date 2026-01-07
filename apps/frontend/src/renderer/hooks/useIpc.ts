@@ -3,7 +3,6 @@ import { unstable_batchedUpdates } from 'react-dom';
 import { useTaskStore } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
-import { useProjectStore } from '../stores/project-store';
 import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo } from '../../shared/types';
 
 /**
@@ -113,21 +112,6 @@ function queueUpdate(taskId: string, update: BatchedUpdate): void {
 }
 
 /**
- * Check if a task event is for the currently selected project.
- * This prevents multi-project interference where events from one project's
- * running task incorrectly update another project's task state (issue #723).
- * Handles backward compatibility and no-project-selected cases.
- */
-function isTaskForCurrentProject(eventProjectId?: string): boolean {
-  // If no projectId provided (backward compatibility), accept the event
-  if (!eventProjectId) return true;
-  const currentProjectId = useProjectStore.getState().selectedProjectId;
-  // If no project selected, accept the event
-  if (!currentProjectId) return true;
-  return currentProjectId === eventProjectId;
-}
-
-/**
  * Hook to set up IPC event listeners for task updates
  */
 export function useIpcListeners(): void {
@@ -145,17 +129,13 @@ export function useIpcListeners(): void {
   useEffect(() => {
     // Set up listeners with batched updates
     const cleanupProgress = window.electronAPI.onTaskProgress(
-      (taskId: string, plan: ImplementationPlan, projectId?: string) => {
-        // Filter by project to prevent multi-project interference
-        if (!isTaskForCurrentProject(projectId)) return;
+      (taskId: string, plan: ImplementationPlan) => {
         queueUpdate(taskId, { plan });
       }
     );
 
     const cleanupError = window.electronAPI.onTaskError(
-      (taskId: string, error: string, projectId?: string) => {
-        // Filter by project to prevent multi-project interference (issue #723)
-        if (!isTaskForCurrentProject(projectId)) return;
+      (taskId: string, error: string) => {
         // Errors are not batched - show immediately
         setError(`Task ${taskId}: ${error}`);
         appendLog(taskId, `[ERROR] ${error}`);
@@ -163,28 +143,20 @@ export function useIpcListeners(): void {
     );
 
     const cleanupLog = window.electronAPI.onTaskLog(
-      (taskId: string, log: string, projectId?: string) => {
-        // Filter by project to prevent multi-project interference (issue #723)
-        if (!isTaskForCurrentProject(projectId)) return;
+      (taskId: string, log: string) => {
         // Logs are now batched to reduce state updates (was causing 100+ updates/sec)
         queueUpdate(taskId, { logs: [log] });
       }
     );
 
     const cleanupStatus = window.electronAPI.onTaskStatusChange(
-      (taskId: string, status: TaskStatus, projectId?: string) => {
-        // Filter by project to prevent multi-project interference
-        if (!isTaskForCurrentProject(projectId)) return;
+      (taskId: string, status: TaskStatus) => {
         queueUpdate(taskId, { status });
       }
     );
 
     const cleanupExecutionProgress = window.electronAPI.onTaskExecutionProgress(
-      (taskId: string, progress: ExecutionProgress, projectId?: string) => {
-        // Filter by project to prevent multi-project interference
-        // This is the critical fix for issue #723 - without this check,
-        // execution progress from Project A's task could update Project B's UI
-        if (!isTaskForCurrentProject(projectId)) return;
+      (taskId: string, progress: ExecutionProgress) => {
         queueUpdate(taskId, { progress });
       }
     );
