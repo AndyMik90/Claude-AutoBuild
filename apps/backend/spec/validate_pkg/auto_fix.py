@@ -26,7 +26,7 @@ def auto_fix_plan(spec_dir: Path) -> bool:
     try:
         with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return False
 
     fixed = False

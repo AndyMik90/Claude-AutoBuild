@@ -212,7 +212,7 @@ class FileLock:
 
 
 @contextmanager
-def atomic_write(filepath: str | Path, mode: str = "w"):
+def atomic_write(filepath: str | Path, mode: str = "w", encoding: str = "utf-8"):
     """
     Atomic file write using temp file and rename.
 
@@ -222,6 +222,7 @@ def atomic_write(filepath: str | Path, mode: str = "w"):
     Args:
         filepath: Target file path
         mode: File open mode (default: "w")
+        encoding: Text encoding (default: "utf-8")
 
     Example:
         with atomic_write("/path/to/file.json") as f:
@@ -236,8 +237,8 @@ def atomic_write(filepath: str | Path, mode: str = "w"):
     )
 
     try:
-        # Open temp file with requested mode
-        with os.fdopen(fd, mode) as f:
+        # Open temp file with requested mode and encoding
+        with os.fdopen(fd, mode, encoding=encoding) as f:
             yield f
 
         # Atomic replace - succeeds or fails completely
