@@ -8,97 +8,20 @@ Tests the spec/pipeline.py module functionality including:
 - Spec directory creation and naming
 - Orphaned pending folder cleanup
 - Specs directory path resolution
+
+Note: SDK mocking is handled by conftest.py which pre-mocks claude_code_sdk,
+claude_agent_sdk, and related modules. Module cleanup is handled by
+pytest_runtest_setup in conftest.py.
 """
 
 import json
 import pytest
-import sys
 import time
-from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 
-# Add auto-claude directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
-
-# Store original modules for cleanup
-_original_modules = {}
-_mocked_module_names = [
-    'claude_code_sdk',
-    'claude_code_sdk.types',
-    'init',
-    'client',
-    'review',
-    'task_logger',
-    'ui',
-    'validate_spec',
-]
-
-for name in _mocked_module_names:
-    if name in sys.modules:
-        _original_modules[name] = sys.modules[name]
-
-# Mock modules that have external dependencies
-mock_sdk = MagicMock()
-mock_sdk.ClaudeSDKClient = MagicMock()
-mock_sdk.ClaudeCodeOptions = MagicMock()
-mock_types = MagicMock()
-mock_types.HookMatcher = MagicMock()
-sys.modules['claude_code_sdk'] = mock_sdk
-sys.modules['claude_code_sdk.types'] = mock_types
-
-# Mock init module to prevent side effects
-mock_init = MagicMock()
-mock_init.init_auto_claude_dir = MagicMock(return_value=(Path("/tmp"), False))
-sys.modules['init'] = mock_init
-
-# Mock other external dependencies
-mock_client = MagicMock()
-mock_client.create_client = MagicMock()
-sys.modules['client'] = mock_client
-
-mock_review = MagicMock()
-mock_review.ReviewState = MagicMock()
-mock_review.run_review_checkpoint = MagicMock()
-sys.modules['review'] = mock_review
-
-mock_task_logger = MagicMock()
-mock_task_logger.LogEntryType = MagicMock()
-mock_task_logger.LogPhase = MagicMock()
-mock_task_logger.get_task_logger = MagicMock()
-mock_task_logger.update_task_logger_path = MagicMock()
-sys.modules['task_logger'] = mock_task_logger
-
-mock_ui = MagicMock()
-mock_ui.Icons = MagicMock()
-mock_ui.box = MagicMock(return_value="")
-mock_ui.highlight = MagicMock(return_value="")
-mock_ui.icon = MagicMock(return_value="")
-mock_ui.muted = MagicMock(return_value="")
-mock_ui.print_key_value = MagicMock()
-mock_ui.print_section = MagicMock()
-mock_ui.print_status = MagicMock()
-sys.modules['ui'] = mock_ui
-
-mock_validate_spec = MagicMock()
-mock_validate_spec.SpecValidator = MagicMock()
-sys.modules['validate_spec'] = mock_validate_spec
-
-# Now import the module under test
+# Import from spec.pipeline - SDK modules are pre-mocked by conftest.py
 from spec.pipeline import SpecOrchestrator, get_specs_dir
-
-
-# Cleanup fixture to restore original modules after all tests in this module
-@pytest.fixture(scope="module", autouse=True)
-def cleanup_mocked_modules():
-    """Restore original modules after all tests in this module complete."""
-    yield  # Run all tests first
-    # Cleanup: restore original modules or remove mocks
-    for name in _mocked_module_names:
-        if name in _original_modules:
-            sys.modules[name] = _original_modules[name]
-        elif name in sys.modules:
-            del sys.modules[name]
 
 
 class TestGetSpecsDir:
@@ -338,6 +261,8 @@ class TestCleanupOrphanedPendingFolders:
 
     def test_removes_empty_pending_folder(self, temp_dir: Path):
         """Removes empty pending folders older than 10 minutes."""
+        import os
+
         with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
             mock_init.return_value = (temp_dir / ".auto-claude", False)
             specs_dir = temp_dir / ".auto-claude" / "specs"
@@ -353,11 +278,7 @@ class TestCleanupOrphanedPendingFolders:
 
             # Set modification time to 15 minutes ago
             old_time = time.time() - (15 * 60)
-            import os
             os.utime(old_pending, (old_time, old_time))
-
-            # Store the inode to verify it's actually deleted and recreated
-            old_inode = old_pending.stat().st_ino
 
             # Creating orchestrator triggers cleanup
             # The cleanup removes 002-pending (empty and old)
@@ -371,6 +292,8 @@ class TestCleanupOrphanedPendingFolders:
 
     def test_keeps_folder_with_requirements(self, temp_dir: Path):
         """Keeps pending folder with requirements.json."""
+        import os
+
         with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
             mock_init.return_value = (temp_dir / ".auto-claude", False)
             specs_dir = temp_dir / ".auto-claude" / "specs"
@@ -383,7 +306,6 @@ class TestCleanupOrphanedPendingFolders:
 
             # Set modification time to 15 minutes ago
             old_time = time.time() - (15 * 60)
-            import os
             os.utime(pending_with_req, (old_time, old_time))
 
             # Creating orchestrator triggers cleanup
@@ -393,6 +315,8 @@ class TestCleanupOrphanedPendingFolders:
 
     def test_keeps_folder_with_spec(self, temp_dir: Path):
         """Keeps pending folder with spec.md."""
+        import os
+
         with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
             mock_init.return_value = (temp_dir / ".auto-claude", False)
             specs_dir = temp_dir / ".auto-claude" / "specs"
@@ -405,7 +329,6 @@ class TestCleanupOrphanedPendingFolders:
 
             # Set modification time to 15 minutes ago
             old_time = time.time() - (15 * 60)
-            import os
             os.utime(pending_with_spec, (old_time, old_time))
 
             # Creating orchestrator triggers cleanup
