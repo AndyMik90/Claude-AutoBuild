@@ -49,7 +49,9 @@ class SecurityProfile:
     custom_scripts: CustomScripts = field(default_factory=CustomScripts)
 
     # Metadata
-    version: int = 2  # Profile format version (v2 = consolidated config)
+    # Profile format version: v1 = legacy (separate allowlist), v2 = consolidated config
+    # Reserved for future migration logic - currently used for format identification only
+    version: int = 2
     project_dir: str = ""
     created_at: str = ""
     project_hash: str = ""

@@ -84,7 +84,7 @@ def get_security_profile(
 
         # File was created or modified - invalidate cache
 
-    # Analyze and cache (this also handles allowlist migration)
+    # Analyze and cache
     _cached_profile = get_or_create_profile(project_dir, spec_dir)
     _cached_project_dir = project_dir
     _cached_spec_dir = resolved_spec_dir

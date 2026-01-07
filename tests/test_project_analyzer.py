@@ -436,7 +436,6 @@ class TestCustomCommands:
 
     def test_preserves_custom_commands_on_reanalysis(self, temp_dir: Path):
         """Custom commands in JSON profile are preserved when re-analyzing."""
-        import json
 
         # Create initial profile with custom_commands
         profile_data = {
