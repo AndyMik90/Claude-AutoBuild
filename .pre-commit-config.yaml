@@ -1,5 +1,6 @@
 repos:
   # Version sync - propagate root package.json version to all files
+  # NOTE: Skip in worktrees - version sync modifies root files which don't exist in worktree
   - repo: local
     hooks:
       - id: version-sync
@@ -8,6 +9,12 @@ repos:
         args:
           - -c
           - |
+            # Skip in worktrees - .git is a file pointing to main repo, not a directory
+            # Version sync modifies root-level files that may not exist in worktree context
+            if [ -f ".git" ]; then
+              echo "Skipping version-sync in worktree (root files not accessible)"
+              exit 0
+            fi
             VERSION=$(node -p "require('./package.json').version")
             if [ -n "$VERSION" ]; then
 
@@ -81,6 +88,7 @@ repos:
 
   # Python tests (apps/backend/) - skip slow/integration tests for pre-commit speed
   # Tests to skip: graphiti (external deps), merge_file_tracker/service_orchestrator/worktree/workspace (Windows path/git issues)
+  # NOTE: Skip this hook in worktrees (where .git is a file, not a directory)
   - repo: local
     hooks:
       - id: pytest
@@ -89,6 +97,12 @@ repos:
         args:
           - -c
           - |
+            # Skip in worktrees - .git is a file pointing to main repo, not a directory
+            # This prevents path resolution issues with ../../tests/ in worktree context
+            if [ -f ".git" ]; then
+              echo "Skipping pytest in worktree (path resolution would fail)"
+              exit 0
+            fi
             cd apps/backend
             if [ -f ".venv/bin/pytest" ]; then
               PYTEST_CMD=".venv/bin/pytest"
@@ -113,18 +127,37 @@ repos:
         pass_filenames: false
 
   # Frontend linting (apps/frontend/)
+  # NOTE: These hooks check for worktree context to avoid npm/node_modules issues
   - repo: local
     hooks:
       - id: eslint
         name: ESLint
-        entry: bash -c 'cd apps/frontend && npm run lint'
+        entry: bash
+        args:
+          - -c
+          - |
+            # Skip in worktrees if node_modules doesn't exist (dependencies not installed)
+            if [ -f ".git" ] && [ ! -d "apps/frontend/node_modules" ]; then
+              echo "Skipping ESLint in worktree (node_modules not found)"
+              exit 0
+            fi
+            cd apps/frontend && npm run lint
         language: system
         files: ^apps/frontend/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
 
       - id: typecheck
         name: TypeScript Check
-        entry: bash -c 'cd apps/frontend && npm run typecheck'
+        entry: bash
+        args:
+          - -c
+          - |
+            # Skip in worktrees if node_modules doesn't exist (dependencies not installed)
+            if [ -f ".git" ] && [ ! -d "apps/frontend/node_modules" ]; then
+              echo "Skipping TypeScript check in worktree (node_modules not found)"
+              exit 0
+            fi
+            cd apps/frontend && npm run typecheck
         language: system
         files: ^apps/frontend/.*\.(ts|tsx)$
         pass_filenames: false

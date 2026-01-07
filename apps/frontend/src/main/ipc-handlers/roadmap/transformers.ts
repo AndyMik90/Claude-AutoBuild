@@ -96,6 +96,57 @@ function transformPhase(raw: RawRoadmapPhase): RoadmapPhase {
   };
 }
 
+/**
+ * Maps all known backend status values to canonical Kanban column statuses.
+ * Includes valid statuses as identity mappings for consistent lookup.
+ * Module-level constant for efficiency (not recreated on each call).
+ */
+const STATUS_MAP: Record<string, RoadmapFeature['status']> = {
+  // Canonical Kanban statuses (identity mappings)
+  'under_review': 'under_review',
+  'planned': 'planned',
+  'in_progress': 'in_progress',
+  'done': 'done',
+  // Early-stage / ideation statuses → under_review
+  'idea': 'under_review',
+  'backlog': 'under_review',
+  'proposed': 'under_review',
+  'pending': 'under_review',
+  // Approved / scheduled statuses → planned
+  'approved': 'planned',
+  'scheduled': 'planned',
+  // Active development statuses → in_progress
+  'active': 'in_progress',
+  'building': 'in_progress',
+  // Completed statuses → done
+  'complete': 'done',
+  'completed': 'done',
+  'shipped': 'done'
+};
+
+/**
+ * Normalizes a feature status string to a valid Kanban column status.
+ * Handles case-insensitive matching and maps backend values to canonical statuses.
+ *
+ * @param status - The raw status string from the backend
+ * @returns A valid RoadmapFeature status for Kanban display
+ */
+function normalizeFeatureStatus(status: string | undefined): RoadmapFeature['status'] {
+  if (!status) return 'under_review';
+
+  const normalized = STATUS_MAP[status.toLowerCase()];
+
+  if (!normalized) {
+    // Debug log for unmapped statuses to aid future mapping additions
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(`[Roadmap] normalizeFeatureStatus: unmapped status "${status}", defaulting to "under_review"`);
+    }
+    return 'under_review';
+  }
+
+  return normalized;
+}
+
 function transformFeature(raw: RawRoadmapFeature): RoadmapFeature {
   return {
     id: raw.id,
@@ -107,13 +158,14 @@ function transformFeature(raw: RawRoadmapFeature): RoadmapFeature {
     impact: (raw.impact as RoadmapFeature['impact']) || 'medium',
     phaseId: raw.phase_id || raw.phaseId || '',
     dependencies: raw.dependencies || [],
-    status: (raw.status as RoadmapFeature['status']) || 'under_review',
+    status: normalizeFeatureStatus(raw.status),
     acceptanceCriteria: raw.acceptance_criteria || raw.acceptanceCriteria || [],
     userStories: raw.user_stories || raw.userStories || [],
     linkedSpecId: raw.linked_spec_id || raw.linkedSpecId,
     competitorInsightIds: raw.competitor_insight_ids || raw.competitorInsightIds
   };
 }
+
 
 export function transformRoadmapFromSnakeCase(
   raw: RawRoadmap,

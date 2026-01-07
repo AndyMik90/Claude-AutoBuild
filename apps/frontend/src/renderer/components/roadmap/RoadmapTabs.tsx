@@ -37,6 +37,7 @@ export function RoadmapTabs({
       {/* Kanban View */}
       <TabsContent value="kanban" className="flex-1 overflow-hidden">
         <RoadmapKanbanView
+          key={roadmap.updatedAt?.toString()}
           roadmap={roadmap}
           onFeatureClick={onFeatureSelect}
           onConvertToSpec={onConvertToSpec}

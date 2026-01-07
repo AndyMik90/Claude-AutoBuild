@@ -23,8 +23,9 @@ import { debugLog, debugError } from '../../shared/utils/debug-logger';
 export interface RestoreOptions {
   resumeClaudeSession: boolean;
   captureSessionId: (terminalId: string, projectPath: string, startTime: number) => void;
-  /** Callback triggered when a Claude session needs to be resumed */
-  onResumeNeeded?: (terminalId: string, sessionId: string) => void;
+  /** Callback triggered when a Claude session needs to be resumed.
+   * Note: sessionId is deprecated and ignored - resumeClaude uses --continue */
+  onResumeNeeded?: (terminalId: string, sessionId: string | undefined) => void;
 }
 
 /**
@@ -184,15 +185,19 @@ export async function restoreTerminal(
     win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, session.title);
   }
 
-  // Auto-resume Claude if session was in Claude mode with a session ID
-  // Use storedIsClaudeMode and storedClaudeSessionId which come from the persisted store,
+  // Auto-resume Claude if session was in Claude mode
+  // Use storedIsClaudeMode which comes from the persisted store,
   // not the renderer-passed values (renderer always passes isClaudeMode: false)
-  if (options.resumeClaudeSession && storedIsClaudeMode && storedClaudeSessionId) {
+  //
+  // Note: We no longer require storedClaudeSessionId because resumeClaude uses
+  // `claude --continue` which resumes the most recent session in the directory
+  // automatically. Session IDs are deprecated and ignored.
+  if (options.resumeClaudeSession && storedIsClaudeMode) {
     terminal.isClaudeMode = true;
-    terminal.claudeSessionId = storedClaudeSessionId;
-    debugLog('[TerminalLifecycle] Auto-resuming Claude session:', storedClaudeSessionId);
+    // Don't set claudeSessionId - it's deprecated and --continue doesn't use it
+    debugLog('[TerminalLifecycle] Auto-resuming Claude session using --continue');
 
-    // Notify renderer of the Claude session so it can update its store
+    // Notify renderer that we're in Claude mode (session ID is deprecated)
     // This prevents the renderer from also trying to resume (duplicate command)
     if (win) {
       win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_SESSION, terminal.id, storedClaudeSessionId);
@@ -205,19 +210,11 @@ export async function restoreTerminal(
     }
 
     // Small delay to ensure PTY is ready before sending resume command
+    // Note: sessionId parameter is deprecated and ignored by resumeClaude
     if (options.onResumeNeeded) {
       setTimeout(() => {
         options.onResumeNeeded!(terminal.id, storedClaudeSessionId);
       }, 500);
-    }
-  } else if (storedClaudeSessionId) {
-    // Keep session ID for manual resume (no auto-resume if not in Claude mode)
-    terminal.claudeSessionId = storedClaudeSessionId;
-    debugLog('[TerminalLifecycle] Preserved Claude session ID for manual resume:', storedClaudeSessionId);
-
-    // Persist the session ID so it's available even if app closes before periodic save
-    if (terminal.projectPath) {
-      SessionHandler.persistSession(terminal);
     }
   }
 

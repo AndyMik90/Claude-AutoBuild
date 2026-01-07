@@ -403,7 +403,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 {/* Overview Tab */}
                 <TabsContent value="overview" className="flex-1 min-h-0 overflow-hidden mt-0">
                   <ScrollArea className="h-full">
-                    <div className="p-5 space-y-5">
+                    <div className="p-5 space-y-5 overflow-x-hidden max-w-full">
                       {/* Metadata */}
                       <TaskMetadata task={task} />
 

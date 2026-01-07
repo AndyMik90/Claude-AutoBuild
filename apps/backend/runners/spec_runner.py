@@ -26,11 +26,11 @@ The AI considers:
 - Risk factors and edge cases
 
 Usage:
-    python auto-claude/spec_runner.py --task "Add user authentication"
-    python auto-claude/spec_runner.py --interactive
-    python auto-claude/spec_runner.py --continue 001-feature
-    python auto-claude/spec_runner.py --task "Fix button color" --complexity simple
-    python auto-claude/spec_runner.py --task "Simple fix" --no-ai-assessment
+    python runners/spec_runner.py --task "Add user authentication"
+    python runners/spec_runner.py --interactive
+    python runners/spec_runner.py --continue 001-feature
+    python runners/spec_runner.py --task "Fix button color" --complexity simple
+    python runners/spec_runner.py --task "Simple fix" --no-ai-assessment
 """
 
 import sys
@@ -81,8 +81,10 @@ if sys.platform == "win32":
 # Add auto-claude to path (parent of runners/)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Load .env file
-from dotenv import load_dotenv
+# Load .env file with centralized error handling
+from cli.utils import import_dotenv
+
+load_dotenv = import_dotenv()
 
 env_file = Path(__file__).parent.parent / ".env"
 dev_env_file = Path(__file__).parent.parent.parent / "dev" / "auto-claude" / ".env"

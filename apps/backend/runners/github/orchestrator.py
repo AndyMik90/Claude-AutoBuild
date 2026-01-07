@@ -413,9 +413,13 @@ class GitHubOrchestrator:
                     flush=True,
                 )
 
-            # Generate verdict (now includes CI status)
+            # Generate verdict (includes CI status and merge conflict check)
             verdict, verdict_reasoning, blockers = self._generate_verdict(
-                findings, structural_issues, ai_triages, ci_status
+                findings,
+                structural_issues,
+                ai_triages,
+                ci_status,
+                has_merge_conflicts=pr_context.has_merge_conflicts,
             )
             print(
                 f"[DEBUG orchestrator] Verdict: {verdict.value} - {verdict_reasoning}",
@@ -796,15 +800,25 @@ class GitHubOrchestrator:
         structural_issues: list[StructuralIssue],
         ai_triages: list[AICommentTriage],
         ci_status: dict | None = None,
+        has_merge_conflicts: bool = False,
     ) -> tuple[MergeVerdict, str, list[str]]:
         """
-        Generate merge verdict based on all findings and CI status.
+        Generate merge verdict based on all findings, CI status, and merge conflicts.
 
-        NEW: Strengthened to block on verification failures, redundancy issues,
-        and failing CI checks.
+        Blocks on:
+        - Merge conflicts (must be resolved before merging)
+        - Verification failures
+        - Redundancy issues
+        - Failing CI checks
         """
         blockers = []
         ci_status = ci_status or {}
+
+        # CRITICAL: Merge conflicts block merging - check first
+        if has_merge_conflicts:
+            blockers.append(
+                "Merge Conflicts: PR has conflicts with base branch that must be resolved"
+            )
 
         # Count by severity
         critical = [f for f in findings if f.severity == ReviewSeverity.CRITICAL]
@@ -885,10 +899,17 @@ class GitHubOrchestrator:
             )
             blockers.append(f"{t.tool_name}: {summary}")
 
-        # Determine verdict with CI, verification and redundancy checks
+        # Determine verdict with merge conflicts, CI, verification and redundancy checks
         if blockers:
+            # Merge conflicts are the highest priority blocker
+            if has_merge_conflicts:
+                verdict = MergeVerdict.BLOCKED
+                reasoning = (
+                    "Blocked: PR has merge conflicts with base branch. "
+                    "Resolve conflicts before merge."
+                )
             # CI failures are always blockers
-            if failed_checks:
+            elif failed_checks:
                 verdict = MergeVerdict.BLOCKED
                 reasoning = (
                     f"Blocked: {len(failed_checks)} CI check(s) failing. "

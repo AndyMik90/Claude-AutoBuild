@@ -9,7 +9,7 @@ import { projectStore } from '../project-store';
 import { terminalNameGenerator } from '../terminal-name-generator';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { escapeShellArg, escapeShellArgWindows } from '../../shared/utils/shell-escape';
-import { getClaudeCliInvocation } from '../claude-cli-utils';
+import { getClaudeCliInvocationAsync } from '../claude-cli-utils';
 
 
 /**
@@ -54,7 +54,10 @@ export function registerTerminalHandlers(
   ipcMain.on(
     IPC_CHANNELS.TERMINAL_INVOKE_CLAUDE,
     (_, id: string, cwd?: string) => {
-      terminalManager.invokeClaude(id, cwd);
+      // Use async version to avoid blocking main process during CLI detection
+      terminalManager.invokeClaudeAsync(id, cwd).catch((error) => {
+        console.error('[terminal-handlers] Failed to invoke Claude:', error);
+      });
     }
   );
 
@@ -354,7 +357,7 @@ export function registerTerminalHandlers(
         // Build the login command with the profile's config dir
         // Use platform-specific syntax and escaping for environment variables
         let loginCommand: string;
-        const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
+        const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
         const pathPrefix = claudeEnv.PATH
           ? (process.platform === 'win32'
               ? `set "PATH=${escapeShellArgWindows(claudeEnv.PATH)}" && `
@@ -635,7 +638,10 @@ export function registerTerminalHandlers(
   ipcMain.on(
     IPC_CHANNELS.TERMINAL_RESUME_CLAUDE,
     (_, id: string, sessionId?: string) => {
-      terminalManager.resumeClaude(id, sessionId);
+      // Use async version to avoid blocking main process during CLI detection
+      terminalManager.resumeClaudeAsync(id, sessionId).catch((error) => {
+        console.error('[terminal-handlers] Failed to resume Claude:', error);
+      });
     }
   );
 
