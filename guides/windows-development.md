@@ -1,40 +1,48 @@
 # Windows Development Guide
 
-This guide covers Windows-specific considerations when developing Auto Claude.
+This guide covers Windows-specific considerations when developing
+Auto Claude.
 
 ## File Encoding
 
-### The Problem
+### Problem
 
-Windows Python defaults to the `cp1252` (Windows-1252) code page instead of UTF-8. This causes encoding errors when reading/writing files with non-ASCII characters.
+Windows Python defaults to the `cp1252` (Windows-1252) code page instead
+of UTF-8. This causes encoding errors when reading/writing files with
+non-ASCII characters.
 
 **Common Error:**
-```
+
+```plaintext
 UnicodeDecodeError: 'charmap' codec can't decode byte 0x8d in position 1234
 ```
 
-### The Solution
+### Solution
 
 **Always specify `encoding="utf-8"` for all text file operations.**
 
-See [CONTRIBUTING.md - File Encoding](../CONTRIBUTING.md#file-encoding-python) for detailed examples and patterns.
+See [CONTRIBUTING.md - File Encoding](../CONTRIBUTING.md#file-encoding-python)
+for detailed examples and patterns.
 
 ### Testing on Windows
 
 To verify your code works on Windows:
 
 1. **Test with non-ASCII content:**
+
    ```python
    # Include emoji, international chars in test data
    test_data = {"message": "Test 🚀 with ñoño and 中文"}
    ```
 
 2. **Run pre-commit hooks:**
+
    ```bash
    pre-commit run check-file-encoding --all-files
    ```
 
 3. **Run all tests:**
+
    ```bash
    npm run test:backend
    ```
@@ -42,6 +50,7 @@ To verify your code works on Windows:
 ### Common Pitfalls
 
 #### Pitfall 1: JSON files
+
 ```python
 # Wrong - no encoding
 with open("config.json") as f:
@@ -53,6 +62,7 @@ with open("config.json", encoding="utf-8") as f:
 ```
 
 #### Pitfall 2: Path methods
+
 ```python
 # Wrong
 content = Path("README.md").read_text()
@@ -62,6 +72,7 @@ content = Path("README.md").read_text(encoding="utf-8")
 ```
 
 #### Pitfall 3: Subprocess output
+
 ```python
 # Wrong
 result = subprocess.run(cmd, capture_output=True, text=True)
@@ -72,39 +83,45 @@ result = subprocess.run(cmd, capture_output=True, encoding="utf-8")
 
 ## Line Endings
 
-### The Problem
+### Problem
 
-Windows uses CRLF (`\r\n`) line endings while macOS/Linux use LF (`\n`). This can cause git diffs to show every line as changed.
+Windows uses CRLF (`\r\n`) line endings while macOS/Linux use LF (`\n`).
+This can cause git diffs to show every line as changed.
 
-### The Solution
+### Solution
 
 1. **Configure git to handle line endings:**
+
    ```bash
    git config --global core.autocrlf true
    ```
 
 2. **The project's `.gitattributes` handles this automatically:**
-   ```
+
+   ```plaintext
    * text=auto
    *.py text eol=lf
    *.md text eol=lf
    ```
 
 3. **In code, normalize when processing:**
+
    ```python
-   # Normalize line endings to LF
-   content = content.replace("\r\n", "\n").replace("\r", "\n")
+   # Normalize line endings to LF (idiomatic approach)
+   content = "\n".join(content.splitlines())
    ```
 
 ## Path Separators
 
-### The Problem
+### Problem
 
-Windows uses backslash `\` for paths, while Unix uses `/`. This can break path operations.
+Windows uses backslash `\` for paths, while Unix uses `/`.
+This can break path operations.
 
-### The Solution
+### Solution
 
 1. **Always use `Path` from `pathlib`:**
+
    ```python
    from pathlib import Path
 
@@ -116,6 +133,7 @@ Windows uses backslash `\` for paths, while Unix uses `/`. This can break path o
    ```
 
 2. **Use `os.path.join()` for strings:**
+
    ```python
    import os
 
@@ -124,6 +142,7 @@ Windows uses backslash `\` for paths, while Unix uses `/`. This can break path o
    ```
 
 3. **Never hardcode separators:**
+
    ```python
    # Wrong - Unix only
    path = "apps/backend/core"
@@ -136,13 +155,15 @@ Windows uses backslash `\` for paths, while Unix uses `/`. This can break path o
 
 ## Shell Commands
 
-### The Problem
+### Problem
 
-Windows doesn't have bash by default. Shell commands need to work across platforms.
+Windows doesn't have bash by default. Shell commands need to work across
+platforms.
 
-### The Solution
+### Solution
 
 1. **Use Python libraries instead of shell:**
+
    ```python
    # Instead of shell commands
    import shutil
@@ -153,6 +174,7 @@ Windows doesn't have bash by default. Shell commands need to work across platfor
    ```
 
 2. **Use `shlex` for cross-platform commands:**
+
    ```python
    import shlex
    import subprocess
@@ -162,6 +184,7 @@ Windows doesn't have bash by default. Shell commands need to work across platfor
    ```
 
 3. **Check platform when needed:**
+
    ```python
    import sys
 
@@ -197,6 +220,7 @@ Windows doesn't have bash by default. Shell commands need to work across platfor
 ### Editor Configuration
 
 **VS Code settings for Windows (`settings.json`):**
+
 ```json
 {
   "files.encoding": "utf8",
@@ -213,6 +237,7 @@ Windows doesn't have bash by default. Shell commands need to work across platfor
 **Problem:** Windows file locking is stricter than Unix.
 
 **Solution:** Ensure files are properly closed using context managers:
+
 ```python
 # Use context managers
 with open(path, encoding="utf-8") as f:
@@ -225,15 +250,18 @@ with open(path, encoding="utf-8") as f:
 **Problem:** Windows has a 260-character path limit (legacy).
 
 **Solution:**
+
 1. Enable long paths in Windows 10+ (Group Policy or Registry)
 2. Or keep paths short
 3. Or use WSL2
 
 ### Issue: Case-insensitive filesystem
 
-**Problem:** Windows filesystem is case-insensitive (`File.txt` == `file.txt`).
+**Problem:** Windows filesystem is case-insensitive
+(`File.txt` == `file.txt`).
 
 **Solution:** Be consistent with casing in filenames and imports:
+
 ```python
 # Consistent casing
 from apps.backend.core import Client  # File: client.py
@@ -247,17 +275,20 @@ from apps.backend.core import client  # Could work on Windows but fail on Linux
 ### Before Submitting a PR
 
 1. **Run pre-commit hooks:**
+
    ```bash
    pre-commit run --all-files
    ```
 
 2. **Run all tests:**
+
    ```bash
    npm run test:backend
    npm test  # frontend tests
    ```
 
 3. **Test with special characters:**
+
    ```python
    # Add test data with emoji, international chars
    test_content = "Test 🚀 ñoño 中文 العربية"
@@ -298,6 +329,9 @@ If you encounter Windows-specific issues:
 
 ## Related
 
-- [CONTRIBUTING.md](../CONTRIBUTING.md) - General contribution guidelines
-- [PR #782](https://github.com/AndyMik90/Auto-Claude/pull/782) - Comprehensive UTF-8 encoding fix
-- [PR #795](https://github.com/AndyMik90/Auto-Claude/pull/795) - Pre-commit hooks for encoding enforcement
+- [CONTRIBUTING.md](../CONTRIBUTING.md) - General contribution
+  guidelines
+- [PR #782](https://github.com/AndyMik90/Auto-Claude/pull/782) -
+  Comprehensive UTF-8 encoding fix
+- [PR #795](https://github.com/AndyMik90/Auto-Claude/pull/795) -
+  Pre-commit hooks for encoding enforcement
