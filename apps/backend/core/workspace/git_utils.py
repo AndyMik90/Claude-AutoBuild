@@ -10,6 +10,45 @@ import json
 import subprocess
 from pathlib import Path
 
+from core.git_executable import get_git_executable, run_git
+
+__all__ = [
+    # Exported helpers
+    "get_git_executable",
+    "run_git",
+    # Constants
+    "MAX_FILE_LINES_FOR_AI",
+    "MAX_PARALLEL_AI_MERGES",
+    "LOCK_FILES",
+    "BINARY_EXTENSIONS",
+    "MERGE_LOCK_TIMEOUT",
+    "MAX_SYNTAX_FIX_RETRIES",
+    # Functions
+    "detect_file_renames",
+    "apply_path_mapping",
+    "get_merge_base",
+    "has_uncommitted_changes",
+    "get_current_branch",
+    "get_existing_build_worktree",
+    "get_file_content_from_ref",
+    "get_binary_file_content_from_ref",
+    "get_changed_files_from_branch",
+    "is_process_running",
+    "is_binary_file",
+    "is_lock_file",
+    "validate_merged_syntax",
+    "create_conflict_file_with_git",
+    # Backward compat aliases
+    "_is_process_running",
+    "_is_binary_file",
+    "_is_lock_file",
+    "_validate_merged_syntax",
+    "_get_file_content_from_ref",
+    "_get_binary_file_content_from_ref",
+    "_get_changed_files_from_branch",
+    "_create_conflict_file_with_git",
+]
+
 # Constants for merge limits
 MAX_FILE_LINES_FOR_AI = 5000  # Skip AI for files larger than this
 MAX_PARALLEL_AI_MERGES = 5  # Limit concurrent AI merge operations
@@ -33,6 +72,7 @@ LOCK_FILES = {
 }
 
 BINARY_EXTENSIONS = {
+    # Images
     ".png",
     ".jpg",
     ".jpeg",
@@ -41,6 +81,11 @@ BINARY_EXTENSIONS = {
     ".webp",
     ".bmp",
     ".svg",
+    ".tiff",
+    ".tif",
+    ".heic",
+    ".heif",
+    # Documents
     ".pdf",
     ".doc",
     ".docx",
@@ -48,32 +93,63 @@ BINARY_EXTENSIONS = {
     ".xlsx",
     ".ppt",
     ".pptx",
+    # Archives
     ".zip",
     ".tar",
     ".gz",
     ".rar",
     ".7z",
+    ".bz2",
+    ".xz",
+    ".zst",
+    # Executables and libraries
     ".exe",
     ".dll",
     ".so",
     ".dylib",
     ".bin",
+    ".msi",
+    ".app",
+    # WebAssembly
+    ".wasm",
+    # Audio
     ".mp3",
-    ".mp4",
     ".wav",
+    ".ogg",
+    ".flac",
+    ".aac",
+    ".m4a",
+    # Video
+    ".mp4",
     ".avi",
     ".mov",
     ".mkv",
+    ".webm",
+    ".wmv",
+    ".flv",
+    # Fonts
     ".woff",
     ".woff2",
     ".ttf",
     ".otf",
     ".eot",
+    # Compiled code
     ".pyc",
     ".pyo",
     ".class",
     ".o",
     ".obj",
+    # Data files
+    ".dat",
+    ".db",
+    ".sqlite",
+    ".sqlite3",
+    # Other binary formats
+    ".cur",
+    ".ani",
+    ".pbm",
+    ".pgm",
+    ".ppm",
 }
 
 # Merge lock timeout in seconds
@@ -113,9 +189,8 @@ def detect_file_renames(
         # -M flag enables rename detection
         # --diff-filter=R shows only renames
         # --name-status shows status and file names
-        result = subprocess.run(
+        result = run_git(
             [
-                "git",
                 "log",
                 "--name-status",
                 "-M",
@@ -124,8 +199,6 @@ def detect_file_renames(
                 f"{from_ref}..{to_ref}",
             ],
             cwd=project_dir,
-            capture_output=True,
-            text=True,
         )
 
         if result.returncode == 0:
@@ -175,39 +248,21 @@ def get_merge_base(project_dir: Path, ref1: str, ref2: str) -> str | None:
     Returns:
         Merge-base commit hash, or None if not found
     """
-    try:
-        result = subprocess.run(
-            ["git", "merge-base", ref1, ref2],
-            cwd=project_dir,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except Exception:
-        pass
+    result = run_git(["merge-base", ref1, ref2], cwd=project_dir)
+    if result.returncode == 0:
+        return result.stdout.strip()
     return None
 
 
 def has_uncommitted_changes(project_dir: Path) -> bool:
     """Check if user has unsaved work."""
-    result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=project_dir,
-        capture_output=True,
-        text=True,
-    )
+    result = run_git(["status", "--porcelain"], cwd=project_dir)
     return bool(result.stdout.strip())
 
 
 def get_current_branch(project_dir: Path) -> str:
     """Get the current branch name."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        cwd=project_dir,
-        capture_output=True,
-        text=True,
-    )
+    result = run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=project_dir)
     return result.stdout.strip()
 
 
@@ -239,11 +294,29 @@ def get_file_content_from_ref(
     project_dir: Path, ref: str, file_path: str
 ) -> str | None:
     """Get file content from a git ref (branch, commit, etc.)."""
+    result = run_git(["show", f"{ref}:{file_path}"], cwd=project_dir)
+    if result.returncode == 0:
+        return result.stdout
+    return None
+
+
+def get_binary_file_content_from_ref(
+    project_dir: Path, ref: str, file_path: str
+) -> bytes | None:
+    """Get binary file content from a git ref (branch, commit, etc.).
+
+    Unlike get_file_content_from_ref, this returns raw bytes without
+    text decoding, suitable for binary files like images, audio, etc.
+
+    Note: Uses subprocess directly with get_git_executable() since
+    run_git() always returns text output.
+    """
+    git = get_git_executable()
     result = subprocess.run(
-        ["git", "show", f"{ref}:{file_path}"],
+        [git, "show", f"{ref}:{file_path}"],
         cwd=project_dir,
         capture_output=True,
-        text=True,
+        text=False,  # Return bytes, not text
     )
     if result.returncode == 0:
         return result.stdout
@@ -268,11 +341,9 @@ def get_changed_files_from_branch(
     Returns:
         List of (file_path, status) tuples
     """
-    result = subprocess.run(
-        ["git", "diff", "--name-status", f"{base_branch}...{spec_branch}"],
+    result = run_git(
+        ["diff", "--name-status", f"{base_branch}...{spec_branch}"],
         cwd=project_dir,
-        capture_output=True,
-        text=True,
     )
 
     files = []
@@ -289,15 +360,23 @@ def get_changed_files_from_branch(
     return files
 
 
+def _normalize_path(path: str) -> str:
+    """Normalize path separators to forward slashes for cross-platform comparison."""
+    return path.replace("\\", "/")
+
+
 def _is_auto_claude_file(file_path: str) -> bool:
-    """Check if a file is in the .auto-claude or auto-claude/specs directory."""
-    # These patterns cover the internal spec/build files that shouldn't be merged
+    """Check if a file is in the .auto-claude or auto-claude/specs directory.
+
+    Handles both forward slashes (Unix/Git output) and backslashes (Windows).
+    """
+    normalized = _normalize_path(file_path)
     excluded_patterns = [
         ".auto-claude/",
         "auto-claude/specs/",
     ]
     for pattern in excluded_patterns:
-        if file_path.startswith(pattern):
+        if normalized.startswith(pattern):
             return True
     return False
 
@@ -491,11 +570,9 @@ def create_conflict_file_with_git(
         try:
             # git merge-file <current> <base> <other>
             # Exit codes: 0 = clean merge, 1 = conflicts, >1 = error
-            result = subprocess.run(
-                ["git", "merge-file", "-p", main_path, base_path, wt_path],
+            result = run_git(
+                ["merge-file", "-p", main_path, base_path, wt_path],
                 cwd=project_dir,
-                capture_output=True,
-                text=True,
             )
 
             # Read the merged content
@@ -522,5 +599,6 @@ _is_binary_file = is_binary_file
 _is_lock_file = is_lock_file
 _validate_merged_syntax = validate_merged_syntax
 _get_file_content_from_ref = get_file_content_from_ref
+_get_binary_file_content_from_ref = get_binary_file_content_from_ref
 _get_changed_files_from_branch = get_changed_files_from_branch
 _create_conflict_file_with_git = create_conflict_file_with_git

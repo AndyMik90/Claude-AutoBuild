@@ -19,12 +19,19 @@ interface StoreData {
   tabState?: TabState;
 }
 
+interface TasksCacheEntry {
+  tasks: Task[];
+  timestamp: number;
+}
+
 /**
  * Persistent storage for projects and settings
  */
 export class ProjectStore {
   private storePath: string;
   private data: StoreData;
+  private tasksCache: Map<string, TasksCacheEntry> = new Map();
+  private readonly CACHE_TTL_MS = 3000; // 3 seconds TTL for task cache
 
   constructor() {
     // Store in app's userData directory
@@ -236,9 +243,19 @@ export class ProjectStore {
 
   /**
    * Get tasks for a project by scanning specs directory
+   * Implements caching with 3-second TTL to prevent excessive worktree scanning
    */
   getTasks(projectId: string): Task[] {
-    console.warn('[ProjectStore] getTasks called with projectId:', projectId);
+    // Check cache first
+    const cached = this.tasksCache.get(projectId);
+    const now = Date.now();
+
+    if (cached && (now - cached.timestamp) < this.CACHE_TTL_MS) {
+      console.debug('[ProjectStore] Returning cached tasks for project:', projectId, '(age:', now - cached.timestamp, 'ms)');
+      return cached.tasks;
+    }
+
+    console.warn('[ProjectStore] getTasks called with projectId:', projectId, cached ? '(cache expired)' : '(cache miss)');
     const project = this.getProject(projectId);
     if (!project) {
       console.warn('[ProjectStore] Project not found for id:', projectId);
@@ -303,7 +320,29 @@ export class ProjectStore {
 
     const tasks = Array.from(taskMap.values());
     console.warn('[ProjectStore] Returning', tasks.length, 'unique tasks (after deduplication)');
+
+    // Update cache
+    this.tasksCache.set(projectId, { tasks, timestamp: now });
+
     return tasks;
+  }
+
+  /**
+   * Invalidate the tasks cache for a specific project
+   * Call this when tasks are modified (created, deleted, status changed, etc.)
+   */
+  invalidateTasksCache(projectId: string): void {
+    this.tasksCache.delete(projectId);
+    console.debug('[ProjectStore] Invalidated tasks cache for project:', projectId);
+  }
+
+  /**
+   * Clear all tasks cache entries
+   * Useful for global refresh scenarios
+   */
+  clearTasksCache(): void {
+    this.tasksCache.clear();
+    console.debug('[ProjectStore] Cleared all tasks cache');
   }
 
   /**
@@ -360,27 +399,8 @@ export class ProjectStore {
               const reqContent = readFileSync(requirementsPath, 'utf-8');
               const requirements = JSON.parse(reqContent);
               if (requirements.task_description) {
-                // Extract a clean summary from task_description (first line or first ~200 chars)
-                const taskDesc = requirements.task_description;
-                const firstLine = taskDesc.split('\n')[0].trim();
-                // If the first line is a title like "Investigate GitHub Issue #36", use the next meaningful line
-                if (firstLine.toLowerCase().startsWith('investigate') && taskDesc.includes('\n\n')) {
-                  const sections = taskDesc.split('\n\n');
-                  // Find the first paragraph that's not a title
-                  for (const section of sections) {
-                    const trimmed = section.trim();
-                    // Skip headers and short lines
-                    if (trimmed.startsWith('#') || trimmed.length < 20) continue;
-                    // Skip the "Please analyze" instruction at the end
-                    if (trimmed.startsWith('Please analyze')) continue;
-                    description = trimmed.substring(0, 200).split('\n')[0];
-                    break;
-                  }
-                }
-                // If still no description, use a shortened version of task_description
-                if (!description) {
-                  description = firstLine.substring(0, 150);
-                }
+                // Use the full task description for the modal view
+                description = requirements.task_description;
               }
             } catch {
               // Ignore parse errors
@@ -726,6 +746,9 @@ export class ProjectStore {
       }
     }
 
+    // Invalidate cache since task metadata changed
+    this.invalidateTasksCache(projectId);
+
     return !hasErrors;
   }
 
@@ -781,6 +804,9 @@ export class ProjectStore {
         }
       }
     }
+
+    // Invalidate cache since task metadata changed
+    this.invalidateTasksCache(projectId);
 
     return !hasErrors;
   }

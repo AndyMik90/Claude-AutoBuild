@@ -181,7 +181,14 @@ export class TaskLogService extends EventEmitter {
    * @param specsRelPath - Optional: Relative path to specs (e.g., "auto-claude/specs")
    */
   startWatching(specId: string, specDir: string, projectPath?: string, specsRelPath?: string): void {
-    // Stop any existing watch
+    // Check if already watching with the same parameters (prevents rapid watch/unwatch cycles)
+    const existingWatch = this.watchedPaths.get(specId);
+    if (existingWatch && existingWatch.mainSpecDir === specDir) {
+      // Already watching this spec with the same spec directory - no-op
+      return;
+    }
+
+    // Stop any existing watch (different spec dir or first time)
     this.stopWatching(specId);
 
     const mainLogFile = path.join(specDir, 'task_logs.json');
@@ -230,9 +237,30 @@ export class TaskLogService extends EventEmitter {
     }
 
     // Poll for changes in both locations
+    // Note: worktreeSpecDir may be null initially if worktree doesn't exist yet.
+    // We need to dynamically re-discover it during polling.
     const pollInterval = setInterval(() => {
       let mainChanged = false;
       let worktreeChanged = false;
+
+      // Dynamically re-discover worktree if not found yet
+      // This handles the case where user opens logs before worktree is created
+      const watchedInfo = this.watchedPaths.get(specId);
+      let currentWorktreeSpecDir = watchedInfo?.worktreeSpecDir || null;
+
+      if (!currentWorktreeSpecDir && projectPath && specsRelPath) {
+        const discoveredWorktree = findWorktreeSpecDir(projectPath, specId, specsRelPath);
+        if (discoveredWorktree) {
+          currentWorktreeSpecDir = discoveredWorktree;
+          // Update stored paths so future iterations don't need to re-discover
+          this.watchedPaths.set(specId, {
+            mainSpecDir: specDir,
+            worktreeSpecDir: discoveredWorktree,
+            specsRelPath: specsRelPath
+          });
+          console.warn(`[TaskLogService] Discovered worktree for ${specId}: ${discoveredWorktree}`);
+        }
+      }
 
       // Check main spec dir
       if (existsSync(mainLogFile)) {
@@ -248,8 +276,8 @@ export class TaskLogService extends EventEmitter {
       }
 
       // Check worktree spec dir
-      if (worktreeSpecDir) {
-        const worktreeLogFile = path.join(worktreeSpecDir, 'task_logs.json');
+      if (currentWorktreeSpecDir) {
+        const worktreeLogFile = path.join(currentWorktreeSpecDir, 'task_logs.json');
         if (existsSync(worktreeLogFile)) {
           try {
             const currentContent = readFileSync(worktreeLogFile, 'utf-8');

@@ -106,6 +106,24 @@ Since this is a follow-up review, focus on:
 - Check for framework protections you might miss
 - Provide the actual code snippet as evidence
 
+### Verify Before Reporting "Missing" Safeguards
+
+For findings claiming something is **missing** (no fallback, no validation, no error handling):
+
+**Ask yourself**: "Have I verified this is actually missing, or did I just not see it?"
+
+- Read the **complete function/method** containing the issue, not just the flagged line
+- Check for guards, fallbacks, or defensive code that may appear later in the function
+- Look for comments indicating intentional design choices
+- If uncertain, use the Read/Grep tools to confirm
+
+**Your evidence must prove absence exists — not just that you didn't see it.**
+
+❌ **Weak**: "The code defaults to 'main' without checking if it exists"
+✅ **Strong**: "I read the complete `_detect_target_branch()` function. There is no existence check before the default return."
+
+**Only report if you can confidently say**: "I verified the complete scope and the safeguard does not exist."
+
 ## Evidence Requirements
 
 Every finding MUST include an `evidence` field with:

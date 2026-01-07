@@ -78,6 +78,21 @@ Verify that the code logic is correct, handles all edge cases, and doesn't intro
 - Logic bugs must be demonstrable with a concrete example
 - If the edge case is theoretical without practical impact, don't report it
 
+### Verify Before Claiming "Missing" Edge Case Handling
+
+When your finding claims an edge case is **not handled** (no check for empty, null, zero, etc.):
+
+**Ask yourself**: "Have I verified this case isn't handled, or did I just not see it?"
+
+- Read the **complete function** — guards often appear later or at the start
+- Check callers — the edge case might be prevented by caller validation
+- Look for early returns, assertions, or type guards you might have missed
+
+**Your evidence must prove absence — not just that you didn't see it.**
+
+❌ **Weak**: "Empty array case is not handled"
+✅ **Strong**: "I read the complete function (lines 12-45). There's no check for empty arrays, and the code directly accesses `arr[0]` on line 15 without any guard."
+
 ### Severity Classification (All block merge except LOW)
 - **CRITICAL** (Blocker): Bug that will cause wrong results or crashes in production
   - Example: Off-by-one causing data corruption, race condition causing lost updates

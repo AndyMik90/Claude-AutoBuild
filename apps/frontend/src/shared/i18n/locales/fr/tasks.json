@@ -115,5 +115,15 @@
   "images": {
     "removeImageAriaLabel": "Supprimer l'image {{filename}}",
     "pasteHint": "Astuce : Collez des captures d'écran directement avec {{shortcut}} pour ajouter des images de référence."
+  },
+  "notifications": {
+    "backgroundTaskTitle": "La tâche continue en arrière-plan",
+    "backgroundTaskDescription": "La tâche est toujours en cours. Vous pouvez rouvrir cette boîte de dialogue pour suivre la progression."
+  },
+  "wizard": {
+    "gitOptions": {
+      "useWorktreeLabel": "Utiliser un espace de travail isolé (recommandé)",
+      "useWorktreeDescription": "Crée les changements dans un worktree git séparé pour une révision sécurisée avant la fusion. Désactivez pour travailler directement dans votre projet (plus rapide mais risqué)."
+    }
   }
 }

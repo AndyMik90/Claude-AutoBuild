@@ -62,11 +62,27 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | undefined;
 
+    // IMPORTANT: If execution phase is 'complete' or 'failed', the task is NOT stuck.
+    // It means the process has finished and status update is pending.
+    // This prevents false-positive "stuck" indicators when the process exits normally.
+    const isPhaseTerminal = executionPhase === 'complete' || executionPhase === 'failed';
+    if (isPhaseTerminal) {
+      setIsStuck(false);
+      setHasCheckedRunning(true);
+      return;
+    }
+
     if (isActiveTask && !hasCheckedRunning) {
       // Wait 2 seconds before checking - gives process time to spawn and register
       timeoutId = setTimeout(() => {
         checkTaskRunning(task.id).then((actuallyRunning) => {
-          setIsStuck(!actuallyRunning);
+          // Double-check the phase in case it changed while waiting
+          const latestPhase = task.executionProgress?.phase;
+          if (latestPhase === 'complete' || latestPhase === 'failed') {
+            setIsStuck(false);
+          } else {
+            setIsStuck(!actuallyRunning);
+          }
           setHasCheckedRunning(true);
         });
       }, 2000);
@@ -78,7 +94,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [task.id, isActiveTask, hasCheckedRunning]);
+  }, [task.id, isActiveTask, hasCheckedRunning, executionPhase, task.executionProgress?.phase]);
 
   // Handle scroll events in logs to detect if user scrolled up
   const handleLogsScroll = (e: React.UIEvent<HTMLDivElement>) => {

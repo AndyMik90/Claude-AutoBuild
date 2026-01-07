@@ -138,10 +138,15 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
 
       {/* Description - Primary Content */}
       {task.description && (
-        <div className="prose prose-sm prose-invert max-w-none prose-p:text-foreground/90 prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-li:text-foreground/90">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {task.description}
-          </ReactMarkdown>
+        <div className="bg-muted/30 rounded-lg px-4 py-3 border border-border/50 overflow-hidden max-w-full">
+          <div 
+            className="prose prose-sm prose-invert max-w-none overflow-hidden prose-p:text-foreground/90 prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-li:text-foreground/90 prose-ul:my-2 prose-li:my-0.5 prose-a:break-all prose-pre:overflow-x-auto prose-img:max-w-full [&_img]:!max-w-full [&_img]:h-auto [&_code]:break-all [&_code]:whitespace-pre-wrap [&_*]:max-w-full"
+            style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {task.description}
+            </ReactMarkdown>
+          </div>
         </div>
       )}
 

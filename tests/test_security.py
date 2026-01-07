@@ -94,9 +94,24 @@ class TestCommandExtraction:
         assert commands == []
 
     def test_malformed_command(self):
-        """Returns empty list for malformed command (fail-safe)."""
+        """Uses fallback parser for malformed commands (Windows path support).
+
+        The fallback parser extracts command names even from commands with
+        unclosed quotes, which is common when Windows paths are used.
+        """
         commands = extract_commands("echo 'unclosed quote")
-        assert commands == []
+        assert commands == ["echo"]
+
+    def test_windows_path_command(self):
+        """Handles Windows paths with backslashes."""
+        commands = extract_commands(r'C:\Python312\python.exe -c "print(1)"')
+        assert "python" in commands
+
+    def test_incomplete_windows_path_command(self):
+        """Handles incomplete commands with Windows paths (common AI generation issue)."""
+        cmd = r'python3 -c "import json; json.load(open(\'D:\path\file.json'
+        commands = extract_commands(cmd)
+        assert commands == ["python3"]
 
 
 class TestSplitCommandSegments:

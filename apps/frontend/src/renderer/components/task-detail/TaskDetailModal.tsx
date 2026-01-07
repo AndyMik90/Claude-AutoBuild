@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { useToast } from '../../hooks/use-toast';
 import { Separator } from '../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ScrollArea } from '../ui/scroll-area';
@@ -76,6 +77,7 @@ const isFilesTabEnabled = () => {
 // Separate component to use hooks only when task exists
 function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals, onOpenInbuiltTerminal }: { open: boolean; task: Task; onOpenChange: (open: boolean) => void; onSwitchToTerminals?: () => void; onOpenInbuiltTerminal?: (id: string, cwd: string) => void }) {
   const { t } = useTranslation(['tasks']);
+  const { toast } = useToast();
   const state = useTaskDetail({ task });
   const showFilesTab = isFilesTabEnabled();
   const progressPercent = calculateProgress(task.subtasks);
@@ -162,6 +164,14 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   };
 
   const handleClose = () => {
+    // Show toast notification if task is running
+    if (state.isRunning && !state.isStuck) {
+      toast({
+        title: t('tasks:notifications.backgroundTaskTitle'),
+        description: t('tasks:notifications.backgroundTaskDescription'),
+        duration: 4000,
+      });
+    }
     onOpenChange(false);
   };
 
@@ -393,7 +403,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 {/* Overview Tab */}
                 <TabsContent value="overview" className="flex-1 min-h-0 overflow-hidden mt-0">
                   <ScrollArea className="h-full">
-                    <div className="p-5 space-y-5">
+                    <div className="p-5 space-y-5 overflow-x-hidden max-w-full">
                       {/* Metadata */}
                       <TaskMetadata task={task} />
 

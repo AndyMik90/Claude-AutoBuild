@@ -9,9 +9,12 @@ Tests the worktree.py module functionality including:
 - Branch operations
 - Merge operations
 - Change tracking
+- Worktree cleanup and age detection
 """
 
 import subprocess
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -317,3 +320,162 @@ class TestWorktreeUtilities:
         commands = manager.get_test_commands("test-spec-node")
 
         assert any("npm" in cmd for cmd in commands)
+
+
+class TestWorktreeCleanup:
+    """Tests for worktree cleanup and age detection functionality."""
+
+    def test_get_worktree_stats_includes_age(self, temp_git_repo: Path):
+        """Worktree stats include last commit date and age in days."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+        info = manager.create_worktree("test-spec")
+
+        # Make a commit in the worktree
+        test_file = info.path / "test.txt"
+        test_file.write_text("test")
+        subprocess.run(["git", "add", "."], cwd=info.path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "test commit"], cwd=info.path, capture_output=True
+        )
+
+        # Get stats
+        stats = manager._get_worktree_stats("test-spec")
+
+        assert stats["last_commit_date"] is not None
+        assert isinstance(stats["last_commit_date"], datetime)
+        assert stats["days_since_last_commit"] is not None
+        assert stats["days_since_last_commit"] == 0  # Just committed
+
+    def test_get_old_worktrees(self, temp_git_repo: Path):
+        """get_old_worktrees identifies worktrees based on age threshold."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create a worktree with a commit
+        info = manager.create_worktree("test-spec")
+        test_file = info.path / "test.txt"
+        test_file.write_text("test")
+        subprocess.run(["git", "add", "."], cwd=info.path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "test commit"], cwd=info.path, capture_output=True
+        )
+
+        # Should not be considered old with default threshold (30 days)
+        old_worktrees = manager.get_old_worktrees(days_threshold=30)
+        assert len(old_worktrees) == 0
+
+        # Should be considered old with 0 day threshold
+        old_worktrees = manager.get_old_worktrees(days_threshold=0)
+        assert len(old_worktrees) == 1
+        assert "test-spec" in old_worktrees
+
+    def test_get_old_worktrees_with_stats(self, temp_git_repo: Path):
+        """get_old_worktrees returns full WorktreeInfo when include_stats=True."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create a worktree with a commit
+        info = manager.create_worktree("test-spec")
+        test_file = info.path / "test.txt"
+        test_file.write_text("test")
+        subprocess.run(["git", "add", "."], cwd=info.path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "test commit"], cwd=info.path, capture_output=True
+        )
+
+        # Get old worktrees with stats
+        old_worktrees = manager.get_old_worktrees(days_threshold=0, include_stats=True)
+
+        assert len(old_worktrees) == 1
+        assert old_worktrees[0].spec_name == "test-spec"
+        assert old_worktrees[0].days_since_last_commit is not None
+
+    def test_cleanup_old_worktrees_dry_run(self, temp_git_repo: Path):
+        """cleanup_old_worktrees dry run does not remove worktrees."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create a worktree with a commit
+        info = manager.create_worktree("test-spec")
+        test_file = info.path / "test.txt"
+        test_file.write_text("test")
+        subprocess.run(["git", "add", "."], cwd=info.path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "test commit"], cwd=info.path, capture_output=True
+        )
+
+        # Dry run should not remove anything
+        removed, failed = manager.cleanup_old_worktrees(days_threshold=0, dry_run=True)
+
+        assert len(removed) == 0
+        assert len(failed) == 0
+        assert info.path.exists()  # Worktree still exists
+
+    def test_cleanup_old_worktrees_removes_old(self, temp_git_repo: Path):
+        """cleanup_old_worktrees removes worktrees older than threshold."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create a worktree with a commit
+        info = manager.create_worktree("test-spec")
+        test_file = info.path / "test.txt"
+        test_file.write_text("test")
+        subprocess.run(["git", "add", "."], cwd=info.path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "test commit"], cwd=info.path, capture_output=True
+        )
+
+        # Actually remove with 0 day threshold
+        removed, failed = manager.cleanup_old_worktrees(days_threshold=0, dry_run=False)
+
+        assert len(removed) == 1
+        assert "test-spec" in removed
+        assert len(failed) == 0
+        assert not info.path.exists()  # Worktree should be removed
+
+    def test_get_worktree_count_warning(self, temp_git_repo: Path):
+        """get_worktree_count_warning returns appropriate warnings based on count."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # No warning with few worktrees
+        warning = manager.get_worktree_count_warning(warning_threshold=10)
+        assert warning is None
+
+        # Create 11 worktrees to trigger warning
+        for i in range(11):
+            info = manager.create_worktree(f"test-spec-{i}")
+            test_file = info.path / "test.txt"
+            test_file.write_text("test")
+            subprocess.run(["git", "add", "."], cwd=info.path, capture_output=True)
+            subprocess.run(
+                ["git", "commit", "-m", "test commit"],
+                cwd=info.path,
+                capture_output=True,
+            )
+
+        warning = manager.get_worktree_count_warning(warning_threshold=10)
+        assert warning is not None
+        assert "WARNING" in warning
+
+    def test_get_worktree_count_critical_warning(self, temp_git_repo: Path):
+        """get_worktree_count_warning returns critical warning for high counts."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create 21 worktrees to trigger critical warning
+        for i in range(21):
+            info = manager.create_worktree(f"test-spec-{i}")
+            test_file = info.path / "test.txt"
+            test_file.write_text("test")
+            subprocess.run(["git", "add", "."], cwd=info.path, capture_output=True)
+            subprocess.run(
+                ["git", "commit", "-m", "test commit"],
+                cwd=info.path,
+                capture_output=True,
+            )
+
+        warning = manager.get_worktree_count_warning(critical_threshold=20)
+        assert warning is not None
+        assert "CRITICAL" in warning
