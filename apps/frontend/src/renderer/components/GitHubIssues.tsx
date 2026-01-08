@@ -1,8 +1,13 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
-import { useProjectStore } from '../stores/project-store';
-import { useTaskStore } from '../stores/task-store';
-import { useGitHubIssues, useGitHubInvestigation, useIssueFiltering, useAutoFix } from './github-issues/hooks';
-import { useAnalyzePreview } from './github-issues/hooks/useAnalyzePreview';
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { useProjectStore } from "../stores/project-store";
+import { useTaskStore } from "../stores/task-store";
+import {
+  useGitHubIssues,
+  useGitHubInvestigation,
+  useIssueFiltering,
+  useAutoFix,
+} from "./github-issues/hooks";
+import { useAnalyzePreview } from "./github-issues/hooks/useAnalyzePreview";
 import {
   NotConnectedState,
   EmptyState,
@@ -10,11 +15,11 @@ import {
   IssueList,
   IssueDetail,
   InvestigationDialog,
-  BatchReviewWizard
-} from './github-issues/components';
-import { GitHubSetupModal } from './GitHubSetupModal';
-import type { GitHubIssue } from '../../shared/types';
-import type { GitHubIssuesProps } from './github-issues/types';
+  BatchReviewWizard,
+} from "./github-issues/components";
+import { GitHubSetupModal } from "./GitHubSetupModal";
+import type { GitHubIssue } from "../../shared/types";
+import type { GitHubIssuesProps } from "./github-issues/types";
 
 export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesProps) {
   const projects = useProjectStore((state) => state.projects);
@@ -28,19 +33,20 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     isLoading,
     error,
     selectedIssueNumber,
+    selectedIssue,
     filterState,
     selectIssue,
     getFilteredIssues,
     getOpenIssuesCount,
     handleRefresh,
-    handleFilterChange
+    handleFilterChange,
   } = useGitHubIssues(selectedProject?.id);
 
   const {
     investigationStatus,
     lastInvestigationResult,
     startInvestigation,
-    resetInvestigationStatus
+    resetInvestigationStatus,
   } = useGitHubInvestigation(selectedProject?.id);
 
   const { searchQuery, setSearchQuery, filteredIssues } = useIssueFiltering(getFilteredIssues());
@@ -66,15 +72,16 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     closeWizard,
     startAnalysis,
     approveBatches,
-  } = useAnalyzePreview({ projectId: selectedProject?.id || '' });
+  } = useAnalyzePreview({ projectId: selectedProject?.id || "" });
 
   const [showInvestigateDialog, setShowInvestigateDialog] = useState(false);
-  const [selectedIssueForInvestigation, setSelectedIssueForInvestigation] = useState<GitHubIssue | null>(null);
+  const [selectedIssueForInvestigation, setSelectedIssueForInvestigation] =
+    useState<GitHubIssue | null>(null);
   const [showGitHubSetup, setShowGitHubSetup] = useState(false);
 
   // Show GitHub setup modal when module is not installed
   useEffect(() => {
-    if (analysisError?.includes('GitHub automation module not installed')) {
+    if (analysisError?.includes("GitHub automation module not installed")) {
       setShowGitHubSetup(true);
     }
   }, [analysisError]);
@@ -104,34 +111,30 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     setShowInvestigateDialog(true);
   }, []);
 
-  const handleStartInvestigation = useCallback((selectedCommentIds: number[]) => {
-    if (selectedIssueForInvestigation) {
-      startInvestigation(selectedIssueForInvestigation, selectedCommentIds);
-    }
-  }, [selectedIssueForInvestigation, startInvestigation]);
+  const handleStartInvestigation = useCallback(
+    (selectedCommentIds: number[]) => {
+      if (selectedIssueForInvestigation) {
+        startInvestigation(selectedIssueForInvestigation, selectedCommentIds);
+      }
+    },
+    [selectedIssueForInvestigation, startInvestigation]
+  );
 
   const handleCloseDialog = useCallback(() => {
     setShowInvestigateDialog(false);
     resetInvestigationStatus();
   }, [resetInvestigationStatus]);
 
-  const selectedIssue = issues.find(i => i.number === selectedIssueNumber);
-
   // Not connected state
   if (!syncStatus?.connected) {
-    return (
-      <NotConnectedState
-        error={syncStatus?.error || null}
-        onOpenSettings={onOpenSettings}
-      />
-    );
+    return <NotConnectedState error={syncStatus?.error || null} onOpenSettings={onOpenSettings} />;
   }
 
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Header */}
       <IssueListHeader
-        repoFullName={syncStatus.repoFullName ?? ''}
+        repoFullName={syncStatus.repoFullName ?? ""}
         openIssuesCount={getOpenIssuesCount()}
         isLoading={isLoading}
         searchQuery={searchQuery}
@@ -199,7 +202,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       <BatchReviewWizard
         isOpen={isWizardOpen}
         onClose={closeWizard}
-        projectId={selectedProject?.id || ''}
+        projectId={selectedProject?.id || ""}
         onStartAnalysis={startAnalysis}
         onApproveBatches={approveBatches}
         analysisProgress={analysisProgress}

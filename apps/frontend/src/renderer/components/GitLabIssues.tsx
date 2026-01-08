@@ -1,21 +1,21 @@
-import { useState, useCallback, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useProjectStore } from '../stores/project-store';
-import { useTaskStore } from '../stores/task-store';
-import { useGitLabIssues, useGitLabInvestigation, useIssueFiltering } from './gitlab-issues/hooks';
+import { useState, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { useProjectStore } from "../stores/project-store";
+import { useTaskStore } from "../stores/task-store";
+import { useGitLabIssues, useGitLabInvestigation, useIssueFiltering } from "./gitlab-issues/hooks";
 import {
   NotConnectedState,
   EmptyState,
   IssueListHeader,
   IssueList,
   IssueDetail,
-  InvestigationDialog
-} from './gitlab-issues/components';
-import type { GitLabIssue } from '../../shared/types';
-import type { GitLabIssuesProps } from './gitlab-issues/types';
+  InvestigationDialog,
+} from "./gitlab-issues/components";
+import type { GitLabIssue } from "../../shared/types";
+import type { GitLabIssuesProps } from "./gitlab-issues/types";
 
 export function GitLabIssues({ onOpenSettings, onNavigateToTask }: GitLabIssuesProps) {
-  const { t } = useTranslation('gitlab');
+  const { t } = useTranslation("gitlab");
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -27,25 +27,27 @@ export function GitLabIssues({ onOpenSettings, onNavigateToTask }: GitLabIssuesP
     isLoading,
     error,
     selectedIssueIid,
+    selectedIssue,
     filterState,
     selectIssue,
     getFilteredIssues,
     getOpenIssuesCount,
     handleRefresh,
-    handleFilterChange
+    handleFilterChange,
   } = useGitLabIssues(selectedProject?.id);
 
   const {
     investigationStatus,
     lastInvestigationResult,
     startInvestigation,
-    resetInvestigationStatus
+    resetInvestigationStatus,
   } = useGitLabInvestigation(selectedProject?.id);
 
   const { searchQuery, setSearchQuery, filteredIssues } = useIssueFiltering(getFilteredIssues());
 
   const [showInvestigateDialog, setShowInvestigateDialog] = useState(false);
-  const [selectedIssueForInvestigation, setSelectedIssueForInvestigation] = useState<GitLabIssue | null>(null);
+  const [selectedIssueForInvestigation, setSelectedIssueForInvestigation] =
+    useState<GitLabIssue | null>(null);
 
   // Build a map of GitLab issue IIDs to task IDs for quick lookup
   const issueToTaskMap = useMemo(() => {
@@ -63,34 +65,30 @@ export function GitLabIssues({ onOpenSettings, onNavigateToTask }: GitLabIssuesP
     setShowInvestigateDialog(true);
   }, []);
 
-  const handleStartInvestigation = useCallback((selectedNoteIds: number[]) => {
-    if (selectedIssueForInvestigation) {
-      startInvestigation(selectedIssueForInvestigation, selectedNoteIds);
-    }
-  }, [selectedIssueForInvestigation, startInvestigation]);
+  const handleStartInvestigation = useCallback(
+    (selectedNoteIds: number[]) => {
+      if (selectedIssueForInvestigation) {
+        startInvestigation(selectedIssueForInvestigation, selectedNoteIds);
+      }
+    },
+    [selectedIssueForInvestigation, startInvestigation]
+  );
 
   const handleCloseDialog = useCallback(() => {
     setShowInvestigateDialog(false);
     resetInvestigationStatus();
   }, [resetInvestigationStatus]);
 
-  const selectedIssue = issues.find(i => i.iid === selectedIssueIid);
-
   // Not connected state
   if (!syncStatus?.connected) {
-    return (
-      <NotConnectedState
-        error={syncStatus?.error || null}
-        onOpenSettings={onOpenSettings}
-      />
-    );
+    return <NotConnectedState error={syncStatus?.error || null} onOpenSettings={onOpenSettings} />;
   }
 
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Header */}
       <IssueListHeader
-        projectPath={syncStatus.projectPathWithNamespace ?? ''}
+        projectPath={syncStatus.projectPathWithNamespace ?? ""}
         openIssuesCount={getOpenIssuesCount()}
         isLoading={isLoading}
         searchQuery={searchQuery}
@@ -129,7 +127,7 @@ export function GitLabIssues({ onOpenSettings, onNavigateToTask }: GitLabIssuesP
               onViewTask={onNavigateToTask}
             />
           ) : (
-            <EmptyState message={t('empty.selectIssue')} />
+            <EmptyState message={t("empty.selectIssue")} />
           )}
         </div>
       </div>
