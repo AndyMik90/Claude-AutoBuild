@@ -1677,8 +1677,8 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           return { hasNewCommits: false, newCommitCount: 0 };
         }
 
-        // Convert snake_case to camelCase for the field
-        const reviewedCommitSha = review.reviewedCommitSha || (review as any).reviewed_commit_sha;
+        // Normalize snake_case to camelCase for backwards compatibility with old saved files
+        const reviewedCommitSha = review.reviewedCommitSha ?? (review as any).reviewed_commit_sha;
         if (!reviewedCommitSha) {
           debugLog("No reviewedCommitSha in review", { prNumber });
           return { hasNewCommits: false, newCommitCount: 0 };

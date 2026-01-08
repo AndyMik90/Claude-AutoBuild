@@ -15,10 +15,6 @@ import {
 export type { PRData, PRReviewResult, PRReviewProgress };
 export type { PRReviewFinding } from "../../../../preload/api/modules/github-api";
 
-// Ref to track the current PR being fetched (for race condition prevention)
-// Placed at module level to persist across hook re-renders
-let currentFetchPRNumber: number | null = null;
-
 interface UseGitHubPRsOptions {
   /** Whether the component is currently active/visible */
   isActive?: boolean;
@@ -42,8 +38,8 @@ interface UseGitHubPRsResult {
   selectPR: (prNumber: number | null) => void;
   refresh: () => Promise<void>;
   loadMore: () => Promise<void>;
-  runReview: (prNumber: number) => Promise<void>;
-  runFollowupReview: (prNumber: number) => Promise<void>;
+  runReview: (prNumber: number) => void;
+  runFollowupReview: (prNumber: number) => void;
   checkNewCommits: (prNumber: number) => Promise<NewCommitsCheck>;
   cancelReview: (prNumber: number) => Promise<boolean>;
   postReview: (
@@ -54,9 +50,7 @@ interface UseGitHubPRsResult {
   postComment: (prNumber: number, body: string) => Promise<boolean>;
   mergePR: (prNumber: number, mergeMethod?: "merge" | "squash" | "rebase") => Promise<boolean>;
   assignPR: (prNumber: number, username: string) => Promise<boolean>;
-  getReviewStateForPR: (
-    prNumber: number
-  ) => {
+  getReviewStateForPR: (prNumber: number) => {
     isReviewing: boolean;
     progress: PRReviewProgress | null;
     result: PRReviewResult | null;
@@ -87,6 +81,8 @@ export function useGitHubPRs(
   const wasActiveRef = useRef(isActive);
   // Track if initial load has happened
   const hasLoadedRef = useRef(false);
+  // Track the current PR being fetched (for race condition prevention)
+  const currentFetchPRNumberRef = useRef<number | null>(null);
 
   // Get PR review state from the global store
   const prReviews = usePRReviewStore((state) => state.prReviews);
@@ -191,11 +187,9 @@ export function useGitHubPRs(
                 // Update store with loaded results
                 for (const reviewResult of Object.values(batchReviews)) {
                   if (reviewResult) {
-                    usePRReviewStore
-                      .getState()
-                      .setPRReviewResult(projectId, reviewResult, {
-                        preserveNewCommitsCheck: true,
-                      });
+                    usePRReviewStore.getState().setPRReviewResult(projectId, reviewResult, {
+                      preserveNewCommitsCheck: true,
+                    });
                   }
                 }
               }
@@ -217,7 +211,7 @@ export function useGitHubPRs(
         setIsLoadingMore(false);
       }
     },
-    [projectId, getPRReviewState, setNewCommitsCheckAction]
+    [projectId, getPRReviewState]
   );
 
   // Initial load
@@ -261,13 +255,13 @@ export function useGitHubPRs(
       // Clear previous detailed PR data when deselecting
       if (prNumber === null) {
         setSelectedPRDetails(null);
-        currentFetchPRNumber = null;
+        currentFetchPRNumberRef.current = null;
         return;
       }
 
       if (prNumber && projectId) {
         // Track the current PR being fetched (for race condition prevention)
-        currentFetchPRNumber = prNumber;
+        currentFetchPRNumberRef.current = prNumber;
 
         // Fetch full PR details including files
         setIsLoadingPRDetails(true);
@@ -275,7 +269,7 @@ export function useGitHubPRs(
           .getPR(projectId, prNumber)
           .then((prDetails) => {
             // Only update if this response is still for the current PR (prevents race condition)
-            if (prDetails && prNumber === currentFetchPRNumber) {
+            if (prDetails && prNumber === currentFetchPRNumberRef.current) {
               setSelectedPRDetails(prDetails);
             }
           })
@@ -284,7 +278,7 @@ export function useGitHubPRs(
           })
           .finally(() => {
             // Only clear loading state if this was the last fetch
-            if (prNumber === currentFetchPRNumber) {
+            if (prNumber === currentFetchPRNumberRef.current) {
               setIsLoadingPRDetails(false);
             }
           });
@@ -303,8 +297,7 @@ export function useGitHubPRs(
 
               // Always check for new commits when selecting a reviewed PR
               // This ensures fresh data even if we have a cached check from earlier in the session
-              const reviewedCommitSha =
-                result.reviewedCommitSha || (result as any).reviewed_commit_sha;
+              const reviewedCommitSha = result.reviewedCommitSha;
               if (reviewedCommitSha) {
                 window.electronAPI.github
                   .checkNewCommits(projectId, prNumber)
@@ -319,9 +312,7 @@ export function useGitHubPRs(
           });
         } else if (existingState?.result) {
           // Review already in store - always check for new commits to get fresh status
-          const reviewedCommitSha =
-            existingState.result.reviewedCommitSha ||
-            (existingState.result as any).reviewed_commit_sha;
+          const reviewedCommitSha = existingState.result.reviewedCommitSha;
           if (reviewedCommitSha) {
             window.electronAPI.github
               .checkNewCommits(projectId, prNumber)
@@ -350,7 +341,7 @@ export function useGitHubPRs(
   }, [fetchPRs, hasMore, isLoadingMore, isLoading, currentPage]);
 
   const runReview = useCallback(
-    async (prNumber: number) => {
+    (prNumber: number) => {
       if (!projectId) return;
 
       // Use the store function which handles both state and IPC
@@ -360,7 +351,7 @@ export function useGitHubPRs(
   );
 
   const runFollowupReview = useCallback(
-    async (prNumber: number) => {
+    (prNumber: number) => {
       if (!projectId) return;
 
       // Use the store function which handles both state and IPC
