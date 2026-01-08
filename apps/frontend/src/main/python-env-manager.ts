@@ -1,4 +1,4 @@
-import { spawn, execSync, ChildProcess } from 'child_process';
+import { spawn, execSync, execFileSync, ChildProcess } from 'child_process';
 import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
@@ -665,6 +665,114 @@ if sys.version_info >= (3, 12):
       depsInstalled,
       usingBundledPackages: this.usingBundledPackages
     };
+  }
+
+  /**
+   * Get the path to the Claude CLI executable.
+   * Searches in order of priority:
+   * 1. Bundled in venv's site-packages (claude_agent_sdk/_bundled/)
+   * 2. App resources (for packaged apps)
+   * 3. System PATH
+   *
+   * This fixes Issue #529 where the SDK fails to find the bundled CLI
+   * in packaged Electron apps.
+   */
+  getClaudeCliPath(): string | null {
+    const isWindows = process.platform === 'win32';
+    const cliName = isWindows ? 'claude.exe' : 'claude';
+
+    // Build list of candidate locations
+    const candidates: string[] = [];
+
+    // 1. Check inside venv's site-packages (where claude_agent_sdk is installed)
+    const venvPath = this.getVenvBasePath();
+    if (venvPath) {
+      if (isWindows) {
+        // Windows: venv/Lib/site-packages/claude_agent_sdk/_bundled/claude.exe
+        candidates.push(
+          path.join(venvPath, 'Lib', 'site-packages', 'claude_agent_sdk', '_bundled', cliName)
+        );
+      } else {
+        // Unix: venv/lib/pythonX.Y/site-packages/claude_agent_sdk/_bundled/claude
+        // Try common Python versions
+        for (const pyVer of ['python3.12', 'python3.11', 'python3.10', 'python3.9', 'python3']) {
+          candidates.push(
+            path.join(
+              venvPath,
+              'lib',
+              pyVer,
+              'site-packages',
+              'claude_agent_sdk',
+              '_bundled',
+              cliName
+            )
+          );
+        }
+      }
+    }
+
+    // 2. Check bundled site-packages (for packaged apps)
+    if (this.sitePackagesPath) {
+      candidates.push(
+        path.join(this.sitePackagesPath, 'claude_agent_sdk', '_bundled', cliName)
+      );
+    }
+
+    // 3. Check in app resources (for packaged apps)
+    if (app.isPackaged && process.resourcesPath) {
+      candidates.push(path.join(process.resourcesPath, 'auto-claude', 'bin', cliName));
+    }
+
+    // 4. Check common system locations
+    const homeDir = app.getPath('home');
+    candidates.push(
+      path.join(homeDir, '.npm-global', 'bin', cliName),
+      path.join(homeDir, '.local', 'bin', cliName),
+      path.join(homeDir, 'node_modules', '.bin', cliName),
+      path.join(homeDir, '.yarn', 'bin', cliName),
+      path.join(homeDir, '.claude', 'local', cliName)
+    );
+
+    if (isWindows) {
+      candidates.push(
+        path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', cliName),
+        `C:\\Program Files\\Claude\\${cliName}`,
+        `C:\\Program Files (x86)\\Claude\\${cliName}`
+      );
+    } else {
+      candidates.push(`/usr/local/bin/${cliName}`, `/usr/bin/${cliName}`);
+    }
+
+    // Find first existing path
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) {
+        console.log('[PythonEnvManager] Found Claude CLI at:', candidate);
+        return candidate;
+      }
+    }
+
+    // 5. Try system PATH using which/where (using execFileSync for safety)
+    try {
+      const cmd = isWindows ? 'where' : 'which';
+      const result = execFileSync(cmd, ['claude'], {
+        stdio: 'pipe',
+        timeout: 5000,
+      })
+        .toString()
+        .trim();
+
+      // 'where' on Windows may return multiple lines, take the first
+      const firstLine = result.split('\n')[0].trim();
+      if (firstLine && existsSync(firstLine)) {
+        console.log('[PythonEnvManager] Found Claude CLI in PATH:', firstLine);
+        return firstLine;
+      }
+    } catch {
+      // Not in PATH
+    }
+
+    console.log('[PythonEnvManager] Claude CLI not found in any known location');
+    return null;
   }
 
   /**

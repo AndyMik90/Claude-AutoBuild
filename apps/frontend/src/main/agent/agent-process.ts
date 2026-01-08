@@ -7,6 +7,7 @@ import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { ProcessType, ExecutionProgressData } from './types';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailure } from '../rate-limit-detector';
+import { getAPIProfileEnv } from '../services/profile';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { parsePythonCommand, validatePythonPath } from '../python-detector';
@@ -14,6 +15,8 @@ import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager
 import { buildMemoryEnvVars } from '../memory-env-builder';
 import { readSettingsFile } from '../settings-utils';
 import type { AppSettings } from '../../shared/types/settings';
+import { getOAuthModeClearVars } from './env-utils';
+import { getAugmentedEnv } from '../env-utils';
 
 /**
  * Process spawning and lifecycle management
@@ -53,8 +56,11 @@ export class AgentProcessManager {
     extraEnv: Record<string, string>
   ): NodeJS.ProcessEnv {
     const profileEnv = getProfileEnv();
+    // Use getAugmentedEnv() to ensure common tool paths (dotnet, homebrew, etc.)
+    // are available even when app is launched from Finder/Dock
+    const augmentedEnv = getAugmentedEnv();
     return {
-      ...process.env,
+      ...augmentedEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
@@ -195,6 +201,8 @@ export class AgentProcessManager {
 
     // Auto-detect from app location (configured path was invalid or not set)
     const possiblePaths = [
+      // Packaged app: backend is in extraResources (process.resourcesPath/backend)
+      ...(app.isPackaged ? [path.join(process.resourcesPath, 'backend')] : []),
       // Dev mode: from dist/main -> ../../backend (apps/frontend/out/main -> apps/backend)
       path.resolve(__dirname, '..', '..', '..', 'backend'),
       // Alternative: from app root -> apps/backend
@@ -238,6 +246,51 @@ export class AgentProcessManager {
   }
 
   /**
+   * Parse environment variables from a .env file content.
+   * Filters out empty values to prevent overriding valid tokens from profiles.
+   */
+  private parseEnvFile(envPath: string): Record<string, string> {
+    if (!existsSync(envPath)) {
+      return {};
+    }
+
+    try {
+      const envContent = readFileSync(envPath, 'utf-8');
+      const envVars: Record<string, string> = {};
+
+      // Handle both Unix (\n) and Windows (\r\n) line endings
+      for (const line of envContent.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        // Skip comments and empty lines
+        if (!trimmed || trimmed.startsWith('#')) {
+          continue;
+        }
+
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex > 0) {
+          const key = trimmed.substring(0, eqIndex).trim();
+          let value = trimmed.substring(eqIndex + 1).trim();
+
+          // Remove quotes if present
+          if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+          }
+
+          // Skip empty values to prevent overriding valid values from other sources
+          if (value) {
+            envVars[key] = value;
+          }
+        }
+      }
+
+      return envVars;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
    * Load environment variables from project's .auto-claude/.env file
    * This contains frontend-configured settings like memory/Graphiti configuration
    */
@@ -251,41 +304,7 @@ export class AgentProcessManager {
     }
 
     const envPath = path.join(projectPath, project.autoBuildPath, '.env');
-    if (!existsSync(envPath)) {
-      return {};
-    }
-
-    try {
-      const envContent = readFileSync(envPath, 'utf-8');
-      const envVars: Record<string, string> = {};
-
-      // Handle both Unix (\n) and Windows (\r\n) line endings
-      for (const line of envContent.split(/\r?\n/)) {
-        const trimmed = line.trim();
-        // Skip comments and empty lines
-        if (!trimmed || trimmed.startsWith('#')) {
-          continue;
-        }
-
-        const eqIndex = trimmed.indexOf('=');
-        if (eqIndex > 0) {
-          const key = trimmed.substring(0, eqIndex).trim();
-          let value = trimmed.substring(eqIndex + 1).trim();
-
-          // Remove quotes if present
-          if ((value.startsWith('"') && value.endsWith('"')) ||
-              (value.startsWith("'") && value.endsWith("'"))) {
-            value = value.slice(1, -1);
-          }
-
-          envVars[key] = value;
-        }
-      }
-
-      return envVars;
-    } catch {
-      return {};
-    }
+    return this.parseEnvFile(envPath);
   }
 
   /**
@@ -298,50 +317,19 @@ export class AgentProcessManager {
     }
 
     const envPath = path.join(autoBuildSource, '.env');
-    if (!existsSync(envPath)) {
-      return {};
-    }
-
-    try {
-      const envContent = readFileSync(envPath, 'utf-8');
-      const envVars: Record<string, string> = {};
-
-      // Handle both Unix (\n) and Windows (\r\n) line endings
-      for (const line of envContent.split(/\r?\n/)) {
-        const trimmed = line.trim();
-        // Skip comments and empty lines
-        if (!trimmed || trimmed.startsWith('#')) {
-          continue;
-        }
-
-        const eqIndex = trimmed.indexOf('=');
-        if (eqIndex > 0) {
-          const key = trimmed.substring(0, eqIndex).trim();
-          let value = trimmed.substring(eqIndex + 1).trim();
-
-          // Remove quotes if present
-          if ((value.startsWith('"') && value.endsWith('"')) ||
-              (value.startsWith("'") && value.endsWith("'"))) {
-            value = value.slice(1, -1);
-          }
-
-          envVars[key] = value;
-        }
-      }
-
-      return envVars;
-    } catch {
-      return {};
-    }
+    return this.parseEnvFile(envPath);
   }
 
-  spawnProcess(
+  /**
+   * Spawn a Python process for task execution
+   */
+  async spawnProcess(
     taskId: string,
     cwd: string,
     args: string[],
     extraEnv: Record<string, string> = {},
     processType: ProcessType = 'task-execution'
-  ): void {
+  ): Promise<void> {
     const isSpecRunner = processType === 'spec-creation';
     this.killProcess(taskId);
 
@@ -351,13 +339,27 @@ export class AgentProcessManager {
     // Get Python environment (PYTHONPATH for bundled packages, etc.)
     const pythonEnv = pythonEnvManager.getPythonEnv();
 
-    // Parse Python command to handle space-separated commands like "py -3"
+    // Get active API profile environment variables
+    let apiProfileEnv: Record<string, string> = {};
+    try {
+      apiProfileEnv = await getAPIProfileEnv();
+    } catch (error) {
+      console.error('[Agent Process] Failed to get API profile env:', error);
+      // Continue with empty profile env (falls back to OAuth mode)
+    }
+
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
+
+    // Parse Python commandto handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: {
         ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
-        ...pythonEnv // Include Python environment (PYTHONPATH for bundled packages)
+        ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
+        ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
+        ...apiProfileEnv // Include active API profile config (highest priority for ANTHROPIC_* vars)
       }
     });
 
@@ -595,6 +597,15 @@ export class AgentProcessManager {
 
     // Priority: app-wide memory -> backend .env -> project .env -> project settings
     // Later sources override earlier ones
-    return { ...memoryEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
+    const combinedEnv = { ...memoryEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
+
+    // Add Claude CLI path for SDK to find the bundled CLI (fixes Issue #529)
+    // This helps in packaged Electron apps where GUI apps don't inherit shell PATH
+    const claudeCliPath = pythonEnvManager.getClaudeCliPath();
+    if (claudeCliPath) {
+      combinedEnv.CLAUDE_CLI_PATH = claudeCliPath;
+    }
+
+    return combinedEnv;
   }
 }

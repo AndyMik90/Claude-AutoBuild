@@ -39,6 +39,7 @@ from debug import (
     debug_section,
     debug_success,
 )
+from phase_config import resolve_model_id
 
 
 def load_project_context(project_dir: str) -> str:
@@ -132,7 +133,7 @@ async def run_with_sdk(
     project_dir: str,
     message: str,
     history: list,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "sonnet",  # Shorthand - resolved via API Profile if configured
     thinking_level: str = "medium",
 ) -> None:
     """Run the chat using Claude SDK with streaming."""
@@ -180,7 +181,7 @@ Current question: {message}"""
         # Create Claude SDK client with appropriate settings for insights
         client = ClaudeSDKClient(
             options=ClaudeAgentOptions(
-                model=model,  # Use configured model
+                model=resolve_model_id(model),  # Resolve via API Profile if configured
                 system_prompt=system_prompt,
                 allowed_tools=[
                     "Read",
@@ -336,8 +337,8 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default="claude-sonnet-4-5-20250929",
-        help="Claude model ID (default: claude-sonnet-4-5-20250929)",
+        default="sonnet",
+        help="Model to use (haiku, sonnet, opus, or full model ID)",
     )
     parser.add_argument(
         "--thinking-level",

@@ -4,11 +4,15 @@ import { runPythonSubprocess } from './subprocess-runner';
 import * as childProcess from 'child_process';
 import EventEmitter from 'events';
 
-// Mock child_process.spawn
-vi.mock('child_process', () => ({
-  spawn: vi.fn(),
-  exec: vi.fn(),
-}));
+// Mock child_process with importOriginal to preserve all exports
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return {
+    ...actual,
+    spawn: vi.fn(),
+    exec: vi.fn(),
+  };
+});
 
 // Mock parsePythonCommand
 vi.mock('../../../python-detector', () => ({

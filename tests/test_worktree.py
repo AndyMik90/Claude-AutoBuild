@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from worktree import WorktreeManager, WorktreeInfo, WorktreeError, STAGING_WORKTREE_NAME
+from worktree import WorktreeManager, WorktreeInfo, WorktreeError
 
 
 class TestWorktreeManagerInitialization:
@@ -27,7 +27,7 @@ class TestWorktreeManagerInitialization:
         manager = WorktreeManager(temp_git_repo)
 
         assert manager.project_dir == temp_git_repo
-        assert manager.worktrees_dir == temp_git_repo / ".worktrees"
+        assert manager.worktrees_dir == temp_git_repo / ".auto-claude" / "worktrees" / "tasks"
         assert manager.base_branch is not None
 
     def test_init_prefers_main_over_current_branch(self, temp_git_repo: Path):
@@ -63,7 +63,7 @@ class TestWorktreeManagerInitialization:
         assert manager.base_branch == "main"
 
     def test_setup_creates_worktrees_directory(self, temp_git_repo: Path):
-        """Setup creates the .worktrees directory."""
+        """Setup creates the worktrees directory."""
         manager = WorktreeManager(temp_git_repo)
         manager.setup()
 
@@ -112,75 +112,6 @@ class TestWorktreeCreation:
         assert (info2.path / "test-file.txt").exists()
 
 
-class TestStagingWorktree:
-    """Tests for staging worktree operations (backward compatibility)."""
-
-    def test_get_or_create_staging_creates_new(self, temp_git_repo: Path):
-        """Creates staging worktree if it doesn't exist."""
-        manager = WorktreeManager(temp_git_repo)
-        manager.setup()
-
-        info = manager.get_or_create_staging("test-spec")
-
-        assert info.path.exists()
-        # Staging is now per-spec, worktree is named after spec
-        assert info.path.name == "test-spec"
-        assert "auto-claude/test-spec" in info.branch
-
-    def test_get_or_create_staging_returns_existing(self, temp_git_repo: Path):
-        """Returns existing staging worktree without recreating."""
-        manager = WorktreeManager(temp_git_repo)
-        manager.setup()
-
-        info1 = manager.get_or_create_staging("test-spec")
-        # Add a file
-        (info1.path / "marker.txt").write_text("marker")
-
-        info2 = manager.get_or_create_staging("test-spec")
-
-        # Should be the same worktree (marker file exists)
-        assert (info2.path / "marker.txt").exists()
-
-    def test_staging_exists_false_when_none(self, temp_git_repo: Path):
-        """staging_exists returns False when no staging worktree."""
-        manager = WorktreeManager(temp_git_repo)
-        manager.setup()
-
-        assert manager.staging_exists() is False
-
-    def test_staging_exists_true_when_created(self, temp_git_repo: Path):
-        """staging_exists returns True after creating staging."""
-        manager = WorktreeManager(temp_git_repo)
-        manager.setup()
-        manager.get_or_create_staging("test-spec")
-
-        assert manager.staging_exists() is True
-
-    def test_get_staging_path(self, temp_git_repo: Path):
-        """get_staging_path returns correct path."""
-        manager = WorktreeManager(temp_git_repo)
-        manager.setup()
-        manager.get_or_create_staging("test-spec")
-
-        path = manager.get_staging_path()
-
-        assert path is not None
-        # Staging is now per-spec, path is named after spec
-        assert path.name == "test-spec"
-
-    def test_get_staging_info(self, temp_git_repo: Path):
-        """get_staging_info returns WorktreeInfo."""
-        manager = WorktreeManager(temp_git_repo)
-        manager.setup()
-        manager.get_or_create_staging("test-spec")
-
-        info = manager.get_staging_info()
-
-        assert info is not None
-        assert isinstance(info, WorktreeInfo)
-        assert info.branch is not None
-
-
 class TestWorktreeRemoval:
     """Tests for removing worktrees."""
 
@@ -193,17 +124,6 @@ class TestWorktreeRemoval:
         manager.remove_worktree("test-spec")
 
         assert not info.path.exists()
-
-    def test_remove_staging(self, temp_git_repo: Path):
-        """Can remove staging worktree."""
-        manager = WorktreeManager(temp_git_repo)
-        manager.setup()
-        info = manager.get_or_create_staging("test-spec")
-
-        manager.remove_staging()
-
-        assert not info.path.exists()
-        assert manager.staging_exists() is False
 
     def test_remove_with_delete_branch(self, temp_git_repo: Path):
         """Removing worktree can also delete the branch."""
@@ -224,56 +144,6 @@ class TestWorktreeRemoval:
 
 class TestWorktreeCommitAndMerge:
     """Tests for commit and merge operations."""
-
-    def test_commit_in_staging(self, temp_git_repo: Path):
-        """Can commit changes in staging worktree."""
-        manager = WorktreeManager(temp_git_repo)
-        manager.setup()
-        info = manager.get_or_create_staging("test-spec")
-
-        # Make changes in staging
-        (info.path / "new-file.txt").write_text("new content")
-
-        result = manager.commit_in_staging("Test commit")
-
-        assert result is True
-
-        # Verify commit was made
-        log_result = subprocess.run(
-            ["git", "log", "--oneline", "-1"],
-            cwd=info.path, capture_output=True, text=True
-        )
-        assert "Test commit" in log_result.stdout
-
-    def test_commit_in_staging_nothing_to_commit(self, temp_git_repo: Path):
-        """commit_in_staging succeeds when nothing to commit."""
-        manager = WorktreeManager(temp_git_repo)
-        manager.setup()
-        manager.get_or_create_staging("test-spec")
-
-        # No changes made
-        result = manager.commit_in_staging("Empty commit")
-
-        assert result is True  # Should succeed (nothing to commit is OK)
-
-    def test_merge_staging_sync(self, temp_git_repo: Path):
-        """Can merge staging worktree to main branch."""
-        manager = WorktreeManager(temp_git_repo)
-        manager.setup()
-        info = manager.get_or_create_staging("test-spec")
-
-        # Make changes in staging
-        (info.path / "feature.txt").write_text("feature content")
-        manager.commit_in_staging("Add feature")
-
-        # Merge back
-        result = manager.merge_staging(delete_after=False)
-
-        assert result is True
-
-        # Verify file is in main branch
-        subprocess.run(["git", "checkout", manager.base_branch], cwd=temp_git_repo, capture_output=True)
-        assert (temp_git_repo / "feature.txt").exists()
 
     def test_merge_worktree(self, temp_git_repo: Path):
         """Can merge a worktree back to main."""
@@ -323,12 +193,16 @@ class TestChangeTracking:
         """get_change_summary returns correct counts."""
         manager = WorktreeManager(temp_git_repo)
         manager.setup()
-        info = manager.get_or_create_staging("test-spec")
+        info = manager.create_worktree("test-spec")
 
         # Make various changes
         (info.path / "new-file.txt").write_text("new")
         (info.path / "README.md").write_text("modified")
-        manager.commit_in_staging("Changes")
+        subprocess.run(["git", "add", "."], cwd=info.path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Changes"],
+            cwd=info.path, capture_output=True
+        )
 
         summary = manager.get_change_summary("test-spec")
 
@@ -339,11 +213,15 @@ class TestChangeTracking:
         """get_changed_files returns list of changed files."""
         manager = WorktreeManager(temp_git_repo)
         manager.setup()
-        info = manager.get_or_create_staging("test-spec")
+        info = manager.create_worktree("test-spec")
 
         # Make changes
         (info.path / "added.txt").write_text("new file")
-        manager.commit_in_staging("Add file")
+        subprocess.run(["git", "add", "."], cwd=info.path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Add file"],
+            cwd=info.path, capture_output=True
+        )
 
         files = manager.get_changed_files("test-spec")
 
@@ -393,7 +271,7 @@ class TestWorktreeUtilities:
         manager.setup()
         manager.create_worktree("spec-1")
         manager.create_worktree("spec-2")
-        manager.get_or_create_staging("test-spec")
+        manager.create_worktree("spec-3")
 
         manager.cleanup_all()
 
@@ -418,7 +296,7 @@ class TestWorktreeUtilities:
         """get_test_commands detects Python project commands."""
         manager = WorktreeManager(temp_git_repo)
         manager.setup()
-        info = manager.get_or_create_staging("test-spec")
+        info = manager.create_worktree("test-spec")
 
         # Create requirements.txt
         (info.path / "requirements.txt").write_text("flask\n")
@@ -431,11 +309,11 @@ class TestWorktreeUtilities:
         """get_test_commands detects Node.js project commands."""
         manager = WorktreeManager(temp_git_repo)
         manager.setup()
-        info = manager.get_or_create_staging("test-spec")
+        info = manager.create_worktree("test-spec-node")
 
         # Create package.json
         (info.path / "package.json").write_text('{"name": "test"}')
 
-        commands = manager.get_test_commands("test-spec")
+        commands = manager.get_test_commands("test-spec-node")
 
         assert any("npm" in cmd for cmd in commands)

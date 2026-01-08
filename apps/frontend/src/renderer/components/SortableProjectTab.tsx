@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTranslation } from 'react-i18next';
-import { Settings2, Archive } from 'lucide-react';
+import { Settings2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import type { Project } from '../../shared/types';
@@ -15,9 +15,6 @@ interface SortableProjectTabProps {
   onClose: (e: React.MouseEvent) => void;
   // Optional control props for active tab
   onSettingsClick?: () => void;
-  showArchived?: boolean;
-  archivedCount?: number;
-  onToggleArchived?: () => void;
 }
 
 // Detect if running on macOS for keyboard shortcut display
@@ -31,10 +28,7 @@ export function SortableProjectTab({
   tabIndex,
   onSelect,
   onClose,
-  onSettingsClick,
-  showArchived,
-  archivedCount,
-  onToggleArchived
+  onSettingsClick
 }: SortableProjectTabProps) {
   const { t } = useTranslation('common');
   // Build tooltip with keyboard shortcut hint (only for tabs 1-9)
@@ -145,42 +139,6 @@ export function SortableProjectTab({
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 <span>{t('projectTab.settings')}</span>
-              </TooltipContent>
-            </Tooltip>
-          )}
-
-          {/* Archive toggle button with badge - responsive sizing */}
-          {onToggleArchived && (
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    'h-5 sm:h-6 px-1 sm:px-1.5 rounded',
-                    'flex items-center justify-center gap-0.5 sm:gap-1',
-                    'transition-colors',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                    showArchived
-                      ? 'text-primary bg-primary/10 hover:bg-primary/20'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                  )}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleArchived();
-                  }}
-                  aria-label={showArchived ? t('projectTab.hideArchivedTasks') : t('projectTab.showArchivedTasks')}
-                  aria-pressed={showArchived}
-                >
-                  <Archive className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  {typeof archivedCount === 'number' && archivedCount > 0 && (
-                    <span className="text-[9px] sm:text-[10px] font-medium min-w-[12px] sm:min-w-[14px] text-center">
-                      {archivedCount}
-                    </span>
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <span>{showArchived ? t('projectTab.hideArchived') : t('projectTab.showArchived')}</span>
               </TooltipContent>
             </Tooltip>
           )}

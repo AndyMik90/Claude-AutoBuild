@@ -73,6 +73,22 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
     xterm.attachCustomKeyEventHandler((event) => {
       const isMod = event.metaKey || event.ctrlKey;
 
+      // Handle SHIFT+Enter for multi-line input (send newline character)
+      // This matches VS Code/Cursor behavior for multi-line input in Claude Code
+      if (event.key === 'Enter' && event.shiftKey && !isMod && event.type === 'keydown') {
+        // Send ESC + newline - same as OPTION+Enter which works for multi-line
+        xterm.input('\x1b\n');
+        return false; // Prevent default xterm handling
+      }
+
+      // Handle CMD+Backspace (Mac) or Ctrl+Backspace (Windows/Linux) to delete line
+      // Sends Ctrl+U which is the terminal standard for "kill line backward"
+      const isDeleteLine = event.key === 'Backspace' && event.type === 'keydown' && isMod;
+      if (isDeleteLine) {
+        xterm.input('\x15'); // Ctrl+U
+        return false;
+      }
+
       // Let Cmd/Ctrl + number keys pass through for project tab switching
       if (isMod && event.key >= '1' && event.key <= '9') {
         return false; // Don't handle in xterm, let it bubble up

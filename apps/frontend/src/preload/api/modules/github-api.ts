@@ -320,6 +320,7 @@ export interface PRReviewResult {
   error?: string;
   // Follow-up review fields
   reviewedCommitSha?: string;
+  reviewedFileBlobs?: Record<string, string>; // filename → blob SHA for rebase-resistant follow-ups
   isFollowupReview?: boolean;
   previousReviewId?: number;
   resolvedFindings?: string[];

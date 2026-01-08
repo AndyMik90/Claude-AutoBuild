@@ -16,6 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Button } from './components/ui/button';
+import { Toaster } from './components/ui/toaster';
 import {
   Dialog,
   DialogContent,
@@ -51,7 +52,8 @@ import { ProactiveSwapListener } from './components/ProactiveSwapListener';
 import { GitHubSetupModal } from './components/GitHubSetupModal';
 import { useProjectStore, loadProjects, addProject, initializeProject, removeProject } from './stores/project-store';
 import { useTaskStore, loadTasks } from './stores/task-store';
-import { useSettingsStore, loadSettings } from './stores/settings-store';
+import { useSettingsStore, loadSettings, loadProfiles } from './stores/settings-store';
+import { useClaudeProfileStore } from './stores/claude-profile-store';
 import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
 import { initializeGitHubListeners } from './stores/github';
 import { initDownloadProgressListener } from './stores/download-store';
@@ -61,10 +63,9 @@ import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../s
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 import { AddProjectModal } from './components/AddProjectModal';
-import { ViewStateProvider, useViewState } from './contexts/ViewStateContext';
+import { ViewStateProvider } from './contexts/ViewStateContext';
 
-// Wrapper component that connects ProjectTabBar to ViewStateContext
-// (needed because App renders the Provider and can't use useViewState directly)
+// Wrapper component for ProjectTabBar
 interface ProjectTabBarWithContextProps {
   projects: Project[];
   activeProjectId: string | null;
@@ -72,7 +73,6 @@ interface ProjectTabBarWithContextProps {
   onProjectClose: (projectId: string) => void;
   onAddProject: () => void;
   onSettingsClick: () => void;
-  tasks: Task[];
 }
 
 function ProjectTabBarWithContext({
@@ -81,12 +81,8 @@ function ProjectTabBarWithContext({
   onProjectSelect,
   onProjectClose,
   onAddProject,
-  onSettingsClick,
-  tasks
+  onSettingsClick
 }: ProjectTabBarWithContextProps) {
-  const { showArchived, toggleShowArchived } = useViewState();
-  const archivedCount = tasks.filter(t => t.metadata?.archivedAt).length;
-
   return (
     <ProjectTabBar
       projects={projects}
@@ -95,9 +91,6 @@ function ProjectTabBarWithContext({
       onProjectClose={onProjectClose}
       onAddProject={onAddProject}
       onSettingsClick={onSettingsClick}
-      showArchived={showArchived}
-      archivedCount={archivedCount}
-      onToggleArchived={toggleShowArchived}
     />
   );
 }
@@ -118,6 +111,13 @@ export function App() {
   const tasks = useTaskStore((state) => state.tasks);
   const settings = useSettingsStore((state) => state.settings);
   const settingsLoading = useSettingsStore((state) => state.isLoading);
+
+  // API Profile state
+  const profiles = useSettingsStore((state) => state.profiles);
+  const activeProfileId = useSettingsStore((state) => state.activeProfileId);
+
+  // Claude Profile state (OAuth)
+  const claudeProfiles = useClaudeProfileStore((state) => state.profiles);
 
   // UI State
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -167,6 +167,7 @@ export function App() {
   useEffect(() => {
     loadProjects();
     loadSettings();
+    loadProfiles();
     // Initialize global GitHub listeners (PR reviews, etc.) so they persist across navigation
     initializeGitHubListeners();
     // Initialize global download progress listener for Ollama model downloads
@@ -239,10 +240,21 @@ export function App() {
   // First-run detection - show onboarding wizard if not completed
   // Only check AFTER settings have been loaded from disk to avoid race condition
   useEffect(() => {
-    if (settingsHaveLoaded && settings.onboardingCompleted === false) {
+    // Check if either auth method is configured
+    // API profiles: if profiles exist, auth is configured (user has gone through setup)
+    const hasAPIProfileConfigured = profiles.length > 0;
+    const hasOAuthConfigured = claudeProfiles.some(p =>
+      p.oauthToken || (p.isDefault && p.configDir)
+    );
+    const hasAnyAuth = hasAPIProfileConfigured || hasOAuthConfigured;
+
+    // Only show wizard if onboarding not completed AND no auth is configured
+    if (settingsHaveLoaded &&
+        settings.onboardingCompleted === false &&
+        !hasAnyAuth) {
       setIsOnboardingWizardOpen(true);
     }
-  }, [settingsHaveLoaded, settings.onboardingCompleted]);
+  }, [settingsHaveLoaded, settings.onboardingCompleted, profiles, claudeProfiles]);
 
   // Sync i18n language with settings
   const { t, i18n } = useTranslation('dialogs');
@@ -700,7 +712,6 @@ export function App() {
                   onProjectClose={handleProjectTabClose}
                   onAddProject={handleAddProject}
                   onSettingsClick={() => setIsSettingsDialogOpen(true)}
-                  tasks={tasks}
                 />
               </SortableContext>
 
@@ -1001,6 +1012,9 @@ export function App() {
 
         {/* Global Download Indicator - shows Ollama model download progress */}
         <GlobalDownloadIndicator />
+
+        {/* Toast notifications */}
+        <Toaster />
       </div>
       </TooltipProvider>
     </ViewStateProvider>

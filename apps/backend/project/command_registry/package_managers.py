@@ -33,6 +33,9 @@ PACKAGE_MANAGER_COMMANDS: dict[str, set[str]] = {
     "brew": {"brew"},
     "apt": {"apt", "apt-get", "dpkg"},
     "nix": {"nix", "nix-shell", "nix-build", "nix-env"},
+    # Dart/Flutter package managers
+    "pub": {"pub", "dart"},
+    "melos": {"melos", "dart", "flutter"},
 }
 
 
