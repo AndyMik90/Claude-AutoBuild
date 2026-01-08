@@ -564,6 +564,7 @@ export class ProjectStore {
         'done': 'done',
         'human_review': 'human_review',
         'ai_review': 'ai_review',
+        'pr_created': 'pr_created', // PR has been created for this task
         'backlog': 'backlog'
       };
       const storedStatus = statusMap[plan.status];
@@ -571,6 +572,11 @@ export class ProjectStore {
       // If user explicitly marked as 'done', always respect that
       if (storedStatus === 'done') {
         return { status: 'done' };
+      }
+
+      // If task has a PR created, always respect that status
+      if (storedStatus === 'pr_created') {
+        return { status: 'pr_created' };
       }
 
       // For other stored statuses, validate against calculated status

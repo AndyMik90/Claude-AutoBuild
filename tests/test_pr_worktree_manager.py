@@ -31,79 +31,94 @@ PRWorktreeManager = pr_worktree_module.PRWorktreeManager
 
 @pytest.fixture
 def temp_git_repo():
-    """Create a temporary git repository with remote origin for testing."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Create a bare repo to act as "origin"
-        origin_dir = Path(tmpdir) / "origin.git"
-        origin_dir.mkdir()
-        subprocess.run(
-            ["git", "init", "--bare"], cwd=origin_dir, check=True, capture_output=True
-        )
+    """Create a temporary git repository with remote origin for testing.
 
-        # Create the working repo
-        repo_dir = Path(tmpdir) / "test_repo"
-        repo_dir.mkdir()
+    Note: This fixture clears GIT_INDEX_FILE to avoid interference from pre-commit hooks.
+    Pre-commit sets GIT_INDEX_FILE to a relative path (.git/index.pre-commit) which causes
+    git commands in the temp repo to fail with "index file open failed: Not a directory"
+    because the relative path resolves against the main repo, not the temp repo.
+    """
+    # Clear pre-commit's GIT_INDEX_FILE to avoid interference with temp repo git commands
+    # Pre-commit sets this to a relative path that breaks git operations in other repos
+    saved_git_index_file = os.environ.pop('GIT_INDEX_FILE', None)
 
-        # Initialize git repo
-        subprocess.run(["git", "init"], cwd=repo_dir, check=True, capture_output=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=repo_dir,
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test User"],
-            cwd=repo_dir,
-            check=True,
-            capture_output=True,
-        )
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a bare repo to act as "origin"
+            origin_dir = Path(tmpdir) / "origin.git"
+            origin_dir.mkdir()
+            subprocess.run(
+                ["git", "init", "--bare"], cwd=origin_dir, check=True, capture_output=True
+            )
 
-        # Add origin remote
-        subprocess.run(
-            ["git", "remote", "add", "origin", str(origin_dir)],
-            cwd=repo_dir,
-            check=True,
-            capture_output=True,
-        )
+            # Create the working repo
+            repo_dir = Path(tmpdir) / "test_repo"
+            repo_dir.mkdir()
 
-        # Create initial commit
-        test_file = repo_dir / "test.txt"
-        test_file.write_text("initial content")
-        subprocess.run(["git", "add", "."], cwd=repo_dir, check=True, capture_output=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial commit"],
-            cwd=repo_dir,
-            check=True,
-            capture_output=True,
-        )
+            # Initialize git repo
+            subprocess.run(["git", "init"], cwd=repo_dir, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
+            )
 
-        # Push to origin so refs exist
-        subprocess.run(
-            ["git", "push", "-u", "origin", "HEAD:main"],
-            cwd=repo_dir,
-            check=True,
-            capture_output=True,
-        )
+            # Add origin remote
+            subprocess.run(
+                ["git", "remote", "add", "origin", str(origin_dir)],
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
+            )
 
-        # Get the commit SHA
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repo_dir,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        commit_sha = result.stdout.strip()
+            # Create initial commit
+            test_file = repo_dir / "test.txt"
+            test_file.write_text("initial content")
+            subprocess.run(["git", "add", "."], cwd=repo_dir, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "commit", "-m", "Initial commit"],
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
+            )
 
-        yield repo_dir, commit_sha
+            # Push to origin so refs exist
+            subprocess.run(
+                ["git", "push", "-u", "origin", "HEAD:main"],
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
+            )
 
-        # Cleanup worktrees before removing directory
-        subprocess.run(
-            ["git", "worktree", "prune"],
-            cwd=repo_dir,
-            capture_output=True,
-        )
+            # Get the commit SHA
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            commit_sha = result.stdout.strip()
+
+            yield repo_dir, commit_sha
+
+            # Cleanup worktrees before removing directory
+            subprocess.run(
+                ["git", "worktree", "prune"],
+                cwd=repo_dir,
+                capture_output=True,
+            )
+    finally:
+        # Restore GIT_INDEX_FILE if it was set
+        if saved_git_index_file is not None:
+            os.environ['GIT_INDEX_FILE'] = saved_git_index_file
 
 
 def test_create_and_remove_worktree(temp_git_repo):

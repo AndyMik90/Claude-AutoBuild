@@ -5,7 +5,7 @@
 import type { ThinkingLevel, PhaseModelConfig, PhaseThinkingConfig } from './settings';
 import type { ExecutionPhase as ExecutionPhaseType } from '../constants/phase-protocol';
 
-export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'done';
+export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'pr_created' | 'done';
 
 // Reason why a task is in human_review status
 // - 'completed': All subtasks done and QA passed, ready for final approval/merge
@@ -228,6 +228,7 @@ export interface TaskMetadata {
 
   // Git/Worktree configuration
   baseBranch?: string;  // Override base branch for this task's worktree
+  prUrl?: string;  // GitHub PR URL if task has been submitted as a PR
   useWorktree?: boolean;  // If false, use direct mode (no worktree isolation) - default is true for safety
 
   // Archive status
@@ -402,6 +403,26 @@ export interface WorktreeMergeResult {
 export interface WorktreeDiscardResult {
   success: boolean;
   message: string;
+}
+
+/**
+ * Options for creating a PR from a worktree
+ */
+export interface WorktreeCreatePROptions {
+  targetBranch?: string;
+  title?: string;
+  draft?: boolean;
+}
+
+/**
+ * Result of creating a PR from a worktree
+ */
+export interface WorktreeCreatePRResult {
+  success: boolean;
+  prUrl?: string;
+  error?: string;
+  message?: string;  // Human-readable message for both success and error cases
+  alreadyExists?: boolean;
 }
 
 /**

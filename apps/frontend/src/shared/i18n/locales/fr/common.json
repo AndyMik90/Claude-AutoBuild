@@ -66,6 +66,8 @@
     "confirm": "Confirmer",
     "retry": "Réessayer",
     "create": "Créer",
+    "createPR": "Créer PR",
+    "openPR": "Ouvrir la PR",
     "open": "Ouvrir",
     "start": "Démarrer",
     "stop": "Arrêter",

@@ -4,6 +4,7 @@
     "todo": "À faire",
     "in_progress": "En cours",
     "review": "Révision",
+    "prCreated": "PR créée",
     "complete": "Terminé",
     "archived": "Archivé"
   },
@@ -15,6 +16,7 @@
     "archive": "Archiver",
     "delete": "Supprimer",
     "view": "Voir les détails",
+    "viewPR": "Voir la PR",
     "moveTo": "Déplacer vers",
     "taskActions": "Actions de la tâche"
   },
@@ -37,7 +39,8 @@
   },
   "tooltips": {
     "archiveTask": "Archiver la tâche",
-    "archiveAllDone": "Archiver toutes les tâches terminées"
+    "archiveAllDone": "Archiver toutes les tâches terminées",
+    "viewPR": "Ouvrir la pull request dans le navigateur"
   },
   "creation": {
     "title": "Créer une nouvelle tâche",
@@ -53,7 +56,8 @@
     "in_progress": "En cours",
     "ai_review": "Révision IA",
     "human_review": "Révision humaine",
-    "done": "Terminé"
+    "done": "Terminé",
+    "pr_created": "PR créée"
   },
   "kanban": {
     "emptyBacklog": "Aucune tâche planifiée",
@@ -110,7 +114,8 @@
     "openInIDE": "Ouvrir dans l'IDE"
   },
   "metadata": {
-    "severity": "sévérité"
+    "severity": "sévérité",
+    "pullRequest": "Pull Request"
   },
   "images": {
     "removeImageAriaLabel": "Supprimer l'image {{filename}}",
