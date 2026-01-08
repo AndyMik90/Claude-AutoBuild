@@ -44,6 +44,8 @@
     "lastChecked": "Last checked",
     "learnMore": "Learn more about Claude Code",
     "learnMoreAriaLabel": "Learn more about Claude Code (opens in new window)",
+    "viewChangelog": "View Claude Code Changelog",
+    "viewChangelogAriaLabel": "View Claude Code Changelog (opens in new window)",
     "updateWarningTitle": "Update Claude Code?",
     "updateWarningDescription": "Updating will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding.",
     "updateAnyway": "Update Anyway"
