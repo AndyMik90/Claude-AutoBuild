@@ -300,19 +300,24 @@ jobs:
         run: |
           cd apps/frontend/dist
           # Find the latest.yml file and update the sha512 hash for signed exe
+          # electron-builder uses base64-encoded SHA512 hashes, not hex
           $exeFile = Get-ChildItem -Filter "*.exe" | Select-Object -First 1
           if ($exeFile) {
-            $hash = (Get-FileHash -Path $exeFile.FullName -Algorithm SHA512).Hash.ToLower()
+            # Compute SHA512 hash and convert to base64 (electron-builder format)
+            $bytes = [System.IO.File]::ReadAllBytes($exeFile.FullName)
+            $sha512 = [System.Security.Cryptography.SHA512]::Create()
+            $hashBytes = $sha512.ComputeHash($bytes)
+            $hash = [System.Convert]::ToBase64String($hashBytes)
             $size = (Get-Item $exeFile.FullName).Length
             $ymlFile = "latest.yml"
             if (Test-Path $ymlFile) {
               $content = Get-Content $ymlFile -Raw
-              # Update sha512 hash
-              $content = $content -replace 'sha512: [a-fA-F0-9]+', "sha512: $hash"
+              # Update sha512 hash (base64 pattern: alphanumeric, +, /, =)
+              $content = $content -replace 'sha512: [A-Za-z0-9+/=]+', "sha512: $hash"
               # Update size
               $content = $content -replace 'size: \d+', "size: $size"
-              Set-Content -Path $ymlFile -Value $content
-              Write-Host "Updated $ymlFile with new hash: $hash and size: $size"
+              Set-Content -Path $ymlFile -Value $content -NoNewline
+              Write-Host "Updated $ymlFile with new base64 hash: $hash and size: $size"
             }
           }
 
