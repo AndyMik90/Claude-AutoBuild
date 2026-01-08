@@ -705,7 +705,9 @@ class CLIToolManager {
    * 1. User configuration (if valid for current platform)
    * 2. Homebrew claude (macOS)
    * 3. System PATH
-   * 4. Windows/macOS/Linux standard locations
+   * 4. Windows where.exe (Windows only - finds executables via PATH + Registry)
+   * 5. NVM paths (Unix only - checks Node.js version managers)
+   * 6. Platform-specific standard locations
    *
    * @returns Detection result for Claude CLI
    */
@@ -748,7 +750,17 @@ class CLIToolManager {
       if (result) return result;
     }
 
-    // 4. NVM paths (Unix only) - check before platform paths for better Node.js integration
+    // 4. Windows where.exe detection (Windows only - most reliable for custom installs)
+    if (process.platform === 'win32') {
+      const whereClaudePath = findWindowsExecutableViaWhere('claude', '[Claude CLI]');
+      if (whereClaudePath) {
+        const validation = this.validateClaude(whereClaudePath);
+        const result = buildClaudeDetectionResult(whereClaudePath, validation, 'system-path', 'Using Windows Claude CLI');
+        if (result) return result;
+      }
+    }
+
+    // 5. NVM paths (Unix only) - check before platform paths for better Node.js integration
     if (process.platform !== 'win32') {
       try {
         if (existsSync(paths.nvmVersionsDir)) {
@@ -1176,7 +1188,13 @@ class CLIToolManager {
   /**
    * Detect Claude CLI asynchronously (non-blocking)
    *
-   * Same detection logic as detectClaude but uses async validation.
+   * Priority order:
+   * 1. User configuration (if valid for current platform)
+   * 2. Homebrew claude (macOS)
+   * 3. System PATH
+   * 4. Windows where.exe (Windows only - finds executables via PATH + Registry)
+   * 5. NVM paths (Unix only - checks Node.js version managers)
+   * 6. Platform-specific standard locations
    *
    * @returns Promise resolving to detection result
    */
@@ -1219,7 +1237,17 @@ class CLIToolManager {
       if (result) return result;
     }
 
-    // 4. NVM paths (Unix only) - check before platform paths for better Node.js integration
+    // 4. Windows where.exe detection (async, non-blocking)
+    if (process.platform === 'win32') {
+      const whereClaudePath = await findWindowsExecutableViaWhereAsync('claude', '[Claude CLI]');
+      if (whereClaudePath) {
+        const validation = await this.validateClaudeAsync(whereClaudePath);
+        const result = buildClaudeDetectionResult(whereClaudePath, validation, 'system-path', 'Using Windows Claude CLI');
+        if (result) return result;
+      }
+    }
+
+    // 5. NVM paths (Unix only) - check before platform paths for better Node.js integration
     if (process.platform !== 'win32') {
       try {
         if (await existsAsync(paths.nvmVersionsDir)) {
