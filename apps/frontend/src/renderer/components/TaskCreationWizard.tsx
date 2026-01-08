@@ -52,7 +52,7 @@ export function TaskCreationWizard({
   open,
   onOpenChange
 }: TaskCreationWizardProps) {
-  const { t } = useTranslation('tasks');
+  const { t } = useTranslation(['tasks', 'common']);
   const { settings } = useSettingsStore();
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
     p => p.id === settings.selectedAgentProfile
@@ -155,44 +155,43 @@ export function TaskCreationWizard({
 
   // Fetch branches when dialog opens
   useEffect(() => {
+    const fetchBranches = async () => {
+      if (!projectPath) return;
+      setIsLoadingBranches(true);
+      try {
+        const result = await window.electronAPI.getGitBranches(projectPath);
+        if (result.success && result.data) {
+          setBranches(result.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch branches:', err);
+      } finally {
+        setIsLoadingBranches(false);
+      }
+    };
+
+    const fetchProjectDefaultBranch = async () => {
+      if (!projectId) return;
+      try {
+        const result = await window.electronAPI.getProjectEnv(projectId);
+        if (result.success && result.data?.defaultBranch) {
+          setProjectDefaultBranch(result.data.defaultBranch);
+        } else if (projectPath) {
+          const detectResult = await window.electronAPI.detectMainBranch(projectPath);
+          if (detectResult.success && detectResult.data) {
+            setProjectDefaultBranch(detectResult.data);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch project default branch:', err);
+      }
+    };
+
     if (open && projectPath) {
       fetchBranches();
       fetchProjectDefaultBranch();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, projectPath]);
-
-  const fetchBranches = async () => {
-    if (!projectPath) return;
-    setIsLoadingBranches(true);
-    try {
-      const result = await window.electronAPI.getGitBranches(projectPath);
-      if (result.success && result.data) {
-        setBranches(result.data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch branches:', err);
-    } finally {
-      setIsLoadingBranches(false);
-    }
-  };
-
-  const fetchProjectDefaultBranch = async () => {
-    if (!projectId) return;
-    try {
-      const result = await window.electronAPI.getProjectEnv(projectId);
-      if (result.success && result.data?.defaultBranch) {
-        setProjectDefaultBranch(result.data.defaultBranch);
-      } else if (projectPath) {
-        const detectResult = await window.electronAPI.detectMainBranch(projectPath);
-        if (detectResult.success && detectResult.data) {
-          setProjectDefaultBranch(detectResult.data);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch project default branch:', err);
-    }
-  };
+  }, [open, projectPath, projectId]);
 
   /**
    * Get current form state as a draft
@@ -268,7 +267,7 @@ export function TaskCreationWizard({
   /**
    * Handle autocomplete selection
    */
-  const handleAutocompleteSelect = useCallback((filename: string) => {
+  const handleAutocompleteSelect = useCallback((filename: string, _fullPath?: string) => {
     if (!autocomplete) return;
     const textarea = descriptionRef.current;
     if (!textarea) return;
@@ -280,11 +279,12 @@ export function TaskCreationWizard({
     setDescription(newDescription);
     setAutocomplete(null);
 
-    setTimeout(() => {
+    // Use queueMicrotask instead of setTimeout - doesn't need cleanup on unmount
+    queueMicrotask(() => {
       const newCursorPos = autocomplete.startPos + 1 + filename.length;
       textarea.focus();
       textarea.setSelectionRange(newCursorPos, newCursorPos);
-    }, 0);
+    });
   }, [autocomplete, description]);
 
   /**
@@ -335,7 +335,7 @@ export function TaskCreationWizard({
       if (model) metadata.model = model;
       if (thinkingLevel) metadata.thinkingLevel = thinkingLevel;
       if (phaseModels && phaseThinking) {
-        metadata.isAutoProfile = true;
+        metadata.isAutoProfile = profileId === 'auto';
         metadata.phaseModels = phaseModels;
         metadata.phaseThinking = phaseThinking;
       }
@@ -439,8 +439,8 @@ export function TaskCreationWizard({
     <TaskModalLayout
       open={open}
       onOpenChange={handleClose}
-      title="Create New Task"
-      description="Describe what you want to build. The AI will analyze your request and create a detailed specification."
+      title={t('tasks:wizard.createTitle')}
+      description={t('tasks:wizard.createDescription')}
       disabled={isCreating}
       sidebar={
         projectPath && (
@@ -459,7 +459,7 @@ export function TaskCreationWizard({
             {isDraftRestored && (
               <div className="flex items-center gap-2">
                 <span className="text-xs bg-info/10 text-info px-2 py-1 rounded-md">
-                  Draft restored
+                  {t('tasks:wizard.draftRestored')}
                 </span>
                 <Button
                   variant="ghost"
@@ -468,7 +468,7 @@ export function TaskCreationWizard({
                   onClick={handleDiscardDraft}
                 >
                   <RotateCcw className="h-3 w-3 mr-1" />
-                  Start Fresh
+                  {t('tasks:wizard.startFresh')}
                 </Button>
               </div>
             )}
@@ -484,23 +484,23 @@ export function TaskCreationWizard({
                 className="gap-1.5"
               >
                 <FolderTree className="h-4 w-4" />
-                {showFileExplorer ? 'Hide Files' : 'Browse Files'}
+                {showFileExplorer ? t('tasks:wizard.hideFiles') : t('tasks:wizard.browseFiles')}
               </Button>
             )}
           </div>
 
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={handleClose} disabled={isCreating}>
-              Cancel
+              {t('common:buttons.cancel')}
             </Button>
             <Button onClick={handleCreate} disabled={isCreating || !description.trim()}>
               {isCreating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  {t('tasks:wizard.creating')}
                 </>
               ) : (
-                'Create Task'
+                t('tasks:wizard.createTask')
               )}
             </Button>
           </div>
@@ -514,6 +514,7 @@ export function TaskCreationWizard({
           onDescriptionChange={handleDescriptionChange}
           descriptionPlaceholder="Describe the feature, bug fix, or improvement you want to implement. Be as specific as possible about requirements, constraints, and expected behavior. Type @ to reference files."
           descriptionOverlay={descriptionOverlay}
+          descriptionRef={descriptionRef}
           title={title}
           onTitleChange={setTitle}
           profileId={profileId}
@@ -575,7 +576,7 @@ export function TaskCreationWizard({
         >
           <span className="flex items-center gap-2">
             <GitBranch className="h-4 w-4" />
-            Git Options (optional)
+            {t('tasks:wizard.gitOptions.title')}
             {baseBranch && baseBranch !== PROJECT_DEFAULT_BRANCH && (
               <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
                 {baseBranch}
@@ -594,7 +595,7 @@ export function TaskCreationWizard({
           <div id="git-options-section" className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
             <div className="space-y-2">
               <Label htmlFor="base-branch" className="text-sm font-medium text-foreground">
-                Base Branch (optional)
+                {t('tasks:wizard.gitOptions.baseBranchLabel')}
               </Label>
               <Select
                 value={baseBranch}
@@ -602,11 +603,17 @@ export function TaskCreationWizard({
                 disabled={isCreating || isLoadingBranches}
               >
                 <SelectTrigger id="base-branch" className="h-9">
-                  <SelectValue placeholder={`Use project default${projectDefaultBranch ? ` (${projectDefaultBranch})` : ''}`} />
+                  <SelectValue placeholder={projectDefaultBranch
+                    ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
+                    : t('tasks:wizard.gitOptions.useProjectDefault')
+                  } />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={PROJECT_DEFAULT_BRANCH}>
-                    Use project default{projectDefaultBranch ? ` (${projectDefaultBranch})` : ''}
+                    {projectDefaultBranch
+                      ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
+                      : t('tasks:wizard.gitOptions.useProjectDefault')
+                    }
                   </SelectItem>
                   {branches.map((branch) => (
                     <SelectItem key={branch} value={branch}>
@@ -616,7 +623,7 @@ export function TaskCreationWizard({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Override the branch this task&apos;s worktree will be created from. Leave empty to use the project&apos;s configured default branch.
+                {t('tasks:wizard.gitOptions.helpText')}
               </p>
             </div>
           </div>

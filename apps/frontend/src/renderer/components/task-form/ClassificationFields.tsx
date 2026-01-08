@@ -4,6 +4,7 @@
  * Renders the 2x2 grid of classification dropdowns (category, priority, complexity, impact)
  * used in both TaskCreationWizard and TaskEditDialog.
  */
+import { useTranslation } from 'react-i18next';
 import { Label } from '../ui/label';
 import {
   Select,
@@ -55,6 +56,7 @@ export function ClassificationFields({
   disabled = false,
   idPrefix = ''
 }: ClassificationFieldsProps) {
+  const { t } = useTranslation('tasks');
   const prefix = idPrefix ? `${idPrefix}-` : '';
 
   return (
@@ -63,7 +65,7 @@ export function ClassificationFields({
         {/* Category */}
         <div className="space-y-2">
           <Label htmlFor={`${prefix}category`} className="text-xs font-medium text-muted-foreground">
-            Category
+            {t('form.classification.category')}
           </Label>
           <Select
             value={category}
@@ -71,7 +73,7 @@ export function ClassificationFields({
             disabled={disabled}
           >
             <SelectTrigger id={`${prefix}category`} className="h-9">
-              <SelectValue placeholder="Select category" />
+              <SelectValue placeholder={t('form.classification.selectCategory')} />
             </SelectTrigger>
             <SelectContent>
               {Object.entries(TASK_CATEGORY_LABELS).map(([value, label]) => (
@@ -86,7 +88,7 @@ export function ClassificationFields({
         {/* Priority */}
         <div className="space-y-2">
           <Label htmlFor={`${prefix}priority`} className="text-xs font-medium text-muted-foreground">
-            Priority
+            {t('form.classification.priority')}
           </Label>
           <Select
             value={priority}
@@ -94,7 +96,7 @@ export function ClassificationFields({
             disabled={disabled}
           >
             <SelectTrigger id={`${prefix}priority`} className="h-9">
-              <SelectValue placeholder="Select priority" />
+              <SelectValue placeholder={t('form.classification.selectPriority')} />
             </SelectTrigger>
             <SelectContent>
               {Object.entries(TASK_PRIORITY_LABELS).map(([value, label]) => (
@@ -109,7 +111,7 @@ export function ClassificationFields({
         {/* Complexity */}
         <div className="space-y-2">
           <Label htmlFor={`${prefix}complexity`} className="text-xs font-medium text-muted-foreground">
-            Complexity
+            {t('form.classification.complexity')}
           </Label>
           <Select
             value={complexity}
@@ -117,7 +119,7 @@ export function ClassificationFields({
             disabled={disabled}
           >
             <SelectTrigger id={`${prefix}complexity`} className="h-9">
-              <SelectValue placeholder="Select complexity" />
+              <SelectValue placeholder={t('form.classification.selectComplexity')} />
             </SelectTrigger>
             <SelectContent>
               {Object.entries(TASK_COMPLEXITY_LABELS).map(([value, label]) => (
@@ -132,7 +134,7 @@ export function ClassificationFields({
         {/* Impact */}
         <div className="space-y-2">
           <Label htmlFor={`${prefix}impact`} className="text-xs font-medium text-muted-foreground">
-            Impact
+            {t('form.classification.impact')}
           </Label>
           <Select
             value={impact}
@@ -140,7 +142,7 @@ export function ClassificationFields({
             disabled={disabled}
           >
             <SelectTrigger id={`${prefix}impact`} className="h-9">
-              <SelectValue placeholder="Select impact" />
+              <SelectValue placeholder={t('form.classification.selectImpact')} />
             </SelectTrigger>
             <SelectContent>
               {Object.entries(TASK_IMPACT_LABELS).map(([value, label]) => (
@@ -154,7 +156,7 @@ export function ClassificationFields({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        These labels help organize and prioritize tasks. They&apos;re optional but useful for filtering.
+        {t('form.classification.helpText')}
       </p>
     </div>
   );

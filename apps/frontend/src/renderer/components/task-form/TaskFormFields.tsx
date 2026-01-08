@@ -38,6 +38,8 @@ interface TaskFormFieldsProps {
   descriptionPlaceholder?: string;
   /** Optional custom content to render inside the description field (e.g., autocomplete popup) */
   descriptionOverlay?: ReactNode;
+  /** Optional ref for the description textarea (used for @ mention autocomplete positioning) */
+  descriptionRef?: React.RefObject<HTMLTextAreaElement | null>;
 
   // Title field
   title: string;
@@ -92,6 +94,7 @@ export function TaskFormFields({
   onDescriptionChange,
   descriptionPlaceholder = 'Describe the feature, bug fix, or improvement you want to implement. Be as specific as possible about requirements, constraints, and expected behavior.',
   descriptionOverlay,
+  descriptionRef: externalDescriptionRef,
   title,
   onTitleChange,
   profileId,
@@ -124,8 +127,10 @@ export function TaskFormFields({
   idPrefix = '',
   children
 }: TaskFormFieldsProps) {
-  const { t } = useTranslation('tasks');
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const { t } = useTranslation(['tasks', 'common']);
+  // Use external ref if provided (for @ mention autocomplete), otherwise use internal ref
+  const internalDescriptionRef = useRef<HTMLTextAreaElement>(null);
+  const descriptionRef = externalDescriptionRef || internalDescriptionRef;
   const prefix = idPrefix ? `${idPrefix}-` : '';
 
   // Use the shared image upload hook
@@ -149,7 +154,7 @@ export function TaskFormFields({
       {/* Description (Primary - Required) */}
       <div className="space-y-2">
         <Label htmlFor={`${prefix}description`} className="text-sm font-medium text-foreground">
-          Description <span className="text-destructive">*</span>
+          {t('tasks:form.description')} <span className="text-destructive">*</span>
         </Label>
         <div className="relative">
           {/* Optional overlay (e.g., @ mention highlighting) */}
@@ -228,24 +233,24 @@ export function TaskFormFields({
       {pasteSuccess && (
         <div className="flex items-center gap-2 text-sm text-success animate-in fade-in slide-in-from-top-1 duration-200">
           <ImageIcon className="h-4 w-4" />
-          Image added successfully!
+          {t('tasks:form.imageAddedSuccess')}
         </div>
       )}
 
       {/* Title (Optional) */}
       <div className="space-y-2">
         <Label htmlFor={`${prefix}title`} className="text-sm font-medium text-foreground">
-          Task Title <span className="text-muted-foreground font-normal">(optional)</span>
+          {t('tasks:form.taskTitle')} <span className="text-muted-foreground font-normal">({t('common:labels.optional')})</span>
         </Label>
         <Input
           id={`${prefix}title`}
-          placeholder="Leave empty to auto-generate from description"
+          placeholder={t('tasks:form.titlePlaceholder')}
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
           disabled={disabled}
         />
         <p className="text-xs text-muted-foreground">
-          A short, descriptive title will be generated automatically if left empty.
+          {t('tasks:form.titleHelpText')}
         </p>
       </div>
 
@@ -276,7 +281,7 @@ export function TaskFormFields({
         aria-expanded={showClassification}
         aria-controls={`${prefix}classification-section`}
       >
-        <span>Classification (optional)</span>
+        <span>{t('tasks:form.classificationOptional')}</span>
         {showClassification ? (
           <ChevronUp className="h-4 w-4" />
         ) : (
@@ -316,10 +321,10 @@ export function TaskFormFields({
             htmlFor={`${prefix}require-review`}
             className="text-sm font-medium text-foreground cursor-pointer"
           >
-            Require human review before coding
+            {t('tasks:form.requireReviewLabel')}
           </Label>
           <p className="text-xs text-muted-foreground">
-            When enabled, you&apos;ll be prompted to review the spec and implementation plan before the coding phase begins. This allows you to approve, request changes, or provide feedback.
+            {t('tasks:form.requireReviewDescription')}
           </p>
         </div>
       </div>

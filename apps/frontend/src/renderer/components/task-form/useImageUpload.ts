@@ -4,7 +4,7 @@
  * Extracts the duplicated image handling logic from TaskCreationWizard and TaskEditDialog
  * into a reusable hook.
  */
-import { useState, useCallback, type ClipboardEvent, type DragEvent } from 'react';
+import { useState, useCallback, useRef, useEffect, type ClipboardEvent, type DragEvent } from 'react';
 import {
   generateImageId,
   blobToBase64,
@@ -58,6 +58,16 @@ export function useImageUpload({
 }: UseImageUploadOptions): UseImageUploadReturn {
   const [isDragOver, setIsDragOver] = useState(false);
   const [pasteSuccess, setPasteSuccess] = useState(false);
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const remainingSlots = MAX_IMAGES_PER_TASK - images.length;
   const canAddMore = remainingSlots > 0;
@@ -135,9 +145,12 @@ export function useImageUpload({
 
       if (newImages.length > 0) {
         onImagesChange([...images, ...newImages]);
-        // Show success feedback
+        // Show success feedback (clear any existing timeout first)
+        if (successTimeoutRef.current) {
+          clearTimeout(successTimeoutRef.current);
+        }
         setPasteSuccess(true);
-        setTimeout(() => setPasteSuccess(false), 2000);
+        successTimeoutRef.current = setTimeout(() => setPasteSuccess(false), 2000);
       }
     },
     [images, onImagesChange, disabled, remainingSlots, onError]

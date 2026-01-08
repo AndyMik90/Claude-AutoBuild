@@ -27,6 +27,7 @@
  * ```
  */
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { TaskModalLayout } from './task-form/TaskModalLayout';
@@ -56,6 +57,7 @@ interface TaskEditDialogProps {
 }
 
 export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDialogProps) {
+  const { t } = useTranslation(['tasks', 'common']);
   // Get selected agent profile from settings for defaults
   const { settings } = useSettingsStore();
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
@@ -199,7 +201,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     if (model) metadataUpdates.model = model as ModelType;
     if (thinkingLevel) metadataUpdates.thinkingLevel = thinkingLevel as ThinkingLevel;
     if (phaseModels && phaseThinking) {
-      metadataUpdates.isAutoProfile = true;
+      metadataUpdates.isAutoProfile = profileId === 'auto';
       metadataUpdates.phaseModels = phaseModels;
       metadataUpdates.phaseThinking = phaseThinking;
     }
@@ -228,22 +230,22 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     <TaskModalLayout
       open={open}
       onOpenChange={onOpenChange}
-      title="Edit Task"
-      description="Update task details including title, description, classification, images, and settings. Changes will be saved to the spec files."
+      title={t('tasks:edit.title')}
+      description={t('tasks:edit.description')}
       disabled={isSaving}
       footer={
         <div className="flex items-center justify-end gap-3">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
-            Cancel
+            {t('common:buttons.cancel')}
           </Button>
           <Button onClick={handleSave} disabled={isSaving || !isValid}>
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                {t('common:buttons.saving')}
               </>
             ) : (
-              'Save Changes'
+              t('tasks:edit.saveChanges')
             )}
           </Button>
         </div>

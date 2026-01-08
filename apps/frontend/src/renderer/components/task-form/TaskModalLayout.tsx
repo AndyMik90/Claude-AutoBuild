@@ -8,6 +8,7 @@
  * - Scrollable body content
  * - Footer with action buttons
  */
+import { useTranslation } from 'react-i18next';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -47,6 +48,8 @@ export function TaskModalLayout({
   sidebarOpen = false,
   disabled = false
 }: TaskModalLayoutProps) {
+  const { t } = useTranslation('common');
+
   const handleClose = () => {
     if (!disabled) {
       onOpenChange(false);
@@ -103,7 +106,7 @@ export function TaskModalLayout({
                       disabled={disabled}
                     >
                       <X className="h-5 w-5" />
-                      <span className="sr-only">Close</span>
+                      <span className="sr-only">{t('buttons.close')}</span>
                     </Button>
                   </DialogPrimitive.Close>
                 </div>
