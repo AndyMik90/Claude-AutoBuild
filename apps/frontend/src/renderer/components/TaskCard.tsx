@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, MoreVertical } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, MoreVertical, FileText, Search, FolderSearch, Terminal, Pencil } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -44,6 +44,29 @@ const CategoryIcon: Record<TaskCategory, typeof Zap> = {
   testing: FileCode
 };
 
+// Data-driven tool styles for live action status
+const TOOL_STYLES: Array<{
+  patterns: string[];
+  icon: typeof FileText;
+  color: string;
+}> = [
+  { patterns: ['reading'], icon: FileText, color: 'text-blue-500 bg-blue-500/10' },
+  { patterns: ['searching files', 'globbing'], icon: FolderSearch, color: 'text-amber-500 bg-amber-500/10' },
+  { patterns: ['searching code', 'grep'], icon: Search, color: 'text-green-500 bg-green-500/10' },
+  { patterns: ['editing'], icon: Pencil, color: 'text-purple-500 bg-purple-500/10' },
+  { patterns: ['writing'], icon: FileCode, color: 'text-cyan-500 bg-cyan-500/10' },
+  { patterns: ['running', 'executing'], icon: Terminal, color: 'text-orange-500 bg-orange-500/10' },
+];
+
+// Helper to detect tool type from execution message and return styling
+function getToolStyleFromMessage(message: string): { icon: typeof FileText; color: string } | null {
+  const lowerMessage = message.toLowerCase();
+  const match = TOOL_STYLES.find(style =>
+    style.patterns.some(pattern => lowerMessage.startsWith(pattern))
+  );
+  return match ? { icon: match.icon, color: match.color } : null;
+}
+
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
@@ -70,6 +93,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.reviewReason === nextTask.reviewReason &&
     prevTask.executionProgress?.phase === nextTask.executionProgress?.phase &&
     prevTask.executionProgress?.phaseProgress === nextTask.executionProgress?.phaseProgress &&
+    prevTask.executionProgress?.message === nextTask.executionProgress?.message &&
     prevTask.subtasks.length === nextTask.subtasks.length &&
     prevTask.metadata?.category === nextTask.metadata?.category &&
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
@@ -135,6 +159,18 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
       </DropdownMenuItem>
     ));
   }, [task.status, onStatusChange, t]);
+
+  // Memoize live action status to avoid recreating on every render
+  const liveActionStatus = useMemo(() => {
+    const message = task.executionProgress?.message;
+    if (!message) return null;
+    const toolStyle = getToolStyleFromMessage(message);
+    return {
+      icon: toolStyle?.icon ?? Loader2,
+      colorClass: toolStyle?.color ?? 'text-muted-foreground bg-muted/50',
+      message,
+    };
+  }, [task.executionProgress?.message]);
 
   // Memoized stuck check function to avoid recreating on every render
   const performStuckCheck = useCallback(() => {
@@ -450,6 +486,16 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
               isStuck={isStuck}
               isRunning={isRunning}
             />
+          </div>
+        )}
+
+        {/* Live action status - shows current tool activity */}
+        {isRunning && !isStuck && liveActionStatus && (
+          <div className={cn("mt-2 flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px]", liveActionStatus.colorClass)}>
+            <liveActionStatus.icon className="h-3 w-3 shrink-0 animate-pulse" />
+            <span className="truncate" title={liveActionStatus.message}>
+              {liveActionStatus.message}
+            </span>
           </div>
         )}
 
