@@ -105,7 +105,7 @@ export function TaskFileExplorerDrawer({ isOpen, onClose, projectPath }: TaskFil
             </div>
 
             {/* File tree - no ScrollArea wrapper as FileTree uses virtualization with its own scroll container */}
-            <div className="flex-1 overflow-hidden min-h-0">
+            <div className="flex-1 min-h-0">
               <FileTree rootPath={projectPath} />
             </div>
           </motion.div>

@@ -327,6 +327,7 @@ class FileEvolutionTracker:
         task_id: str,
         worktree_path: Path,
         target_branch: str | None = None,
+        analyze_only_files: set[str] | None = None,
     ) -> None:
         """
         Refresh task snapshots by analyzing git diff from worktree.
@@ -338,11 +339,16 @@ class FileEvolutionTracker:
             task_id: The task identifier
             worktree_path: Path to the task's worktree
             target_branch: Branch to compare against (default: auto-detect)
+            analyze_only_files: If provided, only run full semantic analysis on
+                these files. Other files will be tracked with lightweight mode
+                (no semantic analysis). This optimizes performance by only
+                analyzing files that have actual conflicts.
         """
         self.modification_tracker.refresh_from_git(
             task_id=task_id,
             worktree_path=worktree_path,
             evolutions=self._evolutions,
             target_branch=target_branch,
+            analyze_only_files=analyze_only_files,
         )
         self._save_evolutions()

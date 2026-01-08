@@ -36,6 +36,9 @@ export function Terminal({
 }: TerminalProps) {
   const isMountedRef = useRef(true);
   const isCreatedRef = useRef(false);
+  // Track deliberate terminal recreation (e.g., worktree switching)
+  // This prevents exit handlers from triggering auto-removal during controlled recreation
+  const isRecreatingRef = useRef(false);
 
   // Worktree dialog state
   const [showWorktreeDialog, setShowWorktreeDialog] = useState(false);
@@ -133,6 +136,8 @@ export function Terminal({
     rows: ptyDimensions?.rows ?? 24,
     // Only allow PTY creation when dimensions are ready
     skipCreation: !ptyDimensions,
+    // Pass recreation ref to coordinate with deliberate terminal destruction/recreation
+    isRecreatingRef,
     onCreated: () => {
       isCreatedRef.current = true;
     },
@@ -144,6 +149,8 @@ export function Terminal({
   // Handle terminal events
   useTerminalEvents({
     terminalId: id,
+    // Pass recreation ref to skip auto-removal during deliberate terminal recreation
+    isRecreatingRef,
     onOutput: (data) => {
       write(data);
     },
@@ -159,6 +166,17 @@ export function Terminal({
       focus();
     }
   }, [isActive, focus]);
+
+  // Trigger deferred Claude resume when terminal becomes active
+  // This ensures Claude sessions are only resumed when the user actually views the terminal,
+  // preventing all terminals from resuming simultaneously on app startup (which can crash the app)
+  useEffect(() => {
+    if (isActive && terminal?.pendingClaudeResume) {
+      // Clear the pending flag and trigger the actual resume
+      useTerminalStore.getState().setPendingClaudeResume(id, false);
+      window.electronAPI.activateDeferredClaudeResume(id);
+    }
+  }, [isActive, id, terminal?.pendingClaudeResume]);
 
   // Handle keyboard shortcuts for this terminal
   useEffect(() => {
@@ -244,7 +262,11 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
   }, []);
 
   const handleWorktreeCreated = useCallback(async (config: TerminalWorktreeConfig) => {
-    // IMPORTANT: Set isCreatingRef BEFORE updating the store to prevent race condition
+    // IMPORTANT: Set isRecreatingRef BEFORE destruction to signal deliberate recreation
+    // This prevents exit handlers from triggering auto-removal during controlled recreation
+    isRecreatingRef.current = true;
+
+    // Set isCreatingRef BEFORE updating the store to prevent race condition
     // This prevents the PTY effect from running before destroyTerminal completes
     prepareForRecreate();
 
@@ -269,7 +291,11 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
   }, [id, setWorktreeConfig, updateTerminal, prepareForRecreate, resetForRecreate]);
 
   const handleSelectWorktree = useCallback(async (config: TerminalWorktreeConfig) => {
-    // IMPORTANT: Set isCreatingRef BEFORE updating the store to prevent race condition
+    // IMPORTANT: Set isRecreatingRef BEFORE destruction to signal deliberate recreation
+    // This prevents exit handlers from triggering auto-removal during controlled recreation
+    isRecreatingRef.current = true;
+
+    // Set isCreatingRef BEFORE updating the store to prevent race condition
     prepareForRecreate();
 
     // Same logic as handleWorktreeCreated - attach terminal to existing worktree

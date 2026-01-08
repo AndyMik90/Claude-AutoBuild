@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, ExternalLink, Lightbulb, Play, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -32,6 +33,7 @@ interface IdeaDetailPanelProps {
 }
 
 export function IdeaDetailPanel({ idea, onClose, onConvert, onGoToTask, onDismiss }: IdeaDetailPanelProps) {
+  const { t } = useTranslation('common');
   const isDismissed = idea.status === 'dismissed';
   const isConverted = idea.status === 'converted';
 
@@ -54,7 +56,7 @@ export function IdeaDetailPanel({ idea, onClose, onConvert, onGoToTask, onDismis
             </div>
             <h2 className="font-semibold">{idea.title}</h2>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label={t('accessibility.closePanelAriaLabel')}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

@@ -12,6 +12,9 @@ import { existsSync } from 'fs';
 export const TASK_WORKTREE_DIR = '.auto-claude/worktrees/tasks';
 export const TERMINAL_WORKTREE_DIR = '.auto-claude/worktrees/terminal';
 
+// Metadata directories (separate from git worktrees to avoid uncommitted files)
+export const TERMINAL_WORKTREE_METADATA_DIR = '.auto-claude/terminal/metadata';
+
 // Legacy path for backwards compatibility
 export const LEGACY_WORKTREE_DIR = '.worktrees';
 
@@ -73,4 +76,19 @@ export function findTerminalWorktree(projectPath: string, name: string): string 
   if (existsSync(legacyPath)) return legacyPath;
 
   return null;
+}
+
+/**
+ * Get the terminal worktree metadata directory path
+ * This is separate from the git worktree to avoid uncommitted files
+ */
+export function getTerminalWorktreeMetadataDir(projectPath: string): string {
+  return path.join(projectPath, TERMINAL_WORKTREE_METADATA_DIR);
+}
+
+/**
+ * Get the metadata file path for a specific terminal worktree
+ */
+export function getTerminalWorktreeMetadataPath(projectPath: string, name: string): string {
+  return path.join(projectPath, TERMINAL_WORKTREE_METADATA_DIR, `${name}.json`);
 }

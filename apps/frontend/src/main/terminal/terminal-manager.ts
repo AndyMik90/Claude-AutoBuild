@@ -220,6 +220,28 @@ export class TerminalManager {
   }
 
   /**
+   * Activate deferred Claude resume for a terminal
+   * Called when a terminal with pendingClaudeResume becomes active (user views it)
+   */
+  async activateDeferredResume(id: string): Promise<void> {
+    const terminal = this.terminals.get(id);
+    if (!terminal) {
+      return;
+    }
+
+    // Check if terminal has a pending resume
+    if (!terminal.pendingClaudeResume) {
+      return;
+    }
+
+    // Clear the pending flag
+    terminal.pendingClaudeResume = false;
+
+    // Now actually resume Claude
+    await ClaudeIntegration.resumeClaudeAsync(terminal, undefined, this.getWindow);
+  }
+
+  /**
    * Resume Claude in a terminal with a specific session ID
    * @deprecated Use resumeClaudeAsync for non-blocking behavior
    */

@@ -1,9 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { useTerminalStore } from '../../stores/terminal-store';
 import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
 
 interface UseTerminalEventsOptions {
   terminalId: string;
+  // Track deliberate recreation scenarios (e.g., worktree switching)
+  // When true, skips auto-removal to allow proper recreation
+  isRecreatingRef?: RefObject<boolean>;
   onOutput?: (data: string) => void;
   onExit?: (exitCode: number) => void;
   onTitleChange?: (title: string) => void;
@@ -12,6 +15,7 @@ interface UseTerminalEventsOptions {
 
 export function useTerminalEvents({
   terminalId,
+  isRecreatingRef,
   onOutput,
   onExit,
   onTitleChange,
@@ -58,6 +62,14 @@ export function useTerminalEvents({
   useEffect(() => {
     const cleanup = window.electronAPI.onTerminalExit((id, exitCode) => {
       if (id === terminalId) {
+        // During deliberate recreation (e.g., worktree switching), skip the normal
+        // exit handling to prevent setting status to 'exited' and scheduling removal.
+        // The recreation flow will handle status transitions.
+        if (isRecreatingRef?.current) {
+          onExitRef.current?.(exitCode);
+          return;
+        }
+
         const store = useTerminalStore.getState();
         store.setTerminalStatus(terminalId, 'exited');
         // Reset Claude mode when terminal exits - the Claude process has ended
@@ -124,6 +136,17 @@ export function useTerminalEvents({
     const cleanup = window.electronAPI.onTerminalClaudeBusy((id, isBusy) => {
       if (id === terminalId) {
         useTerminalStore.getState().setClaudeBusy(terminalId, isBusy);
+      }
+    });
+
+    return cleanup;
+  }, [terminalId]);
+
+  // Handle pending Claude resume notification (for deferred resume on tab activation)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onTerminalPendingResume((id, _sessionId) => {
+      if (id === terminalId) {
+        useTerminalStore.getState().setPendingClaudeResume(terminalId, true);
       }
     });
 

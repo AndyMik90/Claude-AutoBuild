@@ -17,6 +17,8 @@ export interface TerminalProcess {
   title: string;
   /** Associated worktree configuration (persisted across restarts) */
   worktreeConfig?: TerminalWorktreeConfig;
+  /** Whether this terminal has a pending Claude resume that should be triggered on activation */
+  pendingClaudeResume?: boolean;
 }
 
 /**

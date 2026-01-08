@@ -33,6 +33,7 @@ import {
   getPythonPath,
   buildRunnerArgs,
 } from '../github/utils/subprocess-runner';
+import { getRunnerEnv } from '../github/utils/runner-env';
 
 /**
  * Get the GitLab runner path
@@ -216,10 +217,14 @@ async function runMRReview(
 
   debugLog('Spawning MR review process', { args, model, thinkingLevel });
 
+  // Get runner environment with PYTHONPATH for bundled packages (fixes #139)
+  const subprocessEnv = await getRunnerEnv();
+
   const { process: childProcess, promise } = runPythonSubprocess<MRReviewResult>({
     pythonPath: getPythonPath(backendPath),
     args,
     cwd: backendPath,
+    env: subprocessEnv,
     onProgress: (percent, message) => {
       debugLog('Progress update', { percent, message });
       sendProgress({
@@ -821,10 +826,14 @@ export function registerMRReviewHandlers(
 
           debugLog('Spawning follow-up review process', { args, model, thinkingLevel });
 
+          // Get runner environment with PYTHONPATH for bundled packages (fixes #139)
+          const followupSubprocessEnv = await getRunnerEnv();
+
           const { process: childProcess, promise } = runPythonSubprocess<MRReviewResult>({
             pythonPath: getPythonPath(backendPath),
             args,
             cwd: backendPath,
+            env: followupSubprocessEnv,
             onProgress: (percent, message) => {
               debugLog('Progress update', { percent, message });
               sendProgress({

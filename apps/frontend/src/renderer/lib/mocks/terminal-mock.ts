@@ -58,6 +58,10 @@ export const terminalMock = {
     console.warn('[Browser Mock] resumeClaudeInTerminal called');
   },
 
+  activateDeferredClaudeResume: () => {
+    console.warn('[Browser Mock] activateDeferredClaudeResume called');
+  },
+
   getTerminalSessionDates: async () => ({
     success: true,
     data: []
@@ -92,5 +96,6 @@ export const terminalMock = {
   onTerminalRateLimit: () => () => {},
   onTerminalOAuthToken: () => () => {},
   onTerminalAuthCreated: () => () => {},
-  onTerminalClaudeBusy: () => () => {}
+  onTerminalClaudeBusy: () => () => {},
+  onTerminalPendingResume: () => () => {}
 };
