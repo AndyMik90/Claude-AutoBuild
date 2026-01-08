@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AppSettings } from '../../shared/types';
-import type { APIProfile, ProfileFormData, TestConnectionResult, DiscoverModelsResult, ModelInfo } from '@shared/types/profile';
+import type { APIProfile, APIProfileType, ProfileFormData, TestConnectionResult, DiscoverModelsResult, ModelInfo } from '@shared/types/profile';
 import { DEFAULT_APP_SETTINGS } from '../../shared/constants';
 import { toast } from '../hooks/use-toast';
 import { markSettingsLoaded } from '../lib/sentry';
@@ -39,7 +39,7 @@ interface SettingsState {
   updateProfile: (profile: APIProfile) => Promise<boolean>;
   deleteProfile: (profileId: string) => Promise<boolean>;
   setActiveProfile: (profileId: string | null) => Promise<boolean>;
-  testConnection: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<TestConnectionResult | null>;
+  testConnection: (baseUrl: string, apiKey: string, signal?: AbortSignal, profileType?: APIProfileType, foundryResource?: string) => Promise<TestConnectionResult | null>;
   discoverModels: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<ModelInfo[] | null>;
 }
 
@@ -201,10 +201,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     }
   },
 
-  testConnection: async (baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<TestConnectionResult | null> => {
+  testConnection: async (baseUrl: string, apiKey: string, signal?: AbortSignal, profileType?: APIProfileType, foundryResource?: string): Promise<TestConnectionResult | null> => {
     set({ isTestingConnection: true, testConnectionResult: null });
     try {
-      const result = await window.electronAPI.testConnection(baseUrl, apiKey, signal);
+      const result = await window.electronAPI.testConnection(baseUrl, apiKey, signal, profileType, foundryResource);
 
       // Type narrowing pattern
       if (result.success && result.data) {

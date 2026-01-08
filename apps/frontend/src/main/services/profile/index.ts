@@ -26,6 +26,7 @@ export {
   deleteProfile,
   getAPIProfileEnv,
   testConnection,
+  testFoundryConnection,
   discoverModels
 } from './profile-service';
 

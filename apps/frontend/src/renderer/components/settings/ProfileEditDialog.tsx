@@ -32,7 +32,7 @@ import { useSettingsStore } from '../../stores/settings-store';
 import { ModelSearchableSelect } from './ModelSearchableSelect';
 import { useToast } from '../../hooks/use-toast';
 import { isValidUrl, isValidApiKey } from '../../lib/profile-utils';
-import type { APIProfile, ProfileFormData, TestConnectionResult } from '@shared/types/profile';
+import type { APIProfile, APIProfileType, ProfileFormData, TestConnectionResult } from '@shared/types/profile';
 import { maskApiKey } from '../../lib/profile-utils';
 import { API_PROVIDER_PRESETS } from '../../../shared/constants';
 
@@ -65,8 +65,10 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
 
   // Form state
   const [name, setName] = useState('');
+  const [profileType, setProfileType] = useState<APIProfileType>('anthropic');
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [foundryResource, setFoundryResource] = useState('');
   const [defaultModel, setDefaultModel] = useState('');
   const [haikuModel, setHaikuModel] = useState('');
   const [sonnetModel, setSonnetModel] = useState('');
@@ -80,6 +82,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
   const [nameError, setNameError] = useState<string | null>(null);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [keyError, setKeyError] = useState<string | null>(null);
+  const [foundryEndpointError, setFoundryEndpointError] = useState<string | null>(null);
 
   // AbortController ref for test connection cleanup
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -115,8 +118,10 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
       if (isEditMode && profile) {
         // Pre-populate form with existing profile data
         setName(profile.name);
+        setProfileType(profile.type || 'anthropic');
         setBaseUrl(profile.baseUrl);
         setApiKey(''); // Start empty - masked display shown instead
+        setFoundryResource(profile.foundryResource || '');
         setDefaultModel(profile.models?.default || '');
         setHaikuModel(profile.models?.haiku || '');
         setSonnetModel(profile.models?.sonnet || '');
@@ -126,8 +131,10 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
       } else {
         // Reset to empty form for create mode
         setName('');
+        setProfileType('anthropic');
         setBaseUrl('');
         setApiKey('');
+        setFoundryResource('');
         setDefaultModel('');
         setHaikuModel('');
         setSonnetModel('');
@@ -139,6 +146,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
       setNameError(null);
       setUrlError(null);
       setKeyError(null);
+      setFoundryEndpointError(null);
     } else {
       // Clear test result display when dialog closes
       setShowTestResult(false);
@@ -149,7 +157,12 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
     const preset = API_PROVIDER_PRESETS.find((item) => item.id === id);
     if (!preset) return;
     setPresetId(id);
+    setProfileType(preset.type || 'anthropic');
     setBaseUrl(preset.baseUrl);
+    // Clear foundry resource when switching presets
+    if (preset.type !== 'foundry') {
+      setFoundryResource('');
+    }
     if (!name.trim()) {
       setName(t(preset.labelKey));
     }
@@ -159,7 +172,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
   const validateForm = (): boolean => {
     let isValid = true;
 
-    // Name validation
+    // Name validation (same for both types)
     if (!name.trim()) {
       setNameError(t('settings:apiProfiles.validation.nameRequired'));
       isValid = false;
@@ -167,30 +180,62 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
       setNameError(null);
     }
 
-    // Base URL validation
-    if (!baseUrl.trim()) {
-      setUrlError(t('settings:apiProfiles.validation.baseUrlRequired'));
-      isValid = false;
-    } else if (!isValidUrl(baseUrl)) {
-      setUrlError(t('settings:apiProfiles.validation.baseUrlInvalid'));
-      isValid = false;
-    } else {
-      setUrlError(null);
-    }
+    if (profileType === 'foundry') {
+      // Foundry validation: need either resource name OR base URL
+      if (!foundryResource.trim() && !baseUrl.trim()) {
+        setFoundryEndpointError(t('settings:apiProfiles.validation.foundryEndpointRequired'));
+        isValid = false;
+      } else {
+        setFoundryEndpointError(null);
+        // Validate base URL format if provided
+        if (baseUrl.trim() && !isValidUrl(baseUrl)) {
+          setUrlError(t('settings:apiProfiles.validation.baseUrlInvalid'));
+          isValid = false;
+        } else {
+          setUrlError(null);
+        }
+      }
 
-    // API Key validation (only in create mode or when changing key in edit mode)
-    if (!isEditMode || isChangingApiKey) {
-      if (!apiKey.trim()) {
-        setKeyError(t('settings:apiProfiles.validation.apiKeyRequired'));
-        isValid = false;
-      } else if (!isValidApiKey(apiKey)) {
-        setKeyError(t('settings:apiProfiles.validation.apiKeyInvalid'));
-        isValid = false;
+      // API key is optional for Foundry (Entra ID auth), but validate format if provided
+      if (!isEditMode || isChangingApiKey) {
+        if (apiKey.trim() && !isValidApiKey(apiKey)) {
+          setKeyError(t('settings:apiProfiles.validation.apiKeyInvalid'));
+          isValid = false;
+        } else {
+          setKeyError(null);
+        }
       } else {
         setKeyError(null);
       }
     } else {
-      setKeyError(null);
+      // Standard Anthropic validation
+      setFoundryEndpointError(null);
+
+      // Base URL validation
+      if (!baseUrl.trim()) {
+        setUrlError(t('settings:apiProfiles.validation.baseUrlRequired'));
+        isValid = false;
+      } else if (!isValidUrl(baseUrl)) {
+        setUrlError(t('settings:apiProfiles.validation.baseUrlInvalid'));
+        isValid = false;
+      } else {
+        setUrlError(null);
+      }
+
+      // API Key validation (required for Anthropic)
+      if (!isEditMode || isChangingApiKey) {
+        if (!apiKey.trim()) {
+          setKeyError(t('settings:apiProfiles.validation.apiKeyRequired'));
+          isValid = false;
+        } else if (!isValidApiKey(apiKey)) {
+          setKeyError(t('settings:apiProfiles.validation.apiKeyInvalid'));
+          isValid = false;
+        } else {
+          setKeyError(null);
+        }
+      } else {
+        setKeyError(null);
+      }
     }
 
     return isValid;
@@ -203,33 +248,68 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
       ? profile.apiKey
       : apiKey;
 
-    // Basic validation before testing
-    if (!baseUrl.trim()) {
-      setUrlError(t('settings:apiProfiles.validation.baseUrlRequired'));
-      return;
-    }
-    if (!apiKeyForTest.trim()) {
-      setKeyError(t('settings:apiProfiles.validation.apiKeyRequired'));
-      return;
+    // Determine foundry resource to use for testing
+    const foundryResourceForTest = isEditMode && profile && profile.type === 'foundry'
+      ? (foundryResource || profile.foundryResource || '')
+      : foundryResource;
+
+    // Validation depends on profile type
+    if (profileType === 'foundry') {
+      // For Foundry, need either resource name OR base URL
+      if (!foundryResourceForTest.trim() && !baseUrl.trim()) {
+        setFoundryEndpointError(t('settings:apiProfiles.validation.foundryEndpointRequired'));
+        return;
+      }
+      // API key is optional for Foundry (Entra ID auth supported)
+    } else {
+      // For Anthropic, need base URL and API key
+      if (!baseUrl.trim()) {
+        setUrlError(t('settings:apiProfiles.validation.baseUrlRequired'));
+        return;
+      }
+      if (!apiKeyForTest.trim()) {
+        setKeyError(t('settings:apiProfiles.validation.apiKeyRequired'));
+        return;
+      }
     }
 
     // Create AbortController for this test
     abortControllerRef.current = new AbortController();
 
-    await testConnection(baseUrl.trim(), apiKeyForTest.trim(), abortControllerRef.current.signal);
+    await testConnection(
+      baseUrl.trim(),
+      apiKeyForTest?.trim() || '',
+      abortControllerRef.current.signal,
+      profileType,
+      foundryResourceForTest.trim()
+    );
   };
 
   // Check if form has minimum required fields for test connection
   const isFormValidForTest = () => {
-    if (!name.trim() || !baseUrl.trim()) {
+    if (!name.trim()) {
       return false;
     }
-    // In create mode or when changing key, need apiKey
-    if (!isEditMode || isChangingApiKey) {
-      return apiKey.trim().length > 0;
+
+    if (profileType === 'foundry') {
+      // Foundry: need either resource name OR base URL
+      if (!foundryResource.trim() && !baseUrl.trim()) {
+        return false;
+      }
+      // API key is optional for Foundry (Entra ID auth)
+      return true;
+    } else {
+      // Anthropic: need base URL and API key
+      if (!baseUrl.trim()) {
+        return false;
+      }
+      // In create mode or when changing key, need apiKey
+      if (!isEditMode || isChangingApiKey) {
+        return apiKey.trim().length > 0;
+      }
+      // In edit mode without changing key, existing profile has apiKey
+      return true;
     }
-    // In edit mode without changing key, existing profile has apiKey
-    return true;
   };
 
   // Handle save
@@ -243,9 +323,14 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
       const updatedProfile: APIProfile = {
         ...profile,
         name: name.trim(),
+        type: profileType,
         baseUrl: baseUrl.trim(),
         // Only update API key if user is changing it
         ...(isChangingApiKey && { apiKey: apiKey.trim() }),
+        // Foundry resource (only for foundry profiles)
+        ...(profileType === 'foundry' && foundryResource.trim()
+          ? { foundryResource: foundryResource.trim() }
+          : { foundryResource: undefined }),
         // Update models if provided
         ...(defaultModel || haikuModel || sonnetModel || opusModel ? {
           models: {
@@ -271,8 +356,13 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
       // Create new profile
       const profileData: ProfileFormData = {
         name: name.trim(),
+        type: profileType,
         baseUrl: baseUrl.trim(),
-        apiKey: apiKey.trim()
+        apiKey: apiKey.trim(),
+        // Foundry resource (only for foundry profiles)
+        ...(profileType === 'foundry' && foundryResource.trim()
+          ? { foundryResource: foundryResource.trim() }
+          : {})
       };
 
       // Add optional models if provided
@@ -359,79 +449,201 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
             )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Base URL field (required) */}
-            <div className="space-y-2">
-              <Label htmlFor="profile-url">
-                {t('settings:apiProfiles.fields.baseUrl')} <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="profile-url"
-                placeholder={t('settings:apiProfiles.placeholders.baseUrl')}
-                value={baseUrl}
-                ref={baseUrlInputRef}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                className={urlError ? 'border-destructive' : ''}
-              />
-              {urlError && <p className="text-sm text-destructive">{urlError}</p>}
-              <p className="text-xs text-muted-foreground">
-                {t('settings:apiProfiles.hints.baseUrl')}
-              </p>
-            </div>
+          {/* Profile Type selector */}
+          <div className="space-y-2">
+            <Label htmlFor="profile-type">{t('settings:apiProfiles.fields.type')}</Label>
+            <Select value={profileType} onValueChange={(v) => setProfileType(v as APIProfileType)}>
+              <SelectTrigger id="profile-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="anthropic">{t('settings:apiProfiles.types.anthropic')}</SelectItem>
+                <SelectItem value="foundry">{t('settings:apiProfiles.types.foundry')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            {/* API Key field (required for create, masked in edit mode) */}
-            <div className="space-y-2">
-              <Label htmlFor="profile-key">
-                {t('settings:apiProfiles.fields.apiKey')} <span className="text-destructive">*</span>
-              </Label>
-              {isEditMode && !isChangingApiKey && profile ? (
-                // Edit mode: show masked API key
-                <div className="flex items-center gap-2">
+          {/* Conditional fields based on profile type */}
+          {profileType === 'foundry' ? (
+            // Microsoft Foundry fields
+            <div className="space-y-4">
+              {/* Foundry endpoint error (shown at top) */}
+              {foundryEndpointError && (
+                <p className="text-sm text-destructive">{foundryEndpointError}</p>
+              )}
+
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Azure Resource Name field */}
+                <div className="space-y-2">
+                  <Label htmlFor="foundry-resource">
+                    {t('settings:apiProfiles.fields.foundryResource')}
+                  </Label>
                   <Input
-                    id="profile-key"
-                    value={maskApiKey(profile.apiKey)}
-                    disabled
-                    className="flex-1"
+                    id="foundry-resource"
+                    placeholder={t('settings:apiProfiles.placeholders.foundryResource')}
+                    value={foundryResource}
+                    onChange={(e) => setFoundryResource(e.target.value)}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsChangingApiKey(true)}
-                  >
-                    {t('settings:apiProfiles.actions.changeKey')}
-                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings:apiProfiles.hints.foundryResource')}
+                  </p>
                 </div>
-              ) : (
-                // Create mode or changing key: show password input
-                <>
+
+                {/* Azure Endpoint URL field (alternative to resource name) */}
+                <div className="space-y-2">
+                  <Label htmlFor="foundry-base-url">
+                    {t('settings:apiProfiles.fields.foundryBaseUrl')}
+                  </Label>
                   <Input
-                    id="profile-key"
-                    type="password"
-                    placeholder={t('settings:apiProfiles.placeholders.apiKey')}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    className={keyError ? 'border-destructive' : ''}
+                    id="foundry-base-url"
+                    placeholder={t('settings:apiProfiles.placeholders.foundryBaseUrl')}
+                    value={baseUrl}
+                    ref={baseUrlInputRef}
+                    onChange={(e) => setBaseUrl(e.target.value)}
+                    className={urlError ? 'border-destructive' : ''}
+                    disabled={!!foundryResource.trim()}
                   />
-                  {isEditMode && (
+                  {urlError && <p className="text-sm text-destructive">{urlError}</p>}
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings:apiProfiles.hints.foundryBaseUrl')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Azure API Key field (optional for Foundry) */}
+              <div className="space-y-2">
+                <Label htmlFor="foundry-api-key">
+                  {t('settings:apiProfiles.fields.foundryApiKey')}
+                  <span className="text-muted-foreground text-xs ml-1">
+                    ({t('common:optional')})
+                  </span>
+                </Label>
+                {isEditMode && !isChangingApiKey && profile ? (
+                  // Edit mode: show masked API key
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="foundry-api-key"
+                      value={profile.apiKey ? maskApiKey(profile.apiKey) : ''}
+                      disabled
+                      className="flex-1"
+                    />
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      onClick={() => {
-                        setIsChangingApiKey(false);
-                        setApiKey('');
-                        setKeyError(null);
-                      }}
+                      onClick={() => setIsChangingApiKey(true)}
                     >
-                      {t('settings:apiProfiles.actions.cancelKeyChange')}
+                      {t('settings:apiProfiles.actions.changeKey')}
                     </Button>
-                  )}
-                </>
-              )}
-              {keyError && <p className="text-sm text-destructive">{keyError}</p>}
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      id="foundry-api-key"
+                      type="password"
+                      placeholder={t('settings:apiProfiles.placeholders.foundryApiKey')}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      className={keyError ? 'border-destructive' : ''}
+                    />
+                    {isEditMode && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsChangingApiKey(false);
+                          setApiKey('');
+                          setKeyError(null);
+                        }}
+                      >
+                        {t('settings:apiProfiles.actions.cancelKeyChange')}
+                      </Button>
+                    )}
+                  </>
+                )}
+                {keyError && <p className="text-sm text-destructive">{keyError}</p>}
+                <p className="text-xs text-muted-foreground">
+                  {t('settings:apiProfiles.hints.foundryApiKey')}
+                </p>
+              </div>
             </div>
-          </div>
+          ) : (
+            // Standard Anthropic fields
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Base URL field (required) */}
+              <div className="space-y-2">
+                <Label htmlFor="profile-url">
+                  {t('settings:apiProfiles.fields.baseUrl')} <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="profile-url"
+                  placeholder={t('settings:apiProfiles.placeholders.baseUrl')}
+                  value={baseUrl}
+                  ref={baseUrlInputRef}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  className={urlError ? 'border-destructive' : ''}
+                />
+                {urlError && <p className="text-sm text-destructive">{urlError}</p>}
+                <p className="text-xs text-muted-foreground">
+                  {t('settings:apiProfiles.hints.baseUrl')}
+                </p>
+              </div>
+
+              {/* API Key field (required for create, masked in edit mode) */}
+              <div className="space-y-2">
+                <Label htmlFor="profile-key">
+                  {t('settings:apiProfiles.fields.apiKey')} <span className="text-destructive">*</span>
+                </Label>
+                {isEditMode && !isChangingApiKey && profile ? (
+                  // Edit mode: show masked API key
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="profile-key"
+                      value={maskApiKey(profile.apiKey)}
+                      disabled
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsChangingApiKey(true)}
+                    >
+                      {t('settings:apiProfiles.actions.changeKey')}
+                    </Button>
+                  </div>
+                ) : (
+                  // Create mode or changing key: show password input
+                  <>
+                    <Input
+                      id="profile-key"
+                      type="password"
+                      placeholder={t('settings:apiProfiles.placeholders.apiKey')}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      className={keyError ? 'border-destructive' : ''}
+                    />
+                    {isEditMode && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsChangingApiKey(false);
+                          setApiKey('');
+                          setKeyError(null);
+                        }}
+                      >
+                        {t('settings:apiProfiles.actions.cancelKeyChange')}
+                      </Button>
+                    )}
+                  </>
+                )}
+                {keyError && <p className="text-sm text-destructive">{keyError}</p>}
+              </div>
+            </div>
+          )}
 
           {/* Test Connection button */}
           <Button

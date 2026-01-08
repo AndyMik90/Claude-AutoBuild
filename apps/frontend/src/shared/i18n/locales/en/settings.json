@@ -56,33 +56,49 @@
     "addButton": "Add Profile",
     "presets": {
       "anthropic": "Anthropic",
+      "azureFoundry": "Microsoft Foundry (Azure)",
       "openrouter": "OpenRouter",
       "groq": "Groq",
       "glmGlobal": "GLM (Global)",
       "glmChina": "GLM (China)"
     },
+    "types": {
+      "anthropic": "Anthropic API",
+      "foundry": "Microsoft Foundry (Azure AI)"
+    },
     "fields": {
       "name": "Name",
+      "type": "Profile Type",
       "preset": "Preset",
       "baseUrl": "Base URL",
-      "apiKey": "API Key"
+      "apiKey": "API Key",
+      "foundryResource": "Azure Resource Name",
+      "foundryBaseUrl": "Azure Endpoint URL",
+      "foundryApiKey": "Azure API Key"
     },
     "placeholders": {
       "name": "My Custom API",
       "preset": "Choose a provider preset",
       "baseUrl": "https://api.anthropic.com",
-      "apiKey": "sk-ant-..."
+      "apiKey": "sk-ant-...",
+      "foundryResource": "your-resource-name",
+      "foundryBaseUrl": "https://your-resource.services.ai.azure.com",
+      "foundryApiKey": "Your Azure API key (optional)"
     },
     "hints": {
       "preset": "Presets fill the base URL; you still need to paste your API key.",
-      "baseUrl": "Example: https://api.anthropic.com or http://localhost:8080"
+      "baseUrl": "Example: https://api.anthropic.com or http://localhost:8080",
+      "foundryResource": "Your Azure AI Foundry resource name. The endpoint will be https://{resource}.services.ai.azure.com",
+      "foundryBaseUrl": "Full Azure endpoint URL. Use this instead of resource name if you have a custom endpoint.",
+      "foundryApiKey": "Optional if using Entra ID authentication (az login). Required for API key authentication."
     },
     "validation": {
       "nameRequired": "Name is required",
       "baseUrlRequired": "Base URL is required",
       "baseUrlInvalid": "Invalid URL format (must be http:// or https://)",
       "apiKeyRequired": "API Key is required",
-      "apiKeyInvalid": "Invalid API Key format"
+      "apiKeyInvalid": "Invalid API Key format",
+      "foundryEndpointRequired": "Either Resource Name or Endpoint URL is required"
     },
     "actions": {
       "save": "Save Profile",

@@ -23,20 +23,42 @@ export function getProfilesFilePath(): string {
 
 /**
  * Check if a value is a valid profile object with required fields
+ * Supports both 'anthropic' (default) and 'foundry' profile types
  */
 function isValidProfile(value: unknown): value is APIProfile {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
   const profile = value as Record<string, unknown>;
-  return (
+
+  // Check required fields
+  const hasRequiredFields =
     typeof profile.id === 'string' &&
     typeof profile.name === 'string' &&
     typeof profile.baseUrl === 'string' &&
     typeof profile.apiKey === 'string' &&
     typeof profile.createdAt === 'number' &&
-    typeof profile.updatedAt === 'number'
-  );
+    typeof profile.updatedAt === 'number';
+
+  if (!hasRequiredFields) {
+    return false;
+  }
+
+  // Validate optional type field (must be 'anthropic' or 'foundry' if present)
+  if (
+    profile.type !== undefined &&
+    profile.type !== 'anthropic' &&
+    profile.type !== 'foundry'
+  ) {
+    return false;
+  }
+
+  // Validate optional foundryResource field (must be string if present)
+  if (profile.foundryResource !== undefined && typeof profile.foundryResource !== 'string') {
+    return false;
+  }
+
+  return true;
 }
 
 /**

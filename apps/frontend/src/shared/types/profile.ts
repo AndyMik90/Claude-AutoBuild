@@ -4,10 +4,21 @@
  * Users can configure custom Anthropic-compatible API endpoints with profiles.
  * Each profile contains name, base URL, API key, and optional model mappings.
  *
+ * Supports two profile types:
+ * - 'anthropic': Standard Anthropic API (uses ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN)
+ * - 'foundry': Microsoft Foundry/Azure AI (uses CLAUDE_CODE_USE_FOUNDRY, ANTHROPIC_FOUNDRY_*)
+ *
  * NOTE: These types are intentionally duplicated from libs/profile-service/src/types/profile.ts
  * because the frontend build (Electron + Vite) doesn't consume the workspace library types directly.
  * Keep these definitions in sync with the library types when making changes.
  */
+
+/**
+ * Profile type - determines which environment variables are generated
+ * - 'anthropic': Standard Anthropic API (ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN)
+ * - 'foundry': Microsoft Foundry/Azure AI (CLAUDE_CODE_USE_FOUNDRY, ANTHROPIC_FOUNDRY_*)
+ */
+export type APIProfileType = 'anthropic' | 'foundry';
 
 /**
  * API Profile - represents a custom API endpoint configuration
@@ -16,8 +27,10 @@
 export interface APIProfile {
   id: string; // UUID v4
   name: string; // User-friendly name
-  baseUrl: string; // API endpoint URL (e.g., https://api.anthropic.com)
-  apiKey: string; // Full API key (never display in UI - use maskApiKey())
+  type?: APIProfileType; // Profile type - defaults to 'anthropic' for backward compat
+  baseUrl: string; // For anthropic: API endpoint; For foundry: ANTHROPIC_FOUNDRY_BASE_URL
+  apiKey: string; // For anthropic: ANTHROPIC_AUTH_TOKEN; For foundry: optional (Entra ID auth)
+  foundryResource?: string; // For foundry only: Azure resource name (alternative to baseUrl)
   models?: {
     // OPTIONAL - only specify models to override
     default?: string; // Maps to ANTHROPIC_MODEL
@@ -43,8 +56,10 @@ export interface ProfilesFile {
  */
 export interface ProfileFormData {
   name: string;
+  type?: APIProfileType; // Profile type - defaults to 'anthropic'
   baseUrl: string;
   apiKey: string;
+  foundryResource?: string; // For foundry only: Azure resource name
   models?: {
     default?: string;
     haiku?: string;

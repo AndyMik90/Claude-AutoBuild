@@ -26,11 +26,17 @@ SDK_ENV_VARS = [
     # API endpoint configuration
     "ANTHROPIC_BASE_URL",
     "ANTHROPIC_AUTH_TOKEN",
-    # Model overrides (from API Profile custom model mappings)
+    # Microsoft Foundry (Azure AI Foundry) configuration
+    # See: https://code.claude.com/docs/en/microsoft-foundry
+    "CLAUDE_CODE_USE_FOUNDRY",  # Set to "1" to enable Microsoft Foundry
+    "ANTHROPIC_FOUNDRY_API_KEY",  # API key (optional if using Entra ID auth)
+    "ANTHROPIC_FOUNDRY_BASE_URL",  # Full endpoint: https://{resource}.services.ai.azure.com
+    "ANTHROPIC_FOUNDRY_RESOURCE",  # Azure resource name (alternative to BASE_URL)
+    # Model overrides (used for both standard API and Microsoft Foundry deployments)
     "ANTHROPIC_MODEL",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",  # e.g., "claude-haiku-4-5"
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",  # e.g., "claude-sonnet-4-5"
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",  # e.g., "claude-opus-4-1"
     # SDK behavior configuration
     "NO_PROXY",
     "DISABLE_TELEMETRY",
@@ -136,9 +142,10 @@ def get_auth_token() -> str | None:
     Get authentication token from environment variables or system credential store.
 
     Checks multiple sources in priority order:
-    1. CLAUDE_CODE_OAUTH_TOKEN (env var)
-    2. ANTHROPIC_AUTH_TOKEN (CCR/proxy env var for enterprise setups)
-    3. System credential store (macOS Keychain, Windows Credential Manager)
+    1. CLAUDE_CODE_USE_FOUNDRY with ANTHROPIC_FOUNDRY_API_KEY (Azure AI Foundry)
+    2. CLAUDE_CODE_OAUTH_TOKEN (env var)
+    3. ANTHROPIC_AUTH_TOKEN (CCR/proxy env var for enterprise setups)
+    4. System credential store (macOS Keychain, Windows Credential Manager)
 
     NOTE: ANTHROPIC_API_KEY is intentionally NOT supported to prevent
     silent billing to user's API credits when OAuth is misconfigured.
@@ -146,7 +153,16 @@ def get_auth_token() -> str | None:
     Returns:
         Token string if found, None otherwise
     """
-    # First check environment variables
+    # Check for Microsoft Foundry mode first
+    if os.environ.get("CLAUDE_CODE_USE_FOUNDRY") == "1":
+        foundry_key = os.environ.get("ANTHROPIC_FOUNDRY_API_KEY")
+        if foundry_key:
+            return foundry_key
+        # Foundry mode without API key = Entra ID auth (handled by SDK)
+        # Return a placeholder to indicate auth is configured
+        return "foundry-entra-id"
+
+    # Check environment variables
     for var in AUTH_TOKEN_ENV_VARS:
         token = os.environ.get(var)
         if token:
