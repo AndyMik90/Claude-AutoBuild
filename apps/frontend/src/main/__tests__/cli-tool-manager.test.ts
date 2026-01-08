@@ -614,14 +614,20 @@ describe('cli-tool-manager - Claude CLI Windows where.exe detection', () => {
     expect(result.path).toContain('AppData\\Roaming\\npm\\claude.cmd');
   });
 
-  it('should handle where.exe returning multiple paths (uses first one)', async () => {
+  it('should prefer .cmd/.exe paths when where.exe returns multiple results', async () => {
+    // Set platform to Windows
+    Object.defineProperty(process, 'platform', {
+      value: 'win32',
+      writable: true
+    });
+
     vi.mocked(os.homedir).mockReturnValue('C:\\Users\\test');
 
     const envUtils = await import('../env-utils');
     vi.mocked(envUtils.findExecutable).mockReturnValue(null);
 
     const windowsPaths = await import('../utils/windows-paths');
-    // where.exe returns first path (highest priority)
+    // Simulate where.exe returning path with .cmd extension (preferred over no extension)
     vi.mocked(windowsPaths.findWindowsExecutableViaWhere).mockReturnValue(
       'D:\\Program Files\\nvm4w\\nodejs\\claude.cmd'
     );
@@ -633,6 +639,7 @@ describe('cli-tool-manager - Claude CLI Windows where.exe detection', () => {
 
     expect(result.found).toBe(true);
     expect(result.path).toBe('D:\\Program Files\\nvm4w\\nodejs\\claude.cmd');
+    expect(result.path).toMatch(/\.(cmd|exe)$/i);
   });
 
   it('should handle where.exe execution errors gracefully', async () => {
