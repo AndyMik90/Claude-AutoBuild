@@ -338,7 +338,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
 
       console.log('[reloadPlanForIncompleteTask] Successfully reloaded plan with valid subtasks:', {
         taskId: task.id,
-        subtaskCount: updatedTask.subtasks.length
+        subtaskCount: updatedTask.subtasks?.length ?? 0
       });
 
       // FIX (PR Review): Update the Zustand store with the reloaded task data

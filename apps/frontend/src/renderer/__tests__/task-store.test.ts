@@ -877,7 +877,8 @@ describe('Task Store', () => {
 
         const subtask = useTaskStore.getState().tasks[0].subtasks[0];
         expect(subtask.id).toBeDefined();
-        expect(subtask.id).toMatch(/^subtask-\d+-[a-z0-9]+$/);
+        // Accept either UUID format (crypto.randomUUID) or fallback format (subtask-timestamp-random)
+        expect(subtask.id).toMatch(/^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|subtask-\d+-[a-z0-9]+)$/);
       });
 
       it('should use description as title for subtasks', () => {
@@ -1221,8 +1222,8 @@ describe('Task Store', () => {
 
         useTaskStore.getState().updateTaskFromPlan('task-1', plan);
 
-        // Status should remain as set in plan (backlog), not recalculated
-        // The isExplicitHumanReview check prevents status recalculation
+        // Status should remain unchanged (backlog) because when plan explicitly
+        // sets human_review, status recalculation is skipped entirely
         expect(useTaskStore.getState().tasks[0].status).toBe('backlog');
       });
 

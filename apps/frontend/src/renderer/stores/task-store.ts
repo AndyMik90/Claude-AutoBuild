@@ -173,7 +173,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           const subtasks: Subtask[] = plan.phases.flatMap((phase) =>
             phase.subtasks.map((subtask) => {
               // Ensure all required fields have valid values to prevent UI issues
-              const id = subtask.id || `subtask-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+              // Use crypto.randomUUID() for stronger randomness when available
+              const id = subtask.id || (typeof crypto !== 'undefined' && crypto.randomUUID
+                ? crypto.randomUUID()
+                : `subtask-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
               const description = subtask.description || 'No description available';
               const title = description; // Title and description are the same for subtasks
               const status = (subtask.status as SubtaskStatus) || 'pending';

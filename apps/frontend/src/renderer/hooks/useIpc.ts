@@ -94,8 +94,9 @@ function queueUpdate(taskId: string, update: BatchedUpdate): void {
   const existing = batchQueue.get(taskId) || {};
 
   // FIX (ACS-55): Phase changes bypass batching - apply immediately
-  // This prevents losing intermediate phases when transitions happen rapidly
-  // (e.g., planning → coding within 16ms would lose the "planning" display)
+  // This ensures phase transitions are applied in order and not batched together,
+  // so the UI accurately reflects each phase state (e.g., planning → coding shows both)
+  // rather than skipping directly to the latest phase if they arrive within 16ms.
   // Phase changes are rare (~3-4 per task) vs progress ticks (hundreds), so this is safe for perf
   if (update.progress?.phase && storeActionsRef) {
     const currentPhase = existing.progress?.phase ||

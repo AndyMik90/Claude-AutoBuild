@@ -2,7 +2,7 @@ import type { BrowserWindow } from 'electron';
 import path from 'path';
 import { existsSync } from 'fs';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
-import { wouldPhaseRegress, isTerminalPhase, isValidExecutionPhase } from '../../shared/constants/phase-protocol';
+import { wouldPhaseRegress, isTerminalPhase, isValidExecutionPhase, type ExecutionPhase } from '../../shared/constants/phase-protocol';
 import type {
   SDKRateLimitInfo,
   Task,
@@ -58,7 +58,8 @@ function validateStatusTransition(
     }
 
     // Block any phase regression (going backwards in the workflow)
-    if (wouldPhaseRegress(currentPhase, phase)) {
+    // Note: Cast phase to ExecutionPhase since isValidExecutionPhase() type guard doesn't narrow through function calls
+    if (wouldPhaseRegress(currentPhase, phase as ExecutionPhase)) {
       console.warn(`[validateStatusTransition] Blocking phase regression: ${currentPhase} -> ${phase} for task ${task.id}`);
       return false;
     }
