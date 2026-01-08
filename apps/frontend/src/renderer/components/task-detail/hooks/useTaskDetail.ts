@@ -1,7 +1,48 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
-import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress } from '../../../stores/task-store';
+import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress, useTaskStore } from '../../../stores/task-store';
 import type { Task, TaskLogs, TaskLogPhase, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo } from '../../../../shared/types';
+
+/**
+ * Validates task subtasks structure to prevent infinite loops during resume.
+ * Returns true if task has valid subtasks, false otherwise.
+ */
+function validateTaskSubtasks(task: Task): boolean {
+  // Check if subtasks array exists
+  if (!task.subtasks || !Array.isArray(task.subtasks)) {
+    console.warn('[validateTaskSubtasks] Task has no subtasks array:', task.id);
+    return false;
+  }
+
+  // If subtasks array is empty and task is incomplete, it needs plan reload
+  if (task.subtasks.length === 0) {
+    console.warn('[validateTaskSubtasks] Task has empty subtasks array:', task.id);
+    return false;
+  }
+
+  // Validate each subtask has minimum required fields
+  for (let i = 0; i < task.subtasks.length; i++) {
+    const subtask = task.subtasks[i];
+    if (!subtask || typeof subtask !== 'object') {
+      console.warn(`[validateTaskSubtasks] Invalid subtask at index ${i}:`, subtask);
+      return false;
+    }
+
+    // Description is critical - we can't show a subtask without it
+    if (!subtask.description || typeof subtask.description !== 'string' || subtask.description.trim() === '') {
+      console.warn(`[validateTaskSubtasks] Subtask at index ${i} missing description:`, subtask);
+      return false;
+    }
+
+    // ID is required for tracking
+    if (!subtask.id || typeof subtask.id !== 'string') {
+      console.warn(`[validateTaskSubtasks] Subtask at index ${i} missing id:`, subtask);
+      return false;
+    }
+  }
+
+  return true;
+}
 
 export interface UseTaskDetailOptions {
   task: Task;
@@ -34,6 +75,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [phaseLogs, setPhaseLogs] = useState<TaskLogs | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [expandedPhases, setExpandedPhases] = useState<Set<TaskLogPhase>>(new Set());
+  const [isLoadingPlan, setIsLoadingPlan] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -244,6 +286,81 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   // User must click "Check for Conflicts" button to trigger the expensive preview operation.
   // This improves modal open performance significantly (avoids 1-30+ second Python subprocess).
 
+  /**
+   * Reloads implementation plan for an incomplete task to ensure subtasks are properly loaded.
+   * This prevents the "Task Incomplete" infinite loop when resuming stuck tasks.
+   */
+  const reloadPlanForIncompleteTask = useCallback(async (): Promise<boolean> => {
+    if (!selectedProject) {
+      console.error('[reloadPlanForIncompleteTask] No selected project');
+      return false;
+    }
+
+    // Only reload if task is incomplete and subtasks are invalid
+    if (!isIncomplete) {
+      return true; // Not incomplete, no reload needed
+    }
+
+    // Check if subtasks are valid
+    if (validateTaskSubtasks(task)) {
+      console.log('[reloadPlanForIncompleteTask] Subtasks are valid, no reload needed');
+      return true; // Subtasks are valid, proceed
+    }
+
+    console.warn('[reloadPlanForIncompleteTask] Task has invalid subtasks, reloading plan:', {
+      taskId: task.id,
+      specId: task.specId,
+      subtaskCount: task.subtasks?.length || 0
+    });
+
+    setIsLoadingPlan(true);
+    try {
+      // Reload tasks from the project to get fresh implementation plan
+      const result = await window.electronAPI.getTasks(selectedProject.id);
+
+      if (!result.success || !result.data) {
+        console.error('[reloadPlanForIncompleteTask] Failed to reload tasks:', result.error);
+        return false;
+      }
+
+      // Find the updated task in the result
+      const updatedTask = result.data.find(t => t.id === task.id || t.specId === task.specId);
+      if (!updatedTask) {
+        console.error('[reloadPlanForIncompleteTask] Task not found in reloaded tasks');
+        return false;
+      }
+
+      // Validate the reloaded subtasks
+      if (!validateTaskSubtasks(updatedTask)) {
+        console.error('[reloadPlanForIncompleteTask] Reloaded task still has invalid subtasks');
+        return false;
+      }
+
+      console.log('[reloadPlanForIncompleteTask] Successfully reloaded plan with valid subtasks:', {
+        taskId: task.id,
+        subtaskCount: updatedTask.subtasks?.length ?? 0
+      });
+
+      // FIX (PR Review): Update the Zustand store with the reloaded task data
+      // Without this, the UI continues to display stale/invalid subtasks
+      const store = useTaskStore.getState();
+      store.updateTask(task.id, {
+        subtasks: updatedTask.subtasks,
+        title: updatedTask.title,
+        description: updatedTask.description,
+        metadata: updatedTask.metadata,
+        updatedAt: new Date()
+      });
+
+      return true;
+    } catch (err) {
+      console.error('[reloadPlanForIncompleteTask] Error reloading plan:', err);
+      return false;
+    } finally {
+      setIsLoadingPlan(false);
+    }
+  }, [selectedProject, task, isIncomplete]);
+
   return {
     // State
     feedback,
@@ -286,6 +403,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     showConflictDialog,
     showPRDialog,
     isCreatingPR,
+    isLoadingPlan,
 
     // Setters
     setFeedback,
@@ -324,5 +442,6 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     handleLogsScroll,
     togglePhase,
     loadMergePreview,
+    reloadPlanForIncompleteTask,
   };
 }

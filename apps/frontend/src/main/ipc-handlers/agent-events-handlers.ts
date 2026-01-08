@@ -2,6 +2,7 @@ import type { BrowserWindow } from 'electron';
 import path from 'path';
 import { existsSync } from 'fs';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
+import { wouldPhaseRegress, isTerminalPhase, isValidExecutionPhase, type ExecutionPhase } from '../../shared/constants/phase-protocol';
 import type {
   SDKRateLimitInfo,
   Task,
@@ -18,6 +19,54 @@ import { notificationService } from '../notification-service';
 import { persistPlanStatusSync, getPlanPath } from './task/plan-file-utils';
 import { findTaskWorktree } from '../worktree-paths';
 import { findTaskAndProject } from './task/shared';
+
+
+/**
+ * Validates status transitions to prevent invalid state changes.
+ * FIX (ACS-55, ACS-71): Adds guardrails against bad status transitions.
+ * FIX (PR Review): Uses comprehensive wouldPhaseRegress() utility instead of hardcoded checks.
+ *
+ * @param task - The current task (may be undefined if not found)
+ * @param newStatus - The proposed new status
+ * @param phase - The execution phase that triggered this transition
+ * @returns true if transition is valid, false if it should be blocked
+ */
+function validateStatusTransition(
+  task: Task | undefined,
+  newStatus: TaskStatus,
+  phase: string
+): boolean {
+  // Can't validate without task data - allow the transition
+  if (!task) return true;
+
+  // Don't allow human_review without subtasks
+  // This prevents tasks from jumping to review before planning is complete
+  if (newStatus === 'human_review' && (!task.subtasks || task.subtasks.length === 0)) {
+    console.warn(`[validateStatusTransition] Blocking human_review - task ${task.id} has no subtasks (phase: ${phase})`);
+    return false;
+  }
+
+  // FIX (PR Review): Use comprehensive phase regression check instead of hardcoded checks
+  // This handles all phase regressions (qa_review→coding, complete→coding, etc.)
+  // not just the specific coding→planning case
+  const currentPhase = task.executionProgress?.phase;
+  if (currentPhase && isValidExecutionPhase(currentPhase) && isValidExecutionPhase(phase)) {
+    // Block transitions from terminal phases (complete/failed)
+    if (isTerminalPhase(currentPhase)) {
+      console.warn(`[validateStatusTransition] Blocking transition from terminal phase: ${currentPhase} for task ${task.id}`);
+      return false;
+    }
+
+    // Block any phase regression (going backwards in the workflow)
+    // Note: Cast phase to ExecutionPhase since isValidExecutionPhase() type guard doesn't narrow through function calls
+    if (wouldPhaseRegress(currentPhase, phase as ExecutionPhase)) {
+      console.warn(`[validateStatusTransition] Blocking phase regression: ${currentPhase} -> ${phase} for task ${task.id}`);
+      return false;
+    }
+  }
+
+  return true;
+}
 
 
 /**
@@ -150,13 +199,16 @@ export function registerAgenteventsHandlers(
 
             // Fallback: Ensure status is updated even if COMPLETE phase event was missed
             // This prevents tasks from getting stuck in ai_review status
-            // Uses inverted logic to also handle tasks with no subtasks (treats them as complete)
+            // FIX (ACS-71): Only move to human_review if subtasks exist AND are all completed
+            // If no subtasks exist, the task is still in planning and shouldn't move to human_review
             const isActiveStatus = task.status === 'in_progress' || task.status === 'ai_review';
-            const hasIncompleteSubtasks = task.subtasks && task.subtasks.length > 0 &&
+            const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+            const hasIncompleteSubtasks = hasSubtasks &&
               task.subtasks.some((s) => s.status !== 'completed');
 
-            if (isActiveStatus && !hasIncompleteSubtasks) {
-              console.warn(`[Task ${taskId}] Fallback: Moving to human_review (process exited successfully)`);
+            if (isActiveStatus && hasSubtasks && !hasIncompleteSubtasks) {
+              // All subtasks completed - safe to move to human_review
+              console.warn(`[Task ${taskId}] Fallback: Moving to human_review (process exited successfully, all ${task.subtasks.length} subtasks completed)`);
               persistStatus('human_review');
               // Include projectId for multi-project filtering (issue #723)
               mainWindow.webContents.send(
@@ -165,6 +217,10 @@ export function registerAgenteventsHandlers(
                 'human_review' as TaskStatus,
                 projectId
               );
+            } else if (isActiveStatus && !hasSubtasks) {
+              // No subtasks yet - task is still in planning phase, don't change status
+              // This prevents the bug where tasks jump to human_review before planning completes
+              console.warn(`[Task ${taskId}] Process exited but no subtasks created yet - keeping current status (${task.status})`);
             }
           } else {
             notificationService.notifyTaskFailed(taskTitle, project.id, taskId);
@@ -205,7 +261,8 @@ export function registerAgenteventsHandlers(
       };
 
       const newStatus = phaseToStatus[progress.phase];
-      if (newStatus) {
+      // FIX (ACS-55, ACS-71): Validate status transition before sending/persisting
+      if (newStatus && validateStatusTransition(task, newStatus, progress.phase)) {
         // Include projectId in status change event for multi-project filtering
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_STATUS_CHANGE,
