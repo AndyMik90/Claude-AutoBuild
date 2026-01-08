@@ -312,17 +312,17 @@ export function registerTerminalHandlers(
   ipcMain.handle(
     IPC_CHANNELS.CLAUDE_PROFILE_INITIALIZE,
     async (_, profileId: string): Promise<IPCResult> => {
-      console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Handler called for profileId:', profileId);
+      debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Handler called for profileId:', profileId);
       try {
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Getting profile manager...');
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Getting profile manager...');
         const profileManager = getClaudeProfileManager();
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Getting profile...');
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Getting profile...');
         const profile = profileManager.getProfile(profileId);
         if (!profile) {
-          console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Profile not found!');
+          debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Profile not found!');
           return { success: false, error: 'Profile not found' };
         }
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Profile found:', profile.name);
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Profile found:', profile.name);
 
         // Ensure the config directory exists for non-default profiles
         if (!profile.isDefault && profile.configDir) {
@@ -338,7 +338,7 @@ export function registerTerminalHandlers(
         const terminalId = `claude-login-${profileId}-${Date.now()}`;
         const homeDir = process.env.HOME || process.env.USERPROFILE || '/tmp';
 
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Creating terminal:', terminalId);
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Creating terminal:', terminalId);
         debugLog('[IPC] Initializing Claude profile:', {
           profileId,
           profileName: profile.name,
@@ -347,9 +347,9 @@ export function registerTerminalHandlers(
         });
 
         // Create a new terminal for the login process
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Calling terminalManager.create...');
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Calling terminalManager.create...');
         const createResult = await terminalManager.create({ id: terminalId, cwd: homeDir });
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Terminal created:', createResult.success);
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Terminal created:', createResult.success);
 
         // If terminal creation failed, return the error
         if (!createResult.success) {
@@ -360,16 +360,16 @@ export function registerTerminalHandlers(
         }
 
         // Wait a moment for the terminal to initialize
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Waiting 500ms for terminal init...');
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Waiting 500ms for terminal init...');
         await new Promise(resolve => setTimeout(resolve, 500));
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Wait complete');
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Wait complete');
 
         // Build the login command with the profile's config dir
         // Use full path to claude CLI - no need to modify PATH since we have the absolute path
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Getting Claude CLI invocation...');
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Getting Claude CLI invocation...');
         let loginCommand: string;
         const { command: claudeCmd } = await getClaudeCliInvocationAsync();
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Got Claude CLI:', claudeCmd);
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Got Claude CLI:', claudeCmd);
 
         // Use the full path directly - escaping only needed for paths with spaces
         const shellClaudeCmd = process.platform === 'win32'
@@ -393,18 +393,18 @@ export function registerTerminalHandlers(
           loginCommand = `${shellClaudeCmd} setup-token`;
         }
 
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Built login command, length:', loginCommand.length);
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Login command:', loginCommand);
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Built login command, length:', loginCommand.length);
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Login command:', loginCommand);
         debugLog('[IPC] Sending login command to terminal:', loginCommand);
 
         // Write the login command to the terminal
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Writing command to terminal...');
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Writing command to terminal...');
         terminalManager.write(terminalId, `${loginCommand}\r`);
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Command written successfully');
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Command written successfully');
 
         // Notify the renderer that an auth terminal was created
         // This allows the UI to display the terminal so users can see the OAuth flow
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Notifying renderer of auth terminal...');
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Notifying renderer of auth terminal...');
         const mainWindow = getMainWindow();
         if (mainWindow) {
           mainWindow.webContents.send(IPC_CHANNELS.TERMINAL_AUTH_CREATED, {
@@ -414,7 +414,7 @@ export function registerTerminalHandlers(
           });
         }
 
-        console.log('[IPC:CLAUDE_PROFILE_INITIALIZE] Returning success!');
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Returning success!');
         return {
           success: true,
           data: {

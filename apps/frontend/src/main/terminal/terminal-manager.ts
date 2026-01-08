@@ -17,6 +17,7 @@ import * as SessionHandler from './session-handler';
 import * as TerminalLifecycle from './terminal-lifecycle';
 import * as TerminalEventHandler from './terminal-event-handler';
 import * as ClaudeIntegration from './claude-integration-handler';
+import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
 export class TerminalManager {
   private terminals: Map<string, TerminalProcess> = new Map();
@@ -120,14 +121,14 @@ export class TerminalManager {
    * Send input to a terminal
    */
   write(id: string, data: string): void {
-    console.log('[TerminalManager:write] Writing to terminal:', id, 'data length:', data.length);
+    debugLog('[TerminalManager:write] Writing to terminal:', id, 'data length:', data.length);
     const terminal = this.terminals.get(id);
     if (terminal) {
-      console.log('[TerminalManager:write] Terminal found, calling writeToPty...');
+      debugLog('[TerminalManager:write] Terminal found, calling writeToPty...');
       PtyManager.writeToPty(terminal, data);
-      console.log('[TerminalManager:write] writeToPty completed');
+      debugLog('[TerminalManager:write] writeToPty completed');
     } else {
-      console.error('[TerminalManager:write] Terminal NOT found:', id);
+      debugError('[TerminalManager:write] Terminal NOT found:', id);
     }
   }
 
