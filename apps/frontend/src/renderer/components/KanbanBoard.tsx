@@ -267,6 +267,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
                   )}
                   onClick={onToggleArchived}
                   aria-pressed={showArchived}
+                  aria-label={t('common:accessibility.toggleShowArchivedAriaLabel')}
                 >
                   <Archive className="h-4 w-4" />
                   <span className="absolute -top-1 -right-1 text-[10px] font-medium bg-muted rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
