@@ -26,7 +26,7 @@ import path from 'path';
 import os from 'os';
 import { promisify } from 'util';
 import { app } from 'electron';
-import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell, existsAsync } from './env-utils';
+import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, prepareShellCommand, existsAsync } from './env-utils';
 import type { ToolDetectionResult } from '../shared/types';
 
 const execFileAsync = promisify(execFile);
@@ -928,16 +928,12 @@ class CLIToolManager {
    */
   private validateClaude(claudeCmd: string): ToolValidation {
     try {
-      const needsShell = shouldUseShell(claudeCmd);
-
-      // On Windows with shell mode, quote the path if it contains spaces to handle paths like
-      // "C:\Users\Jane Smith\AppData\Roaming\npm\claude.cmd". Only add quotes if not already quoted.
-      const command =
-        needsShell &&
-        claudeCmd.includes(" ") &&
-        !(claudeCmd.startsWith('"') && claudeCmd.endsWith('"'))
-          ? `"${claudeCmd}"`
-          : claudeCmd;
+      // On Windows, .cmd files need shell: true to execute properly.
+      // SECURITY NOTE: shell: true is safe here because:
+      // 1. claudeCmd comes from internal path detection (user config or known system paths)
+      // 2. Only '--version' is passed as an argument (no user input)
+      // If claudeCmd origin ever changes to accept user input, use escapeShellArgWindows.
+      const { command, needsShell } = prepareShellCommand(claudeCmd);
 
       let version: string;
 
@@ -1051,16 +1047,7 @@ class CLIToolManager {
    */
   private async validateClaudeAsync(claudeCmd: string): Promise<ToolValidation> {
     try {
-      const needsShell = shouldUseShell(claudeCmd);
-
-      // On Windows with shell mode, quote the path if it contains spaces to handle paths like
-      // "C:\Users\Jane Smith\AppData\Roaming\npm\claude.cmd". Only add quotes if not already quoted.
-      const command =
-        needsShell &&
-        claudeCmd.includes(" ") &&
-        !(claudeCmd.startsWith('"') && claudeCmd.endsWith('"'))
-          ? `"${claudeCmd}"`
-          : claudeCmd;
+      const { command, needsShell } = prepareShellCommand(claudeCmd);
 
       let stdout: string;
 

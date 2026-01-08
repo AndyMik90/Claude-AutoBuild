@@ -3,7 +3,7 @@ import * as os from "os";
 import type { GitCommit } from "../../shared/types";
 import { getProfileEnv } from "../rate-limit-detector";
 import { parsePythonCommand } from "../python-detector";
-import { getAugmentedEnv } from "../env-utils";
+import { getAugmentedEnv, preparePythonSubprocessCommand } from "../env-utils";
 
 interface VersionSuggestion {
   version: string;
@@ -129,21 +129,8 @@ Respond with ONLY a JSON object in this exact format (no markdown, no extra text
     // Escape the prompt for Python string literal
     const escapedPrompt = prompt.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
 
-    // On Windows, .cmd and .bat files need shell=True for proper execution
-    // When using shell=True, we need to quote paths containing spaces.
-    // Only add quotes if not already quoted to avoid double-quoting.
-    const isWindowsBatchFile = this.claudePath.endsWith(".cmd") || this.claudePath.endsWith(".bat");
-    const needsShell = isWindowsBatchFile;
-    const isAlreadyQuoted = this.claudePath.startsWith('"') && this.claudePath.endsWith('"');
-    const needsQuoting = needsShell && this.claudePath.includes(" ") && !isAlreadyQuoted;
-    const quotedPath = needsQuoting ? `"${this.claudePath}"` : this.claudePath;
-
-    // For shell mode, the path must be quoted in the command string.
-    // We escape the quoted path for Python string representation.
-    // For list mode, escape backslashes for Python string.
-    const commandPath = needsShell
-      ? `"${quotedPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
-      : quotedPath.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    // Prepare the path for Python subprocess execution (handles Windows quoting rules)
+    const { commandPath, needsShell } = preparePythonSubprocessCommand(this.claudePath);
 
     return `
 import subprocess

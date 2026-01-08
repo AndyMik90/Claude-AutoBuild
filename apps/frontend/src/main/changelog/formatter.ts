@@ -1,5 +1,6 @@
 import type { ChangelogGenerationRequest, TaskSpecContent, GitCommit } from "../../shared/types";
 import { extractSpecOverview } from "./parser";
+import { preparePythonSubprocessCommand } from "../env-utils";
 
 /**
  * Format instructions for different changelog styles
@@ -323,21 +324,8 @@ export function createGenerationScript(prompt: string, claudePath: string): stri
   // Convert prompt to base64 to avoid any string escaping issues in Python
   const base64Prompt = Buffer.from(prompt, "utf-8").toString("base64");
 
-  // On Windows, .cmd and .bat files need shell=True for proper execution
-  // When using shell=True, we need to quote paths containing spaces.
-  // Only add quotes if not already quoted to avoid double-quoting.
-  const isWindowsBatchFile = claudePath.endsWith(".cmd") || claudePath.endsWith(".bat");
-  const needsShell = isWindowsBatchFile;
-  const isAlreadyQuoted = claudePath.startsWith('"') && claudePath.endsWith('"');
-  const needsQuoting = needsShell && claudePath.includes(" ") && !isAlreadyQuoted;
-  const quotedPath = needsQuoting ? `"${claudePath}"` : claudePath;
-
-  // For shell mode, the path must be quoted in the command string.
-  // We escape the quoted path for Python string representation.
-  // For list mode, escape backslashes for Python string.
-  const commandPath = needsShell
-    ? `"${quotedPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
-    : quotedPath.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  // Prepare the path for Python subprocess execution (handles Windows quoting rules)
+  const { commandPath, needsShell } = preparePythonSubprocessCommand(claudePath);
 
   return `
 import subprocess
