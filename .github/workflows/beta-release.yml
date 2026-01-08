@@ -385,28 +385,64 @@ jobs:
         if: env.AZURE_CLIENT_ID != ''
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           cd apps/frontend/dist
-          # Find the latest.yml file and update the sha512 hash for signed exe
-          # electron-builder uses base64-encoded SHA512 hashes, not hex
-          $exeFile = Get-ChildItem -Filter "*.exe" | Select-Object -First 1
-          if ($exeFile) {
+
+          # Find the installer exe (electron-builder names it with "Setup" or just the app name)
+          # electron-builder produces one installer exe per build
+          $exeFiles = Get-ChildItem -Filter "*.exe"
+          if ($exeFiles.Count -eq 0) {
+            Write-Host "::error::No .exe files found in dist folder"
+            exit 1
+          }
+
+          Write-Host "Found $($exeFiles.Count) exe file(s): $($exeFiles.Name -join ', ')"
+
+          $ymlFile = "latest.yml"
+          if (-not (Test-Path $ymlFile)) {
+            Write-Host "::error::$ymlFile not found - cannot update checksums"
+            exit 1
+          }
+
+          $content = Get-Content $ymlFile -Raw
+          $originalContent = $content
+
+          # Process each exe file and update its hash in latest.yml
+          foreach ($exeFile in $exeFiles) {
+            Write-Host "Processing $($exeFile.Name)..."
+
             # Compute SHA512 hash and convert to base64 (electron-builder format)
             $bytes = [System.IO.File]::ReadAllBytes($exeFile.FullName)
             $sha512 = [System.Security.Cryptography.SHA512]::Create()
             $hashBytes = $sha512.ComputeHash($bytes)
             $hash = [System.Convert]::ToBase64String($hashBytes)
-            $size = (Get-Item $exeFile.FullName).Length
-            $ymlFile = "latest.yml"
-            if (Test-Path $ymlFile) {
-              $content = Get-Content $ymlFile -Raw
-              # Update sha512 hash (base64 pattern: alphanumeric, +, /, =)
-              $content = $content -replace 'sha512: [A-Za-z0-9+/=]+', "sha512: $hash"
-              # Update size
-              $content = $content -replace 'size: \d+', "size: $size"
-              Set-Content -Path $ymlFile -Value $content -NoNewline
-              Write-Host "Updated $ymlFile with new base64 hash: $hash and size: $size"
-            }
+            $size = $exeFile.Length
+
+            Write-Host "  Hash: $hash"
+            Write-Host "  Size: $size"
           }
+
+          # For electron-builder, latest.yml has a single file entry for the installer
+          # Update the sha512 and size for the primary exe (first one, typically the installer)
+          $primaryExe = $exeFiles | Select-Object -First 1
+          $bytes = [System.IO.File]::ReadAllBytes($primaryExe.FullName)
+          $sha512 = [System.Security.Cryptography.SHA512]::Create()
+          $hashBytes = $sha512.ComputeHash($bytes)
+          $hash = [System.Convert]::ToBase64String($hashBytes)
+          $size = $primaryExe.Length
+
+          # Update sha512 hash (base64 pattern: alphanumeric, +, /, =)
+          $content = $content -replace 'sha512: [A-Za-z0-9+/=]+', "sha512: $hash"
+          # Update size
+          $content = $content -replace 'size: \d+', "size: $size"
+
+          if ($content -eq $originalContent) {
+            Write-Host "::error::Checksum replacement failed - content unchanged. Check if latest.yml format has changed."
+            exit 1
+          }
+
+          Set-Content -Path $ymlFile -Value $content -NoNewline
+          Write-Host "✅ Updated $ymlFile with new base64 hash and size for $($primaryExe.Name)"
 
       - name: Skip signing notice
         if: env.AZURE_CLIENT_ID == ''
