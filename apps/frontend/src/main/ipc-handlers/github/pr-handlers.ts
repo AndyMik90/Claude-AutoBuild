@@ -143,6 +143,8 @@ export interface MergeReadiness {
   isDraft: boolean;
   /** GitHub's mergeable status */
   mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+  /** Branch is behind base branch (out of date) */
+  isBehind: boolean;
   /** Simplified CI status */
   ciStatus: 'passing' | 'failing' | 'pending' | 'none';
   /** List of blockers that contradict a "ready to merge" verdict */
@@ -1669,6 +1671,7 @@ export function registerPRHandlers(
       const defaultResult: MergeReadiness = {
         isDraft: false,
         mergeable: 'UNKNOWN',
+        isBehind: false,
         ciStatus: 'none',
         blockers: [],
       };
@@ -1699,6 +1702,10 @@ export function registerPRHandlers(
           } else if (pr.mergeable === false || pr.mergeable_state === 'dirty') {
             mergeable = 'CONFLICTING';
           }
+
+          // Check if branch is behind base (out of date)
+          // GitHub's mergeable_state can be: 'behind', 'blocked', 'clean', 'dirty', 'has_hooks', 'unknown', 'unstable'
+          const isBehind = pr.mergeable_state === 'behind';
 
           // Fetch combined commit status for CI
           let ciStatus: MergeReadiness['ciStatus'] = 'none';
@@ -1760,6 +1767,9 @@ export function registerPRHandlers(
           if (mergeable === 'CONFLICTING') {
             blockers.push('Merge conflicts detected');
           }
+          if (isBehind) {
+            blockers.push('Branch is out of date with base branch. Update to check for conflicts.');
+          }
           if (ciStatus === 'failing') {
             blockers.push('CI checks are failing');
           }
@@ -1768,6 +1778,7 @@ export function registerPRHandlers(
             prNumber,
             isDraft: pr.draft,
             mergeable,
+            isBehind,
             ciStatus,
             blockers,
           });
@@ -1775,6 +1786,7 @@ export function registerPRHandlers(
           return {
             isDraft: pr.draft,
             mergeable,
+            isBehind,
             ciStatus,
             blockers,
           };
