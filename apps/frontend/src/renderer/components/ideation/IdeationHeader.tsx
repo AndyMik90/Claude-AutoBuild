@@ -82,7 +82,7 @@ export function IdeationHeader({
                     <X className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Clear selection</TooltipContent>
+                <TooltipContent>{t('accessibility.clearSelectionAriaLabel')}</TooltipContent>
               </Tooltip>
               <div className="w-px h-6 bg-border mx-1" />
             </>
@@ -99,7 +99,7 @@ export function IdeationHeader({
                     <CheckSquare className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Select all</TooltipContent>
+                <TooltipContent>{t('accessibility.selectAllAriaLabel')}</TooltipContent>
               </Tooltip>
             )
           )}
@@ -117,7 +117,7 @@ export function IdeationHeader({
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              {showDismissed ? 'Hide dismissed' : 'Show dismissed'}
+              {showDismissed ? t('accessibility.hideDismissedAriaLabel') : t('accessibility.showDismissedAriaLabel')}
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -131,7 +131,7 @@ export function IdeationHeader({
                 <Settings2 className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Configure</TooltipContent>
+            <TooltipContent>{t('accessibility.configureAriaLabel')}</TooltipContent>
           </Tooltip>
           {canAddMore && (
             <Tooltip>
@@ -145,7 +145,7 @@ export function IdeationHeader({
                   Add More
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Add more ideation types</TooltipContent>
+              <TooltipContent>{t('accessibility.addMoreAriaLabel')}</TooltipContent>
             </Tooltip>
           )}
           {hasActiveIdeas && !hasSelection && (
@@ -161,7 +161,7 @@ export function IdeationHeader({
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Dismiss all ideas</TooltipContent>
+              <TooltipContent>{t('accessibility.dismissAllAriaLabel')}</TooltipContent>
             </Tooltip>
           )}
           <Tooltip>
@@ -170,7 +170,7 @@ export function IdeationHeader({
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Regenerate Ideas</TooltipContent>
+            <TooltipContent>{t('accessibility.regenerateIdeasAriaLabel')}</TooltipContent>
           </Tooltip>
         </div>
       </div>

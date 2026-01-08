@@ -142,7 +142,7 @@ export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onD
                     <Play className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Convert to Task</TooltipContent>
+                <TooltipContent>{t('accessibility.convertToTaskAriaLabel')}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -159,7 +159,7 @@ export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onD
                     <X className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Dismiss</TooltipContent>
+                <TooltipContent>{t('accessibility.dismissAriaLabel')}</TooltipContent>
               </Tooltip>
             </div>
           )}
@@ -181,7 +181,7 @@ export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onD
                     <ExternalLink className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Go to Task</TooltipContent>
+                <TooltipContent>{t('accessibility.goToTaskAriaLabel')}</TooltipContent>
               </Tooltip>
             </div>
           )}
@@ -203,7 +203,7 @@ export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onD
                     <ExternalLink className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Go to Task</TooltipContent>
+                <TooltipContent>{t('accessibility.goToTaskAriaLabel')}</TooltipContent>
               </Tooltip>
             </div>
           )}
