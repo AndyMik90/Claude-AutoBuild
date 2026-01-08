@@ -20,15 +20,16 @@
  * - Graceful fallbacks when tools not found
  */
 
-import { execFileSync, execFile } from 'child_process';
+import { execFileSync, execFile, execSync, exec } from 'child_process';
 import { existsSync, readdirSync, promises as fsPromises } from 'fs';
 import path from 'path';
 import os from 'os';
 import { promisify } from 'util';
 import { app } from 'electron';
-import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync } from './env-utils';
+import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell } from './env-utils';
 
 const execFileAsync = promisify(execFile);
+const execAsync = promisify(exec);
 
 /**
  * Check if a path exists asynchronously (non-blocking)
@@ -927,21 +928,30 @@ class CLIToolManager {
    */
   private validateClaude(claudeCmd: string): ToolValidation {
     try {
-      // On Windows, .cmd files need shell: true to execute properly.
-      // SECURITY NOTE: shell: true is safe here because:
-      // 1. claudeCmd comes from internal path detection (user config or known system paths)
-      // 2. Only '--version' is passed as an argument (no user input)
-      // If claudeCmd origin ever changes to accept user input, use escapeShellArgWindows.
-      const needsShell = process.platform === 'win32' &&
-        (claudeCmd.endsWith('.cmd') || claudeCmd.endsWith('.bat'));
+      const needsShell = shouldUseShell(claudeCmd);
 
-      const version = execFileSync(claudeCmd, ['--version'], {
-        encoding: 'utf-8',
-        timeout: 5000,
-        windowsHide: true,
-        shell: needsShell,
-        env: getAugmentedEnv(),
-      }).trim();
+      let version: string;
+
+      if (needsShell) {
+        // For .cmd/.bat files on Windows, use execSync with quoted path
+        // execFileSync doesn't handle spaces in .cmd paths correctly even with shell:true
+        const quotedCmd = `"${claudeCmd}"`;
+        version = execSync(`${quotedCmd} --version`, {
+          encoding: 'utf-8',
+          timeout: 5000,
+          windowsHide: true,
+          env: getAugmentedEnv(),
+        }).trim();
+      } else {
+        // For .exe files and non-Windows, use execFileSync
+        version = execFileSync(claudeCmd, ['--version'], {
+          encoding: 'utf-8',
+          timeout: 5000,
+          windowsHide: true,
+          shell: false,
+          env: getAugmentedEnv(),
+        }).trim();
+      }
 
       // Claude CLI version output format: "claude-code version X.Y.Z" or similar
       const match = version.match(/(\d+\.\d+\.\d+)/);
@@ -1035,16 +1045,31 @@ class CLIToolManager {
    */
   private async validateClaudeAsync(claudeCmd: string): Promise<ToolValidation> {
     try {
-      const needsShell = process.platform === 'win32' &&
-        (claudeCmd.endsWith('.cmd') || claudeCmd.endsWith('.bat'));
+      const needsShell = shouldUseShell(claudeCmd);
 
-      const { stdout } = await execFileAsync(claudeCmd, ['--version'], {
-        encoding: 'utf-8',
-        timeout: 5000,
-        windowsHide: true,
-        shell: needsShell,
-        env: await getAugmentedEnvAsync(),
-      });
+      let stdout: string;
+
+      if (needsShell) {
+        // For .cmd/.bat files on Windows, use exec with quoted path
+        const quotedCmd = `"${claudeCmd}"`;
+        const result = await execAsync(`${quotedCmd} --version`, {
+          encoding: 'utf-8',
+          timeout: 5000,
+          windowsHide: true,
+          env: await getAugmentedEnvAsync(),
+        });
+        stdout = result.stdout;
+      } else {
+        // For .exe files and non-Windows, use execFileAsync
+        const result = await execFileAsync(claudeCmd, ['--version'], {
+          encoding: 'utf-8',
+          timeout: 5000,
+          windowsHide: true,
+          shell: false,
+          env: await getAugmentedEnvAsync(),
+        });
+        stdout = result.stdout;
+      }
 
       const version = stdout.trim();
       const match = version.match(/(\d+\.\d+\.\d+)/);
