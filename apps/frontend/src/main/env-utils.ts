@@ -474,9 +474,10 @@ export interface PythonSubprocessCommand {
  */
 export function preparePythonSubprocessCommand(executablePath: string): PythonSubprocessCommand {
   // On Windows, .cmd and .bat files need shell=True for proper execution
+  // Use case-insensitive check since Windows file extensions are case-insensitive
+  const lowerPath = executablePath.toLowerCase();
   const isWindowsBatchFile =
-    process.platform === "win32" &&
-    (executablePath.endsWith(".cmd") || executablePath.endsWith(".bat"));
+    process.platform === "win32" && (lowerPath.endsWith(".cmd") || lowerPath.endsWith(".bat"));
   const needsShell = isWindowsBatchFile;
 
   // Check if path is already wrapped in quotes
@@ -517,9 +518,10 @@ export interface ShellCommandResult {
  */
 export function prepareShellCommand(executablePath: string): ShellCommandResult {
   // On Windows, .cmd and .bat files need shell: true for proper execution
+  // Use case-insensitive check since Windows file extensions are case-insensitive
+  const lowerPath = executablePath.toLowerCase();
   const isWindowsBatchFile =
-    process.platform === "win32" &&
-    (executablePath.endsWith(".cmd") || executablePath.endsWith(".bat"));
+    process.platform === "win32" && (lowerPath.endsWith(".cmd") || lowerPath.endsWith(".bat"));
   const needsShell = isWindowsBatchFile;
 
   // Check if path is already wrapped in quotes

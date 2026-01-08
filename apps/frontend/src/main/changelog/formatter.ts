@@ -331,6 +331,7 @@ export function createGenerationScript(prompt: string, claudePath: string): stri
 import subprocess
 import sys
 import base64
+import shlex
 
 try:
     # Decode the base64 prompt to avoid string escaping issues
@@ -340,8 +341,10 @@ try:
     # stdin=DEVNULL prevents hanging when claude checks for interactive input
     ${
       needsShell
-        ? `# On Windows with .cmd/.bat files, use shell=True with quoted path
-    command = ${commandPath} + ' -p "' + prompt + '" --output-format text --model haiku'
+        ? `# On Windows with .cmd/.bat files, use shell=True with properly escaped prompt
+    # Use shlex.quote to safely escape the prompt for shell
+    escaped_prompt = shlex.quote(prompt)
+    command = ${commandPath} + ' -p ' + escaped_prompt + ' --output-format text --model haiku'
     result = subprocess.run(
         command,
         capture_output=True,

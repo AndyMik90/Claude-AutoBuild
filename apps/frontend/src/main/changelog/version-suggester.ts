@@ -126,8 +126,8 @@ Respond with ONLY a JSON object in this exact format (no markdown, no extra text
    * Create Python script to run Claude analysis
    */
   private createAnalysisScript(prompt: string): string {
-    // Escape the prompt for Python string literal
-    const escapedPrompt = prompt.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+    // Convert prompt to base64 to avoid any string escaping issues and shell injection
+    const base64Prompt = Buffer.from(prompt, "utf-8").toString("base64");
 
     // Prepare the path for Python subprocess execution (handles Windows quoting rules)
     const { commandPath, needsShell } = preparePythonSubprocessCommand(this.claudePath);
@@ -135,15 +135,19 @@ Respond with ONLY a JSON object in this exact format (no markdown, no extra text
     return `
 import subprocess
 import sys
+import base64
 
 # Use haiku model for fast, cost-effective analysis
-prompt = "${escapedPrompt}"
+prompt = base64.b64decode('${base64Prompt}').decode('utf-8')
 
 try:
     ${
       needsShell
-        ? `# On Windows with .cmd/.bat files, use shell=True with quoted path
-    command = ${commandPath} + ' chat --model haiku --prompt "' + prompt + '"'
+        ? `# On Windows with .cmd/.bat files, use shell=True with properly escaped prompt
+    # Use shlex.quote to properly escape the prompt for shell
+    import shlex
+    escaped_prompt = shlex.quote(prompt)
+    command = ${commandPath} + ' chat --model haiku --prompt ' + escaped_prompt
     result = subprocess.run(
         command,
         capture_output=True,
