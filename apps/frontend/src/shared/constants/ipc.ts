@@ -236,7 +236,7 @@ export const IPC_CHANNELS = {
   GITHUB_INVESTIGATION_COMPLETE: 'github:investigationComplete',
   GITHUB_INVESTIGATION_ERROR: 'github:investigationError',
 
-// GitLab integration
+  // GitLab integration
   GITLAB_GET_PROJECTS: 'gitlab:getProjects',
   GITLAB_GET_ISSUES: 'gitlab:getIssues',
   GITLAB_GET_ISSUE: 'gitlab:getIssue',
@@ -352,6 +352,13 @@ export const IPC_CHANNELS = {
   GITHUB_AUTOFIX_ANALYZE_PREVIEW_COMPLETE: 'github:autofix:analyzePreviewComplete',
   GITHUB_AUTOFIX_ANALYZE_PREVIEW_ERROR: 'github:autofix:analyzePreviewError',
   GITHUB_AUTOFIX_APPROVE_BATCHES: 'github:autofix:approveBatches',
+
+  // GitHub Auto-PR-Review operations (autonomous PR review and fix loop)
+  GITHUB_AUTO_PR_REVIEW_START: 'github:autoPRReview:start',
+  GITHUB_AUTO_PR_REVIEW_STOP: 'github:autoPRReview:stop',
+  GITHUB_AUTO_PR_REVIEW_GET_STATUS: 'github:autoPRReview:getStatus',
+  GITHUB_AUTO_PR_REVIEW_GET_CONFIG: 'github:autoPRReview:getConfig',
+  GITHUB_AUTO_PR_REVIEW_SAVE_CONFIG: 'github:autoPRReview:saveConfig',
 
   // GitHub PR Review operations
   GITHUB_PR_LIST: 'github:pr:list',
