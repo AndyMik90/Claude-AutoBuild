@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, RefreshCw, AlertCircle } from 'lucide-react';
+import { debugLog } from '../shared/utils/debug-logger';
 import {
   DndContext,
   DragOverlay,
@@ -439,13 +440,84 @@ export function App() {
 
   // Update selected task when tasks change (for real-time updates)
   useEffect(() => {
-    if (selectedTask) {
-      const updatedTask = tasks.find(
-        (t) => t.id === selectedTask.id || t.specId === selectedTask.specId
-      );
-      if (updatedTask && updatedTask !== selectedTask) {
-        setSelectedTask(updatedTask);
-      }
+    if (!selectedTask) {
+      debugLog('[App] No selected task to update');
+      return;
+    }
+
+    const updatedTask = tasks.find(
+      (t) => t.id === selectedTask.id || t.specId === selectedTask.specId
+    );
+
+    debugLog('[App] Task lookup result', {
+      found: !!updatedTask,
+      updatedTaskId: updatedTask?.id,
+      selectedTaskId: selectedTask.id,
+    });
+
+    if (!updatedTask) {
+      debugLog('[App] Updated task not found in tasks array');
+      return;
+    }
+
+    // Compare all mutable fields that affect UI state
+    const subtasksChanged =
+      JSON.stringify(selectedTask.subtasks || []) !==
+      JSON.stringify(updatedTask.subtasks || []);
+    const statusChanged = selectedTask.status !== updatedTask.status;
+    const titleChanged = selectedTask.title !== updatedTask.title;
+    const descriptionChanged = selectedTask.description !== updatedTask.description;
+    const metadataChanged =
+      JSON.stringify(selectedTask.metadata || {}) !==
+      JSON.stringify(updatedTask.metadata || {});
+    const executionProgressChanged =
+      JSON.stringify(selectedTask.executionProgress || {}) !==
+      JSON.stringify(updatedTask.executionProgress || {});
+    const qaReportChanged =
+      JSON.stringify(selectedTask.qaReport || {}) !==
+      JSON.stringify(updatedTask.qaReport || {});
+    const reviewReasonChanged = selectedTask.reviewReason !== updatedTask.reviewReason;
+    const logsChanged =
+      JSON.stringify(selectedTask.logs || []) !==
+      JSON.stringify(updatedTask.logs || []);
+
+    const hasChanged =
+      subtasksChanged || statusChanged || titleChanged || descriptionChanged ||
+      metadataChanged || executionProgressChanged || qaReportChanged ||
+      reviewReasonChanged || logsChanged;
+
+    debugLog('[App] Task comparison', {
+      hasChanged,
+      changes: {
+        subtasks: subtasksChanged,
+        status: statusChanged,
+        title: titleChanged,
+        description: descriptionChanged,
+        metadata: metadataChanged,
+        executionProgress: executionProgressChanged,
+        qaReport: qaReportChanged,
+        reviewReason: reviewReasonChanged,
+        logs: logsChanged,
+      },
+    });
+
+    if (hasChanged) {
+      const reasons = [];
+      if (subtasksChanged) reasons.push('Subtasks');
+      if (statusChanged) reasons.push('Status');
+      if (titleChanged) reasons.push('Title');
+      if (descriptionChanged) reasons.push('Description');
+      if (metadataChanged) reasons.push('Metadata');
+      if (executionProgressChanged) reasons.push('ExecutionProgress');
+      if (qaReportChanged) reasons.push('QAReport');
+      if (reviewReasonChanged) reasons.push('ReviewReason');
+      if (logsChanged) reasons.push('Logs');
+
+      debugLog('[App] Updating selectedTask', {
+        taskId: updatedTask.id,
+        reason: reasons.join(', '),
+      });
+      setSelectedTask(updatedTask);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally omit selectedTask object to prevent infinite re-render loop
   }, [tasks, selectedTask?.id, selectedTask?.specId]);
