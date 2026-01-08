@@ -47,9 +47,12 @@ class IssueLifecycleState(str, Enum):
     # PR states
     PR_CREATING = "pr_creating"
     PR_CREATED = "pr_created"
+    PR_AWAITING_CHECKS = "pr_awaiting_checks"
     PR_REVIEWING = "pr_reviewing"
     PR_CHANGES_REQUESTED = "pr_changes_requested"
+    PR_FIXING = "pr_fixing"
     PR_APPROVED = "pr_approved"
+    PR_READY_TO_MERGE = "pr_ready_to_merge"
 
     # Terminal states
     MERGED = "merged"
@@ -129,7 +132,13 @@ VALID_TRANSITIONS: dict[IssueLifecycleState, set[IssueLifecycleState]] = {
         IssueLifecycleState.BUILD_FAILED,
     },
     IssueLifecycleState.PR_CREATED: {
+        IssueLifecycleState.PR_AWAITING_CHECKS,
         IssueLifecycleState.PR_REVIEWING,
+        IssueLifecycleState.CLOSED,
+    },
+    IssueLifecycleState.PR_AWAITING_CHECKS: {
+        IssueLifecycleState.PR_REVIEWING,  # Checks passed
+        IssueLifecycleState.BUILD_FAILED,  # Checks failed
         IssueLifecycleState.CLOSED,
     },
     IssueLifecycleState.PR_REVIEWING: {
@@ -137,10 +146,21 @@ VALID_TRANSITIONS: dict[IssueLifecycleState, set[IssueLifecycleState]] = {
         IssueLifecycleState.PR_CHANGES_REQUESTED,
     },
     IssueLifecycleState.PR_CHANGES_REQUESTED: {
-        IssueLifecycleState.BUILDING,  # Fix loop
+        IssueLifecycleState.PR_FIXING,  # Start fixing
+        IssueLifecycleState.BUILDING,  # Fix loop (legacy)
+        IssueLifecycleState.CLOSED,
+    },
+    IssueLifecycleState.PR_FIXING: {
+        IssueLifecycleState.PR_AWAITING_CHECKS,  # Fixed, await checks
+        IssueLifecycleState.BUILD_FAILED,  # Fix failed
         IssueLifecycleState.CLOSED,
     },
     IssueLifecycleState.PR_APPROVED: {
+        IssueLifecycleState.PR_READY_TO_MERGE,
+        IssueLifecycleState.MERGED,  # Direct merge (legacy)
+        IssueLifecycleState.CLOSED,
+    },
+    IssueLifecycleState.PR_READY_TO_MERGE: {
         IssueLifecycleState.MERGED,
         IssueLifecycleState.CLOSED,
     },
