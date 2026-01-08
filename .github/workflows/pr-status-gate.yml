@@ -244,14 +244,23 @@ jobs:
             // ═══════════════════════════════════════════════════════════════
 
             const CONFIG = {
-              // Trusted bot/user patterns for Auto-Claude reviews
-              // Security: Only these accounts can update review labels via comments
-              TRUSTED_COMMENTERS: Object.freeze([
+              // Trusted bot accounts for Auto-Claude reviews
+              // Security: These accounts are always trusted for label updates
+              TRUSTED_BOT_ACCOUNTS: Object.freeze([
                 'github-actions[bot]',
                 'github-actions',
                 'auto-claude[bot]',
                 'auto-claude',
                 'AutoClaudeBot'
+              ]),
+
+              // Trusted author associations (GitHub's author_association field)
+              // These users can post Auto-Claude reviews when running locally
+              // Values: COLLABORATOR, MEMBER, OWNER, CONTRIBUTOR
+              TRUSTED_AUTHOR_ASSOCIATIONS: Object.freeze([
+                'COLLABORATOR',
+                'MEMBER',
+                'OWNER'
               ]),
 
               // Patterns that identify Auto-Claude review comments
@@ -267,9 +276,11 @@ jobs:
                   // Only match specific Auto-Claude approval tokens
                   // Removed ambiguous 'Ready To Merge' patterns that could match unrelated text
                   patterns: [
-                    'Auto Claude Review - APPROVED'
+                    'Auto Claude Review - APPROVED',
+                    '✅ Auto Claude Review - APPROVED'
                   ],
-                  regex: /Merge Verdict:.*🟢.*APPROVED/i,
+                  // Match "Merge Verdict: ✅ READY TO MERGE" or "Merge Verdict: 🟢 APPROVED"
+                  regex: /Merge Verdict:.*(?:✅|🟢).*(?:APPROVED|READY TO MERGE)/i,
                   label: 'AC: Approved'
                 },
                 CHANGES_REQUESTED: {
@@ -312,15 +323,23 @@ jobs:
             // ═══════════════════════════════════════════════════════════════
 
             /**
-             * Check if commenter is trusted
-             * Security: Prevents arbitrary users from manipulating labels
+             * Check if commenter is a trusted bot account
              * @param {string} username - GitHub username
              * @returns {boolean}
              */
-            function isTrustedCommenter(username) {
-              return CONFIG.TRUSTED_COMMENTERS.some(trusted =>
+            function isTrustedBot(username) {
+              return CONFIG.TRUSTED_BOT_ACCOUNTS.some(trusted =>
                 username.toLowerCase() === trusted.toLowerCase()
               );
+            }
+
+            /**
+             * Check if commenter has trusted author association
+             * @param {string} authorAssociation - GitHub author_association field
+             * @returns {boolean}
+             */
+            function isTrustedAssociation(authorAssociation) {
+              return CONFIG.TRUSTED_AUTHOR_ASSOCIATIONS.includes(authorAssociation);
             }
 
             /**
@@ -405,35 +424,38 @@ jobs:
             const prNumber = context.payload.issue.number;
             const comment = context.payload.comment;
             const commenter = comment.user.login;
+            const authorAssociation = comment.author_association;
             const body = comment.body || '';
 
             console.log(`::group::PR #${prNumber} - Review Gate`);
             console.log(`Commenter: ${commenter}`);
+            console.log(`Author Association: ${authorAssociation}`);
             console.log(`Comment ID: ${comment.id}`);
 
             // Security Check 1: Verify commenter is trusted
-            const isTrusted = isTrustedCommenter(commenter);
-            console.log(`Trusted commenter: ${isTrusted}`);
+            const isBot = isTrustedBot(commenter);
+            const isCollaborator = isTrustedAssociation(authorAssociation);
+            console.log(`Trusted bot: ${isBot}`);
+            console.log(`Trusted collaborator: ${isCollaborator}`);
 
             // Security Check 2: Verify comment contains Auto-Claude identifier
             const isACComment = isAutoClaudeComment(body);
             console.log(`Auto-Claude comment: ${isACComment}`);
 
             // Security Policy:
-            // - ALLOW: Trusted commenter (bot accounts) with AC identifier
-            // - ALLOW: Trusted commenter without identifier (for bot flexibility)
-            // - DENY: Untrusted commenter (even with AC identifier - prevents spoofing)
+            // - ALLOW: Trusted bot account + AC identifier
+            // - ALLOW: Trusted collaborator/member/owner + AC identifier
+            // - DENY: Random users (even with AC identifier - prevents spoofing)
             //
-            // This prevents malicious users from posting fake "Auto Claude" comments
-            // to manipulate PR labels.
-            if (!isTrusted) {
-              console.log('Skipping: Commenter is not in trusted list');
+            // This allows collaborators to run Auto-Claude locally and post reviews,
+            // while preventing arbitrary users from manipulating labels.
+            if (!isBot && !isCollaborator) {
+              console.log(`Skipping: ${commenter} is not a trusted bot or collaborator`);
               console.log('::endgroup::');
               return;
             }
 
-            // For trusted commenters, still require the AC identifier
-            // to prevent accidental triggering from other bot comments
+            // Always require the AC identifier to prevent accidental triggering
             if (!isACComment) {
               console.log('Skipping: Comment does not contain Auto-Claude identifier');
               console.log('::endgroup::');
@@ -458,9 +480,10 @@ jobs:
             console.log(`✅ PR #${prNumber} review status: ${verdictResult.label}`);
 
             // Write summary
+            const trustedBy = isBot ? 'bot account' : `collaborator (${authorAssociation})`;
             await core.summary
               .addHeading(`PR #${prNumber} Review Gate`, 3)
               .addRaw(`**Verdict:** ${verdictResult.verdict}\n\n`)
               .addRaw(`**Label:** ${verdictResult.label}\n\n`)
-              .addRaw(`**Commenter:** ${commenter}\n`)
+              .addRaw(`**Commenter:** ${commenter} (${trustedBy})\n`)
               .write();

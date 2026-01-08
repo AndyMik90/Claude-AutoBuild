@@ -272,10 +272,15 @@ jobs:
             CONFIG.LABELS.SIZE.filter(l => l !== sizeLabel).forEach(l => labelsToRemove.add(l));
             console.log(`  📏 Size: ${sizeLabel} (${totalLines} lines)`);
 
-            // 4. Set status label
-            labelsToAdd.add('🔄 Checking');
-            CONFIG.LABELS.STATUS.filter(l => l !== '🔄 Checking').forEach(l => labelsToRemove.add(l));
-            console.log(`  🔄 Status: Checking`);
+            // 4. Set status label (only on new PRs - let pr-status-gate handle updates on pushes)
+            // Note: On synchronize events, CI workflows will trigger pr-status-gate when they complete
+            if (isNewPR) {
+              labelsToAdd.add('🔄 Checking');
+              CONFIG.LABELS.STATUS.filter(l => l !== '🔄 Checking').forEach(l => labelsToRemove.add(l));
+              console.log(`  🔄 Status: Checking`);
+            } else {
+              console.log(`  ℹ️ Status: Unchanged (will be updated by pr-status-gate)`);
+            }
 
             // 5. Add review label for new PRs only
             if (isNewPR) {
@@ -309,7 +314,7 @@ jobs:
                 ['Type', summaryType],
                 ['Area', summaryArea],
                 ['Size', sizeLabel],
-                ['Status', '🔄 Checking'],
+                ['Status', isNewPR ? '🔄 Checking' : '(unchanged)'],
                 ['Review', isNewPR ? 'Missing AC Approval' : '(unchanged)']
               ])
               .addRaw(`\n**Files:** ${files.length} | **Lines:** +${pr.additions || 0} / -${pr.deletions || 0}\n`)
