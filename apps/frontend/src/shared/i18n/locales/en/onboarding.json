@@ -32,7 +32,18 @@
     "title": "Claude Authentication",
     "description": "Connect your Claude account to enable AI features",
     "keychainTitle": "Secure Storage",
-    "keychainDescription": "Your tokens are encrypted using your system's keychain. You may see a password prompt from macOS — click \"Always Allow\" to avoid seeing it again."
+    "keychainDescription": "Your tokens are encrypted using your system's keychain. You may see a password prompt from macOS — click \"Always Allow\" to avoid seeing it again.",
+    "toast": {
+      "authSuccess": "Profile authenticated successfully",
+      "authSuccessWithEmail": "Account: {{email}}",
+      "authSuccessGeneric": "Authentication complete. You can now use this profile.",
+      "authStartFailed": "Failed to start authentication",
+      "addProfileFailed": "Failed to add profile",
+      "tokenSaved": "Token saved",
+      "tokenSavedDescription": "Your token has been saved successfully.",
+      "tokenSaveFailed": "Failed to save token",
+      "tryAgain": "Please try again."
+    }
   },
   "memory": {
     "title": "Memory",

@@ -106,8 +106,8 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
         await loadClaudeProfiles();
         // Show simple success notification (non-blocking)
         toast({
-          title: 'Profile authenticated successfully',
-          description: info.email ? `Account: ${info.email}` : 'Authentication complete. You can now use this profile.',
+          title: t('oauth.toast.authSuccess'),
+          description: info.email ? t('oauth.toast.authSuccessWithEmail', { email: info.email }) : t('oauth.toast.authSuccessGeneric'),
         });
       }
     });
@@ -159,8 +159,8 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
           await loadClaudeProfiles();
           toast({
             variant: 'destructive',
-            title: 'Failed to start authentication',
-            description: initResult.error || 'Please try again.',
+            title: t('oauth.toast.authStartFailed'),
+            description: initResult.error || t('oauth.toast.tryAgain'),
           });
         }
       }
@@ -168,8 +168,8 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
       setError(err instanceof Error ? err.message : 'Failed to add profile');
       toast({
         variant: 'destructive',
-        title: 'Failed to add profile',
-        description: 'Please try again.',
+        title: t('oauth.toast.addProfileFailed'),
+        description: t('oauth.toast.tryAgain'),
       });
     } finally {
       setIsAddingProfile(false);
@@ -239,8 +239,8 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
       if (!initResult.success) {
         toast({
           variant: 'destructive',
-          title: 'Failed to start authentication',
-          description: initResult.error || 'Please try again.',
+          title: t('oauth.toast.authStartFailed'),
+          description: initResult.error || t('oauth.toast.tryAgain'),
         });
       }
       // Note: If successful, the terminal is now visible in the UI via the onTerminalAuthCreated event
@@ -249,8 +249,8 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
       setError(err instanceof Error ? err.message : 'Failed to authenticate profile');
       toast({
         variant: 'destructive',
-        title: 'Failed to start authentication',
-        description: 'Please try again.',
+        title: t('oauth.toast.authStartFailed'),
+        description: t('oauth.toast.tryAgain'),
       });
     } finally {
       setAuthenticatingProfileId(null);
@@ -289,22 +289,22 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
         setManualTokenEmail('');
         setShowManualToken(false);
         toast({
-          title: 'Token saved',
-          description: 'Your token has been saved successfully.',
+          title: t('oauth.toast.tokenSaved'),
+          description: t('oauth.toast.tokenSavedDescription'),
         });
       } else {
         toast({
           variant: 'destructive',
-          title: 'Failed to save token',
-          description: result.error || 'Please try again.',
+          title: t('oauth.toast.tokenSaveFailed'),
+          description: result.error || t('oauth.toast.tryAgain'),
         });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save token');
       toast({
         variant: 'destructive',
-        title: 'Failed to save token',
-        description: 'Please try again.',
+        title: t('oauth.toast.tokenSaveFailed'),
+        description: t('oauth.toast.tryAgain'),
       });
     } finally {
       setSavingTokenProfileId(null);

@@ -146,6 +146,13 @@
       "ideation": "Idéation",
       "titleGenerator": "Générateur de titre",
       "claude": "Claude"
+    },
+    "toast": {
+      "authenticating": "Authentification de « {{profileName}} »",
+      "checkTerminal": "Vérifiez la section Terminaux Agent dans la barre latérale pour terminer la connexion OAuth.",
+      "authStartFailed": "Échec du démarrage de l'authentification",
+      "addProfileFailed": "Échec de l'ajout du profil",
+      "tryAgain": "Veuillez réessayer."
     }
   },
   "prReview": {

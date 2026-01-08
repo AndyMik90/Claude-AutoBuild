@@ -146,6 +146,13 @@
       "ideation": "Ideation",
       "titleGenerator": "Title Generator",
       "claude": "Claude"
+    },
+    "toast": {
+      "authenticating": "Authenticating \"{{profileName}}\"",
+      "checkTerminal": "Check the Agent Terminals section in the sidebar to complete OAuth login.",
+      "authStartFailed": "Failed to start authentication",
+      "addProfileFailed": "Failed to add profile",
+      "tryAgain": "Please try again."
     }
   },
   "prReview": {

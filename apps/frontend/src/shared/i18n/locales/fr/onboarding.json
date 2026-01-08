@@ -32,7 +32,18 @@
     "title": "Authentification Claude",
     "description": "Connectez votre compte Claude pour activer les fonctionnalités IA",
     "keychainTitle": "Stockage sécurisé",
-    "keychainDescription": "Vos jetons sont chiffrés à l'aide du trousseau de clés de votre système. Une demande de mot de passe macOS peut apparaître — cliquez sur « Toujours autoriser » pour ne plus la revoir."
+    "keychainDescription": "Vos jetons sont chiffrés à l'aide du trousseau de clés de votre système. Une demande de mot de passe macOS peut apparaître — cliquez sur « Toujours autoriser » pour ne plus la revoir.",
+    "toast": {
+      "authSuccess": "Profil authentifié avec succès",
+      "authSuccessWithEmail": "Compte : {{email}}",
+      "authSuccessGeneric": "Authentification terminée. Vous pouvez maintenant utiliser ce profil.",
+      "authStartFailed": "Échec du démarrage de l'authentification",
+      "addProfileFailed": "Échec de l'ajout du profil",
+      "tokenSaved": "Jeton enregistré",
+      "tokenSavedDescription": "Votre jeton a été enregistré avec succès.",
+      "tokenSaveFailed": "Échec de l'enregistrement du jeton",
+      "tryAgain": "Veuillez réessayer."
+    }
   },
   "memory": {
     "title": "Mémoire",

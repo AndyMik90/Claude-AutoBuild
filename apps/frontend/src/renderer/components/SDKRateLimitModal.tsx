@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle, ExternalLink, Clock, RefreshCw, User, ChevronDown, Check, Star, Zap, FileText, ListTodo, Map, Lightbulb, Plus } from 'lucide-react';
 import {
   Dialog,
@@ -57,6 +58,7 @@ export function SDKRateLimitModal() {
   const { isSDKModalOpen, sdkRateLimitInfo, hideSDKRateLimitModal, clearPendingRateLimit } = useRateLimitStore();
   const { profiles, isSwitching, setSwitching } = useClaudeProfileStore();
   const { toast } = useToast();
+  const { t } = useTranslation('common');
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(false);
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
@@ -164,14 +166,14 @@ export function SDKRateLimitModal() {
 
           // Notify the user about the terminal (non-blocking)
           toast({
-            title: `Authenticating "${profileName}"`,
-            description: 'Check the Agent Terminals section in the sidebar to complete OAuth login.',
+            title: t('rateLimit.toast.authenticating', { profileName }),
+            description: t('rateLimit.toast.checkTerminal'),
           });
         } else {
           toast({
             variant: 'destructive',
-            title: 'Failed to start authentication',
-            description: initResult.error || 'Please try again.',
+            title: t('rateLimit.toast.authStartFailed'),
+            description: initResult.error || t('rateLimit.toast.tryAgain'),
           });
         }
       }
@@ -179,8 +181,8 @@ export function SDKRateLimitModal() {
       console.error('Failed to add profile:', err);
       toast({
         variant: 'destructive',
-        title: 'Failed to add profile',
-        description: 'Please try again.',
+        title: t('rateLimit.toast.addProfileFailed'),
+        description: t('rateLimit.toast.tryAgain'),
       });
     } finally {
       setIsAddingProfile(false);

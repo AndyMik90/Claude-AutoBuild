@@ -120,14 +120,14 @@ export function RateLimitModal() {
 
           // Notify the user about the terminal (non-blocking)
           toast({
-            title: `Authenticating "${profileName}"`,
-            description: 'Check the Agent Terminals section in the sidebar to complete OAuth login.',
+            title: t('rateLimit.toast.authenticating', { profileName }),
+            description: t('rateLimit.toast.checkTerminal'),
           });
         } else {
           toast({
             variant: 'destructive',
-            title: 'Failed to start authentication',
-            description: initResult.error || 'Please try again.',
+            title: t('rateLimit.toast.authStartFailed'),
+            description: initResult.error || t('rateLimit.toast.tryAgain'),
           });
         }
       }
@@ -135,8 +135,8 @@ export function RateLimitModal() {
       console.error('Failed to add profile:', err);
       toast({
         variant: 'destructive',
-        title: 'Failed to add profile',
-        description: 'Please try again.',
+        title: t('rateLimit.toast.addProfileFailed'),
+        description: t('rateLimit.toast.tryAgain'),
       });
     } finally {
       setIsAddingProfile(false);
