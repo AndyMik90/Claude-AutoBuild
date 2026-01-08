@@ -209,9 +209,27 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           const activePhases: ExecutionPhase[] = ['planning', 'coding', 'qa_review', 'qa_fixing'];
           const isInActivePhase = t.executionProgress?.phase && activePhases.includes(t.executionProgress.phase);
 
-          if (!isInActivePhase) {
+          // FIX (Flip-Flop Bug): Terminal phases should NOT trigger status recalculation
+          // When phase is 'complete' or 'failed', the task has finished and status should be stable
+          const terminalPhases: ExecutionPhase[] = ['complete', 'failed'];
+          const isInTerminalPhase = t.executionProgress?.phase && terminalPhases.includes(t.executionProgress.phase);
+
+          // FIX (Flip-Flop Bug): Respect explicit human_review status from plan file
+          // When the plan explicitly says 'human_review', don't override it with calculated status
+          const planStatus = (plan as { status?: string })?.status;
+          const isExplicitHumanReview = planStatus === 'human_review';
+
+          // Only recalculate status if:
+          // 1. NOT in an active execution phase (planning, coding, qa_review, qa_fixing)
+          // 2. NOT in a terminal phase (complete, failed) - status should be stable
+          // 3. Plan doesn't explicitly say human_review
+          if (!isInActivePhase && !isInTerminalPhase && !isExplicitHumanReview) {
             if (allCompleted) {
-              status = 'ai_review';
+              // FIX (Flip-Flop Bug): Don't downgrade from human_review to ai_review
+              // Once a task reaches human_review, it should stay there unless explicitly changed
+              if (t.status !== 'human_review') {
+                status = 'ai_review';
+              }
             } else if (anyFailed) {
               status = 'human_review';
               reviewReason = 'errors';
@@ -225,6 +243,9 @@ export const useTaskStore = create<TaskState>((set, get) => ({
             currentStatus: t.status,
             newStatus: status,
             isInActivePhase,
+            isInTerminalPhase,
+            isExplicitHumanReview,
+            planStatus,
             currentPhase: t.executionProgress?.phase,
             allCompleted,
             anyFailed,
