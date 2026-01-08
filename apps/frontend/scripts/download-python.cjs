@@ -610,11 +610,13 @@ function installPackages(pythonBin, requirementsPath, targetSitePackages) {
   // Install packages directly to target directory
   // --no-compile: Don't create .pyc files (saves space, Python will work without them)
   // --target: Install to specific directory
+  // --only-binary: Force binary wheels for pydantic (prevents silent source build failures)
   // Note: We intentionally DO use pip's cache to preserve built wheels for packages
   // like real_ladybug that must be compiled from source on Intel Mac (no PyPI wheel)
   const pipArgs = [
     '-m', 'pip', 'install',
     '--no-compile',
+    '--only-binary', 'pydantic,pydantic-core',
     '--target', targetSitePackages,
     '-r', requirementsPath,
   ];
@@ -707,7 +709,7 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
       // Without this check, corrupted caches with missing packages would be accepted
       // Note: Same list exists in python-env-manager.ts - keep them in sync
       // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
-      const criticalPackages = ['claude_agent_sdk', 'dotenv'];
+      const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core'];
       const missingPackages = criticalPackages.filter(pkg => {
         const pkgPath = path.join(sitePackagesDir, pkg);
         // Check both directory and __init__.py for more robust validation
@@ -810,7 +812,7 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
       // Verify critical packages were installed before creating marker (fixes #416)
       // Note: Same list exists in python-env-manager.ts - keep them in sync
       // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
-      const criticalPackages = ['claude_agent_sdk', 'dotenv'];
+      const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core'];
       const postInstallMissing = criticalPackages.filter(pkg => {
         const pkgPath = path.join(sitePackagesDir, pkg);
         const initFile = path.join(pkgPath, '__init__.py');
