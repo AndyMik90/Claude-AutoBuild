@@ -51,6 +51,9 @@ jobs:
           retries: 3
           retry-exempt-status-codes: 400,401,403,404,422
           script: |
+            // NOTE: STATUS_LABELS is intentionally duplicated across jobs.
+            // GitHub Actions jobs run in isolated contexts and cannot share runtime constants.
+            // If label values change, update ALL occurrences: update-ci-status, check-status-command
             const STATUS_LABELS = Object.freeze({
               CHECKING: '🔄 Checking',
               PASSED: '✅ Ready for Review',
@@ -64,15 +67,14 @@ jobs:
 
             async function fetchCheckRuns(sha) {
               const { owner, repo } = context.repo;
-              try {
-                const { data } = await github.rest.checks.listForRef({
-                  owner, repo, ref: sha, per_page: 100
-                });
-                return data.check_runs;
-              } catch (error) {
-                core.warning(`Failed to fetch check runs: ${error.message}`);
-                return null;
-              }
+              // Let the configured retries (retries: 3) handle transient failures
+              // Don't catch errors - allow them to propagate for retry logic
+              const checkRuns = await github.paginate(
+                github.rest.checks.listForRef,
+                { owner, repo, ref: sha, per_page: 100 },
+                (response) => response.data
+              );
+              return checkRuns;
             }
 
             function analyzeChecks(checkRuns) {
@@ -105,12 +107,14 @@ jobs:
               const { owner, repo } = context.repo;
               const allLabels = Object.values(STATUS_LABELS);
 
+              // Remove all status labels first - throw on non-404 errors to prevent conflicting labels
               for (const label of allLabels) {
                 try {
                   await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: label });
                 } catch (e) {
                   if (e && e.status !== 404) {
-                    core.warning(`Failed to remove label '${label}': ${e.message}`);
+                    // Throw to prevent adding new label if removal failed (could cause conflicting labels)
+                    throw new Error(`Failed to remove label '${label}': ${e.message}`);
                   }
                 }
               }
@@ -134,8 +138,6 @@ jobs:
             console.log(`PR #${prNumber} - Triggered by: ${triggerWorkflow}, SHA: ${headSha.slice(0, 8)}`);
 
             const checkRuns = await fetchCheckRuns(headSha);
-            if (!checkRuns) return;
-
             console.log(`Found ${checkRuns.length} check runs`);
             const { allComplete, anyFailed, results } = analyzeChecks(checkRuns);
 
@@ -146,6 +148,8 @@ jobs:
             if (!allComplete) {
               const pending = results.filter(r => !r.complete).length;
               console.log(`⏳ ${pending}/${REQUIRED_CHECKS.length} checks pending`);
+              // Update to CHECKING status if checks are still running (prevents stale Ready/Failed status)
+              await updateStatusLabels(prNumber, STATUS_LABELS.CHECKING);
               return;
             }
 
@@ -183,12 +187,17 @@ jobs:
           retries: 3
           retry-exempt-status-codes: 400,401,403,404,422
           script: |
+            // NOTE: STATUS_LABELS is intentionally duplicated across jobs.
+            // GitHub Actions jobs run in isolated contexts and cannot share runtime constants.
+            // If label values change, update ALL occurrences: update-ci-status, check-status-command
             const STATUS_LABELS = Object.freeze({
               CHECKING: '🔄 Checking',
               PASSED: '✅ Ready for Review',
               FAILED: '❌ Checks Failed'
             });
 
+            // NOTE: REVIEW_LABELS is intentionally duplicated across jobs.
+            // If label values change, update ALL occurrences: check-status-command, update-review-status
             const REVIEW_LABELS = Object.freeze([
               'Missing AC Approval',
               'AC: Approved',
@@ -263,12 +272,13 @@ jobs:
 
               if (newStatusLabel !== currentStatusLabel) {
                 statusChanged = true;
+                // Remove all status labels first - throw on non-404 errors to prevent conflicting labels
                 for (const label of Object.values(STATUS_LABELS)) {
                   try {
                     await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: label });
                   } catch (e) {
                     if (e && e.status !== 404) {
-                      core.warning(`Failed to remove label '${label}': ${e.message}`);
+                      throw new Error(`Failed to remove label '${label}': ${e.message}`);
                     }
                   }
                 }
@@ -336,12 +346,11 @@ jobs:
           retry-exempt-status-codes: 400,401,403,404,422
           script: |
             // Security configuration
+            // SECURITY: Only [bot] suffixed accounts are protected by GitHub.
+            // Regular usernames can be registered by anyone and are NOT trusted.
             const TRUSTED_BOT_ACCOUNTS = Object.freeze([
               'github-actions[bot]',
-              'github-actions',
-              'auto-claude[bot]',
-              'auto-claude',
-              'AutoClaudeBot'
+              'auto-claude[bot]'
             ]);
 
             const TRUSTED_AUTHOR_ASSOCIATIONS = Object.freeze([
@@ -356,24 +365,32 @@ jobs:
               'Auto-Claude Review'
             ]);
 
+            // SECURITY: Regex patterns are tightened to prevent false matches
+            // Using \s* instead of .* and requiring specific emoji + verdict format
             const VERDICTS = Object.freeze({
               APPROVED: {
                 patterns: ['Auto Claude Review - APPROVED', '✅ Auto Claude Review - APPROVED'],
-                regex: /Merge Verdict:.*✅.*(?:APPROVED|READY TO MERGE)/i,
+                // Match: "Merge Verdict:" followed by whitespace/emoji, then ✅, then APPROVED/READY TO MERGE
+                regex: /Merge Verdict:\s*✅\s*(?:APPROVED|READY TO MERGE)/i,
                 label: 'AC: Approved'
               },
               CHANGES_REQUESTED: {
                 patterns: ['NEEDS REVISION', 'Needs Revision'],
-                regex: /Merge Verdict:.*🟠/,
+                // Match: "Merge Verdict:" followed by whitespace/emoji, then 🟠
+                regex: /Merge Verdict:\s*🟠/,
                 label: 'AC: Changes Requested'
               },
               BLOCKED: {
                 patterns: ['BLOCKED'],
-                regex: /Merge Verdict:.*🔴/,
+                // Match: "Merge Verdict:" followed by whitespace/emoji, then 🔴
+                regex: /Merge Verdict:\s*🔴/,
                 label: 'AC: Blocked'
               }
             });
 
+            // NOTE: REVIEW_LABELS is intentionally duplicated across jobs.
+            // GitHub Actions jobs run in isolated contexts and cannot share runtime constants.
+            // If label values change, update ALL occurrences: check-status-command, update-review-status
             const REVIEW_LABELS = Object.freeze([
               'Missing AC Approval',
               'AC: Approved',
@@ -384,8 +401,11 @@ jobs:
             ]);
 
             // Helper functions
-            function isTrustedBot(username) {
-              return TRUSTED_BOT_ACCOUNTS.some(t => username.toLowerCase() === t.toLowerCase());
+            // SECURITY: Verify both username AND account type to prevent spoofing
+            function isTrustedBot(username, userType) {
+              const isKnownBot = TRUSTED_BOT_ACCOUNTS.some(t => username.toLowerCase() === t.toLowerCase());
+              // Only trust if it's a known bot account AND GitHub confirms it's a Bot type
+              return isKnownBot && userType === 'Bot';
             }
 
             function isTrustedAssociation(assoc) {
@@ -411,13 +431,15 @@ jobs:
             async function updateReviewLabels(prNumber, newLabel) {
               const { owner, repo } = context.repo;
 
+              // Remove all review labels first - throw on non-404 errors to prevent conflicting labels
               for (const label of REVIEW_LABELS) {
                 try {
                   await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: label });
                   console.log(`  Removed: ${label}`);
                 } catch (e) {
                   if (e && e.status !== 404) {
-                    core.warning(`Failed to remove label '${label}': ${e.message}`);
+                    // Throw to prevent adding new label if removal failed (could cause conflicting labels)
+                    throw new Error(`Failed to remove label '${label}': ${e.message}`);
                   }
                 }
               }
@@ -438,13 +460,15 @@ jobs:
             const prNumber = context.payload.issue.number;
             const comment = context.payload.comment;
             const commenter = comment.user.login;
+            const commenterType = comment.user.type;
             const authorAssociation = comment.author_association;
             const body = comment.body || '';
 
-            console.log(`PR #${prNumber} - Comment by: ${commenter} (${authorAssociation})`);
+            console.log(`PR #${prNumber} - Comment by: ${commenter} (type: ${commenterType}, assoc: ${authorAssociation})`);
 
             // Security checks
-            const isBot = isTrustedBot(commenter);
+            // SECURITY: Bot status requires BOTH username match AND verified Bot type
+            const isBot = isTrustedBot(commenter, commenterType);
             const isCollaborator = isTrustedAssociation(authorAssociation);
             const isACComment = isAutoClaudeComment(body);
 

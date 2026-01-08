@@ -202,21 +202,20 @@ jobs:
             }
 
             /**
-             * Fetch PR files with pagination awareness
+             * Fetch PR files with full pagination support
              * @param {number} prNumber - PR number
-             * @returns {Array} List of files
+             * @returns {Array} List of all files (paginated)
              */
             async function fetchPRFiles(prNumber) {
               const { owner, repo } = context.repo;
 
               try {
-                const { data } = await github.rest.pulls.listFiles({
-                  owner,
-                  repo,
-                  pull_number: prNumber,
-                  per_page: CONFIG.MAX_FILES_PER_PAGE
-                });
-                return data;
+                // Use paginate to fetch ALL files, not just first 100
+                const files = await github.paginate(
+                  github.rest.pulls.listFiles,
+                  { owner, repo, pull_number: prNumber, per_page: CONFIG.MAX_FILES_PER_PAGE }
+                );
+                return files;
               } catch (e) {
                 console.log(`  ⚠ Could not fetch files: ${e.message}`);
                 return [];
