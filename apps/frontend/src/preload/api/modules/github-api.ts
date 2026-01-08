@@ -448,6 +448,143 @@ export interface PRLogs {
   };
 }
 
+// =============================================================================
+// Auto-PR-Review Configuration Types
+// =============================================================================
+
+/**
+ * Configuration for the autonomous PR review system.
+ * IMPORTANT: requireHumanApproval MUST always be true - system NEVER auto-merges.
+ */
+export interface AutoPRReviewConfig {
+  /** Maximum number of review/fix iterations before requiring manual intervention */
+  maxPRReviewIterations: number;
+  /** Timeout in milliseconds for CI checks to complete (default: 1800000 = 30 min) */
+  ciCheckTimeout: number;
+  /** Timeout in milliseconds for external bot comments (default: 900000 = 15 min) */
+  externalBotTimeout: number;
+  /** Polling interval in milliseconds for checking CI/bot status (default: 60000 = 1 min) */
+  pollInterval: number;
+  /** Whether human approval is required before merge. CRITICAL: This MUST always be true. */
+  requireHumanApproval: true;
+  /** List of GitHub usernames allowed to trigger auto-PR-review */
+  allowedUsers: string[];
+}
+
+/** Default configuration values for Auto-PR-Review */
+export const DEFAULT_AUTO_PR_REVIEW_CONFIG: AutoPRReviewConfig = {
+  maxPRReviewIterations: 5,
+  ciCheckTimeout: 1800000,
+  externalBotTimeout: 900000,
+  pollInterval: 60000,
+  requireHumanApproval: true,
+  allowedUsers: [],
+};
+
+/** Status values for Auto-PR-Review workflow */
+export type AutoPRReviewStatus =
+  | 'idle'
+  | 'awaiting_checks'
+  | 'pr_reviewing'
+  | 'pr_fixing'
+  | 'pr_ready_to_merge'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+/** Status of a CI check run */
+export interface CICheckStatus {
+  name: string;
+  status: 'pending' | 'in_progress' | 'success' | 'failure' | 'cancelled' | 'skipped';
+  startedAt?: string;
+  completedAt?: string;
+  detailsUrl?: string;
+  conclusion?: string;
+}
+
+/** Status of an external bot's review */
+export interface ExternalBotStatus {
+  botName: string;
+  accountId?: number;
+  hasCommented: boolean;
+  commentedAt?: string;
+  isVerified: boolean;
+  findingsCount?: number;
+}
+
+/** Progress information for an active Auto-PR-Review operation */
+export interface AutoPRReviewProgress {
+  prNumber: number;
+  repository: string;
+  status: AutoPRReviewStatus;
+  currentIteration: number;
+  maxIterations: number;
+  startedAt: string;
+  elapsedMs: number;
+  ciChecks: CICheckStatus[];
+  ciSummary: { total: number; passed: number; failed: number; pending: number };
+  externalBots: ExternalBotStatus[];
+  fixedFindingsCount: number;
+  remainingFindingsCount: number;
+  currentSha?: string;
+  originalSha?: string;
+  errorMessage?: string;
+  isCancellable: boolean;
+  currentActivity?: string;
+}
+
+/** Request to start Auto-PR-Review for a specific PR */
+export interface AutoPRReviewStartRequest {
+  repository: string;
+  prNumber: number;
+  configOverrides?: Partial<Omit<AutoPRReviewConfig, 'requireHumanApproval'>>;
+}
+
+/** Response from starting Auto-PR-Review */
+export interface AutoPRReviewStartResponse {
+  success: boolean;
+  message: string;
+  reviewId?: string;
+  error?: string;
+}
+
+/** Request to stop/cancel an active Auto-PR-Review */
+export interface AutoPRReviewStopRequest {
+  repository: string;
+  prNumber: number;
+  reason?: string;
+}
+
+/** Response from stopping Auto-PR-Review */
+export interface AutoPRReviewStopResponse {
+  success: boolean;
+  message: string;
+  error?: string;
+}
+
+/** Request to get status of an Auto-PR-Review operation */
+export interface AutoPRReviewStatusRequest {
+  repository: string;
+  prNumber: number;
+}
+
+/** Response with Auto-PR-Review status */
+export interface AutoPRReviewStatusResponse {
+  isActive: boolean;
+  progress?: AutoPRReviewProgress;
+  error?: string;
+}
+
+/** Type guard to check if a status is a terminal state */
+export function isTerminalStatus(status: AutoPRReviewStatus): boolean {
+  return ['completed', 'failed', 'cancelled', 'pr_ready_to_merge'].includes(status);
+}
+
+/** Type guard to check if a status indicates the review is in progress */
+export function isInProgressStatus(status: AutoPRReviewStatus): boolean {
+  return ['awaiting_checks', 'pr_reviewing', 'pr_fixing'].includes(status);
+}
+
 /**
  * Creates the GitHub Integration API implementation
  */
