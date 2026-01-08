@@ -1313,6 +1313,48 @@ function getTaskBaseBranch(specDir: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Get the effective base branch for a task with proper fallback chain.
+ * Priority:
+ * 1. Task metadata baseBranch (explicit task-level override from task_metadata.json)
+ * 2. Project settings mainBranch (project-level default)
+ * 3. Git default branch detection (main/master)
+ * 4. Fallback to 'main'
+ *
+ * This should be used instead of getting the current HEAD branch,
+ * as the user may be on a feature branch when viewing worktree status.
+ */
+function getEffectiveBaseBranch(projectPath: string, specId: string, projectMainBranch?: string): string {
+  // 1. Try task metadata baseBranch
+  const specDir = path.join(projectPath, '.auto-claude', 'specs', specId);
+  const taskBaseBranch = getTaskBaseBranch(specDir);
+  if (taskBaseBranch) {
+    return taskBaseBranch;
+  }
+
+  // 2. Try project settings mainBranch
+  if (projectMainBranch && GIT_BRANCH_REGEX.test(projectMainBranch)) {
+    return projectMainBranch;
+  }
+
+  // 3. Try to detect main/master branch
+  for (const branch of ['main', 'master']) {
+    try {
+      execFileSync(getToolPath('git'), ['rev-parse', '--verify', branch], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      return branch;
+    } catch {
+      // Branch doesn't exist, try next
+    }
+  }
+
+  // 4. Fallback to 'main'
+  return 'main';
+}
+
 // ============================================
 // Helper functions for TASK_WORKTREE_CREATE_PR
 // ============================================
@@ -1612,17 +1654,10 @@ export function registerWorktreeHandlers(
             encoding: 'utf-8'
           }).trim();
 
-          // Get base branch - the current branch in the main project (where changes will be merged)
-          // This matches the Python merge logic which merges into the user's current branch
-          let baseBranch = 'main';
-          try {
-            baseBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-              cwd: project.path,
-              encoding: 'utf-8'
-            }).trim();
-          } catch {
-            baseBranch = 'main';
-          }
+          // Get base branch using proper fallback chain:
+          // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
+          // Note: We do NOT use current HEAD as that may be a feature branch
+          const baseBranch = getEffectiveBaseBranch(project.path, task.specId, project.settings?.mainBranch);
 
           // Get commit count (cross-platform - no shell syntax)
           let commitCount = 0;
@@ -1711,16 +1746,10 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'No worktree found for this task' };
         }
 
-        // Get base branch - the current branch in the main project (where changes will be merged)
-        let baseBranch = 'main';
-        try {
-          baseBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-            cwd: project.path,
-            encoding: 'utf-8'
-          }).trim();
-        } catch {
-          baseBranch = 'main';
-        }
+        // Get base branch using proper fallback chain:
+        // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
+        // Note: We do NOT use current HEAD as that may be a feature branch
+        const baseBranch = getEffectiveBaseBranch(project.path, task.specId, project.settings?.mainBranch);
 
         // Get the diff with file stats
         const files: WorktreeDiffFile[] = [];
@@ -2657,16 +2686,10 @@ export function registerWorktreeHandlers(
               encoding: 'utf-8'
             }).trim();
 
-            // Get base branch - the current branch in the main project (where changes will be merged)
-            let baseBranch = 'main';
-            try {
-              baseBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-                cwd: project.path,
-                encoding: 'utf-8'
-              }).trim();
-            } catch {
-              baseBranch = 'main';
-            }
+            // Get base branch using proper fallback chain:
+            // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
+            // Note: We do NOT use current HEAD as that may be a feature branch
+            const baseBranch = getEffectiveBaseBranch(project.path, entry, project.settings?.mainBranch);
 
             // Get commit count (cross-platform - no shell syntax)
             let commitCount = 0;
