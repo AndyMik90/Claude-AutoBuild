@@ -13,7 +13,7 @@ import { getClaudeProfileManager, initializeClaudeProfileManager } from '../clau
 import * as OutputParser from './output-parser';
 import * as SessionHandler from './session-handler';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
-import { escapeShellArg, buildCdCommand, buildCdCommandForShell, buildPathPrefixForShell, escapeCommandForShell } from '../../shared/utils/shell-escape';
+import { escapeShellArg, buildCdCommandForShell, buildPathPrefixForShell, escapeCommandForShell } from '../../shared/utils/shell-escape';
 import { getClaudeCliInvocation, getClaudeCliInvocationAsync } from '../claude-cli-utils';
 import type {
   TerminalProcess,

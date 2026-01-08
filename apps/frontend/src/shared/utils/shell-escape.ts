@@ -52,30 +52,21 @@ export function escapeShellArgPowerShell(arg: string): string {
 }
 
 /**
- * Escape a string for safe use as a Windows cmd.exe argument.
+ * Escape a string for use inside a double-quoted cmd.exe argument.
  *
- * Windows cmd.exe uses different escaping rules than POSIX shells.
- * This function escapes special characters that could break out of strings
- * or execute additional commands.
+ * Inside double quotes in cmd.exe:
+ * - Special chars &|<>^ are treated as literals (no escaping needed)
+ * - % must be escaped as %% to prevent variable expansion
+ * - " cannot be reliably escaped inside double quotes in cmd.exe;
+ *   we assume paths don't contain double quotes (extremely rare)
  *
  * @param arg - The argument to escape
- * @returns The escaped argument safe for use in cmd.exe
+ * @returns The escaped argument safe for use inside double quotes in cmd.exe
  */
 export function escapeShellArgWindows(arg: string): string {
-  // Escape characters that have special meaning in cmd.exe:
-  // ^ is the escape character in cmd.exe
-  // " & | < > ^ need to be escaped
-  // % is used for variable expansion
-  const escaped = arg
-    .replace(/\^/g, '^^')     // Escape carets first (escape char itself)
-    .replace(/"/g, '^"')      // Escape double quotes
-    .replace(/&/g, '^&')      // Escape ampersand (command separator)
-    .replace(/\|/g, '^|')     // Escape pipe
-    .replace(/</g, '^<')      // Escape less than
-    .replace(/>/g, '^>')      // Escape greater than
-    .replace(/%/g, '%%');     // Escape percent (variable expansion)
-
-  return escaped;
+  // Only % needs escaping inside double quotes - it prevents variable expansion
+  // Characters like &|<>^ are treated as literals inside double quotes
+  return arg.replace(/%/g, '%%');
 }
 
 /**
@@ -208,14 +199,16 @@ export function buildPathPrefixForShell(envPath: string | undefined, shellType: 
 
     case 'cmd':
       // cmd.exe: set "PATH=value" && (keep Windows semicolons in path)
-      return `set "PATH=${envPath}" && `;
+      // Escape % to prevent variable expansion
+      return `set "PATH=${escapeShellArgWindows(envPath)}" && `;
 
     case 'bash':
     case 'zsh':
-    default:
+    default: {
       // Bash/Zsh: PATH='value' (convert Windows semicolons to Unix colons)
       const unixPath = envPath.replace(/;/g, ':');
       return `PATH=${escapeShellArg(unixPath)} `;
+    }
   }
 }
 
