@@ -1,14 +1,14 @@
-import { spawn } from 'child_process';
-import * as os from 'os';
-import type { GitCommit } from '../../shared/types';
-import { getProfileEnv } from '../rate-limit-detector';
-import { parsePythonCommand } from '../python-detector';
-import { getAugmentedEnv } from '../env-utils';
+import { spawn } from "child_process";
+import * as os from "os";
+import type { GitCommit } from "../../shared/types";
+import { getProfileEnv } from "../rate-limit-detector";
+import { parsePythonCommand } from "../python-detector";
+import { getAugmentedEnv } from "../env-utils";
 
 interface VersionSuggestion {
   version: string;
   reason: string;
-  bumpType: 'major' | 'minor' | 'patch';
+  bumpType: "major" | "minor" | "patch";
 }
 
 /**
@@ -29,7 +29,7 @@ export class VersionSuggester {
 
   private debug(...args: unknown[]): void {
     if (this.debugEnabled) {
-      console.warn('[VersionSuggester]', ...args);
+      console.warn("[VersionSuggester]", ...args);
     }
   }
 
@@ -40,9 +40,9 @@ export class VersionSuggester {
     commits: GitCommit[],
     currentVersion: string
   ): Promise<VersionSuggestion> {
-    this.debug('suggestVersionBump called', {
+    this.debug("suggestVersionBump called", {
       commitCount: commits.length,
-      currentVersion
+      currentVersion,
     });
 
     // Build prompt for Claude to analyze commits
@@ -55,42 +55,42 @@ export class VersionSuggester {
     return new Promise((resolve, _reject) => {
       // Parse Python command to handle space-separated commands like "py -3"
       const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
-      const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
+      const childProcess = spawn(pythonCommand, [...pythonBaseArgs, "-c", script], {
         cwd: this.autoBuildSourcePath,
-        env: spawnEnv
+        env: spawnEnv,
       });
 
-      let output = '';
-      let errorOutput = '';
+      let output = "";
+      let errorOutput = "";
 
-      childProcess.stdout?.on('data', (data: Buffer) => {
+      childProcess.stdout?.on("data", (data: Buffer) => {
         output += data.toString();
       });
 
-      childProcess.stderr?.on('data', (data: Buffer) => {
+      childProcess.stderr?.on("data", (data: Buffer) => {
         errorOutput += data.toString();
       });
 
-      childProcess.on('exit', (code: number | null) => {
+      childProcess.on("exit", (code: number | null) => {
         if (code === 0 && output.trim()) {
           try {
             const result = this.parseAIResponse(output.trim(), currentVersion);
-            this.debug('AI suggestion parsed', result);
+            this.debug("AI suggestion parsed", result);
             resolve(result);
           } catch (error) {
-            this.debug('Failed to parse AI response', error);
+            this.debug("Failed to parse AI response", error);
             // Fallback to simple bump
             resolve(this.fallbackSuggestion(currentVersion));
           }
         } else {
-          this.debug('AI analysis failed', { code, error: errorOutput });
+          this.debug("AI analysis failed", { code, error: errorOutput });
           // Fallback to simple bump
           resolve(this.fallbackSuggestion(currentVersion));
         }
       });
 
-      childProcess.on('error', (err: Error) => {
-        this.debug('Process error', err);
+      childProcess.on("error", (err: Error) => {
+        this.debug("Process error", err);
         resolve(this.fallbackSuggestion(currentVersion));
       });
     });
@@ -100,9 +100,7 @@ export class VersionSuggester {
    * Build prompt for Claude to analyze commits and suggest version bump
    */
   private buildPrompt(commits: GitCommit[], currentVersion: string): string {
-    const commitSummary = commits
-      .map((c, i) => `${i + 1}. ${c.hash} - ${c.subject}`)
-      .join('\n');
+    const commitSummary = commits.map((c, i) => `${i + 1}. ${c.hash} - ${c.subject}`).join("\n");
 
     return `You are a semantic versioning expert analyzing git commits to suggest the appropriate version bump.
 
@@ -129,10 +127,18 @@ Respond with ONLY a JSON object in this exact format (no markdown, no extra text
    */
   private createAnalysisScript(prompt: string): string {
     // Escape the prompt for Python string literal
-    const escapedPrompt = prompt
-      .replace(/\\/g, '\\\\')
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, '\\n');
+    const escapedPrompt = prompt.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+
+    // On Windows, .cmd and .bat files need shell=True for proper execution
+    // When using shell=True, we need to quote paths containing spaces
+    const isWindowsBatchFile = this.claudePath.endsWith(".cmd") || this.claudePath.endsWith(".bat");
+    const needsShell = isWindowsBatchFile;
+
+    // For shell mode, escape the path for the shell command string
+    // For list mode, escape backslashes for Python string
+    const escapedClaudePath = needsShell
+      ? this.claudePath.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+      : this.claudePath.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 
     return `
 import subprocess
@@ -142,12 +148,24 @@ import sys
 prompt = "${escapedPrompt}"
 
 try:
+    ${
+      needsShell
+        ? `# On Windows with .cmd/.bat files, use shell=True with quoted path
+    command = "${escapedClaudePath} chat --model haiku --prompt \\"{prompt}\\""
     result = subprocess.run(
-        ["${this.claudePath}", "chat", "--model", "haiku", "--prompt", prompt],
+        command,
+        capture_output=True,
+        text=True,
+        check=True,
+        shell=True
+    )`
+        : `result = subprocess.run(
+        ['${escapedClaudePath}', 'chat', '--model', 'haiku', '--prompt', prompt],
         capture_output=True,
         text=True,
         check=True
-    )
+    )`
+    }
     print(result.stdout)
 except subprocess.CalledProcessError as e:
     print(f"Error: {e.stderr}", file=sys.stderr)
@@ -165,25 +183,25 @@ except Exception as e:
     // Extract JSON from output (Claude might wrap it in markdown or other text)
     const jsonMatch = output.match(/\{[\s\S]*"bumpType"[\s\S]*"reason"[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error('No JSON found in AI response');
+      throw new Error("No JSON found in AI response");
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
-    const bumpType = parsed.bumpType as 'major' | 'minor' | 'patch';
-    const reason = parsed.reason || 'AI analysis of commits';
+    const bumpType = parsed.bumpType as "major" | "minor" | "patch";
+    const reason = parsed.reason || "AI analysis of commits";
 
     // Calculate new version
-    const [major, minor, patch] = currentVersion.split('.').map(Number);
+    const [major, minor, patch] = currentVersion.split(".").map(Number);
 
     let newVersion: string;
     switch (bumpType) {
-      case 'major':
+      case "major":
         newVersion = `${major + 1}.0.0`;
         break;
-      case 'minor':
+      case "minor":
         newVersion = `${major}.${minor + 1}.0`;
         break;
-      case 'patch':
+      case "patch":
       default:
         newVersion = `${major}.${minor}.${patch + 1}`;
         break;
@@ -192,7 +210,7 @@ except Exception as e:
     return {
       version: newVersion,
       reason,
-      bumpType
+      bumpType,
     };
   }
 
@@ -200,11 +218,11 @@ except Exception as e:
    * Fallback suggestion if AI analysis fails
    */
   private fallbackSuggestion(currentVersion: string): VersionSuggestion {
-    const [major, minor, patch] = currentVersion.split('.').map(Number);
+    const [major, minor, patch] = currentVersion.split(".").map(Number);
     return {
       version: `${major}.${minor}.${patch + 1}`,
-      reason: 'Patch version bump (default)',
-      bumpType: 'patch'
+      reason: "Patch version bump (default)",
+      bumpType: "patch",
     };
   }
 
@@ -213,7 +231,7 @@ except Exception as e:
    */
   private buildSpawnEnvironment(): Record<string, string> {
     const homeDir = os.homedir();
-    const isWindows = process.platform === 'win32';
+    const isWindows = process.platform === "win32";
 
     // Use getAugmentedEnv() to ensure common tool paths are available
     // even when app is launched from Finder/Dock
@@ -227,10 +245,10 @@ except Exception as e:
       ...profileEnv,
       // Ensure critical env vars are set for claude CLI
       ...(isWindows ? { USERPROFILE: homeDir } : { HOME: homeDir }),
-      USER: process.env.USER || process.env.USERNAME || 'user',
-      PYTHONUNBUFFERED: '1',
-      PYTHONIOENCODING: 'utf-8',
-      PYTHONUTF8: '1'
+      USER: process.env.USER || process.env.USERNAME || "user",
+      PYTHONUNBUFFERED: "1",
+      PYTHONIOENCODING: "utf-8",
+      PYTHONUTF8: "1",
     };
 
     return spawnEnv;

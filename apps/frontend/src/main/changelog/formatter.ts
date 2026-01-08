@@ -1,15 +1,11 @@
-import type {
-  ChangelogGenerationRequest,
-  TaskSpecContent,
-  GitCommit
-} from '../../shared/types';
-import { extractSpecOverview } from './parser';
+import type { ChangelogGenerationRequest, TaskSpecContent, GitCommit } from "../../shared/types";
+import { extractSpecOverview } from "./parser";
 
 /**
  * Format instructions for different changelog styles
  */
 const FORMAT_TEMPLATES = {
-  'keep-a-changelog': (version: string, date: string) => `## [${version}] - ${date}
+  "keep-a-changelog": (version: string, date: string) => `## [${version}] - ${date}
 
 ### Added
 - [New features]
@@ -20,7 +16,7 @@ const FORMAT_TEMPLATES = {
 ### Fixed
 - [Bug fixes]`,
 
-  'simple-list': (version: string, date: string) => `# Release v${version} (${date})
+  "simple-list": (version: string, date: string) => `# Release v${version} (${date})
 
 **New Features:**
 - [List features]
@@ -31,7 +27,7 @@ const FORMAT_TEMPLATES = {
 **Bug Fixes:**
 - [List fixes]`,
 
-  'github-release': (version: string, date: string) => `## ${version} - ${date}
+  "github-release": (version: string, date: string) => `## ${version} - ${date}
 
 ### New Features
 
@@ -53,37 +49,40 @@ const FORMAT_TEMPLATES = {
 
 ## Thanks to all contributors
 
-@contributor1, @contributor2`
+@contributor1, @contributor2`,
 };
 
 /**
  * Audience-specific writing instructions
  */
 const AUDIENCE_INSTRUCTIONS = {
-  'technical': 'You are a technical documentation specialist creating a changelog for developers. Use precise technical language.',
-  'user-facing': 'You are a product manager writing release notes for end users. Use clear, non-technical language focusing on user benefits.',
-  'marketing': 'You are a marketing specialist writing release notes. Focus on outcomes and user impact with compelling language.'
+  technical:
+    "You are a technical documentation specialist creating a changelog for developers. Use precise technical language.",
+  "user-facing":
+    "You are a product manager writing release notes for end users. Use clear, non-technical language focusing on user benefits.",
+  marketing:
+    "You are a marketing specialist writing release notes. Focus on outcomes and user impact with compelling language.",
 };
 
 /**
  * Get emoji usage instructions based on level and format
  */
 function getEmojiInstructions(emojiLevel?: string, format?: string): string {
-  if (!emojiLevel || emojiLevel === 'none') {
-    return '';
+  if (!emojiLevel || emojiLevel === "none") {
+    return "";
   }
 
   // GitHub Release format uses specific emoji style matching Gemini CLI pattern
-  if (format === 'github-release') {
+  if (format === "github-release") {
     const githubInstructions: Record<string, string> = {
-      'little': `Add emojis ONLY to section headings. Use these specific emoji-heading pairs:
+      little: `Add emojis ONLY to section headings. Use these specific emoji-heading pairs:
 - "### ✨ New Features"
 - "### 🛠️ Improvements"
 - "### 🐛 Bug Fixes"
 - "### 📚 Documentation"
 - "### 🔧 Other Changes"
 Do NOT add emojis to individual line items.`,
-      'medium': `Add emojis to section headings AND to notable/important items only.
+      medium: `Add emojis to section headings AND to notable/important items only.
 Section headings MUST use these specific emoji-heading pairs:
 - "### ✨ New Features"
 - "### 🛠️ Improvements"
@@ -91,35 +90,35 @@ Section headings MUST use these specific emoji-heading pairs:
 - "### 📚 Documentation"
 - "### 🔧 Other Changes"
 Add emojis to 2-3 highlighted items per section that are particularly significant.`,
-      'high': `Add emojis to section headings AND every line item.
+      high: `Add emojis to section headings AND every line item.
 Section headings MUST use these specific emoji-heading pairs:
 - "### ✨ New Features"
 - "### 🛠️ Improvements"
 - "### 🐛 Bug Fixes"
 - "### 📚 Documentation"
 - "### 🔧 Other Changes"
-Every line item should start with a contextual emoji.`
+Every line item should start with a contextual emoji.`,
     };
-    return githubInstructions[emojiLevel] || '';
+    return githubInstructions[emojiLevel] || "";
   }
 
   // Default instructions for other formats
   const instructions: Record<string, string> = {
-    'little': `Add emojis ONLY to section headings. Each heading should have one contextual emoji at the start.
+    little: `Add emojis ONLY to section headings. Each heading should have one contextual emoji at the start.
 Examples:
 - "### ✨ New Features" or "### 🚀 New Features"
 - "### 🐛 Bug Fixes"
 - "### 🔧 Improvements" or "### ⚡ Improvements"
 - "### 📚 Documentation"
 Do NOT add emojis to individual line items.`,
-    'medium': `Add emojis to section headings AND to notable/important items only.
+    medium: `Add emojis to section headings AND to notable/important items only.
 Section headings should have one emoji (e.g., "### ✨ New Features", "### 🐛 Bug Fixes").
 Add emojis to 2-3 highlighted items per section that are particularly significant.
 Examples of highlighted items:
 - "- 🎉 **Major Feature**: Description"
 - "- 🔒 **Security Fix**: Description"
 Most regular line items should NOT have emojis.`,
-    'high': `Add emojis to section headings AND every line item for maximum visual appeal.
+    high: `Add emojis to section headings AND every line item for maximum visual appeal.
 Section headings: "### ✨ New Features", "### 🐛 Bug Fixes", "### ⚡ Improvements"
 Every line item should start with a contextual emoji:
 - "- ✨ Added new feature..."
@@ -127,10 +126,10 @@ Every line item should start with a contextual emoji:
 - "- 🔧 Improved performance of..."
 - "- 📝 Updated documentation for..."
 - "- 🎨 Refined UI styling..."
-Use diverse, contextually appropriate emojis for each item.`
+Use diverse, contextually appropriate emojis for each item.`,
   };
 
-  return instructions[emojiLevel] || '';
+  return instructions[emojiLevel] || "";
 }
 
 /**
@@ -145,28 +144,30 @@ export function buildChangelogPrompt(
   const emojiInstruction = getEmojiInstructions(request.emojiLevel, request.format);
 
   // Build CONCISE task summaries (key to avoiding timeout)
-  const taskSummaries = specs.map(spec => {
-    const parts: string[] = [`- **${spec.specId}**`];
+  const taskSummaries = specs
+    .map((spec) => {
+      const parts: string[] = [`- **${spec.specId}**`];
 
-    // Get workflow type if available
-    if (spec.implementationPlan?.workflow_type) {
-      parts.push(`(${spec.implementationPlan.workflow_type})`);
-    }
-
-    // Extract just the overview/purpose
-    if (spec.spec) {
-      const overview = extractSpecOverview(spec.spec);
-      if (overview) {
-        parts.push(`: ${overview}`);
+      // Get workflow type if available
+      if (spec.implementationPlan?.workflow_type) {
+        parts.push(`(${spec.implementationPlan.workflow_type})`);
       }
-    }
 
-    return parts.join('');
-  }).join('\n');
+      // Extract just the overview/purpose
+      if (spec.spec) {
+        const overview = extractSpecOverview(spec.spec);
+        if (overview) {
+          parts.push(`: ${overview}`);
+        }
+      }
+
+      return parts.join("");
+    })
+    .join("\n");
 
   // Format-specific instructions for tasks mode
-  let formatSpecificInstructions = '';
-  if (request.format === 'github-release') {
+  let formatSpecificInstructions = "";
+  if (request.format === "github-release") {
     formatSpecificInstructions = `
 For GitHub Release format:
 
@@ -188,13 +189,13 @@ RELEASE TITLE (CRITICAL):
 
 Format:
 ${formatInstruction}
-${emojiInstruction ? `\nEmoji Usage:\n${emojiInstruction}` : ''}
+${emojiInstruction ? `\nEmoji Usage:\n${emojiInstruction}` : ""}
 ${formatSpecificInstructions}
 
 Completed tasks:
 ${taskSummaries}
 
-${request.customInstructions ? `Note: ${request.customInstructions}` : ''}
+${request.customInstructions ? `Note: ${request.customInstructions}` : ""}
 
 CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory text, analysis, or explanation. Start directly with the changelog heading (## or #). No "Here's the changelog" or similar phrases.`;
 }
@@ -202,51 +203,50 @@ CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory
 /**
  * Build changelog prompt from git commits
  */
-export function buildGitPrompt(
-  request: ChangelogGenerationRequest,
-  commits: GitCommit[]
-): string {
+export function buildGitPrompt(request: ChangelogGenerationRequest, commits: GitCommit[]): string {
   const audienceInstruction = AUDIENCE_INSTRUCTIONS[request.audience];
   const formatInstruction = FORMAT_TEMPLATES[request.format](request.version, request.date);
   const emojiInstruction = getEmojiInstructions(request.emojiLevel, request.format);
 
   // Format commits for the prompt
   // Include author info for github-release format
-  const commitLines = commits.map(commit => {
-    const hash = commit.hash;
-    const subject = commit.subject;
-    const author = commit.author;
+  const commitLines = commits
+    .map((commit) => {
+      const hash = commit.hash;
+      const subject = commit.subject;
+      const author = commit.author;
 
-    // Detect conventional commit format: type(scope): message
-    const conventionalMatch = subject.match(/^(\w+)(?:\(([^)]+)\))?:\s*(.+)$/);
-    if (conventionalMatch) {
-      const [, type, scope, message] = conventionalMatch;
-      return `- ${hash} | ${type}${scope ? `(${scope})` : ''}: ${message} | by ${author}`;
-    }
-    return `- ${hash} | ${subject} | by ${author}`;
-  }).join('\n');
+      // Detect conventional commit format: type(scope): message
+      const conventionalMatch = subject.match(/^(\w+)(?:\(([^)]+)\))?:\s*(.+)$/);
+      if (conventionalMatch) {
+        const [, type, scope, message] = conventionalMatch;
+        return `- ${hash} | ${type}${scope ? `(${scope})` : ""}: ${message} | by ${author}`;
+      }
+      return `- ${hash} | ${subject} | by ${author}`;
+    })
+    .join("\n");
 
   // Add context about branch/range if available
-  let sourceContext = '';
+  let sourceContext = "";
   if (request.branchDiff) {
     sourceContext = `These commits are from branch "${request.branchDiff.compareBranch}" that are not in "${request.branchDiff.baseBranch}".`;
   } else if (request.gitHistory) {
     switch (request.gitHistory.type) {
-      case 'recent':
+      case "recent":
         sourceContext = `These are the ${commits.length} most recent commits.`;
         break;
-      case 'since-date':
+      case "since-date":
         sourceContext = `These are commits since ${request.gitHistory.sinceDate}.`;
         break;
-      case 'tag-range':
-        sourceContext = `These are commits between tag "${request.gitHistory.fromTag}" and "${request.gitHistory.toTag || 'HEAD'}".`;
+      case "tag-range":
+        sourceContext = `These are commits between tag "${request.gitHistory.fromTag}" and "${request.gitHistory.toTag || "HEAD"}".`;
         break;
     }
   }
 
   // Format-specific instructions
-  let formatSpecificInstructions = '';
-  if (request.format === 'github-release') {
+  let formatSpecificInstructions = "";
+  if (request.format === "github-release") {
     formatSpecificInstructions = `
 For GitHub Release format, you MUST follow this structure:
 
@@ -306,12 +306,12 @@ ${formatSpecificInstructions}
 
 Format:
 ${formatInstruction}
-${emojiInstruction ? `\nEmoji Usage:\n${emojiInstruction}` : ''}
+${emojiInstruction ? `\nEmoji Usage:\n${emojiInstruction}` : ""}
 
 Git commits (${commits.length} total):
 ${commitLines}
 
-${request.customInstructions ? `Note: ${request.customInstructions}` : ''}
+${request.customInstructions ? `Note: ${request.customInstructions}` : ""}
 
 CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory text, analysis, or explanation. Start directly with the changelog heading (## or #). No "Here's the changelog" or similar phrases. Intelligently group and summarize related commits - don't just list each commit individually. Only include sections that have actual changes.`;
 }
@@ -321,10 +321,19 @@ CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory
  */
 export function createGenerationScript(prompt: string, claudePath: string): string {
   // Convert prompt to base64 to avoid any string escaping issues in Python
-  const base64Prompt = Buffer.from(prompt, 'utf-8').toString('base64');
+  const base64Prompt = Buffer.from(prompt, "utf-8").toString("base64");
 
-  // Escape the claude path for Python string
-  const escapedClaudePath = claudePath.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  // On Windows, .cmd and .bat files need shell=True for proper execution
+  // When using shell=True, we need to quote paths containing spaces
+  const isWindowsBatchFile = claudePath.endsWith(".cmd") || claudePath.endsWith(".bat");
+  const needsShell = isWindowsBatchFile;
+  const quotedPath = needsShell && claudePath.includes(" ") ? `"${claudePath}"` : claudePath;
+
+  // For shell mode, escape the path for the shell command string
+  // For list mode, escape backslashes for Python string
+  const escapedPath = needsShell
+    ? claudePath.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    : claudePath.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 
   return `
 import subprocess
@@ -337,13 +346,26 @@ try:
 
     # Use Claude Code CLI to generate
     # stdin=DEVNULL prevents hanging when claude checks for interactive input
+    ${
+      needsShell
+        ? `# On Windows with .cmd/.bat files, use shell=True with quoted path
+    command = "${escapedPath} -p \\"{prompt}\\" --output-format text --model haiku"
     result = subprocess.run(
-        ['${escapedClaudePath}', '-p', prompt, '--output-format', 'text', '--model', 'haiku'],
+        command,
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=300,
+        shell=True
+    )`
+        : `result = subprocess.run(
+        ['${escapedPath}', '-p', prompt, '--output-format', 'text', '--model', 'haiku'],
         capture_output=True,
         text=True,
         stdin=subprocess.DEVNULL,
         timeout=300
-    )
+    )`
+    }
 
     if result.returncode == 0:
         print(result.stdout)
