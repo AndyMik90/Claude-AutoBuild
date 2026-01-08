@@ -15,6 +15,10 @@ import {
 export type { PRData, PRReviewResult, PRReviewProgress };
 export type { PRReviewFinding } from "../../../../preload/api/modules/github-api";
 
+// Ref to track the current PR being fetched (for race condition prevention)
+// Placed at module level to persist across hook re-renders
+let currentFetchPRNumber: number | null = null;
+
 interface UseGitHubPRsOptions {
   /** Whether the component is currently active/visible */
   isActive?: boolean;
@@ -126,7 +130,12 @@ export function useGitHubPRs(
   );
 
   // Use detailed PR data if available (includes files), otherwise fall back to list data
-  const selectedPR = selectedPRDetails || prs.find((pr) => pr.number === selectedPRNumber) || null;
+  // Validate that selectedPRDetails matches selectedPRNumber to avoid showing stale data
+  const selectedPR = useMemo(() => {
+    const matchingDetails =
+      selectedPRDetails?.number === selectedPRNumber ? selectedPRDetails : null;
+    return matchingDetails || prs.find((pr) => pr.number === selectedPRNumber) || null;
+  }, [selectedPRDetails, prs, selectedPRNumber]);
 
   // Check connection and fetch PRs
   const fetchPRs = useCallback(
@@ -252,18 +261,21 @@ export function useGitHubPRs(
       // Clear previous detailed PR data when deselecting
       if (prNumber === null) {
         setSelectedPRDetails(null);
+        currentFetchPRNumber = null;
         return;
       }
 
       if (prNumber && projectId) {
+        // Track the current PR being fetched (for race condition prevention)
+        currentFetchPRNumber = prNumber;
+
         // Fetch full PR details including files
-        // Note: We don't clear selectedPRDetails here to avoid UI flicker
-        // The previous PR details will be shown until new data arrives
         setIsLoadingPRDetails(true);
         window.electronAPI.github
           .getPR(projectId, prNumber)
           .then((prDetails) => {
-            if (prDetails) {
+            // Only update if this response is still for the current PR (prevents race condition)
+            if (prDetails && prNumber === currentFetchPRNumber) {
               setSelectedPRDetails(prDetails);
             }
           })
@@ -271,7 +283,10 @@ export function useGitHubPRs(
             console.warn(`Failed to fetch PR details for #${prNumber}:`, err);
           })
           .finally(() => {
-            setIsLoadingPRDetails(false);
+            // Only clear loading state if this was the last fetch
+            if (prNumber === currentFetchPRNumber) {
+              setIsLoadingPRDetails(false);
+            }
           });
 
         // Load existing review from disk if not already in store
