@@ -13,18 +13,15 @@ import { getClaudeProfileManager, initializeClaudeProfileManager } from '../clau
 import * as OutputParser from './output-parser';
 import * as SessionHandler from './session-handler';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
-import { escapeShellArg, buildCdCommand } from '../../shared/utils/shell-escape';
+import { escapeShellArg, buildCdCommand, buildCdCommandForShell, buildPathPrefixForShell, escapeShellArgForShell } from '../../shared/utils/shell-escape';
 import { getClaudeCliInvocation, getClaudeCliInvocationAsync } from '../claude-cli-utils';
 import type {
   TerminalProcess,
+  ShellType,
   WindowGetter,
   RateLimitEvent,
   OAuthTokenEvent
 } from './types';
-
-function normalizePathForBash(envPath: string): string {
-  return process.platform === 'win32' ? envPath.replace(/;/g, ':') : envPath;
-}
 
 // ============================================================================
 // SHARED HELPERS - Used by both sync and async invokeClaude
@@ -367,11 +364,13 @@ export function invokeClaude(
     isDefault: activeProfile?.isDefault
   });
 
-  const cwdCommand = buildCdCommand(cwd);
+  // Use shell-aware command generation based on terminal's shell type
+  const shellType = terminal.shellType || 'bash';
+  const cwdCommand = buildCdCommandForShell(cwd, shellType);
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
-  const escapedClaudeCmd = escapeShellArg(claudeCmd);
+  const escapedClaudeCmd = escapeShellArgForShell(claudeCmd, shellType);
   const pathPrefix = claudeEnv.PATH
-    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
+    ? buildPathPrefixForShell(claudeEnv.PATH, shellType)
     : '';
   const needsEnvOverride = profileId && profileId !== previousProfileId;
 
@@ -455,10 +454,12 @@ export function resumeClaude(
   terminal.isClaudeMode = true;
   SessionHandler.releaseSessionId(terminal.id);
 
+  // Use shell-aware command generation
+  const shellType = terminal.shellType || 'bash';
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
-  const escapedClaudeCmd = escapeShellArg(claudeCmd);
+  const escapedClaudeCmd = escapeShellArgForShell(claudeCmd, shellType);
   const pathPrefix = claudeEnv.PATH
-    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
+    ? buildPathPrefixForShell(claudeEnv.PATH, shellType)
     : '';
 
   // Always use --continue which resumes the most recent session in the current directory.
@@ -537,12 +538,13 @@ export async function invokeClaudeAsync(
     isDefault: activeProfile?.isDefault
   });
 
-  // Async CLI invocation - non-blocking
-  const cwdCommand = buildCdCommand(cwd);
+  // Async CLI invocation - non-blocking, shell-aware command generation
+  const shellType = terminal.shellType || 'bash';
+  const cwdCommand = buildCdCommandForShell(cwd, shellType);
   const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
-  const escapedClaudeCmd = escapeShellArg(claudeCmd);
+  const escapedClaudeCmd = escapeShellArgForShell(claudeCmd, shellType);
   const pathPrefix = claudeEnv.PATH
-    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
+    ? buildPathPrefixForShell(claudeEnv.PATH, shellType)
     : '';
   const needsEnvOverride = profileId && profileId !== previousProfileId;
 
@@ -621,11 +623,12 @@ export async function resumeClaudeAsync(
   terminal.isClaudeMode = true;
   SessionHandler.releaseSessionId(terminal.id);
 
-  // Async CLI invocation - non-blocking
+  // Async CLI invocation - non-blocking, shell-aware command generation
+  const shellType = terminal.shellType || 'bash';
   const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
-  const escapedClaudeCmd = escapeShellArg(claudeCmd);
+  const escapedClaudeCmd = escapeShellArgForShell(claudeCmd, shellType);
   const pathPrefix = claudeEnv.PATH
-    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
+    ? buildPathPrefixForShell(claudeEnv.PATH, shellType)
     : '';
 
   // Always use --continue which resumes the most recent session in the current directory.

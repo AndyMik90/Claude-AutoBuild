@@ -6,11 +6,42 @@
 import * as pty from '@lydell/node-pty';
 import * as os from 'os';
 import { existsSync } from 'fs';
-import type { TerminalProcess, WindowGetter } from './types';
+import type { TerminalProcess, WindowGetter, ShellType } from './types';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { readSettingsFile } from '../settings-utils';
 import type { SupportedTerminal } from '../../shared/types/settings';
+
+/**
+ * Result of spawning a PTY process
+ */
+export interface SpawnResult {
+  pty: pty.IPty;
+  shellType: ShellType;
+}
+
+/**
+ * Detect shell type from executable path
+ */
+export function detectShellType(shellPath: string): ShellType {
+  const normalized = shellPath.toLowerCase();
+
+  // Check for PowerShell Core (pwsh) first - more specific match
+  if (normalized.includes('pwsh')) return 'pwsh';
+  // Check for Windows PowerShell
+  if (normalized.includes('powershell')) return 'powershell';
+  // Check for cmd.exe
+  if (normalized.includes('cmd')) return 'cmd';
+  // Check for bash (includes Git Bash, Cygwin, MSYS2)
+  if (normalized.includes('bash')) return 'bash';
+  // Check for zsh
+  if (normalized.includes('zsh')) return 'zsh';
+
+  // Unix fallback based on platform
+  if (process.platform !== 'win32') return 'bash';
+
+  return 'unknown';
+}
 
 /**
  * Windows shell paths for different terminal preferences
@@ -67,13 +98,14 @@ function getWindowsShell(preferredTerminal: SupportedTerminal | undefined): stri
 
 /**
  * Spawn a new PTY process with appropriate shell and environment
+ * Returns both the PTY process and the detected shell type for command generation
  */
 export function spawnPtyProcess(
   cwd: string,
   cols: number,
   rows: number,
   profileEnv?: Record<string, string>
-): pty.IPty {
+): SpawnResult {
   // Read user's preferred terminal setting
   const settings = readSettingsFile();
   const preferredTerminal = settings?.preferredTerminal as SupportedTerminal | undefined;
@@ -82,9 +114,10 @@ export function spawnPtyProcess(
     ? getWindowsShell(preferredTerminal)
     : process.env.SHELL || '/bin/zsh';
 
+  const shellType = detectShellType(shell);
   const shellArgs = process.platform === 'win32' ? [] : ['-l'];
 
-  console.warn('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ')');
+  console.warn('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ', type:', shellType, ')');
 
   // Create a clean environment without DEBUG to prevent Claude Code from
   // enabling debug mode when the Electron app is run in development mode.
@@ -94,7 +127,7 @@ export function spawnPtyProcess(
   // show "Claude API" instead of "Claude Max" when ANTHROPIC_API_KEY is set.
   const { DEBUG: _DEBUG, ANTHROPIC_API_KEY: _ANTHROPIC_API_KEY, ...cleanEnv } = process.env;
 
-  return pty.spawn(shell, shellArgs, {
+  const ptyProcess = pty.spawn(shell, shellArgs, {
     name: 'xterm-256color',
     cols,
     rows,
@@ -106,6 +139,8 @@ export function spawnPtyProcess(
       COLORTERM: 'truecolor',
     },
   });
+
+  return { pty: ptyProcess, shellType };
 }
 
 /**
