@@ -8,20 +8,21 @@
  * To run: npx playwright test task-workflow --config=e2e/playwright.config.ts
  */
 import { test, expect } from '@playwright/test';
-import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync } from 'fs';
+import { tmpdir } from 'os';
 import path from 'path';
 
-// Test data directory
-const TEST_DATA_DIR = '/tmp/auto-claude-task-workflow-e2e';
-const TEST_PROJECT_DIR = path.join(TEST_DATA_DIR, 'test-project');
-const SPECS_DIR = path.join(TEST_PROJECT_DIR, '.auto-claude', 'specs');
+// Test data directory - created securely with mkdtempSync to prevent TOCTOU attacks
+let TEST_DATA_DIR: string;
+let TEST_PROJECT_DIR: string;
+let SPECS_DIR: string;
 
-// Setup test environment
+// Setup test environment with secure temp directory
 function setupTestEnvironment(): void {
-  if (existsSync(TEST_DATA_DIR)) {
-    rmSync(TEST_DATA_DIR, { recursive: true, force: true });
-  }
-  mkdirSync(TEST_DATA_DIR, { recursive: true });
+  // Create secure temp directory with random suffix
+  TEST_DATA_DIR = mkdtempSync(path.join(tmpdir(), 'auto-claude-task-workflow-e2e-'));
+  TEST_PROJECT_DIR = path.join(TEST_DATA_DIR, 'test-project');
+  SPECS_DIR = path.join(TEST_PROJECT_DIR, '.auto-claude', 'specs');
   mkdirSync(TEST_PROJECT_DIR, { recursive: true });
   mkdirSync(SPECS_DIR, { recursive: true });
 }

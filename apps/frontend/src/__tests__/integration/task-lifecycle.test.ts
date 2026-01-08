@@ -3,14 +3,14 @@
  * Tests spec completion to subtask loading workflow (IPC communication)
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { tmpdir } from 'os';
 import path from 'path';
-import { EventEmitter } from 'events';
 
-// Test directories
-const TEST_DIR = '/tmp/task-lifecycle-test';
-const TEST_PROJECT_PATH = path.join(TEST_DIR, 'test-project');
-const TEST_SPEC_DIR = path.join(TEST_PROJECT_PATH, '.auto-claude/specs/001-test-feature');
+// Test directories - created securely with mkdtempSync to prevent TOCTOU attacks
+let TEST_DIR: string;
+let TEST_PROJECT_PATH: string;
+let TEST_SPEC_DIR: string;
 
 // Mock ipcRenderer for renderer-side tests
 const mockIpcRenderer = {
@@ -89,14 +89,18 @@ function createIncompletePlan(): object {
   };
 }
 
-// Setup test directories
+// Setup test directories with secure temp directory
 function setupTestDirs(): void {
+  // Create secure temp directory with random suffix
+  TEST_DIR = mkdtempSync(path.join(tmpdir(), 'task-lifecycle-test-'));
+  TEST_PROJECT_PATH = path.join(TEST_DIR, 'test-project');
+  TEST_SPEC_DIR = path.join(TEST_PROJECT_PATH, '.auto-claude/specs/001-test-feature');
   mkdirSync(TEST_SPEC_DIR, { recursive: true });
 }
 
 // Cleanup test directories
 function cleanupTestDirs(): void {
-  if (existsSync(TEST_DIR)) {
+  if (TEST_DIR && existsSync(TEST_DIR)) {
     rmSync(TEST_DIR, { recursive: true, force: true });
   }
 }
