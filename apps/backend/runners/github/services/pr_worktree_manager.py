@@ -159,7 +159,19 @@ class PRWorktreeManager:
             )
 
             if result.returncode != 0:
-                raise RuntimeError(f"Failed to create worktree: {result.stderr}")
+                # Check for fatal errors in stderr (git outputs info to stderr too)
+                stderr = result.stderr.strip()
+                # Clean up partial worktree on failure
+                if worktree_path.exists():
+                    shutil.rmtree(worktree_path, ignore_errors=True)
+                raise RuntimeError(f"Failed to create worktree: {stderr}")
+
+            # Verify the worktree was actually created
+            if not worktree_path.exists():
+                raise RuntimeError(
+                    f"Worktree creation reported success but path does not exist: {worktree_path}"
+                )
+
         except subprocess.TimeoutExpired:
             # Clean up partial worktree on timeout
             if worktree_path.exists():
