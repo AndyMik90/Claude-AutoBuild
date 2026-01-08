@@ -1,0 +1,10 @@
+{
+  "discovered_files": {
+    "apps/backend/runners/github/services/autofix_processor.py": {
+      "description": "autofix_processor.py connects AutoPRReviewOrchestrator to QA pass workflow. Entry point is trigger_auto_pr_review_on_qa_pass() which initiates the review loop after QA passes. Supports both async and sync invocation patterns. Configuration via GITHUB_AUTO_PR_REVIEW_ENABLED env var.",
+      "category": "architecture",
+      "discovered_at": "2026-01-08T23:25:28.431918+00:00"
+    }
+  },
+  "last_updated": "2026-01-08T23:25:28.431924+00:00"
+}

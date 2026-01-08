@@ -1,0 +1,11 @@
+{
+  "initialized": true,
+  "database": "auto_claude_memory",
+  "indices_built": false,
+  "created_at": "2026-01-08T23:25:28.675659+00:00",
+  "last_session": null,
+  "episode_count": 0,
+  "error_log": [],
+  "llm_provider": "openai",
+  "embedder_provider": "ollama"
+}
