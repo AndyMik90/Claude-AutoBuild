@@ -9,12 +9,15 @@ import type {
 import path from 'path';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'fs';
 import { execFileSync } from 'child_process';
+import { minimatch } from 'minimatch';
 import { debugLog, debugError } from '../../../shared/utils/debug-logger';
 import { projectStore } from '../../project-store';
 import { parseEnvFile } from '../utils';
 import {
   getTerminalWorktreeDir,
   getTerminalWorktreePath,
+  getTerminalWorktreeMetadataDir,
+  getTerminalWorktreeMetadataPath,
 } from '../../worktree-paths';
 
 // Shared validation regex for worktree names - lowercase alphanumeric with dashes/underscores
@@ -23,6 +26,109 @@ const WORKTREE_NAME_REGEX = /^[a-z0-9][a-z0-9_-]*[a-z0-9]$|^[a-z0-9]$/;
 
 // Validation regex for git branch names - allows alphanumeric, dots, slashes, dashes, underscores
 const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
+
+/**
+ * Fix repositories that are incorrectly marked with core.bare=true.
+ * This can happen when git worktree operations incorrectly set bare=true
+ * on a working repository that has source files.
+ *
+ * Returns true if a fix was applied, false otherwise.
+ */
+function fixMisconfiguredBareRepo(projectPath: string): boolean {
+  try {
+    // Check if bare=true is set
+    const bareConfig = execFileSync(
+      'git',
+      ['config', '--get', 'core.bare'],
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+    ).trim().toLowerCase();
+
+    if (bareConfig !== 'true') {
+      return false; // Not marked as bare, nothing to fix
+    }
+
+    // Check if there are source files (indicating misconfiguration)
+    // A truly bare repo would only have git internals, not source code
+    // This covers multiple ecosystems: JS/TS, Python, Rust, Go, Java, C#, etc.
+    const EXACT_MARKERS = [
+      // JavaScript/TypeScript ecosystem
+      'package.json', 'apps', 'src',
+      // Python ecosystem
+      'pyproject.toml', 'setup.py', 'requirements.txt', 'Pipfile',
+      // Rust ecosystem
+      'Cargo.toml',
+      // Go ecosystem
+      'go.mod', 'go.sum', 'cmd', 'main.go',
+      // Java/JVM ecosystem
+      'pom.xml', 'build.gradle', 'build.gradle.kts',
+      // Ruby ecosystem
+      'Gemfile', 'Rakefile',
+      // PHP ecosystem
+      'composer.json',
+      // General project markers
+      'Makefile', 'CMakeLists.txt', 'README.md', 'LICENSE'
+    ];
+
+    const GLOB_MARKERS = [
+      // .NET/C# ecosystem - patterns that need glob matching
+      '*.csproj', '*.sln', '*.fsproj'
+    ];
+
+    // Check exact matches first (fast path)
+    const hasExactMatch = EXACT_MARKERS.some(marker =>
+      existsSync(path.join(projectPath, marker))
+    );
+
+    if (hasExactMatch) {
+      // Found a project marker, proceed to fix
+    } else {
+      // Check glob patterns - read directory once and cache for all patterns
+      let directoryFiles: string[] | null = null;
+      const MAX_FILES_TO_CHECK = 500;
+
+      const hasGlobMatch = GLOB_MARKERS.some(pattern => {
+        // Validate pattern - only support simple glob patterns for security
+        if (pattern.includes('..') || pattern.includes('/')) {
+          debugLog('[TerminalWorktree] Unsupported glob pattern ignored:', pattern);
+          return false;
+        }
+
+        // Lazy-load directory listing, cached across patterns
+        if (directoryFiles === null) {
+          try {
+            const allFiles = readdirSync(projectPath);
+            directoryFiles = allFiles.slice(0, MAX_FILES_TO_CHECK);
+            if (allFiles.length > MAX_FILES_TO_CHECK) {
+              debugLog(`[TerminalWorktree] Directory has ${allFiles.length} entries, checking only first ${MAX_FILES_TO_CHECK}`);
+            }
+          } catch (error) {
+            debugError('[TerminalWorktree] Failed to read directory:', error);
+            directoryFiles = [];
+          }
+        }
+
+        // Use minimatch for proper glob pattern matching
+        return directoryFiles.some(file => minimatch(file, pattern, { nocase: true }));
+      });
+
+      if (!hasGlobMatch) {
+        return false; // Legitimately bare repo
+      }
+    }
+
+    // Fix the misconfiguration
+    debugLog('[TerminalWorktree] Detected misconfigured bare repository with source files. Auto-fixing by unsetting core.bare...');
+    execFileSync(
+      'git',
+      ['config', '--unset', 'core.bare'],
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    debugLog('[TerminalWorktree] Fixed: core.bare has been unset. Git operations should now work correctly.');
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Validate that projectPath is a registered project
@@ -87,20 +193,46 @@ function getDefaultBranch(projectPath: string): string {
   }
 }
 
-function saveWorktreeConfig(worktreePath: string, config: TerminalWorktreeConfig): void {
-  writeFileSync(path.join(worktreePath, 'config.json'), JSON.stringify(config, null, 2));
+function saveWorktreeConfig(projectPath: string, name: string, config: TerminalWorktreeConfig): void {
+  const metadataDir = getTerminalWorktreeMetadataDir(projectPath);
+  mkdirSync(metadataDir, { recursive: true });
+  const metadataPath = getTerminalWorktreeMetadataPath(projectPath, name);
+  writeFileSync(metadataPath, JSON.stringify(config, null, 2));
 }
 
-function loadWorktreeConfig(worktreePath: string): TerminalWorktreeConfig | null {
-  const configPath = path.join(worktreePath, 'config.json');
-  if (existsSync(configPath)) {
+function loadWorktreeConfig(projectPath: string, name: string): TerminalWorktreeConfig | null {
+  // Check new metadata location first
+  const metadataPath = getTerminalWorktreeMetadataPath(projectPath, name);
+  if (existsSync(metadataPath)) {
     try {
-      return JSON.parse(readFileSync(configPath, 'utf-8'));
+      return JSON.parse(readFileSync(metadataPath, 'utf-8'));
     } catch (error) {
-      debugError('[TerminalWorktree] Corrupted config.json in:', configPath, error);
+      debugError('[TerminalWorktree] Corrupted config at:', metadataPath, error);
       return null;
     }
   }
+
+  // Backwards compatibility: check legacy location inside worktree
+  const legacyConfigPath = path.join(getTerminalWorktreePath(projectPath, name), 'config.json');
+  if (existsSync(legacyConfigPath)) {
+    try {
+      const config = JSON.parse(readFileSync(legacyConfigPath, 'utf-8'));
+      // Migrate to new location
+      saveWorktreeConfig(projectPath, name, config);
+      // Clean up legacy file
+      try {
+        rmSync(legacyConfigPath);
+        debugLog('[TerminalWorktree] Migrated config from legacy location:', name);
+      } catch {
+        debugLog('[TerminalWorktree] Could not remove legacy config:', legacyConfigPath);
+      }
+      return config;
+    } catch (error) {
+      debugError('[TerminalWorktree] Corrupted legacy config at:', legacyConfigPath, error);
+      return null;
+    }
+  }
+
   return null;
 }
 
@@ -141,6 +273,12 @@ async function createTerminalWorktree(
       success: false,
       error: `Maximum of ${MAX_TERMINAL_WORKTREES} terminal worktrees reached.`,
     };
+  }
+
+  // Auto-fix any misconfigured bare repo before worktree operations
+  // This prevents crashes when git worktree operations have incorrectly set bare=true
+  if (fixMisconfiguredBareRepo(projectPath)) {
+    debugLog('[TerminalWorktree] Fixed misconfigured bare repository at:', projectPath);
   }
 
   const worktreePath = getTerminalWorktreePath(projectPath, name);
@@ -223,7 +361,7 @@ async function createTerminalWorktree(
       terminalId,
     };
 
-    saveWorktreeConfig(worktreePath, config);
+    saveWorktreeConfig(projectPath, name, config);
     debugLog('[TerminalWorktree] Saved config for worktree:', name);
 
     return { success: true, config };
@@ -266,21 +404,41 @@ async function listTerminalWorktrees(projectPath: string): Promise<TerminalWorkt
   }
 
   const configs: TerminalWorktreeConfig[] = [];
-  const worktreeDir = getTerminalWorktreeDir(projectPath);
+  const seenNames = new Set<string>();
 
+  // Scan new metadata directory
+  const metadataDir = getTerminalWorktreeMetadataDir(projectPath);
+  if (existsSync(metadataDir)) {
+    try {
+      for (const file of readdirSync(metadataDir, { withFileTypes: true })) {
+        if (file.isFile() && file.name.endsWith('.json')) {
+          const name = file.name.replace('.json', '');
+          const config = loadWorktreeConfig(projectPath, name);
+          if (config) {
+            configs.push(config);
+            seenNames.add(name);
+          }
+        }
+      }
+    } catch (error) {
+      debugError('[TerminalWorktree] Error scanning metadata dir:', error);
+    }
+  }
+
+  // Also scan worktree directory for legacy configs (will be migrated on load)
+  const worktreeDir = getTerminalWorktreeDir(projectPath);
   if (existsSync(worktreeDir)) {
     try {
       for (const dir of readdirSync(worktreeDir, { withFileTypes: true })) {
-        if (dir.isDirectory()) {
-          const worktreePath = path.join(worktreeDir, dir.name);
-          const config = loadWorktreeConfig(worktreePath);
+        if (dir.isDirectory() && !seenNames.has(dir.name)) {
+          const config = loadWorktreeConfig(projectPath, dir.name);
           if (config) {
             configs.push(config);
           }
         }
       }
     } catch (error) {
-      debugError('[TerminalWorktree] Error listing worktrees:', error);
+      debugError('[TerminalWorktree] Error scanning worktree dir:', error);
     }
   }
 
@@ -304,8 +462,13 @@ async function removeTerminalWorktree(
     return { success: false, error: 'Invalid worktree name' };
   }
 
+  // Auto-fix any misconfigured bare repo before worktree operations
+  if (fixMisconfiguredBareRepo(projectPath)) {
+    debugLog('[TerminalWorktree] Fixed misconfigured bare repository at:', projectPath);
+  }
+
   const worktreePath = getTerminalWorktreePath(projectPath, name);
-  const config = loadWorktreeConfig(worktreePath);
+  const config = loadWorktreeConfig(projectPath, name);
 
   if (!config) {
     return { success: false, error: 'Worktree not found' };
@@ -336,6 +499,17 @@ async function removeTerminalWorktree(
         } catch {
           debugLog('[TerminalWorktree] Branch not found or already deleted:', config.branchName);
         }
+      }
+    }
+
+    // Remove metadata file
+    const metadataPath = getTerminalWorktreeMetadataPath(projectPath, name);
+    if (existsSync(metadataPath)) {
+      try {
+        rmSync(metadataPath);
+        debugLog('[TerminalWorktree] Removed metadata file:', metadataPath);
+      } catch {
+        debugLog('[TerminalWorktree] Could not remove metadata file:', metadataPath);
       }
     }
 

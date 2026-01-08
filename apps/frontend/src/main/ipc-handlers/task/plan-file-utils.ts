@@ -81,6 +81,8 @@ export function mapStatusToPlanStatus(status: TaskStatus): string {
     case 'ai_review':
     case 'human_review':
       return 'review';
+    case 'pr_created':
+      return 'pr_created';
     case 'done':
       return 'completed';
     default:
@@ -261,4 +263,42 @@ export async function createPlanIfNotExists(
 
     writeFileSync(planPath, JSON.stringify(plan, null, 2));
   });
+}
+
+/**
+ * Update task_metadata.json to add PR URL.
+ * This is a simple JSON file update (no locking needed as it's rarely updated concurrently).
+ *
+ * @param metadataPath - Path to the task_metadata.json file
+ * @param prUrl - The PR URL to add to metadata
+ * @returns true if metadata was updated, false if file doesn't exist or failed
+ */
+export function updateTaskMetadataPrUrl(metadataPath: string, prUrl: string): boolean {
+  try {
+    let metadata: Record<string, unknown> = {};
+
+    // Try to read existing metadata
+    try {
+      const content = readFileSync(metadataPath, 'utf-8');
+      metadata = JSON.parse(content);
+    } catch (err) {
+      if (!isFileNotFoundError(err)) {
+        throw err;
+      }
+      // File doesn't exist, will create new one
+    }
+
+    // Update with prUrl
+    metadata.prUrl = prUrl;
+
+    // Ensure parent directory exists before writing
+    mkdirSync(path.dirname(metadataPath), { recursive: true });
+
+    // Write back
+    writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+    return true;
+  } catch (err) {
+    console.warn(`[plan-file-utils] Could not update metadata at ${metadataPath}:`, err);
+    return false;
+  }
 }

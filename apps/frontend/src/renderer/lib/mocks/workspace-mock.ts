@@ -54,6 +54,14 @@ export const workspaceMock = {
     }
   }),
 
+  createWorktreePR: async () => ({
+    success: true,
+    data: {
+      success: true,
+      prUrl: 'https://github.com/example/repo/pull/123'
+    }
+  }),
+
   discardWorktree: async () => ({
     success: true,
     data: {

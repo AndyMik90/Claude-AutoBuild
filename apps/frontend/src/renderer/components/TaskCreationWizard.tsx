@@ -72,6 +72,8 @@ export function TaskCreationWizard({
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
+  // Worktree isolation - default to true for safety
+  const [useWorktree, setUseWorktree] = useState(true);
 
   // Get project path from project store
   const projects = useProjectStore((state) => state.projects);
@@ -341,6 +343,8 @@ export function TaskCreationWizard({
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;
       if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
       if (baseBranch && baseBranch !== PROJECT_DEFAULT_BRANCH) metadata.baseBranch = baseBranch;
+      // Pass worktree preference - false means use --direct mode
+      if (!useWorktree) metadata.useWorktree = false;
 
       const task = await createTask(projectId, title.trim(), description.trim(), metadata);
       if (task) {
@@ -373,6 +377,7 @@ export function TaskCreationWizard({
     setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);
     setBaseBranch(PROJECT_DEFAULT_BRANCH);
+    setUseWorktree(true);
     setError(null);
     setShowClassification(false);
     setShowFileExplorer(false);

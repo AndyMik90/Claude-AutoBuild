@@ -16,6 +16,36 @@ import { parsePythonCommand } from '../../../python-detector';
 const execAsync = promisify(exec);
 
 /**
+ * Create a fallback environment for Python subprocesses when no env is provided.
+ * This is used for backwards compatibility when callers don't use getRunnerEnv().
+ *
+ * Includes:
+ * - Platform-specific vars needed for shell commands and CLI tools
+ * - CLAUDE_ and ANTHROPIC_ prefixed vars for authentication
+ */
+function createFallbackRunnerEnv(): Record<string, string> {
+  // Include platform-specific vars needed for shell commands and CLI tools
+  // Windows: SYSTEMROOT, COMSPEC, PATHEXT, WINDIR for shell; USERPROFILE, APPDATA, LOCALAPPDATA for gh CLI auth
+  const safeEnvVars = ['PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'TMP', 'TEMP', 'DEBUG', 'SYSTEMROOT', 'COMSPEC', 'PATHEXT', 'WINDIR', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'HOMEDRIVE', 'HOMEPATH'];
+  const fallbackEnv: Record<string, string> = {};
+
+  for (const key of safeEnvVars) {
+    if (process.env[key]) {
+      fallbackEnv[key] = process.env[key]!;
+    }
+  }
+
+  // Also include any CLAUDE_ or ANTHROPIC_ prefixed vars needed for auth
+  for (const [key, value] of Object.entries(process.env)) {
+    if ((key.startsWith('CLAUDE_') || key.startsWith('ANTHROPIC_')) && value) {
+      fallbackEnv[key] = value;
+    }
+  }
+
+  return fallbackEnv;
+}
+
+/**
  * Options for running a Python subprocess
  */
 export interface SubprocessOptions {
@@ -54,41 +84,30 @@ export interface SubprocessResult<T = unknown> {
 export function runPythonSubprocess<T = unknown>(
   options: SubprocessOptions
 ): { process: ChildProcess; promise: Promise<SubprocessResult<T>> } {
-  // Don't set PYTHONPATH - let runner.py manage its own import paths
-  // Setting PYTHONPATH can interfere with runner.py's sys.path manipulation
-  // Filter environment variables to only include necessary ones (prevent leaking secrets)
+  // Use the environment provided by the caller (from getRunnerEnv()).
+  // getRunnerEnv() provides:
+  // - pythonEnvManager.getPythonEnv() which includes PYTHONPATH for bundled packages (fixes #139)
+  // - API profile environment (ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN)
+  // - OAuth mode clearing vars
+  // - Claude OAuth token (CLAUDE_CODE_OAUTH_TOKEN)
+  //
+  // If no env is provided, fall back to filtered process.env for backwards compatibility.
   // Note: DEBUG is included for PR review debugging (shows LLM thinking blocks).
-  // This is safe because: (1) user must explicitly enable via npm run dev:debug,
-  // (2) it only enables our internal debug logging, not third-party framework debugging,
-  // (3) no sensitive values are logged - only LLM reasoning and response text.
-  // Include platform-specific vars needed for shell commands and CLI tools
-  // Windows: SYSTEMROOT, COMSPEC, PATHEXT, WINDIR for shell; USERPROFILE, APPDATA, LOCALAPPDATA for gh CLI auth
-  const safeEnvVars = ['PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'TMP', 'TEMP', 'DEBUG', 'SYSTEMROOT', 'COMSPEC', 'PATHEXT', 'WINDIR', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'HOMEDRIVE', 'HOMEPATH'];
-  const filteredEnv: Record<string, string> = {};
-  for (const key of safeEnvVars) {
-    if (process.env[key]) {
-      filteredEnv[key] = process.env[key]!;
-    }
-  }
-  // Also include any CLAUDE_ or ANTHROPIC_ prefixed vars needed for auth
-  for (const [key, value] of Object.entries(process.env)) {
-    if ((key.startsWith('CLAUDE_') || key.startsWith('ANTHROPIC_')) && value) {
-      filteredEnv[key] = value;
-    }
-  }
+  let subprocessEnv: Record<string, string>;
 
-  // Merge in any additional env vars passed by the caller (e.g., USE_CLAUDE_MD)
   if (options.env) {
-    for (const [key, value] of Object.entries(options.env)) {
-      filteredEnv[key] = value;
-    }
+    // Caller provided a complete environment (from getRunnerEnv()), use it directly
+    subprocessEnv = { ...options.env };
+  } else {
+    // Fallback: build a filtered environment for backwards compatibility
+    subprocessEnv = createFallbackRunnerEnv();
   }
 
   // Parse Python command to handle paths with spaces (e.g., ~/Library/Application Support/...)
   const [pythonCommand, pythonBaseArgs] = parsePythonCommand(options.pythonPath);
   const child = spawn(pythonCommand, [...pythonBaseArgs, ...options.args], {
     cwd: options.cwd,
-    env: filteredEnv,
+    env: subprocessEnv,
   });
 
   const promise = new Promise<SubprocessResult<T>>((resolve) => {

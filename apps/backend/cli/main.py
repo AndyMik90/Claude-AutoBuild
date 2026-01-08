@@ -38,6 +38,7 @@ from .utils import (
 )
 from .workspace_commands import (
     handle_cleanup_worktrees_command,
+    handle_create_pr_command,
     handle_discard_command,
     handle_list_worktrees_command,
     handle_merge_command,
@@ -152,6 +153,30 @@ Environment Variables:
         "--discard",
         action="store_true",
         help="Discard an existing build (requires confirmation)",
+    )
+    build_group.add_argument(
+        "--create-pr",
+        action="store_true",
+        help="Push branch and create a GitHub Pull Request",
+    )
+
+    # PR options
+    parser.add_argument(
+        "--pr-target",
+        type=str,
+        metavar="BRANCH",
+        help="With --create-pr: target branch for PR (default: auto-detect)",
+    )
+    parser.add_argument(
+        "--pr-title",
+        type=str,
+        metavar="TITLE",
+        help="With --create-pr: custom PR title (default: generated from spec name)",
+    )
+    parser.add_argument(
+        "--pr-draft",
+        action="store_true",
+        help="With --create-pr: create as draft PR",
     )
 
     # Merge options
@@ -363,6 +388,21 @@ def main() -> None:
 
     if args.discard:
         handle_discard_command(project_dir, spec_dir.name)
+        return
+
+    if args.create_pr:
+        # Pass args.pr_target directly - WorktreeManager._detect_base_branch
+        # handles base branch detection internally when target_branch is None
+        result = handle_create_pr_command(
+            project_dir=project_dir,
+            spec_name=spec_dir.name,
+            target_branch=args.pr_target,
+            title=args.pr_title,
+            draft=args.pr_draft,
+        )
+        # JSON output is already printed by handle_create_pr_command
+        if not result.get("success"):
+            sys.exit(1)
         return
 
     # Handle QA commands

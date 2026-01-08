@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
   Target,
   Bug,
@@ -9,8 +10,10 @@ import {
   Lightbulb,
   Users,
   GitBranch,
+  GitPullRequest,
   ListChecks,
-  Clock
+  Clock,
+  ExternalLink
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -48,6 +51,7 @@ interface TaskMetadataProps {
 }
 
 export function TaskMetadata({ task }: TaskMetadataProps) {
+  const { t } = useTranslation(['tasks']);
   const hasClassification = task.metadata && (
     task.metadata.category ||
     task.metadata.priority ||
@@ -139,7 +143,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
       {/* Description - Primary Content */}
       {task.description && (
         <div className="bg-muted/30 rounded-lg px-4 py-3 border border-border/50 overflow-hidden max-w-full">
-          <div 
+          <div
             className="prose prose-sm prose-invert max-w-none overflow-hidden prose-p:text-foreground/90 prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-li:text-foreground/90 prose-ul:my-2 prose-li:my-0.5 prose-a:break-all prose-pre:overflow-x-auto prose-img:max-w-full [&_img]:!max-w-full [&_img]:h-auto [&_code]:break-all [&_code]:whitespace-pre-wrap [&_*]:max-w-full"
             style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
           >
@@ -198,6 +202,24 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
                   <li key={idx}>{dep}</li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Pull Request */}
+          {task.metadata.prUrl && (
+            <div>
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <GitPullRequest className="h-3 w-3 text-info" />
+                {t('tasks:metadata.pullRequest')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => window.electronAPI.openExternal(task.metadata!.prUrl!)}
+                className="text-sm text-info hover:underline flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-left"
+              >
+                {task.metadata.prUrl}
+                <ExternalLink className="h-3 w-3" />
+              </button>
             </div>
           )}
 

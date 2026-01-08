@@ -293,6 +293,7 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
                       handleCustomIDEPathChange(result);
                     }
                   }}
+                  aria-label={t('common:accessibility.browseFilesAriaLabel')}
                 >
                   <FolderOpen className="h-4 w-4" />
                 </Button>
@@ -354,6 +355,7 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
                       handleCustomTerminalPathChange(result);
                     }
                   }}
+                  aria-label={t('common:accessibility.browseFilesAriaLabel')}
                 >
                   <FolderOpen className="h-4 w-4" />
                 </Button>
