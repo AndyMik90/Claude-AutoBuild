@@ -5,6 +5,7 @@ Workspace Commands
 CLI commands for workspace management (merge, review, discard, list, cleanup)
 """
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -22,6 +23,7 @@ from core.workspace.git_utils import (
     get_merge_base,
     is_lock_file,
 )
+from core.worktree import PushAndCreatePRResult as CreatePRResult
 from core.worktree import WorktreeManager
 from debug import debug_warning
 from ui import (
@@ -31,6 +33,7 @@ from ui import (
 from workspace import (
     cleanup_all_worktrees,
     discard_existing_build,
+    get_existing_build_worktree,
     list_all_worktrees,
     merge_existing_build,
     review_existing_build,
@@ -175,8 +178,6 @@ def _detect_worktree_base_branch(
     Returns:
         The detected base branch name, or None if unable to detect
     """
-    import json
-
     # Strategy 1: Check for worktree config file
     config_path = worktree_path / ".auto-claude" / "worktree-config.json"
     if config_path.exists():
@@ -1000,6 +1001,117 @@ def handle_merge_preview_command(
                 "pathMappedAIMergeCount": 0,
             },
         }
+
+
+def handle_create_pr_command(
+    project_dir: Path,
+    spec_name: str,
+    target_branch: str | None = None,
+    title: str | None = None,
+    draft: bool = False,
+) -> CreatePRResult:
+    """
+    Handle the --create-pr command: push branch and create a GitHub PR.
+
+    Args:
+        project_dir: Path to the project directory
+        spec_name: Name of the spec (e.g., "001-feature-name")
+        target_branch: Target branch for PR (defaults to base branch)
+        title: Custom PR title (defaults to spec name)
+        draft: Whether to create as draft PR
+
+    Returns:
+        CreatePRResult with success status, pr_url, and any errors
+    """
+    from core.worktree import WorktreeManager
+
+    print_banner()
+    print("\n" + "=" * 70)
+    print("  CREATE PULL REQUEST")
+    print("=" * 70)
+
+    # Check if worktree exists
+    worktree_path = get_existing_build_worktree(project_dir, spec_name)
+    if not worktree_path:
+        print(f"\n{icon(Icons.ERROR)} No build found for spec: {spec_name}")
+        print("\nA completed build worktree is required to create a PR.")
+        print("Run your build first, then use --create-pr.")
+        error_result: CreatePRResult = {
+            "success": False,
+            "error": "No build found for this spec",
+        }
+        return error_result
+
+    # Create worktree manager
+    manager = WorktreeManager(project_dir, base_branch=target_branch)
+
+    print(f"\n{icon(Icons.BRANCH)} Pushing branch and creating PR...")
+    print(f"   Spec: {spec_name}")
+    print(f"   Target: {target_branch or manager.base_branch}")
+    if title:
+        print(f"   Title: {title}")
+    if draft:
+        print("   Mode: Draft PR")
+
+    # Push and create PR with exception handling for clean JSON output
+    try:
+        raw_result = manager.push_and_create_pr(
+            spec_name=spec_name,
+            target_branch=target_branch,
+            title=title,
+            draft=draft,
+        )
+    except Exception as e:
+        debug_error(MODULE, f"Exception during PR creation: {e}")
+        error_result: CreatePRResult = {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to create PR",
+        }
+        print(f"\n{icon(Icons.ERROR)} Failed to create PR: {e}")
+        print(json.dumps(error_result))
+        return error_result
+
+    # Convert PushAndCreatePRResult to CreatePRResult
+    result: CreatePRResult = {
+        "success": raw_result.get("success", False),
+        "pr_url": raw_result.get("pr_url"),
+        "already_exists": raw_result.get("already_exists", False),
+        "error": raw_result.get("error"),
+        "message": raw_result.get("message"),
+        "pushed": raw_result.get("pushed", False),
+        "remote": raw_result.get("remote", ""),
+        "branch": raw_result.get("branch", ""),
+    }
+
+    if result.get("success"):
+        pr_url = result.get("pr_url")
+        already_exists = result.get("already_exists", False)
+
+        if already_exists:
+            print(f"\n{icon(Icons.SUCCESS)} PR already exists!")
+        else:
+            print(f"\n{icon(Icons.SUCCESS)} PR created successfully!")
+
+        if pr_url:
+            print(f"\n{icon(Icons.LINK)} {pr_url}")
+        else:
+            print(f"\n{icon(Icons.INFO)} Check GitHub for the PR URL")
+
+        print("\nNext steps:")
+        print("  1. Review the PR on GitHub")
+        print("  2. Request reviews from your team")
+        print("  3. Merge when approved")
+
+        # Output JSON for frontend parsing
+        print(json.dumps(result))
+        return result
+    else:
+        error = result.get("error", "Unknown error")
+        print(f"\n{icon(Icons.ERROR)} Failed to create PR: {error}")
+        # Output JSON for frontend parsing
+        print(json.dumps(result))
+        return result
 
 
 def cleanup_old_worktrees_command(

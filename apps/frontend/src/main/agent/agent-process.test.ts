@@ -268,10 +268,10 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
 
       const envArg = spawnCalls[0].options.env as Record<string, unknown>;
-      
+
       // OAuth token should be present
       expect(envArg.CLAUDE_CODE_OAUTH_TOKEN).toBe('oauth-token-456');
-      
+
       // Stale ANTHROPIC_* vars should be cleared (empty string overrides process.env)
       expect(envArg.ANTHROPIC_AUTH_TOKEN).toBe('');
       expect(envArg.ANTHROPIC_BASE_URL).toBe('');
@@ -292,7 +292,7 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
 
       const envArg = spawnCalls[0].options.env as Record<string, unknown>;
-      
+
       // Should clear the base URL (so Python uses default api.anthropic.com)
       expect(envArg.ANTHROPIC_BASE_URL).toBe('');
       expect(envArg.CLAUDE_CODE_OAUTH_TOKEN).toBe('oauth-token-789');
@@ -314,7 +314,7 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
 
       const envArg = spawnCalls[0].options.env as Record<string, unknown>;
-      
+
       // Should use API profile vars, NOT clear them
       expect(envArg.ANTHROPIC_AUTH_TOKEN).toBe('sk-profile-active');
       expect(envArg.ANTHROPIC_BASE_URL).toBe('https://active-profile.com');
