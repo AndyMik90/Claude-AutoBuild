@@ -65,6 +65,17 @@ class MergeVerdict(str, Enum):
     BLOCKED = "blocked"  # Critical issues, cannot merge
 
 
+# Constants for branch-behind messaging (DRY - used across multiple reviewers)
+BRANCH_BEHIND_BLOCKER_MSG = (
+    "Branch Out of Date: PR branch is behind the base branch and needs to be updated"
+)
+BRANCH_BEHIND_REASONING = (
+    "Branch is out of date with base branch. Update branch first - "
+    "if no conflicts arise, you can merge. If merge conflicts arise, "
+    "resolve them and run follow-up review again."
+)
+
+
 class AICommentVerdict(str, Enum):
     """Verdict on AI tool comments (CodeRabbit, Cursor, Greptile, etc.)."""
 
