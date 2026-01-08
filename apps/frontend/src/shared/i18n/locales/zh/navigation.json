@@ -1,0 +1,51 @@
+{
+  "sections": {
+    "project": "项目",
+    "tools": "工具"
+  },
+  "items": {
+    "kanban": "看板",
+    "terminals": "代理终端",
+    "insights": "洞察",
+    "roadmap": "路线图",
+    "ideation": "想法",
+    "changelog": "更新日志",
+    "context": "上下文",
+    "githubIssues": "GitHub 问题",
+    "githubPRs": "GitHub PR",
+    "gitlabIssues": "GitLab 问题",
+    "gitlabMRs": "GitLab MR",
+    "worktrees": "工作树",
+    "agentTools": "MCP 概览"
+  },
+  "actions": {
+    "settings": "设置",
+    "help": "帮助与反馈",
+    "newTask": "新任务"
+  },
+  "tooltips": {
+    "settings": "应用设置",
+    "help": "帮助与反馈"
+  },
+  "messages": {
+    "initializeToCreateTasks": "初始化 Auto Claude 以创建任务"
+  },
+  "claudeCode": {
+    "checking": "检查 Claude Code...",
+    "upToDate": "Claude Code 是最新的",
+    "updateAvailable": "Claude Code 有可用更新",
+    "notInstalled": "Claude Code 未安装",
+    "error": "检查 Claude Code 时出错",
+    "installed": "已安装",
+    "outdated": "有可用更新",
+    "missing": "未安装",
+    "current": "当前",
+    "latest": "最新",
+    "lastChecked": "上次检查",
+    "learnMore": "了解 Claude Code",
+    "learnMoreAriaLabel": "了解 Claude Code (在新窗口中打开)",
+    "updateWarningTitle": "更新 Claude Code?",
+    "updateWarningDescription": "更新将关闭所有正在运行的 Claude Code 会话。这些会话中的任何未保存工作可能会丢失。请确保在继续之前保存您的工作。",
+    "updateAnyway": "仍然更新"
+  }
+}

@@ -25,6 +25,18 @@ import frGitlab from './locales/fr/gitlab.json';
 import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
 
+// Import Chinese translation resources
+import zhCommon from './locales/zh/common.json';
+import zhNavigation from './locales/zh/navigation.json';
+import zhSettings from './locales/zh/settings.json';
+import zhTasks from './locales/zh/tasks.json';
+import zhWelcome from './locales/zh/welcome.json';
+import zhOnboarding from './locales/zh/onboarding.json';
+import zhDialogs from './locales/zh/dialogs.json';
+import zhGitlab from './locales/zh/gitlab.json';
+import zhTaskReview from './locales/zh/taskReview.json';
+import zhTerminal from './locales/zh/terminal.json';
+
 export const defaultNS = 'common';
 
 export const resources = {
@@ -51,6 +63,18 @@ export const resources = {
     gitlab: frGitlab,
     taskReview: frTaskReview,
     terminal: frTerminal
+  },
+  zh: {
+    common: zhCommon,
+    navigation: zhNavigation,
+    settings: zhSettings,
+    tasks: zhTasks,
+    welcome: zhWelcome,
+    onboarding: zhOnboarding,
+    dialogs: zhDialogs,
+    gitlab: zhGitlab,
+    taskReview: zhTaskReview,
+    terminal: zhTerminal
   }
 } as const;
 
@@ -58,8 +82,8 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: 'en', // Default language (will be overridden by settings)
-    fallbackLng: 'en',
+    lng: 'zh', // Default language (will be overridden by settings)
+    fallbackLng: 'zh',
     defaultNS,
     ns: ['common', 'navigation', 'settings', 'tasks', 'welcome', 'onboarding', 'dialogs', 'gitlab', 'taskReview', 'terminal'],
     interpolation: {

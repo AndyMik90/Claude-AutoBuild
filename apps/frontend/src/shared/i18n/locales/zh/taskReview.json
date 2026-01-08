@@ -1,0 +1,38 @@
+{
+  "terminal": {
+    "openTerminal": "打开终端",
+    "openInbuilt": "在内置终端中打开",
+    "openExternal": "在外部终端中打开"
+  },
+  "pr": {
+    "title": "创建拉取请求",
+    "description": "推送分支并为 \"{{taskTitle}}\" 创建拉取请求",
+    "errors": {
+      "unknown": "创建拉取请求时发生未知错误",
+      "invalidBranchName": "分支名称包含无效字符。仅使用字母、数字、连字符(-)、下划线(_)和斜杠(/)。",
+      "emptyTitle": "拉取请求标题不能为空。"
+    },
+    "success": {
+      "created": "拉取请求创建成功!",
+      "alreadyExists": "此分支的拉取请求已存在"
+    },
+    "actions": {
+      "retry": "重试",
+      "creating": "创建 PR 中...",
+      "create": "创建拉取请求"
+    },
+    "labels": {
+      "sourceBranch": "源分支",
+      "targetBranch": "目标分支",
+      "commits": "提交",
+      "changes": "更改",
+      "prTitle": "PR 标题(可选)",
+      "draftPR": "创建为草稿 PR",
+      "unknown": "未知"
+    },
+    "hints": {
+      "targetBranch": "留空以使用默认分支",
+      "prTitle": "留空以使用任务标题"
+    }
+  }
+}

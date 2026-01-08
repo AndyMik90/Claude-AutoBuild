@@ -1,0 +1,134 @@
+{
+  "status": {
+    "backlog": "待办事项",
+    "todo": "待办",
+    "in_progress": "进行中",
+    "review": "审查中",
+    "prCreated": "PR 已创建",
+    "complete": "已完成",
+    "archived": "已归档"
+  },
+  "actions": {
+    "start": "开始",
+    "stop": "停止",
+    "recover": "恢复",
+    "resume": "继续",
+    "archive": "归档",
+    "delete": "删除",
+    "view": "查看详情",
+    "viewPR": "查看 PR",
+    "moveTo": "移动到",
+    "taskActions": "任务操作"
+  },
+  "labels": {
+    "running": "运行中",
+    "aiReview": "AI 审查",
+    "needsReview": "需要审查",
+    "pending": "等待中",
+    "stuck": "卡住",
+    "incomplete": "未完成",
+    "recovering": "恢复中...",
+    "needsRecovery": "需要恢复",
+    "needsResume": "需要继续"
+  },
+  "reviewReason": {
+    "completed": "已完成",
+    "hasErrors": "有错误",
+    "qaIssues": "QA 问题",
+    "approvePlan": "批准计划"
+  },
+  "tooltips": {
+    "archiveTask": "归档任务",
+    "archiveAllDone": "归档所有已完成任务",
+    "viewPR": "在浏览器中打开拉取请求"
+  },
+  "creation": {
+    "title": "创建新任务",
+    "description": "描述您想要构建的内容",
+    "placeholder": "描述您的任务..."
+  },
+  "empty": {
+    "title": "还没有任务",
+    "description": "创建您的第一个任务以开始"
+  },
+  "columns": {
+    "backlog": "规划中",
+    "in_progress": "进行中",
+    "ai_review": "AI 审查",
+    "human_review": "人工审查",
+    "done": "已完成",
+    "pr_created": "PR 已创建"
+  },
+  "kanban": {
+    "emptyBacklog": "没有计划的任务",
+    "emptyBacklogHint": "添加一个任务以开始",
+    "emptyInProgress": "没有运行中的任务",
+    "emptyInProgressHint": "从待办事项开始一个任务",
+    "emptyAiReview": "没有审查中的任务",
+    "emptyAiReviewHint": "AI 将审查已完成的任务",
+    "emptyHumanReview": "没有需要审查的内容",
+    "emptyHumanReviewHint": "任务在此处等待您的批准",
+    "emptyDone": "没有已完成的任务",
+    "emptyDoneHint": "已批准的任务出现在这里",
+    "emptyDefault": "没有任务",
+    "dropHere": "放到这里",
+    "showArchived": "显示已归档",
+    "addTaskAriaLabel": "向待办事项添加新任务",
+    "closeTaskDetailsAriaLabel": "关闭任务详情",
+    "editTask": "编辑任务",
+    "cannotEditWhileRunning": "任务运行时无法编辑"
+  },
+  "execution": {
+    "phases": {
+      "idle": "空闲",
+      "planning": "规划中",
+      "coding": "编码中",
+      "reviewing": "审查中",
+      "fixing": "修复中",
+      "complete": "完成",
+      "failed": "失败"
+    },
+    "labels": {
+      "interrupted": "已中断",
+      "progress": "进度",
+      "entry": "条目",
+      "entries": "条目"
+    },
+    "shortPhases": {
+      "plan": "规划",
+      "code": "编码",
+      "qa": "QA"
+    }
+  },
+  "files": {
+    "title": "文件",
+    "tab": "文件",
+    "noSpecPath": "没有可用的规范文件",
+    "noFiles": "未找到文件",
+    "loading": "加载文件中...",
+    "loadingContent": "加载内容中...",
+    "errorLoading": "加载文件失败",
+    "errorLoadingContent": "加载文件内容失败",
+    "retry": "重试",
+    "selectFile": "选择文件以查看其内容",
+    "openInIDE": "在 IDE 中打开"
+  },
+  "metadata": {
+    "severity": "严重程度",
+    "pullRequest": "拉取请求"
+  },
+  "images": {
+    "removeImageAriaLabel": "移除图片 {{filename}}",
+    "pasteHint": "提示: 使用 {{shortcut}} 直接粘贴截图以添加参考图片。"
+  },
+  "notifications": {
+    "backgroundTaskTitle": "任务在后台继续",
+    "backgroundTaskDescription": "任务仍在运行。您可以重新打开此对话框以监控进度。"
+  },
+  "wizard": {
+    "gitOptions": {
+      "useWorktreeLabel": "使用隔离工作空间(推荐)",
+      "useWorktreeDescription": "在单独的 git 工作树中创建更改,以便在合并前进行安全审查。禁用此项可直接在项目中构建(更快但风险更大)。"
+    }
+  }
+}
