@@ -332,7 +332,16 @@ async function getNpmGlobalPrefixAsync(): Promise<string | null> {
       npmGlobalPrefixCache = await existsAsync(normalizedPath) ? normalizedPath : null;
       return npmGlobalPrefixCache;
     } catch (error) {
-      console.warn(`[env-utils] Failed to get npm global prefix: ${error}`);
+      // On Windows with nvm-windows, node may not be in PATH when launched from GUI
+      // This is expected behavior, not an error worth logging
+      const isExpectedWindowsError =
+        process.platform === 'win32' &&
+        error instanceof Error &&
+        error.message.includes('is not recognized');
+
+      if (!isExpectedWindowsError) {
+        console.warn(`[env-utils] Failed to get npm global prefix: ${error}`);
+      }
       npmGlobalPrefixCache = null;
       return null;
     } finally {
