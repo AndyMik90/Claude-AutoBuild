@@ -207,6 +207,12 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    permissions:
+      id-token: write  # Required for OIDC authentication with Azure
+      contents: read
+    env:
+      # Job-level env so AZURE_CLIENT_ID is available for step-level if conditions
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -261,11 +267,122 @@ jobs:
         run: cd apps/frontend && npm run package:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.WIN_CERTIFICATE }}
-          CSC_KEY_PASSWORD: ${{ secrets.WIN_CERTIFICATE_PASSWORD }}
+          # Disable electron-builder's built-in signing (we use Azure Trusted Signing instead)
+          CSC_IDENTITY_AUTO_DISCOVERY: false
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
           SENTRY_PROFILES_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILES_SAMPLE_RATE }}
+
+      - name: Azure Login (OIDC)
+        if: env.AZURE_CLIENT_ID != ''
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign Windows executable with Azure Trusted Signing
+        if: env.AZURE_CLIENT_ID != ''
+        uses: azure/trusted-signing-action@v0.5.11
+        with:
+          endpoint: https://neu.codesigning.azure.net/
+          trusted-signing-account-name: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_CERTIFICATE_PROFILE }}
+          files-folder: apps/frontend/dist
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: https://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Verify Windows executable is signed
+        if: env.AZURE_CLIENT_ID != ''
+        shell: pwsh
+        run: |
+          cd apps/frontend/dist
+          $exeFile = Get-ChildItem -Filter "*.exe" | Select-Object -First 1
+          if ($exeFile) {
+            Write-Host "Verifying signature on $($exeFile.Name)..."
+            $sig = Get-AuthenticodeSignature -FilePath $exeFile.FullName
+            if ($sig.Status -ne 'Valid') {
+              Write-Host "::error::Signature verification failed: $($sig.Status)"
+              Write-Host "::error::Status Message: $($sig.StatusMessage)"
+              exit 1
+            }
+            Write-Host "✅ Signature verified successfully"
+            Write-Host "  Subject: $($sig.SignerCertificate.Subject)"
+            Write-Host "  Issuer: $($sig.SignerCertificate.Issuer)"
+            Write-Host "  Thumbprint: $($sig.SignerCertificate.Thumbprint)"
+          } else {
+            Write-Host "::error::No .exe file found to verify"
+            exit 1
+          }
+
+      - name: Regenerate checksums after signing
+        if: env.AZURE_CLIENT_ID != ''
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          cd apps/frontend/dist
+
+          # Find the installer exe (electron-builder names it with "Setup" or just the app name)
+          # electron-builder produces one installer exe per build
+          $exeFiles = Get-ChildItem -Filter "*.exe"
+          if ($exeFiles.Count -eq 0) {
+            Write-Host "::error::No .exe files found in dist folder"
+            exit 1
+          }
+
+          Write-Host "Found $($exeFiles.Count) exe file(s): $($exeFiles.Name -join ', ')"
+
+          $ymlFile = "latest.yml"
+          if (-not (Test-Path $ymlFile)) {
+            Write-Host "::error::$ymlFile not found - cannot update checksums"
+            exit 1
+          }
+
+          $content = Get-Content $ymlFile -Raw
+          $originalContent = $content
+
+          # Process each exe file and update its hash in latest.yml
+          foreach ($exeFile in $exeFiles) {
+            Write-Host "Processing $($exeFile.Name)..."
+
+            # Compute SHA512 hash and convert to base64 (electron-builder format)
+            $bytes = [System.IO.File]::ReadAllBytes($exeFile.FullName)
+            $sha512 = [System.Security.Cryptography.SHA512]::Create()
+            $hashBytes = $sha512.ComputeHash($bytes)
+            $hash = [System.Convert]::ToBase64String($hashBytes)
+            $size = $exeFile.Length
+
+            Write-Host "  Hash: $hash"
+            Write-Host "  Size: $size"
+          }
+
+          # For electron-builder, latest.yml has a single file entry for the installer
+          # Update the sha512 and size for the primary exe (first one, typically the installer)
+          $primaryExe = $exeFiles | Select-Object -First 1
+          $bytes = [System.IO.File]::ReadAllBytes($primaryExe.FullName)
+          $sha512 = [System.Security.Cryptography.SHA512]::Create()
+          $hashBytes = $sha512.ComputeHash($bytes)
+          $hash = [System.Convert]::ToBase64String($hashBytes)
+          $size = $primaryExe.Length
+
+          # Update sha512 hash (base64 pattern: alphanumeric, +, /, =)
+          $content = $content -replace 'sha512: [A-Za-z0-9+/=]+', "sha512: $hash"
+          # Update size
+          $content = $content -replace 'size: \d+', "size: $size"
+
+          if ($content -eq $originalContent) {
+            Write-Host "::error::Checksum replacement failed - content unchanged. Check if latest.yml format has changed."
+            exit 1
+          }
+
+          Set-Content -Path $ymlFile -Value $content -NoNewline
+          Write-Host "✅ Updated $ymlFile with new base64 hash and size for $($primaryExe.Name)"
+
+      - name: Skip signing notice
+        if: env.AZURE_CLIENT_ID == ''
+        run: echo "::warning::Windows signing skipped - AZURE_CLIENT_ID not configured. The .exe will be unsigned."
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
