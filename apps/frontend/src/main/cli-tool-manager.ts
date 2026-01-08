@@ -44,7 +44,7 @@ import {
 /**
  * Supported CLI tools managed by this system
  */
-export type CLITool = 'python' | 'git' | 'gh' | 'claude';
+export type CLITool = "python" | "git" | "gh" | "claude";
 
 /**
  * User configuration for CLI tool paths
@@ -86,12 +86,12 @@ interface CacheEntry {
 function isWrongPlatformPath(pathStr: string | undefined): boolean {
   if (!pathStr) return false;
 
-  const isWindows = process.platform === 'win32';
+  const isWindows = process.platform === "win32";
 
   if (isWindows) {
     // On Windows, reject Unix-style absolute paths (starting with /)
     // but allow relative paths and Windows paths
-    if (pathStr.startsWith('/') && !pathStr.startsWith('//')) {
+    if (pathStr.startsWith("/") && !pathStr.startsWith("//")) {
       // Unix absolute path on Windows
       return true;
     }
@@ -102,11 +102,11 @@ function isWrongPlatformPath(pathStr: string | undefined): boolean {
       // Drive letter path (C:\, D:/, etc.)
       return true;
     }
-    if (pathStr.includes('\\')) {
+    if (pathStr.includes("\\")) {
       // Contains backslashes (Windows path separators)
       return true;
     }
-    if (pathStr.includes('AppData') || pathStr.includes('Program Files')) {
+    if (pathStr.includes("AppData") || pathStr.includes("Program Files")) {
       // Contains Windows-specific directory names
       return true;
     }
@@ -147,24 +147,22 @@ interface ClaudeDetectionPaths {
  */
 export function getClaudeDetectionPaths(homeDir: string): ClaudeDetectionPaths {
   const homebrewPaths = [
-    '/opt/homebrew/bin/claude', // Apple Silicon
-    '/usr/local/bin/claude',    // Intel Mac
+    "/opt/homebrew/bin/claude", // Apple Silicon
+    "/usr/local/bin/claude", // Intel Mac
   ];
 
-  const platformPaths = process.platform === 'win32'
-    ? [
-        path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
-        path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
-        path.join(homeDir, '.local', 'bin', 'claude.exe'),
-        'C:\\Program Files\\Claude\\claude.exe',
-        'C:\\Program Files (x86)\\Claude\\claude.exe',
-      ]
-    : [
-        path.join(homeDir, '.local', 'bin', 'claude'),
-        path.join(homeDir, 'bin', 'claude'),
-      ];
+  const platformPaths =
+    process.platform === "win32"
+      ? [
+          path.join(homeDir, "AppData", "Local", "Programs", "claude", "claude.exe"),
+          path.join(homeDir, "AppData", "Roaming", "npm", "claude.cmd"),
+          path.join(homeDir, ".local", "bin", "claude.exe"),
+          "C:\\Program Files\\Claude\\claude.exe",
+          "C:\\Program Files (x86)\\Claude\\claude.exe",
+        ]
+      : [path.join(homeDir, ".local", "bin", "claude"), path.join(homeDir, "bin", "claude")];
 
-  const nvmVersionsDir = path.join(homeDir, '.nvm', 'versions', 'node');
+  const nvmVersionsDir = path.join(homeDir, ".nvm", "versions", "node");
 
   return { homebrewPaths, platformPaths, nvmVersionsDir };
 }
@@ -197,8 +195,8 @@ export function sortNvmVersionDirs(
     .filter((entry) => entry.isDirectory() && semverRegex.test(entry.name))
     .sort((a, b) => {
       // Parse version numbers: v20.0.0 -> [20, 0, 0]
-      const vA = a.name.slice(1).split('.').map(Number);
-      const vB = b.name.slice(1).split('.').map(Number);
+      const vA = a.name.slice(1).split(".").map(Number);
+      const vB = b.name.slice(1).split(".").map(Number);
       // Compare major, minor, patch in order (descending)
       for (let i = 0; i < 3; i++) {
         const diff = (vB[i] ?? 0) - (vA[i] ?? 0);
@@ -233,7 +231,7 @@ export function sortNvmVersionDirs(
 export function buildClaudeDetectionResult(
   claudePath: string,
   validation: ToolValidation,
-  source: ToolDetectionResult['source'],
+  source: ToolDetectionResult["source"],
   messagePrefix: string
 ): ToolDetectionResult | null {
   if (!validation.valid) {
@@ -279,7 +277,7 @@ class CLIToolManager {
   configure(config: ToolConfig): void {
     this.userConfig = config;
     this.cache.clear();
-    console.warn('[CLI Tools] Configuration updated, cache cleared');
+    console.warn("[CLI Tools] Configuration updated, cache cleared");
   }
 
   /**
@@ -295,9 +293,7 @@ class CLIToolManager {
     // Check cache first
     const cached = this.cache.get(tool);
     if (cached) {
-      console.warn(
-        `[CLI Tools] Using cached ${tool}: ${cached.path} (${cached.source})`
-      );
+      console.warn(`[CLI Tools] Using cached ${tool}: ${cached.path} (${cached.source})`);
       return cached.path;
     }
 
@@ -328,18 +324,18 @@ class CLIToolManager {
    */
   private detectToolPath(tool: CLITool): ToolDetectionResult {
     switch (tool) {
-      case 'python':
+      case "python":
         return this.detectPython();
-      case 'git':
+      case "git":
         return this.detectGit();
-      case 'gh':
+      case "gh":
         return this.detectGitHubCLI();
-      case 'claude':
+      case "claude":
         return this.detectClaude();
       default:
         return {
           found: false,
-          source: 'fallback',
+          source: "fallback",
           message: `Unknown tool: ${tool}`,
         };
     }
@@ -359,7 +355,7 @@ class CLIToolManager {
    * @returns Detection result for Python
    */
   private detectPython(): ToolDetectionResult {
-    const MINIMUM_VERSION = '3.10.0';
+    const MINIMUM_VERSION = "3.10.0";
 
     // 1. User configuration
     if (this.userConfig.pythonPath) {
@@ -375,13 +371,11 @@ class CLIToolManager {
             found: true,
             path: this.userConfig.pythonPath,
             version: validation.version,
-            source: 'user-config',
+            source: "user-config",
             message: `Using user-configured Python: ${this.userConfig.pythonPath}`,
           };
         }
-        console.warn(
-          `[Python] User-configured path invalid: ${validation.message}`
-        );
+        console.warn(`[Python] User-configured path invalid: ${validation.message}`);
       }
     }
 
@@ -395,7 +389,7 @@ class CLIToolManager {
             found: true,
             path: bundledPath,
             version: validation.version,
-            source: 'bundled',
+            source: "bundled",
             message: `Using bundled Python: ${bundledPath}`,
           };
         }
@@ -403,7 +397,7 @@ class CLIToolManager {
     }
 
     // 3. Homebrew Python (macOS)
-    if (process.platform === 'darwin') {
+    if (process.platform === "darwin") {
       const homebrewPath = this.findHomebrewPython();
       if (homebrewPath) {
         const validation = this.validatePython(homebrewPath);
@@ -412,7 +406,7 @@ class CLIToolManager {
             found: true,
             path: homebrewPath,
             version: validation.version,
-            source: 'homebrew',
+            source: "homebrew",
             message: `Using Homebrew Python: ${homebrewPath}`,
           };
         }
@@ -421,20 +415,18 @@ class CLIToolManager {
 
     // 4. System PATH (augmented)
     const candidates =
-      process.platform === 'win32'
-        ? ['py -3', 'python', 'python3', 'py']
-        : ['python3', 'python'];
+      process.platform === "win32" ? ["py -3", "python", "python3", "py"] : ["python3", "python"];
 
     for (const cmd of candidates) {
       // Special handling for Windows 'py -3' launcher
-      if (cmd.startsWith('py ')) {
+      if (cmd.startsWith("py ")) {
         const validation = this.validatePython(cmd);
         if (validation.valid) {
           return {
             found: true,
             path: cmd,
             version: validation.version,
-            source: 'system-path',
+            source: "system-path",
             message: `Using system Python: ${cmd}`,
           };
         }
@@ -448,7 +440,7 @@ class CLIToolManager {
               found: true,
               path: pythonPath,
               version: validation.version,
-              source: 'system-path',
+              source: "system-path",
               message: `Using system Python: ${pythonPath}`,
             };
           }
@@ -459,10 +451,10 @@ class CLIToolManager {
     // 5. Not found
     return {
       found: false,
-      source: 'fallback',
+      source: "fallback",
       message:
         `Python ${MINIMUM_VERSION}+ not found. ` +
-        'Please install Python or configure in Settings.',
+        "Please install Python or configure in Settings.",
     };
   }
 
@@ -491,7 +483,7 @@ class CLIToolManager {
             found: true,
             path: this.userConfig.gitPath,
             version: validation.version,
-            source: 'user-config',
+            source: "user-config",
             message: `Using user-configured Git: ${this.userConfig.gitPath}`,
           };
         }
@@ -500,10 +492,10 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (process.platform === "darwin") {
       const homebrewPaths = [
-        '/opt/homebrew/bin/git', // Apple Silicon
-        '/usr/local/bin/git', // Intel Mac
+        "/opt/homebrew/bin/git", // Apple Silicon
+        "/usr/local/bin/git", // Intel Mac
       ];
 
       for (const gitPath of homebrewPaths) {
@@ -514,7 +506,7 @@ class CLIToolManager {
               found: true,
               path: gitPath,
               version: validation.version,
-              source: 'homebrew',
+              source: "homebrew",
               message: `Using Homebrew Git: ${gitPath}`,
             };
           }
@@ -523,7 +515,7 @@ class CLIToolManager {
     }
 
     // 3. System PATH (augmented)
-    const gitPath = findExecutable('git');
+    const gitPath = findExecutable("git");
     if (gitPath) {
       const validation = this.validateGit(gitPath);
       if (validation.valid) {
@@ -531,16 +523,16 @@ class CLIToolManager {
           found: true,
           path: gitPath,
           version: validation.version,
-          source: 'system-path',
+          source: "system-path",
           message: `Using system Git: ${gitPath}`,
         };
       }
     }
 
     // 4. Windows-specific detection using 'where' command (most reliable for custom installs)
-    if (process.platform === 'win32') {
+    if (process.platform === "win32") {
       // First try 'where' command - finds git regardless of installation location
-      const whereGitPath = findWindowsExecutableViaWhere('git', '[Git]');
+      const whereGitPath = findWindowsExecutableViaWhere("git", "[Git]");
       if (whereGitPath) {
         const validation = this.validateGit(whereGitPath);
         if (validation.valid) {
@@ -548,14 +540,14 @@ class CLIToolManager {
             found: true,
             path: whereGitPath,
             version: validation.version,
-            source: 'system-path',
+            source: "system-path",
             message: `Using Windows Git: ${whereGitPath}`,
           };
         }
       }
 
       // Fallback to checking common installation paths
-      const windowsPaths = getWindowsExecutablePaths(WINDOWS_GIT_PATHS, '[Git]');
+      const windowsPaths = getWindowsExecutablePaths(WINDOWS_GIT_PATHS, "[Git]");
       for (const winGitPath of windowsPaths) {
         const validation = this.validateGit(winGitPath);
         if (validation.valid) {
@@ -563,7 +555,7 @@ class CLIToolManager {
             found: true,
             path: winGitPath,
             version: validation.version,
-            source: 'system-path',
+            source: "system-path",
             message: `Using Windows Git: ${winGitPath}`,
           };
         }
@@ -573,7 +565,7 @@ class CLIToolManager {
     // 5. Not found - fallback to 'git'
     return {
       found: false,
-      source: 'fallback',
+      source: "fallback",
       message: 'Git not found in standard locations. Using fallback "git".',
     };
   }
@@ -604,21 +596,19 @@ class CLIToolManager {
             found: true,
             path: this.userConfig.githubCLIPath,
             version: validation.version,
-            source: 'user-config',
+            source: "user-config",
             message: `Using user-configured GitHub CLI: ${this.userConfig.githubCLIPath}`,
           };
         }
-        console.warn(
-          `[GitHub CLI] User-configured path invalid: ${validation.message}`
-        );
+        console.warn(`[GitHub CLI] User-configured path invalid: ${validation.message}`);
       }
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (process.platform === "darwin") {
       const homebrewPaths = [
-        '/opt/homebrew/bin/gh', // Apple Silicon
-        '/usr/local/bin/gh', // Intel Mac
+        "/opt/homebrew/bin/gh", // Apple Silicon
+        "/usr/local/bin/gh", // Intel Mac
       ];
 
       for (const ghPath of homebrewPaths) {
@@ -629,7 +619,7 @@ class CLIToolManager {
               found: true,
               path: ghPath,
               version: validation.version,
-              source: 'homebrew',
+              source: "homebrew",
               message: `Using Homebrew GitHub CLI: ${ghPath}`,
             };
           }
@@ -638,7 +628,7 @@ class CLIToolManager {
     }
 
     // 3. System PATH (augmented)
-    const ghPath = findExecutable('gh');
+    const ghPath = findExecutable("gh");
     if (ghPath) {
       const validation = this.validateGitHubCLI(ghPath);
       if (validation.valid) {
@@ -646,17 +636,17 @@ class CLIToolManager {
           found: true,
           path: ghPath,
           version: validation.version,
-          source: 'system-path',
+          source: "system-path",
           message: `Using system GitHub CLI: ${ghPath}`,
         };
       }
     }
 
     // 4. Windows Program Files
-    if (process.platform === 'win32') {
+    if (process.platform === "win32") {
       const windowsPaths = [
-        'C:\\Program Files\\GitHub CLI\\gh.exe',
-        'C:\\Program Files (x86)\\GitHub CLI\\gh.exe',
+        "C:\\Program Files\\GitHub CLI\\gh.exe",
+        "C:\\Program Files (x86)\\GitHub CLI\\gh.exe",
       ];
 
       for (const ghPath of windowsPaths) {
@@ -667,7 +657,7 @@ class CLIToolManager {
               found: true,
               path: ghPath,
               version: validation.version,
-              source: 'system-path',
+              source: "system-path",
               message: `Using Windows GitHub CLI: ${ghPath}`,
             };
           }
@@ -678,8 +668,8 @@ class CLIToolManager {
     // 5. Not found
     return {
       found: false,
-      source: 'fallback',
-      message: 'GitHub CLI (gh) not found. Install from https://cli.github.com',
+      source: "fallback",
+      message: "GitHub CLI (gh) not found. Install from https://cli.github.com",
     };
   }
 
@@ -713,7 +703,10 @@ class CLIToolManager {
       } else {
         const validation = this.validateClaude(this.userConfig.claudePath);
         const result = buildClaudeDetectionResult(
-          this.userConfig.claudePath, validation, 'user-config', 'Using user-configured Claude CLI'
+          this.userConfig.claudePath,
+          validation,
+          "user-config",
+          "Using user-configured Claude CLI"
         );
         if (result) return result;
         console.warn(`[Claude CLI] User-configured path invalid: ${validation.message}`);
@@ -721,21 +714,31 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (process.platform === "darwin") {
       for (const claudePath of paths.homebrewPaths) {
         if (existsSync(claudePath)) {
           const validation = this.validateClaude(claudePath);
-          const result = buildClaudeDetectionResult(claudePath, validation, 'homebrew', 'Using Homebrew Claude CLI');
+          const result = buildClaudeDetectionResult(
+            claudePath,
+            validation,
+            "homebrew",
+            "Using Homebrew Claude CLI"
+          );
           if (result) return result;
         }
       }
     }
 
     // 3. System PATH (augmented)
-    const systemClaudePath = findExecutable('claude');
+    const systemClaudePath = findExecutable("claude");
     if (systemClaudePath) {
       const validation = this.validateClaude(systemClaudePath);
-      const result = buildClaudeDetectionResult(systemClaudePath, validation, 'system-path', 'Using system Claude CLI');
+      const result = buildClaudeDetectionResult(
+        systemClaudePath,
+        validation,
+        "system-path",
+        "Using system Claude CLI"
+      );
       if (result) return result;
     }
 
@@ -757,10 +760,15 @@ class CLIToolManager {
           const versionNames = sortNvmVersionDirs(nodeVersions);
 
           for (const versionName of versionNames) {
-            const nvmClaudePath = path.join(paths.nvmVersionsDir, versionName, 'bin', 'claude');
+            const nvmClaudePath = path.join(paths.nvmVersionsDir, versionName, "bin", "claude");
             if (existsSync(nvmClaudePath)) {
               const validation = this.validateClaude(nvmClaudePath);
-              const result = buildClaudeDetectionResult(nvmClaudePath, validation, 'nvm', 'Using NVM Claude CLI');
+              const result = buildClaudeDetectionResult(
+                nvmClaudePath,
+                validation,
+                "nvm",
+                "Using NVM Claude CLI"
+              );
               if (result) return result;
             }
           }
@@ -774,7 +782,12 @@ class CLIToolManager {
     for (const claudePath of paths.platformPaths) {
       if (existsSync(claudePath)) {
         const validation = this.validateClaude(claudePath);
-        const result = buildClaudeDetectionResult(claudePath, validation, 'system-path', 'Using Claude CLI');
+        const result = buildClaudeDetectionResult(
+          claudePath,
+          validation,
+          "system-path",
+          "Using Claude CLI"
+        );
         if (result) return result;
       }
     }
@@ -782,8 +795,8 @@ class CLIToolManager {
     // 7. Not found
     return {
       found: false,
-      source: 'fallback',
-      message: 'Claude CLI not found. Install from https://claude.ai/download',
+      source: "fallback",
+      message: "Claude CLI not found. Install from https://claude.ai/download",
     };
   }
 
@@ -797,17 +810,17 @@ class CLIToolManager {
    * @returns Validation result with version information
    */
   private validatePython(pythonCmd: string): ToolValidation {
-    const MINIMUM_VERSION = '3.10.0';
+    const MINIMUM_VERSION = "3.10.0";
 
     try {
       // Parse command to handle cases like 'py -3' on Windows
       // This avoids command injection by using execFileSync instead of execSync
-      const parts = pythonCmd.split(' ');
+      const parts = pythonCmd.split(" ");
       const cmd = parts[0];
-      const args = [...parts.slice(1), '--version'];
+      const args = [...parts.slice(1), "--version"];
 
       const version = execFileSync(cmd, args, {
-        encoding: 'utf-8',
+        encoding: "utf-8",
         timeout: 5000,
         windowsHide: true,
       }).trim();
@@ -816,16 +829,15 @@ class CLIToolManager {
       if (!match) {
         return {
           valid: false,
-          message: 'Unable to detect Python version',
+          message: "Unable to detect Python version",
         };
       }
 
       const versionStr = match[1];
-      const [major, minor] = versionStr.split('.').map(Number);
-      const [reqMajor, reqMinor] = MINIMUM_VERSION.split('.').map(Number);
+      const [major, minor] = versionStr.split(".").map(Number);
+      const [reqMajor, reqMinor] = MINIMUM_VERSION.split(".").map(Number);
 
-      const meetsRequirement =
-        major > reqMajor || (major === reqMajor && minor >= reqMinor);
+      const meetsRequirement = major > reqMajor || (major === reqMajor && minor >= reqMinor);
 
       if (!meetsRequirement) {
         return {
@@ -856,8 +868,8 @@ class CLIToolManager {
    */
   private validateGit(gitCmd: string): ToolValidation {
     try {
-      const version = execFileSync(gitCmd, ['--version'], {
-        encoding: 'utf-8',
+      const version = execFileSync(gitCmd, ["--version"], {
+        encoding: "utf-8",
         timeout: 5000,
         windowsHide: true,
       }).trim();
@@ -886,14 +898,14 @@ class CLIToolManager {
    */
   private validateGitHubCLI(ghCmd: string): ToolValidation {
     try {
-      const version = execFileSync(ghCmd, ['--version'], {
-        encoding: 'utf-8',
+      const version = execFileSync(ghCmd, ["--version"], {
+        encoding: "utf-8",
         timeout: 5000,
         windowsHide: true,
       }).trim();
 
       const match = version.match(/gh version (\d+\.\d+\.\d+)/);
-      const versionStr = match ? match[1] : version.split('\n')[0];
+      const versionStr = match ? match[1] : version.split("\n")[0];
 
       return {
         valid: true,
@@ -943,7 +955,7 @@ class CLIToolManager {
 
       // Claude CLI version output format: "claude-code version X.Y.Z" or similar
       const match = version.match(/(\d+\.\d+\.\d+)/);
-      const versionStr = match ? match[1] : version.split('\n')[0];
+      const versionStr = match ? match[1] : version.split("\n")[0];
 
       return {
         valid: true,
@@ -975,9 +987,7 @@ class CLIToolManager {
     // Check cache first (instant return if cached)
     const cached = this.cache.get(tool);
     if (cached) {
-      console.warn(
-        `[CLI Tools] Using cached ${tool}: ${cached.path} (${cached.source})`
-      );
+      console.warn(`[CLI Tools] Using cached ${tool}: ${cached.path} (${cached.source})`);
       return cached.path;
     }
 
@@ -1008,18 +1018,18 @@ class CLIToolManager {
    */
   private async detectToolPathAsync(tool: CLITool): Promise<ToolDetectionResult> {
     switch (tool) {
-      case 'claude':
+      case "claude":
         return this.detectClaudeAsync();
-      case 'python':
+      case "python":
         return this.detectPythonAsync();
-      case 'git':
+      case "git":
         return this.detectGitAsync();
-      case 'gh':
+      case "gh":
         return this.detectGitHubCLIAsync();
       default:
         return {
           found: false,
-          source: 'fallback',
+          source: "fallback",
           message: `Unknown tool: ${tool}`,
         };
     }
@@ -1061,7 +1071,7 @@ class CLIToolManager {
 
       const version = stdout.trim();
       const match = version.match(/(\d+\.\d+\.\d+)/);
-      const versionStr = match ? match[1] : version.split('\n')[0];
+      const versionStr = match ? match[1] : version.split("\n")[0];
 
       return {
         valid: true,
@@ -1083,15 +1093,15 @@ class CLIToolManager {
    * @returns Promise resolving to validation result
    */
   private async validatePythonAsync(pythonCmd: string): Promise<ToolValidation> {
-    const MINIMUM_VERSION = '3.10.0';
+    const MINIMUM_VERSION = "3.10.0";
 
     try {
-      const parts = pythonCmd.split(' ');
+      const parts = pythonCmd.split(" ");
       const cmd = parts[0];
-      const args = [...parts.slice(1), '--version'];
+      const args = [...parts.slice(1), "--version"];
 
       const { stdout } = await execFileAsync(cmd, args, {
-        encoding: 'utf-8',
+        encoding: "utf-8",
         timeout: 5000,
         windowsHide: true,
         env: await getAugmentedEnvAsync(),
@@ -1102,16 +1112,15 @@ class CLIToolManager {
       if (!match) {
         return {
           valid: false,
-          message: 'Unable to detect Python version',
+          message: "Unable to detect Python version",
         };
       }
 
       const versionStr = match[1];
-      const [major, minor] = versionStr.split('.').map(Number);
-      const [reqMajor, reqMinor] = MINIMUM_VERSION.split('.').map(Number);
+      const [major, minor] = versionStr.split(".").map(Number);
+      const [reqMajor, reqMinor] = MINIMUM_VERSION.split(".").map(Number);
 
-      const meetsRequirement =
-        major > reqMajor || (major === reqMajor && minor >= reqMinor);
+      const meetsRequirement = major > reqMajor || (major === reqMajor && minor >= reqMinor);
 
       if (!meetsRequirement) {
         return {
@@ -1142,8 +1151,8 @@ class CLIToolManager {
    */
   private async validateGitAsync(gitCmd: string): Promise<ToolValidation> {
     try {
-      const { stdout } = await execFileAsync(gitCmd, ['--version'], {
-        encoding: 'utf-8',
+      const { stdout } = await execFileAsync(gitCmd, ["--version"], {
+        encoding: "utf-8",
         timeout: 5000,
         windowsHide: true,
         env: await getAugmentedEnvAsync(),
@@ -1174,8 +1183,8 @@ class CLIToolManager {
    */
   private async validateGitHubCLIAsync(ghCmd: string): Promise<ToolValidation> {
     try {
-      const { stdout } = await execFileAsync(ghCmd, ['--version'], {
-        encoding: 'utf-8',
+      const { stdout } = await execFileAsync(ghCmd, ["--version"], {
+        encoding: "utf-8",
         timeout: 5000,
         windowsHide: true,
         env: await getAugmentedEnvAsync(),
@@ -1183,7 +1192,7 @@ class CLIToolManager {
 
       const version = stdout.trim();
       const match = version.match(/gh version (\d+\.\d+\.\d+)/);
-      const versionStr = match ? match[1] : version.split('\n')[0];
+      const versionStr = match ? match[1] : version.split("\n")[0];
 
       return {
         valid: true,
@@ -1228,7 +1237,10 @@ class CLIToolManager {
       } else {
         const validation = await this.validateClaudeAsync(this.userConfig.claudePath);
         const result = buildClaudeDetectionResult(
-          this.userConfig.claudePath, validation, 'user-config', 'Using user-configured Claude CLI'
+          this.userConfig.claudePath,
+          validation,
+          "user-config",
+          "Using user-configured Claude CLI"
         );
         if (result) return result;
         console.warn(`[Claude CLI] User-configured path invalid: ${validation.message}`);
@@ -1236,21 +1248,31 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (process.platform === "darwin") {
       for (const claudePath of paths.homebrewPaths) {
         if (await existsAsync(claudePath)) {
           const validation = await this.validateClaudeAsync(claudePath);
-          const result = buildClaudeDetectionResult(claudePath, validation, 'homebrew', 'Using Homebrew Claude CLI');
+          const result = buildClaudeDetectionResult(
+            claudePath,
+            validation,
+            "homebrew",
+            "Using Homebrew Claude CLI"
+          );
           if (result) return result;
         }
       }
     }
 
     // 3. System PATH (augmented) - using async findExecutable
-    const systemClaudePath = await findExecutableAsync('claude');
+    const systemClaudePath = await findExecutableAsync("claude");
     if (systemClaudePath) {
       const validation = await this.validateClaudeAsync(systemClaudePath);
-      const result = buildClaudeDetectionResult(systemClaudePath, validation, 'system-path', 'Using system Claude CLI');
+      const result = buildClaudeDetectionResult(
+        systemClaudePath,
+        validation,
+        "system-path",
+        "Using system Claude CLI"
+      );
       if (result) return result;
     }
 
@@ -1268,14 +1290,21 @@ class CLIToolManager {
     if (process.platform !== 'win32') {
       try {
         if (await existsAsync(paths.nvmVersionsDir)) {
-          const nodeVersions = await fsPromises.readdir(paths.nvmVersionsDir, { withFileTypes: true });
+          const nodeVersions = await fsPromises.readdir(paths.nvmVersionsDir, {
+            withFileTypes: true,
+          });
           const versionNames = sortNvmVersionDirs(nodeVersions);
 
           for (const versionName of versionNames) {
-            const nvmClaudePath = path.join(paths.nvmVersionsDir, versionName, 'bin', 'claude');
+            const nvmClaudePath = path.join(paths.nvmVersionsDir, versionName, "bin", "claude");
             if (await existsAsync(nvmClaudePath)) {
               const validation = await this.validateClaudeAsync(nvmClaudePath);
-              const result = buildClaudeDetectionResult(nvmClaudePath, validation, 'nvm', 'Using NVM Claude CLI');
+              const result = buildClaudeDetectionResult(
+                nvmClaudePath,
+                validation,
+                "nvm",
+                "Using NVM Claude CLI"
+              );
               if (result) return result;
             }
           }
@@ -1289,7 +1318,12 @@ class CLIToolManager {
     for (const claudePath of paths.platformPaths) {
       if (await existsAsync(claudePath)) {
         const validation = await this.validateClaudeAsync(claudePath);
-        const result = buildClaudeDetectionResult(claudePath, validation, 'system-path', 'Using Claude CLI');
+        const result = buildClaudeDetectionResult(
+          claudePath,
+          validation,
+          "system-path",
+          "Using Claude CLI"
+        );
         if (result) return result;
       }
     }
@@ -1297,8 +1331,8 @@ class CLIToolManager {
     // 7. Not found
     return {
       found: false,
-      source: 'fallback',
-      message: 'Claude CLI not found. Install from https://claude.ai/download',
+      source: "fallback",
+      message: "Claude CLI not found. Install from https://claude.ai/download",
     };
   }
 
@@ -1310,7 +1344,7 @@ class CLIToolManager {
    * @returns Promise resolving to detection result
    */
   private async detectPythonAsync(): Promise<ToolDetectionResult> {
-    const MINIMUM_VERSION = '3.10.0';
+    const MINIMUM_VERSION = "3.10.0";
 
     // 1. User configuration
     if (this.userConfig.pythonPath) {
@@ -1325,7 +1359,7 @@ class CLIToolManager {
             found: true,
             path: this.userConfig.pythonPath,
             version: validation.version,
-            source: 'user-config',
+            source: "user-config",
             message: `Using user-configured Python: ${this.userConfig.pythonPath}`,
           };
         }
@@ -1343,7 +1377,7 @@ class CLIToolManager {
             found: true,
             path: bundledPath,
             version: validation.version,
-            source: 'bundled',
+            source: "bundled",
             message: `Using bundled Python: ${bundledPath}`,
           };
         }
@@ -1351,13 +1385,13 @@ class CLIToolManager {
     }
 
     // 3. Homebrew Python (macOS) - simplified async version
-    if (process.platform === 'darwin') {
+    if (process.platform === "darwin") {
       const homebrewPaths = [
-        '/opt/homebrew/bin/python3',
-        '/opt/homebrew/bin/python3.12',
-        '/opt/homebrew/bin/python3.11',
-        '/opt/homebrew/bin/python3.10',
-        '/usr/local/bin/python3',
+        "/opt/homebrew/bin/python3",
+        "/opt/homebrew/bin/python3.12",
+        "/opt/homebrew/bin/python3.11",
+        "/opt/homebrew/bin/python3.10",
+        "/usr/local/bin/python3",
       ];
       for (const pythonPath of homebrewPaths) {
         if (await existsAsync(pythonPath)) {
@@ -1367,7 +1401,7 @@ class CLIToolManager {
               found: true,
               path: pythonPath,
               version: validation.version,
-              source: 'homebrew',
+              source: "homebrew",
               message: `Using Homebrew Python: ${pythonPath}`,
             };
           }
@@ -1377,19 +1411,17 @@ class CLIToolManager {
 
     // 4. System PATH (augmented)
     const candidates =
-      process.platform === 'win32'
-        ? ['py -3', 'python', 'python3', 'py']
-        : ['python3', 'python'];
+      process.platform === "win32" ? ["py -3", "python", "python3", "py"] : ["python3", "python"];
 
     for (const cmd of candidates) {
-      if (cmd.startsWith('py ')) {
+      if (cmd.startsWith("py ")) {
         const validation = await this.validatePythonAsync(cmd);
         if (validation.valid) {
           return {
             found: true,
             path: cmd,
             version: validation.version,
-            source: 'system-path',
+            source: "system-path",
             message: `Using system Python: ${cmd}`,
           };
         }
@@ -1402,7 +1434,7 @@ class CLIToolManager {
               found: true,
               path: pythonPath,
               version: validation.version,
-              source: 'system-path',
+              source: "system-path",
               message: `Using system Python: ${pythonPath}`,
             };
           }
@@ -1413,10 +1445,10 @@ class CLIToolManager {
     // 5. Not found
     return {
       found: false,
-      source: 'fallback',
+      source: "fallback",
       message:
         `Python ${MINIMUM_VERSION}+ not found. ` +
-        'Please install Python or configure in Settings.',
+        "Please install Python or configure in Settings.",
     };
   }
 
@@ -1441,7 +1473,7 @@ class CLIToolManager {
             found: true,
             path: this.userConfig.gitPath,
             version: validation.version,
-            source: 'user-config',
+            source: "user-config",
             message: `Using user-configured Git: ${this.userConfig.gitPath}`,
           };
         }
@@ -1450,11 +1482,8 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
-      const homebrewPaths = [
-        '/opt/homebrew/bin/git',
-        '/usr/local/bin/git',
-      ];
+    if (process.platform === "darwin") {
+      const homebrewPaths = ["/opt/homebrew/bin/git", "/usr/local/bin/git"];
 
       for (const gitPath of homebrewPaths) {
         if (await existsAsync(gitPath)) {
@@ -1464,7 +1493,7 @@ class CLIToolManager {
               found: true,
               path: gitPath,
               version: validation.version,
-              source: 'homebrew',
+              source: "homebrew",
               message: `Using Homebrew Git: ${gitPath}`,
             };
           }
@@ -1473,7 +1502,7 @@ class CLIToolManager {
     }
 
     // 3. System PATH (augmented)
-    const gitPath = await findExecutableAsync('git');
+    const gitPath = await findExecutableAsync("git");
     if (gitPath) {
       const validation = await this.validateGitAsync(gitPath);
       if (validation.valid) {
@@ -1481,15 +1510,15 @@ class CLIToolManager {
           found: true,
           path: gitPath,
           version: validation.version,
-          source: 'system-path',
+          source: "system-path",
           message: `Using system Git: ${gitPath}`,
         };
       }
     }
 
     // 4. Windows-specific detection (async to avoid blocking main process)
-    if (process.platform === 'win32') {
-      const whereGitPath = await findWindowsExecutableViaWhereAsync('git', '[Git]');
+    if (process.platform === "win32") {
+      const whereGitPath = await findWindowsExecutableViaWhereAsync("git", "[Git]");
       if (whereGitPath) {
         const validation = await this.validateGitAsync(whereGitPath);
         if (validation.valid) {
@@ -1497,13 +1526,13 @@ class CLIToolManager {
             found: true,
             path: whereGitPath,
             version: validation.version,
-            source: 'system-path',
+            source: "system-path",
             message: `Using Windows Git: ${whereGitPath}`,
           };
         }
       }
 
-      const windowsPaths = await getWindowsExecutablePathsAsync(WINDOWS_GIT_PATHS, '[Git]');
+      const windowsPaths = await getWindowsExecutablePathsAsync(WINDOWS_GIT_PATHS, "[Git]");
       for (const winGitPath of windowsPaths) {
         const validation = await this.validateGitAsync(winGitPath);
         if (validation.valid) {
@@ -1511,7 +1540,7 @@ class CLIToolManager {
             found: true,
             path: winGitPath,
             version: validation.version,
-            source: 'system-path',
+            source: "system-path",
             message: `Using Windows Git: ${winGitPath}`,
           };
         }
@@ -1521,7 +1550,7 @@ class CLIToolManager {
     // 5. Not found
     return {
       found: false,
-      source: 'fallback',
+      source: "fallback",
       message: 'Git not found in standard locations. Using fallback "git".',
     };
   }
@@ -1547,7 +1576,7 @@ class CLIToolManager {
             found: true,
             path: this.userConfig.githubCLIPath,
             version: validation.version,
-            source: 'user-config',
+            source: "user-config",
             message: `Using user-configured GitHub CLI: ${this.userConfig.githubCLIPath}`,
           };
         }
@@ -1556,11 +1585,8 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
-      const homebrewPaths = [
-        '/opt/homebrew/bin/gh',
-        '/usr/local/bin/gh',
-      ];
+    if (process.platform === "darwin") {
+      const homebrewPaths = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh"];
 
       for (const ghPath of homebrewPaths) {
         if (await existsAsync(ghPath)) {
@@ -1570,7 +1596,7 @@ class CLIToolManager {
               found: true,
               path: ghPath,
               version: validation.version,
-              source: 'homebrew',
+              source: "homebrew",
               message: `Using Homebrew GitHub CLI: ${ghPath}`,
             };
           }
@@ -1579,7 +1605,7 @@ class CLIToolManager {
     }
 
     // 3. System PATH (augmented)
-    const ghPath = await findExecutableAsync('gh');
+    const ghPath = await findExecutableAsync("gh");
     if (ghPath) {
       const validation = await this.validateGitHubCLIAsync(ghPath);
       if (validation.valid) {
@@ -1587,17 +1613,17 @@ class CLIToolManager {
           found: true,
           path: ghPath,
           version: validation.version,
-          source: 'system-path',
+          source: "system-path",
           message: `Using system GitHub CLI: ${ghPath}`,
         };
       }
     }
 
     // 4. Windows Program Files
-    if (process.platform === 'win32') {
+    if (process.platform === "win32") {
       const windowsPaths = [
-        'C:\\Program Files\\GitHub CLI\\gh.exe',
-        'C:\\Program Files (x86)\\GitHub CLI\\gh.exe',
+        "C:\\Program Files\\GitHub CLI\\gh.exe",
+        "C:\\Program Files (x86)\\GitHub CLI\\gh.exe",
       ];
 
       for (const winGhPath of windowsPaths) {
@@ -1608,7 +1634,7 @@ class CLIToolManager {
               found: true,
               path: winGhPath,
               version: validation.version,
-              source: 'system-path',
+              source: "system-path",
               message: `Using Windows GitHub CLI: ${winGhPath}`,
             };
           }
@@ -1619,8 +1645,8 @@ class CLIToolManager {
     // 5. Not found
     return {
       found: false,
-      source: 'fallback',
-      message: 'GitHub CLI (gh) not found. Install from https://cli.github.com',
+      source: "fallback",
+      message: "GitHub CLI (gh) not found. Install from https://cli.github.com",
     };
   }
 
@@ -1638,11 +1664,11 @@ class CLIToolManager {
     }
 
     const resourcesPath = process.resourcesPath;
-    const isWindows = process.platform === 'win32';
+    const isWindows = process.platform === "win32";
 
     const pythonPath = isWindows
-      ? path.join(resourcesPath, 'python', 'python.exe')
-      : path.join(resourcesPath, 'python', 'bin', 'python3');
+      ? path.join(resourcesPath, "python", "python.exe")
+      : path.join(resourcesPath, "python", "bin", "python3");
 
     return existsSync(pythonPath) ? pythonPath : null;
   }
@@ -1654,10 +1680,7 @@ class CLIToolManager {
    * @returns Path to Homebrew Python or null if not found
    */
   private findHomebrewPython(): string | null {
-    return findHomebrewPythonUtil(
-      (pythonPath) => this.validatePython(pythonPath),
-      '[CLI Tools]'
-    );
+    return findHomebrewPythonUtil((pythonPath) => this.validatePython(pythonPath), "[CLI Tools]");
   }
 
   /**
@@ -1668,7 +1691,7 @@ class CLIToolManager {
    */
   clearCache(): void {
     this.cache.clear();
-    console.warn('[CLI Tools] Cache cleared');
+    console.warn("[CLI Tools] Cache cleared");
   }
 
   /**
@@ -1841,8 +1864,8 @@ export async function getToolPathAsync(tool: CLITool): Promise<string> {
  * });
  * ```
  */
-export async function preWarmToolCache(tools: CLITool[] = ['claude']): Promise<void> {
-  console.warn('[CLI Tools] Pre-warming cache for:', tools.join(', '));
-  await Promise.all(tools.map(tool => cliToolManager.getToolPathAsync(tool)));
-  console.warn('[CLI Tools] Cache pre-warming complete');
+export async function preWarmToolCache(tools: CLITool[] = ["claude"]): Promise<void> {
+  console.warn("[CLI Tools] Pre-warming cache for:", tools.join(", "));
+  await Promise.all(tools.map((tool) => cliToolManager.getToolPathAsync(tool)));
+  console.warn("[CLI Tools] Cache pre-warming complete");
 }
