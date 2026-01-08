@@ -264,11 +264,9 @@ jobs:
               // Verdict patterns and their corresponding labels
               VERDICTS: Object.freeze({
                 APPROVED: {
+                  // Only match specific Auto-Claude approval tokens
+                  // Removed ambiguous 'Ready To Merge' patterns that could match unrelated text
                   patterns: [
-                    'Ready To Merge',
-                    'Ready to Merge',
-                    'READY TO MERGE',
-                    '✅ APPROVED',
                     'Auto Claude Review - APPROVED'
                   ],
                   regex: /Merge Verdict:.*🟢.*APPROVED/i,
@@ -285,7 +283,7 @@ jobs:
                 REJECTED: {
                   patterns: ['REJECTED'],
                   regex: /Merge Verdict:.*🔴/,
-                  label: 'AC: Changes Requested'
+                  label: 'AC: Rejected'
                 },
                 RE_REVIEW: {
                   patterns: [
@@ -303,6 +301,7 @@ jobs:
                 'Missing AC Approval',
                 'AC: Approved',
                 'AC: Changes Requested',
+                'AC: Rejected',
                 'AC: Needs Re-review',
                 'AC: Reviewed'
               ])
@@ -391,9 +390,11 @@ jobs:
                 console.log(`  ✓ Added: ${newLabel}`);
               } catch (e) {
                 if (e.status === 404) {
+                  // Label doesn't exist - warn but don't fail the workflow
                   core.warning(`Label '${newLabel}' does not exist.`);
+                } else {
+                  throw e;
                 }
-                throw e;
               }
             }
 
