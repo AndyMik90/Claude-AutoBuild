@@ -255,13 +255,17 @@ export class ProjectStore {
       return cached.tasks;
     }
 
-    console.warn('[ProjectStore] getTasks called with projectId:', projectId, cached ? '(cache expired)' : '(cache miss)');
+    console.warn('[ProjectStore] getTasks called - will load from disk', {
+      projectId,
+      reason: cached ? 'cache expired' : 'cache miss',
+      cacheAge: cached ? now - cached.timestamp : 'N/A'
+    });
     const project = this.getProject(projectId);
     if (!project) {
       console.warn('[ProjectStore] Project not found for id:', projectId);
       return [];
     }
-    console.warn('[ProjectStore] Found project:', project.name, 'autoBuildPath:', project.autoBuildPath);
+    console.warn('[ProjectStore] Found project:', project.name, 'autoBuildPath:', project.autoBuildPath, 'path:', project.path);
 
     const allTasks: Task[] = [];
     const specsBaseDir = getSpecsDir(project.autoBuildPath);
@@ -319,7 +323,11 @@ export class ProjectStore {
     }
 
     const tasks = Array.from(taskMap.values());
-    console.warn('[ProjectStore] Returning', tasks.length, 'unique tasks (after deduplication)');
+    console.warn('[ProjectStore] Scan complete - found', tasks.length, 'unique tasks', {
+      mainTasks: allTasks.filter(t => t.location === 'main').length,
+      worktreeTasks: allTasks.filter(t => t.location === 'worktree').length,
+      deduplicated: allTasks.length - tasks.length
+    });
 
     // Update cache
     this.tasksCache.set(projectId, { tasks, timestamp: now });
@@ -377,12 +385,22 @@ export class ProjectStore {
         // Try to read implementation plan
         let plan: ImplementationPlan | null = null;
         if (existsSync(planPath)) {
+          console.warn(`[ProjectStore] Loading implementation_plan.json for spec: ${dir.name} from ${location}`);
           try {
             const content = readFileSync(planPath, 'utf-8');
             plan = JSON.parse(content);
-          } catch {
-            // Ignore parse errors
+            console.warn(`[ProjectStore] Loaded plan for ${dir.name}:`, {
+              hasDescription: !!plan?.description,
+              hasFeature: !!plan?.feature,
+              status: plan?.status,
+              phaseCount: plan?.phases?.length || 0,
+              subtaskCount: plan?.phases?.flatMap(p => p.subtasks || []).length || 0
+            });
+          } catch (err) {
+            console.error(`[ProjectStore] Failed to parse implementation_plan.json for ${dir.name}:`, err);
           }
+        } else {
+          console.warn(`[ProjectStore] No implementation_plan.json found for spec: ${dir.name} at ${planPath}`);
         }
 
         // PRIORITY 1: Read description from implementation_plan.json (user's original)
