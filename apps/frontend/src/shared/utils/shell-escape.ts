@@ -26,7 +26,7 @@ import type { ShellType } from '../../main/terminal/types';
 export function escapeShellArg(arg: string): string {
   // Replace single quotes with: end quote, escaped quote, start quote
   // This is the standard POSIX-safe way to handle single quotes
-  const escaped = arg.replace(/'/g, "'\''");
+  const escaped = arg.replace(/'/g, "'\\''");
   return `'${escaped}'`;
 }
 
@@ -96,6 +96,31 @@ export function escapeShellArgForShell(arg: string, shellType: ShellType): strin
     case 'zsh':
     default:
       return escapeShellArg(arg);
+  }
+}
+
+/**
+ * Escape a command for execution based on shell type.
+ *
+ * This differs from escapeShellArgForShell in that PowerShell requires
+ * the & (call) operator to execute a quoted command path.
+ *
+ * @param cmd - The command/executable path to escape
+ * @param shellType - The target shell type
+ * @returns The escaped command ready for execution
+ */
+export function escapeCommandForShell(cmd: string, shellType: ShellType): string {
+  switch (shellType) {
+    case 'powershell':
+    case 'pwsh':
+      // PowerShell requires & (call) operator to execute a quoted string
+      return `& ${escapeShellArgPowerShell(cmd)}`;
+    case 'cmd':
+      return `"${escapeShellArgWindows(cmd)}"`;
+    case 'bash':
+    case 'zsh':
+    default:
+      return escapeShellArg(cmd);
   }
 }
 

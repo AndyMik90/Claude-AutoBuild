@@ -13,7 +13,7 @@ import { getClaudeProfileManager, initializeClaudeProfileManager } from '../clau
 import * as OutputParser from './output-parser';
 import * as SessionHandler from './session-handler';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
-import { escapeShellArg, buildCdCommand, buildCdCommandForShell, buildPathPrefixForShell, escapeShellArgForShell } from '../../shared/utils/shell-escape';
+import { escapeShellArg, buildCdCommand, buildCdCommandForShell, buildPathPrefixForShell, escapeCommandForShell } from '../../shared/utils/shell-escape';
 import { getClaudeCliInvocation, getClaudeCliInvocationAsync } from '../claude-cli-utils';
 import type {
   TerminalProcess,
@@ -32,17 +32,34 @@ import type {
  * This provides type safety by ensuring the correct options are provided for each method.
  */
 type ClaudeCommandConfig =
-  | { method: 'default' }
+  | { method: 'default'; shellType: ShellType }
   | { method: 'temp-file'; escapedTempFile: string }
   | { method: 'config-dir'; escapedConfigDir: string };
+
+/**
+ * Get the clear screen command for a shell type
+ */
+function getClearCommand(shellType: ShellType): string {
+  switch (shellType) {
+    case 'powershell':
+    case 'pwsh':
+      return 'cls; ';
+    case 'cmd':
+      return 'cls && ';
+    case 'bash':
+    case 'zsh':
+    default:
+      return 'clear && ';
+  }
+}
 
 /**
  * Build the shell command for invoking Claude CLI.
  *
  * Generates the appropriate command string based on the invocation method:
- * - 'default': Simple command execution
- * - 'temp-file': Sources OAuth token from temp file, then removes it
- * - 'config-dir': Sets CLAUDE_CONFIG_DIR for custom profile location
+ * - 'default': Simple command execution with screen clear
+ * - 'temp-file': Sources OAuth token from temp file, then removes it (bash only)
+ * - 'config-dir': Sets CLAUDE_CONFIG_DIR for custom profile location (bash only)
  *
  * All non-default methods include history-safe prefixes (HISTFILE=, HISTCONTROL=)
  * to prevent sensitive data from appearing in shell history.
@@ -55,8 +72,8 @@ type ClaudeCommandConfig =
  *
  * @example
  * // Default method
- * buildClaudeShellCommand('cd /path && ', 'PATH=/bin ', 'claude', { method: 'default' });
- * // Returns: 'cd /path && PATH=/bin claude\r'
+ * buildClaudeShellCommand('cd /path && ', 'PATH=/bin ', 'claude', { method: 'default', shellType: 'bash' });
+ * // Returns: 'clear && cd /path && PATH=/bin claude\r'
  *
  * // Temp file method
  * buildClaudeShellCommand('', '', 'claude', { method: 'temp-file', escapedTempFile: '/tmp/token' });
@@ -75,8 +92,10 @@ export function buildClaudeShellCommand(
     case 'config-dir':
       return `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${config.escapedConfigDir} ${pathPrefix}bash -c "exec ${escapedClaudeCmd}"\r`;
 
-    default:
-      return `${cwdCommand}${pathPrefix}${escapedClaudeCmd}\r`;
+    default: {
+      const clearCmd = getClearCommand(config.shellType);
+      return `${clearCmd}${cwdCommand}${pathPrefix}${escapedClaudeCmd}\r`;
+    }
   }
 }
 
@@ -368,7 +387,7 @@ export function invokeClaude(
   const shellType = terminal.shellType || 'bash';
   const cwdCommand = buildCdCommandForShell(cwd, shellType);
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
-  const escapedClaudeCmd = escapeShellArgForShell(claudeCmd, shellType);
+  const escapedClaudeCmd = escapeCommandForShell(claudeCmd, shellType);
   const pathPrefix = claudeEnv.PATH
     ? buildPathPrefixForShell(claudeEnv.PATH, shellType)
     : '';
@@ -423,7 +442,7 @@ export function invokeClaude(
     debugLog('[ClaudeIntegration:invokeClaude] Using terminal environment for non-default profile:', activeProfile.name);
   }
 
-  const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'default' });
+  const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'default', shellType });
   debugLog('[ClaudeIntegration:invokeClaude] Executing command (default method):', command);
   terminal.pty.write(command);
 
@@ -457,7 +476,7 @@ export function resumeClaude(
   // Use shell-aware command generation
   const shellType = terminal.shellType || 'bash';
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
-  const escapedClaudeCmd = escapeShellArgForShell(claudeCmd, shellType);
+  const escapedClaudeCmd = escapeCommandForShell(claudeCmd, shellType);
   const pathPrefix = claudeEnv.PATH
     ? buildPathPrefixForShell(claudeEnv.PATH, shellType)
     : '';
@@ -542,7 +561,7 @@ export async function invokeClaudeAsync(
   const shellType = terminal.shellType || 'bash';
   const cwdCommand = buildCdCommandForShell(cwd, shellType);
   const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
-  const escapedClaudeCmd = escapeShellArgForShell(claudeCmd, shellType);
+  const escapedClaudeCmd = escapeCommandForShell(claudeCmd, shellType);
   const pathPrefix = claudeEnv.PATH
     ? buildPathPrefixForShell(claudeEnv.PATH, shellType)
     : '';
@@ -597,7 +616,7 @@ export async function invokeClaudeAsync(
     debugLog('[ClaudeIntegration:invokeClaudeAsync] Using terminal environment for non-default profile:', activeProfile.name);
   }
 
-  const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'default' });
+  const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'default', shellType });
   debugLog('[ClaudeIntegration:invokeClaudeAsync] Executing command (default method):', command);
   terminal.pty.write(command);
 
@@ -626,7 +645,7 @@ export async function resumeClaudeAsync(
   // Async CLI invocation - non-blocking, shell-aware command generation
   const shellType = terminal.shellType || 'bash';
   const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
-  const escapedClaudeCmd = escapeShellArgForShell(claudeCmd, shellType);
+  const escapedClaudeCmd = escapeCommandForShell(claudeCmd, shellType);
   const pathPrefix = claudeEnv.PATH
     ? buildPathPrefixForShell(claudeEnv.PATH, shellType)
     : '';
