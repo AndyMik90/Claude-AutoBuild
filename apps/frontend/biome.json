@@ -1,0 +1,73 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "organizeImports": {
+    "enabled": true
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "correctness": {
+        "noUnusedVariables": "warn",
+        "noUnusedImports": "warn",
+        "useHookAtTopLevel": "error",
+        "useExhaustiveDependencies": "warn"
+      },
+      "suspicious": {
+        "noExplicitAny": "warn",
+        "noConsoleLog": "warn",
+        "noAssignInExpressions": "off",
+        "noArrayIndexKey": "warn",
+        "noShadowRestrictedNames": "off"
+      },
+      "style": {
+        "useConst": "warn",
+        "noUnusedTemplateLiteral": "warn",
+        "noNonNullAssertion": "off",
+        "noParameterAssign": "off"
+      },
+      "complexity": {
+        "noForEach": "off",
+        "noBannedTypes": "off"
+      },
+      "a11y": {
+        "useButtonType": "off",
+        "useKeyWithClickEvents": "off",
+        "noSvgWithoutTitle": "off",
+        "useSemanticElements": "off",
+        "noLabelWithoutControl": "off"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "warn"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "asNeeded",
+      "trailingCommas": "es5"
+    }
+  },
+  "overrides": [
+    {
+      "include": ["scripts/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsoleLog": "off"
+          }
+        }
+      }
+    }
+  ],
+  "files": {
+    "ignore": ["out/**", "dist/**", "node_modules/**", "*.config.js", "*.config.mjs"]
+  }
+}
