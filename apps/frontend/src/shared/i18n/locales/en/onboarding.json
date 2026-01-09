@@ -31,6 +31,37 @@
   "oauth": {
     "title": "Claude Authentication",
     "description": "Connect your Claude account to enable AI features",
+    "configureTitle": "Configure Claude Authentication",
+    "addAccountsDesc": "Add your Claude accounts to enable AI features",
+    "multiAccountInfo": "Add multiple Claude subscriptions to automatically switch between them when you hit rate limits.",
+    "noAccountsYet": "No accounts configured yet",
+    "badges": {
+      "default": "Default",
+      "active": "Active",
+      "authenticated": "Authenticated",
+      "needsAuth": "Needs Auth"
+    },
+    "buttons": {
+      "authenticate": "Authenticate",
+      "setActive": "Set Active",
+      "rename": "Rename",
+      "delete": "Delete",
+      "add": "Add",
+      "adding": "Adding...",
+      "showToken": "Show Token",
+      "hideToken": "Hide Token",
+      "copyToken": "Copy Token",
+      "back": "Back",
+      "continue": "Continue",
+      "skip": "Skip"
+    },
+    "labels": {
+      "accountName": "Account name",
+      "namePlaceholder": "Profile name (e.g., Work, Personal)",
+      "tokenLabel": "OAuth Token",
+      "tokenPlaceholder": "Enter token here",
+      "tokenHint": "Paste the token shown in your terminal after completing OAuth login."
+    },
     "keychainTitle": "Secure Storage",
     "keychainDescription": "Your tokens are encrypted using your system's keychain. You may see a password prompt from macOS — click \"Always Allow\" to avoid seeing it again.",
     "toast": {

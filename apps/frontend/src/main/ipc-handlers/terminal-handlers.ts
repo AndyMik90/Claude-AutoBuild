@@ -56,7 +56,7 @@ export function registerTerminalHandlers(
     (_, id: string, cwd?: string) => {
       // Use async version to avoid blocking main process during CLI detection
       terminalManager.invokeClaudeAsync(id, cwd).catch((error) => {
-        console.error('[terminal-handlers] Failed to invoke Claude:', error);
+        debugError('[terminal-handlers] Failed to invoke Claude:', error);
       });
     }
   );
@@ -423,8 +423,7 @@ export function registerTerminalHandlers(
           }
         };
       } catch (error) {
-        console.error('[IPC:CLAUDE_PROFILE_INITIALIZE] EXCEPTION:', error);
-        debugError('[IPC] Failed to initialize Claude profile:', error);
+        debugError('[IPC:CLAUDE_PROFILE_INITIALIZE] EXCEPTION:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to initialize Claude profile'
@@ -657,7 +656,7 @@ export function registerTerminalHandlers(
     (_, id: string, sessionId?: string) => {
       // Use async version to avoid blocking main process during CLI detection
       terminalManager.resumeClaudeAsync(id, sessionId).catch((error) => {
-        console.error('[terminal-handlers] Failed to resume Claude:', error);
+        debugError('[terminal-handlers] Failed to resume Claude:', error);
       });
     }
   );
@@ -668,7 +667,7 @@ export function registerTerminalHandlers(
     IPC_CHANNELS.TERMINAL_ACTIVATE_DEFERRED_RESUME,
     (_, id: string) => {
       terminalManager.activateDeferredResume(id).catch((error) => {
-        console.error('[terminal-handlers] Failed to activate deferred Claude resume:', error);
+        debugError('[terminal-handlers] Failed to activate deferred Claude resume:', error);
       });
     }
   );

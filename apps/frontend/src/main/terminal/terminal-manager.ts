@@ -85,7 +85,7 @@ export class TerminalManager {
         onResumeNeeded: (terminalId, sessionId) => {
           // Use async version to avoid blocking main process
           this.resumeClaudeAsync(terminalId, sessionId).catch((error) => {
-            console.error('[terminal-manager] Failed to resume Claude session:', error);
+            debugError('[terminal-manager] Failed to resume Claude session:', error);
           });
         }
       },
@@ -317,7 +317,7 @@ export class TerminalManager {
         onResumeNeeded: (terminalId, sessionId) => {
           // Use async version to avoid blocking main process
           this.resumeClaudeAsync(terminalId, sessionId).catch((error) => {
-            console.error('[terminal-manager] Failed to resume Claude session:', error);
+            debugError('[terminal-manager] Failed to resume Claude session:', error);
           });
         }
       },

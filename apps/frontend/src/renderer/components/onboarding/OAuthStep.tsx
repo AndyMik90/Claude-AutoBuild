@@ -326,10 +326,10 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Configure Claude Authentication
+            {t('oauth.configureTitle')}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Add your Claude accounts to enable AI features
+            {t('oauth.addAccountsDesc')}
           </p>
         </div>
 
@@ -362,7 +362,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                   <Info className="h-5 w-5 text-info shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">
-                      Add multiple Claude subscriptions to automatically switch between them when you hit rate limits.
+                      {t('oauth.multiAccountInfo')}
                     </p>
                   </div>
                 </div>
@@ -392,7 +392,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
             <div className="rounded-lg bg-muted/30 border border-border p-4">
               {claudeProfiles.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border p-4 text-center mb-4">
-                  <p className="text-sm text-muted-foreground">No accounts configured yet</p>
+                  <p className="text-sm text-muted-foreground">{t('oauth.noAccountsYet')}</p>
                 </div>
               ) : (
                 <div className="space-y-2 mb-4">
@@ -454,22 +454,22 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-sm font-medium text-foreground">{profile.name}</span>
                                   {profile.isDefault && (
-                                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Default</span>
+                                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{t('oauth.badges.default')}</span>
                                   )}
                                   {profile.id === activeProfileId && (
                                     <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex items-center gap-1">
                                       <Star className="h-3 w-3" />
-                                      Active
+                                      {t('oauth.badges.active')}
                                     </span>
                                   )}
                                   {(profile.oauthToken || (profile.isDefault && profile.configDir)) ? (
                                     <span className="text-xs bg-success/20 text-success px-1.5 py-0.5 rounded flex items-center gap-1">
                                       <Check className="h-3 w-3" />
-                                      Authenticated
+                                      {t('oauth.badges.authenticated')}
                                     </span>
                                   ) : (
                                     <span className="text-xs bg-warning/20 text-warning px-1.5 py-0.5 rounded">
-                                      Needs Auth
+                                      {t('oauth.badges.needsAuth')}
                                     </span>
                                   )}
                                 </div>
@@ -496,7 +496,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                                 ) : (
                                   <LogIn className="h-3 w-3" />
                                 )}
-                                Authenticate
+                                {t('oauth.buttons.authenticate')}
                               </Button>
                             )}
                             {profile.id !== activeProfileId && (
@@ -507,7 +507,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                                 className="gap-1 h-7 text-xs"
                               >
                                 <Check className="h-3 w-3" />
-                                Set Active
+                                {t('oauth.buttons.setActive')}
                               </Button>
                             )}
                             {/* Toggle token entry button */}
@@ -676,7 +676,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
             onClick={onBack}
             className="text-muted-foreground hover:text-foreground"
           >
-            Back
+            {t('oauth.buttons.back')}
           </Button>
           <div className="flex gap-4">
             <Button
@@ -684,13 +684,13 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
               onClick={onSkip}
               className="text-muted-foreground hover:text-foreground"
             >
-              Skip
+              {t('oauth.buttons.skip')}
             </Button>
             <Button
               onClick={handleContinue}
               disabled={!hasAuthenticatedProfile}
             >
-              Continue
+              {t('oauth.buttons.continue')}
             </Button>
           </div>
         </div>

@@ -85,7 +85,7 @@ export function spawnPtyProcess(
 
   const shellArgs = process.platform === 'win32' ? [] : ['-l'];
 
-  console.warn('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ')');
+  debugLog('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ')');
 
   // Create a clean environment without DEBUG to prevent Claude Code from
   // enabling debug mode when the Electron app is run in development mode.
@@ -138,7 +138,7 @@ export function setupPtyHandlers(
 
   // Handle terminal exit
   ptyProcess.onExit(({ exitCode }) => {
-    console.warn('[PtyManager] Terminal exited:', id, 'code:', exitCode);
+    debugLog('[PtyManager] Terminal exited:', id, 'code:', exitCode);
 
     const win = getWindow();
     if (win) {
