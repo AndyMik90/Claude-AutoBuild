@@ -1,7 +1,7 @@
 import { ipcMain, app } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../shared/constants';
-import type { IPCResult, Roadmap, RoadmapFeature, RoadmapFeatureStatus, RoadmapGenerationStatus, Task, TaskMetadata, CompetitorAnalysis, AppSettings } from '../../shared/types';
+import type { IPCResult, Roadmap, RoadmapFeature, RoadmapFeatureStatus, RoadmapGenerationStatus, Task, TaskMetadata, CompetitorAnalysis, AppSettings, ContinuousResearchState, ContinuousResearchProgress, ContinuousResearchSummary } from '../../shared/types';
 import type { RoadmapConfig } from '../agent/types';
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs';
@@ -621,6 +621,314 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join('\n'
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.ROADMAP_ERROR, projectId, error);
+    }
+  });
+
+  // ============================================
+  // Continuous Roadmap Operations
+  // ============================================
+
+  /**
+   * Start continuous roadmap research mode.
+   * Fire-and-forget operation - progress updates sent via events.
+   */
+  ipcMain.on(
+    IPC_CHANNELS.CONTINUOUS_ROADMAP_START,
+    (_, projectId: string, durationHours: number = 8) => {
+      // Get feature settings for roadmap
+      const featureSettings = getFeatureSettings();
+      const config: RoadmapConfig = {
+        model: featureSettings.model,
+        thinkingLevel: featureSettings.thinkingLevel
+      };
+
+      debugLog('[Continuous Roadmap Handler] Start request:', {
+        projectId,
+        durationHours,
+        config
+      });
+
+      const mainWindow = getMainWindow();
+      if (!mainWindow) return;
+
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        debugError('[Continuous Roadmap Handler] Project not found:', projectId);
+        mainWindow.webContents.send(
+          IPC_CHANNELS.CONTINUOUS_ROADMAP_ERROR,
+          projectId,
+          'Project not found'
+        );
+        return;
+      }
+
+      // Check if regular roadmap generation is already running
+      if (agentManager.isRoadmapRunning(projectId)) {
+        debugError('[Continuous Roadmap Handler] Regular roadmap generation already running:', projectId);
+        mainWindow.webContents.send(
+          IPC_CHANNELS.CONTINUOUS_ROADMAP_ERROR,
+          projectId,
+          'Cannot start continuous mode while roadmap generation is running'
+        );
+        return;
+      }
+
+      // Start continuous roadmap via agent manager
+      agentManager.startContinuousRoadmap(
+        projectId,
+        project.path,
+        durationHours,
+        config
+      );
+
+      // Send initial progress
+      mainWindow.webContents.send(
+        IPC_CHANNELS.CONTINUOUS_ROADMAP_PROGRESS,
+        projectId,
+        {
+          phase: 'idle',
+          phaseName: 'Starting',
+          iterationCount: 0,
+          phaseIteration: 0,
+          totalPhases: 5,
+          elapsedHours: 0,
+          durationHours,
+          progress: 0,
+          featureCount: 0,
+          findingCount: 0,
+          message: 'Initializing continuous research...'
+        } as ContinuousResearchProgress
+      );
+    }
+  );
+
+  /**
+   * Stop continuous roadmap research mode.
+   * Returns the final state.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.CONTINUOUS_ROADMAP_STOP,
+    async (_, projectId: string): Promise<IPCResult<ContinuousResearchSummary | null>> => {
+      debugLog('[Continuous Roadmap Handler] Stop request:', { projectId });
+
+      const mainWindow = getMainWindow();
+
+      // Stop continuous roadmap for this project
+      const summary = agentManager.stopContinuousRoadmap(projectId);
+
+      debugLog('[Continuous Roadmap Handler] Stop result:', { projectId, summary });
+
+      if (mainWindow) {
+        debugLog('[Continuous Roadmap Handler] Sending stopped event to renderer');
+        mainWindow.webContents.send(IPC_CHANNELS.CONTINUOUS_ROADMAP_STOPPED, projectId);
+      }
+
+      return { success: true, data: summary };
+    }
+  );
+
+  /**
+   * Get continuous roadmap research status.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.CONTINUOUS_ROADMAP_STATUS,
+    async (_, projectId: string): Promise<IPCResult<ContinuousResearchState | null>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const isRunning = agentManager.isContinuousRoadmapRunning(projectId);
+      debugLog('[Continuous Roadmap Handler] Get status:', { projectId, isRunning });
+
+      // Try to load state from file if available
+      const statePath = path.join(
+        project.path,
+        AUTO_BUILD_PATHS.ROADMAP_DIR,
+        'continuous_research_state.json'
+      );
+
+      if (!existsSync(statePath)) {
+        return { success: true, data: null };
+      }
+
+      try {
+        const content = readFileSync(statePath, 'utf-8');
+        const rawState = JSON.parse(content);
+
+        // Transform snake_case to camelCase for frontend
+        const state: ContinuousResearchState = {
+          isRunning: rawState.is_running ?? isRunning,
+          startedAt: rawState.started_at,
+          stoppedAt: rawState.stopped_at,
+          durationHours: rawState.duration_hours ?? 8,
+          currentPhase: rawState.current_phase ?? 'idle',
+          phaseStartedAt: rawState.phase_started_at,
+          iterationCount: rawState.iteration_count ?? 0,
+          phaseIteration: rawState.phase_iteration ?? 0,
+          features: (rawState.features ?? []).map((f: Record<string, unknown>) => ({
+            id: f.id,
+            title: f.title,
+            description: f.description,
+            category: f.category,
+            phaseDiscovered: f.phase_discovered,
+            iterationDiscovered: f.iteration_discovered,
+            priority_score: f.priority_score ?? 0,
+            priority_level: f.priority_level ?? 'low',
+            acceleration: f.acceleration ?? 0,
+            impact: f.impact ?? 0,
+            feasibility: f.feasibility ?? 0,
+            strategic_alignment: f.strategic_alignment ?? 0,
+            dependency: f.dependency ?? 0,
+            evidence: f.evidence ?? [],
+            createdAt: f.created_at,
+            updatedAt: f.updated_at,
+            metadata: f.metadata
+          })),
+          findings: (rawState.findings ?? []).map((f: Record<string, unknown>) => ({
+            id: f.id,
+            phase: f.phase,
+            title: f.title,
+            description: f.description,
+            source: f.source,
+            discoveredAt: f.discovered_at,
+            iteration: f.iteration,
+            metadata: f.metadata
+          })),
+          lastRebalanceAt: rawState.last_rebalance_at,
+          rebalanceCount: rawState.rebalance_count ?? 0,
+          errors: rawState.errors ?? [],
+          lastError: rawState.last_error
+        };
+
+        return { success: true, data: state };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to read continuous research state'
+        };
+      }
+    }
+  );
+
+  /**
+   * Resume continuous roadmap research from saved state.
+   * Fire-and-forget operation - progress updates sent via events.
+   */
+  ipcMain.on(
+    IPC_CHANNELS.CONTINUOUS_ROADMAP_RESUME,
+    (_, projectId: string) => {
+      // Get feature settings for roadmap
+      const featureSettings = getFeatureSettings();
+      const config: RoadmapConfig = {
+        model: featureSettings.model,
+        thinkingLevel: featureSettings.thinkingLevel
+      };
+
+      debugLog('[Continuous Roadmap Handler] Resume request:', {
+        projectId,
+        config
+      });
+
+      const mainWindow = getMainWindow();
+      if (!mainWindow) return;
+
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        debugError('[Continuous Roadmap Handler] Project not found:', projectId);
+        mainWindow.webContents.send(
+          IPC_CHANNELS.CONTINUOUS_ROADMAP_ERROR,
+          projectId,
+          'Project not found'
+        );
+        return;
+      }
+
+      // Check if state file exists
+      const statePath = path.join(
+        project.path,
+        AUTO_BUILD_PATHS.ROADMAP_DIR,
+        'continuous_research_state.json'
+      );
+
+      if (!existsSync(statePath)) {
+        debugError('[Continuous Roadmap Handler] No saved state found:', statePath);
+        mainWindow.webContents.send(
+          IPC_CHANNELS.CONTINUOUS_ROADMAP_ERROR,
+          projectId,
+          'No saved research state found. Please start a new continuous research session.'
+        );
+        return;
+      }
+
+      // Check if regular roadmap generation is already running
+      if (agentManager.isRoadmapRunning(projectId)) {
+        debugError('[Continuous Roadmap Handler] Regular roadmap generation already running:', projectId);
+        mainWindow.webContents.send(
+          IPC_CHANNELS.CONTINUOUS_ROADMAP_ERROR,
+          projectId,
+          'Cannot resume continuous mode while roadmap generation is running'
+        );
+        return;
+      }
+
+      // Resume continuous roadmap via agent manager
+      agentManager.resumeContinuousRoadmap(
+        projectId,
+        project.path,
+        config
+      );
+
+      // Send resuming progress
+      mainWindow.webContents.send(
+        IPC_CHANNELS.CONTINUOUS_ROADMAP_PROGRESS,
+        projectId,
+        {
+          phase: 'idle',
+          phaseName: 'Resuming',
+          iterationCount: 0,
+          phaseIteration: 0,
+          totalPhases: 5,
+          elapsedHours: 0,
+          durationHours: 0,
+          progress: 0,
+          featureCount: 0,
+          findingCount: 0,
+          message: 'Resuming continuous research from saved state...'
+        } as ContinuousResearchProgress
+      );
+    }
+  );
+
+  // ============================================
+  // Continuous Roadmap Agent Events → Renderer
+  // ============================================
+
+  agentManager.on('continuous-roadmap-progress', (projectId: string, progress: ContinuousResearchProgress) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.CONTINUOUS_ROADMAP_PROGRESS, projectId, progress);
+    }
+  });
+
+  agentManager.on('continuous-roadmap-iteration-complete', (projectId: string, summary: ContinuousResearchSummary) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.CONTINUOUS_ROADMAP_ITERATION_COMPLETE, projectId, summary);
+    }
+  });
+
+  agentManager.on('continuous-roadmap-error', (projectId: string, error: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.CONTINUOUS_ROADMAP_ERROR, projectId, error);
+    }
+  });
+
+  agentManager.on('continuous-roadmap-stopped', (projectId: string, summary: ContinuousResearchSummary) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.CONTINUOUS_ROADMAP_STOPPED, projectId, summary);
     }
   });
 
