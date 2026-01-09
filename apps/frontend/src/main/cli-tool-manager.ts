@@ -925,7 +925,7 @@ class CLIToolManager {
 
       // When using shell: true on Windows, paths with spaces must be quoted
       // to prevent cmd.exe from splitting at spaces
-      const cmdToRun = needsShell && claudeCmd.includes(' ')
+      const cmdToRun = needsShell && claudeCmd.includes(' ') && !claudeCmd.startsWith('"')
         ? `"${claudeCmd}"`
         : claudeCmd;
 
@@ -1034,7 +1034,7 @@ class CLIToolManager {
 
       // When using shell: true on Windows, paths with spaces must be quoted
       // to prevent cmd.exe from splitting at spaces
-      const cmdToRun = needsShell && claudeCmd.includes(' ')
+      const cmdToRun = needsShell && claudeCmd.includes(' ') && !claudeCmd.startsWith('"')
       ? `"${claudeCmd}"`
       : claudeCmd;
 
