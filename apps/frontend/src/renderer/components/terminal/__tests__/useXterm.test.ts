@@ -62,7 +62,8 @@ vi.mock('../../../../lib/terminal-buffer-manager', () => ({
 const originalNavigatorPlatform = navigator.platform;
 
 // Mock requestAnimationFrame for jsdom environment (not provided by default)
-global.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => setTimeout(cb, 0) as unknown as number);
+vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => setTimeout(cb, 0));
+vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id));
 
 /**
  * Helper function to set up XTerm mocks and render the hook
@@ -77,7 +78,7 @@ async function setupMockXterm(overrides: {
   let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
 
   // Override XTerm mock to be constructable
-  (XTerm as unknown as Mock).mockImplementation(function() {
+  (XTerm as unknown as Mock).mockImplementation(function () {
     return {
       open: vi.fn(),
       loadAddon: vi.fn(),
@@ -99,17 +100,17 @@ async function setupMockXterm(overrides: {
 
   // Setup addon mocks
   const { FitAddon } = await import('@xterm/addon-fit');
-  (FitAddon as unknown as Mock).mockImplementation(function() {
+  (FitAddon as unknown as Mock).mockImplementation(function () {
     return { fit: vi.fn() };
   });
 
   const { WebLinksAddon } = await import('@xterm/addon-web-links');
-  (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+  (WebLinksAddon as unknown as Mock).mockImplementation(function () {
     return {};
   });
 
   const { SerializeAddon } = await import('@xterm/addon-serialize');
-  (SerializeAddon as unknown as Mock).mockImplementation(function() {
+  (SerializeAddon as unknown as Mock).mockImplementation(function () {
     return {
       serialize: vi.fn(() => ''),
       dispose: vi.fn()
@@ -117,7 +118,7 @@ async function setupMockXterm(overrides: {
   });
 
   // Mock ResizeObserver
-  global.ResizeObserver = vi.fn().mockImplementation(function() {
+  global.ResizeObserver = vi.fn().mockImplementation(function () {
     return {
       observe: vi.fn(),
       unobserve: vi.fn(),
@@ -613,7 +614,7 @@ describe('useXterm keyboard handlers', () => {
 
   describe('Clipboard error handling', () => {
     it('should handle clipboard write errors gracefully', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
       const mockHasSelection = vi.fn(() => true);
       const mockGetSelection = vi.fn(() => 'selected text');
 
@@ -645,7 +646,7 @@ describe('useXterm keyboard handlers', () => {
     });
 
     it('should handle clipboard read errors gracefully', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
       const mockPaste = vi.fn();
 
       // Mock Windows platform to enable custom paste handler
