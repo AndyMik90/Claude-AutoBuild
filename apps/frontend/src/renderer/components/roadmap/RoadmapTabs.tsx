@@ -27,9 +27,15 @@ export function RoadmapTabs({
 }: RoadmapTabsProps) {
   const handleDependencyClick = (depId: string) => {
     const depFeature = getFeatureById(roadmap, depId);
-    if (depFeature) {
-      onFeatureSelect(depFeature);
+    if (!depFeature) {
+      console.warn(
+        `[RoadmapTabs] handleDependencyClick: dependency feature not found - depId: "${depId}", ` +
+          `roadmap: "${roadmap.projectName}" (${roadmap.id}), ` +
+          `total features: ${roadmap.features.length}`
+      );
+      return;
     }
+    onFeatureSelect(depFeature);
   };
 
   return (
@@ -77,7 +83,6 @@ export function RoadmapTabs({
             <FeatureCard
               key={feature.id}
               feature={feature}
-              features={roadmap.features}
               roadmap={roadmap}
               onClick={() => onFeatureSelect(feature)}
               onConvertToSpec={onConvertToSpec}

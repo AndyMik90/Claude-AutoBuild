@@ -21,7 +21,6 @@ export interface FeatureCardProps {
   onGoToTask: (specId: string) => void;
   hasCompetitorInsight?: boolean;
   onDependencyClick?: (featureId: string) => void;
-  features: RoadmapFeature[];
   roadmap?: Roadmap;
 }
 

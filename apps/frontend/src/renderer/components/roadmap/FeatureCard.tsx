@@ -29,7 +29,6 @@ export function FeatureCard({
 	onGoToTask,
 	hasCompetitorInsight = false,
 	onDependencyClick,
-	features,
 	roadmap,
 }: FeatureCardProps) {
 	const openDependencyDetail = useRoadmapStore((s) => s.openDependencyDetail);
