@@ -70,6 +70,11 @@ export const workspaceMock = {
     }
   }),
 
+  clearStagedState: async () => ({
+    success: true,
+    data: { cleared: true }
+  }),
+
   listWorktrees: async () => ({
     success: true,
     data: {

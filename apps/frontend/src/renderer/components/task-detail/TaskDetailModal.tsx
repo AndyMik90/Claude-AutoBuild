@@ -526,6 +526,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             onClose={handleClose}
                             onSwitchToTerminals={onSwitchToTerminals}
                             onOpenInbuiltTerminal={onOpenInbuiltTerminal}
+                            onReviewAgain={state.handleReviewAgain}
                             showPRDialog={state.showPRDialog}
                             isCreatingPR={state.isCreatingPR}
                             onShowPRDialog={state.setShowPRDialog}
