@@ -309,7 +309,10 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
 
       vi.mocked(existsSync).mockImplementation((filePath) => {
         const pathStr = String(filePath);
-        if (pathStr.includes('AppData\\Roaming\\npm\\claude.cmd')) {
+        // Check path components (path.join uses host OS separator)
+        if (pathStr.includes('AppData') &&
+            pathStr.includes('npm') &&
+            pathStr.includes('claude.cmd')) {
           return true;
         }
         return false;
@@ -320,7 +323,7 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       const result = getToolInfo('claude');
 
       expect(result.found).toBe(true);
-      expect(result.path).toContain('AppData\\Roaming\\npm\\claude.cmd');
+      expect(result.path).toMatch(/AppData[/\\]Roaming[/\\]npm[/\\]claude\.cmd/);
       expect(result.source).toBe('system-path');
     });
 
