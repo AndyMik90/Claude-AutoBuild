@@ -163,6 +163,18 @@ export const IPC_CHANNELS = {
   ROADMAP_ERROR: 'roadmap:error',
   ROADMAP_STOPPED: 'roadmap:stopped',
 
+  // Continuous Roadmap operations (autonomous overnight research)
+  CONTINUOUS_ROADMAP_START: 'continuousRoadmap:start',
+  CONTINUOUS_ROADMAP_STOP: 'continuousRoadmap:stop',
+  CONTINUOUS_ROADMAP_STATUS: 'continuousRoadmap:status',
+  CONTINUOUS_ROADMAP_RESUME: 'continuousRoadmap:resume',
+
+  // Continuous Roadmap events (main -> renderer)
+  CONTINUOUS_ROADMAP_PROGRESS: 'continuousRoadmap:progress',
+  CONTINUOUS_ROADMAP_ITERATION_COMPLETE: 'continuousRoadmap:iterationComplete',
+  CONTINUOUS_ROADMAP_ERROR: 'continuousRoadmap:error',
+  CONTINUOUS_ROADMAP_STOPPED: 'continuousRoadmap:stopped',
+
   // Context operations
   CONTEXT_GET: 'context:get',
   CONTEXT_REFRESH_INDEX: 'context:refreshIndex',
