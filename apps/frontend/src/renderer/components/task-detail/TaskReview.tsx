@@ -122,7 +122,6 @@ export function TaskReview({
           task={task}
           projectPath={stagedProjectPath}
           hasWorktree={worktreeStatus?.exists || false}
-          worktreeStatus={worktreeStatus}
           onClose={onClose}
           onReviewAgain={onReviewAgain}
         />

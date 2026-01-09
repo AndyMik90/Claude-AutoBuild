@@ -2865,13 +2865,22 @@ export function registerWorktreeHandlers(
         const specDir = path.join(project.path, specsBaseDir, task.specId);
         const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
 
-        if (!existsSync(planPath)) {
-          return { success: false, error: 'Implementation plan not found' };
-        }
+        // Use EAFP pattern (try/catch) instead of LBYL (existsSync check) to avoid TOCTOU race conditions
+        const { promises: fsPromises } = require('fs');
+        const isFileNotFound = (err: unknown): boolean =>
+          !!(err && typeof err === 'object' && 'code' in err && err.code === 'ENOENT');
 
         // Read, update, and write the plan file
-        const { promises: fsPromises } = require('fs');
-        const planContent = await fsPromises.readFile(planPath, 'utf-8');
+        let planContent: string;
+        try {
+          planContent = await fsPromises.readFile(planPath, 'utf-8');
+        } catch (readErr) {
+          if (isFileNotFound(readErr)) {
+            return { success: false, error: 'Implementation plan not found' };
+          }
+          throw readErr;
+        }
+
         const plan = JSON.parse(planContent);
 
         // Clear the staged state flags
@@ -2885,16 +2894,17 @@ export function registerWorktreeHandlers(
         const worktreePath = findTaskWorktree(project.path, task.specId);
         if (worktreePath) {
           const worktreePlanPath = path.join(worktreePath, specsBaseDir, task.specId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-          if (existsSync(worktreePlanPath)) {
-            try {
-              const worktreePlanContent = await fsPromises.readFile(worktreePlanPath, 'utf-8');
-              const worktreePlan = JSON.parse(worktreePlanContent);
-              delete worktreePlan.stagedInMainProject;
-              delete worktreePlan.stagedAt;
-              worktreePlan.updated_at = new Date().toISOString();
-              await fsPromises.writeFile(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
-            } catch (e) {
-              // Non-fatal - worktree plan update is best-effort
+          try {
+            const worktreePlanContent = await fsPromises.readFile(worktreePlanPath, 'utf-8');
+            const worktreePlan = JSON.parse(worktreePlanContent);
+            delete worktreePlan.stagedInMainProject;
+            delete worktreePlan.stagedAt;
+            worktreePlan.updated_at = new Date().toISOString();
+            await fsPromises.writeFile(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
+          } catch (e) {
+            // Non-fatal - worktree plan update is best-effort
+            // ENOENT is expected when worktree has no plan file
+            if (!isFileNotFound(e)) {
               console.warn('[CLEAR_STAGED_STATE] Failed to update worktree plan:', e);
             }
           }

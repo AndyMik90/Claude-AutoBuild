@@ -76,7 +76,12 @@
     "addTaskAriaLabel": "Ajouter une nouvelle tâche au backlog",
     "closeTaskDetailsAriaLabel": "Fermer les détails de la tâche",
     "editTask": "Modifier la tâche",
-    "cannotEditWhileRunning": "Impossible de modifier pendant l'exécution"
+    "cannotEditWhileRunning": "Impossible de modifier pendant l'exécution",
+    "worktreeCleanupTitle": "Nettoyage du Worktree",
+    "worktreeCleanupStaged": "Cette tâche a été préparée et possède un worktree. Voulez-vous nettoyer le worktree ?",
+    "worktreeCleanupNotStaged": "Cette tâche possède un worktree avec des changements non fusionnés. Supprimez le worktree pour marquer comme terminé, ou annulez pour réviser les changements d'abord.",
+    "keepWorktree": "Garder le Worktree",
+    "deleteWorktree": "Supprimer le Worktree & Marquer Terminé"
   },
   "execution": {
     "phases": {

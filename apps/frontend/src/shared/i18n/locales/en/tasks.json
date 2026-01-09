@@ -76,7 +76,12 @@
     "addTaskAriaLabel": "Add new task to backlog",
     "closeTaskDetailsAriaLabel": "Close task details",
     "editTask": "Edit task",
-    "cannotEditWhileRunning": "Cannot edit while task is running"
+    "cannotEditWhileRunning": "Cannot edit while task is running",
+    "worktreeCleanupTitle": "Worktree Cleanup",
+    "worktreeCleanupStaged": "This task has been staged and has a worktree. Would you like to clean up the worktree?",
+    "worktreeCleanupNotStaged": "This task has a worktree with changes that have not been merged. Delete the worktree to mark as done, or cancel to review the changes first.",
+    "keepWorktree": "Keep Worktree",
+    "deleteWorktree": "Delete Worktree & Mark Done"
   },
   "execution": {
     "phases": {

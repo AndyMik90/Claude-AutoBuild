@@ -1,8 +1,8 @@
-import { AlertCircle, GitMerge, Loader2, Trash2, Check, RotateCcw } from 'lucide-react';
+import { AlertCircle, GitMerge, Loader2, Check, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../../ui/button';
 import { persistTaskStatus } from '../../../stores/task-store';
-import type { Task, WorktreeStatus } from '../../../../shared/types';
+import type { Task } from '../../../../shared/types';
 
 interface LoadingMessageProps {
   message?: string;
@@ -88,7 +88,6 @@ interface StagedInProjectMessageProps {
   task: Task;
   projectPath?: string;
   hasWorktree?: boolean;
-  worktreeStatus?: WorktreeStatus | null;
   onClose?: () => void;
   onReviewAgain?: () => void;
 }
@@ -96,7 +95,7 @@ interface StagedInProjectMessageProps {
 /**
  * Displays message when changes have already been staged in the main project
  */
-export function StagedInProjectMessage({ task, projectPath, hasWorktree = false, worktreeStatus, onClose, onReviewAgain }: StagedInProjectMessageProps) {
+export function StagedInProjectMessage({ task, projectPath, hasWorktree = false, onClose, onReviewAgain }: StagedInProjectMessageProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMarkingDone, setIsMarkingDone] = useState(false);
   const [isResetting, setIsResetting] = useState(false);

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
-import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress, useTaskStore } from '../../../stores/task-store';
+import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress, useTaskStore, loadTasks } from '../../../stores/task-store';
 import type { Task, TaskLogs, TaskLogPhase, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo } from '../../../../shared/types';
 
 /**
@@ -288,11 +288,14 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setStagedSuccess(null);
     setStagedProjectPath(undefined);
     setSuggestedCommitMessage(undefined);
-    
+
     // Reset merge preview to force re-check
     setMergePreview(null);
     hasLoadedPreviewRef.current = null;
-    
+
+    // Reset workspace error state
+    setWorkspaceError(null);
+
     // Reload worktree status
     setIsLoadingWorktree(true);
     try {
@@ -306,12 +309,18 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
       if (diffResult.success && diffResult.data) {
         setWorktreeDiff(diffResult.data);
       }
+
+      // Reload task data from store to reflect cleared staged state
+      // (clearStagedState IPC already invalidated the cache)
+      if (selectedProject) {
+        await loadTasks(selectedProject.id);
+      }
     } catch (err) {
       console.error('Failed to reload worktree info:', err);
     } finally {
       setIsLoadingWorktree(false);
     }
-  }, [task.id]);
+  }, [task.id, selectedProject]);
 
   // NOTE: Merge preview is NO LONGER auto-loaded on modal open.
   // User must click "Check for Conflicts" button to trigger the expensive preview operation.

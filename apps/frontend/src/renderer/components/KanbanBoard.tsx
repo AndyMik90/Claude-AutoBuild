@@ -497,8 +497,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // Determine target status
     let targetStatus: TaskStatus | null = null;
 
-    if (TASK_STATUS_COLUMNS.includes(overId as TaskStatus)) {
-      targetStatus = overId as TaskStatus;
+    if (isValidDropColumn(overId)) {
+      targetStatus = overId;
     } else {
       // Dropped on another task - get its column
       const overTask = tasks.find((t) => t.id === overId);
