@@ -210,6 +210,11 @@ class ProjectAnalyzer:
 
         print("Analyzing project structure for security profile...")
 
+        # Preserve user's custom_commands from existing profile
+        preserved_custom_commands = set()
+        if existing:
+            preserved_custom_commands = existing.custom_commands.copy()
+
         # Start fresh
         self.profile = SecurityProfile()
         self.profile.base_commands = BASE_COMMANDS.copy()
@@ -219,6 +224,9 @@ class ProjectAnalyzer:
         self._detect_stack()
         self._detect_frameworks()
         self._detect_structure()
+
+        # Restore user's custom_commands (merged with any detected ones)
+        self.profile.custom_commands.update(preserved_custom_commands)
 
         # Build stack commands from detected technologies
         self._build_stack_commands()

@@ -49,6 +49,9 @@ class SecurityProfile:
     custom_scripts: CustomScripts = field(default_factory=CustomScripts)
 
     # Metadata
+    # Profile format version: v1 = legacy (separate allowlist), v2 = consolidated config
+    # Reserved for future migration logic - currently used for format identification only
+    version: int = 2
     project_dir: str = ""
     created_at: str = ""
     project_hash: str = ""
@@ -65,6 +68,7 @@ class SecurityProfile:
     def to_dict(self) -> dict:
         """Convert to JSON-serializable dict."""
         return {
+            "version": self.version,
             "base_commands": sorted(self.base_commands),
             "stack_commands": sorted(self.stack_commands),
             "script_commands": sorted(self.script_commands),
@@ -80,6 +84,7 @@ class SecurityProfile:
     def from_dict(cls, data: dict) -> "SecurityProfile":
         """Load from dict."""
         profile = cls(
+            version=data.get("version", 1),  # Default to v1 for old profiles
             base_commands=set(data.get("base_commands", [])),
             stack_commands=set(data.get("stack_commands", [])),
             script_commands=set(data.get("script_commands", [])),

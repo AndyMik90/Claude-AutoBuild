@@ -13,7 +13,7 @@ from pathlib import Path
 
 from core.git_executable import run_git
 from merge import FileTimelineTracker
-from security.constants import ALLOWLIST_FILENAME, PROFILE_FILENAME
+from security.constants import PROFILE_FILENAME
 from ui import (
     Icons,
     MenuOption,
@@ -268,14 +268,11 @@ def setup_workspace(
             f"Environment files copied: {', '.join(copied_env_files)}", "success"
         )
 
-    # Copy security configuration files if they exist
+    # Copy security configuration file if it exists
     # Note: Unlike env files, security files always overwrite to ensure
     # the worktree uses the same security rules as the main project.
     # This prevents security bypasses through stale worktree configs.
-    security_files = [
-        ALLOWLIST_FILENAME,
-        PROFILE_FILENAME,
-    ]
+    security_files = [PROFILE_FILENAME]
     security_files_copied = []
 
     for filename in security_files:

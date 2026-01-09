@@ -431,22 +431,49 @@ test:
         assert "deploy.sh" in analyzer.profile.custom_scripts.shell_scripts
 
 
-class TestCustomAllowlist:
-    """Tests for custom allowlist loading."""
+class TestCustomCommands:
+    """Tests for custom commands in security profile."""
 
-    def test_loads_custom_allowlist(self, temp_dir: Path):
-        """Loads commands from .auto-claude-allowlist."""
-        allowlist = """# Custom commands
-my-custom-tool
-another-command
-"""
-        (temp_dir / ".auto-claude-allowlist").write_text(allowlist)
+    def test_preserves_custom_commands_on_reanalysis(self, temp_dir: Path):
+        """Custom commands in JSON profile are preserved when re-analyzing."""
 
+        # Create initial profile with custom_commands
+        profile_data = {
+            "version": 2,
+            "base_commands": ["ls", "cat"],
+            "stack_commands": [],
+            "custom_commands": ["my-custom-tool", "another-command"],
+            "script_commands": [],
+            "detected_stack": {
+                "languages": [],
+                "package_managers": [],
+                "frameworks": [],
+                "databases": [],
+                "infrastructure": [],
+                "cloud_providers": [],
+                "code_quality_tools": [],
+                "version_managers": [],
+            },
+            "custom_scripts": {
+                "npm_scripts": [],
+                "make_targets": [],
+                "poetry_scripts": [],
+                "cargo_aliases": [],
+                "shell_scripts": [],
+            },
+            "project_dir": str(temp_dir),
+            "created_at": "2024-01-01T00:00:00",
+            "project_hash": "old_hash",
+        }
+        (temp_dir / ".auto-claude-security.json").write_text(json.dumps(profile_data))
+
+        # Force re-analysis by changing project hash
         analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._load_custom_allowlist()
+        profile = analyzer.analyze(force=True)
 
-        assert "my-custom-tool" in analyzer.profile.custom_commands
-        assert "another-command" in analyzer.profile.custom_commands
+        # Custom commands should be preserved
+        assert "my-custom-tool" in profile.custom_commands
+        assert "another-command" in profile.custom_commands
 
 
 class TestSecurityProfileGeneration:

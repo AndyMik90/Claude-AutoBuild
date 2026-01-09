@@ -15,8 +15,8 @@ Auto Claude uses a dynamic security system that controls which shell commands th
 │     └── Analyzer detects Cargo.toml → adds cargo, rustc     │
 │     └── Analyzer detects package.json → adds npm, node      │
 │                                                              │
-│  3. Custom Allowlist (manual additions)                     │
-│     └── .auto-claude-allowlist file                         │
+│  3. Custom Commands (your additions)                        │
+│     └── "custom_commands" array in security profile         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -40,14 +40,16 @@ When you start a task, Auto Claude analyzes your project and automatically allow
 
 The full detection logic is in `apps/backend/project/stack_detector.py`.
 
-### Generated Profile
+## Security Profile
 
-The analyzer saves its results to `.auto-claude-security.json` in your project root:
+All security configuration is stored in a single file: `.auto-claude-security.json`
 
 ```json
 {
-  "base_commands": ["ls", "cat", "grep", "..."],
+  "version": 2,
+  "base_commands": ["ls", "cat", "grep", "git", "..."],
   "stack_commands": ["cargo", "rustc", "rustup"],
+  "custom_commands": ["bazel", "terraform", "ansible"],
   "detected_stack": {
     "languages": ["rust"],
     "package_managers": ["cargo"],
@@ -59,43 +61,40 @@ The analyzer saves its results to `.auto-claude-security.json` in your project r
 }
 ```
 
-This file is auto-generated. Don't edit it manually - it will be overwritten.
+## Adding Custom Commands
 
-## Custom Allowlist
+To allow commands that aren't auto-detected, add them to the `custom_commands` array:
 
-For commands that aren't auto-detected, create a `.auto-claude-allowlist` file in your project root:
-
-```text
-# .auto-claude-allowlist
-# One command per line, no comments on same line
-
-# Custom build tools
-bazel
-buck
-
-# Project-specific scripts
-./scripts/deploy.sh
-
-# Additional tools
-ansible
-terraform
+```json
+{
+  "version": 2,
+  "base_commands": ["..."],
+  "stack_commands": ["..."],
+  "custom_commands": [
+    "bazel",
+    "buck",
+    "ansible",
+    "terraform",
+    "./scripts/deploy.sh"
+  ],
+  "detected_stack": { "..." }
+}
 ```
 
-### When to Use the Allowlist
+### When to Add Custom Commands
 
-Use `.auto-claude-allowlist` when:
+Add to `custom_commands` when:
 
 - Your project uses uncommon build tools (Bazel, Buck, Pants, etc.)
 - You have custom scripts that need to be executable
 - Auto-detection doesn't recognize your stack
 - You're using bleeding-edge tools not yet in the detection system
 
-### Format
+### Important Notes
 
-- One command per line
-- Lines starting with `#` are ignored
-- Empty lines are ignored
 - Use the base command name only (e.g., `cargo`, not `cargo build`)
+- The `custom_commands` array is preserved when the profile is regenerated
+- Other fields (`base_commands`, `stack_commands`, `detected_stack`) are auto-generated
 
 ## Troubleshooting
 
@@ -105,38 +104,79 @@ Use `.auto-claude-allowlist` when:
    - Does your project have the expected config file? (e.g., `Cargo.toml` for Rust)
    - Run in project root, not a subdirectory
 
-2. **Add to allowlist:**
+2. **Add to custom_commands:**
 
-   ```bash
-   echo "your-command" >> .auto-claude-allowlist
-   ```
+   Edit `.auto-claude-security.json` and add the command to the `custom_commands` array.
 
 3. **Force re-analysis** (if detection seems wrong):
    - Delete `.auto-claude-security.json`
    - Restart the task
 
-### Allowlist Changes Not Taking Effect
+### Changes Not Taking Effect
 
-The security profile cache updates automatically when:
-- `.auto-claude-allowlist` is modified (mtime changes)
-- `.auto-claude-security.json` is modified
+The security profile cache updates automatically when `.auto-claude-security.json` is modified (mtime changes).
 
 No restart required - changes apply on the next command.
 
 ### Worktree Mode
 
-When using isolated worktrees, security files are automatically copied from your main project on each worktree setup.
+When using isolated worktrees, the security profile is automatically copied from your main project on each worktree setup.
 
 **Important:** Unlike environment files (which are only copied if missing), security files **always overwrite** existing files in the worktree. This ensures the worktree uses the same security rules as the main project, preventing security bypasses through stale configurations.
 
 This means:
-- Changes to allowlist in the main project are reflected in new worktrees
+- Changes to the security profile in the main project are reflected in new worktrees
 - You cannot have different security rules per worktree (by design)
-- If you need to test with different commands, modify the main project's allowlist
+- If you need to test with different commands, modify the main project's profile
+
+## Migration from v1
+
+If you were using a separate `.auto-claude-allowlist` file (v1 format), follow these steps:
+
+### Step 1: Check for existing allowlist
+
+```bash
+# Check if you have an allowlist file
+cat .auto-claude-allowlist
+```
+
+If the file doesn't exist, no migration is needed.
+
+### Step 2: Copy commands to JSON profile
+
+Open `.auto-claude-security.json` and add your commands to the `custom_commands` array:
+
+**Before (`.auto-claude-allowlist`):**
+
+```text
+bazel
+terraform
+./scripts/deploy.sh
+```
+
+**After (`.auto-claude-security.json`):**
+
+```json
+{
+  "version": 2,
+  "custom_commands": ["bazel", "terraform", "./scripts/deploy.sh"],
+  ...
+}
+```
+
+### Step 3: Delete the old allowlist
+
+```bash
+rm .auto-claude-allowlist
+```
+
+### Step 4: Verify
+
+Run a command that was previously in your allowlist to confirm it still works.
 
 ## Security Considerations
 
-The allowlist system exists to prevent:
+The security system exists to prevent:
 - Accidental `rm -rf /` or similar destructive commands
 - Execution of unknown binaries
 - Network operations with unrestricted tools
