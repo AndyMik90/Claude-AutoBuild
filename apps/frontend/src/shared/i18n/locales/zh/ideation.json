@@ -1,0 +1,36 @@
+{
+  "emptyState": {
+    "title": "暂无想法",
+    "description": "根据项目的上下文、现有模式和目标受众生成 AI 驱动的功能想法。",
+    "enabledTypes": "启用的想法类型",
+    "generateButton": "生成想法",
+    "tokenWarning": "未配置 Claude 令牌。生成时将提示您输入。"
+  },
+  "configDialog": {
+    "title": "想法配置",
+    "description": "配置要生成的想法类型",
+    "ideationTypes": "想法类型",
+    "contextSources": "上下文来源",
+    "includeRoadmapContext": "包含路线图上下文",
+    "includeKanbanContext": "包含看板上下文"
+  },
+  "addMoreDialog": {
+    "title": "添加更多想法",
+    "description": "选择其他想法类型进行生成。您现有的想法将被保留。",
+    "allTypesGenerated": "您已经生成了所有想法类型！",
+    "useRegenerate": "使用\"重新生成\"来刷新现有想法。",
+    "selectedCount": "已选择 {{count}} 个",
+    "generateButton": "生成 {{count}} 个类型"
+  },
+  "detailPanel": {
+    "description": "描述",
+    "rationale": "理由",
+    "convertToTask": "转换为自动构建任务",
+    "dismissIdea": "忽略想法",
+    "goToTask": "转到任务"
+  },
+  "ideas": "个想法",
+  "selected": "已选择",
+  "addMore": "添加更多",
+  "aiGeneratedDescription": "为您的项目生成 AI 驱动的功能想法"
+}

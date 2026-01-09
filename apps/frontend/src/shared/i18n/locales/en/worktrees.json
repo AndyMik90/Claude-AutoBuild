@@ -41,5 +41,12 @@
   "agentTerminals": "Agent Terminals",
   "agentTerminalsDescription": "Spawn multiple terminals to run Claude agents in parallel.",
   "newTerminalHint": "Use <kbd>...</kbd> to create a new terminal.",
-  "terminalsCount": "{{current}} / {{max}} terminals"
+  "terminalsCount": "{{current}} / {{max}} terminals",
+  "mergeTo": "Merge to {{branch}}",
+  "mergeDialogTitle": "Merge Worktree",
+  "mergeDialogDescription": "Merge changes from this worktree into the base branch.",
+  "failed": "Failed",
+  "conflicts": "conflicts",
+  "additions": "additions",
+  "deletions": "deletions"
 }

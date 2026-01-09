@@ -239,6 +239,8 @@
     "tokenAlreadyConfiguredAuth": "再次验证以替换它。",
     "cancel": "取消",
     "close": "关闭",
-    "saveToken": "保存令牌"
+    "saveToken": "保存令牌",
+    "ideationTitle": "需要 Claude 身份验证",
+    "ideationDescription": "需要 Claude Code OAuth 令牌才能生成 AI 驱动的功能想法。"
   }
 }

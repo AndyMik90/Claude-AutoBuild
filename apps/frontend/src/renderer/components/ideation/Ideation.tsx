@@ -11,6 +11,7 @@ import { IdeaDetailPanel } from './IdeaDetailPanel';
 import { useIdeation } from './hooks/useIdeation';
 import { useViewState } from '../../contexts/ViewStateContext';
 import { ALL_IDEATION_TYPES } from './constants';
+import { useTranslation } from 'react-i18next';
 
 interface IdeationProps {
   projectId: string;
@@ -18,6 +19,7 @@ interface IdeationProps {
 }
 
 export function Ideation({ projectId, onGoToTask }: IdeationProps) {
+  const { t } = useTranslation(['dialogs', 'common']);
   // Get showArchived from shared context for cross-page sync
   const { showArchived } = useViewState();
 
@@ -118,8 +120,8 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
           open={showEnvConfigModal}
           onOpenChange={setShowEnvConfigModal}
           onConfigured={handleEnvConfigured}
-          title="Claude Authentication Required"
-          description="A Claude Code OAuth token is required to generate AI-powered feature ideas."
+          title={t('dialogs:envConfig.ideationTitle')}
+          description={t('dialogs:envConfig.ideationDescription')}
           projectId={projectId}
         />
       </>
@@ -240,8 +242,8 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
         open={showEnvConfigModal}
         onOpenChange={setShowEnvConfigModal}
         onConfigured={handleEnvConfigured}
-        title="Claude Authentication Required"
-        description="A Claude Code OAuth token is required to generate AI-powered feature ideas."
+        title={t('dialogs:envConfig.ideationTitle')}
+        description={t('dialogs:envConfig.ideationDescription')}
         projectId={projectId}
       />
     </div>

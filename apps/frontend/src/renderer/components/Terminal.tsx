@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useDroppable, useDndContext } from '@dnd-kit/core';
 import '@xterm/xterm/css/xterm.css';
 import { FileDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/utils';
 import { useTerminalStore } from '../stores/terminal-store';
 import { useSettingsStore } from '../stores/settings-store';
@@ -34,6 +35,7 @@ export function Terminal({
   isExpanded,
   onToggleExpand,
 }: TerminalProps) {
+  const { t } = useTranslation(['terminal', 'common']);
   const isMountedRef = useRef(true);
   const isCreatedRef = useRef(false);
   // Track deliberate terminal recreation (e.g., worktree switching)
@@ -329,8 +331,8 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
     } catch (err) {
       console.error('Failed to open in IDE:', err);
       toast({
-        title: 'Failed to open IDE',
-        description: err instanceof Error ? err.message : 'Could not launch IDE',
+        title: t('terminal.errors.failedToOpenIDE'),
+        description: err instanceof Error ? err.message : t('terminal.errors.couldNotLaunchIDE'),
         variant: 'destructive',
       });
     }
@@ -364,7 +366,7 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
         <div className="absolute inset-0 bg-info/10 z-10 flex items-center justify-center pointer-events-none">
           <div className="flex items-center gap-2 bg-info/90 text-info-foreground px-3 py-2 rounded-md">
             <FileDown className="h-4 w-4" />
-            <span className="text-sm font-medium">Drop to insert path</span>
+            <span className="text-sm font-medium">{t('terminal.dropToInsertPath')}</span>
           </div>
         </div>
       )}

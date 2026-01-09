@@ -133,8 +133,8 @@
     "runReview": "运行 AI 审查",
     "reviewing": "审查中...",
     "followupReview": "跟进审查",
-    "newCommits": "个新提交",
-    "newCommitsPlural": "个新提交",
+    "newCommit": "个新提交",
+    "newCommits": "{{count}} 个新提交",
     "cancel": "取消",
     "postFindings": "发布发现",
     "posting": "发布中...",
@@ -172,8 +172,8 @@
     "resolution": {
       "resolved": "已解决",
       "stillOpen": "仍打开",
-      "newIssue": "个新问题",
-      "newIssues": "个新问题"
+      "newIssue": "{{count}} 个新问题",
+      "newIssues": "{{count}} 个新问题"
     }
   },
   "findings": {

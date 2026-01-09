@@ -1,0 +1,36 @@
+{
+  "emptyState": {
+    "title": "No Ideas Yet",
+    "description": "Generate AI-powered feature ideas based on your project's context, existing patterns, and target audience.",
+    "enabledTypes": "Enabled Ideation Types",
+    "generateButton": "Generate Ideas",
+    "tokenWarning": "Claude token not configured. You'll be prompted to enter it when generating."
+  },
+  "configDialog": {
+    "title": "Ideation Configuration",
+    "description": "Configure which types of ideas to generate",
+    "ideationTypes": "Ideation Types",
+    "contextSources": "Context Sources",
+    "includeRoadmapContext": "Include Roadmap Context",
+    "includeKanbanContext": "Include Kanban Context"
+  },
+  "addMoreDialog": {
+    "title": "Add More Ideas",
+    "description": "Select additional ideation types to generate. Your existing ideas will be preserved.",
+    "allTypesGenerated": "You've already generated all ideation types!",
+    "useRegenerate": "Use \"Regenerate\" to refresh existing ideas.",
+    "selectedCount": "{{count}} selected",
+    "generateButton": "Generate {{count}} Types"
+  },
+  "detailPanel": {
+    "description": "Description",
+    "rationale": "Rationale",
+    "convertToTask": "Convert to Auto-Build Task",
+    "dismissIdea": "Dismiss Idea",
+    "goToTask": "Go to Task"
+  },
+  "ideas": "ideas",
+  "selected": "selected",
+  "addMore": "Add More",
+  "aiGeneratedDescription": "AI-generated feature ideas for your project"
+}

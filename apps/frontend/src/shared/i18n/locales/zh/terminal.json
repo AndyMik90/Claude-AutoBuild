@@ -32,5 +32,12 @@
     "alreadyExists": "具有此名称的工作树已存在",
     "deleteTitle": "删除工作树?",
     "deleteDescription": "这将永久删除工作树及其分支。任何未提交的更改都将丢失。"
-  }
+  },
+  "dropToInsertPath": "拖放以插入路径",
+  "errors": {
+    "failedToOpenIDE": "无法打开 IDE",
+    "couldNotLaunchIDE": "无法启动 IDE",
+    "unknownError": "未知错误"
+  },
+  "defaultTitle": "终端"
 }

@@ -32,5 +32,12 @@
     "alreadyExists": "A worktree with this name already exists",
     "deleteTitle": "Delete Worktree?",
     "deleteDescription": "This will permanently delete the worktree and its branch. Any uncommitted changes will be lost."
-  }
+  },
+  "dropToInsertPath": "Drop to insert path",
+  "errors": {
+    "failedToOpenIDE": "Failed to open IDE",
+    "couldNotLaunchIDE": "Could not launch IDE",
+    "unknownError": "Unknown error"
+  },
+  "defaultTitle": "Terminal"
 }

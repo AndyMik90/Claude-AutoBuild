@@ -174,5 +174,55 @@
       "createFailed": "Failed to create task. Please try again.",
       "unknownError": "Unknown error"
     }
+  },
+  "taskLogs": {
+    "noLogsYet": "No logs yet",
+    "logsWillAppear": "Logs will appear here when the task runs",
+    "done": "Done",
+    "hideOutput": "Hide output",
+    "showOutput": "Show output",
+    "less": "Less",
+    "more": "More",
+    "running": "Running",
+    "interrupted": "Interrupted"
+  },
+  "taskActions": {
+    "completedSuccessfully": "Task completed successfully"
+  },
+  "taskDetail": {
+    "cannotResume": "Cannot Resume Task",
+    "failedToLoadPlan": "Failed to load implementation plan",
+    "close": "Close"
+  },
+  "taskSubtasks": {
+    "noSubtasks": "No subtasks defined",
+    "subtasksDescription": "Implementation subtasks will appear here after planning",
+    "progressSummary": "{{completed}} of {{total}} completed"
+  },
+  "taskProgress": {
+    "planning": "Planning (0-20%)",
+    "coding": "Coding (20-80%)",
+    "aiReview": "AI Review (80-95%)",
+    "complete": "Complete (95-100%)"
+  },
+  "actions": {
+    "recovering": "Recovering...",
+    "recoverTask": "Recover Task",
+    "resumeTask": "Resume Task",
+    "stopTask": "Stop Task",
+    "startTask": "Start Task",
+    "deleteTask": "Delete Task",
+    "deleting": "Deleting...",
+    "deletePermanently": "Delete Permanently"
+  },
+  "deleteDialog": {
+    "title": "Delete Task",
+    "confirmMessage": "Are you sure you want to delete \"{{title}}\"?",
+    "warning": "This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project."
+  },
+  "execution": {
+    "phases": {
+      "complete": "Complete"
+    }
   }
 }

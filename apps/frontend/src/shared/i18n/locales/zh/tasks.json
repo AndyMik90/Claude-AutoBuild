@@ -18,7 +18,15 @@
     "view": "查看详情",
     "viewPR": "查看 PR",
     "moveTo": "移动到",
-    "taskActions": "任务操作"
+    "taskActions": "任务操作",
+    "recovering": "恢复中...",
+    "recoverTask": "恢复任务",
+    "resumeTask": "恢复任务",
+    "stopTask": "停止任务",
+    "startTask": "开始任务",
+    "deleteTask": "删除任务",
+    "deleting": "删除中...",
+    "deletePermanently": "永久删除"
   },
   "labels": {
     "running": "运行中",
@@ -174,5 +182,40 @@
       "createFailed": "创建任务失败，请重试。",
       "unknownError": "未知错误"
     }
+  },
+  "taskLogs": {
+    "noLogsYet": "暂无日志",
+    "logsWillAppear": "任务运行时日志将显示在这里",
+    "done": "完成",
+    "hideOutput": "隐藏输出",
+    "showOutput": "显示输出",
+    "less": "收起",
+    "more": "更多",
+    "running": "运行中",
+    "interrupted": "已中断"
+  },
+  "taskActions": {
+    "completedSuccessfully": "任务已完成"
+  },
+  "taskDetail": {
+    "cannotResume": "无法恢复任务",
+    "failedToLoadPlan": "无法加载实施计划",
+    "close": "关闭"
+  },
+  "taskSubtasks": {
+    "noSubtasks": "未定义子任务",
+    "subtasksDescription": "规划后子任务将显示在这里",
+    "progressSummary": "{{completed}} / {{total}} 已完成"
+  },
+  "taskProgress": {
+    "planning": "规划 (0-20%)",
+    "coding": "编码 (20-80%)",
+    "aiReview": "AI 审查 (80-95%)",
+    "complete": "完成 (95-100%)"
+  },
+  "deleteDialog": {
+    "title": "删除任务",
+    "confirmMessage": "您确定要删除 \"{{title}}\" 吗？",
+    "warning": "此操作无法撤销。所有任务文件，包括规范、实施计划和任何生成的代码将从项目中永久删除。"
   }
 }

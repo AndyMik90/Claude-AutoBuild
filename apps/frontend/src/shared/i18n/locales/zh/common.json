@@ -311,7 +311,10 @@
   "fileExplorer": {
     "projectFiles": "项目文件",
     "dragToTerminal": "将文件拖入终端以插入路径",
-    "noFilesFound": "未找到文件"
+    "noFilesFound": "未找到文件",
+    "dragFilesToAdd": "拖拽文件以添加为参考",
+    "refresh": "刷新",
+    "close": "关闭"
   },
   "chatHistory": {
     "title": "聊天历史",

@@ -41,5 +41,12 @@
   "agentTerminals": "代理终端",
   "agentTerminalsDescription": "生成多个终端以并行运行 Claude 代理。",
   "newTerminalHint": "使用 <kbd>...</kbd> 创建新终端。",
-  "terminalsCount": "{{current}} / {{max}} 个终端"
+  "terminalsCount": "{{current}} / {{max}} 个终端",
+  "mergeTo": "合并到 {{branch}}",
+  "mergeDialogTitle": "合并工作树",
+  "mergeDialogDescription": "将此工作树的更改合并到基础分支。",
+  "failed": "失败",
+  "conflicts": "冲突",
+  "additions": "增加",
+  "deletions": "删除"
 }

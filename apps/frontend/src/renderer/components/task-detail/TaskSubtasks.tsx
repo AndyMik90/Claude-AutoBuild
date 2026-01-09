@@ -1,4 +1,5 @@
 import { CheckCircle2, Clock, XCircle, AlertCircle, ListChecks, FileCode } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -23,7 +24,9 @@ function getSubtaskStatusIcon(status: string) {
 }
 
 export function TaskSubtasks({ task }: TaskSubtasksProps) {
+  const { t } = useTranslation(['tasks', 'common']);
   const progress = calculateProgress(task.subtasks);
+  const completedCount = task.subtasks.filter(c => c.status === 'completed').length;
 
   return (
     <ScrollArea className="h-full">
@@ -31,16 +34,16 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
         {task.subtasks.length === 0 ? (
           <div className="text-center py-12">
             <ListChecks className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="text-sm font-medium text-muted-foreground mb-1">No subtasks defined</p>
+            <p className="text-sm font-medium text-muted-foreground mb-1">{t('tasks:taskSubtasks.noSubtasks')}</p>
             <p className="text-xs text-muted-foreground/70">
-              Implementation subtasks will appear here after planning
+              {t('tasks:taskSubtasks.subtasksDescription')}
             </p>
           </div>
         ) : (
           <>
             {/* Progress summary */}
             <div className="flex items-center justify-between text-xs text-muted-foreground pb-2 border-b border-border/50">
-              <span>{task.subtasks.filter(c => c.status === 'completed').length} of {task.subtasks.length} completed</span>
+              <span>{t('tasks:taskSubtasks.progressSummary', { completed: completedCount, total: task.subtasks.length })}</span>
               <span className="tabular-nums">{progress}%</span>
             </div>
             {task.subtasks.map((subtask, index) => (

@@ -354,7 +354,6 @@
     "pageTitle": "代理配置文件",
     "pageDescription": "选择模型和思考级别的预设配置",
     "profilesInfo": "代理配置文件为 Claude 模型和思考级别提供预设配置。当您创建新任务时,这些设置将用作默认值。您始终可以在任务创建向导中覆盖它们。",
-    "thinking": "思考",
     "custom": "自定义",
     "customConfiguration": "自定义配置",
     "customDescription": "选择模型和思考级别",
