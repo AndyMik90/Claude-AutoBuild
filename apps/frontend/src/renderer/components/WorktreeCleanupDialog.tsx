@@ -1,3 +1,4 @@
+import { useTranslation, Trans } from 'react-i18next';
 import { CheckCircle2, FolderX, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
@@ -30,22 +31,27 @@ export function WorktreeCleanupDialog({
   onOpenChange,
   onConfirm
 }: WorktreeCleanupDialogProps) {
-  console.log('[WorktreeCleanupDialog] Rendering with open:', open, 'taskTitle:', taskTitle);
+  const { t } = useTranslation(['dialogs', 'common']);
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-success" />
-            Complete Task
+            {t('dialogs:worktreeCleanup.title')}
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="text-sm text-muted-foreground space-y-3">
               <p>
-                The task <strong className="text-foreground">"{taskTitle}"</strong> still has an isolated workspace (worktree).
+                <Trans
+                  i18nKey="dialogs:worktreeCleanup.hasWorktree"
+                  values={{ taskTitle }}
+                  components={{ strong: <strong className="text-foreground" /> }}
+                />
               </p>
               <p>
-                To mark this task as complete, the worktree and its associated branch will be deleted.
+                {t('dialogs:worktreeCleanup.willDelete')}
               </p>
               {worktreePath && (
                 <div className="bg-muted/50 rounded-lg p-3 text-sm font-mono text-xs break-all">
@@ -53,13 +59,13 @@ export function WorktreeCleanupDialog({
                 </div>
               )}
               <p className="text-amber-600 dark:text-amber-500">
-                Make sure you have merged or saved any changes you want to keep before proceeding.
+                {t('dialogs:worktreeCleanup.warning')}
               </p>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isProcessing}>{t('common:buttons.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -71,12 +77,12 @@ export function WorktreeCleanupDialog({
             {isProcessing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Completing...
+                {t('dialogs:worktreeCleanup.completing')}
               </>
             ) : (
               <>
                 <FolderX className="mr-2 h-4 w-4" />
-                Delete Worktree & Complete
+                {t('dialogs:worktreeCleanup.confirm')}
               </>
             )}
           </AlertDialogAction>

@@ -87,7 +87,7 @@ def handle_build_command(
         debug_success,
     )
     from phase_config import get_phase_model
-    from prompts_pkg.prompts import _get_base_branch_from_metadata
+    from prompts_pkg.prompts import get_base_branch_from_metadata
     from qa_loop import run_qa_validation_loop, should_run_qa
 
     from .utils import print_banner, validate_environment
@@ -198,7 +198,7 @@ def handle_build_command(
     # If base_branch not provided via CLI, try to read from task_metadata.json
     # This ensures the backend uses the branch configured in the frontend
     if base_branch is None:
-        metadata_branch = _get_base_branch_from_metadata(spec_dir)
+        metadata_branch = get_base_branch_from_metadata(spec_dir)
         if metadata_branch:
             base_branch = metadata_branch
             debug("run.py", f"Using base branch from task metadata: {base_branch}")

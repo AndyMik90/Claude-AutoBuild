@@ -475,7 +475,8 @@ export function registerTaskExecutionHandlers(
               try {
                 branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
                   cwd: worktreePath,
-                  encoding: 'utf-8'
+                  encoding: 'utf-8',
+                  timeout: 30000
                 }).trim();
               } catch {
                 // If we can't get branch name, use the default pattern
@@ -485,7 +486,8 @@ export function registerTaskExecutionHandlers(
               // Remove the worktree
               execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
                 cwd: project.path,
-                encoding: 'utf-8'
+                encoding: 'utf-8',
+                timeout: 30000
               });
               console.log(`[TASK_UPDATE_STATUS] Worktree removed: ${worktreePath}`);
 
@@ -493,7 +495,8 @@ export function registerTaskExecutionHandlers(
               try {
                 execFileSync(getToolPath('git'), ['branch', '-D', branch], {
                   cwd: project.path,
-                  encoding: 'utf-8'
+                  encoding: 'utf-8',
+                  timeout: 30000
                 });
                 console.log(`[TASK_UPDATE_STATUS] Branch deleted: ${branch}`);
               } catch {

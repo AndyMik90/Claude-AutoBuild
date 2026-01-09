@@ -530,6 +530,7 @@ def _try_smart_merge_inner(
                 )
 
                 resolved_files = []
+                files_to_stage = []
                 for file_path, status in changed_files:
                     if _is_auto_claude_file(file_path):
                         continue
@@ -541,11 +542,7 @@ def _try_smart_merge_inner(
                             # Deleted in worktree
                             if target_path.exists():
                                 target_path.unlink()
-                                subprocess.run(
-                                    ["git", "add", file_path],
-                                    cwd=project_dir,
-                                    capture_output=True,
-                                )
+                            files_to_stage.append(file_path)
                             resolved_files.append(file_path)
                             print(success(f"    ✓ {file_path} (deleted)"))
                         else:
@@ -558,24 +555,56 @@ def _try_smart_merge_inner(
                                 )
                                 if binary_content is not None:
                                     target_path.write_bytes(binary_content)
+                                    files_to_stage.append(file_path)
+                                    resolved_files.append(file_path)
+                                    status_label = (
+                                        "new file" if status == "A" else "updated"
+                                    )
+                                    print(
+                                        success(f"    ✓ {file_path} ({status_label})")
+                                    )
+                                else:
+                                    debug_warning(
+                                        MODULE,
+                                        f"Could not retrieve binary content for {file_path}",
+                                    )
                             else:
                                 content = _get_file_content_from_ref(
                                     project_dir, spec_branch, file_path
                                 )
                                 if content is not None:
                                     target_path.write_text(content, encoding="utf-8")
-
-                            subprocess.run(
-                                ["git", "add", file_path],
-                                cwd=project_dir,
-                                capture_output=True,
-                            )
-                            resolved_files.append(file_path)
-                            status_label = "new file" if status == "A" else "updated"
-                            print(success(f"    ✓ {file_path} ({status_label})"))
+                                    files_to_stage.append(file_path)
+                                    resolved_files.append(file_path)
+                                    status_label = (
+                                        "new file" if status == "A" else "updated"
+                                    )
+                                    print(
+                                        success(f"    ✓ {file_path} ({status_label})")
+                                    )
+                                else:
+                                    debug_warning(
+                                        MODULE,
+                                        f"Could not retrieve content for {file_path}",
+                                    )
 
                     except Exception as e:
                         debug_warning(MODULE, f"Could not copy {file_path}: {e}")
+
+                # Stage all files in a single git add call for efficiency
+                if files_to_stage:
+                    try:
+                        subprocess.run(
+                            ["git", "add"] + files_to_stage,
+                            cwd=project_dir,
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                        )
+                    except subprocess.CalledProcessError as e:
+                        debug_warning(
+                            MODULE, f"Failed to stage files for direct copy: {e.stderr}"
+                        )
 
                 return {
                     "success": True,
@@ -588,6 +617,12 @@ def _try_smart_merge_inner(
                         "direct_copy": True,  # Flag indicating direct copy was used
                     },
                 }
+            else:
+                # merge-base failed - branches may not share history
+                debug_warning(
+                    MODULE,
+                    "Could not find merge-base between branches - falling back to semantic analysis",
+                )
 
         # No git conflicts - proceed with semantic analysis
         debug(MODULE, "No git conflicts, proceeding with semantic analysis")
