@@ -47,6 +47,7 @@ if sys.version_info < (3, 10):  # noqa: UP036
 import asyncio
 import io
 import os
+import subprocess
 from pathlib import Path
 
 # Configure safe encoding on Windows BEFORE any imports that might print
@@ -358,8 +359,24 @@ Examples:
             print(f"  {muted('Running:')} {' '.join(run_cmd)}")
             print()
 
-            # Execute run.py - replace current process
-            os.execv(sys.executable, run_cmd)
+            # Execute run.py - use subprocess on Windows to maintain connection with Electron
+            # Fix for issue #609: os.execv() breaks connection on Windows
+            if sys.platform == "win32":
+                try:
+                    result = subprocess.run(run_cmd)
+                    sys.exit(result.returncode)
+                except FileNotFoundError:
+                    print("Error: Could not start coding phase - executable not found")
+                    sys.exit(1)
+                except OSError as e:
+                    print(f"Error starting coding phase: {e}")
+                    sys.exit(1)
+                except KeyboardInterrupt:
+                    print("\n\nCoding phase interrupted.")
+                    sys.exit(130)
+            else:
+                # On Unix/macOS, os.execv() works correctly - replaces current process
+                os.execv(sys.executable, run_cmd)
 
         sys.exit(0)
 
