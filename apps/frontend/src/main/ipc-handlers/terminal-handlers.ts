@@ -15,9 +15,6 @@ import { projectStore } from "../project-store";
 import { terminalNameGenerator } from "../terminal-name-generator";
 import { debugLog, debugError } from "../../shared/utils/debug-logger";
 import {
-  escapeShellArg,
-  escapeShellArgWindows,
-  escapePowerShellArg,
   buildPathAssignment,
   buildEnvVarAssignment,
   buildEnvVarReference,
