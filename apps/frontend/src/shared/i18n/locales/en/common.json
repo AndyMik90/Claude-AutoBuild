@@ -305,7 +305,21 @@
     "workflowsAwaitingDescription": "This PR is from a fork and requires workflow approval before CI checks can run. Approve the workflows to continue.",
     "viewOnGitHub": "View",
     "approveWorkflow": "Approve",
-    "approveAllWorkflows": "Approve All Workflows"
+    "approveAllWorkflows": "Approve All Workflows",
+    "live": "Live",
+    "waitingForLogs": "Waiting for logs...",
+    "reviewIsStarting": "Review is starting",
+    "noLogsAvailable": "No logs available",
+    "runReviewToGenerateLogs": "Run a review to generate logs",
+    "streaming": "Streaming",
+    "running": "Running",
+    "complete": "Complete",
+    "failed": "Failed",
+    "pending": "Pending",
+    "entries": "entries",
+    "noLogsYet": "No logs yet",
+    "less": "Less",
+    "more": "More"
   },
   "downloads": {
     "toggleExpand": "Toggle download details",

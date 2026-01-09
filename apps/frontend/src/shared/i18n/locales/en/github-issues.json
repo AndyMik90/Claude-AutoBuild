@@ -55,9 +55,15 @@
     "retry": "Retry Auto Fix"
   },
   "issueList": {
+    "title": "GitHub Issues",
+    "open": "open",
+    "analyzeAndGroup": "Analyze & Group Issues",
     "analyzeDescription": "Analyze up to 200 open issues, group similar ones, and review proposed batches before creating tasks.",
+    "autoFixNew": "Auto-Fix New",
     "autoFixDescription": "Automatically fix new issues as they come in.",
     "processingIssues": "Processing {{count}} issue{{count !== 1 ? 's' : ''}}...",
+    "searchPlaceholder": "Search issues...",
+    "noIssuesFound": "No issues found",
     "statusOpen": "Open",
     "statusClosed": "Closed",
     "statusAll": "All"

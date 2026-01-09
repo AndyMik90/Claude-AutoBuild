@@ -55,9 +55,15 @@
     "retry": "重试自动修复"
   },
   "issueList": {
+    "title": "GitHub 问题",
+    "open": "个打开",
+    "analyzeAndGroup": "分析与分组问题",
     "analyzeDescription": "分析最多 200 个公开问题，将类似的问题分组，并在创建任务之前查看提议的批次。",
+    "autoFixNew": "自动修复新问题",
     "autoFixDescription": "自动修复新问题。",
     "processingIssues": "正在处理 {{count}} 个问题...",
+    "searchPlaceholder": "搜索问题...",
+    "noIssuesFound": "未找到问题",
     "statusOpen": "打开",
     "statusClosed": "已关闭",
     "statusAll": "全部"

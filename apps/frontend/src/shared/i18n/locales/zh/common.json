@@ -305,7 +305,21 @@
     "workflowsAwaitingDescription": "此 PR 来自 fork,需要工作流批准才能运行 CI 检查。批准工作流以继续。",
     "viewOnGitHub": "查看",
     "approveWorkflow": "批准",
-    "approveAllWorkflows": "批准所有工作流"
+    "approveAllWorkflows": "批准所有工作流",
+    "live": "实时",
+    "waitingForLogs": "等待日志...",
+    "reviewIsStarting": "审查即将开始",
+    "noLogsAvailable": "没有可用日志",
+    "runReviewToGenerateLogs": "运行审查以生成日志",
+    "streaming": "流式传输",
+    "running": "运行中",
+    "complete": "完成",
+    "failed": "失败",
+    "pending": "等待中",
+    "entries": "条记录",
+    "noLogsYet": "暂无日志",
+    "less": "更少",
+    "more": "更多"
   },
   "downloads": {
     "toggleExpand": "切换下载详情",
