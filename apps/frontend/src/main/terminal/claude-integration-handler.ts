@@ -30,6 +30,37 @@ import type { TerminalProcess, WindowGetter, RateLimitEvent, OAuthTokenEvent } f
 // ============================================================================
 
 /**
+ * Check if bash is available on Windows.
+ * On Unix platforms, always returns true (bash is assumed to be available).
+ * On Windows, checks if bash command can be found.
+ *
+ * @returns true if bash is available, false otherwise
+ */
+function isBashAvailable(): boolean {
+  if (process.platform !== "win32") {
+    return true; // Unix systems always have bash
+  }
+
+  // On Windows, check if bash is in PATH by trying common locations
+  const commonBashPaths = [
+    "C:\\Program Files\\Git\\bin\\bash.exe",
+    "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
+    "C:\\msys64\\usr\\bin\\bash.exe",
+    "C:\\cygwin64\\bin\\bash.exe",
+  ];
+
+  // Check if bash exists in common locations or via PATH
+  try {
+    require("child_process").execSync("bash --version", { stdio: "ignore" });
+    return true;
+  } catch {
+    // bash not found in PATH, check common installation locations
+    const fs = require("fs");
+    return commonBashPaths.some((bashPath) => fs.existsSync(bashPath));
+  }
+}
+
+/**
  * Configuration for building Claude shell commands using discriminated union.
  * This provides type safety by ensuring the correct options are provided for each method.
  */
@@ -407,25 +438,52 @@ export function invokeClaude(
       const tempFile = path.join(os.tmpdir(), `.claude-token-${Date.now()}-${nonce}`);
 
       debugLog("[ClaudeIntegration:invokeClaude] Writing token to temp file:", tempFile);
-      fs.writeFileSync(tempFile, `export CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArg(token)}\n`, {
-        mode: 0o600,
-      });
+      // Write token file with Unix-only permissions (mode 0o600 is not supported on Windows)
+      const writeOptions: fs.WriteFileOptions = {};
+      if (process.platform !== "win32") {
+        writeOptions.mode = 0o600;
+      }
+      fs.writeFileSync(
+        tempFile,
+        `export CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArg(token)}\n`,
+        writeOptions
+      );
 
       // Build shell-specific command for temp file method
-      // Note: temp file method uses bash syntax internally, so we wrap in bash -c for non-bash shells
       let command: string;
       if (shellType === "powershell" || shellType === "cmd") {
-        // On Windows, use bash-style temp file but invoke through bash if available
-        const tempFileBash = tempFile.replace(/\\/g, "/");
-        const bashClaudeCmd = claudeCmd.replace(/\\/g, "/");
-        const escapedClaudeBash = escapeShellArg(bashClaudeCmd);
-        const escapedTempFileBash = escapeShellArg(tempFileBash);
+        // On Windows, check if bash is available
+        if (isBashAvailable()) {
+          // Use bash-style temp file with bash -c wrapper
+          const tempFileBash = tempFile.replace(/\\/g, "/");
+          const bashClaudeCmd = claudeCmd.replace(/\\/g, "/");
+          const escapedClaudeBash = escapeShellArg(bashClaudeCmd);
+          const escapedTempFileBash = escapeShellArg(tempFileBash);
 
-        if (shellType === "powershell") {
-          command = `${cwdCommand}${pathPrefix}bash -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
+          if (shellType === "powershell") {
+            command = `${cwdCommand}${pathPrefix}bash -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
+          } else {
+            // cmd.exe - similar approach
+            command = `${cwdCommand}${pathPrefix}bash -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
+          }
         } else {
-          // cmd.exe - similar approach
-          command = `${cwdCommand}${pathPrefix}bash -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
+          // Bash not available - use native PowerShell/cmd syntax
+          debugLog(
+            "[ClaudeIntegration:invokeClaude] Bash not found on Windows, using native shell syntax for OAuth token"
+          );
+          // For native Windows shells, we need to create a different temp file format
+          // and set the token as an environment variable directly
+          if (shellType === "powershell") {
+            // PowerShell: set environment variable and invoke claude
+            const escapedToken = escapePowerShellArg(token);
+            const escapedClaude = escapePowerShellArg(claudeCmd);
+            command = `clear && ${cwdCommand}$env:CLAUDE_CODE_OAUTH_TOKEN=${escapedToken}; ${pathPrefix}${escapedClaude}\r`;
+          } else {
+            // cmd.exe: set environment variable and invoke claude
+            const escapedToken = escapeShellArgWindows(token);
+            const escapedClaudeCmdWin = escapeShellArgWindows(claudeCmd);
+            command = `clear && ${cwdCommand}set "CLAUDE_CODE_OAUTH_TOKEN=${escapedToken}" && ${pathPrefix}"${escapedClaudeCmdWin}"\r`;
+          }
         }
       } else {
         // Unix shells - use existing temp file method

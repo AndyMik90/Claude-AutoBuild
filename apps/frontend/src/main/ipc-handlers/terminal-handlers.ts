@@ -413,7 +413,7 @@ export function registerTerminalHandlers(
           } else if (shellType === "cmd") {
             echoCommand = `echo Config dir: ${envVarReference}`;
           } else {
-            echoCommand = `"echo Config dir: ${envVarReference}"`;
+            echoCommand = `echo Config dir: ${envVarReference}`;
           }
 
           loginCommand = `${pathPrefix}${envVarAssignment} && ${echoCommand} && ${claudeInvocation}`;
