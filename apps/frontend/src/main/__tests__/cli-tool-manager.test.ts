@@ -108,7 +108,8 @@ vi.mock('../env-utils', () => ({
   getSpawnOptions: vi.fn((command: string, baseOptions?: any) => ({
     ...baseOptions,
     shell: /\.(cmd|bat)$/i.test(command) && process.platform === 'win32'
-  }))
+  })),
+  existsAsync: vi.fn(() => Promise.resolve(false))
 }));
 
 // Mock homebrew-python utility
@@ -359,17 +360,6 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
     });
   });
 
-  describe('User configuration priority', () => {
-    beforeEach(() => {
-      vi.clearAllMocks();
-    });
-
-    // Note: User configuration testing requires mocking the CLIToolManager class instance
-    // which is more complex. These would be integration tests rather than unit tests.
-    it.skip('placeholder for user config tests', () => {
-      // Placeholder - actual user config tests require different approach
-    });
-  });
 });
 
 /**

@@ -26,7 +26,7 @@ const execFileAsync = promisify(execFile);
  * @param filePath - The path to check
  * @returns Promise resolving to true if path exists, false otherwise
  */
-async function existsAsync(filePath: string): Promise<boolean> {
+export async function existsAsync(filePath: string): Promise<boolean> {
   try {
     await fsPromises.access(filePath);
     return true;

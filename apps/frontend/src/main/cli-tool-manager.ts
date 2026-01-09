@@ -26,28 +26,11 @@ import path from 'path';
 import os from 'os';
 import { promisify } from 'util';
 import { app } from 'electron';
-import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell } from './env-utils';
+import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell, existsAsync } from './env-utils';
+import type { ToolDetectionResult } from '../shared/types';
 
 const execFileAsync = promisify(execFile);
 const execAsync = promisify(exec);
-
-/**
- * Check if a path exists asynchronously (non-blocking)
- *
- * Uses fs.promises.access which is non-blocking, unlike fs.existsSync.
- *
- * @param filePath - The path to check
- * @returns Promise resolving to true if path exists, false otherwise
- */
-async function existsAsync(filePath: string): Promise<boolean> {
-  try {
-    await fsPromises.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-import type { ToolDetectionResult } from '../shared/types';
 import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 import {
   getWindowsExecutablePaths,
@@ -55,6 +38,7 @@ import {
   WINDOWS_GIT_PATHS,
   findWindowsExecutableViaWhere,
   findWindowsExecutableViaWhereAsync,
+  isSecurePath,
 } from './utils/windows-paths';
 
 /**
@@ -722,6 +706,10 @@ class CLIToolManager {
         console.warn(
           `[Claude CLI] User-configured path is from different platform, ignoring: ${this.userConfig.claudePath}`
         );
+      } else if (process.platform === 'win32' && !isSecurePath(this.userConfig.claudePath)) {
+        console.warn(
+          `[Claude CLI] User-configured path failed security validation, ignoring: ${this.userConfig.claudePath}`
+        );
       } else {
         const validation = this.validateClaude(this.userConfig.claudePath);
         const result = buildClaudeDetectionResult(
@@ -1232,6 +1220,10 @@ class CLIToolManager {
       if (isWrongPlatformPath(this.userConfig.claudePath)) {
         console.warn(
           `[Claude CLI] User-configured path is from different platform, ignoring: ${this.userConfig.claudePath}`
+        );
+      } else if (process.platform === 'win32' && !isSecurePath(this.userConfig.claudePath)) {
+        console.warn(
+          `[Claude CLI] User-configured path failed security validation, ignoring: ${this.userConfig.claudePath}`
         );
       } else {
         const validation = await this.validateClaudeAsync(this.userConfig.claudePath);
