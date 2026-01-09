@@ -1,0 +1,102 @@
+{
+  "status": {
+    "backlog": "待做清單",
+    "todo": "待做",
+    "in_progress": "進行中",
+    "review": "審查",
+    "complete": "完成",
+    "archived": "已封存"
+  },
+  "actions": {
+    "start": "啟動",
+    "stop": "停止",
+    "recover": "恢復",
+    "resume": "繼續",
+    "archive": "封存",
+    "delete": "刪除",
+    "view": "檢視詳細資料"
+  },
+  "labels": {
+    "running": "執行中",
+    "aiReview": "AI 審查",
+    "needsReview": "需要審查",
+    "pending": "待處理",
+    "stuck": "卡住",
+    "incomplete": "未完成",
+    "recovering": "恢復中...",
+    "needsRecovery": "需要恢復",
+    "needsResume": "需要繼續"
+  },
+  "reviewReason": {
+    "completed": "已完成",
+    "hasErrors": "有錯誤",
+    "qaIssues": "QA 問題",
+    "approvePlan": "批准計畫"
+  },
+  "tooltips": {
+    "archiveTask": "封存工作",
+    "archiveAllDone": "封存所有已完成的工作"
+  },
+  "creation": {
+    "title": "建立新工作",
+    "description": "描述您想要建立的內容",
+    "placeholder": "描述您的工作..."
+  },
+  "empty": {
+    "title": "還沒有工作",
+    "description": "建立您的第一個工作以開始使用"
+  },
+  "kanban": {
+    "emptyBacklog": "未計劃任何工作",
+    "emptyBacklogHint": "新增工作以開始使用",
+    "emptyInProgress": "沒有執行中的工作",
+    "emptyInProgressHint": "從待做清單啟動工作",
+    "emptyAiReview": "沒有審查中的工作",
+    "emptyAiReviewHint": "AI 將審查已完成的工作",
+    "emptyHumanReview": "沒有要審查的工作",
+    "emptyHumanReviewHint": "等待您批准的工作將出現在這裡",
+    "emptyDone": "沒有已完成的工作",
+    "emptyDoneHint": "已批准的工作將出現在這裡",
+    "emptyDefault": "無工作",
+    "dropHere": "放在這裡",
+    "showArchived": "顯示已封存"
+  },
+  "execution": {
+    "phases": {
+      "idle": "閒置",
+      "planning": "計劃中",
+      "coding": "編碼中",
+      "reviewing": "審查中",
+      "fixing": "修復中",
+      "complete": "完成",
+      "failed": "失敗"
+    },
+    "labels": {
+      "interrupted": "已中斷",
+      "progress": "進度",
+      "entry": "項",
+      "entries": "項"
+    },
+    "shortPhases": {
+      "plan": "計劃",
+      "code": "編碼",
+      "qa": "品保"
+    }
+  },
+  "files": {
+    "title": "檔案",
+    "tab": "檔案",
+    "noSpecPath": "無可用的規格檔案",
+    "noFiles": "未找到檔案",
+    "loading": "載入檔案中...",
+    "loadingContent": "載入內容中...",
+    "errorLoading": "無法載入檔案",
+    "errorLoadingContent": "無法載入檔案內容",
+    "retry": "重試",
+    "selectFile": "選擇檔案以檢視其內容",
+    "openInIDE": "在 IDE 中開啟"
+  },
+  "metadata": {
+    "severity": "嚴重程度"
+  }
+}
