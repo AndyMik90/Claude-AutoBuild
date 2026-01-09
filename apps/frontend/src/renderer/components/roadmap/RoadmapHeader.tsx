@@ -1,15 +1,82 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Target, Users, BarChart3, RefreshCw, Plus, TrendingUp } from 'lucide-react';
+import { Target, Users, BarChart3, RefreshCw, Plus, TrendingUp, Play, Square, RotateCcw, Clock } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { Switch } from '../ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Progress } from '../ui/progress';
 import { getFeatureStats } from '../../stores/roadmap-store';
 import { ROADMAP_PRIORITY_COLORS } from '../../../shared/constants';
 import type { RoadmapHeaderProps } from './types';
 
-export function RoadmapHeader({ roadmap, competitorAnalysis, onAddFeature, onRefresh, onViewCompetitorAnalysis }: RoadmapHeaderProps) {
+// Duration options in hours
+const DURATION_OPTIONS = [1, 2, 4, 8, 12, 24];
+
+// Map phase IDs to i18n keys
+const PHASE_I18N_KEYS: Record<string, string> = {
+  'idle': 'idle',
+  'sota_llm': 'sotaLLM',
+  'competitor_analysis': 'competitorAnalysis',
+  'performance_improvements': 'performanceImprovements',
+  'ui_ux_improvements': 'uiuxImprovements',
+  'feature_discovery': 'featureDiscovery',
+};
+
+export function RoadmapHeader({
+  roadmap,
+  competitorAnalysis,
+  onAddFeature,
+  onRefresh,
+  onViewCompetitorAnalysis,
+  continuousState,
+  continuousProgress,
+  onStartContinuous,
+  onStopContinuous,
+  onResumeContinuous,
+}: RoadmapHeaderProps) {
   const { t } = useTranslation('common');
   const stats = getFeatureStats(roadmap);
+
+  // Local state for continuous mode toggle and duration
+  const [continuousModeEnabled, setContinuousModeEnabled] = useState(false);
+  const [selectedDuration, setSelectedDuration] = useState<string>('8');
+
+  // Determine if continuous research is currently running
+  const isRunning = continuousState?.isRunning || false;
+  const canResume = continuousState && !continuousState.isRunning && continuousState.iterationCount > 0;
+
+  // Get the phase display name
+  const getPhaseDisplayName = (phase: string): string => {
+    const i18nKey = PHASE_I18N_KEYS[phase] || 'idle';
+    return t(`continuousResearch.phases.${i18nKey}`);
+  };
+
+  // Handle starting continuous research
+  const handleStartContinuous = () => {
+    if (onStartContinuous) {
+      onStartContinuous(parseInt(selectedDuration, 10));
+    }
+  };
+
+  // Handle toggle change
+  const handleToggleChange = (checked: boolean) => {
+    setContinuousModeEnabled(checked);
+    // If turning off while running, stop the research
+    if (!checked && isRunning && onStopContinuous) {
+      onStopContinuous();
+    }
+  };
+
+  // Format elapsed time for display
+  const formatTime = (hours: number): string => {
+    if (hours < 1) {
+      const minutes = Math.round(hours * 60);
+      return `${minutes}m`;
+    }
+    return `${hours.toFixed(1)}h`;
+  };
 
   return (
     <div className="shrink-0 border-b border-border p-4 bg-card/50">
@@ -119,6 +186,169 @@ export function RoadmapHeader({ roadmap, competitorAnalysis, onAddFeature, onRef
               {count} {priority}
             </Badge>
           ))}
+        </div>
+      </div>
+
+      {/* Continuous Research Mode Section */}
+      <div className="mt-4 pt-4 border-t border-border">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {/* Toggle */}
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={continuousModeEnabled || isRunning}
+                onCheckedChange={handleToggleChange}
+                aria-label={t('continuousResearch.accessibility.toggleContinuousModeAriaLabel')}
+                disabled={isRunning}
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-sm font-medium cursor-help">
+                    {t('continuousResearch.toggle.label')}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t('continuousResearch.toggle.tooltip')}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            {/* Duration Selector - show when enabled but not running */}
+            {(continuousModeEnabled || canResume) && !isRunning && (
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <Select
+                  value={selectedDuration}
+                  onValueChange={setSelectedDuration}
+                >
+                  <SelectTrigger
+                    className="w-[120px] h-8"
+                    aria-label={t('continuousResearch.accessibility.durationSelectorAriaLabel')}
+                  >
+                    <SelectValue placeholder={t('continuousResearch.duration.selectDuration')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DURATION_OPTIONS.map((hours) => (
+                      <SelectItem key={hours} value={hours.toString()}>
+                        {t(`continuousResearch.duration.options.${hours}h`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Progress indicator when running */}
+            {isRunning && continuousProgress && (
+              <div className="flex items-center gap-4 flex-1 max-w-md">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">
+                      {t('continuousResearch.progress.currentPhase', {
+                        phase: getPhaseDisplayName(continuousProgress.phase)
+                      })}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {t('continuousResearch.progress.iteration', {
+                        current: continuousProgress.iterationCount,
+                        total: Math.ceil(continuousProgress.durationHours / 2) // Rough estimate
+                      })}
+                    </span>
+                  </div>
+                  <Progress
+                    value={continuousProgress.progress}
+                    className="h-2"
+                    aria-label={t('continuousResearch.accessibility.progressIndicatorAriaLabel', {
+                      phase: getPhaseDisplayName(continuousProgress.phase),
+                      iteration: continuousProgress.iterationCount
+                    })}
+                  />
+                  <div className="flex items-center justify-between text-xs mt-1">
+                    <span className="text-muted-foreground">
+                      {t('continuousResearch.progress.featuresDiscovered', {
+                        count: continuousProgress.featureCount
+                      })}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {t('continuousResearch.progress.timeElapsed', {
+                        time: formatTime(continuousProgress.elapsedHours)
+                      })} / {formatTime(continuousProgress.durationHours)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            {/* Start button - show when enabled and not running */}
+            {continuousModeEnabled && !isRunning && !canResume && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleStartContinuous}
+                    aria-label={t('continuousResearch.accessibility.startResearchAriaLabel')}
+                  >
+                    <Play className="h-4 w-4 mr-1" />
+                    {t('continuousResearch.controls.start')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t('continuousResearch.toggle.tooltip')}
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Resume button - show when there's saved state */}
+            {canResume && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={onResumeContinuous}
+                    aria-label={t('continuousResearch.accessibility.resumeResearchAriaLabel')}
+                  >
+                    <RotateCcw className="h-4 w-4 mr-1" />
+                    {t('continuousResearch.controls.resume')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t('continuousResearch.status.resuming')}
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Stop button - show when running */}
+            {isRunning && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={onStopContinuous}
+                    aria-label={t('continuousResearch.accessibility.stopResearchAriaLabel')}
+                  >
+                    <Square className="h-4 w-4 mr-1" />
+                    {t('continuousResearch.controls.stop')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t('continuousResearch.confirmations.stopMessage')}
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Running status badge */}
+            {isRunning && (
+              <Badge variant="secondary" className="animate-pulse">
+                {t('continuousResearch.status.running')}
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
     </div>
