@@ -14,16 +14,16 @@ import enTaskReview from './locales/en/taskReview.json';
 import enTerminal from './locales/en/terminal.json';
 
 // Import French translation resources
-import frCommon from './locales/fr/common.json';
-import frNavigation from './locales/fr/navigation.json';
-import frSettings from './locales/fr/settings.json';
-import frTasks from './locales/fr/tasks.json';
-import frWelcome from './locales/fr/welcome.json';
-import frOnboarding from './locales/fr/onboarding.json';
-import frDialogs from './locales/fr/dialogs.json';
-import frGitlab from './locales/fr/gitlab.json';
-import frTaskReview from './locales/fr/taskReview.json';
-import frTerminal from './locales/fr/terminal.json';
+// import frCommon from './locales/fr/common.json';
+// import frNavigation from './locales/fr/navigation.json';
+// import frSettings from './locales/fr/settings.json';
+// import frTasks from './locales/fr/tasks.json';
+// import frWelcome from './locales/fr/welcome.json';
+// import frOnboarding from './locales/fr/onboarding.json';
+// import frDialogs from './locales/fr/dialogs.json';
+// import frGitlab from './locales/fr/gitlab.json';
+// import frTaskReview from './locales/fr/taskReview.json';
+// import frTerminal from './locales/fr/terminal.json';
 
 // Import Chinese translation resources
 import zhCommon from './locales/zh/common.json';
@@ -52,18 +52,18 @@ export const resources = {
     taskReview: enTaskReview,
     terminal: enTerminal
   },
-  fr: {
-    common: frCommon,
-    navigation: frNavigation,
-    settings: frSettings,
-    tasks: frTasks,
-    welcome: frWelcome,
-    onboarding: frOnboarding,
-    dialogs: frDialogs,
-    gitlab: frGitlab,
-    taskReview: frTaskReview,
-    terminal: frTerminal
-  },
+  // fr: {
+  //   common: frCommon,
+  //   navigation: frNavigation,
+  //   settings: frSettings,
+  //   tasks: frTasks,
+  //   welcome: frWelcome,
+  //   onboarding: frOnboarding,
+  //   dialogs: frDialogs,
+  //   gitlab: frGitlab,
+  //   taskReview: frTaskReview,
+  //   terminal: frTerminal
+  // },
   zh: {
     common: zhCommon,
     navigation: zhNavigation,
