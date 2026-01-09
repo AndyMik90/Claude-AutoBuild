@@ -1,17 +1,19 @@
 import { EventEmitter } from 'events';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
-import { existsSync } from 'fs';
-import { AgentState } from './agent-state';
+import type { IdeationConfig } from '../../shared/types';
+import { getClaudeProfileManager } from '../claude-profile-manager';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
-import { getClaudeProfileManager } from '../claude-profile-manager';
+import { AgentState } from './agent-state';
 import {
+  RoadmapConfig,
   SpecCreationMetadata,
-  TaskExecutionOptions,
-  RoadmapConfig
+  TaskExecutionOptions
 } from './types';
-import type { IdeationConfig } from '../../shared/types';
+
+const TASK_DESCRIPTION_CHAR_LIMIT = 5000;
 
 /**
  * Main AgentManager - orchestrates agent process lifecycle
@@ -119,8 +121,30 @@ export class AgentManager extends EventEmitter {
     // Get combined environment variables
     const combinedEnv = this.processManager.getCombinedEnv(projectPath);
 
+    // Handle long task descriptions (Windows command-line limit is ~8192 chars)
+    let taskArg: string[];
+
+    if (taskDescription.length > TASK_DESCRIPTION_CHAR_LIMIT) {
+      if (!specDir) {
+        this.emit('error', taskId, `Task description too long (${taskDescription.length} chars). Spec directory required for descriptions over ${TASK_DESCRIPTION_CHAR_LIMIT} chars.`);
+        return;
+      }
+      try {
+        mkdirSync(specDir, { recursive: true });
+        const taskFilePath = path.join(specDir, 'task_description.txt');
+        writeFileSync(taskFilePath, taskDescription, 'utf-8');
+        console.log(`[AgentManager] Task description too long (${taskDescription.length} chars), using --task-file`);
+        taskArg = ['--task-file', taskFilePath];
+      } catch (error) {
+        this.emit('error', taskId, `Failed to write task description file: ${error instanceof Error ? error.message : String(error)}`);
+        return;
+      }
+    } else {
+      taskArg = ['--task', taskDescription];
+    }
+
     // spec_runner.py will auto-start run.py after spec creation completes
-    const args = [specRunnerPath, '--task', taskDescription, '--project-dir', projectPath];
+    const args = [specRunnerPath, ...taskArg, '--project-dir', projectPath];
 
     // Pass spec directory if provided (for UI-created tasks that already have a directory)
     if (specDir) {
