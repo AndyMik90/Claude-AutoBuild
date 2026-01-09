@@ -732,11 +732,11 @@ export function TaskCreationWizard({
           >
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-foreground">Create New Task</DialogTitle>
+            <DialogTitle className="text-foreground">{t('creation.title')}</DialogTitle>
             {isDraftRestored && (
               <div className="flex items-center gap-2">
                 <span className="text-xs bg-info/10 text-info px-2 py-1 rounded-md">
-                  Draft restored
+                  {t('creation.draftRestored')}
                 </span>
                 <Button
                   variant="ghost"
@@ -745,14 +745,13 @@ export function TaskCreationWizard({
                   onClick={handleDiscardDraft}
                 >
                   <RotateCcw className="h-3 w-3 mr-1" />
-                  Start Fresh
+                  {t('creation.startFresh')}
                 </Button>
               </div>
             )}
           </div>
           <DialogDescription>
-            Describe what you want to build. The AI will analyze your request and
-            create a detailed specification.
+            {t('creation.dialogDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -760,7 +759,7 @@ export function TaskCreationWizard({
           {/* Description (Primary - Required) */}
           <div className="space-y-2">
             <Label htmlFor="description" className="text-sm font-medium text-foreground">
-              Description <span className="text-destructive">*</span>
+              {t('creation.descriptionLabel')} <span className="text-destructive">*</span>
             </Label>
             {/* Wrap textarea for file @mentions */}
             <div className="relative">
@@ -795,7 +794,7 @@ export function TaskCreationWizard({
               <Textarea
                 ref={descriptionRef}
                 id="description"
-                placeholder="Describe the feature, bug fix, or improvement you want to implement. Be as specific as possible about requirements, constraints, and expected behavior. Type @ to reference files."
+                placeholder={t('creation.descriptionPlaceholder')}
                 value={description}
                 onChange={handleDescriptionChange}
                 onPaste={handlePaste}
@@ -825,7 +824,7 @@ export function TaskCreationWizard({
               )}
             </div>
             <p id="description-help" className="text-xs text-muted-foreground">
-              Files and images can be copy/pasted or dragged & dropped into the description.
+              {t('creation.descriptionHelp')}
             </p>
 
             {/* Image Thumbnails - displayed inline below description */}
@@ -875,17 +874,17 @@ export function TaskCreationWizard({
           {/* Title (Optional - Auto-generated if empty) */}
           <div className="space-y-2">
             <Label htmlFor="title" className="text-sm font-medium text-foreground">
-              Task Title <span className="text-muted-foreground font-normal">(optional)</span>
+              {t('creation.titleLabel')} <span className="text-muted-foreground font-normal">{t('creation.titleOptional')}</span>
             </Label>
             <Input
               id="title"
-              placeholder="Leave empty to auto-generate from description"
+              placeholder={t('creation.titlePlaceholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={isCreating}
             />
             <p className="text-xs text-muted-foreground">
-              A short, descriptive title will be generated automatically if left empty.
+              {t('creation.titleHelp')}
             </p>
           </div>
 
@@ -928,7 +927,7 @@ export function TaskCreationWizard({
             aria-expanded={showAdvanced}
             aria-controls="advanced-options-section"
           >
-            <span>Classification (optional)</span>
+            <span>{t('creation.classificationOptional')}</span>
             {showAdvanced ? (
               <ChevronUp className="h-4 w-4" />
             ) : (

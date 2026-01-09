@@ -45,7 +45,18 @@
   "creation": {
     "title": "Create New Task",
     "description": "Describe what you want to build",
-    "placeholder": "Describe your task..."
+    "placeholder": "Describe your task...",
+    "dialogDescription": "Describe what you want to build. The AI will analyze your request and create a detailed specification.",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Describe the feature, bug fix, or improvement you want to implement. Be as specific as possible about requirements, constraints, and expected behavior. Type @ to reference files.",
+    "descriptionHelp": "Files and images can be copy/pasted or dragged & dropped into the description.",
+    "titleLabel": "Task Title",
+    "titleOptional": "(optional)",
+    "titlePlaceholder": "Leave empty to auto-generate from description",
+    "titleHelp": "A short, descriptive title will be generated automatically if left empty.",
+    "draftRestored": "Draft restored",
+    "startFresh": "Start Fresh",
+    "classificationOptional": "Classification (optional)"
   },
   "empty": {
     "title": "No tasks yet",

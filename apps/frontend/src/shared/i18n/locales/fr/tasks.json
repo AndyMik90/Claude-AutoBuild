@@ -45,7 +45,18 @@
   "creation": {
     "title": "Créer une nouvelle tâche",
     "description": "Décrivez ce que vous voulez construire",
-    "placeholder": "Décrivez votre tâche..."
+    "placeholder": "Décrivez votre tâche...",
+    "dialogDescription": "Décrivez ce que vous voulez construire. L'IA analysera votre demande et créera une spécification détaillée.",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Décrivez la fonctionnalité, la correction de bug ou l'amélioration que vous souhaitez implémenter. Soyez aussi précis que possible sur les exigences, les contraintes et le comportement attendu. Tapez @ pour référencer des fichiers.",
+    "descriptionHelp": "Les fichiers et images peuvent être copiés-collés ou glissés-déposés dans la description.",
+    "titleLabel": "Titre de la tâche",
+    "titleOptional": "(facultatif)",
+    "titlePlaceholder": "Laisser vide pour générer automatiquement à partir de la description",
+    "titleHelp": "Un titre court et descriptif sera généré automatiquement si laissé vide.",
+    "draftRestored": "Brouillon restauré",
+    "startFresh": "Recommencer",
+    "classificationOptional": "Classification (facultatif)"
   },
   "empty": {
     "title": "Aucune tâche",
