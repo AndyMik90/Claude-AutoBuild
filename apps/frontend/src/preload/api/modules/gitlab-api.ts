@@ -161,13 +161,18 @@ export interface GitLabAPI {
   getGitLabBranches: (project: string, instanceUrl: string) => Promise<IPCResult<string[]>>;
   createGitLabProject: (
     projectName: string,
-    options: { description?: string; visibility?: string; projectPath: string; namespace?: string; instanceUrl?: string }
+    options: { description?: string; visibility?: string; projectPath: string; namespacePath?: string; instanceUrl?: string }
   ) => Promise<IPCResult<{ pathWithNamespace: string; webUrl: string }>>;
   addGitLabRemote: (
     projectPath: string,
     projectFullPath: string,
     instanceUrl?: string
   ) => Promise<IPCResult<{ remoteUrl: string }>>;
+  linkGitLabProject: (
+    projectPath: string,
+    existingProject: string,
+    instanceUrl?: string
+  ) => Promise<IPCResult<{ pathWithNamespace: string; webUrl: string }>>;
   listGitLabGroups: (instanceUrl?: string) => Promise<IPCResult<{ groups: GitLabGroup[] }>>;
 
   // Event Listeners
@@ -425,7 +430,7 @@ export const createGitLabAPI = (): GitLabAPI => ({
 
   createGitLabProject: (
     projectName: string,
-    options: { description?: string; visibility?: string; projectPath: string; namespace?: string; instanceUrl?: string }
+    options: { description?: string; visibility?: string; projectPath: string; namespacePath?: string; instanceUrl?: string }
   ): Promise<IPCResult<{ pathWithNamespace: string; webUrl: string }>> =>
     invokeIpc(IPC_CHANNELS.GITLAB_CREATE_PROJECT, projectName, options),
 
@@ -435,6 +440,13 @@ export const createGitLabAPI = (): GitLabAPI => ({
     instanceUrl?: string
   ): Promise<IPCResult<{ remoteUrl: string }>> =>
     invokeIpc(IPC_CHANNELS.GITLAB_ADD_REMOTE, projectPath, projectFullPath, instanceUrl),
+
+  linkGitLabProject: (
+    projectPath: string,
+    existingProject: string,
+    instanceUrl?: string
+  ): Promise<IPCResult<{ pathWithNamespace: string; webUrl: string }>> =>
+    invokeIpc(IPC_CHANNELS.GITLAB_LINK_PROJECT, projectPath, existingProject, instanceUrl),
 
   listGitLabGroups: (instanceUrl?: string): Promise<IPCResult<{ groups: GitLabGroup[] }>> =>
     invokeIpc(IPC_CHANNELS.GITLAB_LIST_GROUPS, instanceUrl),
