@@ -76,6 +76,17 @@ repos:
         files: ^package\.json$
         pass_filenames: false
 
+  # Python encoding check - prevent regression of UTF-8 encoding fixes (PR #782)
+  - repo: local
+    hooks:
+      - id: check-file-encoding
+        name: Check file encoding parameters
+        entry: python scripts/check_encoding.py
+        language: system
+        types: [python]
+        files: ^apps/backend/
+        description: Ensures all file operations specify encoding="utf-8"
+
   # Python linting (apps/backend/)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.10
