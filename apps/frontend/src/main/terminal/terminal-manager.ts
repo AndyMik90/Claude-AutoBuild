@@ -3,20 +3,16 @@
  * Main orchestrator for terminal lifecycle, Claude integration, and profile management
  */
 
-import type { TerminalCreateOptions } from '../../shared/types';
-import type { TerminalSession } from '../terminal-session-store';
+import type { TerminalCreateOptions } from "../../shared/types";
+import type { TerminalSession } from "../terminal-session-store";
 
 // Internal modules
-import type {
-  TerminalProcess,
-  WindowGetter,
-  TerminalOperationResult
-} from './types';
-import * as PtyManager from './pty-manager';
-import * as SessionHandler from './session-handler';
-import * as TerminalLifecycle from './terminal-lifecycle';
-import * as TerminalEventHandler from './terminal-event-handler';
-import * as ClaudeIntegration from './claude-integration-handler';
+import type { TerminalProcess, WindowGetter, TerminalOperationResult } from "./types";
+import * as PtyManager from "./pty-manager";
+import * as SessionHandler from "./session-handler";
+import * as TerminalLifecycle from "./terminal-lifecycle";
+import * as TerminalEventHandler from "./terminal-event-handler";
+import * as ClaudeIntegration from "./claude-integration-handler";
 
 export class TerminalManager {
   private terminals: Map<string, TerminalProcess> = new Map();
@@ -60,11 +56,7 @@ export class TerminalManager {
   /**
    * Restore a terminal session
    */
-  async restore(
-    session: TerminalSession,
-    cols = 80,
-    rows = 24
-  ): Promise<TerminalOperationResult> {
+  async restore(session: TerminalSession, cols = 80, rows = 24): Promise<TerminalOperationResult> {
     return TerminalLifecycle.restoreTerminal(
       session,
       this.terminals,
@@ -84,9 +76,9 @@ export class TerminalManager {
         onResumeNeeded: (terminalId, sessionId) => {
           // Use async version to avoid blocking main process
           this.resumeClaudeAsync(terminalId, sessionId).catch((error) => {
-            console.error('[terminal-manager] Failed to resume Claude session:', error);
+            console.error("[terminal-manager] Failed to resume Claude session:", error);
           });
-        }
+        },
       },
       cols,
       rows
@@ -97,23 +89,23 @@ export class TerminalManager {
    * Destroy a terminal process
    */
   async destroy(id: string): Promise<TerminalOperationResult> {
-    return TerminalLifecycle.destroyTerminal(
-      id,
-      this.terminals,
-      (terminalId) => {
-        this.lastNotifiedRateLimitReset.delete(terminalId);
-      }
-    );
+    return TerminalLifecycle.destroyTerminal(id, this.terminals, (terminalId) => {
+      this.lastNotifiedRateLimitReset.delete(terminalId);
+    });
+  }
+
+  /**
+   * Get a terminal by ID
+   */
+  getTerminal(id: string): TerminalProcess | undefined {
+    return this.terminals.get(id);
   }
 
   /**
    * Kill all terminal processes
    */
   async killAll(): Promise<void> {
-    this.saveTimer = await TerminalLifecycle.destroyAllTerminals(
-      this.terminals,
-      this.saveTimer
-    );
+    this.saveTimer = await TerminalLifecycle.destroyAllTerminals(this.terminals, this.saveTimer);
   }
 
   /**
@@ -195,7 +187,7 @@ export class TerminalManager {
   async switchClaudeProfile(id: string, profileId: string): Promise<TerminalOperationResult> {
     const terminal = this.terminals.get(id);
     if (!terminal) {
-      return { success: false, error: 'Terminal not found' };
+      return { success: false, error: "Terminal not found" };
     }
 
     return ClaudeIntegration.switchClaudeProfile(
@@ -271,7 +263,9 @@ export class TerminalManager {
   /**
    * Get available session dates
    */
-  getAvailableSessionDates(projectPath?: string): import('../terminal-session-store').SessionDateInfo[] {
+  getAvailableSessionDates(
+    projectPath?: string
+  ): import("../terminal-session-store").SessionDateInfo[] {
     return SessionHandler.getAvailableSessionDates(projectPath);
   }
 
@@ -290,7 +284,11 @@ export class TerminalManager {
     projectPath: string,
     cols = 80,
     rows = 24
-  ): Promise<{ restored: number; failed: number; sessions: Array<{ id: string; success: boolean; error?: string }> }> {
+  ): Promise<{
+    restored: number;
+    failed: number;
+    sessions: Array<{ id: string; success: boolean; error?: string }>;
+  }> {
     return TerminalLifecycle.restoreSessionsFromDate(
       date,
       projectPath,
@@ -311,9 +309,9 @@ export class TerminalManager {
         onResumeNeeded: (terminalId, sessionId) => {
           // Use async version to avoid blocking main process
           this.resumeClaudeAsync(terminalId, sessionId).catch((error) => {
-            console.error('[terminal-manager] Failed to resume Claude session:', error);
+            console.error("[terminal-manager] Failed to resume Claude session:", error);
           });
-        }
+        },
       },
       cols,
       rows
@@ -356,7 +354,10 @@ export class TerminalManager {
   /**
    * Update terminal worktree config
    */
-  setWorktreeConfig(id: string, config: import('../../shared/types').TerminalWorktreeConfig | undefined): void {
+  setWorktreeConfig(
+    id: string,
+    config: import("../../shared/types").TerminalWorktreeConfig | undefined
+  ): void {
     const terminal = this.terminals.get(id);
     if (terminal) {
       terminal.worktreeConfig = config;

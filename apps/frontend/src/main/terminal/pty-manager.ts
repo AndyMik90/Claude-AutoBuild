@@ -3,42 +3,31 @@
  * Handles low-level PTY process creation and lifecycle
  */
 
-import * as pty from '@lydell/node-pty';
-import * as os from 'os';
-import { existsSync } from 'fs';
-import type { TerminalProcess, WindowGetter } from './types';
-import { IPC_CHANNELS } from '../../shared/constants';
-import { getClaudeProfileManager } from '../claude-profile-manager';
-import { readSettingsFile } from '../settings-utils';
-import type { SupportedTerminal } from '../../shared/types/settings';
+import * as pty from "@lydell/node-pty";
+import * as os from "os";
+import { existsSync } from "fs";
+import type { TerminalProcess, WindowGetter, ShellType } from "./types";
+import { IPC_CHANNELS } from "../../shared/constants";
+import { getClaudeProfileManager } from "../claude-profile-manager";
+import { readSettingsFile } from "../settings-utils";
+import type { SupportedTerminal } from "../../shared/types/settings";
 
 /**
  * Windows shell paths for different terminal preferences
  */
 const WINDOWS_SHELL_PATHS: Record<string, string[]> = {
   powershell: [
-    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',  // PowerShell 7 (Core)
-    'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',  // Windows PowerShell 5.1
+    "C:\\Program Files\\PowerShell\\7\\pwsh.exe", // PowerShell 7 (Core)
+    "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", // Windows PowerShell 5.1
   ],
   windowsterminal: [
-    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',  // Prefer PowerShell Core in Windows Terminal
-    'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+    "C:\\Program Files\\PowerShell\\7\\pwsh.exe", // Prefer PowerShell Core in Windows Terminal
+    "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
   ],
-  cmd: [
-    'C:\\Windows\\System32\\cmd.exe',
-  ],
-  gitbash: [
-    'C:\\Program Files\\Git\\bin\\bash.exe',
-    'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
-  ],
-  cygwin: [
-    'C:\\cygwin64\\bin\\bash.exe',
-    'C:\\cygwin\\bin\\bash.exe',
-  ],
-  msys2: [
-    'C:\\msys64\\usr\\bin\\bash.exe',
-    'C:\\msys32\\usr\\bin\\bash.exe',
-  ],
+  cmd: ["C:\\Windows\\System32\\cmd.exe"],
+  gitbash: ["C:\\Program Files\\Git\\bin\\bash.exe", "C:\\Program Files (x86)\\Git\\bin\\bash.exe"],
+  cygwin: ["C:\\cygwin64\\bin\\bash.exe", "C:\\cygwin\\bin\\bash.exe"],
+  msys2: ["C:\\msys64\\usr\\bin\\bash.exe", "C:\\msys32\\usr\\bin\\bash.exe"],
 };
 
 /**
@@ -46,8 +35,8 @@ const WINDOWS_SHELL_PATHS: Record<string, string[]> = {
  */
 function getWindowsShell(preferredTerminal: SupportedTerminal | undefined): string {
   // If no preference or 'system', use COMSPEC (usually cmd.exe)
-  if (!preferredTerminal || preferredTerminal === 'system') {
-    return process.env.COMSPEC || 'cmd.exe';
+  if (!preferredTerminal || preferredTerminal === "system") {
+    return process.env.COMSPEC || "cmd.exe";
   }
 
   // Check if we have paths defined for this terminal type
@@ -62,7 +51,62 @@ function getWindowsShell(preferredTerminal: SupportedTerminal | undefined): stri
   }
 
   // Fallback to COMSPEC for unrecognized terminals
-  return process.env.COMSPEC || 'cmd.exe';
+  return process.env.COMSPEC || "cmd.exe";
+}
+
+/**
+ * Detect shell type from shell path
+ *
+ * Determines whether the shell is PowerShell, cmd.exe, bash, zsh, or fish
+ * based on the executable path or name.
+ *
+ * @param shellPath - Full path to shell executable
+ * @returns Shell type for command syntax generation
+ */
+export function detectShellType(shellPath: string): ShellType {
+  const lowerPath = shellPath.toLowerCase();
+
+  // PowerShell detection (both PowerShell 5.1 and 7/Core)
+  if (lowerPath.includes("pwsh.exe") || lowerPath.includes("powershell.exe")) {
+    return "powershell";
+  }
+
+  // cmd.exe detection
+  if (lowerPath.includes("cmd.exe")) {
+    return "cmd";
+  }
+
+  // bash detection
+  if (lowerPath.includes("bash.exe") || lowerPath.includes("/bin/bash")) {
+    return "bash";
+  }
+
+  // zsh detection
+  if (lowerPath.includes("/zsh") || lowerPath.includes("zsh.exe")) {
+    return "zsh";
+  }
+
+  // fish detection
+  if (lowerPath.includes("/fish") || lowerPath.includes("fish.exe")) {
+    return "fish";
+  }
+
+  return "unknown";
+}
+
+/**
+ * Get the shell path for spawning a new terminal
+ *
+ * Returns the appropriate shell executable based on platform and user preference.
+ *
+ * @param preferredTerminal - User's preferred terminal type (optional)
+ * @returns Full path to shell executable
+ */
+export function getShellPath(preferredTerminal?: SupportedTerminal | undefined): string {
+  if (process.platform === "win32") {
+    return getWindowsShell(preferredTerminal);
+  }
+  return process.env.SHELL || "/bin/zsh";
 }
 
 /**
@@ -78,13 +122,21 @@ export function spawnPtyProcess(
   const settings = readSettingsFile();
   const preferredTerminal = settings?.preferredTerminal as SupportedTerminal | undefined;
 
-  const shell = process.platform === 'win32'
-    ? getWindowsShell(preferredTerminal)
-    : process.env.SHELL || '/bin/zsh';
+  const shell = getShellPath(preferredTerminal);
+  const shellType = detectShellType(shell);
+  const shellArgs = process.platform === "win32" ? [] : ["-l"];
 
-  const shellArgs = process.platform === 'win32' ? [] : ['-l'];
-
-  console.warn('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ')');
+  console.warn(
+    "[PtyManager] Spawning shell:",
+    shell,
+    "type:",
+    shellType,
+    "args:",
+    shellArgs,
+    "(preferred:",
+    preferredTerminal || "system",
+    ")"
+  );
 
   // Create a clean environment without DEBUG to prevent Claude Code from
   // enabling debug mode when the Electron app is run in development mode.
@@ -95,15 +147,15 @@ export function spawnPtyProcess(
   const { DEBUG: _DEBUG, ANTHROPIC_API_KEY: _ANTHROPIC_API_KEY, ...cleanEnv } = process.env;
 
   return pty.spawn(shell, shellArgs, {
-    name: 'xterm-256color',
+    name: "xterm-256color",
     cols,
     rows,
     cwd: cwd || os.homedir(),
     env: {
       ...cleanEnv,
       ...profileEnv,
-      TERM: 'xterm-256color',
-      COLORTERM: 'truecolor',
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
     },
   });
 }
@@ -137,7 +189,7 @@ export function setupPtyHandlers(
 
   // Handle terminal exit
   ptyProcess.onExit(({ exitCode }) => {
-    console.warn('[PtyManager] Terminal exited:', id, 'code:', exitCode);
+    console.warn("[PtyManager] Terminal exited:", id, "code:", exitCode);
 
     const win = getWindow();
     if (win) {

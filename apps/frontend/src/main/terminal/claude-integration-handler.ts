@@ -3,28 +3,29 @@
  * Manages Claude-specific operations including profile switching, rate limiting, and OAuth token detection
  */
 
-import * as os from 'os';
-import * as fs from 'fs';
-import { promises as fsPromises } from 'fs';
-import * as path from 'path';
-import * as crypto from 'crypto';
-import { IPC_CHANNELS } from '../../shared/constants';
-import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
-import * as OutputParser from './output-parser';
-import * as SessionHandler from './session-handler';
-import { debugLog, debugError } from '../../shared/utils/debug-logger';
-import { escapeShellArg, buildCdCommand } from '../../shared/utils/shell-escape';
-import { getClaudeCliInvocation, getClaudeCliInvocationAsync } from '../claude-cli-utils';
-import type {
-  TerminalProcess,
-  WindowGetter,
-  RateLimitEvent,
-  OAuthTokenEvent
-} from './types';
-
-function normalizePathForBash(envPath: string): string {
-  return process.platform === 'win32' ? envPath.replace(/;/g, ':') : envPath;
-}
+import * as os from "os";
+import * as fs from "fs";
+import { promises as fsPromises } from "fs";
+import * as path from "path";
+import * as crypto from "crypto";
+import { IPC_CHANNELS } from "../../shared/constants";
+import { getClaudeProfileManager, initializeClaudeProfileManager } from "../claude-profile-manager";
+import * as OutputParser from "./output-parser";
+import * as SessionHandler from "./session-handler";
+import { debugLog, debugError } from "../../shared/utils/debug-logger";
+import {
+  escapeShellArg,
+  escapePowerShellArg,
+  escapeShellArgWindows,
+  buildCdCommand,
+  buildPathAssignment,
+  buildPathString,
+  buildCommandInvocation,
+  buildCdCommandForShell,
+  type ShellType,
+} from "../../shared/utils/shell-escape";
+import { getClaudeCliInvocation, getClaudeCliInvocationAsync } from "../claude-cli-utils";
+import type { TerminalProcess, WindowGetter, RateLimitEvent, OAuthTokenEvent } from "./types";
 
 // ============================================================================
 // SHARED HELPERS - Used by both sync and async invokeClaude
@@ -35,9 +36,9 @@ function normalizePathForBash(envPath: string): string {
  * This provides type safety by ensuring the correct options are provided for each method.
  */
 type ClaudeCommandConfig =
-  | { method: 'default' }
-  | { method: 'temp-file'; escapedTempFile: string }
-  | { method: 'config-dir'; escapedConfigDir: string };
+  | { method: "default" }
+  | { method: "temp-file"; escapedTempFile: string }
+  | { method: "config-dir"; escapedConfigDir: string };
 
 /**
  * Build the shell command for invoking Claude CLI.
@@ -72,10 +73,10 @@ export function buildClaudeShellCommand(
   config: ClaudeCommandConfig
 ): string {
   switch (config.method) {
-    case 'temp-file':
+    case "temp-file":
       return `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace ${pathPrefix}bash -c "source ${config.escapedTempFile} && rm -f ${config.escapedTempFile} && exec ${escapedClaudeCmd}"\r`;
 
-    case 'config-dir':
+    case "config-dir":
       return `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${config.escapedConfigDir} ${pathPrefix}bash -c "exec ${escapedClaudeCmd}"\r`;
 
     default:
@@ -131,9 +132,8 @@ export function finalizeClaudeInvoke(
   onSessionCapture: SessionCaptureCallback
 ): void {
   // Set terminal title based on profile
-  const title = activeProfile && !activeProfile.isDefault
-    ? `Claude (${activeProfile.name})`
-    : 'Claude';
+  const title =
+    activeProfile && !activeProfile.isDefault ? `Claude (${activeProfile.name})` : "Claude";
   terminal.title = title;
 
   // Notify renderer of title change
@@ -174,16 +174,16 @@ export function handleRateLimit(
   }
 
   lastNotifiedRateLimitReset.set(terminal.id, resetTime);
-  console.warn('[ClaudeIntegration] Rate limit detected, reset:', resetTime);
+  console.warn("[ClaudeIntegration] Rate limit detected, reset:", resetTime);
 
   const profileManager = getClaudeProfileManager();
-  const currentProfileId = terminal.claudeProfileId || 'default';
+  const currentProfileId = terminal.claudeProfileId || "default";
 
   try {
     const rateLimitEvent = profileManager.recordRateLimitEvent(currentProfileId, resetTime);
-    console.warn('[ClaudeIntegration] Recorded rate limit event:', rateLimitEvent.type);
+    console.warn("[ClaudeIntegration] Recorded rate limit event:", rateLimitEvent.type);
   } catch (err) {
-    console.error('[ClaudeIntegration] Failed to record rate limit event:', err);
+    console.error("[ClaudeIntegration] Failed to record rate limit event:", err);
   }
 
   const autoSwitchSettings = profileManager.getAutoSwitchSettings();
@@ -198,17 +198,19 @@ export function handleRateLimit(
       profileId: currentProfileId,
       suggestedProfileId: bestProfile?.id,
       suggestedProfileName: bestProfile?.name,
-      autoSwitchEnabled: autoSwitchSettings.autoSwitchOnRateLimit
+      autoSwitchEnabled: autoSwitchSettings.autoSwitchOnRateLimit,
     } as RateLimitEvent);
   }
 
   if (autoSwitchSettings.enabled && autoSwitchSettings.autoSwitchOnRateLimit && bestProfile) {
-    console.warn('[ClaudeIntegration] Auto-switching to profile:', bestProfile.name);
-    switchProfileCallback(terminal.id, bestProfile.id).then(_result => {
-      console.warn('[ClaudeIntegration] Auto-switch completed');
-    }).catch(err => {
-      console.error('[ClaudeIntegration] Auto-switch failed:', err);
-    });
+    console.warn("[ClaudeIntegration] Auto-switching to profile:", bestProfile.name);
+    switchProfileCallback(terminal.id, bestProfile.id)
+      .then((_result) => {
+        console.warn("[ClaudeIntegration] Auto-switch completed");
+      })
+      .catch((err) => {
+        console.error("[ClaudeIntegration] Auto-switch failed:", err);
+      });
   }
 }
 
@@ -225,7 +227,7 @@ export function handleOAuthToken(
     return;
   }
 
-  console.warn('[ClaudeIntegration] OAuth token detected, length:', token.length);
+  console.warn("[ClaudeIntegration] OAuth token detected, length:", token.length);
 
   const email = OutputParser.extractEmail(terminal.outputBuffer);
   // Match both custom profiles (profile-123456) and the default profile
@@ -238,7 +240,7 @@ export function handleOAuthToken(
     const success = profileManager.setProfileToken(profileId, token, email || undefined);
 
     if (success) {
-      console.warn('[ClaudeIntegration] OAuth token auto-saved to profile:', profileId);
+      console.warn("[ClaudeIntegration] OAuth token auto-saved to profile:", profileId);
 
       const win = getWindow();
       if (win) {
@@ -247,21 +249,23 @@ export function handleOAuthToken(
           profileId,
           email,
           success: true,
-          detectedAt: new Date().toISOString()
+          detectedAt: new Date().toISOString(),
         } as OAuthTokenEvent);
       }
     } else {
-      console.error('[ClaudeIntegration] Failed to save OAuth token to profile:', profileId);
+      console.error("[ClaudeIntegration] Failed to save OAuth token to profile:", profileId);
     }
   } else {
     // No profile-specific terminal, save to active profile (GitHub OAuth flow, etc.)
-    console.warn('[ClaudeIntegration] OAuth token detected in non-profile terminal, saving to active profile');
+    console.warn(
+      "[ClaudeIntegration] OAuth token detected in non-profile terminal, saving to active profile"
+    );
     const profileManager = getClaudeProfileManager();
     const activeProfile = profileManager.getActiveProfile();
 
     // Defensive null check for active profile
     if (!activeProfile) {
-      console.error('[ClaudeIntegration] Failed to save OAuth token: no active profile found');
+      console.error("[ClaudeIntegration] Failed to save OAuth token: no active profile found");
       const win = getWindow();
       if (win) {
         win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
@@ -269,8 +273,8 @@ export function handleOAuthToken(
           profileId: undefined,
           email,
           success: false,
-          message: 'No active profile found',
-          detectedAt: new Date().toISOString()
+          message: "No active profile found",
+          detectedAt: new Date().toISOString(),
         } as OAuthTokenEvent);
       }
       return;
@@ -279,7 +283,10 @@ export function handleOAuthToken(
     const success = profileManager.setProfileToken(activeProfile.id, token, email || undefined);
 
     if (success) {
-      console.warn('[ClaudeIntegration] OAuth token auto-saved to active profile:', activeProfile.name);
+      console.warn(
+        "[ClaudeIntegration] OAuth token auto-saved to active profile:",
+        activeProfile.name
+      );
 
       const win = getWindow();
       if (win) {
@@ -288,11 +295,14 @@ export function handleOAuthToken(
           profileId: activeProfile.id,
           email,
           success: true,
-          detectedAt: new Date().toISOString()
+          detectedAt: new Date().toISOString(),
         } as OAuthTokenEvent);
       }
     } else {
-      console.error('[ClaudeIntegration] Failed to save OAuth token to active profile:', activeProfile.name);
+      console.error(
+        "[ClaudeIntegration] Failed to save OAuth token to active profile:",
+        activeProfile.name
+      );
       const win = getWindow();
       if (win) {
         win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
@@ -300,8 +310,8 @@ export function handleOAuthToken(
           profileId: activeProfile?.id,
           email,
           success: false,
-          message: 'Failed to save token to active profile',
-          detectedAt: new Date().toISOString()
+          message: "Failed to save token to active profile",
+          detectedAt: new Date().toISOString(),
         } as OAuthTokenEvent);
       }
     }
@@ -317,7 +327,7 @@ export function handleClaudeSessionId(
   getWindow: WindowGetter
 ): void {
   terminal.claudeSessionId = sessionId;
-  console.warn('[ClaudeIntegration] Captured Claude session ID:', sessionId);
+  console.warn("[ClaudeIntegration] Captured Claude session ID:", sessionId);
 
   if (terminal.projectPath) {
     SessionHandler.updateClaudeSessionId(terminal.projectPath, terminal.id, sessionId);
@@ -339,10 +349,10 @@ export function invokeClaude(
   getWindow: WindowGetter,
   onSessionCapture: (terminalId: string, projectPath: string, startTime: number) => void
 ): void {
-  debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE START ==========');
-  debugLog('[ClaudeIntegration:invokeClaude] Terminal ID:', terminal.id);
-  debugLog('[ClaudeIntegration:invokeClaude] Requested profile ID:', profileId);
-  debugLog('[ClaudeIntegration:invokeClaude] CWD:', cwd);
+  debugLog("[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE START ==========");
+  debugLog("[ClaudeIntegration:invokeClaude] Terminal ID:", terminal.id);
+  debugLog("[ClaudeIntegration:invokeClaude] Requested profile ID:", profileId);
+  debugLog("[ClaudeIntegration:invokeClaude] CWD:", cwd);
 
   terminal.isClaudeMode = true;
   SessionHandler.releaseSessionId(terminal.id);
@@ -359,81 +369,154 @@ export function invokeClaude(
   const previousProfileId = terminal.claudeProfileId;
   terminal.claudeProfileId = activeProfile?.id;
 
-  debugLog('[ClaudeIntegration:invokeClaude] Profile resolution:', {
+  // Get shell type for command syntax generation (fallback to 'unknown' if not set)
+  const shellType = terminal.shellType || "unknown";
+  debugLog("[ClaudeIntegration:invokeClaude] Shell type:", shellType);
+
+  debugLog("[ClaudeIntegration:invokeClaude] Profile resolution:", {
     previousProfileId,
     newProfileId: activeProfile?.id,
     profileName: activeProfile?.name,
     hasOAuthToken: !!activeProfile?.oauthToken,
-    isDefault: activeProfile?.isDefault
+    isDefault: activeProfile?.isDefault,
   });
 
-  const cwdCommand = buildCdCommand(cwd);
+  // Use shell-type-aware cd command
+  const cwdCommand = buildCdCommandForShell(cwd, shellType);
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
-  const escapedClaudeCmd = escapeShellArg(claudeCmd);
-  const pathPrefix = claudeEnv.PATH
-    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
-    : '';
+
+  // Build path prefix with shell-specific syntax
+  const pathPrefix = claudeEnv.PATH ? buildPathAssignment(claudeEnv.PATH, shellType) + " " : "";
+
   const needsEnvOverride = profileId && profileId !== previousProfileId;
 
-  debugLog('[ClaudeIntegration:invokeClaude] Environment override check:', {
+  debugLog("[ClaudeIntegration:invokeClaude] Environment override check:", {
     profileIdProvided: !!profileId,
     previousProfileId,
-    needsEnvOverride
+    needsEnvOverride,
   });
 
   if (needsEnvOverride && activeProfile && !activeProfile.isDefault) {
     const token = profileManager.getProfileToken(activeProfile.id);
-    debugLog('[ClaudeIntegration:invokeClaude] Token retrieval:', {
+    debugLog("[ClaudeIntegration:invokeClaude] Token retrieval:", {
       hasToken: !!token,
-      tokenLength: token?.length
+      tokenLength: token?.length,
     });
 
     if (token) {
-      const nonce = crypto.randomBytes(8).toString('hex');
+      // For non-default profiles with OAuth token, use shell-specific temp file method
+      const nonce = crypto.randomBytes(8).toString("hex");
       const tempFile = path.join(os.tmpdir(), `.claude-token-${Date.now()}-${nonce}`);
-      const escapedTempFile = escapeShellArg(tempFile);
-      debugLog('[ClaudeIntegration:invokeClaude] Writing token to temp file:', tempFile);
-      fs.writeFileSync(
-        tempFile,
-        `export CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArg(token)}\n`,
-        { mode: 0o600 }
-      );
 
-      const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'temp-file', escapedTempFile });
-      debugLog('[ClaudeIntegration:invokeClaude] Executing command (temp file method, history-safe)');
+      debugLog("[ClaudeIntegration:invokeClaude] Writing token to temp file:", tempFile);
+      fs.writeFileSync(tempFile, `export CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArg(token)}\n`, {
+        mode: 0o600,
+      });
+
+      // Build shell-specific command for temp file method
+      // Note: temp file method uses bash syntax internally, so we wrap in bash -c for non-bash shells
+      let command: string;
+      if (shellType === "powershell" || shellType === "cmd") {
+        // On Windows, use bash-style temp file but invoke through bash if available
+        const tempFileBash = tempFile.replace(/\\/g, "/");
+        const bashClaudeCmd = claudeCmd.replace(/\\/g, "/");
+        const escapedClaudeBash = escapeShellArg(bashClaudeCmd);
+        const escapedTempFileBash = escapeShellArg(tempFileBash);
+
+        if (shellType === "powershell") {
+          command = `${cwdCommand}${pathPrefix}bash -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
+        } else {
+          // cmd.exe - similar approach
+          command = `${cwdCommand}${pathPrefix}bash -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
+        }
+      } else {
+        // Unix shells - use existing temp file method
+        const escapedTempFile = escapeShellArg(tempFile);
+        command = buildClaudeShellCommand(cwdCommand, pathPrefix, claudeCmd, {
+          method: "temp-file",
+          escapedTempFile,
+        });
+      }
+
+      debugLog(
+        "[ClaudeIntegration:invokeClaude] Executing command (temp file method, history-safe)"
+      );
       terminal.pty.write(command);
       profileManager.markProfileUsed(activeProfile.id);
-      finalizeClaudeInvoke(terminal, activeProfile, projectPath, startTime, getWindow, onSessionCapture);
-      debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (temp file) ==========');
+      finalizeClaudeInvoke(
+        terminal,
+        activeProfile,
+        projectPath,
+        startTime,
+        getWindow,
+        onSessionCapture
+      );
+      debugLog(
+        "[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (temp file) =========="
+      );
       return;
     } else if (activeProfile.configDir) {
-      const escapedConfigDir = escapeShellArg(activeProfile.configDir);
-      const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'config-dir', escapedConfigDir });
-      debugLog('[ClaudeIntegration:invokeClaude] Executing command (configDir method, history-safe)');
+      // For profiles with custom config dir
+      let command: string;
+      if (shellType === "powershell") {
+        command = `${cwdCommand}${pathPrefix}$env:CLAUDE_CONFIG_DIR=${escapePowerShellArg(activeProfile.configDir)}; ${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
+      } else if (shellType === "cmd") {
+        const escapedConfigDir = escapeShellArgWindows(activeProfile.configDir);
+        command = `${cwdCommand}set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && ${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
+      } else {
+        const escapedConfigDir = escapeShellArg(activeProfile.configDir);
+        command = `${cwdCommand}CLAUDE_CONFIG_DIR=${escapedConfigDir} ${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
+      }
+
+      debugLog("[ClaudeIntegration:invokeClaude] Executing command (configDir method)");
       terminal.pty.write(command);
       profileManager.markProfileUsed(activeProfile.id);
-      finalizeClaudeInvoke(terminal, activeProfile, projectPath, startTime, getWindow, onSessionCapture);
-      debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (configDir) ==========');
+      finalizeClaudeInvoke(
+        terminal,
+        activeProfile,
+        projectPath,
+        startTime,
+        getWindow,
+        onSessionCapture
+      );
+      debugLog(
+        "[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (configDir) =========="
+      );
       return;
     } else {
-      debugLog('[ClaudeIntegration:invokeClaude] WARNING: No token or configDir available for non-default profile');
+      debugLog(
+        "[ClaudeIntegration:invokeClaude] WARNING: No token or configDir available for non-default profile"
+      );
     }
   }
 
   if (activeProfile && !activeProfile.isDefault) {
-    debugLog('[ClaudeIntegration:invokeClaude] Using terminal environment for non-default profile:', activeProfile.name);
+    debugLog(
+      "[ClaudeIntegration:invokeClaude] Using terminal environment for non-default profile:",
+      activeProfile.name
+    );
   }
 
-  const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'default' });
-  debugLog('[ClaudeIntegration:invokeClaude] Executing command (default method):', command);
+  // Default method: use shell-type-aware command invocation
+  const command = `${cwdCommand}${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
+  debugLog("[ClaudeIntegration:invokeClaude] Executing command (default method):", command);
   terminal.pty.write(command);
 
   if (activeProfile) {
     profileManager.markProfileUsed(activeProfile.id);
   }
 
-  finalizeClaudeInvoke(terminal, activeProfile, projectPath, startTime, getWindow, onSessionCapture);
-  debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (default) ==========');
+  finalizeClaudeInvoke(
+    terminal,
+    activeProfile,
+    projectPath,
+    startTime,
+    getWindow,
+    onSessionCapture
+  );
+  debugLog(
+    "[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (default) =========="
+  );
 }
 
 /**
@@ -455,11 +538,11 @@ export function resumeClaude(
   terminal.isClaudeMode = true;
   SessionHandler.releaseSessionId(terminal.id);
 
+  const shellType = terminal.shellType || "unknown";
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
-  const escapedClaudeCmd = escapeShellArg(claudeCmd);
-  const pathPrefix = claudeEnv.PATH
-    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
-    : '';
+
+  // Build path prefix with shell-specific syntax
+  const pathPrefix = claudeEnv.PATH ? buildPathAssignment(claudeEnv.PATH, shellType) + " " : "";
 
   // Always use --continue which resumes the most recent session in the current directory.
   // This is more reliable than --resume with session IDs since Auto Claude already restores
@@ -471,18 +554,20 @@ export function resumeClaude(
 
   // Deprecation warning for callers still passing sessionId
   if (_sessionId) {
-    console.warn('[ClaudeIntegration:resumeClaude] sessionId parameter is deprecated and ignored; using claude --continue instead');
+    console.warn(
+      "[ClaudeIntegration:resumeClaude] sessionId parameter is deprecated and ignored; using claude --continue instead"
+    );
   }
 
-  const command = `${pathPrefix}${escapedClaudeCmd} --continue`;
+  const command = `${pathPrefix}${buildCommandInvocation(claudeCmd, ["--continue"], shellType)}`;
 
   terminal.pty.write(`${command}\r`);
 
   // Update terminal title in main process and notify renderer
-  terminal.title = 'Claude';
+  terminal.title = "Claude";
   const win = getWindow();
   if (win) {
-    win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
+    win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, "Claude");
   }
 
   // Persist session with updated title
@@ -508,10 +593,12 @@ export async function invokeClaudeAsync(
   getWindow: WindowGetter,
   onSessionCapture: (terminalId: string, projectPath: string, startTime: number) => void
 ): Promise<void> {
-  debugLog('[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE START (async) ==========');
-  debugLog('[ClaudeIntegration:invokeClaudeAsync] Terminal ID:', terminal.id);
-  debugLog('[ClaudeIntegration:invokeClaudeAsync] Requested profile ID:', profileId);
-  debugLog('[ClaudeIntegration:invokeClaudeAsync] CWD:', cwd);
+  debugLog(
+    "[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE START (async) =========="
+  );
+  debugLog("[ClaudeIntegration:invokeClaudeAsync] Terminal ID:", terminal.id);
+  debugLog("[ClaudeIntegration:invokeClaudeAsync] Requested profile ID:", profileId);
+  debugLog("[ClaudeIntegration:invokeClaudeAsync] CWD:", cwd);
 
   terminal.isClaudeMode = true;
   SessionHandler.releaseSessionId(terminal.id);
@@ -529,82 +616,155 @@ export async function invokeClaudeAsync(
   const previousProfileId = terminal.claudeProfileId;
   terminal.claudeProfileId = activeProfile?.id;
 
-  debugLog('[ClaudeIntegration:invokeClaudeAsync] Profile resolution:', {
+  // Get shell type for command syntax generation (fallback to 'unknown' if not set)
+  const shellType = terminal.shellType || "unknown";
+  debugLog("[ClaudeIntegration:invokeClaudeAsync] Shell type:", shellType);
+
+  debugLog("[ClaudeIntegration:invokeClaudeAsync] Profile resolution:", {
     previousProfileId,
     newProfileId: activeProfile?.id,
     profileName: activeProfile?.name,
     hasOAuthToken: !!activeProfile?.oauthToken,
-    isDefault: activeProfile?.isDefault
+    isDefault: activeProfile?.isDefault,
   });
 
-  // Async CLI invocation - non-blocking
-  const cwdCommand = buildCdCommand(cwd);
+  // Use shell-type-aware cd command
+  const cwdCommand = buildCdCommandForShell(cwd, shellType);
   const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
-  const escapedClaudeCmd = escapeShellArg(claudeCmd);
-  const pathPrefix = claudeEnv.PATH
-    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
-    : '';
+
+  // Build path prefix with shell-specific syntax
+  const pathPrefix = claudeEnv.PATH ? buildPathAssignment(claudeEnv.PATH, shellType) + " " : "";
+
   const needsEnvOverride = profileId && profileId !== previousProfileId;
 
-  debugLog('[ClaudeIntegration:invokeClaudeAsync] Environment override check:', {
+  debugLog("[ClaudeIntegration:invokeClaudeAsync] Environment override check:", {
     profileIdProvided: !!profileId,
     previousProfileId,
-    needsEnvOverride
+    needsEnvOverride,
   });
 
   if (needsEnvOverride && activeProfile && !activeProfile.isDefault) {
     const token = profileManager.getProfileToken(activeProfile.id);
-    debugLog('[ClaudeIntegration:invokeClaudeAsync] Token retrieval:', {
+    debugLog("[ClaudeIntegration:invokeClaudeAsync] Token retrieval:", {
       hasToken: !!token,
-      tokenLength: token?.length
+      tokenLength: token?.length,
     });
 
     if (token) {
-      const nonce = crypto.randomBytes(8).toString('hex');
+      // For non-default profiles with OAuth token, use shell-specific temp file method
+      const nonce = crypto.randomBytes(8).toString("hex");
       const tempFile = path.join(os.tmpdir(), `.claude-token-${Date.now()}-${nonce}`);
-      const escapedTempFile = escapeShellArg(tempFile);
-      debugLog('[ClaudeIntegration:invokeClaudeAsync] Writing token to temp file:', tempFile);
+
+      debugLog("[ClaudeIntegration:invokeClaudeAsync] Writing token to temp file:", tempFile);
       await fsPromises.writeFile(
         tempFile,
         `export CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArg(token)}\n`,
         { mode: 0o600 }
       );
 
-      const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'temp-file', escapedTempFile });
-      debugLog('[ClaudeIntegration:invokeClaudeAsync] Executing command (temp file method, history-safe)');
+      // Build shell-specific command for temp file method
+      let command: string;
+      if (shellType === "powershell" || shellType === "cmd") {
+        // On Windows, use bash-style temp file but invoke through bash if available
+        const tempFileBash = tempFile.replace(/\\/g, "/");
+        const bashClaudeCmd = claudeCmd.replace(/\\/g, "/");
+        const escapedClaudeBash = escapeShellArg(bashClaudeCmd);
+        const escapedTempFileBash = escapeShellArg(tempFileBash);
+
+        if (shellType === "powershell") {
+          command = `${cwdCommand}${pathPrefix}bash -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
+        } else {
+          // cmd.exe - similar approach
+          command = `${cwdCommand}${pathPrefix}bash -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
+        }
+      } else {
+        // Unix shells - use existing temp file method
+        const escapedTempFile = escapeShellArg(tempFile);
+        command = buildClaudeShellCommand(cwdCommand, pathPrefix, claudeCmd, {
+          method: "temp-file",
+          escapedTempFile,
+        });
+      }
+
+      debugLog(
+        "[ClaudeIntegration:invokeClaudeAsync] Executing command (temp file method, history-safe)"
+      );
       terminal.pty.write(command);
       profileManager.markProfileUsed(activeProfile.id);
-      finalizeClaudeInvoke(terminal, activeProfile, projectPath, startTime, getWindow, onSessionCapture);
-      debugLog('[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE COMPLETE (temp file) ==========');
+      finalizeClaudeInvoke(
+        terminal,
+        activeProfile,
+        projectPath,
+        startTime,
+        getWindow,
+        onSessionCapture
+      );
+      debugLog(
+        "[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE COMPLETE (temp file) =========="
+      );
       return;
     } else if (activeProfile.configDir) {
-      const escapedConfigDir = escapeShellArg(activeProfile.configDir);
-      const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'config-dir', escapedConfigDir });
-      debugLog('[ClaudeIntegration:invokeClaudeAsync] Executing command (configDir method, history-safe)');
+      // For profiles with custom config dir
+      let command: string;
+      if (shellType === "powershell") {
+        command = `${cwdCommand}${pathPrefix}$env:CLAUDE_CONFIG_DIR=${escapePowerShellArg(activeProfile.configDir)}; ${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
+      } else if (shellType === "cmd") {
+        const escapedConfigDir = escapeShellArgWindows(activeProfile.configDir);
+        command = `${cwdCommand}set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && ${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
+      } else {
+        const escapedConfigDir = escapeShellArg(activeProfile.configDir);
+        command = `${cwdCommand}CLAUDE_CONFIG_DIR=${escapedConfigDir} ${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
+      }
+
+      debugLog("[ClaudeIntegration:invokeClaudeAsync] Executing command (configDir method)");
       terminal.pty.write(command);
       profileManager.markProfileUsed(activeProfile.id);
-      finalizeClaudeInvoke(terminal, activeProfile, projectPath, startTime, getWindow, onSessionCapture);
-      debugLog('[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE COMPLETE (configDir) ==========');
+      finalizeClaudeInvoke(
+        terminal,
+        activeProfile,
+        projectPath,
+        startTime,
+        getWindow,
+        onSessionCapture
+      );
+      debugLog(
+        "[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE COMPLETE (configDir) =========="
+      );
       return;
     } else {
-      debugLog('[ClaudeIntegration:invokeClaudeAsync] WARNING: No token or configDir available for non-default profile');
+      debugLog(
+        "[ClaudeIntegration:invokeClaudeAsync] WARNING: No token or configDir available for non-default profile"
+      );
     }
   }
 
   if (activeProfile && !activeProfile.isDefault) {
-    debugLog('[ClaudeIntegration:invokeClaudeAsync] Using terminal environment for non-default profile:', activeProfile.name);
+    debugLog(
+      "[ClaudeIntegration:invokeClaudeAsync] Using terminal environment for non-default profile:",
+      activeProfile.name
+    );
   }
 
-  const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'default' });
-  debugLog('[ClaudeIntegration:invokeClaudeAsync] Executing command (default method):', command);
+  // Default method: use shell-type-aware command invocation
+  const command = `${cwdCommand}${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
+  debugLog("[ClaudeIntegration:invokeClaudeAsync] Executing command (default method):", command);
   terminal.pty.write(command);
 
   if (activeProfile) {
     profileManager.markProfileUsed(activeProfile.id);
   }
 
-  finalizeClaudeInvoke(terminal, activeProfile, projectPath, startTime, getWindow, onSessionCapture);
-  debugLog('[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE COMPLETE (default) ==========');
+  finalizeClaudeInvoke(
+    terminal,
+    activeProfile,
+    projectPath,
+    startTime,
+    getWindow,
+    onSessionCapture
+  );
+  debugLog(
+    "[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE COMPLETE (default) =========="
+  );
 }
 
 /**
@@ -621,12 +781,11 @@ export async function resumeClaudeAsync(
   terminal.isClaudeMode = true;
   SessionHandler.releaseSessionId(terminal.id);
 
-  // Async CLI invocation - non-blocking
+  const shellType = terminal.shellType || "unknown";
   const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
-  const escapedClaudeCmd = escapeShellArg(claudeCmd);
-  const pathPrefix = claudeEnv.PATH
-    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
-    : '';
+
+  // Build path prefix with shell-specific syntax
+  const pathPrefix = claudeEnv.PATH ? buildPathAssignment(claudeEnv.PATH, shellType) + " " : "";
 
   // Always use --continue which resumes the most recent session in the current directory.
   // This is more reliable than --resume with session IDs since Auto Claude already restores
@@ -638,17 +797,19 @@ export async function resumeClaudeAsync(
 
   // Deprecation warning for callers still passing sessionId
   if (sessionId) {
-    console.warn('[ClaudeIntegration:resumeClaudeAsync] sessionId parameter is deprecated and ignored; using claude --continue instead');
+    console.warn(
+      "[ClaudeIntegration:resumeClaudeAsync] sessionId parameter is deprecated and ignored; using claude --continue instead"
+    );
   }
 
-  const command = `${pathPrefix}${escapedClaudeCmd} --continue`;
+  const command = `${pathPrefix}${buildCommandInvocation(claudeCmd, ["--continue"], shellType)}`;
 
   terminal.pty.write(`${command}\r`);
 
-  terminal.title = 'Claude';
+  terminal.title = "Claude";
   const win = getWindow();
   if (win) {
-    win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
+    win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, "Claude");
   }
 
   if (terminal.projectPath) {
@@ -683,10 +844,10 @@ interface WaitForExitResult {
  * These patterns match common shell prompts across bash, zsh, fish, etc.
  */
 const SHELL_PROMPT_PATTERNS = [
-  /[$%#>❯]\s*$/m,                    // Common prompt endings: $, %, #, >, ❯
-  /\w+@[\w.-]+[:\s]/,                // user@hostname: format
-  /^\s*\S+\s*[$%#>❯]\s*$/m,          // hostname/path followed by prompt char
-  /\(.*\)\s*[$%#>❯]\s*$/m,           // (venv) or (branch) followed by prompt
+  /[$%#>❯]\s*$/m, // Common prompt endings: $, %, #, >, ❯
+  /\w+@[\w.-]+[:\s]/, // user@hostname: format
+  /^\s*\S+\s*[$%#>❯]\s*$/m, // hostname/path followed by prompt char
+  /\(.*\)\s*[$%#>❯]\s*$/m, // (venv) or (branch) followed by prompt
 ];
 
 /**
@@ -701,8 +862,8 @@ async function waitForClaudeExit(
 ): Promise<WaitForExitResult> {
   const { timeout = 5000, pollInterval = 100 } = config;
 
-  debugLog('[ClaudeIntegration:waitForClaudeExit] Waiting for Claude to exit...');
-  debugLog('[ClaudeIntegration:waitForClaudeExit] Config:', { timeout, pollInterval });
+  debugLog("[ClaudeIntegration:waitForClaudeExit] Waiting for Claude to exit...");
+  debugLog("[ClaudeIntegration:waitForClaudeExit] Config:", { timeout, pollInterval });
 
   // Capture current buffer length to detect new output
   const initialBufferLength = terminal.outputBuffer.length;
@@ -714,12 +875,18 @@ async function waitForClaudeExit(
 
       // Check for timeout
       if (elapsed >= timeout) {
-        console.warn('[ClaudeIntegration:waitForClaudeExit] Timeout waiting for Claude to exit after', timeout, 'ms');
-        debugLog('[ClaudeIntegration:waitForClaudeExit] Timeout reached, Claude may not have exited cleanly');
+        console.warn(
+          "[ClaudeIntegration:waitForClaudeExit] Timeout waiting for Claude to exit after",
+          timeout,
+          "ms"
+        );
+        debugLog(
+          "[ClaudeIntegration:waitForClaudeExit] Timeout reached, Claude may not have exited cleanly"
+        );
         resolve({
           success: false,
           error: `Timeout waiting for Claude to exit after ${timeout}ms`,
-          timedOut: true
+          timedOut: true,
         });
         return;
       }
@@ -730,8 +897,12 @@ async function waitForClaudeExit(
       // Check if we can see a shell prompt in the new output
       for (const pattern of SHELL_PROMPT_PATTERNS) {
         if (pattern.test(newOutput)) {
-          debugLog('[ClaudeIntegration:waitForClaudeExit] Shell prompt detected after', elapsed, 'ms');
-          debugLog('[ClaudeIntegration:waitForClaudeExit] Matched pattern:', pattern.toString());
+          debugLog(
+            "[ClaudeIntegration:waitForClaudeExit] Shell prompt detected after",
+            elapsed,
+            "ms"
+          );
+          debugLog("[ClaudeIntegration:waitForClaudeExit] Matched pattern:", pattern.toString());
           resolve({ success: true });
           return;
         }
@@ -739,7 +910,11 @@ async function waitForClaudeExit(
 
       // Also check if isClaudeMode was cleared (set by other handlers)
       if (!terminal.isClaudeMode) {
-        debugLog('[ClaudeIntegration:waitForClaudeExit] isClaudeMode flag cleared after', elapsed, 'ms');
+        debugLog(
+          "[ClaudeIntegration:waitForClaudeExit] isClaudeMode flag cleared after",
+          elapsed,
+          "ms"
+        );
         resolve({ success: true });
         return;
       }
@@ -760,99 +935,137 @@ export async function switchClaudeProfile(
   terminal: TerminalProcess,
   profileId: string,
   getWindow: WindowGetter,
-  invokeClaudeCallback: (terminalId: string, cwd: string | undefined, profileId: string) => Promise<void>,
+  invokeClaudeCallback: (
+    terminalId: string,
+    cwd: string | undefined,
+    profileId: string
+  ) => Promise<void>,
   clearRateLimitCallback: (terminalId: string) => void
 ): Promise<{ success: boolean; error?: string }> {
   // Always-on tracing
-  console.warn('[ClaudeIntegration:switchClaudeProfile] Called for terminal:', terminal.id, '| profileId:', profileId);
-  console.warn('[ClaudeIntegration:switchClaudeProfile] Terminal state: isClaudeMode=', terminal.isClaudeMode);
+  console.warn(
+    "[ClaudeIntegration:switchClaudeProfile] Called for terminal:",
+    terminal.id,
+    "| profileId:",
+    profileId
+  );
+  console.warn(
+    "[ClaudeIntegration:switchClaudeProfile] Terminal state: isClaudeMode=",
+    terminal.isClaudeMode
+  );
 
-  debugLog('[ClaudeIntegration:switchClaudeProfile] ========== SWITCH PROFILE START ==========');
-  debugLog('[ClaudeIntegration:switchClaudeProfile] Terminal ID:', terminal.id);
-  debugLog('[ClaudeIntegration:switchClaudeProfile] Target profile ID:', profileId);
-  debugLog('[ClaudeIntegration:switchClaudeProfile] Terminal state:', {
+  debugLog("[ClaudeIntegration:switchClaudeProfile] ========== SWITCH PROFILE START ==========");
+  debugLog("[ClaudeIntegration:switchClaudeProfile] Terminal ID:", terminal.id);
+  debugLog("[ClaudeIntegration:switchClaudeProfile] Target profile ID:", profileId);
+  debugLog("[ClaudeIntegration:switchClaudeProfile] Terminal state:", {
     isClaudeMode: terminal.isClaudeMode,
     currentProfileId: terminal.claudeProfileId,
     claudeSessionId: terminal.claudeSessionId,
     projectPath: terminal.projectPath,
-    cwd: terminal.cwd
+    cwd: terminal.cwd,
   });
 
   // Ensure profile manager is initialized (async, yields to event loop)
   const profileManager = await initializeClaudeProfileManager();
   const profile = profileManager.getProfile(profileId);
 
-  console.warn('[ClaudeIntegration:switchClaudeProfile] Profile found:', profile?.name || 'NOT FOUND');
-  debugLog('[ClaudeIntegration:switchClaudeProfile] Target profile:', profile ? {
-    id: profile.id,
-    name: profile.name,
-    hasOAuthToken: !!profile.oauthToken,
-    isDefault: profile.isDefault
-  } : 'NOT FOUND');
+  console.warn(
+    "[ClaudeIntegration:switchClaudeProfile] Profile found:",
+    profile?.name || "NOT FOUND"
+  );
+  debugLog(
+    "[ClaudeIntegration:switchClaudeProfile] Target profile:",
+    profile
+      ? {
+          id: profile.id,
+          name: profile.name,
+          hasOAuthToken: !!profile.oauthToken,
+          isDefault: profile.isDefault,
+        }
+      : "NOT FOUND"
+  );
 
   if (!profile) {
-    console.error('[ClaudeIntegration:switchClaudeProfile] Profile not found, aborting');
-    debugError('[ClaudeIntegration:switchClaudeProfile] Profile not found, aborting');
-    return { success: false, error: 'Profile not found' };
+    console.error("[ClaudeIntegration:switchClaudeProfile] Profile not found, aborting");
+    debugError("[ClaudeIntegration:switchClaudeProfile] Profile not found, aborting");
+    return { success: false, error: "Profile not found" };
   }
 
-  console.warn('[ClaudeIntegration:switchClaudeProfile] Switching to profile:', profile.name);
-  debugLog('[ClaudeIntegration:switchClaudeProfile] Switching to Claude profile:', profile.name);
+  console.warn("[ClaudeIntegration:switchClaudeProfile] Switching to profile:", profile.name);
+  debugLog("[ClaudeIntegration:switchClaudeProfile] Switching to Claude profile:", profile.name);
 
   if (terminal.isClaudeMode) {
-    console.warn('[ClaudeIntegration:switchClaudeProfile] Sending exit commands (Ctrl+C, /exit)');
-    debugLog('[ClaudeIntegration:switchClaudeProfile] Terminal is in Claude mode, sending exit commands');
+    console.warn("[ClaudeIntegration:switchClaudeProfile] Sending exit commands (Ctrl+C, /exit)");
+    debugLog(
+      "[ClaudeIntegration:switchClaudeProfile] Terminal is in Claude mode, sending exit commands"
+    );
 
     // Send Ctrl+C to interrupt any ongoing operation
-    debugLog('[ClaudeIntegration:switchClaudeProfile] Sending Ctrl+C (\\x03)');
-    terminal.pty.write('\x03');
+    debugLog("[ClaudeIntegration:switchClaudeProfile] Sending Ctrl+C (\\x03)");
+    terminal.pty.write("\x03");
 
     // Wait briefly for Ctrl+C to take effect before sending /exit
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Send /exit command
-    debugLog('[ClaudeIntegration:switchClaudeProfile] Sending /exit command');
-    terminal.pty.write('/exit\r');
+    debugLog("[ClaudeIntegration:switchClaudeProfile] Sending /exit command");
+    terminal.pty.write("/exit\r");
 
     // Wait for Claude to actually exit by monitoring for shell prompt
     const exitResult = await waitForClaudeExit(terminal, { timeout: 5000, pollInterval: 100 });
 
     if (exitResult.timedOut) {
-      console.warn('[ClaudeIntegration:switchClaudeProfile] Timed out waiting for Claude to exit, proceeding with caution');
-      debugLog('[ClaudeIntegration:switchClaudeProfile] Exit timeout - terminal may be in inconsistent state');
+      console.warn(
+        "[ClaudeIntegration:switchClaudeProfile] Timed out waiting for Claude to exit, proceeding with caution"
+      );
+      debugLog(
+        "[ClaudeIntegration:switchClaudeProfile] Exit timeout - terminal may be in inconsistent state"
+      );
 
       // Even on timeout, we'll try to proceed but log the warning
       // The alternative would be to abort, but that could leave users stuck
       // If this becomes a problem, we could add retry logic or abort option
     } else if (!exitResult.success) {
-      console.error('[ClaudeIntegration:switchClaudeProfile] Failed to exit Claude:', exitResult.error);
-      debugError('[ClaudeIntegration:switchClaudeProfile] Exit failed:', exitResult.error);
+      console.error(
+        "[ClaudeIntegration:switchClaudeProfile] Failed to exit Claude:",
+        exitResult.error
+      );
+      debugError("[ClaudeIntegration:switchClaudeProfile] Exit failed:", exitResult.error);
       // Continue anyway - the /exit command was sent
     } else {
-      console.warn('[ClaudeIntegration:switchClaudeProfile] Claude exited successfully');
-      debugLog('[ClaudeIntegration:switchClaudeProfile] Claude exited, ready to switch profile');
+      console.warn("[ClaudeIntegration:switchClaudeProfile] Claude exited successfully");
+      debugLog("[ClaudeIntegration:switchClaudeProfile] Claude exited, ready to switch profile");
     }
   } else {
-    console.warn('[ClaudeIntegration:switchClaudeProfile] NOT in Claude mode, skipping exit commands');
-    debugLog('[ClaudeIntegration:switchClaudeProfile] Terminal NOT in Claude mode, skipping exit commands');
+    console.warn(
+      "[ClaudeIntegration:switchClaudeProfile] NOT in Claude mode, skipping exit commands"
+    );
+    debugLog(
+      "[ClaudeIntegration:switchClaudeProfile] Terminal NOT in Claude mode, skipping exit commands"
+    );
   }
 
-  debugLog('[ClaudeIntegration:switchClaudeProfile] Clearing rate limit state for terminal');
+  debugLog("[ClaudeIntegration:switchClaudeProfile] Clearing rate limit state for terminal");
   clearRateLimitCallback(terminal.id);
 
   const projectPath = terminal.projectPath || terminal.cwd;
-  console.warn('[ClaudeIntegration:switchClaudeProfile] Invoking Claude with profile:', profileId, '| cwd:', projectPath);
-  debugLog('[ClaudeIntegration:switchClaudeProfile] Invoking Claude with new profile:', {
+  console.warn(
+    "[ClaudeIntegration:switchClaudeProfile] Invoking Claude with profile:",
+    profileId,
+    "| cwd:",
+    projectPath
+  );
+  debugLog("[ClaudeIntegration:switchClaudeProfile] Invoking Claude with new profile:", {
     terminalId: terminal.id,
     projectPath,
-    profileId
+    profileId,
   });
   await invokeClaudeCallback(terminal.id, projectPath, profileId);
 
-  debugLog('[ClaudeIntegration:switchClaudeProfile] Setting active profile in profile manager');
+  debugLog("[ClaudeIntegration:switchClaudeProfile] Setting active profile in profile manager");
   profileManager.setActiveProfile(profileId);
 
-  console.warn('[ClaudeIntegration:switchClaudeProfile] COMPLETE');
-  debugLog('[ClaudeIntegration:switchClaudeProfile] ========== SWITCH PROFILE COMPLETE ==========');
+  console.warn("[ClaudeIntegration:switchClaudeProfile] COMPLETE");
+  debugLog("[ClaudeIntegration:switchClaudeProfile] ========== SWITCH PROFILE COMPLETE ==========");
   return { success: true };
 }

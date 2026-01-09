@@ -3,19 +3,16 @@
  * Handles terminal creation, restoration, and destruction operations
  */
 
-import * as os from 'os';
-import { existsSync } from 'fs';
-import type { TerminalCreateOptions } from '../../shared/types';
-import { IPC_CHANNELS } from '../../shared/constants';
-import type { TerminalSession } from '../terminal-session-store';
-import * as PtyManager from './pty-manager';
-import * as SessionHandler from './session-handler';
-import type {
-  TerminalProcess,
-  WindowGetter,
-  TerminalOperationResult
-} from './types';
-import { debugLog, debugError } from '../../shared/utils/debug-logger';
+import * as os from "os";
+import { existsSync } from "fs";
+import type { TerminalCreateOptions } from "../../shared/types";
+import { IPC_CHANNELS } from "../../shared/constants";
+import type { TerminalSession } from "../terminal-session-store";
+import * as PtyManager from "./pty-manager";
+import * as SessionHandler from "./session-handler";
+import type { TerminalProcess, WindowGetter, TerminalOperationResult } from "./types";
+import { debugLog, debugError } from "../../shared/utils/debug-logger";
+import type { SupportedTerminal } from "../../shared/types/settings";
 
 /**
  * Options for terminal restoration
@@ -44,10 +41,10 @@ export async function createTerminal(
 ): Promise<TerminalOperationResult> {
   const { id, cwd, cols = 80, rows = 24, projectPath } = options;
 
-  debugLog('[TerminalLifecycle] Creating terminal:', { id, cwd, cols, rows, projectPath });
+  debugLog("[TerminalLifecycle] Creating terminal:", { id, cwd, cols, rows, projectPath });
 
   if (terminals.has(id)) {
-    debugLog('[TerminalLifecycle] Terminal already exists, returning success:', id);
+    debugLog("[TerminalLifecycle] Terminal already exists, returning success:", id);
     return { success: true };
   }
 
@@ -55,14 +52,19 @@ export async function createTerminal(
     const profileEnv = PtyManager.getActiveProfileEnv();
 
     if (profileEnv.CLAUDE_CODE_OAUTH_TOKEN) {
-      debugLog('[TerminalLifecycle] Injecting OAuth token from active profile');
+      debugLog("[TerminalLifecycle] Injecting OAuth token from active profile");
     }
 
     // Validate cwd exists - if the directory doesn't exist (e.g., worktree removed),
     // fall back to project path to prevent shell exit with code 1
     let effectiveCwd = cwd;
     if (cwd && !existsSync(cwd)) {
-      debugLog('[TerminalLifecycle] Terminal cwd does not exist, falling back:', cwd, '->', projectPath || os.homedir());
+      debugLog(
+        "[TerminalLifecycle] Terminal cwd does not exist, falling back:",
+        cwd,
+        "->",
+        projectPath || os.homedir()
+      );
       effectiveCwd = projectPath || os.homedir();
     }
 
@@ -73,7 +75,12 @@ export async function createTerminal(
       profileEnv
     );
 
-    debugLog('[TerminalLifecycle] PTY process spawned, pid:', ptyProcess.pid);
+    debugLog("[TerminalLifecycle] PTY process spawned, pid:", ptyProcess.pid);
+
+    // Detect shell type for command syntax generation
+    const shellPath = PtyManager.getShellPath();
+    const shellType = PtyManager.detectShellType(shellPath);
+    debugLog("[TerminalLifecycle] Detected shell type:", shellType, "for shell:", shellPath);
 
     const terminalCwd = effectiveCwd || os.homedir();
     const terminal: TerminalProcess = {
@@ -82,8 +89,9 @@ export async function createTerminal(
       isClaudeMode: false,
       projectPath,
       cwd: terminalCwd,
-      outputBuffer: '',
-      title: `Terminal ${terminals.size + 1}`
+      outputBuffer: "",
+      title: `Terminal ${terminals.size + 1}`,
+      shellType,
     };
 
     terminals.set(id, terminal);
@@ -100,13 +108,13 @@ export async function createTerminal(
       SessionHandler.persistSession(terminal);
     }
 
-    debugLog('[TerminalLifecycle] Terminal created successfully:', id);
+    debugLog("[TerminalLifecycle] Terminal created successfully:", id);
     return { success: true };
   } catch (error) {
-    debugError('[TerminalLifecycle] Error creating terminal:', error);
+    debugError("[TerminalLifecycle] Error creating terminal:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create terminal',
+      error: error instanceof Error ? error.message : "Failed to create terminal",
     };
   }
 }
@@ -127,20 +135,31 @@ export async function restoreTerminal(
   // The renderer may pass isClaudeMode: false (by design), but we need the stored value
   // to determine whether to auto-resume Claude
   const storedSessions = SessionHandler.getSavedSessions(session.projectPath);
-  const storedSession = storedSessions.find(s => s.id === session.id);
+  const storedSession = storedSessions.find((s) => s.id === session.id);
   const storedIsClaudeMode = storedSession?.isClaudeMode ?? session.isClaudeMode;
   const storedClaudeSessionId = storedSession?.claudeSessionId ?? session.claudeSessionId;
 
-  debugLog('[TerminalLifecycle] Restoring terminal session:', session.id,
-    'Passed Claude mode:', session.isClaudeMode,
-    'Stored Claude mode:', storedIsClaudeMode,
-    'Stored session ID:', storedClaudeSessionId);
+  debugLog(
+    "[TerminalLifecycle] Restoring terminal session:",
+    session.id,
+    "Passed Claude mode:",
+    session.isClaudeMode,
+    "Stored Claude mode:",
+    storedIsClaudeMode,
+    "Stored session ID:",
+    storedClaudeSessionId
+  );
 
   // Validate cwd exists - if the directory was deleted (e.g., worktree removed),
   // fall back to project path to prevent shell exit with code 1
   let effectiveCwd = session.cwd;
   if (!existsSync(session.cwd)) {
-    debugLog('[TerminalLifecycle] Session cwd does not exist, falling back to project path:', session.cwd, '->', session.projectPath);
+    debugLog(
+      "[TerminalLifecycle] Session cwd does not exist, falling back to project path:",
+      session.cwd,
+      "->",
+      session.projectPath
+    );
     effectiveCwd = session.projectPath || os.homedir();
   }
 
@@ -150,7 +169,7 @@ export async function restoreTerminal(
       cwd: effectiveCwd,
       cols,
       rows,
-      projectPath: session.projectPath
+      projectPath: session.projectPath,
     },
     terminals,
     getWindow,
@@ -163,7 +182,7 @@ export async function restoreTerminal(
 
   const terminal = terminals.get(session.id);
   if (!terminal) {
-    return { success: false, error: 'Terminal not found after creation' };
+    return { success: false, error: "Terminal not found after creation" };
   }
 
   // Restore title and worktree config from session
@@ -176,7 +195,10 @@ export async function restoreTerminal(
     // Worktree was deleted, clear the config and update terminal's cwd
     terminal.worktreeConfig = undefined;
     terminal.cwd = effectiveCwd;
-    debugLog('[TerminalLifecycle] Cleared worktree config for terminal with deleted worktree:', session.id);
+    debugLog(
+      "[TerminalLifecycle] Cleared worktree config for terminal with deleted worktree:",
+      session.id
+    );
   }
 
   // Re-persist after restoring title and worktreeConfig
@@ -204,12 +226,16 @@ export async function restoreTerminal(
     // Mark terminal as having a pending Claude resume
     // The actual resume will be triggered when the terminal becomes active
     terminal.pendingClaudeResume = true;
-    debugLog('[TerminalLifecycle] Marking terminal for deferred Claude resume:', terminal.id);
+    debugLog("[TerminalLifecycle] Marking terminal for deferred Claude resume:", terminal.id);
 
     // Notify renderer that this terminal has a pending Claude resume
     // The renderer will trigger the resume when the terminal tab becomes active
     if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_PENDING_RESUME, terminal.id, storedClaudeSessionId);
+      win.webContents.send(
+        IPC_CHANNELS.TERMINAL_PENDING_RESUME,
+        terminal.id,
+        storedClaudeSessionId
+      );
     }
 
     // Persist the Claude mode and pending resume state
@@ -220,7 +246,7 @@ export async function restoreTerminal(
 
   return {
     success: true,
-    outputBuffer: session.outputBuffer
+    outputBuffer: session.outputBuffer,
   };
 }
 
@@ -234,7 +260,7 @@ export async function destroyTerminal(
 ): Promise<TerminalOperationResult> {
   const terminal = terminals.get(id);
   if (!terminal) {
-    return { success: false, error: 'Terminal not found' };
+    return { success: false, error: "Terminal not found" };
   }
 
   try {
@@ -248,7 +274,7 @@ export async function destroyTerminal(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to destroy terminal',
+      error: error instanceof Error ? error.message : "Failed to destroy terminal",
     };
   }
 }
@@ -312,7 +338,11 @@ export async function restoreSessionsFromDate(
   options: RestoreOptions,
   cols = 80,
   rows = 24
-): Promise<{ restored: number; failed: number; sessions: Array<{ id: string; success: boolean; error?: string }> }> {
+): Promise<{
+  restored: number;
+  failed: number;
+  sessions: Array<{ id: string; success: boolean; error?: string }>;
+}> {
   const sessions = SessionHandler.getSessionsForDate(date, projectPath);
   const results: Array<{ id: string; success: boolean; error?: string }> = [];
 
@@ -329,13 +359,13 @@ export async function restoreSessionsFromDate(
     results.push({
       id: session.id,
       success: result.success,
-      error: result.error
+      error: result.error,
     });
   }
 
   return {
-    restored: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length,
-    sessions: results
+    restored: results.filter((r) => r.success).length,
+    failed: results.filter((r) => !r.success).length,
+    sessions: results,
   };
 }

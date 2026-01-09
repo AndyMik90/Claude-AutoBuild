@@ -622,3 +622,66 @@ export function prepareShellCommand(executablePath: string): ShellCommandResult 
 
   return { command, needsShell };
 }
+
+/**
+ * Determine if a command requires shell execution on Windows
+ *
+ * Windows .cmd and .bat files MUST be executed through shell, while .exe files
+ * can be executed directly. This function checks the file extension to determine
+ * the correct execution method.
+ *
+ * @param command - The command path to check
+ * @returns true if shell is required (Windows .cmd/.bat), false otherwise
+ *
+ * @example
+ * ```typescript
+ * shouldUseShell('D:\\nodejs\\claude.cmd')                // true
+ * shouldUseShell('C:\\Program Files\\nodejs\\claude.cmd')  // true
+ * shouldUseShell('C:\\Windows\\System32\\git.exe')         // false
+ * shouldUseShell('/usr/local/bin/claude')                  // false (non-Windows)
+ * ```
+ */
+export function shouldUseShell(command: string): boolean {
+  const { needsShell } = prepareShellCommand(command);
+  return needsShell;
+}
+
+/**
+ * Get spawn options for executing a command
+ *
+ * Returns appropriate spawn options for Node.js child_process functions,
+ * including the correct shell setting for Windows batch files.
+ *
+ * @param command - The command path being executed
+ * @param options - Base spawn options to merge with (optional)
+ * @returns Spawn options with correct shell setting
+ *
+ * @example
+ * ```typescript
+ * const opts = getSpawnOptions(claudeCmd, { cwd: '/project', env: {...} });
+ * spawn(claudeCmd, ['--version'], opts);
+ * ```
+ */
+export function getSpawnOptions(
+  command: string,
+  options?: {
+    cwd?: string;
+    env?: Record<string, string>;
+    timeout?: number;
+    windowsHide?: boolean;
+    stdio?: "inherit" | "pipe" | Array<"inherit" | "pipe">;
+  }
+): {
+  cwd?: string;
+  env?: Record<string, string>;
+  shell: boolean | string;
+  timeout?: number;
+  windowsHide?: boolean;
+  stdio?: "inherit" | "pipe" | Array<"inherit" | "pipe">;
+} {
+  const { needsShell } = prepareShellCommand(command);
+  return {
+    ...options,
+    shell: needsShell,
+  };
+}

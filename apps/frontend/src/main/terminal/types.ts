@@ -1,6 +1,11 @@
-import type * as pty from '@lydell/node-pty';
-import type { BrowserWindow } from 'electron';
-import type { TerminalWorktreeConfig } from '../../shared/types';
+import type * as pty from "@lydell/node-pty";
+import type { BrowserWindow } from "electron";
+import type { TerminalWorktreeConfig } from "../../shared/types";
+
+/**
+ * Shell type for terminal
+ */
+export type ShellType = "powershell" | "cmd" | "bash" | "zsh" | "fish" | "unknown";
 
 /**
  * Terminal process tracking
@@ -19,6 +24,8 @@ export interface TerminalProcess {
   worktreeConfig?: TerminalWorktreeConfig;
   /** Whether this terminal has a pending Claude resume that should be triggered on activation */
   pendingClaudeResume?: boolean;
+  /** Shell type for this terminal (used to generate appropriate command syntax) */
+  shellType?: ShellType;
 }
 
 /**
