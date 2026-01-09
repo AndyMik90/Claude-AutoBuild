@@ -182,7 +182,9 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       model !== (task.metadata?.model || '') ||
       thinkingLevel !== (task.metadata?.thinkingLevel || '') ||
       requireReviewBeforeCoding !== (task.metadata?.requireReviewBeforeCoding ?? false) ||
-      JSON.stringify(images) !== JSON.stringify(task.metadata?.attachedImages || []);
+      JSON.stringify(images) !== JSON.stringify(task.metadata?.attachedImages || []) ||
+      JSON.stringify(phaseModels) !== JSON.stringify(task.metadata?.phaseModels || DEFAULT_PHASE_MODELS) ||
+      JSON.stringify(phaseThinking) !== JSON.stringify(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING);
 
     if (!hasChanges) {
       onOpenChange(false);
