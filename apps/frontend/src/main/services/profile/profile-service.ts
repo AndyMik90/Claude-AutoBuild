@@ -125,15 +125,29 @@ export async function deleteProfile(id: string): Promise<void> {
  * Uses atomic operation to prevent race conditions in concurrent profile creation
  */
 export async function createProfile(input: CreateProfileInput): Promise<APIProfile> {
-  // Validate base URL
-  if (!validateBaseUrl(input.baseUrl)) {
-    throw new Error('Invalid base URL');
+  const profileType = input.type || 'anthropic';
+
+  // Validate base URL (required for anthropic, optional for foundry if foundryResource is set)
+  if (profileType === 'anthropic') {
+    if (!validateBaseUrl(input.baseUrl)) {
+      throw new Error('Invalid base URL');
+    }
+  } else if (profileType === 'foundry') {
+    // Foundry: needs either foundryResource OR baseUrl
+    const hasResource = input.foundryResource && input.foundryResource.trim() !== '';
+    const hasBaseUrl = input.baseUrl && input.baseUrl.trim() !== '' && validateBaseUrl(input.baseUrl);
+    if (!hasResource && !hasBaseUrl) {
+      throw new Error('Either Azure Resource Name or Endpoint URL is required');
+    }
   }
 
-  // Validate API key
-  if (!validateApiKey(input.apiKey)) {
-    throw new Error('Invalid API key');
+  // Validate API key (required for anthropic, optional for foundry - Entra ID auth)
+  if (profileType === 'anthropic') {
+    if (!validateApiKey(input.apiKey)) {
+      throw new Error('Invalid API key');
+    }
   }
+  // For foundry, API key is optional (Entra ID auth supported)
 
   // Use atomic operation to ensure uniqueness check and creation happen together
   // This prevents TOCTOU race where another process creates the same profile name
@@ -154,8 +168,10 @@ export async function createProfile(input: CreateProfileInput): Promise<APIProfi
     const profile: APIProfile = {
       id: generateProfileId(),
       name: input.name.trim(),
-      baseUrl: input.baseUrl.trim(),
-      apiKey: input.apiKey.trim(),
+      type: profileType,
+      baseUrl: input.baseUrl?.trim() || '',
+      apiKey: input.apiKey?.trim() || '',
+      foundryResource: input.foundryResource?.trim() || undefined,
       models: input.models,
       createdAt: now,
       updatedAt: now
@@ -183,15 +199,29 @@ export async function createProfile(input: CreateProfileInput): Promise<APIProfi
  * Uses atomic operation to prevent race conditions in concurrent profile updates
  */
 export async function updateProfile(input: UpdateProfileInput): Promise<APIProfile> {
-  // Validate base URL
-  if (!validateBaseUrl(input.baseUrl)) {
-    throw new Error('Invalid base URL');
+  const profileType = input.type || 'anthropic';
+
+  // Validate base URL (required for anthropic, optional for foundry if foundryResource is set)
+  if (profileType === 'anthropic') {
+    if (!validateBaseUrl(input.baseUrl)) {
+      throw new Error('Invalid base URL');
+    }
+  } else if (profileType === 'foundry') {
+    // Foundry: needs either foundryResource OR baseUrl
+    const hasResource = input.foundryResource && input.foundryResource.trim() !== '';
+    const hasBaseUrl = input.baseUrl && input.baseUrl.trim() !== '' && validateBaseUrl(input.baseUrl);
+    if (!hasResource && !hasBaseUrl) {
+      throw new Error('Either Azure Resource Name or Endpoint URL is required');
+    }
   }
 
-  // Validate API key
-  if (!validateApiKey(input.apiKey)) {
-    throw new Error('Invalid API key');
+  // Validate API key (required for anthropic, optional for foundry - Entra ID auth)
+  if (profileType === 'anthropic') {
+    if (!validateApiKey(input.apiKey)) {
+      throw new Error('Invalid API key');
+    }
   }
+  // For foundry, API key is optional (Entra ID auth supported)
 
   // Use atomic operation to ensure uniqueness check and update happen together
   const modifiedFile = await atomicModifyProfiles((file) => {
@@ -215,12 +245,14 @@ export async function updateProfile(input: UpdateProfileInput): Promise<APIProfi
       }
     }
 
-    // Update profile (including name)
+    // Update profile (including name, type, and foundry fields)
     const updated: APIProfile = {
       ...existingProfile,
       name: input.name.trim(),
-      baseUrl: input.baseUrl.trim(),
-      apiKey: input.apiKey.trim(),
+      type: profileType,
+      baseUrl: input.baseUrl?.trim() || '',
+      apiKey: input.apiKey?.trim() || '',
+      foundryResource: input.foundryResource?.trim() || undefined,
       models: input.models,
       updatedAt: Date.now()
     };
@@ -243,13 +275,19 @@ export async function updateProfile(input: UpdateProfileInput): Promise<APIProfi
  * into Python subprocess. Returns empty object when no profile is active
  * (OAuth mode), allowing CLAUDE_CODE_OAUTH_TOKEN to be used instead.
  *
- * Environment Variable Mapping:
+ * Supports two profile types:
+ *
+ * Anthropic Profile (default):
  * - profile.baseUrl → ANTHROPIC_BASE_URL
  * - profile.apiKey → ANTHROPIC_AUTH_TOKEN
- * - profile.models.default → ANTHROPIC_MODEL
- * - profile.models.haiku → ANTHROPIC_DEFAULT_HAIKU_MODEL
- * - profile.models.sonnet → ANTHROPIC_DEFAULT_SONNET_MODEL
- * - profile.models.opus → ANTHROPIC_DEFAULT_OPUS_MODEL
+ * - profile.models.* → ANTHROPIC_*_MODEL
+ *
+ * Foundry Profile (Microsoft Foundry/Azure AI):
+ * - CLAUDE_CODE_USE_FOUNDRY=1
+ * - profile.foundryResource → ANTHROPIC_FOUNDRY_RESOURCE (if set)
+ * - profile.baseUrl → ANTHROPIC_FOUNDRY_BASE_URL (if foundryResource not set)
+ * - profile.apiKey → ANTHROPIC_FOUNDRY_API_KEY (optional for Entra ID auth)
+ * - profile.models.* → ANTHROPIC_*_MODEL
  *
  * Empty string values are filtered out (not set as env vars).
  *
@@ -261,6 +299,7 @@ export async function getAPIProfileEnv(): Promise<Record<string, string>> {
 
   // If no active profile (null/empty), return empty object (OAuth mode)
   if (!file.activeProfileId || file.activeProfileId === '') {
+    console.log('[getAPIProfileEnv] No active API profile, using OAuth mode');
     return {};
   }
 
@@ -269,18 +308,47 @@ export async function getAPIProfileEnv(): Promise<Record<string, string>> {
 
   // If profile not found, return empty object (shouldn't happen with valid data)
   if (!profile) {
+    console.log('[getAPIProfileEnv] Active profile not found:', file.activeProfileId);
     return {};
   }
 
-  // Map profile fields to SDK env vars
-  const envVars: Record<string, string> = {
-    ANTHROPIC_BASE_URL: profile.baseUrl || '',
-    ANTHROPIC_AUTH_TOKEN: profile.apiKey || '',
-    ANTHROPIC_MODEL: profile.models?.default || '',
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: profile.models?.haiku || '',
-    ANTHROPIC_DEFAULT_SONNET_MODEL: profile.models?.sonnet || '',
-    ANTHROPIC_DEFAULT_OPUS_MODEL: profile.models?.opus || '',
-  };
+  // Determine profile type (default to 'anthropic' for backward compatibility)
+  const profileType = profile.type || 'anthropic';
+
+  console.log('[getAPIProfileEnv] Using API profile:', {
+    name: profile.name,
+    type: profileType,
+    foundryResource: profile.foundryResource || '(none)',
+    hasApiKey: !!profile.apiKey
+  });
+
+  let envVars: Record<string, string>;
+
+  if (profileType === 'foundry') {
+    // Microsoft Foundry/Azure AI configuration
+    envVars = {
+      CLAUDE_CODE_USE_FOUNDRY: '1',
+      // Use foundryResource if provided, otherwise use baseUrl for ANTHROPIC_FOUNDRY_BASE_URL
+      ANTHROPIC_FOUNDRY_RESOURCE: profile.foundryResource || '',
+      ANTHROPIC_FOUNDRY_BASE_URL: profile.foundryResource ? '' : (profile.baseUrl || ''),
+      ANTHROPIC_FOUNDRY_API_KEY: profile.apiKey || '', // Optional for Entra ID auth
+      // Model mappings (same for both profile types)
+      ANTHROPIC_MODEL: profile.models?.default || '',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: profile.models?.haiku || '',
+      ANTHROPIC_DEFAULT_SONNET_MODEL: profile.models?.sonnet || '',
+      ANTHROPIC_DEFAULT_OPUS_MODEL: profile.models?.opus || '',
+    };
+  } else {
+    // Standard Anthropic API configuration
+    envVars = {
+      ANTHROPIC_BASE_URL: profile.baseUrl || '',
+      ANTHROPIC_AUTH_TOKEN: profile.apiKey || '',
+      ANTHROPIC_MODEL: profile.models?.default || '',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: profile.models?.haiku || '',
+      ANTHROPIC_DEFAULT_SONNET_MODEL: profile.models?.sonnet || '',
+      ANTHROPIC_DEFAULT_OPUS_MODEL: profile.models?.opus || '',
+    };
+  }
 
   // Filter out empty/whitespace string values (only set env vars that have values)
   // This handles empty strings, null, undefined, and whitespace-only values
@@ -291,6 +359,8 @@ export async function getAPIProfileEnv(): Promise<Record<string, string>> {
       filteredEnvVars[key] = trimmedValue;
     }
   }
+
+  console.log('[getAPIProfileEnv] Env vars to inject:', Object.keys(filteredEnvVars));
 
   return filteredEnvVars;
 }
@@ -495,6 +565,146 @@ export async function testConnection(
       success: false,
       errorType: 'unknown',
       message: 'Connection test failed. Please try again.'
+    };
+  }
+}
+
+/**
+ * Test Foundry API profile connection
+ *
+ * For Microsoft Foundry (Azure AI Foundry), we cannot fully test the connection
+ * because the Claude SDK constructs the internal endpoints. Instead, we:
+ * 1. Verify the endpoint is reachable via a basic connectivity check
+ * 2. Trust that the Claude SDK will handle the actual API calls
+ *
+ * @param baseUrl - Azure endpoint URL (optional if foundryResource provided)
+ * @param apiKey - API key for authentication (optional for Entra ID auth)
+ * @param foundryResource - Azure resource name (e.g., "myresource")
+ * @param signal - Optional AbortSignal for cancelling the request
+ * @returns Promise<TestConnectionResult> Result of connection test
+ */
+export async function testFoundryConnection(
+  baseUrl: string,
+  apiKey: string,
+  foundryResource: string,
+  signal?: AbortSignal
+): Promise<TestConnectionResult> {
+  // Determine the endpoint URL
+  let endpointUrl: string;
+
+  if (foundryResource && foundryResource.trim() !== '') {
+    // Construct URL from resource name - Azure AI Foundry format
+    endpointUrl = `https://${foundryResource.trim()}.services.ai.azure.com`;
+  } else if (baseUrl && baseUrl.trim() !== '') {
+    // Use provided base URL
+    let normalizedUrl = baseUrl.trim();
+
+    // Ensure https:// prefix (auto-prepend if NO protocol exists)
+    if (!normalizedUrl.includes('://')) {
+      normalizedUrl = `https://${normalizedUrl}`;
+    }
+
+    // Remove trailing slash
+    normalizedUrl = normalizedUrl.replace(/\/+$/, '');
+
+    // Validate the normalized baseUrl
+    if (!validateBaseUrl(normalizedUrl)) {
+      return {
+        success: false,
+        errorType: 'endpoint',
+        message: 'Invalid endpoint. Please check the Azure Endpoint URL.'
+      };
+    }
+
+    endpointUrl = normalizedUrl;
+  } else {
+    return {
+      success: false,
+      errorType: 'endpoint',
+      message: 'Either Azure Resource Name or Endpoint URL is required.'
+    };
+  }
+
+  // Check if signal already aborted
+  if (signal?.aborted) {
+    return {
+      success: false,
+      errorType: 'timeout',
+      message: 'Connection timeout. The endpoint did not respond.'
+    };
+  }
+
+  try {
+    // For Foundry, we just do a basic connectivity check to the Azure endpoint
+    // The actual API path is constructed by the Claude SDK internally
+    const headers: Record<string, string> = {};
+
+    // Add API key if provided (Azure uses different auth headers)
+    if (apiKey && apiKey.trim() !== '') {
+      headers['api-key'] = apiKey.trim();
+    }
+
+    // Simple HEAD request to verify endpoint is reachable
+    // We don't test the actual API because the path structure is SDK-specific
+    const controller = signal ? undefined : new AbortController();
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 10000) : undefined;
+
+    // Try to reach the base endpoint - any response (even 404/401) means it's reachable
+    const response = await fetch(endpointUrl, {
+      method: 'HEAD',
+      headers,
+      signal: signal ?? controller?.signal
+    });
+
+    if (timeoutId) clearTimeout(timeoutId);
+
+    // Any HTTP response means the endpoint is reachable
+    // The actual API authentication will be handled by the Claude SDK
+    if (response.status >= 200 && response.status < 600) {
+      // Endpoint is reachable
+      if (apiKey && apiKey.trim() !== '') {
+        return {
+          success: true,
+          message: 'Azure endpoint is reachable. API key configured.'
+        };
+      } else {
+        return {
+          success: true,
+          message: 'Azure endpoint is reachable. Using Entra ID authentication (az login).'
+        };
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Azure endpoint is reachable.'
+    };
+  } catch (error) {
+    // Handle fetch errors
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return {
+          success: false,
+          errorType: 'timeout',
+          message: 'Connection timeout. The endpoint did not respond.'
+        };
+      }
+
+      // Network error - endpoint not reachable
+      if (error.message.includes('fetch') || error.message.includes('network') ||
+          error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+        return {
+          success: false,
+          errorType: 'network',
+          message: `Cannot reach Azure endpoint. Please verify the resource name "${foundryResource || 'N/A'}" is correct.`
+        };
+      }
+    }
+
+    return {
+      success: false,
+      errorType: 'unknown',
+      message: 'Connection test failed. Please verify your Azure resource configuration.'
     };
   }
 }

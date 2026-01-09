@@ -12,17 +12,23 @@ describe('getOAuthModeClearVars', () => {
       const result = getOAuthModeClearVars({});
 
       expect(result).toEqual({
+        // Standard Anthropic API vars
         ANTHROPIC_API_KEY: '',
         ANTHROPIC_AUTH_TOKEN: '',
         ANTHROPIC_BASE_URL: '',
         ANTHROPIC_MODEL: '',
         ANTHROPIC_DEFAULT_HAIKU_MODEL: '',
         ANTHROPIC_DEFAULT_SONNET_MODEL: '',
-        ANTHROPIC_DEFAULT_OPUS_MODEL: ''
+        ANTHROPIC_DEFAULT_OPUS_MODEL: '',
+        // Microsoft Foundry vars
+        CLAUDE_CODE_USE_FOUNDRY: '',
+        ANTHROPIC_FOUNDRY_API_KEY: '',
+        ANTHROPIC_FOUNDRY_BASE_URL: '',
+        ANTHROPIC_FOUNDRY_RESOURCE: ''
       });
     });
 
-    it('should clear all ANTHROPIC_* environment variables', () => {
+    it('should clear all ANTHROPIC_* and Foundry environment variables', () => {
       const result = getOAuthModeClearVars({});
 
       // Verify all known ANTHROPIC_* vars are cleared
@@ -33,6 +39,11 @@ describe('getOAuthModeClearVars', () => {
       expect(result.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('');
       expect(result.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('');
       expect(result.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('');
+      // Verify Foundry vars are cleared
+      expect(result.CLAUDE_CODE_USE_FOUNDRY).toBe('');
+      expect(result.ANTHROPIC_FOUNDRY_API_KEY).toBe('');
+      expect(result.ANTHROPIC_FOUNDRY_BASE_URL).toBe('');
+      expect(result.ANTHROPIC_FOUNDRY_RESOURCE).toBe('');
     });
   });
 
@@ -87,13 +98,19 @@ describe('getOAuthModeClearVars', () => {
 
       // Should treat null as OAuth mode and return clearing vars
       expect(result).toEqual({
+        // Standard Anthropic API vars
         ANTHROPIC_API_KEY: '',
         ANTHROPIC_AUTH_TOKEN: '',
         ANTHROPIC_BASE_URL: '',
         ANTHROPIC_MODEL: '',
         ANTHROPIC_DEFAULT_HAIKU_MODEL: '',
         ANTHROPIC_DEFAULT_SONNET_MODEL: '',
-        ANTHROPIC_DEFAULT_OPUS_MODEL: ''
+        ANTHROPIC_DEFAULT_OPUS_MODEL: '',
+        // Microsoft Foundry vars
+        CLAUDE_CODE_USE_FOUNDRY: '',
+        ANTHROPIC_FOUNDRY_API_KEY: '',
+        ANTHROPIC_FOUNDRY_BASE_URL: '',
+        ANTHROPIC_FOUNDRY_RESOURCE: ''
       });
     });
 
@@ -104,13 +121,19 @@ describe('getOAuthModeClearVars', () => {
       expect(result1).toEqual(result2);
       // Use specific expected keys instead of magic number
       const expectedKeys = [
+        // Standard Anthropic API vars
         'ANTHROPIC_API_KEY',
         'ANTHROPIC_AUTH_TOKEN',
         'ANTHROPIC_BASE_URL',
         'ANTHROPIC_MODEL',
         'ANTHROPIC_DEFAULT_HAIKU_MODEL',
         'ANTHROPIC_DEFAULT_SONNET_MODEL',
-        'ANTHROPIC_DEFAULT_OPUS_MODEL'
+        'ANTHROPIC_DEFAULT_OPUS_MODEL',
+        // Microsoft Foundry vars
+        'CLAUDE_CODE_USE_FOUNDRY',
+        'ANTHROPIC_FOUNDRY_API_KEY',
+        'ANTHROPIC_FOUNDRY_BASE_URL',
+        'ANTHROPIC_FOUNDRY_RESOURCE'
       ];
       expect(Object.keys(result1).sort()).toEqual(expectedKeys.sort());
     });
@@ -121,13 +144,19 @@ describe('getOAuthModeClearVars', () => {
 
       // Should treat as OAuth mode since no ANTHROPIC_* keys present
       expect(result).toEqual({
+        // Standard Anthropic API vars
         ANTHROPIC_API_KEY: '',
         ANTHROPIC_AUTH_TOKEN: '',
         ANTHROPIC_BASE_URL: '',
         ANTHROPIC_MODEL: '',
         ANTHROPIC_DEFAULT_HAIKU_MODEL: '',
         ANTHROPIC_DEFAULT_SONNET_MODEL: '',
-        ANTHROPIC_DEFAULT_OPUS_MODEL: ''
+        ANTHROPIC_DEFAULT_OPUS_MODEL: '',
+        // Microsoft Foundry vars
+        CLAUDE_CODE_USE_FOUNDRY: '',
+        ANTHROPIC_FOUNDRY_API_KEY: '',
+        ANTHROPIC_FOUNDRY_BASE_URL: '',
+        ANTHROPIC_FOUNDRY_RESOURCE: ''
       });
     });
   });

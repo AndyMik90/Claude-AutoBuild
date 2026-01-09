@@ -514,7 +514,9 @@ describe('ProfileEditDialog - Test Connection Feature', () => {
       expect(mockTestConnection).toHaveBeenCalledWith(
         'https://api.example.com',
         'sk-ant-test12345678',
-        expect.any(AbortSignal)
+        expect.any(AbortSignal),
+        'anthropic', // profileType (default)
+        '' // foundryResource (empty for anthropic profiles)
       );
     });
   });
@@ -694,7 +696,9 @@ describe('ProfileEditDialog - Test Connection Feature', () => {
       expect(testConnectionFn).toHaveBeenCalledWith(
         'https://api.example.com',
         'sk-ant-test12345678',
-        expect.any(AbortSignal)
+        expect.any(AbortSignal),
+        'anthropic', // profileType (default)
+        '' // foundryResource (empty for anthropic profiles)
       );
     });
   });
