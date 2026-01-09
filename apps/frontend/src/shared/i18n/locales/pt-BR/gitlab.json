@@ -1,0 +1,208 @@
+{
+  "title": "Issues do GitLab",
+  "states": {
+    "opened": "Aberto",
+    "closed": "Fechado"
+  },
+  "complexity": {
+    "simple": "Simples",
+    "standard": "Padrão",
+    "complex": "Complexo"
+  },
+  "header": {
+    "open": "aberto",
+    "searchPlaceholder": "Buscar issues..."
+  },
+  "filters": {
+    "opened": "Aberto",
+    "closed": "Fechado",
+    "all": "Todos"
+  },
+  "empty": {
+    "noMatch": "Nenhuma issue corresponde à sua busca",
+    "selectIssue": "Selecione uma issue para ver detalhes"
+  },
+  "notConnected": {
+    "title": "GitLab Não Conectado",
+    "description": "Configure seu token do GitLab e projeto nas configurações do projeto para sincronizar issues.",
+    "openSettings": "Abrir Configurações"
+  },
+  "detail": {
+    "notes": "notas",
+    "viewTask": "Ver Tarefa",
+    "createTask": "Criar Tarefa",
+    "taskLinked": "Tarefa Vinculada",
+    "taskId": "ID da Tarefa",
+    "description": "Descrição",
+    "noDescription": "Nenhuma descrição fornecida.",
+    "assignees": "Responsáveis",
+    "milestone": "Marco"
+  },
+  "investigation": {
+    "title": "Criar Tarefa a partir de Issue",
+    "issuePrefix": "Issue",
+    "description": "Crie uma tarefa a partir desta issue do GitLab. A tarefa será adicionada ao seu quadro Kanban na coluna Backlog.",
+    "selectNotes": "Selecionar Notas para Incluir",
+    "deselectAll": "Desselecionar Todas",
+    "selectAll": "Selecionar Todas",
+    "willInclude": "A tarefa incluirá:",
+    "includeTitle": "Título e descrição da issue",
+    "includeLink": "Link de volta para a issue do GitLab",
+    "includeLabels": "Labels e metadados da issue",
+    "noNotes": "Sem notas (esta issue não tem notas)",
+    "failedToLoadNotes": "Falha ao carregar notas",
+    "taskCreated": "Tarefa criada! Veja-a em seu quadro Kanban.",
+    "creating": "Criando...",
+    "cancel": "Cancelar",
+    "done": "Concluído",
+    "close": "Fechar"
+  },
+  "settings": {
+    "enableIssues": "Habilitar Issues do GitLab",
+    "enableIssuesDescription": "Sincronizar issues do GitLab e criar tarefas automaticamente",
+    "instance": "Instância do GitLab",
+    "instanceDescription": "Use https://gitlab.com ou a URL da sua instância auto-hospedada",
+    "connectedVia": "Conectado via GitLab CLI",
+    "authenticatedAs": "Autenticado como",
+    "useDifferentToken": "Usar Token Diferente",
+    "authentication": "Autenticação do GitLab",
+    "useManualToken": "Usar Token Manual",
+    "authenticating": "Autenticando com glab CLI...",
+    "browserWindow": "Uma janela do navegador deve abrir para você fazer login.",
+    "personalAccessToken": "Token de Acesso Pessoal",
+    "useOAuth": "Usar OAuth em vez disso",
+    "tokenScope": "Crie um token com",
+    "scopeApi": "api",
+    "scopeFrom": "escopo de",
+    "gitlabSettings": "Configurações do GitLab",
+    "project": "Projeto",
+    "enterManually": "Inserir Manualmente",
+    "loadingProjects": "Carregando projetos...",
+    "selectProject": "Selecione um projeto...",
+    "searchProjects": "Buscar projetos...",
+    "noMatchingProjects": "Nenhum projeto correspondente",
+    "noProjectsFound": "Nenhum projeto encontrado",
+    "selected": "Selecionado",
+    "projectFormat": "Formato:",
+    "projectFormatExample": "(ex: gitlab-org/gitlab)",
+    "connectionStatus": "Status da Conexão",
+    "checking": "Verificando...",
+    "connectedTo": "Conectado a",
+    "notConnected": "Não conectado",
+    "issuesAvailable": "Issues Disponíveis",
+    "issuesAvailableDescription": "Acesse Issues do GitLab na barra lateral para visualizar, investigar e criar tarefas a partir de issues.",
+    "defaultBranch": "Branch Padrão",
+    "defaultBranchDescription": "Branch base para criar worktrees de tarefas",
+    "loadingBranches": "Carregando branches...",
+    "autoDetect": "Auto-detectar (main/master)",
+    "searchBranches": "Buscar branches...",
+    "noMatchingBranches": "Nenhuma branch correspondente",
+    "noBranchesFound": "Nenhuma branch encontrada",
+    "branchFromNote": "Todas as novas tarefas serão ramificadas de",
+    "autoSyncOnLoad": "Auto-Sincronizar ao Carregar",
+    "autoSyncDescription": "Buscar automaticamente issues quando o projeto carregar",
+    "cli": {
+      "required": "GitLab CLI Obrigatório",
+      "notInstalled": "O GitLab CLI (glab) é necessário para autenticação OAuth. Instale-o para usar a opção 'Usar OAuth'.",
+      "installButton": "Instalar glab",
+      "installing": "Instalando...",
+      "installSuccess": "Instalação iniciada em seu terminal. Complete-a e clique em Atualizar.",
+      "refresh": "Atualizar",
+      "learnMore": "Saiba mais",
+      "installed": "GitLab CLI instalado:"
+    }
+  },
+  "mergeRequests": {
+    "title": "Merge Requests do GitLab",
+    "newMR": "Novo Merge Request",
+    "selectMR": "Selecione um merge request para ver detalhes",
+    "states": {
+      "opened": "Aberto",
+      "closed": "Fechado",
+      "merged": "Mesclado",
+      "locked": "Bloqueado"
+    },
+    "filters": {
+      "opened": "Aberto",
+      "closed": "Fechado",
+      "merged": "Mesclado",
+      "all": "Todos"
+    }
+  },
+  "mrReview": {
+    "runReview": "Executar Revisão IA",
+    "reviewing": "Revisando...",
+    "followupReview": "Revisão de Acompanhamento",
+    "newCommits": "novo commit",
+    "newCommitsPlural": "novos commits",
+    "cancel": "Cancelar",
+    "postFindings": "Publicar Descobertas",
+    "posting": "Publicando...",
+    "postedTo": "Publicado no GitLab",
+    "approve": "Aprovar",
+    "approving": "Aprovando...",
+    "merge": "Mesclar MR",
+    "merging": "Mesclando...",
+    "aiReviewResult": "Resultado da Revisão IA",
+    "followupReviewResult": "Revisão de Acompanhamento",
+    "description": "Descrição",
+    "noDescription": "Nenhuma descrição fornecida.",
+    "labels": "Labels",
+    "status": {
+      "notReviewed": "Não Revisado",
+      "notReviewedDesc": "Execute uma revisão IA para analisar este MR",
+      "reviewComplete": "Revisão Completa",
+      "reviewCompleteDesc": "Descobertas encontradas. Selecione e publique no GitLab.",
+      "waitingForChanges": "Aguardando Mudanças",
+      "waitingForChangesDesc": "Descobertas publicadas. Aguardando contribuidor resolver os problemas.",
+      "readyToMerge": "Pronto para Mesclar",
+      "readyToMergeDesc": "Nenhum problema bloqueador encontrado. Este MR pode ser mesclado.",
+      "needsAttention": "Precisa de Atenção",
+      "needsAttentionDesc": "Descobertas precisam ser publicadas no GitLab.",
+      "readyForFollowup": "Pronto para Acompanhamento",
+      "readyForFollowupDesc": "desde a revisão. Execute uma revisão de acompanhamento para verificar se os problemas foram resolvidos.",
+      "blockingIssues": "Problemas Bloqueadores",
+      "blockingIssuesDesc": "Problemas bloqueadores ainda abertos."
+    },
+    "overallStatus": {
+      "approve": "Aprovar",
+      "requestChanges": "Mudanças Solicitadas",
+      "comment": "Comentário"
+    },
+    "resolution": {
+      "resolved": "resolvido",
+      "stillOpen": "ainda aberto",
+      "newIssue": "novo problema",
+      "newIssues": "novos problemas"
+    }
+  },
+  "findings": {
+    "summary": "selecionado",
+    "selectCriticalHigh": "Selecionar Bloqueador/Obrigatório",
+    "selectAll": "Selecionar Tudo",
+    "clear": "Limpar",
+    "noIssues": "Nenhum problema encontrado! O código está bom.",
+    "suggestedFix": "Correção sugerida:",
+    "posted": "Publicado",
+    "severity": {
+      "critical": "Bloqueador",
+      "criticalDesc": "Deve corrigir",
+      "high": "Obrigatório",
+      "highDesc": "Deveria corrigir",
+      "medium": "Recomendado",
+      "mediumDesc": "Melhorar qualidade",
+      "low": "Sugestão",
+      "lowDesc": "Considere"
+    },
+    "category": {
+      "security": "Segurança",
+      "quality": "Qualidade",
+      "style": "Estilo",
+      "test": "Teste",
+      "docs": "Documentação",
+      "pattern": "Padrão",
+      "performance": "Performance",
+      "logic": "Lógica"
+    }
+  }
+}

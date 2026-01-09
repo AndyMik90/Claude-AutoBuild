@@ -1,0 +1,50 @@
+{
+  "sections": {
+    "project": "Projeto",
+    "tools": "Ferramentas"
+  },
+  "items": {
+    "kanban": "Quadro Kanban",
+    "terminals": "Terminais de Agentes",
+    "insights": "Insights",
+    "roadmap": "Roadmap",
+    "ideation": "Ideação",
+    "changelog": "Changelog",
+    "context": "Contexto",
+    "githubIssues": "Issues do GitHub",
+    "githubPRs": "PRs do GitHub",
+    "gitlabIssues": "Issues do GitLab",
+    "gitlabMRs": "MRs do GitLab",
+    "worktrees": "Worktrees",
+    "agentTools": "Visão Geral MCP"
+  },
+  "actions": {
+    "settings": "Configurações",
+    "help": "Ajuda & Feedback",
+    "newTask": "Nova Tarefa"
+  },
+  "tooltips": {
+    "settings": "Configurações da Aplicação",
+    "help": "Ajuda & Feedback"
+  },
+  "messages": {
+    "initializeToCreateTasks": "Inicialize o Auto Claude para criar tarefas"
+  },
+  "claudeCode": {
+    "checking": "Verificando Claude Code...",
+    "upToDate": "Claude Code está atualizado",
+    "updateAvailable": "Atualização do Claude Code disponível",
+    "notInstalled": "Claude Code não instalado",
+    "error": "Erro ao verificar Claude Code",
+    "installed": "Instalado",
+    "outdated": "Atualização disponível",
+    "missing": "Não instalado",
+    "current": "Atual",
+    "latest": "Mais recente",
+    "lastChecked": "Última verificação",
+    "learnMore": "Saiba mais sobre o Claude Code",
+    "updateWarningTitle": "Atualizar Claude Code?",
+    "updateWarningDescription": "A atualização fechará todas as sessões do Claude Code em execução. Qualquer trabalho não salvo nessas sessões pode ser perdido. Certifique-se de salvar seu trabalho antes de prosseguir.",
+    "updateAnyway": "Atualizar Mesmo Assim"
+  }
+}

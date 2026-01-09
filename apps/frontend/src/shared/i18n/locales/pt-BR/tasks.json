@@ -1,0 +1,102 @@
+{
+  "status": {
+    "backlog": "Backlog",
+    "todo": "A Fazer",
+    "in_progress": "Em Andamento",
+    "review": "Revisão",
+    "complete": "Completo",
+    "archived": "Arquivado"
+  },
+  "actions": {
+    "start": "Iniciar",
+    "stop": "Parar",
+    "recover": "Recuperar",
+    "resume": "Retomar",
+    "archive": "Arquivar",
+    "delete": "Excluir",
+    "view": "Ver Detalhes"
+  },
+  "labels": {
+    "running": "Executando",
+    "aiReview": "Revisão IA",
+    "needsReview": "Precisa de Revisão",
+    "pending": "Pendente",
+    "stuck": "Travado",
+    "incomplete": "Incompleto",
+    "recovering": "Recuperando...",
+    "needsRecovery": "Precisa de Recuperação",
+    "needsResume": "Precisa Retomar"
+  },
+  "reviewReason": {
+    "completed": "Completo",
+    "hasErrors": "Tem Erros",
+    "qaIssues": "Problemas de QA",
+    "approvePlan": "Aprovar Plano"
+  },
+  "tooltips": {
+    "archiveTask": "Arquivar tarefa",
+    "archiveAllDone": "Arquivar todas as tarefas concluídas"
+  },
+  "creation": {
+    "title": "Criar Nova Tarefa",
+    "description": "Descreva o que você quer construir",
+    "placeholder": "Descreva sua tarefa..."
+  },
+  "empty": {
+    "title": "Ainda sem tarefas",
+    "description": "Crie sua primeira tarefa para começar"
+  },
+  "kanban": {
+    "emptyBacklog": "Nenhuma tarefa planejada",
+    "emptyBacklogHint": "Adicione uma tarefa para começar",
+    "emptyInProgress": "Nada em execução",
+    "emptyInProgressHint": "Inicie uma tarefa do Backlog",
+    "emptyAiReview": "Nenhuma tarefa em revisão",
+    "emptyAiReviewHint": "IA revisará tarefas completas",
+    "emptyHumanReview": "Nada para revisar",
+    "emptyHumanReviewHint": "Tarefas aguardam sua aprovação aqui",
+    "emptyDone": "Nenhuma tarefa completa",
+    "emptyDoneHint": "Tarefas aprovadas aparecem aqui",
+    "emptyDefault": "Nenhuma tarefa",
+    "dropHere": "Solte aqui",
+    "showArchived": "Mostrar arquivados"
+  },
+  "execution": {
+    "phases": {
+      "idle": "Inativo",
+      "planning": "Planejando",
+      "coding": "Codificando",
+      "reviewing": "Revisando",
+      "fixing": "Corrigindo",
+      "complete": "Completo",
+      "failed": "Falhou"
+    },
+    "labels": {
+      "interrupted": "Interrompido",
+      "progress": "Progresso",
+      "entry": "entrada",
+      "entries": "entradas"
+    },
+    "shortPhases": {
+      "plan": "Plano",
+      "code": "Código",
+      "qa": "QA"
+    }
+  },
+  "files": {
+    "title": "Arquivos",
+    "tab": "Arquivos",
+    "noSpecPath": "Nenhum arquivo de spec disponível",
+    "noFiles": "Nenhum arquivo encontrado",
+    "loading": "Carregando arquivos...",
+    "loadingContent": "Carregando conteúdo...",
+    "errorLoading": "Falha ao carregar arquivos",
+    "errorLoadingContent": "Falha ao carregar conteúdo do arquivo",
+    "retry": "Tentar novamente",
+    "selectFile": "Selecione um arquivo para ver seu conteúdo",
+    "openInIDE": "Abrir na IDE"
+  },
+  "metadata": {
+    "severity": "severidade"
+  }
+}
