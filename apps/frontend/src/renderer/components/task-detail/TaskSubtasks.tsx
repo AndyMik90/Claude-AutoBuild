@@ -69,11 +69,11 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="text-sm font-medium text-foreground truncate cursor-default">
-                            {subtask.id}
+                            {subtask.title || 'Untitled subtask'}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs">
-                          <p className="font-mono text-xs">{subtask.id}</p>
+                          <p className="text-xs">{subtask.title || 'Untitled subtask'}</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
