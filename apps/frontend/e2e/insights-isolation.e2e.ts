@@ -70,9 +70,7 @@ function getSessionKey(projectId: string, sessionId: string): string {
 
 test.describe('Insights Cross-Session Isolation (Interactive)', () => {
   // These variables are placeholders for future interactive Electron tests
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let _app: ElectronApplication | undefined;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let _page: Page | undefined;
 
   test.beforeAll(async () => {
@@ -150,9 +148,7 @@ test.describe('Insights Cross-Session Isolation (Interactive)', () => {
 
 test.describe('Insights Cross-Project Isolation (Interactive)', () => {
   // These variables are placeholders for future interactive Electron tests
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let _app: ElectronApplication | undefined;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let _page: Page | undefined;
 
   test.beforeAll(async () => {

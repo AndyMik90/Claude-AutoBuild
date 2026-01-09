@@ -881,11 +881,18 @@ describe('Insights Store', () => {
 
   describe('finalizeStreamingMessage', () => {
     it('should create assistant message from streaming content', () => {
+      // Set up session state in the Map (used by session-specific state reading)
+      const sessionStates = new Map<string, SessionState>();
+      sessionStates.set(getSessionKey('project-1', 'session-1'), createTestSessionState({
+        streamingContent: 'streamed response'
+      }));
+
       useInsightsStore.setState({
         session: createTestSession({ messages: [] }),
         streamingContent: 'streamed response',
         activeProjectId: 'project-1',
-        activeSessionId: 'session-1'
+        activeSessionId: 'session-1',
+        sessionStates
       });
 
       useInsightsStore.getState().finalizeStreamingMessage();
@@ -897,11 +904,18 @@ describe('Insights Store', () => {
     });
 
     it('should clear streaming content after finalizing', () => {
+      // Set up session state in the Map
+      const sessionStates = new Map<string, SessionState>();
+      sessionStates.set(getSessionKey('project-1', 'session-1'), createTestSessionState({
+        streamingContent: 'content to clear'
+      }));
+
       useInsightsStore.setState({
         session: createTestSession(),
         streamingContent: 'content to clear',
         activeProjectId: 'project-1',
-        activeSessionId: 'session-1'
+        activeSessionId: 'session-1',
+        sessionStates
       });
 
       useInsightsStore.getState().finalizeStreamingMessage();
@@ -914,12 +928,21 @@ describe('Insights Store', () => {
         { name: 'Tool1', timestamp: new Date() },
         { name: 'Tool2', timestamp: new Date() }
       ];
+
+      // Set up session state in the Map with tools
+      const sessionStates = new Map<string, SessionState>();
+      sessionStates.set(getSessionKey('project-1', 'session-1'), createTestSessionState({
+        streamingContent: 'response with tools',
+        toolsUsed: tools
+      }));
+
       useInsightsStore.setState({
         session: createTestSession({ messages: [] }),
         streamingContent: 'response with tools',
         toolsUsed: tools,
         activeProjectId: 'project-1',
-        activeSessionId: 'session-1'
+        activeSessionId: 'session-1',
+        sessionStates
       });
 
       useInsightsStore.getState().finalizeStreamingMessage();
@@ -929,11 +952,18 @@ describe('Insights Store', () => {
     });
 
     it('should include suggested task in finalized message', () => {
+      // Set up session state in the Map
+      const sessionStates = new Map<string, SessionState>();
+      sessionStates.set(getSessionKey('project-1', 'session-1'), createTestSessionState({
+        streamingContent: 'task suggestion'
+      }));
+
       useInsightsStore.setState({
         session: createTestSession({ messages: [] }),
         streamingContent: 'task suggestion',
         activeProjectId: 'project-1',
-        activeSessionId: 'session-1'
+        activeSessionId: 'session-1',
+        sessionStates
       });
 
       const suggestedTask = { title: 'New Task', description: 'Task description' };
