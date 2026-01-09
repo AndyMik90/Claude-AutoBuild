@@ -88,6 +88,7 @@ class GraphitiClient:
         self._driver = None
         self._llm_client = None
         self._embedder = None
+        self._cross_encoder = None
         self._initialized = False
 
     @property
@@ -121,6 +122,7 @@ class GraphitiClient:
             from graphiti_providers import (
                 ProviderError,
                 ProviderNotInstalled,
+                create_cross_encoder,
                 create_embedder,
                 create_llm_client,
             )
@@ -149,6 +151,18 @@ class GraphitiClient:
             except ProviderError as e:
                 logger.warning(f"Embedder provider configuration error: {e}")
                 return False
+
+            # Create cross-encoder (optional, primarily for Ollama)
+            # This prevents Graphiti from creating a default OpenAI reranker
+            try:
+                self._cross_encoder = create_cross_encoder(self.config, self._llm_client)
+                if self._cross_encoder:
+                    logger.info("Created cross-encoder for reranking")
+                else:
+                    logger.info("Cross-encoder disabled (will skip reranking)")
+            except (ProviderNotInstalled, ProviderError) as e:
+                logger.info(f"Cross-encoder not available: {e}")
+                self._cross_encoder = None
 
             # Apply LadybugDB monkeypatch to use it via graphiti's KuzuDriver
             if not _apply_ladybug_monkeypatch():
@@ -189,6 +203,7 @@ class GraphitiClient:
                 graph_driver=self._driver,
                 llm_client=self._llm_client,
                 embedder=self._embedder,
+                cross_encoder=self._cross_encoder,
             )
 
             # Build indices (first time only)
@@ -237,4 +252,5 @@ class GraphitiClient:
                 self._driver = None
                 self._llm_client = None
                 self._embedder = None
+                self._cross_encoder = None
                 self._initialized = False
