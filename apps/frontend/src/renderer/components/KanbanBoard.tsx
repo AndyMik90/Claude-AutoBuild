@@ -30,6 +30,12 @@ import { cn } from '../lib/utils';
 import { persistTaskStatus, archiveTasks } from '../stores/task-store';
 import type { Task, TaskStatus } from '../../shared/types';
 
+// Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
+const VALID_DROP_COLUMNS = new Set<string>(TASK_STATUS_COLUMNS);
+function isValidDropColumn(id: string): id is typeof TASK_STATUS_COLUMNS[number] {
+  return VALID_DROP_COLUMNS.has(id);
+}
+
 interface KanbanBoardProps {
   tasks: Task[];
   onTaskClick: (task: Task) => void;
@@ -261,6 +267,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
                   )}
                   onClick={onToggleArchived}
                   aria-pressed={showArchived}
+                  aria-label={t('common:accessibility.toggleShowArchivedAriaLabel')}
                 >
                   <Archive className="h-4 w-4" />
                   <span className="absolute -top-1 -right-1 text-[10px] font-medium bg-muted rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
@@ -355,7 +362,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   );
 
   const tasksByStatus = useMemo(() => {
-    const grouped: Record<TaskStatus, Task[]> = {
+    // Note: pr_created tasks are shown in the 'done' column since they're essentially complete
+    const grouped: Record<typeof TASK_STATUS_COLUMNS[number], Task[]> = {
       backlog: [],
       in_progress: [],
       ai_review: [],
@@ -364,14 +372,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     };
 
     filteredTasks.forEach((task) => {
-      if (grouped[task.status]) {
-        grouped[task.status].push(task);
+      // Map pr_created tasks to the done column
+      const targetColumn = task.status === 'pr_created' ? 'done' : task.status;
+      if (grouped[targetColumn]) {
+        grouped[targetColumn].push(task);
       }
     });
 
     // Sort tasks within each column by createdAt (newest first)
     Object.keys(grouped).forEach((status) => {
-      grouped[status as TaskStatus].sort((a, b) => {
+      grouped[status as typeof TASK_STATUS_COLUMNS[number]].sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
         return dateB - dateA; // Descending order (newest first)
@@ -417,7 +427,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const overId = over.id as string;
 
     // Check if over a column
-    if (TASK_STATUS_COLUMNS.includes(overId as TaskStatus)) {
+    if (isValidDropColumn(overId)) {
       setOverColumnId(overId);
       return;
     }
@@ -440,8 +450,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const overId = over.id as string;
 
     // Check if dropped on a column
-    if (TASK_STATUS_COLUMNS.includes(overId as TaskStatus)) {
-      const newStatus = overId as TaskStatus;
+    if (isValidDropColumn(overId)) {
+      const newStatus = overId;
       const task = tasks.find((t) => t.id === activeTaskId);
 
       if (task && task.status !== newStatus) {

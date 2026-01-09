@@ -1,11 +1,11 @@
-import { useCallback } from 'react';
-import { GitPullRequest, RefreshCw, ExternalLink, Settings } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { useProjectStore } from '../../stores/project-store';
-import { useGitHubPRs, usePRFiltering } from './hooks';
-import { PRList, PRDetail, PRFilterBar } from './components';
-import { Button } from '../ui/button';
-import { ResizablePanels } from '../ui/resizable-panels';
+import { useCallback } from "react";
+import { GitPullRequest, RefreshCw, ExternalLink, Settings } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useProjectStore } from "../../stores/project-store";
+import { useGitHubPRs, usePRFiltering } from "./hooks";
+import { PRList, PRDetail, PRFilterBar } from "./components";
+import { Button } from "../ui/button";
+import { ResizablePanels } from "../ui/resizable-panels";
 
 interface GitHubPRsProps {
   onOpenSettings?: () => void;
@@ -15,7 +15,7 @@ interface GitHubPRsProps {
 function NotConnectedState({
   error,
   onOpenSettings,
-  t
+  t,
 }: {
   error: string | null;
   onOpenSettings?: () => void;
@@ -25,14 +25,12 @@ function NotConnectedState({
     <div className="flex-1 flex items-center justify-center p-8">
       <div className="text-center max-w-md">
         <GitPullRequest className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-        <h3 className="text-lg font-medium mb-2">{t('prReview.notConnected')}</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          {error || t('prReview.connectPrompt')}
-        </p>
+        <h3 className="text-lg font-medium mb-2">{t("prReview.notConnected")}</h3>
+        <p className="text-sm text-muted-foreground mb-4">{error || t("prReview.connectPrompt")}</p>
         {onOpenSettings && (
           <Button onClick={onOpenSettings} variant="outline">
             <Settings className="h-4 w-4 mr-2" />
-            {t('prReview.openSettings')}
+            {t("prReview.openSettings")}
           </Button>
         )}
       </div>
@@ -52,7 +50,7 @@ function EmptyState({ message }: { message: string }) {
 }
 
 export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation("common");
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -82,14 +80,11 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     isConnected,
     repoFullName,
     getReviewStateForPR,
+    selectedPR,
   } = useGitHubPRs(selectedProject?.id, { isActive });
 
-  const selectedPR = prs.find(pr => pr.number === selectedPRNumber);
-
   // Get previousResult and newCommitsCheck for follow-up review continuity
-  const selectedPRReviewState = selectedPRNumber
-    ? getReviewStateForPR(selectedPRNumber)
-    : null;
+  const selectedPRReviewState = selectedPRNumber ? getReviewStateForPR(selectedPRNumber) : null;
   const previousReviewResult = selectedPRReviewState?.previousResult ?? null;
   const storedNewCommitsCheck = selectedPRReviewState?.newCommitsCheck ?? null;
 
@@ -130,30 +125,45 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     }
   }, [selectedPRNumber, cancelReview]);
 
-  const handlePostReview = useCallback(async (selectedFindingIds?: string[], options?: { forceApprove?: boolean }): Promise<boolean> => {
-    if (selectedPRNumber && reviewResult) {
-      return await postReview(selectedPRNumber, selectedFindingIds, options);
-    }
-    return false;
-  }, [selectedPRNumber, reviewResult, postReview]);
+  const handlePostReview = useCallback(
+    async (
+      selectedFindingIds?: string[],
+      options?: { forceApprove?: boolean }
+    ): Promise<boolean> => {
+      if (selectedPRNumber && reviewResult) {
+        return await postReview(selectedPRNumber, selectedFindingIds, options);
+      }
+      return false;
+    },
+    [selectedPRNumber, reviewResult, postReview]
+  );
 
-  const handlePostComment = useCallback(async (body: string) => {
-    if (selectedPRNumber) {
-      await postComment(selectedPRNumber, body);
-    }
-  }, [selectedPRNumber, postComment]);
+  const handlePostComment = useCallback(
+    async (body: string) => {
+      if (selectedPRNumber) {
+        await postComment(selectedPRNumber, body);
+      }
+    },
+    [selectedPRNumber, postComment]
+  );
 
-  const handleMergePR = useCallback(async (mergeMethod?: 'merge' | 'squash' | 'rebase') => {
-    if (selectedPRNumber) {
-      await mergePR(selectedPRNumber, mergeMethod);
-    }
-  }, [selectedPRNumber, mergePR]);
+  const handleMergePR = useCallback(
+    async (mergeMethod?: "merge" | "squash" | "rebase") => {
+      if (selectedPRNumber) {
+        await mergePR(selectedPRNumber, mergeMethod);
+      }
+    },
+    [selectedPRNumber, mergePR]
+  );
 
-  const handleAssignPR = useCallback(async (username: string) => {
-    if (selectedPRNumber) {
-      await assignPR(selectedPRNumber, username);
-    }
-  }, [selectedPRNumber, assignPR]);
+  const handleAssignPR = useCallback(
+    async (username: string) => {
+      if (selectedPRNumber) {
+        await assignPR(selectedPRNumber, username);
+      }
+    },
+    [selectedPRNumber, assignPR]
+  );
 
   const handleGetLogs = useCallback(async () => {
     if (selectedProjectId && selectedPRNumber) {
@@ -174,7 +184,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium flex items-center gap-2">
             <GitPullRequest className="h-4 w-4" />
-            {t('prReview.pullRequests')}
+            {t("prReview.pullRequests")}
           </h2>
           {repoFullName && (
             <a
@@ -188,16 +198,11 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
             </a>
           )}
           <span className="text-xs text-muted-foreground">
-            {prs.length} {t('prReview.open')}
+            {prs.length} {t("prReview.open")}
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={refresh}
-          disabled={isLoading}
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+        <Button variant="ghost" size="icon" onClick={refresh} disabled={isLoading}>
+          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
         </Button>
       </div>
 
@@ -235,7 +240,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
           selectedPR ? (
             <PRDetail
               pr={selectedPR}
-              projectId={selectedProjectId || ''}
+              projectId={selectedProjectId || ""}
               reviewResult={reviewResult}
               previousReviewResult={previousReviewResult}
               reviewProgress={reviewProgress}
@@ -254,7 +259,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
               onGetLogs={handleGetLogs}
             />
           ) : (
-            <EmptyState message={t('prReview.selectPRToView')} />
+            <EmptyState message={t("prReview.selectPRToView")} />
           )
         }
       />
