@@ -39,6 +39,7 @@ Follow conventional commits: `<type>: <subject>`
 - [ ] I've tested my changes locally
 - [ ] I've followed the code principles (SOLID, DRY, KISS)
 - [ ] My PR is small and focused (< 400 lines ideally)
+- [ ] **(Python only)** All file operations specify `encoding="utf-8"` for text files
 
 ## CI/Testing Requirements
 

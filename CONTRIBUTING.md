@@ -357,6 +357,64 @@ export default function(props) {
 - End files with a newline
 - Keep line length under 100 characters when practical
 
+### File Encoding (Python)
+
+**Always specify `encoding="utf-8"` for text file operations** to ensure Windows compatibility.
+
+Windows Python defaults to `cp1252` encoding instead of UTF-8, causing errors with:
+- Emoji (🚀, ✅, ❌)
+- International characters (ñ, é, 中文, العربية)
+- Special symbols (™, ©, ®)
+
+**DO:**
+
+```python
+# Reading files
+with open(path, encoding="utf-8") as f:
+    content = f.read()
+
+# Writing files
+with open(path, "w", encoding="utf-8") as f:
+    f.write(content)
+
+# Path methods
+from pathlib import Path
+content = Path(file).read_text(encoding="utf-8")
+Path(file).write_text(content, encoding="utf-8")
+
+# JSON files - reading
+import json
+with open(path, encoding="utf-8") as f:
+    data = json.load(f)
+
+# JSON files - writing
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+```
+
+**DON'T:**
+
+```python
+# Wrong - platform-dependent encoding
+with open(path) as f:
+    content = f.read()
+
+# Wrong - Path methods without encoding
+content = Path(file).read_text()
+
+# Wrong - encoding on json.dump (not open!)
+json.dump(data, f, encoding="utf-8")  # ERROR
+```
+
+**Binary files - NO encoding:**
+
+```python
+with open(path, "rb") as f:  # Correct
+    data = f.read()
+```
+
+Our pre-commit hooks automatically check for missing encoding parameters. See [PR #782](https://github.com/AndyMik90/Auto-Claude/pull/782) for the comprehensive encoding fix and [guides/windows-development.md](guides/windows-development.md) for Windows-specific development guidance.
+
 ## Testing
 
 ### Python Tests
