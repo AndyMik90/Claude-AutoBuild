@@ -39,7 +39,7 @@ export const WINDOWS_GIT_PATHS: WindowsToolPaths = {
 
 export function isSecurePath(pathStr: string): boolean {
   const dangerousPatterns = [
-    /[;&|`$(){}[\]<>!"^]/,  // Shell metacharacters (^ is cmd.exe escape char)
+    /[;&|`${}[\]<>!"^]/,  // Shell metacharacters (parentheses removed - safe when quoted)
     /%[^%]+%/,              // Windows environment variable expansion (e.g., %PATH%)
     /\.\.\//,               // Unix directory traversal
     /\.\.\\/,               // Windows directory traversal
