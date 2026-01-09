@@ -1,0 +1,51 @@
+{
+  "sections": {
+    "project": "Проект",
+    "tools": "Инструменты"
+  },
+  "items": {
+    "kanban": "Kanban-доска",
+    "terminals": "Терминалы агентов",
+    "insights": "Аналитика",
+    "roadmap": "Дорожная карта",
+    "ideation": "Идеи",
+    "changelog": "История изменений",
+    "context": "Контекст",
+    "githubIssues": "Задачи GitHub",
+    "githubPRs": "PR GitHub",
+    "gitlabIssues": "Задачи GitLab",
+    "gitlabMRs": "MR GitLab",
+    "worktrees": "Worktrees",
+    "agentTools": "Обзор MCP"
+  },
+  "actions": {
+    "settings": "Настройки",
+    "help": "Помощь и обратная связь",
+    "newTask": "Новая задача"
+  },
+  "tooltips": {
+    "settings": "Настройки приложения",
+    "help": "Помощь и обратная связь"
+  },
+  "messages": {
+    "initializeToCreateTasks": "Инициализируйте Auto Claude для создания задач"
+  },
+  "claudeCode": {
+    "checking": "Проверка Claude Code...",
+    "upToDate": "Claude Code обновлен",
+    "updateAvailable": "Доступно обновление Claude Code",
+    "notInstalled": "Claude Code не установлен",
+    "error": "Ошибка проверки Claude Code",
+    "installed": "Установлен",
+    "outdated": "Доступно обновление",
+    "missing": "Не установлен",
+    "current": "Текущий",
+    "latest": "Последний",
+    "lastChecked": "Последняя проверка",
+    "learnMore": "Узнать больше о Claude Code",
+    "learnMoreAriaLabel": "Узнать больше о Claude Code (откроется в новом окне)",
+    "updateWarningTitle": "Обновить Claude Code?",
+    "updateWarningDescription": "Обновление закроет все запущенные сессии Claude Code. Любая несохраненная работа в этих сессиях может быть потеряна. Сохраните работу перед продолжением.",
+    "updateAnyway": "Всё равно обновить"
+  }
+}

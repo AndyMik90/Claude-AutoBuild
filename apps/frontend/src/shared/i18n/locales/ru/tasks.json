@@ -1,0 +1,129 @@
+{
+  "status": {
+    "backlog": "Бэклог",
+    "todo": "К выполнению",
+    "in_progress": "В работе",
+    "review": "На проверке",
+    "complete": "Завершено",
+    "archived": "В архиве"
+  },
+  "actions": {
+    "start": "Запустить",
+    "stop": "Остановить",
+    "recover": "Восстановить",
+    "resume": "Продолжить",
+    "archive": "В архив",
+    "delete": "Удалить",
+    "view": "Детали",
+    "moveTo": "Переместить в",
+    "taskActions": "Действия с задачей"
+  },
+  "labels": {
+    "running": "Выполняется",
+    "aiReview": "AI проверка",
+    "needsReview": "Требует проверки",
+    "pending": "В ожидании",
+    "stuck": "Застряла",
+    "incomplete": "Не завершено",
+    "recovering": "Восстановление...",
+    "needsRecovery": "Требует восстановления",
+    "needsResume": "Требует продолжения"
+  },
+  "reviewReason": {
+    "completed": "Завершено",
+    "hasErrors": "Есть ошибки",
+    "qaIssues": "Проблемы QA",
+    "approvePlan": "Одобрить план"
+  },
+  "tooltips": {
+    "archiveTask": "Архивировать задачу",
+    "archiveAllDone": "Архивировать все завершенные"
+  },
+  "creation": {
+    "title": "Создать новую задачу",
+    "description": "Опишите что вы хотите создать",
+    "placeholder": "Опишите вашу задачу..."
+  },
+  "empty": {
+    "title": "Пока нет задач",
+    "description": "Создайте первую задачу для начала"
+  },
+  "columns": {
+    "backlog": "Планирование",
+    "in_progress": "В работе",
+    "ai_review": "AI проверка",
+    "human_review": "Проверка человеком",
+    "done": "Готово"
+  },
+  "kanban": {
+    "emptyBacklog": "Нет запланированных задач",
+    "emptyBacklogHint": "Добавьте задачу для начала",
+    "emptyInProgress": "Ничего не выполняется",
+    "emptyInProgressHint": "Запустите задачу из Бэклога",
+    "emptyAiReview": "Нет задач на проверке",
+    "emptyAiReviewHint": "AI проверит завершенные задачи",
+    "emptyHumanReview": "Нечего проверять",
+    "emptyHumanReviewHint": "Задачи ожидают вашего одобрения здесь",
+    "emptyDone": "Нет завершенных задач",
+    "emptyDoneHint": "Одобренные задачи появятся здесь",
+    "emptyDefault": "Нет задач",
+    "dropHere": "Перетащите сюда",
+    "showArchived": "Показать архив",
+    "addTaskAriaLabel": "Добавить новую задачу в бэклог",
+    "closeTaskDetailsAriaLabel": "Закрыть детали задачи",
+    "editTask": "Редактировать задачу",
+    "cannotEditWhileRunning": "Нельзя редактировать во время выполнения"
+  },
+  "execution": {
+    "phases": {
+      "idle": "Ожидание",
+      "planning": "Планирование",
+      "coding": "Кодирование",
+      "reviewing": "Проверка",
+      "fixing": "Исправление",
+      "complete": "Завершено",
+      "failed": "Ошибка"
+    },
+    "labels": {
+      "interrupted": "Прервано",
+      "progress": "Прогресс",
+      "entry": "запись",
+      "entries": "записи"
+    },
+    "shortPhases": {
+      "plan": "План",
+      "code": "Код",
+      "qa": "QA"
+    }
+  },
+  "files": {
+    "title": "Файлы",
+    "tab": "Файлы",
+    "noSpecPath": "Нет доступных файлов спецификации",
+    "noFiles": "Файлы не найдены",
+    "loading": "Загрузка файлов...",
+    "loadingContent": "Загрузка содержимого...",
+    "errorLoading": "Не удалось загрузить файлы",
+    "errorLoadingContent": "Не удалось загрузить содержимое файла",
+    "retry": "Повторить",
+    "selectFile": "Выберите файл для просмотра содержимого",
+    "openInIDE": "Открыть в IDE"
+  },
+  "metadata": {
+    "severity": "важность"
+  },
+  "images": {
+    "removeImageAriaLabel": "Удалить изображение {{filename}}",
+    "pasteHint": "Совет: вставьте скриншоты напрямую с помощью {{shortcut}} для добавления справочных изображений."
+  },
+  "notifications": {
+    "backgroundTaskTitle": "Задача продолжается в фоне",
+    "backgroundTaskDescription": "Задача все еще выполняется. Вы можете открыть этот диалог снова для мониторинга прогресса."
+  },
+  "wizard": {
+    "gitOptions": {
+      "useWorktreeLabel": "Использовать изолированное рабочее пространство (рекомендуется)",
+      "useWorktreeDescription": "Создает изменения в отдельном git worktree для безопасной проверки перед слиянием. Отключите для сборки напрямую в проекте (быстрее, но рискованнее)."
+    }
+  }
+}

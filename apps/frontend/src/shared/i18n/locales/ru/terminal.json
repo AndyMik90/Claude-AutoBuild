@@ -1,0 +1,36 @@
+{
+  "expand": {
+    "expand": "Развернуть терминал",
+    "collapse": "Свернуть терминал"
+  },
+  "auth": {
+    "terminalTitle": "Авторизация: {{profileName}}",
+    "maxTerminalsReached": "Невозможно открыть терминал авторизации: достигнуто максимальное количество терминалов. Закройте терминал сначала."
+  },
+  "worktree": {
+    "create": "Worktree",
+    "createNew": "Новый Worktree",
+    "existing": "Существующие Worktrees",
+    "createTitle": "Создать Terminal Worktree",
+    "createDescription": "Создайте изолированное рабочее пространство для этого терминала. Вся работа будет происходить в директории worktree.",
+    "name": "Имя Worktree",
+    "namePlaceholder": "my-feature",
+    "nameRequired": "Имя worktree обязательно",
+    "nameInvalid": "Имя должно начинаться и заканчиваться буквой или цифрой",
+    "nameHelp": "Только строчные буквы, цифры, дефисы и подчеркивания",
+    "associateTask": "Связать с задачей",
+    "selectTask": "Выберите задачу...",
+    "noTask": "Без задачи (отдельный worktree)",
+    "createBranch": "Создать Git ветку",
+    "branchHelp": "Создаст ветку: {{branch}}",
+    "baseBranch": "Базовая ветка",
+    "selectBaseBranch": "Выберите базовую ветку...",
+    "useProjectDefault": "Использовать значение по умолчанию для проекта ({{branch}})",
+    "baseBranchHelp": "Ветка, из которой создать worktree",
+    "openInIDE": "Открыть в IDE",
+    "maxReached": "Достигнуто максимальное количество (12) worktree терминалов",
+    "alreadyExists": "Worktree с таким именем уже существует",
+    "deleteTitle": "Удалить Worktree?",
+    "deleteDescription": "Это навсегда удалит worktree и его ветку. Все несохранённые изменения будут потеряны."
+  }
+}
