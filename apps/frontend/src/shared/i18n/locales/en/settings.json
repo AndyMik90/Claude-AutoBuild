@@ -339,6 +339,13 @@
       "integrationDescription": "Connect to GitLab for issue tracking",
       "syncDescription": "Sync with GitLab Issues"
     },
+    "forgejo": {
+      "title": "Forgejo",
+      "description": "Forgejo/Gitea issues sync",
+      "integrationTitle": "Forgejo Integration",
+      "integrationDescription": "Connect to self-hosted Forgejo or Gitea for issue tracking",
+      "syncDescription": "Sync with Forgejo Issues"
+    },
     "memory": {
       "title": "Memory",
       "description": "Graphiti memory backend",

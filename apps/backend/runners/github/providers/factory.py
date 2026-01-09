@@ -12,6 +12,7 @@ from collections.abc import Callable
 from typing import Any
 
 from .github_provider import GitHubProvider
+from .forgejo_provider import ForgejoProvider
 from .protocol import GitProvider, ProviderType
 
 # Provider registry for dynamic registration
@@ -79,6 +80,23 @@ def get_provider(
     if provider_type == ProviderType.GITHUB:
         return GitHubProvider(_repo=repo, **kwargs)
 
+    if provider_type == ProviderType.FORGEJO:
+        # Forgejo requires instance_url and token
+        instance_url = kwargs.pop("instance_url", None)
+        token = kwargs.pop("token", None)
+        if not instance_url or not token:
+            raise ValueError(
+                "Forgejo provider requires 'instance_url' and 'token' parameters. "
+                "Example: get_provider('forgejo', 'owner/repo', "
+                "instance_url='https://codeberg.org', token='your-token')"
+            )
+        return ForgejoProvider(
+            _repo=repo,
+            _instance_url=instance_url,
+            _token=token,
+            **kwargs,
+        )
+
     # Future providers (not yet implemented)
     if provider_type == ProviderType.GITLAB:
         raise NotImplementedError(
@@ -114,7 +132,7 @@ def list_available_providers() -> list[ProviderType]:
     Returns:
         List of available ProviderType values
     """
-    available = [ProviderType.GITHUB]  # Built-in
+    available = [ProviderType.GITHUB, ProviderType.FORGEJO]  # Built-in
 
     # Add registered providers
     for provider_type in _PROVIDER_REGISTRY:
@@ -140,8 +158,8 @@ def is_provider_available(provider_type: ProviderType | str) -> bool:
         except ValueError:
             return False
 
-    # GitHub is always available
-    if provider_type == ProviderType.GITHUB:
+    # Built-in providers are always available
+    if provider_type in (ProviderType.GITHUB, ProviderType.FORGEJO):
         return True
 
     # Check registry

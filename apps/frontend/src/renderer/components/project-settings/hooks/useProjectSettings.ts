@@ -12,7 +12,8 @@ import type {
   ProjectEnvConfig,
   LinearSyncStatus,
   GitHubSyncStatus,
-  GitLabSyncStatus
+  GitLabSyncStatus,
+  ForgejoSyncStatus
 } from '../../../../shared/types';
 
 export interface UseProjectSettingsReturn {
@@ -60,6 +61,12 @@ export interface UseProjectSettingsReturn {
   setShowGitLabToken: React.Dispatch<React.SetStateAction<boolean>>;
   gitLabConnectionStatus: GitLabSyncStatus | null;
   isCheckingGitLab: boolean;
+
+  // Forgejo state
+  showForgejoToken: boolean;
+  setShowForgejoToken: React.Dispatch<React.SetStateAction<boolean>>;
+  forgejoConnectionStatus: ForgejoSyncStatus | null;
+  isCheckingForgejo: boolean;
 
   // Claude auth state
   isCheckingClaudeAuth: boolean;
@@ -118,6 +125,11 @@ export function useProjectSettings(
   const [showGitLabToken, setShowGitLabToken] = useState(false);
   const [gitLabConnectionStatus, setGitLabConnectionStatus] = useState<GitLabSyncStatus | null>(null);
   const [isCheckingGitLab, setIsCheckingGitLab] = useState(false);
+
+  // Forgejo state
+  const [showForgejoToken, setShowForgejoToken] = useState(false);
+  const [forgejoConnectionStatus, setForgejoConnectionStatus] = useState<ForgejoSyncStatus | null>(null);
+  const [isCheckingForgejo, setIsCheckingForgejo] = useState(false);
 
   // Claude auth state
   const [isCheckingClaudeAuth, setIsCheckingClaudeAuth] = useState(false);
@@ -272,6 +284,32 @@ export function useProjectSettings(
     }
   }, [envConfig?.gitlabEnabled, envConfig?.gitlabToken, envConfig?.gitlabProject, project.id]);
 
+  // Check Forgejo connection when token/repo changes
+  useEffect(() => {
+    const checkForgejoConnection = async () => {
+      if (!envConfig?.forgejoEnabled || !envConfig.forgejoToken || !envConfig.forgejoRepo || !envConfig.forgejoInstanceUrl) {
+        setForgejoConnectionStatus(null);
+        return;
+      }
+
+      setIsCheckingForgejo(true);
+      try {
+        const status = await window.electronAPI.forgejo.checkForgejoConnection(project.id);
+        if (status.success && status.data) {
+          setForgejoConnectionStatus(status.data);
+        }
+      } catch {
+        setForgejoConnectionStatus({ connected: false, error: 'Failed to check connection' });
+      } finally {
+        setIsCheckingForgejo(false);
+      }
+    };
+
+    if (envConfig?.forgejoEnabled && envConfig.forgejoToken && envConfig.forgejoRepo && envConfig.forgejoInstanceUrl) {
+      checkForgejoConnection();
+    }
+  }, [envConfig?.forgejoEnabled, envConfig?.forgejoToken, envConfig?.forgejoRepo, envConfig?.forgejoInstanceUrl, project.id]);
+
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
@@ -411,6 +449,10 @@ export function useProjectSettings(
     setShowGitLabToken,
     gitLabConnectionStatus,
     isCheckingGitLab,
+    showForgejoToken,
+    setShowForgejoToken,
+    forgejoConnectionStatus,
+    isCheckingForgejo,
     isCheckingClaudeAuth,
     claudeAuthStatus,
     setClaudeAuthStatus,

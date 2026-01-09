@@ -17,8 +17,9 @@ Usage:
     await provider.post_review(123, review)
 """
 
-from .factory import get_provider, register_provider
+from .factory import get_provider, register_provider, list_available_providers, is_provider_available
 from .github_provider import GitHubProvider
+from .forgejo_provider import ForgejoProvider
 from .protocol import (
     GitProvider,
     IssueData,
@@ -42,7 +43,10 @@ __all__ = [
     "ProviderType",
     # Implementations
     "GitHubProvider",
+    "ForgejoProvider",
     # Factory
     "get_provider",
     "register_provider",
+    "list_available_providers",
+    "is_provider_available",
 ]

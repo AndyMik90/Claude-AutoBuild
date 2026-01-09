@@ -20,6 +20,15 @@ const GITLAB_ENV_KEYS = {
   AUTO_SYNC: 'GITLAB_AUTO_SYNC'
 } as const;
 
+// Forgejo environment variable keys (self-hosted Forgejo/Gitea instances)
+const FORGEJO_ENV_KEYS = {
+  ENABLED: 'FORGEJO_ENABLED',
+  TOKEN: 'FORGEJO_TOKEN',
+  INSTANCE_URL: 'FORGEJO_INSTANCE_URL',
+  REPO: 'FORGEJO_REPO',
+  AUTO_SYNC: 'FORGEJO_AUTO_SYNC'
+} as const;
+
 /**
  * Helper to generate .env line (DRY)
  */
@@ -132,6 +141,22 @@ export function registerEnvHandlers(
     }
     if (config.gitlabAutoSync !== undefined) {
       existingVars[GITLAB_ENV_KEYS.AUTO_SYNC] = config.gitlabAutoSync ? 'true' : 'false';
+    }
+    // Forgejo Integration (self-hosted Forgejo/Gitea)
+    if (config.forgejoEnabled !== undefined) {
+      existingVars[FORGEJO_ENV_KEYS.ENABLED] = config.forgejoEnabled ? 'true' : 'false';
+    }
+    if (config.forgejoToken !== undefined) {
+      existingVars[FORGEJO_ENV_KEYS.TOKEN] = config.forgejoToken;
+    }
+    if (config.forgejoInstanceUrl !== undefined) {
+      existingVars[FORGEJO_ENV_KEYS.INSTANCE_URL] = config.forgejoInstanceUrl;
+    }
+    if (config.forgejoRepo !== undefined) {
+      existingVars[FORGEJO_ENV_KEYS.REPO] = config.forgejoRepo;
+    }
+    if (config.forgejoAutoSync !== undefined) {
+      existingVars[FORGEJO_ENV_KEYS.AUTO_SYNC] = config.forgejoAutoSync ? 'true' : 'false';
     }
     // Git/Worktree Settings
     if (config.defaultBranch !== undefined) {
@@ -261,6 +286,15 @@ ${envLine(existingVars, GITLAB_ENV_KEYS.PROJECT, 'group/project')}
 ${envLine(existingVars, GITLAB_ENV_KEYS.AUTO_SYNC, 'false')}
 
 # =============================================================================
+# FORGEJO INTEGRATION (OPTIONAL - Self-hosted Forgejo/Gitea)
+# =============================================================================
+${existingVars[FORGEJO_ENV_KEYS.ENABLED] !== undefined ? `${FORGEJO_ENV_KEYS.ENABLED}=${existingVars[FORGEJO_ENV_KEYS.ENABLED]}` : `# ${FORGEJO_ENV_KEYS.ENABLED}=true`}
+${envLine(existingVars, FORGEJO_ENV_KEYS.INSTANCE_URL, 'https://codeberg.org')}
+${envLine(existingVars, FORGEJO_ENV_KEYS.TOKEN)}
+${envLine(existingVars, FORGEJO_ENV_KEYS.REPO, 'owner/repo')}
+${envLine(existingVars, FORGEJO_ENV_KEYS.AUTO_SYNC, 'false')}
+
+# =============================================================================
 # GIT/WORKTREE SETTINGS (OPTIONAL)
 # =============================================================================
 # Default base branch for worktree creation
@@ -372,6 +406,7 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         linearEnabled: false,
         githubEnabled: false,
         gitlabEnabled: false,
+        forgejoEnabled: false,
         graphitiEnabled: false,
         enableFancyUi: true,
         claudeTokenIsGlobal: false,
@@ -444,6 +479,22 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       }
       if (vars[GITLAB_ENV_KEYS.AUTO_SYNC]?.toLowerCase() === 'true') {
         config.gitlabAutoSync = true;
+      }
+
+      // Forgejo config (self-hosted Forgejo/Gitea)
+      if (vars[FORGEJO_ENV_KEYS.TOKEN]) {
+        config.forgejoToken = vars[FORGEJO_ENV_KEYS.TOKEN];
+        // Enable by default if token exists and FORGEJO_ENABLED is not explicitly false
+        config.forgejoEnabled = vars[FORGEJO_ENV_KEYS.ENABLED]?.toLowerCase() !== 'false';
+      }
+      if (vars[FORGEJO_ENV_KEYS.INSTANCE_URL]) {
+        config.forgejoInstanceUrl = vars[FORGEJO_ENV_KEYS.INSTANCE_URL];
+      }
+      if (vars[FORGEJO_ENV_KEYS.REPO]) {
+        config.forgejoRepo = vars[FORGEJO_ENV_KEYS.REPO];
+      }
+      if (vars[FORGEJO_ENV_KEYS.AUTO_SYNC]?.toLowerCase() === 'true') {
+        config.forgejoAutoSync = true;
       }
 
       // Git/Worktree config

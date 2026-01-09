@@ -1,0 +1,128 @@
+{
+  "title": "Forgejo",
+  "description": "Intégration Git auto-hébergée pour les instances Forgejo et Gitea",
+
+  "instances": {
+    "title": "Instances Forgejo",
+    "add": "Ajouter une instance",
+    "addDescription": "Connecter une instance Forgejo ou Gitea auto-hébergée",
+    "edit": "Modifier l'instance",
+    "remove": "Supprimer l'instance",
+    "noInstances": "Aucune instance Forgejo configurée",
+    "testConnection": "Tester la connexion",
+    "testing": "Test de la connexion...",
+    "connected": "Connecté",
+    "disconnected": "Déconnecté",
+    "lastSynced": "Dernière synchronisation"
+  },
+
+  "form": {
+    "name": "Nom de l'instance",
+    "namePlaceholder": "Mon serveur Forgejo",
+    "nameHelp": "Un nom convivial pour identifier cette instance",
+    "url": "URL de l'instance",
+    "urlPlaceholder": "https://codeberg.org",
+    "urlHelp": "L'URL de base de votre instance Forgejo ou Gitea",
+    "token": "Jeton d'accès",
+    "tokenPlaceholder": "Entrez votre jeton d'accès API",
+    "tokenHelp": "Générez un jeton dans votre instance Forgejo sous Paramètres > Applications"
+  },
+
+  "issues": {
+    "title": "Issues",
+    "noIssues": "Aucune issue trouvée",
+    "open": "Ouvertes",
+    "closed": "Fermées",
+    "all": "Toutes",
+    "loading": "Chargement des issues...",
+    "error": "Échec du chargement des issues",
+    "investigate": "Investiguer",
+    "import": "Importer comme tâche",
+    "importMultiple": "Importer la sélection",
+    "createTask": "Créer une tâche à partir de l'issue"
+  },
+
+  "prs": {
+    "title": "Pull Requests",
+    "noPRs": "Aucune pull request trouvée",
+    "open": "Ouvertes",
+    "closed": "Fermées",
+    "merged": "Fusionnées",
+    "all": "Toutes",
+    "loading": "Chargement des pull requests...",
+    "error": "Échec du chargement des pull requests",
+    "review": "Réviser",
+    "merge": "Fusionner",
+    "close": "Fermer",
+    "draft": "Brouillon"
+  },
+
+  "review": {
+    "title": "Révision IA",
+    "running": "Révision en cours...",
+    "complete": "Révision terminée",
+    "findings": "Résultats",
+    "noFindings": "Aucun problème trouvé",
+    "approve": "Approuver",
+    "requestChanges": "Demander des modifications",
+    "comment": "Commenter",
+    "post": "Publier la révision"
+  },
+
+  "sync": {
+    "title": "État de la synchronisation",
+    "connected": "Connecté à {{instanceName}}",
+    "disconnected": "Non connecté",
+    "lastSync": "Dernière synchronisation {{time}}",
+    "refresh": "Actualiser",
+    "syncing": "Synchronisation..."
+  },
+
+  "config": {
+    "title": "Configuration",
+    "envVars": "Variables d'environnement",
+    "instanceUrl": "FORGEJO_INSTANCE_URL",
+    "token": "FORGEJO_TOKEN",
+    "repo": "FORGEJO_REPO",
+    "help": "Ajoutez ces variables au fichier .env de votre projet pour vous connecter à une instance Forgejo"
+  },
+
+  "errors": {
+    "notConfigured": "Forgejo non configuré. Veuillez ajouter FORGEJO_INSTANCE_URL, FORGEJO_TOKEN et FORGEJO_REPO à votre fichier .env.",
+    "connectionFailed": "Échec de la connexion à l'instance Forgejo",
+    "invalidToken": "Jeton d'accès invalide ou expiré",
+    "repoNotFound": "Dépôt non trouvé"
+  },
+
+  "settings": {
+    "enableIssues": "Activer les Issues Forgejo",
+    "enableIssuesDescription": "Synchroniser les issues depuis Forgejo/Gitea et créer des tâches automatiquement",
+    "instance": "Instance Forgejo",
+    "instanceDescription": "Entrez l'URL de votre instance Forgejo ou Gitea auto-hébergée (ex: codeberg.org)",
+    "personalAccessToken": "Jeton d'accès personnel",
+    "tokenScope": "Créez un jeton avec le scope",
+    "scopeRepo": "repo",
+    "scopeFrom": "depuis",
+    "forgejoSettings": "Paramètres Forgejo",
+    "tokenPlaceholder": "Entrez votre jeton d'accès API",
+    "repository": "Dépôt",
+    "repositoryFormat": "Format :",
+    "repositoryFormatExample": "(ex: octocat/hello-world)",
+    "connectionStatus": "État de la connexion",
+    "checking": "Vérification de la connexion...",
+    "connectedTo": "Connecté à",
+    "notConnected": "Non connecté",
+    "issuesAvailable": "Issues Forgejo disponibles",
+    "issuesAvailableDescription": "Consultez et importez les issues Forgejo depuis la navigation latérale.",
+    "defaultBranch": "Branche par défaut",
+    "defaultBranchDescription": "Branche de base pour créer les worktrees de tâches",
+    "loadingBranches": "Chargement des branches...",
+    "autoDetect": "Détection auto",
+    "searchBranches": "Rechercher des branches...",
+    "noMatchingBranches": "Aucune branche correspondante",
+    "noBranchesFound": "Aucune branche trouvée",
+    "branchFromNote": "Toutes les nouvelles tâches seront créées à partir de",
+    "autoSyncOnLoad": "Synchronisation auto au chargement",
+    "autoSyncDescription": "Récupérer automatiquement les issues au chargement du projet"
+  }
+}
