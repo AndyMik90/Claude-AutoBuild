@@ -5,7 +5,9 @@ import type {
   RoadmapFeature,
   RoadmapFeatureStatus,
   RoadmapGenerationStatus,
-  FeatureSource
+  FeatureSource,
+  ContinuousResearchState,
+  ContinuousResearchProgress
 } from '../../shared/types';
 
 /**
@@ -52,6 +54,9 @@ interface RoadmapState {
   competitorAnalysis: CompetitorAnalysis | null;
   generationStatus: RoadmapGenerationStatus;
   currentProjectId: string | null;  // Track which project we're viewing/generating for
+  // Continuous research state
+  continuousResearchState: ContinuousResearchState | null;
+  continuousResearchProgress: ContinuousResearchProgress | null;
 
   // Actions
   setRoadmap: (roadmap: Roadmap | null) => void;
@@ -67,6 +72,11 @@ interface RoadmapState {
   reorderFeatures: (phaseId: string, featureIds: string[]) => void;
   updateFeaturePhase: (featureId: string, newPhaseId: string) => void;
   addFeature: (feature: Omit<RoadmapFeature, 'id'>) => string;
+  // Continuous research actions
+  setContinuousResearchState: (state: ContinuousResearchState | null) => void;
+  setContinuousResearchProgress: (progress: ContinuousResearchProgress | null) => void;
+  updateContinuousResearchProgress: (progress: Partial<ContinuousResearchProgress>) => void;
+  clearContinuousResearch: () => void;
 }
 
 const initialGenerationStatus: RoadmapGenerationStatus = {
@@ -81,6 +91,8 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
   competitorAnalysis: null,
   generationStatus: initialGenerationStatus,
   currentProjectId: null,
+  continuousResearchState: null,
+  continuousResearchProgress: null,
 
   // Actions
   setRoadmap: (roadmap) => set({ roadmap }),
@@ -169,7 +181,9 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
       roadmap: null,
       competitorAnalysis: null,
       generationStatus: initialGenerationStatus,
-      currentProjectId: null
+      currentProjectId: null,
+      continuousResearchState: null,
+      continuousResearchProgress: null
     }),
 
   // Reorder features within a phase
@@ -238,7 +252,46 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
     });
 
     return newId;
-  }
+  },
+
+  // Continuous research actions
+  setContinuousResearchState: (state) => set({ continuousResearchState: state }),
+
+  setContinuousResearchProgress: (progress) => set({ continuousResearchProgress: progress }),
+
+  updateContinuousResearchProgress: (partialProgress) =>
+    set((state) => {
+      if (!state.continuousResearchProgress) {
+        // Initialize with partial progress if no existing progress
+        return {
+          continuousResearchProgress: {
+            phase: 'idle',
+            phaseName: 'Idle',
+            iterationCount: 0,
+            phaseIteration: 0,
+            totalPhases: 5,
+            elapsedHours: 0,
+            durationHours: 8,
+            progress: 0,
+            featureCount: 0,
+            findingCount: 0,
+            ...partialProgress
+          } as ContinuousResearchProgress
+        };
+      }
+      return {
+        continuousResearchProgress: {
+          ...state.continuousResearchProgress,
+          ...partialProgress
+        }
+      };
+    }),
+
+  clearContinuousResearch: () =>
+    set({
+      continuousResearchState: null,
+      continuousResearchProgress: null
+    })
 }));
 
 // Helper functions for loading roadmap
@@ -408,5 +461,170 @@ export function getFeatureStats(roadmap: Roadmap | null): {
     byPriority,
     byStatus,
     byComplexity
+  };
+}
+
+// ============================================
+// Continuous Research Helper Functions
+// ============================================
+
+/**
+ * Start continuous research mode for a project.
+ * @param projectId - The project to run continuous research on
+ * @param durationHours - Duration in hours (default: 8)
+ */
+export function startContinuousResearch(projectId: string, durationHours: number = 8): void {
+  const store = useRoadmapStore.getState();
+
+  // Debug logging
+  if (window.DEBUG) {
+    console.log('[ContinuousResearch] Starting:', { projectId, durationHours });
+  }
+
+  // Initialize progress state
+  store.setContinuousResearchProgress({
+    phase: 'idle',
+    phaseName: 'Starting...',
+    iterationCount: 0,
+    phaseIteration: 0,
+    totalPhases: 5,
+    elapsedHours: 0,
+    durationHours,
+    progress: 0,
+    featureCount: 0,
+    findingCount: 0,
+    message: 'Initializing continuous research...'
+  });
+
+  window.electronAPI.startContinuousResearch(projectId, durationHours);
+}
+
+/**
+ * Stop continuous research mode for a project.
+ * @param projectId - The project to stop research for
+ */
+export async function stopContinuousResearch(projectId: string): Promise<boolean> {
+  const store = useRoadmapStore.getState();
+
+  // Debug logging
+  if (window.DEBUG) {
+    console.log('[ContinuousResearch] Stop requested:', { projectId });
+  }
+
+  // Update progress to show stopping state
+  if (store.continuousResearchProgress) {
+    store.updateContinuousResearchProgress({
+      message: 'Stopping research...'
+    });
+  }
+
+  const result = await window.electronAPI.stopContinuousResearch(projectId);
+
+  // Debug logging
+  if (window.DEBUG) {
+    console.log('[ContinuousResearch] Stop result:', { projectId, success: result.success });
+  }
+
+  if (result.success) {
+    // Clear progress on successful stop
+    store.clearContinuousResearch();
+  }
+
+  return result.success;
+}
+
+/**
+ * Resume continuous research from saved state.
+ * @param projectId - The project to resume research for
+ */
+export async function resumeContinuousResearch(projectId: string): Promise<boolean> {
+  const store = useRoadmapStore.getState();
+
+  // Debug logging
+  if (window.DEBUG) {
+    console.log('[ContinuousResearch] Resume requested:', { projectId });
+  }
+
+  // Initialize progress state
+  store.setContinuousResearchProgress({
+    phase: 'idle',
+    phaseName: 'Resuming...',
+    iterationCount: 0,
+    phaseIteration: 0,
+    totalPhases: 5,
+    elapsedHours: 0,
+    durationHours: 8,
+    progress: 0,
+    featureCount: 0,
+    findingCount: 0,
+    message: 'Resuming continuous research from saved state...'
+  });
+
+  const result = await window.electronAPI.resumeContinuousResearch(projectId);
+
+  // Debug logging
+  if (window.DEBUG) {
+    console.log('[ContinuousResearch] Resume result:', { projectId, success: result.success });
+  }
+
+  if (!result.success) {
+    store.clearContinuousResearch();
+  }
+
+  return result.success;
+}
+
+/**
+ * Get the current continuous research status for a project.
+ * @param projectId - The project to get status for
+ */
+export async function getContinuousResearchStatus(projectId: string): Promise<ContinuousResearchState | null> {
+  const result = await window.electronAPI.getContinuousResearchStatus(projectId);
+
+  if (result.success && result.data) {
+    // Update store with the fetched state
+    useRoadmapStore.getState().setContinuousResearchState(result.data);
+    return result.data;
+  }
+
+  return null;
+}
+
+/**
+ * Check if continuous research is currently running.
+ */
+export function isContinuousResearchRunning(): boolean {
+  const state = useRoadmapStore.getState().continuousResearchState;
+  return state?.isRunning ?? false;
+}
+
+/**
+ * Get continuous research feature stats by priority level.
+ */
+export function getContinuousResearchStats(state: ContinuousResearchState | null): {
+  total: number;
+  byPriorityLevel: Record<string, number>;
+  byPhase: Record<string, number>;
+} {
+  if (!state) {
+    return {
+      total: 0,
+      byPriorityLevel: {},
+      byPhase: {}
+    };
+  }
+
+  const byPriorityLevel: Record<string, number> = {};
+  const byPhase: Record<string, number> = {};
+
+  state.features.forEach((feature) => {
+    byPriorityLevel[feature.priority_level] = (byPriorityLevel[feature.priority_level] || 0) + 1;
+    byPhase[feature.phaseDiscovered] = (byPhase[feature.phaseDiscovered] || 0) + 1;
+  });
+
+  return {
+    total: state.features.length,
+    byPriorityLevel,
+    byPhase
   };
 }

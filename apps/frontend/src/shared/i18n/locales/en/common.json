@@ -307,5 +307,112 @@
     "done": "Done",
     "failedLabel": "Failed",
     "starting": "Starting..."
+  },
+  "continuousResearch": {
+    "title": "Continuous Research",
+    "toggle": {
+      "enable": "Enable Continuous Mode",
+      "disable": "Disable Continuous Mode",
+      "label": "Continuous Mode",
+      "tooltip": "Run overnight autonomous research that continuously discovers and prioritizes features"
+    },
+    "duration": {
+      "label": "Duration",
+      "hours": "{{count}} hour",
+      "hours_plural": "{{count}} hours",
+      "selectDuration": "Select duration",
+      "options": {
+        "1h": "1 hour",
+        "2h": "2 hours",
+        "4h": "4 hours",
+        "8h": "8 hours",
+        "12h": "12 hours",
+        "24h": "24 hours"
+      }
+    },
+    "phases": {
+      "sotaLLM": "SOTA LLM Developments",
+      "competitorAnalysis": "Competitor Analysis",
+      "performanceImprovements": "Performance Improvements",
+      "uiuxImprovements": "UI/UX Improvements",
+      "featureDiscovery": "Feature Discovery"
+    },
+    "priority": {
+      "label": "Priority",
+      "score": "Priority Score",
+      "level": "Priority Level",
+      "levels": {
+        "critical": "Critical",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "factors": {
+        "acceleration": "Development Acceleration",
+        "impact": "Impact",
+        "feasibility": "Feasibility",
+        "strategic": "Strategic Alignment",
+        "dependency": "Dependency"
+      }
+    },
+    "status": {
+      "idle": "Idle",
+      "running": "Running",
+      "paused": "Paused",
+      "stopped": "Stopped",
+      "completed": "Completed",
+      "resuming": "Resuming..."
+    },
+    "progress": {
+      "iteration": "Iteration {{current}} of {{total}}",
+      "currentPhase": "Current Phase: {{phase}}",
+      "featuresDiscovered": "{{count}} feature discovered",
+      "featuresDiscovered_plural": "{{count}} features discovered",
+      "timeRemaining": "{{time}} remaining",
+      "timeElapsed": "{{time}} elapsed",
+      "rebalancing": "Rebalancing priorities..."
+    },
+    "controls": {
+      "start": "Start Research",
+      "stop": "Stop Research",
+      "pause": "Pause",
+      "resume": "Resume",
+      "starting": "Starting...",
+      "stopping": "Stopping..."
+    },
+    "messages": {
+      "started": "Continuous research started",
+      "stopped": "Continuous research stopped",
+      "paused": "Continuous research paused",
+      "resumed": "Continuous research resumed",
+      "completed": "Continuous research completed",
+      "stateSaved": "Research state saved",
+      "stateRestored": "Research state restored",
+      "newFeaturesFound": "{{count}} new feature found",
+      "newFeaturesFound_plural": "{{count}} new features found",
+      "prioritiesUpdated": "Feature priorities updated"
+    },
+    "errors": {
+      "startFailed": "Failed to start continuous research",
+      "stopFailed": "Failed to stop continuous research",
+      "rateLimited": "Rate limited - pausing research",
+      "phaseFailed": "Phase {{phase}} failed",
+      "stateLoadFailed": "Failed to load research state",
+      "stateSaveFailed": "Failed to save research state"
+    },
+    "confirmations": {
+      "stopTitle": "Stop Continuous Research?",
+      "stopMessage": "This will stop the ongoing research session. Your progress will be saved and can be resumed later.",
+      "discardTitle": "Discard Research State?",
+      "discardMessage": "This will discard all saved research progress. This action cannot be undone."
+    },
+    "accessibility": {
+      "toggleContinuousModeAriaLabel": "Toggle continuous research mode",
+      "durationSelectorAriaLabel": "Select research duration",
+      "startResearchAriaLabel": "Start continuous research",
+      "stopResearchAriaLabel": "Stop continuous research",
+      "resumeResearchAriaLabel": "Resume continuous research",
+      "progressIndicatorAriaLabel": "Research progress: {{phase}}, iteration {{iteration}}"
+    }
   }
 }

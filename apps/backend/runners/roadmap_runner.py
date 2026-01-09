@@ -11,6 +11,11 @@ Usage:
     python auto-claude/roadmap_runner.py --project /path/to/project
     python auto-claude/roadmap_runner.py --project /path/to/project --refresh
     python auto-claude/roadmap_runner.py --project /path/to/project --output roadmap.json
+
+    # Continuous autonomous research mode:
+    python auto-claude/roadmap_runner.py --project /path/to/project --continuous
+    python auto-claude/roadmap_runner.py --project /path/to/project --continuous --duration 8
+    python auto-claude/roadmap_runner.py --project /path/to/project --continuous --resume
 """
 
 import asyncio
@@ -33,6 +38,7 @@ from debug import debug, debug_error, debug_warning
 
 # Import from refactored roadmap package
 from roadmap import RoadmapOrchestrator
+from runners.continuous_roadmap_runner import ContinuousRoadmapRunner
 
 
 def main():
@@ -84,6 +90,22 @@ def main():
         dest="refresh_competitor_analysis",
         help="Force refresh competitor analysis even if it exists (requires --competitor-analysis)",
     )
+    parser.add_argument(
+        "--continuous",
+        action="store_true",
+        help="Enable continuous autonomous research mode (cycles through research phases)",
+    )
+    parser.add_argument(
+        "--duration",
+        type=float,
+        default=8.0,
+        help="Duration in hours for continuous research session (default: 8, requires --continuous)",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume continuous research from saved state (requires --continuous)",
+    )
 
     args = parser.parse_args()
 
@@ -94,6 +116,9 @@ def main():
         output=str(args.output) if args.output else None,
         model=args.model,
         refresh=args.refresh,
+        continuous=args.continuous,
+        duration=args.duration if args.continuous else None,
+        resume=args.resume if args.continuous else None,
     )
 
     # Validate project directory
@@ -107,28 +132,57 @@ def main():
         print(f"Error: Project directory does not exist: {project_dir}")
         sys.exit(1)
 
-    debug(
-        "roadmap_runner", "Creating RoadmapOrchestrator", project_dir=str(project_dir)
-    )
+    # Handle continuous mode vs standard mode
+    if args.continuous:
+        debug(
+            "roadmap_runner",
+            "Creating ContinuousRoadmapRunner",
+            project_dir=str(project_dir),
+            duration=args.duration,
+            resume=args.resume,
+        )
 
-    orchestrator = RoadmapOrchestrator(
-        project_dir=project_dir,
-        output_dir=args.output,
-        model=args.model,
-        thinking_level=args.thinking_level,
-        refresh=args.refresh,
-        enable_competitor_analysis=args.enable_competitor_analysis,
-        refresh_competitor_analysis=args.refresh_competitor_analysis,
-    )
+        runner = ContinuousRoadmapRunner(
+            project_dir=project_dir,
+            output_dir=args.output,
+            model=args.model,
+            thinking_level=args.thinking_level,
+            duration_hours=args.duration,
+        )
 
-    try:
-        success = asyncio.run(orchestrator.run())
-        debug("roadmap_runner", "Roadmap generation finished", success=success)
-        sys.exit(0 if success else 1)
-    except KeyboardInterrupt:
-        debug_warning("roadmap_runner", "Roadmap generation interrupted by user")
-        print("\n\nRoadmap generation interrupted.")
-        sys.exit(1)
+        try:
+            success = asyncio.run(runner.run(resume=args.resume))
+            debug("roadmap_runner", "Continuous research finished", success=success)
+            sys.exit(0 if success else 1)
+        except KeyboardInterrupt:
+            debug_warning("roadmap_runner", "Continuous research interrupted by user")
+            print("\n\nContinuous research interrupted. State saved for resume.")
+            sys.exit(0)
+    else:
+        debug(
+            "roadmap_runner",
+            "Creating RoadmapOrchestrator",
+            project_dir=str(project_dir),
+        )
+
+        orchestrator = RoadmapOrchestrator(
+            project_dir=project_dir,
+            output_dir=args.output,
+            model=args.model,
+            thinking_level=args.thinking_level,
+            refresh=args.refresh,
+            enable_competitor_analysis=args.enable_competitor_analysis,
+            refresh_competitor_analysis=args.refresh_competitor_analysis,
+        )
+
+        try:
+            success = asyncio.run(orchestrator.run())
+            debug("roadmap_runner", "Roadmap generation finished", success=success)
+            sys.exit(0 if success else 1)
+        except KeyboardInterrupt:
+            debug_warning("roadmap_runner", "Roadmap generation interrupted by user")
+            print("\n\nRoadmap generation interrupted.")
+            sys.exit(1)
 
 
 if __name__ == "__main__":

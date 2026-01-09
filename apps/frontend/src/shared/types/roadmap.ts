@@ -181,3 +181,156 @@ export interface RoadmapGenerationStatus {
   message: string;
   error?: string;
 }
+
+// ============================================
+// Continuous Research Types
+// ============================================
+
+/**
+ * Phases of continuous research mode.
+ * Cycles through: SOTA LLM → Competitor Analysis → Performance → UI/UX → Feature Discovery
+ */
+export type ContinuousResearchPhase =
+  | 'idle'
+  | 'sota_llm'
+  | 'competitor_analysis'
+  | 'performance_improvements'
+  | 'ui_ux_improvements'
+  | 'feature_discovery';
+
+/**
+ * Events that trigger priority queue rebalancing.
+ */
+export type RebalanceTrigger =
+  | 'new_feature'
+  | 'evidence_updated'
+  | 'scheduled'
+  | 'manual';
+
+/**
+ * Priority levels for continuous research features.
+ * Mapped from priority_score thresholds (0-100).
+ */
+export type ContinuousResearchPriorityLevel =
+  | 'critical'  // 80-100
+  | 'high'      // 60-80
+  | 'medium'    // 40-60
+  | 'low';      // 0-40
+
+/**
+ * Weights for priority scoring factors (all values 0-100).
+ * Must sum to 1.0 when used for calculation.
+ */
+export interface PriorityWeights {
+  acceleration: number;        // Development acceleration impact (30%)
+  impact: number;              // User/business impact (25%)
+  feasibility: number;         // Implementation feasibility (20%)
+  strategic_alignment: number; // Alignment with project strategy (15%)
+  dependency: number;          // Inverse of dependency complexity (10%)
+}
+
+/**
+ * A single research finding from continuous research.
+ */
+export interface ContinuousResearchFinding {
+  id: string;
+  phase: ContinuousResearchPhase;
+  title: string;
+  description: string;
+  source?: string;
+  discoveredAt: string;  // ISO date string
+  iteration: number;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * A feature discovered during continuous research.
+ * Includes priority scoring fields for dynamic prioritization.
+ */
+export interface ContinuousResearchFeature {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  phaseDiscovered: ContinuousResearchPhase;
+  iterationDiscovered: number;
+
+  // Priority scoring (0-100 scale)
+  priority_score: number;
+  priority_level: ContinuousResearchPriorityLevel;
+
+  // Individual scoring factors (0-100)
+  acceleration: number;
+  impact: number;
+  feasibility: number;
+  strategic_alignment: number;
+  dependency: number;
+
+  // Evidence and timestamps
+  evidence: string[];
+  createdAt: string;   // ISO date string
+  updatedAt: string;   // ISO date string
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * State for continuous research mode.
+ * Tracks running status, current phase, accumulated features and findings.
+ */
+export interface ContinuousResearchState {
+  // Running state
+  isRunning: boolean;
+  startedAt?: string;    // ISO date string
+  stoppedAt?: string;    // ISO date string
+  durationHours: number;
+
+  // Phase tracking
+  currentPhase: ContinuousResearchPhase;
+  phaseStartedAt?: string;  // ISO date string
+  iterationCount: number;
+  phaseIteration: number;   // Phase index within current iteration
+
+  // Accumulated data
+  features: ContinuousResearchFeature[];
+  findings: ContinuousResearchFinding[];
+
+  // Rebalancing tracking
+  lastRebalanceAt?: string;  // ISO date string
+  rebalanceCount: number;
+
+  // Error tracking
+  errors: string[];
+  lastError?: string;
+}
+
+/**
+ * Progress indicator for continuous research UI.
+ */
+export interface ContinuousResearchProgress {
+  phase: ContinuousResearchPhase;
+  phaseName: string;          // Human-readable phase name
+  iterationCount: number;
+  phaseIteration: number;     // Current phase within iteration (0-4)
+  totalPhases: number;        // Total phases per iteration (5)
+  elapsedHours: number;
+  durationHours: number;
+  progress: number;           // Overall progress percentage (0-100)
+  featureCount: number;
+  findingCount: number;
+  message?: string;
+}
+
+/**
+ * Summary statistics for continuous research state.
+ */
+export interface ContinuousResearchSummary {
+  isRunning: boolean;
+  currentPhase: ContinuousResearchPhase;
+  iterationCount: number;
+  elapsedHours: number;
+  durationHours: number;
+  featureCount: number;
+  findingCount: number;
+  rebalanceCount: number;
+  errorCount: number;
+}

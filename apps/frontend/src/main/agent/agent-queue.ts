@@ -6,7 +6,7 @@ import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { RoadmapConfig } from './types';
-import type { IdeationConfig, Idea } from '../../shared/types';
+import type { IdeationConfig, Idea, ContinuousResearchSummary, ContinuousResearchProgress } from '../../shared/types';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
 import { getAPIProfileEnv } from '../services/profile';
 import { getOAuthModeClearVars } from './env-utils';
@@ -855,5 +855,424 @@ export class AgentQueueManager {
   isRoadmapRunning(projectId: string): boolean {
     const processInfo = this.state.getProcess(projectId);
     return processInfo?.queueProcessType === 'roadmap';
+  }
+
+  // ============================================
+  // Continuous Roadmap Methods
+  // ============================================
+
+  /**
+   * Start continuous roadmap research mode
+   */
+  async startContinuousRoadmap(
+    projectId: string,
+    projectPath: string,
+    durationHours: number = 8,
+    config?: RoadmapConfig
+  ): Promise<void> {
+    debugLog('[Agent Queue] Starting continuous roadmap:', {
+      projectId,
+      projectPath,
+      durationHours,
+      config
+    });
+
+    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+
+    if (!autoBuildSource) {
+      debugError('[Agent Queue] Auto-build source path not found');
+      this.emitter.emit('continuous-roadmap-error', projectId, 'Auto-build source path not found. Please configure it in App Settings.');
+      return;
+    }
+
+    const roadmapRunnerPath = path.join(autoBuildSource, 'runners', 'roadmap_runner.py');
+
+    if (!existsSync(roadmapRunnerPath)) {
+      debugError('[Agent Queue] Roadmap runner not found at:', roadmapRunnerPath);
+      this.emitter.emit('continuous-roadmap-error', projectId, `Roadmap runner not found at: ${roadmapRunnerPath}`);
+      return;
+    }
+
+    const args = [roadmapRunnerPath, '--project', projectPath, '--continuous'];
+
+    // Add duration
+    args.push('--duration', durationHours.toString());
+
+    // Add model and thinking level from config
+    if (config?.model) {
+      args.push('--model', config.model);
+    }
+    if (config?.thinkingLevel) {
+      args.push('--thinking-level', config.thinkingLevel);
+    }
+
+    debugLog('[Agent Queue] Spawning continuous roadmap process with args:', args);
+
+    await this.spawnContinuousRoadmapProcess(projectId, projectPath, args, durationHours);
+  }
+
+  /**
+   * Resume continuous roadmap research from saved state
+   */
+  async resumeContinuousRoadmap(
+    projectId: string,
+    projectPath: string,
+    config?: RoadmapConfig
+  ): Promise<void> {
+    debugLog('[Agent Queue] Resuming continuous roadmap:', {
+      projectId,
+      projectPath,
+      config
+    });
+
+    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+
+    if (!autoBuildSource) {
+      debugError('[Agent Queue] Auto-build source path not found');
+      this.emitter.emit('continuous-roadmap-error', projectId, 'Auto-build source path not found. Please configure it in App Settings.');
+      return;
+    }
+
+    const roadmapRunnerPath = path.join(autoBuildSource, 'runners', 'roadmap_runner.py');
+
+    if (!existsSync(roadmapRunnerPath)) {
+      debugError('[Agent Queue] Roadmap runner not found at:', roadmapRunnerPath);
+      this.emitter.emit('continuous-roadmap-error', projectId, `Roadmap runner not found at: ${roadmapRunnerPath}`);
+      return;
+    }
+
+    const args = [roadmapRunnerPath, '--project', projectPath, '--continuous', '--resume'];
+
+    // Add model and thinking level from config
+    if (config?.model) {
+      args.push('--model', config.model);
+    }
+    if (config?.thinkingLevel) {
+      args.push('--thinking-level', config.thinkingLevel);
+    }
+
+    debugLog('[Agent Queue] Spawning continuous roadmap process (resume) with args:', args);
+
+    // Use 0 for durationHours when resuming - the runner will read from state file
+    await this.spawnContinuousRoadmapProcess(projectId, projectPath, args, 0);
+  }
+
+  /**
+   * Spawn a Python process for continuous roadmap research
+   */
+  private async spawnContinuousRoadmapProcess(
+    projectId: string,
+    projectPath: string,
+    args: string[],
+    durationHours: number
+  ): Promise<void> {
+    debugLog('[Agent Queue] Spawning continuous roadmap process:', { projectId, projectPath, durationHours });
+
+    // Run from auto-claude source directory so imports work correctly
+    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+    const cwd = autoBuildSource || process.cwd();
+
+    // Ensure Python environment is ready before spawning
+    if (!await this.ensurePythonEnvReady(projectId, 'roadmap-error')) {
+      return;
+    }
+
+    // Kill existing process for this project if any
+    const wasKilled = this.processManager.killProcess(projectId);
+    if (wasKilled) {
+      debugLog('[Agent Queue] Killed existing process for project:', projectId);
+    }
+
+    // Generate unique spawn ID for this process instance
+    const spawnId = this.state.generateSpawnId();
+    debugLog('[Agent Queue] Generated continuous roadmap spawn ID:', spawnId);
+
+    // Get combined environment variables
+    const combinedEnv = this.processManager.getCombinedEnv(projectPath);
+
+    // Get active Claude profile environment (CLAUDE_CODE_OAUTH_TOKEN if not default)
+    const profileEnv = getProfileEnv();
+
+    // Get active API profile environment variables
+    const apiProfileEnv = await getAPIProfileEnv();
+
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
+
+    // Get Python path from process manager (uses venv if configured)
+    const pythonPath = this.processManager.getPythonPath();
+
+    // Get Python environment from pythonEnvManager (includes bundled site-packages)
+    const pythonEnv = pythonEnvManager.getPythonEnv();
+
+    // Build PYTHONPATH: bundled site-packages (if any) + autoBuildSource for local imports
+    const pythonPathParts: string[] = [];
+    if (pythonEnv.PYTHONPATH) {
+      pythonPathParts.push(pythonEnv.PYTHONPATH);
+    }
+    if (autoBuildSource) {
+      pythonPathParts.push(autoBuildSource);
+    }
+    const combinedPythonPath = pythonPathParts.join(process.platform === 'win32' ? ';' : ':');
+
+    // Build final environment with proper precedence
+    const finalEnv = {
+      ...process.env,
+      ...pythonEnv,
+      ...combinedEnv,
+      ...oauthModeClearVars,
+      ...profileEnv,
+      ...apiProfileEnv,
+      PYTHONPATH: combinedPythonPath,
+      PYTHONUNBUFFERED: '1',
+      PYTHONUTF8: '1'
+    };
+
+    // Debug: Show OAuth token source
+    const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
+      ? 'Electron app profile'
+      : (combinedEnv['CLAUDE_CODE_OAUTH_TOKEN'] ? 'auto-claude/.env' : 'not found');
+    const hasToken = !!(finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
+    debugLog('[Agent Queue] OAuth token status:', {
+      source: tokenSource,
+      hasToken
+    });
+
+    // Parse Python command to handle space-separated commands like "py -3"
+    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+      cwd,
+      env: finalEnv
+    });
+
+    this.state.addProcess(projectId, {
+      taskId: projectId,
+      process: childProcess,
+      startedAt: new Date(),
+      projectPath,
+      spawnId,
+      queueProcessType: 'continuous-roadmap'
+    });
+
+    // Track progress through output
+    let progressPhase = 'idle';
+    let progressPercent = 0;
+    let iterationCount = 0;
+    let featureCount = 0;
+    let findingCount = 0;
+    // Collect output for rate limit detection
+    let allOutput = '';
+
+    // Helper to emit logs - split multi-line output into individual log lines
+    const emitLogs = (log: string) => {
+      const lines = log.split('\n').filter(line => line.trim().length > 0);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.length > 0) {
+          this.emitter.emit('continuous-roadmap-log', projectId, trimmed);
+        }
+      }
+    };
+
+    // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
+    childProcess.stdout?.on('data', (data: Buffer) => {
+      const log = data.toString('utf8');
+      // Collect output for rate limit detection (keep last 10KB)
+      allOutput = (allOutput + log).slice(-10000);
+
+      // Emit all log lines for debugging
+      emitLogs(log);
+
+      // Parse progress markers from continuous runner output
+      // Expected format: CONTINUOUS_PROGRESS:phase:iteration:phase_idx:features:findings
+      const progressMatch = log.match(/CONTINUOUS_PROGRESS:(\w+):(\d+):(\d+):(\d+):(\d+)/);
+      if (progressMatch) {
+        const [, phase, iter, phaseIdx, features, findings] = progressMatch;
+        progressPhase = phase;
+        iterationCount = parseInt(iter, 10);
+        featureCount = parseInt(features, 10);
+        findingCount = parseInt(findings, 10);
+        const phaseIteration = parseInt(phaseIdx, 10);
+
+        // Calculate overall progress based on duration and elapsed time
+        // For now, use iteration-based progress
+        progressPercent = Math.min(95, iterationCount * 10 + phaseIteration * 2);
+
+        const progress: ContinuousResearchProgress = {
+          phase: progressPhase as ContinuousResearchProgress['phase'],
+          phaseName: this.getPhaseName(progressPhase),
+          iterationCount,
+          phaseIteration,
+          totalPhases: 5,
+          elapsedHours: 0, // TODO: Calculate from start time
+          durationHours,
+          progress: progressPercent,
+          featureCount,
+          findingCount,
+          message: `Running ${this.getPhaseName(progressPhase)} (Iteration ${iterationCount + 1})`
+        };
+
+        this.emitter.emit('continuous-roadmap-progress', projectId, progress);
+      }
+
+      // Parse iteration complete marker
+      // Expected format: CONTINUOUS_ITERATION_COMPLETE:iteration:features:findings:rebalances
+      const iterCompleteMatch = log.match(/CONTINUOUS_ITERATION_COMPLETE:(\d+):(\d+):(\d+):(\d+)/);
+      if (iterCompleteMatch) {
+        const [, iter, features, findings, rebalances] = iterCompleteMatch;
+        const summary: ContinuousResearchSummary = {
+          isRunning: true,
+          currentPhase: progressPhase as ContinuousResearchSummary['currentPhase'],
+          iterationCount: parseInt(iter, 10),
+          elapsedHours: 0, // TODO: Calculate from start time
+          durationHours,
+          featureCount: parseInt(features, 10),
+          findingCount: parseInt(findings, 10),
+          rebalanceCount: parseInt(rebalances, 10),
+          errorCount: 0
+        };
+
+        this.emitter.emit('continuous-roadmap-iteration-complete', projectId, summary);
+      }
+
+      // Emit general progress update
+      this.emitter.emit('continuous-roadmap-progress', projectId, {
+        phase: progressPhase,
+        phaseName: this.getPhaseName(progressPhase),
+        iterationCount,
+        phaseIteration: 0,
+        totalPhases: 5,
+        elapsedHours: 0,
+        durationHours,
+        progress: progressPercent,
+        featureCount,
+        findingCount,
+        message: log.trim().substring(0, 200)
+      } as ContinuousResearchProgress);
+    });
+
+    // Handle stderr - explicitly decode as UTF-8
+    childProcess.stderr?.on('data', (data: Buffer) => {
+      const log = data.toString('utf8');
+      // Collect stderr for rate limit detection too
+      allOutput = (allOutput + log).slice(-10000);
+      console.error('[Continuous Roadmap STDERR]', log);
+      emitLogs(log);
+    });
+
+    // Handle process exit
+    childProcess.on('exit', (code: number | null) => {
+      debugLog('[Agent Queue] Continuous roadmap process exited:', { projectId, code, spawnId });
+
+      // Check if this process was intentionally stopped by the user
+      const wasIntentionallyStopped = this.state.wasSpawnKilled(spawnId);
+      if (wasIntentionallyStopped) {
+        debugLog('[Agent Queue] Continuous roadmap process was intentionally stopped');
+        this.state.clearKilledSpawn(spawnId);
+        return;
+      }
+
+      // Get the stored project path before deleting from map
+      const processInfo = this.state.getProcess(projectId);
+      const storedProjectPath = processInfo?.projectPath;
+      this.state.deleteProcess(projectId);
+
+      // Check for rate limit if process failed
+      if (code !== 0) {
+        debugLog('[Agent Queue] Checking for rate limit (non-zero exit)');
+        const rateLimitDetection = detectRateLimit(allOutput);
+        if (rateLimitDetection.isRateLimited) {
+          debugLog('[Agent Queue] Rate limit detected for continuous roadmap');
+          const rateLimitInfo = createSDKRateLimitInfo('continuous-roadmap', rateLimitDetection, {
+            projectId
+          });
+          this.emitter.emit('sdk-rate-limit', rateLimitInfo);
+        }
+      }
+
+      if (code === 0) {
+        debugLog('[Agent Queue] Continuous roadmap completed successfully');
+        // Emit final summary
+        const summary: ContinuousResearchSummary = {
+          isRunning: false,
+          currentPhase: 'idle',
+          iterationCount,
+          elapsedHours: durationHours,
+          durationHours,
+          featureCount,
+          findingCount,
+          rebalanceCount: 0,
+          errorCount: 0
+        };
+        this.emitter.emit('continuous-roadmap-stopped', projectId, summary);
+      } else {
+        debugError('[Agent Queue] Continuous roadmap failed:', { projectId, code });
+        this.emitter.emit('continuous-roadmap-error', projectId, `Continuous roadmap failed with exit code ${code}`);
+      }
+    });
+
+    // Handle process error
+    childProcess.on('error', (err: Error) => {
+      console.error('[Continuous Roadmap] Process error:', err.message);
+      this.state.deleteProcess(projectId);
+      this.emitter.emit('continuous-roadmap-error', projectId, err.message);
+    });
+  }
+
+  /**
+   * Get human-readable phase name
+   */
+  private getPhaseName(phase: string): string {
+    const phaseNames: Record<string, string> = {
+      'idle': 'Idle',
+      'sota_llm': 'SOTA LLM Research',
+      'competitor_analysis': 'Competitor Analysis',
+      'performance_improvements': 'Performance Improvements',
+      'ui_ux_improvements': 'UI/UX Improvements',
+      'feature_discovery': 'Feature Discovery'
+    };
+    return phaseNames[phase] || phase;
+  }
+
+  /**
+   * Stop continuous roadmap research for a project
+   */
+  stopContinuousRoadmap(projectId: string): ContinuousResearchSummary | null {
+    debugLog('[Agent Queue] Stop continuous roadmap requested:', { projectId });
+
+    const processInfo = this.state.getProcess(projectId);
+    const isContinuous = processInfo?.queueProcessType === 'continuous-roadmap';
+    debugLog('[Agent Queue] Continuous roadmap process running?', { projectId, isContinuous, processType: processInfo?.queueProcessType });
+
+    if (isContinuous) {
+      debugLog('[Agent Queue] Killing continuous roadmap process:', projectId);
+      this.processManager.killProcess(projectId);
+
+      // Return a summary of the stopped session
+      const summary: ContinuousResearchSummary = {
+        isRunning: false,
+        currentPhase: 'idle',
+        iterationCount: 0, // Would need to track this
+        elapsedHours: 0,
+        durationHours: 0,
+        featureCount: 0,
+        findingCount: 0,
+        rebalanceCount: 0,
+        errorCount: 0
+      };
+
+      this.emitter.emit('continuous-roadmap-stopped', projectId, summary);
+      return summary;
+    }
+    debugLog('[Agent Queue] No running continuous roadmap process found for:', projectId);
+    return null;
+  }
+
+  /**
+   * Check if continuous roadmap is running for a project
+   */
+  isContinuousRoadmapRunning(projectId: string): boolean {
+    const processInfo = this.state.getProcess(projectId);
+    return processInfo?.queueProcessType === 'continuous-roadmap';
   }
 }

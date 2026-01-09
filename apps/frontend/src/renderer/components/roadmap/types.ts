@@ -1,4 +1,12 @@
-import type { RoadmapFeature, RoadmapPhase, Roadmap, CompetitorPainPoint, CompetitorAnalysis } from '../../../shared/types';
+import type {
+  RoadmapFeature,
+  RoadmapPhase,
+  Roadmap,
+  CompetitorPainPoint,
+  CompetitorAnalysis,
+  ContinuousResearchState,
+  ContinuousResearchProgress,
+} from '../../../shared/types';
 
 export interface RoadmapProps {
   projectId: string;
@@ -37,6 +45,12 @@ export interface RoadmapHeaderProps {
   onAddFeature: () => void;
   onRefresh: () => void;
   onViewCompetitorAnalysis?: () => void;
+  // Continuous research mode props
+  continuousState?: ContinuousResearchState | null;
+  continuousProgress?: ContinuousResearchProgress | null;
+  onStartContinuous?: (durationHours: number) => void;
+  onStopContinuous?: () => void;
+  onResumeContinuous?: () => void;
 }
 
 export interface RoadmapEmptyStateProps {

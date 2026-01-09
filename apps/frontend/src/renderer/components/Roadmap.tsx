@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { RoadmapGenerationProgress } from './RoadmapGenerationProgress';
 import { CompetitorAnalysisDialog } from './CompetitorAnalysisDialog';
 import { ExistingCompetitorAnalysisDialog } from './ExistingCompetitorAnalysisDialog';
@@ -10,6 +10,12 @@ import { RoadmapTabs } from './roadmap/RoadmapTabs';
 import { FeatureDetailPanel } from './roadmap/FeatureDetailPanel';
 import { useRoadmapData, useFeatureActions, useRoadmapGeneration, useRoadmapSave, useFeatureDelete } from './roadmap/hooks';
 import { getCompetitorInsightsForFeature } from './roadmap/utils';
+import {
+  useRoadmapStore,
+  startContinuousResearch,
+  stopContinuousResearch,
+  resumeContinuousResearch,
+} from '../stores/roadmap-store';
 import type { RoadmapFeature } from '../../shared/types';
 import type { RoadmapProps } from './roadmap/types';
 
@@ -25,6 +31,23 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   const { convertFeatureToSpec } = useFeatureActions();
   const { saveRoadmap } = useRoadmapSave(projectId);
   const { deleteFeature } = useFeatureDelete(projectId);
+
+  // Continuous research state from store
+  const continuousState = useRoadmapStore((state) => state.continuousResearchState);
+  const continuousProgress = useRoadmapStore((state) => state.continuousResearchProgress);
+
+  // Continuous research handlers
+  const handleStartContinuous = useCallback((durationHours: number) => {
+    startContinuousResearch(projectId, durationHours);
+  }, [projectId]);
+
+  const handleStopContinuous = useCallback(async () => {
+    await stopContinuousResearch(projectId);
+  }, [projectId]);
+
+  const handleResumeContinuous = useCallback(async () => {
+    await resumeContinuousResearch(projectId);
+  }, [projectId]);
   const {
     competitorAnalysisDate,
     // New dialog for existing analysis
@@ -102,6 +125,11 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
         onAddFeature={() => setShowAddFeatureDialog(true)}
         onRefresh={handleRefresh}
         onViewCompetitorAnalysis={() => setShowCompetitorViewer(true)}
+        continuousState={continuousState}
+        continuousProgress={continuousProgress}
+        onStartContinuous={handleStartContinuous}
+        onStopContinuous={handleStopContinuous}
+        onResumeContinuous={handleResumeContinuous}
       />
 
       {/* Content */}
