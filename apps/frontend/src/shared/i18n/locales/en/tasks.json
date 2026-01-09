@@ -130,5 +130,8 @@
       "useWorktreeLabel": "Use isolated workspace (recommended)",
       "useWorktreeDescription": "Creates changes in a separate git worktree for safe review before merging. Disable to build directly in your project (faster but riskier)."
     }
+  },
+  "subtasks": {
+    "untitled": "Untitled subtask"
   }
 }
