@@ -18,7 +18,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -100,7 +100,7 @@ mock_client.create_client = MagicMock()
 sys.modules['client'] = mock_client
 
 # Now we can safely add the auto-claude path and import
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 # Import criteria functions directly to avoid going through qa/__init__.py
 # which imports reviewer and fixer that need the SDK
@@ -524,57 +524,50 @@ class TestShouldRunQA:
 
     def test_should_run_qa_build_not_complete(self, spec_dir: Path):
         """Returns False when build not complete."""
-        # Set up mock to return build not complete
-        mock_progress.is_build_complete.return_value = False
-
         plan = {"feature": "Test", "phases": []}
         save_implementation_plan(spec_dir, plan)
 
-        result = should_run_qa(spec_dir)
-        assert result is False
+        with patch('qa.criteria.is_build_complete', return_value=False):
+            result = should_run_qa(spec_dir)
 
-        # Reset mock
-        mock_progress.is_build_complete.return_value = True
+        assert result is False
 
     def test_should_run_qa_already_approved(self, spec_dir: Path, qa_signoff_approved: dict):
         """Returns False when already approved."""
-        mock_progress.is_build_complete.return_value = True
-
         plan = {"feature": "Test", "qa_signoff": qa_signoff_approved}
         save_implementation_plan(spec_dir, plan)
 
-        result = should_run_qa(spec_dir)
+        with patch('qa.criteria.is_build_complete', return_value=True):
+            result = should_run_qa(spec_dir)
+
         assert result is False
 
     def test_should_run_qa_build_complete_not_approved(self, spec_dir: Path):
         """Returns True when build complete but not approved."""
-        mock_progress.is_build_complete.return_value = True
-
         plan = {"feature": "Test", "phases": []}
         save_implementation_plan(spec_dir, plan)
 
-        result = should_run_qa(spec_dir)
+        with patch('qa.criteria.is_build_complete', return_value=True):
+            result = should_run_qa(spec_dir)
+
         assert result is True
 
     def test_should_run_qa_rejected_status(self, spec_dir: Path, qa_signoff_rejected: dict):
         """Returns True when rejected (needs re-review after fixes)."""
-        mock_progress.is_build_complete.return_value = True
-
         plan = {"feature": "Test", "qa_signoff": qa_signoff_rejected}
         save_implementation_plan(spec_dir, plan)
 
-        result = should_run_qa(spec_dir)
+        with patch('qa.criteria.is_build_complete', return_value=True):
+            result = should_run_qa(spec_dir)
+
         assert result is True
 
     def test_should_run_qa_no_plan(self, spec_dir: Path):
         """Returns False when no plan exists (build not complete)."""
-        mock_progress.is_build_complete.return_value = False
+        with patch('qa.criteria.is_build_complete', return_value=False):
+            result = should_run_qa(spec_dir)
 
-        result = should_run_qa(spec_dir)
         assert result is False
-
-        # Reset mock
-        mock_progress.is_build_complete.return_value = True
 
 
 class TestShouldRunFixes:
@@ -899,14 +892,13 @@ class TestQAIntegration:
 
     def test_full_qa_workflow_approved_first_try(self, spec_dir: Path):
         """Full workflow where QA approves on first try."""
-        mock_progress.is_build_complete.return_value = True
-
         # Build complete
         plan = {"feature": "Test Feature", "phases": []}
         save_implementation_plan(spec_dir, plan)
 
         # Should run QA
-        assert should_run_qa(spec_dir) is True
+        with patch('qa.criteria.is_build_complete', return_value=True):
+            assert should_run_qa(spec_dir) is True
 
         # QA approves
         plan["qa_signoff"] = {
@@ -917,20 +909,20 @@ class TestQAIntegration:
         save_implementation_plan(spec_dir, plan)
 
         # Should not run QA again or fixes
-        assert should_run_qa(spec_dir) is False
-        assert should_run_fixes(spec_dir) is False
+        with patch('qa.criteria.is_build_complete', return_value=True):
+            assert should_run_qa(spec_dir) is False
+            assert should_run_fixes(spec_dir) is False
         assert is_qa_approved(spec_dir) is True
 
     def test_full_qa_workflow_with_fixes(self, spec_dir: Path):
         """Full workflow with reject-fix-approve cycle."""
-        mock_progress.is_build_complete.return_value = True
-
         # Build complete
         plan = {"feature": "Test Feature", "phases": []}
         save_implementation_plan(spec_dir, plan)
 
         # Should run QA
-        assert should_run_qa(spec_dir) is True
+        with patch('qa.criteria.is_build_complete', return_value=True):
+            assert should_run_qa(spec_dir) is True
 
         # QA rejects
         plan["qa_signoff"] = {
@@ -940,7 +932,8 @@ class TestQAIntegration:
         }
         save_implementation_plan(spec_dir, plan)
 
-        assert should_run_fixes(spec_dir) is True
+        with patch('qa.criteria.is_build_complete', return_value=True):
+            assert should_run_fixes(spec_dir) is True
         assert is_qa_rejected(spec_dir) is True
 
         # Fixes applied
@@ -963,8 +956,6 @@ class TestQAIntegration:
 
     def test_qa_workflow_max_iterations(self, spec_dir: Path):
         """Test behavior when max iterations are reached."""
-        mock_progress.is_build_complete.return_value = True
-
         plan = {
             "feature": "Test",
             "qa_signoff": {
@@ -974,7 +965,8 @@ class TestQAIntegration:
         }
         save_implementation_plan(spec_dir, plan)
 
-        # Should not run more fixes after max iterations
-        assert should_run_fixes(spec_dir) is False
-        # But QA can still be run (to re-check)
-        assert should_run_qa(spec_dir) is True
+        with patch('qa.criteria.is_build_complete', return_value=True):
+            # Should not run more fixes after max iterations
+            assert should_run_fixes(spec_dir) is False
+            # But QA can still be run (to re-check)
+            assert should_run_qa(spec_dir) is True
