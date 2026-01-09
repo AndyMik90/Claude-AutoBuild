@@ -257,10 +257,11 @@ def detect_implicit_conflicts(
     """
     Detect implicit conflicts not caught by location analysis.
 
-    This includes conflicts like:
-    - Function rename + function call changes
-    - Import removal + usage
-    - Variable rename + references
+    Phase 1 Implementation: Basic string matching for common patterns.
+
+    Currently detects:
+    - Removed function/method referenced by another task
+    - Removed import used by another task
 
     Args:
         task_analyses: Map of task_id -> FileAnalysis
@@ -268,20 +269,78 @@ def detect_implicit_conflicts(
     Returns:
         List of implicit conflict regions
 
-    Note:
-        These advanced checks are currently TODO.
-        The main location-based detection handles most cases.
+    TODO (Phase 2): Rename detection
+        - Detect RENAME_FUNCTION (currently treated as remove+add)
+        - Use content similarity to identify renames vs replacements
+        - Track functions_renamed: dict[str, str] in FileAnalysis
+
+    TODO (Phase 3): Full reference tracking
+        - AST-based reference finding (which symbols are used where)
+        - symbol_references: dict[str, list[int]] in FileAnalysis
+        - Cross-file conflict detection (rename in utils.ts, call in App.tsx)
     """
-    conflicts = []
+    conflicts: list[ConflictRegion] = []
+    task_ids = list(task_analyses.keys())
 
-    # Check for function rename + function call changes
-    # (If task A renames a function and task B calls the old name)
+    if len(task_analyses) <= 1:
+        return conflicts
 
-    # Check for import removal + usage
-    # (If task A removes an import and task B uses it)
+    # Collect what each task removes/modifies
+    task_removals: dict[str, set[str]] = {}  # task_id -> removed symbols
+    task_additions: dict[str, set[str]] = {}  # task_id -> added/modified code content
 
-    # For now, these advanced checks are TODO
-    # The main location-based detection handles most cases
+    for task_id, analysis in task_analyses.items():
+        removals: set[str] = set()
+        additions: set[str] = set()
+
+        # Track removed functions
+        for change in analysis.changes:
+            if change.change_type in (
+                ChangeType.REMOVE_FUNCTION,
+                ChangeType.REMOVE_METHOD,
+            ):
+                removals.add(change.target)
+            # Track content of additions/modifications for reference checking
+            if change.content_after:
+                additions.add(change.content_after)
+
+        # Track removed imports
+        removals.update(analysis.imports_removed)
+
+        task_removals[task_id] = removals
+        task_additions[task_id] = additions
+
+    # Check for conflicts: Task A removes something that Task B references
+    for task_a in task_ids:
+        for task_b in task_ids:
+            if task_a == task_b:
+                continue
+
+            removals_a = task_removals[task_a]
+            additions_b = task_additions[task_b]
+
+            # Check if any removed symbol appears in other task's new code
+            for removed_symbol in removals_a:
+                for added_code in additions_b:
+                    if removed_symbol in added_code:
+                        # Potential conflict: Task A removes what Task B uses
+                        file_path = next(iter(task_analyses.values())).file_path
+                        conflicts.append(
+                            ConflictRegion(
+                                file_path=file_path,
+                                location=f"implicit:{removed_symbol}",
+                                tasks_involved=[task_a, task_b],
+                                change_types=[
+                                    ChangeType.REMOVE_FUNCTION,
+                                    ChangeType.MODIFY_FUNCTION,
+                                ],
+                                severity=ConflictSeverity.HIGH,
+                                can_auto_merge=False,
+                                merge_strategy=MergeStrategy.AI_REQUIRED,
+                                reason=f"Task '{task_a}' removes '{removed_symbol}' but task '{task_b}' references it",
+                            )
+                        )
+                        break  # One conflict per symbol pair is enough
 
     return conflicts
 
