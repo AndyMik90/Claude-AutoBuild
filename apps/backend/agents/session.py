@@ -6,7 +6,9 @@ Handles running agent sessions and post-session processing including
 memory updates, recovery tracking, and Linear integration.
 """
 
+import json
 import logging
+import os
 from pathlib import Path
 
 from claude_agent_sdk import ClaudeSDKClient
@@ -43,7 +45,68 @@ from .utils import (
     sync_spec_to_source,
 )
 
+# Auth imports for 401 error handling and token refresh
+from core.auth import (
+    get_full_credentials,
+    refresh_oauth_token,
+    save_credentials,
+)
+
 logger = logging.getLogger(__name__)
+
+
+def _print_auth_failure_guidance(reason: str) -> None:
+    """Print consistent auth failure message with setup-token guidance."""
+    print_status(f"Authentication failed - {reason}", "error")
+    print("   Please run: claude setup-token")
+    print("   This creates a long-lived token (1 year) that avoids expiration issues.\n")
+
+
+def _is_authentication_error(exception: Exception) -> bool:
+    """
+    Check if an exception represents an authentication error (401).
+
+    Uses attribute-based detection first for accuracy, then falls back
+    to string matching for broader compatibility.
+
+    Args:
+        exception: The exception to check
+
+    Returns:
+        True if this appears to be an authentication error
+    """
+    # Check common exception attributes for 401 status code
+    for attr in ("status_code", "code", "status"):
+        value = getattr(exception, attr, None)
+        if value == 401:
+            return True
+
+    # Check nested response object (common in HTTP libraries)
+    response = getattr(exception, "response", None)
+    if response is not None:
+        status = getattr(response, "status_code", None) or getattr(response, "status", None)
+        if status == 401:
+            return True
+
+    # Check exception type name for auth-related hints
+    type_name = type(exception).__name__.lower()
+    if any(hint in type_name for hint in ("auth", "unauthorized", "credential")):
+        return True
+
+    # Fall back to string-based matching for error messages
+    # Use specific patterns to avoid false positives (e.g., "processed 401 records")
+    error_str = str(exception).lower()
+    auth_patterns = [
+        "status 401",
+        "http 401",
+        "401 unauthorized",
+        "authentication_error",
+        "token expired",
+        "token has expired",
+        "invalid token",
+        "invalid_token",
+    ]
+    return any(pattern in error_str for pattern in auth_patterns)
 
 
 async def post_session_processing(
@@ -332,7 +395,7 @@ async def run_agent_session(
         (status, response_text) where status is:
         - "continue" if agent should continue working
         - "complete" if all subtasks complete
-        - "error" if an error occurred
+        - "error" if an error occurred (includes token refresh case where user must retry)
     """
     debug_section("session", f"Agent Session - {phase.value}")
     debug(
@@ -541,6 +604,67 @@ async def run_agent_session(
         return "continue", response_text
 
     except Exception as e:
+        # Check for OAuth token expiration (401 authentication error)
+        if _is_authentication_error(e):
+            debug_error(
+                "session",
+                "Authentication error detected - token may have expired",
+                exception_type=type(e).__name__,
+            )
+            logger.info("Authentication error detected, attempting token refresh...")
+
+            # Try to refresh the token using guard clauses for clearer flow
+            try:
+                creds = get_full_credentials()
+
+                # Guard: No credentials found
+                if not creds:
+                    _print_auth_failure_guidance("no credentials found")
+                    return "error", "No credentials found."
+
+                # Guard: No refresh token available
+                if not creds.get("refreshToken"):
+                    _print_auth_failure_guidance("no refresh token available")
+                    return "error", "No refresh token available."
+
+                # Attempt token refresh
+                new_creds = refresh_oauth_token(creds["refreshToken"])
+
+                # Guard: Refresh failed
+                if not new_creds or not new_creds.get("accessToken"):
+                    _print_auth_failure_guidance("token refresh failed")
+                    return "error", "Token refresh failed."
+
+                # Success: Save and notify user
+                if save_credentials(new_creds):
+                    logger.info("Token refreshed successfully")
+                    print_status("OAuth token was expired and has been refreshed", "success")
+                    # Update env var for any same-process callers
+                    os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = new_creds["accessToken"]
+                else:
+                    logger.warning("Token refreshed but failed to save")
+                    print_status("Token refreshed but failed to save to credential store", "warning")
+                    print("   You may need to re-authenticate on next run.")
+
+                print("   The current operation was interrupted mid-request.")
+                print("   Please retry your command to continue.\n")
+                # Return "error" so callers stop gracefully - user must retry manually
+                # Token is already refreshed and saved, next run will use new token
+                return "error", "Token refreshed. Please retry your command."
+
+            except (OSError, IOError, json.JSONDecodeError, KeyError) as refresh_error:
+                # Specific exceptions from credential file/keychain operations
+                logger.warning(f"Token refresh failed (credential error): {refresh_error}")
+                print_status("Authentication failed. Please run: claude setup-token", "error")
+                return "error", f"Token refresh failed: {refresh_error}"
+            except Exception as refresh_error:
+                # Catch-all for unexpected errors (defensive programming)
+                # auth.py functions catch most errors internally, but this ensures
+                # any unanticipated exceptions don't crash the session
+                logger.warning(f"Token refresh attempt failed (unexpected): {refresh_error}")
+                print_status("Authentication failed. Please run: claude setup-token", "error")
+                return "error", f"Token refresh failed: {refresh_error}"
+
         debug_error(
             "session",
             f"Session error: {e}",
