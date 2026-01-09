@@ -118,6 +118,27 @@ function queueUpdate(taskId: string, update: BatchedUpdate): void {
     }
   }
 
+  // FIX: Prevent overwriting richer plans with empty/incomplete ones in the batch queue
+  // If we have a pending plan update, only overwrite it if the new plan has MORE info
+  let mergedPlan = existing.plan;
+  if (update.plan) {
+    // If existing plan has subtasks but new one doesn't, keep the existing one!
+    // This handles the race condition where an empty plan update arrives after a full one
+    const existingSubtasks = existing.plan?.phases?.flatMap(p => p.subtasks || []).length || 0;
+    const newSubtasks = update.plan.phases?.flatMap(p => p.subtasks || []).length || 0;
+
+    if (newSubtasks >= existingSubtasks) {
+      mergedPlan = update.plan;
+    } else {
+      console.warn('[IPC Batch] Rejecting plan update with fewer subtasks:',
+        { taskId, existing: existingSubtasks, new: newSubtasks });
+      // Keep existing plan
+    }
+  } else {
+    // No new plan, keep existing
+    mergedPlan = existing.plan;
+  }
+
   // For logs, accumulate rather than replace
   let mergedLogs = existing.logs;
   if (update.logs) {
@@ -127,6 +148,7 @@ function queueUpdate(taskId: string, update: BatchedUpdate): void {
   batchQueue.set(taskId, {
     ...existing,
     ...update,
+    plan: mergedPlan, // Use our carefully merged plan
     logs: mergedLogs,
     queuedAt: existing.queuedAt || performance.now()
   });
@@ -211,6 +233,31 @@ export function useIpcListeners(): void {
         // execution progress from Project A's task could update Project B's UI
         if (!isTaskForCurrentProject(projectId)) return;
         queueUpdate(taskId, { progress });
+      }
+    );
+
+    // FIX: Listen for spec completion to force-reload the full plan
+    // This ensures that even if intermediate updates were missed/dropped,
+    // we strictly load the final state when the spec is done.
+    const cleanupSpecComplete = window.electronAPI.onSpecComplete?.(
+      async (taskId: string, projectId?: string) => {
+        if (!isTaskForCurrentProject(projectId)) return;
+
+        console.log('[IPC] Spec completed for task, force reloading plan:', taskId);
+        // Force reload the task plan from backend
+        // We need to fetch the plan explicitly because the 'progress' event might have been empty
+        try {
+          // Assuming we have access to the projectId either from args or store
+          const pid = projectId || useTaskStore.getState().tasks.find(t => t.id === taskId)?.projectId;
+          if (pid) {
+            const result = await window.electronAPI.getTaskPlan(pid, taskId);
+            if (result.success && result.data) {
+              updateTaskFromPlan(taskId, result.data);
+            }
+          }
+        } catch (err) {
+          console.error('[IPC] Failed to reload plan on spec complete:', err);
+        }
       }
     );
 
@@ -346,6 +393,7 @@ export function useIpcListeners(): void {
       cleanupLog();
       cleanupStatus();
       cleanupExecutionProgress();
+      if (cleanupSpecComplete) cleanupSpecComplete(); // Optional in case API doesn't exist yet
       cleanupRoadmapProgress();
       cleanupRoadmapComplete();
       cleanupRoadmapError();

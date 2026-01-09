@@ -168,6 +168,19 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         return state;
       }
 
+      // FIX: Don't update if plan is incomplete (empty phases or no subtasks)
+      // This prevents overwriting existing subtasks with an empty state during race conditions
+      if (!plan.phases || plan.phases.length === 0) {
+        console.warn('[updateTaskFromPlan] Plan has no phases, skipping update:', taskId);
+        return state;
+      }
+
+      const totalSubtasks = plan.phases.reduce((acc, p) => acc + (p.subtasks?.length || 0), 0);
+      if (totalSubtasks === 0) {
+        console.warn('[updateTaskFromPlan] Plan has no subtasks, skipping update:', taskId);
+        return state;
+      }
+
       return {
         tasks: updateTaskAtIndex(state.tasks, index, (t) => {
           const subtasks: Subtask[] = plan.phases.flatMap((phase) =>
