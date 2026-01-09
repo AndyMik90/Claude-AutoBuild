@@ -8,7 +8,13 @@ import { existsSync, readdirSync } from 'fs';
 import os from 'os';
 import { execFileSync } from 'child_process';
 import { app } from 'electron';
-import { getToolInfo, clearToolCache } from '../cli-tool-manager';
+import {
+  getToolInfo,
+  clearToolCache,
+  getClaudeDetectionPaths,
+  sortNvmVersionDirs,
+  buildClaudeDetectionResult
+} from '../cli-tool-manager';
 
 // Mock Electron app
 vi.mock('electron', () => ({
@@ -42,9 +48,10 @@ vi.mock('fs', () => {
   };
 });
 
-// Mock child_process for execFileSync (used in validation)
+// Mock child_process for execFileSync and execFile (used in validation)
 vi.mock('child_process', () => ({
-  execFileSync: vi.fn()
+  execFileSync: vi.fn(),
+  execFile: vi.fn()
 }));
 
 // Mock env-utils to avoid PATH augmentation complexity
@@ -309,6 +316,154 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       expect(result.found).toBe(true);
       expect(result.source).toBe('nvm');
       expect(result.path).toContain('v22.17.0');
+    });
+  });
+});
+
+/**
+ * Unit tests for helper functions
+ */
+describe('cli-tool-manager - Helper Functions', () => {
+  describe('getClaudeDetectionPaths', () => {
+    it('should return homebrew paths on macOS', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'darwin',
+        writable: true
+      });
+
+      const paths = getClaudeDetectionPaths('/Users/test');
+
+      expect(paths.homebrewPaths).toContain('/opt/homebrew/bin/claude');
+      expect(paths.homebrewPaths).toContain('/usr/local/bin/claude');
+    });
+
+    it('should return Windows paths on win32', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'win32',
+        writable: true
+      });
+
+      const paths = getClaudeDetectionPaths('C:\\Users\\test');
+
+      // Windows paths should include AppData and Program Files
+      expect(paths.platformPaths.some(p => p.includes('AppData'))).toBe(true);
+      expect(paths.platformPaths.some(p => p.includes('Program Files'))).toBe(true);
+    });
+
+    it('should return Unix paths on Linux', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'linux',
+        writable: true
+      });
+
+      const paths = getClaudeDetectionPaths('/home/test');
+
+      expect(paths.platformPaths.some(p => p.includes('.local/bin/claude'))).toBe(true);
+      expect(paths.platformPaths.some(p => p.includes('bin/claude'))).toBe(true);
+    });
+
+    it('should return correct NVM versions directory', () => {
+      const paths = getClaudeDetectionPaths('/home/test');
+
+      expect(paths.nvmVersionsDir).toBe('/home/test/.nvm/versions/node');
+    });
+  });
+
+  describe('sortNvmVersionDirs', () => {
+    it('should sort versions in descending order (newest first)', () => {
+      const entries = [
+        { name: 'v18.20.0', isDirectory: () => true },
+        { name: 'v22.17.0', isDirectory: () => true },
+        { name: 'v20.11.0', isDirectory: () => true }
+      ];
+
+      const sorted = sortNvmVersionDirs(entries);
+
+      expect(sorted).toEqual(['v22.17.0', 'v20.11.0', 'v18.20.0']);
+    });
+
+    it('should filter out non-version directories', () => {
+      const entries = [
+        { name: 'v20.11.0', isDirectory: () => true },
+        { name: '.DS_Store', isDirectory: () => false },
+        { name: 'node_modules', isDirectory: () => true },
+        { name: 'current', isDirectory: () => true },
+        { name: 'v22.17.0', isDirectory: () => true }
+      ];
+
+      const sorted = sortNvmVersionDirs(entries);
+
+      expect(sorted).toEqual(['v22.17.0', 'v20.11.0']);
+      expect(sorted).not.toContain('.DS_Store');
+      expect(sorted).not.toContain('node_modules');
+      expect(sorted).not.toContain('current');
+    });
+
+    it('should return empty array when no valid versions', () => {
+      const entries = [
+        { name: 'current', isDirectory: () => true },
+        { name: 'system', isDirectory: () => true }
+      ];
+
+      const sorted = sortNvmVersionDirs(entries);
+
+      expect(sorted).toEqual([]);
+    });
+
+    it('should handle single entry', () => {
+      const entries = [{ name: 'v20.11.0', isDirectory: () => true }];
+
+      const sorted = sortNvmVersionDirs(entries);
+
+      expect(sorted).toEqual(['v20.11.0']);
+    });
+
+    it('should handle empty array', () => {
+      const sorted = sortNvmVersionDirs([]);
+
+      expect(sorted).toEqual([]);
+    });
+  });
+
+  describe('buildClaudeDetectionResult', () => {
+    it('should return null when validation fails', () => {
+      const result = buildClaudeDetectionResult(
+        '/path/to/claude',
+        { valid: false, message: 'Invalid CLI' },
+        'nvm',
+        'Found via NVM'
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('should return proper result when validation succeeds', () => {
+      const result = buildClaudeDetectionResult(
+        '/path/to/claude',
+        { valid: true, version: '1.0.0', message: 'Valid' },
+        'nvm',
+        'Found via NVM'
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.found).toBe(true);
+      expect(result?.path).toBe('/path/to/claude');
+      expect(result?.version).toBe('1.0.0');
+      expect(result?.source).toBe('nvm');
+      expect(result?.message).toContain('Found via NVM');
+      expect(result?.message).toContain('/path/to/claude');
+    });
+
+    it('should include path in message', () => {
+      const result = buildClaudeDetectionResult(
+        '/home/user/.nvm/versions/node/v22.17.0/bin/claude',
+        { valid: true, version: '2.0.0', message: 'OK' },
+        'nvm',
+        'Detected Claude CLI'
+      );
+
+      expect(result?.message).toContain('Detected Claude CLI');
+      expect(result?.message).toContain('/home/user/.nvm/versions/node/v22.17.0/bin/claude');
     });
   });
 });

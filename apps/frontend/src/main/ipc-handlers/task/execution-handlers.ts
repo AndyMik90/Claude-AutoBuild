@@ -15,6 +15,7 @@ import {
   createPlanIfNotExists
 } from './plan-file-utils';
 import { findTaskWorktree } from '../../worktree-paths';
+import { projectStore } from '../../project-store';
 
 /**
  * Atomic file write to prevent TOCTOU race conditions.
@@ -192,7 +193,8 @@ export function registerTaskExecutionHandlers(
           {
             parallel: false,  // Sequential for planning phase
             workers: 1,
-            baseBranch
+            baseBranch,
+            useWorktree: task.metadata?.useWorktree
           }
         );
       } else {
@@ -207,7 +209,8 @@ export function registerTaskExecutionHandlers(
           {
             parallel: false,
             workers: 1,
-            baseBranch
+            baseBranch,
+            useWorktree: task.metadata?.useWorktree
           }
         );
       }
@@ -236,7 +239,7 @@ export function registerTaskExecutionHandlers(
       setImmediate(async () => {
         const persistStart = Date.now();
         try {
-          const persisted = await persistPlanStatus(planPath, 'in_progress');
+          const persisted = await persistPlanStatus(planPath, 'in_progress', project.id);
           if (persisted) {
             console.warn('[TASK_START] Updated plan status to: in_progress');
           }
@@ -288,7 +291,7 @@ export function registerTaskExecutionHandlers(
       setImmediate(async () => {
         const persistStart = Date.now();
         try {
-          const persisted = await persistPlanStatus(planPath, 'backlog');
+          const persisted = await persistPlanStatus(planPath, 'backlog', project.id);
           if (persisted) {
             console.warn('[TASK_STOP] Updated plan status to backlog');
           }
@@ -508,11 +511,13 @@ export function registerTaskExecutionHandlers(
 
       try {
         // Use shared utility for thread-safe plan file updates
-        const persisted = await persistPlanStatus(planPath, status);
+        const persisted = await persistPlanStatus(planPath, status, project.id);
 
         if (!persisted) {
           // If no implementation plan exists yet, create a basic one
           await createPlanIfNotExists(planPath, task, status);
+          // Invalidate cache after creating new plan
+          projectStore.invalidateTasksCache(project.id);
         }
 
         // Auto-stop task when status changes AWAY from 'in_progress' and process IS running
@@ -585,7 +590,8 @@ export function registerTaskExecutionHandlers(
               {
                 parallel: false,
                 workers: 1,
-                baseBranch: baseBranchForUpdate
+                baseBranch: baseBranchForUpdate,
+                useWorktree: task.metadata?.useWorktree
               }
             );
           } else {
@@ -599,7 +605,8 @@ export function registerTaskExecutionHandlers(
               {
                 parallel: false,
                 workers: 1,
-                baseBranch: baseBranchForUpdate
+                baseBranch: baseBranchForUpdate,
+                useWorktree: task.metadata?.useWorktree
               }
             );
           }
@@ -936,7 +943,8 @@ export function registerTaskExecutionHandlers(
                 {
                   parallel: false,
                   workers: 1,
-                  baseBranch: baseBranchForRecovery
+                  baseBranch: baseBranchForRecovery,
+                  useWorktree: task.metadata?.useWorktree
                 }
               );
             }

@@ -31,10 +31,11 @@ import { ReviewFindings } from './ReviewFindings';
 import { PRLogs } from './PRLogs';
 
 import type { PRData, PRReviewResult, PRReviewProgress } from '../hooks/useGitHubPRs';
-import type { NewCommitsCheck, PRLogs as PRLogsType, WorkflowsAwaitingApprovalResult } from '../../../../preload/api/modules/github-api';
+import type { NewCommitsCheck, MergeReadiness, PRLogs as PRLogsType, WorkflowsAwaitingApprovalResult } from '../../../../preload/api/modules/github-api';
 
 interface PRDetailProps {
   pr: PRData;
+  projectId: string;
   reviewResult: PRReviewResult | null;
   previousReviewResult: PRReviewResult | null;
   reviewProgress: PRReviewProgress | null;
@@ -66,6 +67,7 @@ function getStatusColor(status: PRReviewResult['overallStatus']): string {
 
 export function PRDetail({
   pr,
+  projectId,
   reviewResult,
   previousReviewResult,
   reviewProgress,
@@ -102,6 +104,10 @@ export function PRDetail({
   const [prLogs, setPrLogs] = useState<PRLogsType | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const logsLoadedRef = useRef(false);
+  
+  // Merge readiness state (real-time validation of AI verdict freshness)
+  const [mergeReadiness, setMergeReadiness] = useState<MergeReadiness | null>(null);
+  const mergeReadinessAbortRef = useRef<AbortController | null>(null);
 
   // Workflows awaiting approval state (for fork PRs)
   const [workflowsAwaiting, setWorkflowsAwaiting] = useState<WorkflowsAwaitingApprovalResult | null>(null);
@@ -268,6 +274,43 @@ export function PRDetail({
     checkWorkflows();
     // Re-check when a review is completed (CI status might have changed)
   }, [pr.number, reviewResult]);
+
+  // Check merge readiness (real-time validation) when PR is selected
+  // This runs on every PR selection to catch stale verdicts
+  useEffect(() => {
+    // Cancel any pending check
+    if (mergeReadinessAbortRef.current) {
+      mergeReadinessAbortRef.current.abort();
+    }
+    mergeReadinessAbortRef.current = new AbortController();
+
+    const checkMergeReadiness = async () => {
+      if (!projectId) {
+        setMergeReadiness(null);
+        return;
+      }
+
+      try {
+        const result = await window.electronAPI.github.checkMergeReadiness(projectId, pr.number);
+        // Only update if not aborted
+        if (!mergeReadinessAbortRef.current?.signal.aborted) {
+          setMergeReadiness(result);
+        }
+      } catch {
+        if (!mergeReadinessAbortRef.current?.signal.aborted) {
+          setMergeReadiness(null);
+        }
+      }
+    };
+
+    checkMergeReadiness();
+
+    return () => {
+      if (mergeReadinessAbortRef.current) {
+        mergeReadinessAbortRef.current.abort();
+      }
+    };
+  }, [pr.number, projectId]);
 
   // Handler to approve a workflow
   const handleApproveWorkflow = useCallback(async (runId: number) => {
@@ -556,6 +599,35 @@ export function PRDetail({
 
         {/* Refactored Header */}
         <PRHeader pr={pr} isLoadingFiles={isLoadingFiles} />
+
+        {/* Merge Readiness Warning Banner - shows when real-time status contradicts AI verdict */}
+        {mergeReadiness && mergeReadiness.blockers.length > 0 && reviewResult?.success && (
+          prStatus.status === 'ready_to_merge' || prStatus.status === 'reviewed_pending_post'
+        ) && (
+          <Card className="border-warning/50 bg-warning/10 animate-in fade-in slide-in-from-top-2 duration-300">
+            <CardContent className="py-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-2">
+                  <p className="font-semibold text-warning">
+                    {t('prReview.verdictOutdated', 'AI verdict may be outdated')}
+                  </p>
+                  <ul className="text-sm text-warning/90 space-y-1">
+                    {mergeReadiness.blockers.map((blocker, idx) => (
+                      <li key={idx} className="flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 rounded-full bg-warning/70" />
+                        {blocker}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-warning/70 mt-2">
+                    {t('prReview.rerunReviewSuggestion', 'Consider re-running the review after resolving these issues.')}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Review Status & Actions */}
         <ReviewStatusTree

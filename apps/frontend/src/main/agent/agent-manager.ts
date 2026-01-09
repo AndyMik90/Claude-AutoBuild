@@ -152,6 +152,11 @@ export class AgentManager extends EventEmitter {
       }
     }
 
+    // Workspace mode: --direct skips worktree isolation (default is isolated for safety)
+    if (metadata?.useWorktree === false) {
+      args.push('--direct');
+    }
+
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
 
@@ -199,6 +204,11 @@ export class AgentManager extends EventEmitter {
 
     // Force: When user starts a task from the UI, that IS their approval
     args.push('--force');
+
+    // Workspace mode: --direct skips worktree isolation (default is isolated for safety)
+    if (options.useWorktree === false) {
+      args.push('--direct');
+    }
 
     // Pass base branch if specified (ensures worktrees are created from the correct branch)
     if (options.baseBranch) {

@@ -74,16 +74,16 @@ All commands below should be run from the `apps/backend/` directory:
 source .venv/bin/activate
 
 # Create a spec interactively
-python spec_runner.py --interactive
+python runners/spec_runner.py --interactive
 
 # Or with a task description
-python spec_runner.py --task "Add user authentication with OAuth"
+python runners/spec_runner.py --task "Add user authentication with OAuth"
 
 # Force a specific complexity level
-python spec_runner.py --task "Fix button color" --complexity simple
+python runners/spec_runner.py --task "Fix button color" --complexity simple
 
 # Continue an interrupted spec
-python spec_runner.py --continue 001-feature
+python runners/spec_runner.py --continue 001-feature
 ```
 
 ### Complexity Tiers

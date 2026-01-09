@@ -406,10 +406,10 @@ class TaskLogger:
         """
         phase_key = (phase or self.current_phase or LogPhase.CODING).value
 
-        # Truncate long inputs for display
+        # Truncate long inputs for display (increased limit to avoid hiding critical info)
         display_input = tool_input
-        if display_input and len(display_input) > 100:
-            display_input = display_input[:97] + "..."
+        if display_input and len(display_input) > 300:
+            display_input = display_input[:297] + "..."
 
         entry = LogEntry(
             timestamp=self._timestamp(),
@@ -462,10 +462,10 @@ class TaskLogger:
         """
         phase_key = (phase or self.current_phase or LogPhase.CODING).value
 
-        # Truncate long results for display
+        # Truncate long results for display (increased limit to avoid hiding critical info)
         display_result = result
-        if display_result and len(display_result) > 100:
-            display_result = display_result[:97] + "..."
+        if display_result and len(display_result) > 300:
+            display_result = display_result[:297] + "..."
 
         status = "Done" if success else "Error"
         content = f"[{tool_name}] {status}"

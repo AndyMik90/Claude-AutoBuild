@@ -21,6 +21,7 @@ import path from 'path';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { TaskStatus, Project, Task } from '../../../shared/types';
+import { projectStore } from '../../project-store';
 
 // In-memory locks for plan file operations
 // Key: plan file path, Value: Promise chain for serializing operations
@@ -93,9 +94,10 @@ export function mapStatusToPlanStatus(status: TaskStatus): string {
  *
  * @param planPath - Path to the implementation_plan.json file
  * @param status - The TaskStatus to persist
+ * @param projectId - Optional project ID to invalidate cache (recommended for performance)
  * @returns true if status was persisted, false if plan file doesn't exist
  */
-export async function persistPlanStatus(planPath: string, status: TaskStatus): Promise<boolean> {
+export async function persistPlanStatus(planPath: string, status: TaskStatus, projectId?: string): Promise<boolean> {
   return withPlanLock(planPath, async () => {
     try {
       // Read file directly without existence check to avoid TOCTOU race condition
@@ -107,6 +109,12 @@ export async function persistPlanStatus(planPath: string, status: TaskStatus): P
       plan.updated_at = new Date().toISOString();
 
       writeFileSync(planPath, JSON.stringify(plan, null, 2));
+
+      // Invalidate tasks cache since status changed
+      if (projectId) {
+        projectStore.invalidateTasksCache(projectId);
+      }
+
       return true;
     } catch (err) {
       // File not found is expected - return false
@@ -141,9 +149,10 @@ export async function persistPlanStatus(planPath: string, status: TaskStatus): P
  *
  * @param planPath - Path to the implementation_plan.json file
  * @param status - The TaskStatus to persist
+ * @param projectId - Optional project ID to invalidate cache (recommended for performance)
  * @returns true if status was persisted, false otherwise
  */
-export function persistPlanStatusSync(planPath: string, status: TaskStatus): boolean {
+export function persistPlanStatusSync(planPath: string, status: TaskStatus, projectId?: string): boolean {
   try {
     // Read file directly without existence check to avoid TOCTOU race condition
     const planContent = readFileSync(planPath, 'utf-8');
@@ -154,6 +163,12 @@ export function persistPlanStatusSync(planPath: string, status: TaskStatus): boo
     plan.updated_at = new Date().toISOString();
 
     writeFileSync(planPath, JSON.stringify(plan, null, 2));
+
+    // Invalidate tasks cache since status changed
+    if (projectId) {
+      projectStore.invalidateTasksCache(projectId);
+    }
+
     return true;
   } catch (err) {
     // File not found is expected - return false

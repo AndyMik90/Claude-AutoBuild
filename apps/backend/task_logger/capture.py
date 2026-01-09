@@ -88,17 +88,20 @@ class StreamingLogCapture:
                         inp = block.input
                         if isinstance(inp, dict):
                             # Extract meaningful input description
+                            # Increased limits to avoid hiding critical information
                             if "pattern" in inp:
                                 tool_input = f"pattern: {inp['pattern']}"
                             elif "file_path" in inp:
                                 fp = inp["file_path"]
-                                if len(fp) > 50:
-                                    fp = "..." + fp[-47:]
+                                # Show last 200 chars for paths (enough for most file paths)
+                                if len(fp) > 200:
+                                    fp = "..." + fp[-197:]
                                 tool_input = fp
                             elif "command" in inp:
                                 cmd = inp["command"]
-                                if len(cmd) > 50:
-                                    cmd = cmd[:47] + "..."
+                                # Show first 300 chars for commands (enough for most commands)
+                                if len(cmd) > 300:
+                                    cmd = cmd[:297] + "..."
                                 tool_input = cmd
                             elif "path" in inp:
                                 tool_input = inp["path"]

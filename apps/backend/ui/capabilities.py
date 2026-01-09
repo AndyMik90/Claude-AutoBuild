@@ -13,6 +13,61 @@ import os
 import sys
 
 
+def enable_windows_ansi_support() -> bool:
+    """
+    Enable ANSI escape sequence support on Windows.
+
+    Windows 10 (build 10586+) supports ANSI escape sequences natively,
+    but they must be explicitly enabled via the Windows API.
+
+    Returns:
+        True if ANSI support was enabled, False otherwise
+    """
+    if sys.platform != "win32":
+        return True  # Non-Windows always has ANSI support
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        # Windows constants
+        STD_OUTPUT_HANDLE = -11
+        STD_ERROR_HANDLE = -12
+        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+
+        kernel32 = ctypes.windll.kernel32
+
+        # Get handles
+        for handle_id in (STD_OUTPUT_HANDLE, STD_ERROR_HANDLE):
+            handle = kernel32.GetStdHandle(handle_id)
+            if handle == -1:
+                continue
+
+            # Get current console mode
+            mode = wintypes.DWORD()
+            if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+                continue
+
+            # Enable ANSI support if not already enabled
+            if not (mode.value & ENABLE_VIRTUAL_TERMINAL_PROCESSING):
+                kernel32.SetConsoleMode(
+                    handle, mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING
+                )
+
+        return True
+    except (ImportError, AttributeError, OSError):
+        # Fall back to colorama if available
+        try:
+            import colorama
+
+            colorama.init()
+            return True
+        except ImportError:
+            pass
+
+        return False
+
+
 def configure_safe_encoding() -> None:
     """
     Configure stdout/stderr to handle Unicode safely on Windows.
@@ -54,8 +109,9 @@ def configure_safe_encoding() -> None:
             pass
 
 
-# Configure safe encoding on module import
+# Configure safe encoding and ANSI support on module import
 configure_safe_encoding()
+WINDOWS_ANSI_ENABLED = enable_windows_ansi_support()
 
 
 def _is_fancy_ui_enabled() -> bool:

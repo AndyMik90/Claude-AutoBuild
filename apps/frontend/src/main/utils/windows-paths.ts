@@ -9,9 +9,13 @@
  */
 
 import { existsSync } from 'fs';
-import { execFileSync } from 'child_process';
+import { access, constants } from 'fs/promises';
+import { execFileSync, execFile } from 'child_process';
+import { promisify } from 'util';
 import path from 'path';
 import os from 'os';
+
+const execFileAsync = promisify(execFile);
 
 export interface WindowsToolPaths {
   toolName: string;
@@ -161,6 +165,113 @@ export function findWindowsExecutableViaWhere(
       if (existsSync(foundPath) && isSecurePath(foundPath)) {
         console.log(`${logPrefix} Found via where: ${foundPath}`);
         return foundPath;
+      }
+    }
+
+    return null;
+  } catch {
+    // 'where' returns exit code 1 if not found, which throws an error
+    return null;
+  }
+}
+
+/**
+ * Async version of getWindowsExecutablePaths.
+ * Use this in async contexts to avoid blocking the main process.
+ */
+export async function getWindowsExecutablePathsAsync(
+  toolPaths: WindowsToolPaths,
+  logPrefix: string = '[Windows Paths]'
+): Promise<string[]> {
+  // Only run on Windows
+  if (process.platform !== 'win32') {
+    return [];
+  }
+
+  const validPaths: string[] = [];
+
+  for (const pattern of toolPaths.patterns) {
+    const expandedDir = expandWindowsPath(pattern);
+
+    if (!expandedDir) {
+      console.warn(`${logPrefix} Could not expand path pattern: ${pattern}`);
+      continue;
+    }
+
+    const fullPath = path.join(expandedDir, toolPaths.executable);
+
+    // Security validation - reject potentially dangerous paths
+    if (!isSecurePath(fullPath)) {
+      console.warn(`${logPrefix} Path failed security validation: ${fullPath}`);
+      continue;
+    }
+
+    try {
+      await access(fullPath, constants.F_OK);
+      validPaths.push(fullPath);
+    } catch {
+      // File doesn't exist, skip
+    }
+  }
+
+  return validPaths;
+}
+
+/**
+ * Async version of findWindowsExecutableViaWhere.
+ * Use this in async contexts to avoid blocking the main process.
+ *
+ * Find a Windows executable using the `where` command.
+ * This is the most reliable method as it searches:
+ * - All directories in PATH
+ * - App Paths registry entries
+ * - Current directory
+ *
+ * Works regardless of where the tool is installed (custom paths, different drives, etc.)
+ *
+ * @param executable - The executable name (e.g., 'git', 'gh', 'python')
+ * @param logPrefix - Prefix for console logging
+ * @returns The full path to the executable, or null if not found
+ */
+export async function findWindowsExecutableViaWhereAsync(
+  executable: string,
+  logPrefix: string = '[Windows Where]'
+): Promise<string | null> {
+  if (process.platform !== 'win32') {
+    return null;
+  }
+
+  // Security: Only allow simple executable names (alphanumeric, dash, underscore, dot)
+  if (!/^[\w.-]+$/.test(executable)) {
+    console.warn(`${logPrefix} Invalid executable name: ${executable}`);
+    return null;
+  }
+
+  try {
+    // Use 'where' command to find the executable
+    // where.exe is a built-in Windows command that finds executables
+    const { stdout } = await execFileAsync('where.exe', [executable], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      windowsHide: true,
+    });
+
+    // 'where' returns multiple paths separated by newlines if found in multiple locations
+    // We take the first one (highest priority in PATH)
+    const paths = stdout.trim().split(/\r?\n/).filter(p => p.trim());
+
+    if (paths.length > 0) {
+      const foundPath = paths[0].trim();
+
+      // Validate the path exists and is secure
+      try {
+        await access(foundPath, constants.F_OK);
+        if (isSecurePath(foundPath)) {
+          console.log(`${logPrefix} Found via where: ${foundPath}`);
+          return foundPath;
+        }
+      } catch {
+        // Path doesn't exist
       }
     }
 

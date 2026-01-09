@@ -135,6 +135,21 @@ export interface NewCommitsCheck {
 }
 
 /**
+ * Lightweight merge readiness check result
+ * Used for real-time validation of AI verdict freshness
+ */
+export interface MergeReadiness {
+  /** PR is in draft mode */
+  isDraft: boolean;
+  /** GitHub's mergeable status */
+  mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+  /** Simplified CI status */
+  ciStatus: 'passing' | 'failing' | 'pending' | 'none';
+  /** List of blockers that contradict a "ready to merge" verdict */
+  blockers: string[];
+}
+
+/**
  * PR review memory stored in the memory layer
  * Represents key insights and learnings from a PR review
  */
@@ -1194,7 +1209,7 @@ export function registerPRHandlers(
 
               for (const f of findings) {
                 const emoji = { critical: '🔴', high: '🟠', medium: '🟡', low: '🔵' }[f.severity] || '⚪';
-                body += `#### ${emoji} [${f.severity.toUpperCase()}] ${f.title}\n`;
+                body += `#### ${emoji} [${f.id}] [${f.severity.toUpperCase()}] ${f.title}\n`;
                 body += `📁 \`${f.file}:${f.line}\`\n\n`;
                 body += `${f.description}\n\n`;
                 const suggestedFix = f.suggestedFix?.trim();
@@ -1219,7 +1234,7 @@ export function registerPRHandlers(
 
               for (const f of findings) {
                 const emoji = { critical: '🔴', high: '🟠', medium: '🟡', low: '🔵' }[f.severity] || '⚪';
-                body += `#### ${emoji} [${f.severity.toUpperCase()}] ${f.title}\n`;
+                body += `#### ${emoji} [${f.id}] [${f.severity.toUpperCase()}] ${f.title}\n`;
                 body += `📁 \`${f.file}:${f.line}\`\n\n`;
                 body += `${f.description}\n\n`;
                 // Only show suggested fix if it has actual content
@@ -1642,6 +1657,137 @@ export function registerPRHandlers(
       });
 
       return result ?? { hasNewCommits: false, newCommitCount: 0 };
+    }
+  );
+
+  // Check merge readiness (lightweight freshness check for verdict validation)
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_CHECK_MERGE_READINESS,
+    async (_, projectId: string, prNumber: number): Promise<MergeReadiness> => {
+      debugLog('checkMergeReadiness handler called', { projectId, prNumber });
+
+      const defaultResult: MergeReadiness = {
+        isDraft: false,
+        mergeable: 'UNKNOWN',
+        ciStatus: 'none',
+        blockers: [],
+      };
+
+      const result = await withProjectOrNull(projectId, async (project) => {
+        const config = getGitHubConfig(project);
+        if (!config) {
+          debugLog('No GitHub config found for checkMergeReadiness');
+          return defaultResult;
+        }
+
+        try {
+          // Fetch PR data including mergeable status
+          const pr = await githubFetch(
+            config.token,
+            `/repos/${config.repo}/pulls/${prNumber}`
+          ) as {
+            draft: boolean;
+            mergeable: boolean | null;
+            mergeable_state: string;
+            head: { sha: string };
+          };
+
+          // Determine mergeable status
+          let mergeable: MergeReadiness['mergeable'] = 'UNKNOWN';
+          if (pr.mergeable === true) {
+            mergeable = 'MERGEABLE';
+          } else if (pr.mergeable === false || pr.mergeable_state === 'dirty') {
+            mergeable = 'CONFLICTING';
+          }
+
+          // Fetch combined commit status for CI
+          let ciStatus: MergeReadiness['ciStatus'] = 'none';
+          try {
+            const status = await githubFetch(
+              config.token,
+              `/repos/${config.repo}/commits/${pr.head.sha}/status`
+            ) as {
+              state: 'success' | 'pending' | 'failure' | 'error';
+              total_count: number;
+            };
+
+            if (status.total_count === 0) {
+              // No status checks, check for check runs (GitHub Actions)
+              const checkRuns = await githubFetch(
+                config.token,
+                `/repos/${config.repo}/commits/${pr.head.sha}/check-runs`
+              ) as {
+                total_count: number;
+                check_runs: Array<{ conclusion: string | null; status: string }>;
+              };
+
+              if (checkRuns.total_count > 0) {
+                const hasFailing = checkRuns.check_runs.some(
+                  cr => cr.conclusion === 'failure' || cr.conclusion === 'cancelled'
+                );
+                const hasPending = checkRuns.check_runs.some(
+                  cr => cr.status !== 'completed'
+                );
+                
+                if (hasFailing) {
+                  ciStatus = 'failing';
+                } else if (hasPending) {
+                  ciStatus = 'pending';
+                } else {
+                  ciStatus = 'passing';
+                }
+              }
+            } else {
+              // Use combined status
+              if (status.state === 'success') {
+                ciStatus = 'passing';
+              } else if (status.state === 'pending') {
+                ciStatus = 'pending';
+              } else {
+                ciStatus = 'failing';
+              }
+            }
+          } catch (err) {
+            debugLog('Failed to fetch CI status', { prNumber, error: err instanceof Error ? err.message : err });
+            // Continue without CI status
+          }
+
+          // Build blockers list
+          const blockers: string[] = [];
+          if (pr.draft) {
+            blockers.push('PR is in draft mode');
+          }
+          if (mergeable === 'CONFLICTING') {
+            blockers.push('Merge conflicts detected');
+          }
+          if (ciStatus === 'failing') {
+            blockers.push('CI checks are failing');
+          }
+
+          debugLog('checkMergeReadiness result', {
+            prNumber,
+            isDraft: pr.draft,
+            mergeable,
+            ciStatus,
+            blockers,
+          });
+
+          return {
+            isDraft: pr.draft,
+            mergeable,
+            ciStatus,
+            blockers,
+          };
+        } catch (error) {
+          debugLog('Failed to check merge readiness', {
+            prNumber,
+            error: error instanceof Error ? error.message : error,
+          });
+          return defaultResult;
+        }
+      });
+
+      return result ?? defaultResult;
     }
   );
 

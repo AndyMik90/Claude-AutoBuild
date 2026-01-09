@@ -42,9 +42,27 @@ export function registerInsightsHandlers(
         return;
       }
 
-      // Note: Python environment initialization should be handled by insightsService
-      // or added here with proper dependency injection if needed
-      insightsService.sendMessage(projectId, project.path, message, modelConfig);
+      // Await the async sendMessage to ensure proper error handling and
+      // that all async operations (like getProcessEnv) complete before
+      // the handler returns. This fixes race conditions on Windows where
+      // environment setup wouldn't complete before process spawn.
+      try {
+        await insightsService.sendMessage(projectId, project.path, message, modelConfig);
+      } catch (error) {
+        // Errors during sendMessage (executor errors) are already emitted via
+        // the 'error' event, but we catch here to prevent unhandled rejection
+        // and ensure all error types are reported to the UI
+        console.error('[Insights IPC] Error in sendMessage:', error);
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          mainWindow.webContents.send(
+            IPC_CHANNELS.INSIGHTS_ERROR,
+            projectId,
+            `Failed to send message: ${errorMessage}`
+          );
+        }
+      }
     }
   );
 

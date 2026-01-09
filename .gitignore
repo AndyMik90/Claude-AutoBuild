@@ -14,6 +14,7 @@ Desktop.ini
 .env
 .env.*
 !.env.example
+/config.json
 *.pem
 *.key
 *.crt

@@ -14,7 +14,7 @@ import { AgentManager } from '../agent';
 import type { BrowserWindow } from 'electron';
 import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-updater';
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
-import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform } from '../cli-tool-manager';
+import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
 import { parseEnvFile } from './utils';
 
 const settingsPath = getSettingsPath();
@@ -171,6 +171,11 @@ export function registerSettingsHandlers(
         claudePath: settings.claudePath,
       });
 
+      // Re-warm cache asynchronously after configuring (non-blocking)
+      preWarmToolCache(['claude']).catch((error) => {
+        console.warn('[SETTINGS_GET] Failed to re-warm CLI cache:', error);
+      });
+
       return { success: true, data: settings as AppSettings };
     }
   );
@@ -211,6 +216,11 @@ export function registerSettingsHandlers(
             gitPath: newSettings.gitPath,
             githubCLIPath: newSettings.githubCLIPath,
             claudePath: newSettings.claudePath,
+          });
+
+          // Re-warm cache asynchronously after configuring (non-blocking)
+          preWarmToolCache(['claude']).catch((error) => {
+            console.warn('[SETTINGS_SAVE] Failed to re-warm CLI cache:', error);
           });
         }
 

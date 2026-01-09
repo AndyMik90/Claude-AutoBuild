@@ -235,6 +235,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
           selectedPR ? (
             <PRDetail
               pr={selectedPR}
+              projectId={selectedProjectId || ''}
               reviewResult={reviewResult}
               previousReviewResult={previousReviewResult}
               reviewProgress={reviewProgress}

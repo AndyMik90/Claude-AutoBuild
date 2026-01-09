@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   MessageSquare,
@@ -12,6 +13,7 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ScrollArea } from './ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +52,7 @@ export function ChatHistorySidebar({
   onDeleteSession,
   onRenameSession
 }: ChatHistorySidebarProps) {
+  const { t } = useTranslation('common');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
@@ -111,15 +114,20 @@ export function ChatHistorySidebar({
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-3 py-3">
         <h3 className="text-sm font-medium text-foreground">Chat History</h3>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={onNewSession}
-          title="New conversation"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onNewSession}
+              aria-label={t('accessibility.newConversationAriaLabel')}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t('accessibility.newConversationAriaLabel')}</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Session list */}
@@ -205,6 +213,7 @@ function SessionItem({
   onEditTitleChange,
   onDelete
 }: SessionItemProps) {
+  const { t } = useTranslation('common');
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -229,6 +238,7 @@ function SessionItem({
           size="icon"
           className="h-7 w-7 shrink-0"
           onClick={onSaveEdit}
+          aria-label={t('accessibility.saveEditAriaLabel')}
         >
           <Check className="h-3.5 w-3.5 text-success" />
         </Button>
@@ -237,6 +247,7 @@ function SessionItem({
           size="icon"
           className="h-7 w-7 shrink-0"
           onClick={onCancelEdit}
+          aria-label={t('accessibility.cancelEditAriaLabel')}
         >
           <X className="h-3.5 w-3.5 text-muted-foreground" />
         </Button>
@@ -282,6 +293,7 @@ function SessionItem({
             variant="ghost"
             size="icon"
             className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 hover:bg-muted-foreground/20 transition-opacity"
+            aria-label={t('accessibility.moreOptionsAriaLabel')}
           >
             <MoreVertical className="h-3.5 w-3.5" />
           </Button>

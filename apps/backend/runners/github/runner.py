@@ -56,8 +56,10 @@ if sys.platform == "win32":
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-# Load .env file
-from dotenv import load_dotenv
+# Load .env file with centralized error handling
+from cli.utils import import_dotenv
+
+load_dotenv = import_dotenv()
 
 env_file = Path(__file__).parent.parent.parent / ".env"
 if env_file.exists():

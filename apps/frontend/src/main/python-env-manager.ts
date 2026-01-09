@@ -122,19 +122,36 @@ export class PythonEnvManager extends EventEmitter {
       return false;
     }
 
-    // Check for the marker file that indicates successful bundling
-    const markerPath = path.join(sitePackagesPath, '.bundled');
-    if (existsSync(markerPath)) {
-      console.log(`[PythonEnvManager] Found bundle marker, using bundled packages`);
-      return true;
+    // Critical packages that must exist for proper functionality
+    // This fixes GitHub issue #416 where marker exists but packages are missing
+    // Note: Same list exists in download-python.cjs - keep them in sync
+    // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
+    const criticalPackages = ['claude_agent_sdk', 'dotenv'];
+
+    // Check each package exists with valid structure (directory + __init__.py)
+    const missingPackages = criticalPackages.filter((pkg) => {
+      const pkgPath = path.join(sitePackagesPath, pkg);
+      const initPath = path.join(pkgPath, '__init__.py');
+      // Package is valid if directory and __init__.py both exist
+      return !existsSync(pkgPath) || !existsSync(initPath);
+    });
+
+    // Log missing packages for debugging
+    for (const pkg of missingPackages) {
+      console.log(
+        `[PythonEnvManager] Missing critical package: ${pkg} at ${path.join(sitePackagesPath, pkg)}`
+      );
     }
 
-    // Fallback: check if key packages exist
-    // This handles cases where the marker might be missing but packages are there
-    const claudeSdkPath = path.join(sitePackagesPath, 'claude_agent_sdk');
-    const dotenvPath = path.join(sitePackagesPath, 'dotenv');
-    if (existsSync(claudeSdkPath) || existsSync(dotenvPath)) {
-      console.log(`[PythonEnvManager] Found key packages, using bundled packages`);
+    // All packages must exist - don't rely solely on marker file
+    if (missingPackages.length === 0) {
+      // Also check marker for logging purposes
+      const markerPath = path.join(sitePackagesPath, '.bundled');
+      if (existsSync(markerPath)) {
+        console.log(`[PythonEnvManager] Found bundle marker and all critical packages`);
+      } else {
+        console.log(`[PythonEnvManager] Found critical packages (marker missing)`);
+      }
       return true;
     }
 

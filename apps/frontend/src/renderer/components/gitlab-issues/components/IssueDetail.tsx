@@ -20,7 +20,7 @@ const GITLAB_COMPLEXITY_COLORS: Record<string, string> = {
 };
 
 export function IssueDetail({ issue, onInvestigate, investigationResult, linkedTaskId, onViewTask }: IssueDetailProps) {
-  const { t } = useTranslation('gitlab');
+  const { t } = useTranslation(['gitlab', 'common']);
   // Determine which task ID to use - either already linked or just created
   const taskId = linkedTaskId || (investigationResult?.success ? investigationResult.taskId : undefined);
   const hasLinkedTask = !!taskId;
@@ -46,7 +46,7 @@ export function IssueDetail({ issue, onInvestigate, investigationResult, linkedT
               </Badge>
               <span className="text-sm text-muted-foreground">#{issue.iid}</span>
             </div>
-            <Button variant="ghost" size="icon" asChild>
+            <Button variant="ghost" size="icon" asChild aria-label={t('common:accessibility.openOnGitLabAriaLabel')}>
               <a href={issue.webUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4" />
               </a>

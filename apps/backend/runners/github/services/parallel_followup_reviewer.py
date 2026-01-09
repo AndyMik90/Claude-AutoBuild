@@ -21,9 +21,6 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-import shutil
-import subprocess
-import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -45,6 +42,7 @@ try:
         ReviewSeverity,
     )
     from .category_utils import map_category
+    from .pr_worktree_manager import PRWorktreeManager
     from .pydantic_models import ParallelFollowupResponse
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
@@ -60,6 +58,7 @@ except (ImportError, ValueError, SystemError):
     )
     from phase_config import get_thinking_budget
     from services.category_utils import map_category
+    from services.pr_worktree_manager import PRWorktreeManager
     from services.pydantic_models import ParallelFollowupResponse
     from services.sdk_utils import process_sdk_stream
 
@@ -116,6 +115,7 @@ class ParallelFollowupReviewer:
         self.github_dir = Path(github_dir)
         self.config = config
         self.progress_callback = progress_callback
+        self.worktree_manager = PRWorktreeManager(project_dir, PR_WORKTREE_DIR)
 
     def _report_progress(self, phase: str, progress: int, message: str, **kwargs):
         """Report progress if callback is set."""
@@ -167,59 +167,7 @@ class ParallelFollowupReviewer:
                 "Must contain only alphanumeric characters, dots, slashes, underscores, and hyphens."
             )
 
-        worktree_name = f"pr-followup-{pr_number}-{uuid.uuid4().hex[:8]}"
-        worktree_dir = self.project_dir / PR_WORKTREE_DIR
-
-        if DEBUG_MODE:
-            print(f"[Followup] DEBUG: project_dir={self.project_dir}", flush=True)
-            print(f"[Followup] DEBUG: worktree_dir={worktree_dir}", flush=True)
-            print(f"[Followup] DEBUG: head_sha={head_sha}", flush=True)
-
-        worktree_dir.mkdir(parents=True, exist_ok=True)
-        worktree_path = worktree_dir / worktree_name
-
-        if DEBUG_MODE:
-            print(f"[Followup] DEBUG: worktree_path={worktree_path}", flush=True)
-
-        # Fetch the commit if not available locally (handles fork PRs)
-        fetch_result = subprocess.run(
-            ["git", "fetch", "origin", head_sha],
-            cwd=self.project_dir,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if DEBUG_MODE:
-            print(
-                f"[Followup] DEBUG: fetch returncode={fetch_result.returncode}",
-                flush=True,
-            )
-
-        # Create detached worktree at the PR commit
-        result = subprocess.run(
-            ["git", "worktree", "add", "--detach", str(worktree_path), head_sha],
-            cwd=self.project_dir,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-
-        if DEBUG_MODE:
-            print(
-                f"[Followup] DEBUG: worktree add returncode={result.returncode}",
-                flush=True,
-            )
-            if result.stderr:
-                print(
-                    f"[Followup] DEBUG: worktree add stderr={result.stderr[:200]}",
-                    flush=True,
-                )
-
-        if result.returncode != 0:
-            raise RuntimeError(f"Failed to create worktree: {result.stderr}")
-
-        logger.info(f"[Followup] Created worktree at {worktree_path}")
-        return worktree_path
+        return self.worktree_manager.create_worktree(head_sha, pr_number)
 
     def _cleanup_pr_worktree(self, worktree_path: Path) -> None:
         """Remove a temporary PR review worktree with fallback chain.
@@ -227,40 +175,7 @@ class ParallelFollowupReviewer:
         Args:
             worktree_path: Path to the worktree to remove
         """
-        if not worktree_path or not worktree_path.exists():
-            return
-
-        if DEBUG_MODE:
-            print(
-                f"[Followup] DEBUG: Cleaning up worktree at {worktree_path}",
-                flush=True,
-            )
-
-        # Try 1: git worktree remove
-        result = subprocess.run(
-            ["git", "worktree", "remove", "--force", str(worktree_path)],
-            cwd=self.project_dir,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-
-        if result.returncode == 0:
-            logger.info(f"[Followup] Cleaned up worktree: {worktree_path.name}")
-            return
-
-        # Try 2: shutil.rmtree fallback
-        try:
-            shutil.rmtree(worktree_path, ignore_errors=True)
-            subprocess.run(
-                ["git", "worktree", "prune"],
-                cwd=self.project_dir,
-                capture_output=True,
-                timeout=30,
-            )
-            logger.warning(f"[Followup] Used shutil fallback for: {worktree_path.name}")
-        except Exception as e:
-            logger.error(f"[Followup] Failed to cleanup worktree {worktree_path}: {e}")
+        self.worktree_manager.remove_worktree(worktree_path)
 
     def _define_specialist_agents(self) -> dict[str, AgentDefinition]:
         """
@@ -666,15 +581,45 @@ The SDK will run invoked agents in parallel automatically.
                 f"{len(resolved_ids)} resolved, {len(unresolved_ids)} unresolved"
             )
 
+            # Generate blockers from critical/high/medium severity findings
+            # (Medium also blocks merge in our strict quality gates approach)
+            blockers = []
+
+            # CRITICAL: Merge conflicts block merging - check FIRST before summary generation
+            # This must happen before _generate_summary so the summary reflects merge conflict status
+            if context.has_merge_conflicts:
+                blockers.append(
+                    "Merge Conflicts: PR has conflicts with base branch that must be resolved"
+                )
+                # Override verdict to BLOCKED if merge conflicts exist
+                verdict = MergeVerdict.BLOCKED
+                verdict_reasoning = (
+                    "Blocked: PR has merge conflicts with base branch. "
+                    "Resolve conflicts before merge."
+                )
+                print(
+                    "[ParallelFollowup] ⚠️ PR has merge conflicts - blocking merge",
+                    flush=True,
+                )
+
+            for finding in unique_findings:
+                if finding.severity in (
+                    ReviewSeverity.CRITICAL,
+                    ReviewSeverity.HIGH,
+                    ReviewSeverity.MEDIUM,
+                ):
+                    blockers.append(f"{finding.category.value}: {finding.title}")
+
             # Extract validation counts
             dismissed_count = len(result_data.get("dismissed_false_positive_ids", []))
             confirmed_count = result_data.get("confirmed_valid_count", 0)
             needs_human_count = result_data.get("needs_human_review_count", 0)
 
-            # Generate summary
+            # Generate summary (AFTER merge conflict check so it reflects correct verdict)
             summary = self._generate_summary(
                 verdict=verdict,
                 verdict_reasoning=verdict_reasoning,
+                blockers=blockers,
                 resolved_count=len(resolved_ids),
                 unresolved_count=len(unresolved_ids),
                 new_count=len(new_finding_ids),
@@ -682,6 +627,7 @@ The SDK will run invoked agents in parallel automatically.
                 dismissed_false_positive_count=dismissed_count,
                 confirmed_valid_count=confirmed_count,
                 needs_human_review_count=needs_human_count,
+                ci_status=context.ci_status,
             )
 
             # Map verdict to overall_status
@@ -693,17 +639,6 @@ The SDK will run invoked agents in parallel automatically.
                 overall_status = "comment"
             else:
                 overall_status = "approve"
-
-            # Generate blockers from critical/high/medium severity findings
-            # (Medium also blocks merge in our strict quality gates approach)
-            blockers = []
-            for finding in unique_findings:
-                if finding.severity in (
-                    ReviewSeverity.CRITICAL,
-                    ReviewSeverity.HIGH,
-                    ReviewSeverity.MEDIUM,
-                ):
-                    blockers.append(f"{finding.category.value}: {finding.title}")
 
             # Get file blob SHAs for rebase-resistant follow-up reviews
             # Blob SHAs persist across rebases - same content = same blob SHA
@@ -1035,6 +970,7 @@ The SDK will run invoked agents in parallel automatically.
         self,
         verdict: MergeVerdict,
         verdict_reasoning: str,
+        blockers: list[str],
         resolved_count: int,
         unresolved_count: int,
         new_count: int,
@@ -1042,18 +978,29 @@ The SDK will run invoked agents in parallel automatically.
         dismissed_false_positive_count: int = 0,
         confirmed_valid_count: int = 0,
         needs_human_review_count: int = 0,
+        ci_status: dict | None = None,
     ) -> str:
         """Generate a human-readable summary of the follow-up review."""
+        # Use same emojis as orchestrator.py for consistency
         status_emoji = {
             MergeVerdict.READY_TO_MERGE: "✅",
-            MergeVerdict.MERGE_WITH_CHANGES: "⚠️",
-            MergeVerdict.NEEDS_REVISION: "🔄",
-            MergeVerdict.BLOCKED: "🚫",
+            MergeVerdict.MERGE_WITH_CHANGES: "🟡",
+            MergeVerdict.NEEDS_REVISION: "🟠",
+            MergeVerdict.BLOCKED: "🔴",
         }
 
         emoji = status_emoji.get(verdict, "📝")
         agents_str = (
             ", ".join(agents_invoked) if agents_invoked else "orchestrator only"
+        )
+
+        # Generate a prominent bottom-line summary for quick scanning
+        bottom_line = self._generate_bottom_line(
+            verdict=verdict,
+            ci_status=ci_status,
+            unresolved_count=unresolved_count,
+            new_count=new_count,
+            blockers=blockers,
         )
 
         # Build validation section if there are validation results
@@ -1070,13 +1017,24 @@ The SDK will run invoked agents in parallel automatically.
 - 👤 **Needs Human Review**: {needs_human_review_count} findings require manual verification
 """
 
+        # Build blockers section if there are any blockers
+        blockers_section = ""
+        if blockers:
+            blockers_list = "\n".join(f"- {b}" for b in blockers)
+            blockers_section = f"""
+### 🚨 Blocking Issues
+{blockers_list}
+"""
+
         summary = f"""## {emoji} Follow-up Review: {verdict.value.replace("_", " ").title()}
+
+> {bottom_line}
 
 ### Resolution Status
 - ✅ **Resolved**: {resolved_count} previous findings addressed
 - ❌ **Unresolved**: {unresolved_count} previous findings remain
 - 🆕 **New Issues**: {new_count} new findings in recent changes
-{validation_section}
+{validation_section}{blockers_section}
 ### Verdict
 {verdict_reasoning}
 
@@ -1087,3 +1045,65 @@ Agents invoked: {agents_str}
 *This is an AI-generated follow-up review using parallel specialist analysis with finding validation.*
 """
         return summary
+
+    def _generate_bottom_line(
+        self,
+        verdict: MergeVerdict,
+        ci_status: dict | None,
+        unresolved_count: int,
+        new_count: int,
+        blockers: list[str],
+    ) -> str:
+        """Generate a one-line summary for quick scanning at the top of the review."""
+        # Check CI status
+        ci = ci_status or {}
+        pending_ci = ci.get("pending", 0)
+        failing_ci = ci.get("failing", 0)
+        awaiting_approval = ci.get("awaiting_approval", 0)
+
+        # Count blocking issues (excluding CI-related ones)
+        code_blockers = [
+            b for b in blockers if "CI" not in b and "Merge Conflict" not in b
+        ]
+        has_merge_conflicts = any("Merge Conflict" in b for b in blockers)
+
+        # Determine the bottom line based on verdict and context
+        if verdict == MergeVerdict.READY_TO_MERGE:
+            return "**✅ Ready to merge** - All checks passing and findings addressed."
+
+        elif verdict == MergeVerdict.BLOCKED:
+            if has_merge_conflicts:
+                return "**🔴 Blocked** - Merge conflicts must be resolved before merge."
+            elif failing_ci > 0:
+                return f"**🔴 Blocked** - {failing_ci} CI check(s) failing. Fix CI before merge."
+            elif awaiting_approval > 0:
+                return "**🔴 Blocked** - Awaiting maintainer approval for fork PR workflow."
+            elif code_blockers:
+                return f"**🔴 Blocked** - {len(code_blockers)} blocking issue(s) require fixes."
+            else:
+                return "**🔴 Blocked** - Critical issues must be resolved before merge."
+
+        elif verdict == MergeVerdict.NEEDS_REVISION:
+            # Key insight: distinguish "waiting on CI" from "needs code fixes"
+            # Check code issues FIRST before checking pending CI
+            if unresolved_count > 0:
+                return f"**🟠 Needs revision** - {unresolved_count} unresolved finding(s) from previous review."
+            elif code_blockers:
+                return f"**🟠 Needs revision** - {len(code_blockers)} blocking issue(s) require fixes."
+            elif new_count > 0:
+                return f"**🟠 Needs revision** - {new_count} new issue(s) found in recent changes."
+            elif pending_ci > 0:
+                # Only show "Ready once CI passes" when no code issues exist
+                return f"**⏳ Ready once CI passes** - {pending_ci} check(s) pending, all findings addressed."
+            else:
+                return "**🟠 Needs revision** - See details below."
+
+        elif verdict == MergeVerdict.MERGE_WITH_CHANGES:
+            if pending_ci > 0:
+                return (
+                    "**🟡 Can merge once CI passes** - Minor suggestions, no blockers."
+                )
+            else:
+                return "**🟡 Can merge** - Minor suggestions noted, no blockers."
+
+        return "**📝 Review complete** - See details below."

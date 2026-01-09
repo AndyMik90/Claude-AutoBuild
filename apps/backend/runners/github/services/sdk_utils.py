@@ -235,8 +235,9 @@ async def process_sdk_stream(
                             if on_tool_use:
                                 on_tool_use(tool_name, tool_id, tool_input)
 
-                        # Collect text
-                        if hasattr(block, "text"):
+                        # Collect text - must check block type since only TextBlock has .text
+                        block_type = type(block).__name__
+                        if block_type == "TextBlock" and hasattr(block, "text"):
                             result_text += block.text
                             # Always print text content preview (not just in DEBUG_MODE)
                             text_preview = block.text[:500].replace("\n", " ").strip()

@@ -194,6 +194,9 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         updatedAt: new Date()
       };
 
+      // Invalidate cache since a new task was created
+      projectStore.invalidateTasksCache(projectId);
+
       return { success: true, data: task };
     }
   );
@@ -230,6 +233,10 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         } else {
           console.warn(`[TASK_DELETE] Spec directory not found: ${specDir}`);
         }
+
+        // Invalidate cache since a task was deleted
+        projectStore.invalidateTasksCache(project.id);
+
         return { success: true };
       } catch (error) {
         console.error('[TASK_DELETE] Error deleting spec directory:', error);
@@ -417,6 +424,9 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           metadata: updatedMetadata,
           updatedAt: new Date()
         };
+
+        // Invalidate cache since a task was updated
+        projectStore.invalidateTasksCache(project.id);
 
         return { success: true, data: updatedTask };
       } catch (error) {

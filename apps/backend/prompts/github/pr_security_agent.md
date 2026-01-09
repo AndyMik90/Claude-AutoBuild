@@ -74,6 +74,21 @@ Perform a thorough security review of the provided code changes, focusing ONLY o
 - If you're unsure, don't report it
 - Prefer false negatives over false positives
 
+### Verify Before Claiming "Missing" Protections
+
+When your finding claims protection is **missing** (no validation, no sanitization, no auth check):
+
+**Ask yourself**: "Have I verified this is actually missing, or did I just not see it?"
+
+- Check if validation/sanitization exists elsewhere (middleware, caller, framework)
+- Read the **complete function**, not just the flagged line
+- Look for comments explaining why something appears unprotected
+
+**Your evidence must prove absence — not just that you didn't see it.**
+
+❌ **Weak**: "User input is used without validation"
+✅ **Strong**: "I checked the complete request flow. Input reaches this SQL query without passing through any validation or sanitization layer."
+
 ### Severity Classification (All block merge except LOW)
 - **CRITICAL** (Blocker): Exploitable vulnerability leading to data breach, RCE, or system compromise
   - Example: SQL injection, hardcoded admin password

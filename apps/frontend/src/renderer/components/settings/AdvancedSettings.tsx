@@ -362,6 +362,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
                   size="icon"
                   className="h-6 w-6"
                   onClick={dismissStableDowngrade}
+                  aria-label={t('common:accessibility.dismissAriaLabel')}
                 >
                   <X className="h-4 w-4" />
                 </Button>

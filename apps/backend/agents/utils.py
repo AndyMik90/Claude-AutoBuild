@@ -8,42 +8,38 @@ Helper functions for git operations, plan management, and file syncing.
 import json
 import logging
 import shutil
-import subprocess
 from pathlib import Path
+
+from core.git_executable import run_git
 
 logger = logging.getLogger(__name__)
 
 
 def get_latest_commit(project_dir: Path) -> str | None:
     """Get the hash of the latest git commit."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=project_dir,
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=10,
-        )
+    result = run_git(
+        ["rev-parse", "HEAD"],
+        cwd=project_dir,
+        timeout=10,
+    )
+    if result.returncode == 0:
         return result.stdout.strip()
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-        return None
+    return None
 
 
 def get_commit_count(project_dir: Path) -> int:
     """Get the total number of commits."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-list", "--count", "HEAD"],
-            cwd=project_dir,
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=10,
-        )
-        return int(result.stdout.strip())
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
-        return 0
+    result = run_git(
+        ["rev-list", "--count", "HEAD"],
+        cwd=project_dir,
+        timeout=10,
+    )
+    if result.returncode == 0:
+        try:
+            return int(result.stdout.strip())
+        except ValueError:
+            return 0
+    return 0
 
 
 def load_implementation_plan(spec_dir: Path) -> dict | None:
