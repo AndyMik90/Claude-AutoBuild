@@ -24,6 +24,8 @@ const buttonVariants = cva(
           'bg-[var(--success)] text-[var(--success-foreground)] hover:bg-[var(--success)]/90 active:scale-[0.98]',
         warning:
           'bg-warning text-warning-foreground hover:bg-warning/90 active:scale-[0.98]',
+        info:
+          'bg-info text-info-foreground hover:bg-info/90 active:scale-[0.98]',
       },
       size: {
         default: 'h-10 px-4 py-2 text-sm rounded-lg',

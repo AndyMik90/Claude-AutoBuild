@@ -39,9 +39,10 @@ class Icons:
     FILE = ("📄", "[F]")
     GEAR = ("⚙", "[*]")
     SEARCH = ("🔍", "[?]")
-    BRANCH = ("", "[B]")
+    BRANCH = ("🌿", "[BR]")  # [BR] to avoid collision with BLOCKED [B]
     COMMIT = ("◉", "(@)")
     LIGHTNING = ("⚡", "!")
+    LINK = ("🔗", "[L]")  # For PR URLs
 
     # Progress
     SUBTASK = ("▣", "#")

@@ -1,4 +1,4 @@
-import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo } from '../../../shared/types';
+import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, WorktreeCreatePRResult } from '../../../shared/types';
 import {
   StagedSuccessMessage,
   WorkspaceStatus,
@@ -8,7 +8,8 @@ import {
   ConflictDetailsDialog,
   LoadingMessage,
   NoWorkspaceMessage,
-  StagedInProjectMessage
+  StagedInProjectMessage,
+  CreatePRDialog
 } from './task-review';
 
 interface TaskReviewProps {
@@ -42,6 +43,11 @@ interface TaskReviewProps {
   onClose?: () => void;
   onSwitchToTerminals?: () => void;
   onOpenInbuiltTerminal?: (id: string, cwd: string) => void;
+  // PR creation
+  showPRDialog: boolean;
+  isCreatingPR: boolean;
+  onShowPRDialog: (show: boolean) => void;
+  onCreatePR: (options: { targetBranch?: string; title?: string; draft?: boolean }) => Promise<WorktreeCreatePRResult | null>;
 }
 
 /**
@@ -83,7 +89,11 @@ export function TaskReview({
   onLoadMergePreview,
   onClose,
   onSwitchToTerminals,
-  onOpenInbuiltTerminal
+  onOpenInbuiltTerminal,
+  showPRDialog,
+  isCreatingPR,
+  onShowPRDialog,
+  onCreatePR
 }: TaskReviewProps) {
   return (
     <div className="space-y-4">
@@ -110,12 +120,14 @@ export function TaskReview({
           isLoadingPreview={isLoadingPreview}
           isMerging={isMerging}
           isDiscarding={isDiscarding}
+          isCreatingPR={isCreatingPR}
           onShowDiffDialog={onShowDiffDialog}
           onShowDiscardDialog={onShowDiscardDialog}
           onShowConflictDialog={onShowConflictDialog}
           onLoadMergePreview={onLoadMergePreview}
           onStageOnlyChange={onStageOnlyChange}
           onMerge={onMerge}
+          onShowPRDialog={onShowPRDialog}
           onClose={onClose}
           onSwitchToTerminals={onSwitchToTerminals}
           onOpenInbuiltTerminal={onOpenInbuiltTerminal}
@@ -163,6 +175,15 @@ export function TaskReview({
         stageOnly={stageOnly}
         onOpenChange={onShowConflictDialog}
         onMerge={onMerge}
+      />
+
+      {/* Create PR Dialog */}
+      <CreatePRDialog
+        open={showPRDialog}
+        task={task}
+        worktreeStatus={worktreeStatus}
+        onOpenChange={onShowPRDialog}
+        onCreatePR={onCreatePR}
       />
     </div>
   );

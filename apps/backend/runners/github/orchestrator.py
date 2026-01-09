@@ -24,6 +24,8 @@ try:
     from .context_gatherer import PRContext, PRContextGatherer
     from .gh_client import GHClient
     from .models import (
+        BRANCH_BEHIND_BLOCKER_MSG,
+        BRANCH_BEHIND_REASONING,
         AICommentTriage,
         AICommentVerdict,
         AutoFixState,
@@ -50,6 +52,8 @@ except (ImportError, ValueError, SystemError):
     from context_gatherer import PRContext, PRContextGatherer
     from gh_client import GHClient
     from models import (
+        BRANCH_BEHIND_BLOCKER_MSG,
+        BRANCH_BEHIND_REASONING,
         AICommentTriage,
         AICommentVerdict,
         AutoFixState,
@@ -420,6 +424,7 @@ class GitHubOrchestrator:
                 ai_triages,
                 ci_status,
                 has_merge_conflicts=pr_context.has_merge_conflicts,
+                merge_state_status=pr_context.merge_state_status,
             )
             print(
                 f"[DEBUG orchestrator] Verdict: {verdict.value} - {verdict_reasoning}",
@@ -802,6 +807,7 @@ class GitHubOrchestrator:
         ai_triages: list[AICommentTriage],
         ci_status: dict | None = None,
         has_merge_conflicts: bool = False,
+        merge_state_status: str = "",
     ) -> tuple[MergeVerdict, str, list[str]]:
         """
         Generate merge verdict based on all findings, CI status, and merge conflicts.
@@ -811,15 +817,22 @@ class GitHubOrchestrator:
         - Verification failures
         - Redundancy issues
         - Failing CI checks
+
+        Warns on (NEEDS_REVISION):
+        - Branch behind base (out of date)
         """
         blockers = []
         ci_status = ci_status or {}
+        is_branch_behind = merge_state_status == "BEHIND"
 
         # CRITICAL: Merge conflicts block merging - check first
         if has_merge_conflicts:
             blockers.append(
                 "Merge Conflicts: PR has conflicts with base branch that must be resolved"
             )
+        # Branch behind base is a warning, not a hard blocker
+        elif is_branch_behind:
+            blockers.append(BRANCH_BEHIND_BLOCKER_MSG)
 
         # Count by severity
         critical = [f for f in findings if f.severity == ReviewSeverity.CRITICAL]
@@ -944,6 +957,12 @@ class GitHubOrchestrator:
             elif len(critical) > 0:
                 verdict = MergeVerdict.BLOCKED
                 reasoning = f"Blocked by {len(critical)} critical issues"
+            # Branch behind is a soft blocker - NEEDS_REVISION, not BLOCKED
+            elif is_branch_behind:
+                verdict = MergeVerdict.NEEDS_REVISION
+                reasoning = BRANCH_BEHIND_REASONING
+                if low:
+                    reasoning += f" {len(low)} non-blocking suggestion(s) to consider."
             else:
                 verdict = MergeVerdict.NEEDS_REVISION
                 reasoning = f"{len(blockers)} issues must be addressed"

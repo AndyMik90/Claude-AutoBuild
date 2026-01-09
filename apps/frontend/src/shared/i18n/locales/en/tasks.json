@@ -4,6 +4,7 @@
     "todo": "To Do",
     "in_progress": "In Progress",
     "review": "Review",
+    "prCreated": "PR Created",
     "complete": "Complete",
     "archived": "Archived"
   },
@@ -15,6 +16,7 @@
     "archive": "Archive",
     "delete": "Delete",
     "view": "View Details",
+    "viewPR": "View PR",
     "moveTo": "Move to",
     "taskActions": "Task actions"
   },
@@ -37,7 +39,8 @@
   },
   "tooltips": {
     "archiveTask": "Archive task",
-    "archiveAllDone": "Archive all done tasks"
+    "archiveAllDone": "Archive all done tasks",
+    "viewPR": "Open pull request in browser"
   },
   "creation": {
     "title": "Create New Task",
@@ -53,7 +56,8 @@
     "in_progress": "In Progress",
     "ai_review": "AI Review",
     "human_review": "Human Review",
-    "done": "Done"
+    "done": "Done",
+    "pr_created": "PR Created"
   },
   "kanban": {
     "emptyBacklog": "No tasks planned",
@@ -110,7 +114,8 @@
     "openInIDE": "Open in IDE"
   },
   "metadata": {
-    "severity": "severity"
+    "severity": "severity",
+    "pullRequest": "Pull Request"
   },
   "images": {
     "removeImageAriaLabel": "Remove image {{filename}}",

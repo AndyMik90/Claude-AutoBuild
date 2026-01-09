@@ -133,5 +133,20 @@
     "cancel": "Annuler",
     "remove": "Retirer",
     "error": "Échec de la suppression du projet"
+  },
+  "appUpdate": {
+    "title": "Mise à jour de l'application disponible",
+    "description": "Une nouvelle version d'Auto Claude est prête à être téléchargée",
+    "newVersion": "Nouvelle version",
+    "released": "Publiée",
+    "downloading": "Téléchargement...",
+    "downloadUpdate": "Télécharger la mise à jour",
+    "installAndRestart": "Installer et redémarrer",
+    "installLater": "Installer plus tard",
+    "remindMeLater": "Me rappeler plus tard",
+    "updateDownloaded": "Mise à jour téléchargée avec succès ! Cliquez sur Installer pour redémarrer et appliquer la mise à jour.",
+    "downloadError": "Échec du téléchargement de la mise à jour",
+    "claudeCodeChangelog": "Voir le journal des modifications Claude Code",
+    "claudeCodeChangelogAriaLabel": "Voir le journal des modifications Claude Code (s'ouvre dans une nouvelle fenêtre)"
   }
 }

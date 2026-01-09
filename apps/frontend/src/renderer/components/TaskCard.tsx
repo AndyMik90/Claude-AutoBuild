@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, MoreVertical } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -74,6 +74,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.metadata?.category === nextTask.metadata?.category &&
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
     prevTask.metadata?.archivedAt === nextTask.metadata?.archivedAt &&
+    prevTask.metadata?.prUrl === nextTask.metadata?.prUrl &&
     // Check if any subtask statuses changed (compare all subtasks)
     prevTask.subtasks.every((s, i) => s.status === nextTask.subtasks[i]?.status)
   );
@@ -247,6 +248,13 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
     }
   };
 
+  const handleViewPR = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (task.metadata?.prUrl && window.electronAPI?.openExternal) {
+      window.electronAPI.openExternal(task.metadata.prUrl);
+    }
+  };
+
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'in_progress':
@@ -255,6 +263,8 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
         return 'warning';
       case 'human_review':
         return 'purple';
+      case 'pr_created':
+        return 'success';
       case 'done':
         return 'success';
       default:
@@ -270,6 +280,8 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
         return t('labels.aiReview');
       case 'human_review':
         return t('labels.needsReview');
+      case 'pr_created':
+        return t('columns.pr_created');
       case 'done':
         return t('status.complete');
       default:
@@ -369,15 +381,26 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
                 {EXECUTION_PHASE_LABELS[executionPhase]}
               </Badge>
             )}
-            {/* Status badge - hide when execution phase badge is showing */}
-            {!hasActiveExecution && (
-              <Badge
-                variant={isStuck ? 'warning' : isIncomplete ? 'warning' : getStatusBadgeVariant(task.status)}
-                className="text-[10px] px-1.5 py-0.5"
-              >
-                {isStuck ? t('labels.needsRecovery') : isIncomplete ? t('labels.needsResume') : getStatusLabel(task.status)}
-              </Badge>
-            )}
+             {/* Status badge - hide when execution phase badge is showing */}
+             {!hasActiveExecution && (
+               <>
+                  {task.status === 'pr_created' ? (
+                    <Badge
+                      variant={getStatusBadgeVariant(task.status)}
+                      className="text-[10px] px-1.5 py-0.5"
+                    >
+                      {getStatusLabel(task.status)}
+                    </Badge>
+                  ) : (
+                   <Badge
+                     variant={isStuck ? 'warning' : isIncomplete ? 'warning' : getStatusBadgeVariant(task.status)}
+                     className="text-[10px] px-1.5 py-0.5"
+                   >
+                     {isStuck ? t('labels.needsRecovery') : isIncomplete ? t('labels.needsResume') : getStatusLabel(task.status)}
+                   </Badge>
+                 )}
+               </>
+             )}
             {/* Review reason badge - explains why task needs human review */}
             {reviewReasonInfo && !isStuck && !isIncomplete && (
               <Badge
@@ -492,6 +515,31 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
                 <Play className="mr-1.5 h-3 w-3" />
                 {t('actions.resume')}
               </Button>
+            ) : task.status === 'pr_created' ? (
+              <div className="flex gap-1">
+                {task.metadata?.prUrl && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 cursor-pointer"
+                    onClick={handleViewPR}
+                    title={t('tooltips.viewPR')}
+                  >
+                    <GitPullRequest className="h-3 w-3" />
+                  </Button>
+                )}
+                {!task.metadata?.archivedAt && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 cursor-pointer"
+                    onClick={handleArchive}
+                    title={t('tooltips.archiveTask')}
+                  >
+                    <Archive className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             ) : task.status === 'done' && !task.metadata?.archivedAt ? (
               <Button
                 variant="ghost"

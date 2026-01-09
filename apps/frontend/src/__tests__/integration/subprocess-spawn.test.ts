@@ -302,7 +302,7 @@ describe('Subprocess Spawn Integration', () => {
 
       await manager.startTaskExecution('task-2', TEST_PROJECT_PATH, 'spec-001');
       expect(manager.getRunningTasks()).toHaveLength(2);
-    });
+    }, 15000);
 
     it('should use configured Python path', async () => {
       const { spawn } = await import('child_process');

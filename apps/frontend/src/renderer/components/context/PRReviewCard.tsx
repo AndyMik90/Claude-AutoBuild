@@ -91,7 +91,7 @@ function VerdictBadge({ verdict }: { verdict: string }) {
 
 function SeverityBadge({ severity, count }: { severity: string; count: number }) {
   if (count === 0) return null;
-  
+
   const colorMap: Record<string, string> = {
     critical: 'bg-red-600/20 text-red-400 border-red-600/30',
     high: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
@@ -129,7 +129,7 @@ export function PRReviewCard({ memory }: PRReviewCardProps) {
   }
 
   const { finding_counts } = parsed.summary || { finding_counts: { critical: 0, high: 0, medium: 0, low: 0 } };
-  const totalFindings = (finding_counts?.critical || 0) + (finding_counts?.high || 0) + 
+  const totalFindings = (finding_counts?.critical || 0) + (finding_counts?.high || 0) +
                        (finding_counts?.medium || 0) + (finding_counts?.low || 0);
   const hasGotchas = parsed.gotchas && parsed.gotchas.length > 0;
   const hasPatterns = parsed.patterns && parsed.patterns.length > 0;
@@ -229,7 +229,7 @@ export function PRReviewCard({ memory }: PRReviewCardProps) {
                   {parsed.keyFindings.slice(0, 5).map((finding, idx) => (
                     <div key={idx} className="text-sm">
                       <div className="flex items-center gap-2">
-                        <Badge 
+                        <Badge
                           className={`text-xs ${
                             finding.severity === 'critical' ? 'bg-red-600/20 text-red-400' :
                             finding.severity === 'high' ? 'bg-orange-500/20 text-orange-400' :

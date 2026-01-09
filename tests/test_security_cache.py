@@ -99,18 +99,18 @@ def test_cache_invalidation_on_file_modification(mock_project_dir, mock_profile_
 
 def test_cache_invalidation_on_file_deletion(mock_project_dir, mock_profile_path):
     reset_profile_cache()
-    
+
     # 1. Create file
     current_hash = get_dir_hash(mock_project_dir)
     mock_profile_path.write_text(create_valid_profile_json(["unique_cmd_A"], current_hash))
-    
+
     # 2. Load profile
     profile1 = get_security_profile(mock_project_dir)
     assert "unique_cmd_A" in profile1.get_all_allowed_commands()
-    
+
     # 3. Delete file
     mock_profile_path.unlink()
-    
+
     # 4. Call again - should handle deletion gracefully and fallback to fresh analysis
     profile2 = get_security_profile(mock_project_dir)
-    assert "unique_cmd_A" not in profile2.get_all_allowed_commands() 
+    assert "unique_cmd_A" not in profile2.get_all_allowed_commands()

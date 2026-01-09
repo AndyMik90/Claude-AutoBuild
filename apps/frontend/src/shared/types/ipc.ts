@@ -36,6 +36,8 @@ import type {
   WorktreeMergeResult,
   WorktreeDiscardResult,
   WorktreeListResult,
+  WorktreeCreatePROptions,
+  WorktreeCreatePRResult,
   TaskRecoveryResult,
   TaskRecoveryOptions,
   TaskMetadata,
@@ -167,6 +169,7 @@ export interface ElectronAPI {
   getWorktreeDiff: (taskId: string) => Promise<IPCResult<WorktreeDiff>>;
   mergeWorktree: (taskId: string, options?: { noCommit?: boolean }) => Promise<IPCResult<WorktreeMergeResult>>;
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<WorktreeMergeResult>>;
+  createWorktreePR: (taskId: string, options?: WorktreeCreatePROptions) => Promise<IPCResult<WorktreeCreatePRResult>>;
   discardWorktree: (taskId: string) => Promise<IPCResult<WorktreeDiscardResult>>;
   listWorktrees: (projectId: string) => Promise<IPCResult<WorktreeListResult>>;
   worktreeOpenInIDE: (worktreePath: string, ide: SupportedIDE, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;

@@ -158,7 +158,7 @@ export function usePtyProcess({
         isCreatingRef.current = false;
       });
     }
-   
+
   }, [terminalId, cwd, projectPath, cols, rows, skipCreation, recreationTrigger, getStore, onCreated, onError]);
 
   // Function to prepare for recreation by preventing the effect from running

@@ -131,7 +131,7 @@ export interface EmbeddingValidationResult {
 /**
  * Validate embedding configuration based on the configured provider
  * Supports: openai, ollama, google, voyage, azure_openai
- * 
+ *
  * @returns validation result with provider info and reason if invalid
  */
 export function validateEmbeddingConfiguration(

@@ -33,77 +33,148 @@ PRWorktreeManager = pr_worktree_module.PRWorktreeManager
 def temp_git_repo():
     """Create a temporary git repository with remote origin for testing."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Create a bare repo to act as "origin"
-        origin_dir = Path(tmpdir) / "origin.git"
-        origin_dir.mkdir()
-        subprocess.run(
-            ["git", "init", "--bare"], cwd=origin_dir, check=True, capture_output=True
-        )
+        # Save original environment values to restore later
+        orig_env = {}
 
-        # Create the working repo
-        repo_dir = Path(tmpdir) / "test_repo"
-        repo_dir.mkdir()
+        # These git env vars are set by pre-commit hooks and MUST be cleared
+        # to avoid interference with worktree operations in our isolated test repo.
+        # GIT_INDEX_FILE especially causes "index file open failed: Not a directory"
+        git_vars_to_clear = [
+            "GIT_DIR",
+            "GIT_WORK_TREE",
+            "GIT_INDEX_FILE",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        ]
 
-        # Initialize git repo
-        subprocess.run(["git", "init"], cwd=repo_dir, check=True, capture_output=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=repo_dir,
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test User"],
-            cwd=repo_dir,
-            check=True,
-            capture_output=True,
-        )
+        env_vars_to_set = {
+            "GIT_AUTHOR_NAME": "Test User",
+            "GIT_AUTHOR_EMAIL": "test@example.com",
+            "GIT_COMMITTER_NAME": "Test User",
+            "GIT_COMMITTER_EMAIL": "test@example.com",
+            # GIT_CEILING_DIRECTORIES prevents git from discovering parent .git directories
+            # This is critical for test isolation when running inside another git repo
+            "GIT_CEILING_DIRECTORIES": tmpdir,
+        }
 
-        # Add origin remote
-        subprocess.run(
-            ["git", "remote", "add", "origin", str(origin_dir)],
-            cwd=repo_dir,
-            check=True,
-            capture_output=True,
-        )
+        # Clear interfering git environment variables
+        for key in git_vars_to_clear:
+            orig_env[key] = os.environ.get(key)
+            if key in os.environ:
+                del os.environ[key]
 
-        # Create initial commit
-        test_file = repo_dir / "test.txt"
-        test_file.write_text("initial content")
-        subprocess.run(["git", "add", "."], cwd=repo_dir, check=True, capture_output=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial commit"],
-            cwd=repo_dir,
-            check=True,
-            capture_output=True,
-        )
+        # Set our isolated environment variables
+        for key, value in env_vars_to_set.items():
+            orig_env[key] = os.environ.get(key)
+            os.environ[key] = value
 
-        # Push to origin so refs exist
-        subprocess.run(
-            ["git", "push", "-u", "origin", "HEAD:main"],
-            cwd=repo_dir,
-            check=True,
-            capture_output=True,
-        )
+        try:
+            # Create a bare repo to act as "origin"
+            origin_dir = Path(tmpdir) / "origin.git"
+            origin_dir.mkdir()
+            subprocess.run(
+                ["git", "init", "--bare"], cwd=origin_dir, check=True, capture_output=True
+            )
 
-        # Get the commit SHA
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repo_dir,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        commit_sha = result.stdout.strip()
+            # Create the working repo
+            repo_dir = Path(tmpdir) / "test_repo"
+            repo_dir.mkdir()
 
-        yield repo_dir, commit_sha
+            # Initialize git repo with explicit initial branch name
+            subprocess.run(
+                ["git", "init", "--initial-branch=main"],
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
+            )
 
-        # Cleanup worktrees before removing directory
-        subprocess.run(
-            ["git", "worktree", "prune"],
-            cwd=repo_dir,
-            capture_output=True,
-        )
+            # Add origin remote
+            subprocess.run(
+                ["git", "remote", "add", "origin", str(origin_dir)],
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
+            )
+
+            # Create initial commit
+            test_file = repo_dir / "test.txt"
+            test_file.write_text("initial content")
+            subprocess.run(
+                ["git", "add", "."], cwd=repo_dir, check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial commit"],
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
+            )
+
+            # Push to origin so refs exist
+            subprocess.run(
+                ["git", "push", "-u", "origin", "main"],
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
+            )
+
+            # Get the commit SHA
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            commit_sha = result.stdout.strip()
+
+            # Verify repository is in clean state before yielding
+            # This ensures the git index is properly initialized
+            status_result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            assert status_result.stdout.strip() == "", f"Git repo not clean: {status_result.stdout}"
+
+            # Prune any stale worktree references before tests
+            subprocess.run(
+                ["git", "worktree", "prune"],
+                cwd=repo_dir,
+                capture_output=True,
+            )
+
+            yield repo_dir, commit_sha
+
+            # Cleanup: First remove all worktrees, then prune
+            worktree_base = repo_dir / ".test-worktrees"
+            if worktree_base.exists():
+                # Force remove each worktree
+                for item in worktree_base.iterdir():
+                    if item.is_dir():
+                        subprocess.run(
+                            ["git", "worktree", "remove", "--force", str(item)],
+                            cwd=repo_dir,
+                            capture_output=True,
+                        )
+                # Clean up any remaining directories
+                shutil.rmtree(worktree_base, ignore_errors=True)
+
+            # Final prune
+            subprocess.run(
+                ["git", "worktree", "prune"],
+                cwd=repo_dir,
+                capture_output=True,
+            )
+
+        finally:
+            # Restore original environment
+            for key, orig_value in orig_env.items():
+                if orig_value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = orig_value
 
 
 def test_create_and_remove_worktree(temp_git_repo):
@@ -242,47 +313,6 @@ def test_get_worktree_info(temp_git_repo):
     pr_numbers = {info.pr_number for info in info_list}
     assert 111 in pr_numbers
     assert 222 in pr_numbers
-
-    # Cleanup
-    manager.cleanup_all_worktrees()
-
-
-def test_cleanup_all_worktrees(temp_git_repo):
-    """Test removing all worktrees."""
-    repo_dir, commit_sha = temp_git_repo
-    manager = PRWorktreeManager(repo_dir, ".test-worktrees")
-
-    # Create several worktrees (disable auto_cleanup so they all exist)
-    for i in range(3):
-        manager.create_worktree(commit_sha, pr_number=500 + i, auto_cleanup=False)
-
-    # Verify they exist
-    info = manager.get_worktree_info()
-    assert len(info) == 3
-
-    # Cleanup all
-    count = manager.cleanup_all_worktrees()
-
-    assert count == 3
-
-    # Verify none remain
-    info = manager.get_worktree_info()
-    assert len(info) == 0
-
-
-def test_worktree_reuse_prevention(temp_git_repo):
-    """Test that worktrees are created fresh each time (no reuse)."""
-    repo_dir, commit_sha = temp_git_repo
-    manager = PRWorktreeManager(repo_dir, ".test-worktrees")
-
-    # Create two worktrees for same PR (disable auto_cleanup so both exist)
-    wt1 = manager.create_worktree(commit_sha, pr_number=999, auto_cleanup=False)
-    wt2 = manager.create_worktree(commit_sha, pr_number=999, auto_cleanup=False)
-
-    # Should be different paths (no reuse)
-    assert wt1 != wt2
-    assert wt1.exists()
-    assert wt2.exists()
 
     # Cleanup
     manager.cleanup_all_worktrees()

@@ -31,6 +31,8 @@ try:
     from ..context_gatherer import PRContext, _validate_git_ref
     from ..gh_client import GHClient
     from ..models import (
+        BRANCH_BEHIND_BLOCKER_MSG,
+        BRANCH_BEHIND_REASONING,
         GitHubRunnerConfig,
         MergeVerdict,
         PRReviewFinding,
@@ -46,6 +48,8 @@ except (ImportError, ValueError, SystemError):
     from core.client import create_client
     from gh_client import GHClient
     from models import (
+        BRANCH_BEHIND_BLOCKER_MSG,
+        BRANCH_BEHIND_REASONING,
         GitHubRunnerConfig,
         MergeVerdict,
         PRReviewFinding,
@@ -616,9 +620,11 @@ The SDK will run invoked agents in parallel automatically.
                 f"[ParallelOrchestrator] Review complete: {len(unique_findings)} findings"
             )
 
-            # Generate verdict (includes merge conflict check)
+            # Generate verdict (includes merge conflict check and branch-behind check)
             verdict, verdict_reasoning, blockers = self._generate_verdict(
-                unique_findings, has_merge_conflicts=context.has_merge_conflicts
+                unique_findings,
+                has_merge_conflicts=context.has_merge_conflicts,
+                merge_state_status=context.merge_state_status,
             )
 
             # Generate summary
@@ -862,16 +868,23 @@ The SDK will run invoked agents in parallel automatically.
         return unique
 
     def _generate_verdict(
-        self, findings: list[PRReviewFinding], has_merge_conflicts: bool = False
+        self,
+        findings: list[PRReviewFinding],
+        has_merge_conflicts: bool = False,
+        merge_state_status: str = "",
     ) -> tuple[MergeVerdict, str, list[str]]:
-        """Generate merge verdict based on findings and merge conflict status."""
+        """Generate merge verdict based on findings, merge conflict status, and branch state."""
         blockers = []
+        is_branch_behind = merge_state_status == "BEHIND"
 
         # CRITICAL: Merge conflicts block merging - check first
         if has_merge_conflicts:
             blockers.append(
                 "Merge Conflicts: PR has conflicts with base branch that must be resolved"
             )
+        # Branch behind base is a warning, not a hard blocker
+        elif is_branch_behind:
+            blockers.append(BRANCH_BEHIND_BLOCKER_MSG)
 
         critical = [f for f in findings if f.severity == ReviewSeverity.CRITICAL]
         high = [f for f in findings if f.severity == ReviewSeverity.HIGH]
@@ -892,6 +905,12 @@ The SDK will run invoked agents in parallel automatically.
             elif critical:
                 verdict = MergeVerdict.BLOCKED
                 reasoning = f"Blocked by {len(critical)} critical issue(s)"
+            # Branch behind is a soft blocker - NEEDS_REVISION, not BLOCKED
+            elif is_branch_behind:
+                verdict = MergeVerdict.NEEDS_REVISION
+                reasoning = BRANCH_BEHIND_REASONING
+                if low:
+                    reasoning += f" {len(low)} non-blocking suggestion(s) to consider."
             else:
                 verdict = MergeVerdict.BLOCKED
                 reasoning = f"Blocked by {len(blockers)} issue(s)"
