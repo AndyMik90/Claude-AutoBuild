@@ -209,6 +209,9 @@ describe('IPC Handlers', { timeout: 15000 }, () => {
 
     // Need to reset modules to re-register handlers
     vi.resetModules();
+
+    // Clear any existing listeners on the singleton ipcMain mock to prevent MaxListenersExceededWarning
+    ipcMain.removeAllListeners();
   });
 
   afterEach(() => {

@@ -55,6 +55,17 @@ vi.mock('../../main/python-detector', async (importOriginal) => {
   };
 });
 
+// Mock rate-limit-detector to prevent auth failures in tests
+vi.mock('../../main/rate-limit-detector', () => ({
+  getProfileEnv: () => ({
+    CLAUDE_CODE_OAUTH_TOKEN: 'mock-oauth-token',
+    ANTHROPIC_API_KEY: 'mock-api-key'
+  }),
+  detectRateLimit: () => ({ isRateLimited: false }),
+  detectAuthFailure: () => ({ isAuthFailure: false }),
+  createSDKRateLimitInfo: () => ({})
+}));
+
 // Auto-claude source path (for getAutoBuildSourcePath to find)
 const AUTO_CLAUDE_SOURCE = path.join(TEST_DIR, 'auto-claude-source');
 
