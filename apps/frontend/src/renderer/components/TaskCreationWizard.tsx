@@ -636,8 +636,14 @@ export function TaskCreationWizard({
       if (images.length > 0) metadata.attachedImages = images;
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;
       if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
-      // Only include baseBranch if it's not the project default placeholder
-      if (baseBranch && baseBranch !== PROJECT_DEFAULT_BRANCH) metadata.baseBranch = baseBranch;
+      // Always include baseBranch - resolve PROJECT_DEFAULT_BRANCH to actual branch name
+      // This ensures the backend always knows which branch to use for worktree creation
+      if (baseBranch === PROJECT_DEFAULT_BRANCH) {
+        // Use the resolved project default branch
+        if (projectDefaultBranch) metadata.baseBranch = projectDefaultBranch;
+      } else if (baseBranch) {
+        metadata.baseBranch = baseBranch;
+      }
       // Pass worktree preference - false means use --direct mode
       if (!useWorktree) metadata.useWorktree = false;
 
