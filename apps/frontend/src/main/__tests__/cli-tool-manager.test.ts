@@ -6,8 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { existsSync, readdirSync } from 'fs';
 import os from 'os';
-import { execFileSync, execFile } from 'child_process';
-import { app } from 'electron';
+import { execFileSync } from 'child_process';
 import {
   getToolInfo,
   getToolPathAsync,
@@ -16,6 +15,11 @@ import {
   sortNvmVersionDirs,
   buildClaudeDetectionResult
 } from '../cli-tool-manager';
+import {
+  findWindowsExecutableViaWhere,
+  findWindowsExecutableViaWhereAsync
+} from '../utils/windows-paths';
+import { findExecutable, findExecutableAsync } from '../env-utils';
 
 // Mock Electron app
 vi.mock('electron', () => ({
@@ -33,25 +37,21 @@ vi.mock('os', () => ({
 }));
 
 // Mock fs module - need to mock both sync and promises
-vi.mock('fs', () => {
-  const mockDirent = (
-    name: string,
-    isDir: boolean
-  ): { name: string; isDirectory: () => boolean } => ({
-    name,
-    isDirectory: () => isDir
-  });
+vi.mock('fs', () => ({
+  existsSync: vi.fn(),
+  readdirSync: vi.fn(),
+  promises: {}
+}));
 
-  return {
-    existsSync: vi.fn(),
-    readdirSync: vi.fn(),
-    promises: {}
-  };
-});
-
-// Mock child_process for execFileSync and execFile (used in validation)
-// execFile needs to be promisify-compatible
+// Mock child_process for execFileSync, execFile, execSync, and exec (used in validation)
+// execFile and exec need to be promisify-compatible
+// IMPORTANT: execSync and execFileSync share the same mock so tests that set one will affect both
+// This is because validateClaude() uses execSync for .cmd files and execFileSync for others
 vi.mock('child_process', () => {
+  // Shared mock for sync execution - both execFileSync and execSync use this
+  // so when tests call vi.mocked(execFileSync).mockReturnValue(), it affects execSync too
+  const sharedSyncMock = vi.fn();
+
   const mockExecFile = vi.fn((cmd: any, args: any, options: any, callback: any) => {
     // Return a minimal ChildProcess-like object
     const childProcess = {
@@ -62,15 +62,33 @@ vi.mock('child_process', () => {
 
     // If callback is provided, call it asynchronously
     if (typeof callback === 'function') {
-      setImmediate(() => callback(null, '', ''));
+      setImmediate(() => callback(null, 'claude-code version 1.0.0\n', ''));
+    }
+
+    return childProcess as any;
+  });
+
+  const mockExec = vi.fn((cmd: any, options: any, callback: any) => {
+    // Return a minimal ChildProcess-like object
+    const childProcess = {
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi.fn()
+    };
+
+    // If callback is provided, call it asynchronously
+    if (typeof callback === 'function') {
+      setImmediate(() => callback(null, 'claude-code version 1.0.0\n', ''));
     }
 
     return childProcess as any;
   });
 
   return {
-    execFileSync: vi.fn(),
-    execFile: mockExecFile
+    execFileSync: sharedSyncMock,
+    execFile: mockExecFile,
+    execSync: sharedSyncMock,  // Share with execFileSync so tests work for both
+    exec: mockExec
   };
 });
 
@@ -79,7 +97,18 @@ vi.mock('../env-utils', () => ({
   findExecutable: vi.fn(() => null), // Return null to force platform-specific path checking
   findExecutableAsync: vi.fn(() => Promise.resolve(null)),
   getAugmentedEnv: vi.fn(() => ({ PATH: '' })),
-  getAugmentedEnvAsync: vi.fn(() => Promise.resolve({ PATH: '' }))
+  getAugmentedEnvAsync: vi.fn(() => Promise.resolve({ PATH: '' })),
+  shouldUseShell: vi.fn((command: string) => {
+    // Mock shouldUseShell to match actual behavior
+    if (process.platform !== 'win32') {
+      return false;
+    }
+    return /\.(cmd|bat)$/i.test(command);
+  }),
+  getSpawnOptions: vi.fn((command: string, baseOptions?: any) => ({
+    ...baseOptions,
+    shell: /\.(cmd|bat)$/i.test(command) && process.platform === 'win32'
+  }))
 }));
 
 // Mock homebrew-python utility
@@ -118,11 +147,11 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       vi.mocked(existsSync).mockImplementation((filePath) => {
         const pathStr = String(filePath);
         // NVM versions directory exists
-        if (pathStr.includes('.nvm/versions/node')) {
+        if (pathStr.includes('.nvm/versions/node') || pathStr.includes('.nvm\\versions\\node')) {
           return true;
         }
         // Claude CLI exists in v22.17.0
-        if (pathStr.includes('v22.17.0/bin/claude')) {
+        if (pathStr.includes('v22.17.0/bin/claude') || pathStr.includes('v22.17.0\\bin\\claude')) {
           return true;
         }
         return false;
@@ -142,7 +171,8 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       const result = getToolInfo('claude');
 
       expect(result.found).toBe(true);
-      expect(result.path).toContain('v22.17.0/bin/claude'); // Should use newest version
+      // Path should contain version and claude (works with both / and \ separators)
+      expect(result.path).toMatch(/v22\.17\.0[/\\]bin[/\\]claude/);
       expect(result.version).toBe('1.0.0');
       expect(result.source).toBe('nvm');
       expect(result.message).toContain('Using NVM Claude CLI');
@@ -182,14 +212,16 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
     it('should try next version if Claude not found in newest Node version', () => {
       vi.mocked(os.homedir).mockReturnValue(mockHomeDir);
 
-      // NVM directory exists
+      // NVM directory exists, but Claude only exists in v20.0.0
       vi.mocked(existsSync).mockImplementation((filePath) => {
         const pathStr = String(filePath);
-        if (pathStr.includes('.nvm/versions/node')) {
-          return true;
+        // Check for claude binary paths first (more specific)
+        if (pathStr.includes('claude')) {
+          // Claude only exists in v20.0.0, not in v22.17.0
+          return pathStr.includes('v20.0.0');
         }
-        // Claude only exists in v20.0.0, not in v22.17.0
-        if (pathStr.includes('v20.0.0/bin/claude')) {
+        // NVM versions directory exists
+        if (pathStr.includes('.nvm')) {
           return true;
         }
         return false;
@@ -205,7 +237,7 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       const result = getToolInfo('claude');
 
       expect(result.found).toBe(true);
-      expect(result.path).toContain('v20.0.0/bin/claude');
+      expect(result.path).toMatch(/v20\.0\.0[/\\]bin[/\\]claude/);
     });
 
     it('should validate Claude CLI before returning NVM path', () => {
@@ -213,8 +245,12 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
 
       vi.mocked(existsSync).mockImplementation((filePath) => {
         const pathStr = String(filePath);
-        if (pathStr.includes('.nvm/versions/node')) return true;
-        if (pathStr.includes('v22.17.0/bin/claude')) return true;
+        // Check for claude binary paths first
+        if (pathStr.includes('claude')) {
+          return pathStr.includes('v22.17.0');
+        }
+        // NVM directory exists
+        if (pathStr.includes('.nvm')) return true;
         return false;
       });
 
@@ -231,7 +267,8 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       const result = getToolInfo('claude');
 
       // Should not return invalid Claude path, should continue to platform paths
-      expect(result.path).not.toContain('v22.17.0/bin/claude');
+      expect(result.found).toBe(false);
+      expect(result.source).toBe('fallback');
     });
 
     it('should use version sorting to prioritize newest Node version', () => {
@@ -239,9 +276,9 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
 
       vi.mocked(existsSync).mockImplementation((filePath) => {
         const pathStr = String(filePath);
-        if (pathStr.includes('.nvm/versions/node')) return true;
+        if (pathStr.includes('.nvm/versions/node') || pathStr.includes('.nvm\\versions\\node')) return true;
         // Claude exists in all versions
-        if (pathStr.includes('/bin/claude')) return true;
+        if (pathStr.includes('/bin/claude') || pathStr.includes('\\bin\\claude')) return true;
         return false;
       });
 
@@ -292,7 +329,7 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
 
       vi.mocked(existsSync).mockImplementation((filePath) => {
         const pathStr = String(filePath);
-        if (pathStr.includes('.local/bin/claude')) {
+        if (pathStr.includes('.local/bin/claude') || pathStr.includes('.local\\bin\\claude')) {
           return true;
         }
         return false;
@@ -303,7 +340,7 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       const result = getToolInfo('claude');
 
       expect(result.found).toBe(true);
-      expect(result.path).toContain('.local/bin/claude');
+      expect(result.path).toMatch(/\.local[/\\]bin[/\\]claude/);
       expect(result.version).toBe('2.0.0');
     });
 
@@ -326,6 +363,9 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
 
     // Note: User configuration testing requires mocking the CLIToolManager class instance
     // which is more complex. These would be integration tests rather than unit tests.
+    it.skip('placeholder for user config tests', () => {
+      // Placeholder - actual user config tests require different approach
+    });
   });
 });
 
@@ -367,14 +407,18 @@ describe('cli-tool-manager - Helper Functions', () => {
 
       const paths = getClaudeDetectionPaths('/home/test');
 
-      expect(paths.platformPaths.some(p => p.includes('.local/bin/claude'))).toBe(true);
-      expect(paths.platformPaths.some(p => p.includes('bin/claude'))).toBe(true);
+      // Check for paths containing the expected components (works with both / and \ separators)
+      expect(paths.platformPaths.some(p => p.includes('.local') && p.includes('bin') && p.includes('claude'))).toBe(true);
+      expect(paths.platformPaths.some(p => p.includes('bin') && p.includes('claude'))).toBe(true);
     });
 
     it('should return correct NVM versions directory', () => {
       const paths = getClaudeDetectionPaths('/home/test');
 
-      expect(paths.nvmVersionsDir).toBe('/home/test/.nvm/versions/node');
+      // Check path components exist (works with both / and \ separators)
+      expect(paths.nvmVersionsDir).toContain('.nvm');
+      expect(paths.nvmVersionsDir).toContain('versions');
+      expect(paths.nvmVersionsDir).toContain('node');
     });
   });
 
@@ -493,29 +537,21 @@ describe('cli-tool-manager - Claude CLI Windows where.exe detection', () => {
     clearToolCache();
   });
 
-  it('should detect Claude CLI via where.exe when not in PATH', async () => {
-    // Set platform to Windows
-    Object.defineProperty(process, 'platform', {
-      value: 'win32',
-      writable: true
-    });
-
+  it('should detect Claude CLI via where.exe when not in PATH', () => {
     vi.mocked(os.homedir).mockReturnValue('C:\\Users\\test');
 
     // Mock findExecutable returns null (not in PATH)
-    const envUtils = await import('../env-utils');
-    vi.mocked(envUtils.findExecutable).mockReturnValue(null);
+    vi.mocked(findExecutable).mockReturnValue(null);
 
     // Mock where.exe finds it in nvm-windows location
-    const windowsPaths = await import('../utils/windows-paths');
-    vi.mocked(windowsPaths.findWindowsExecutableViaWhere).mockReturnValue(
+    vi.mocked(findWindowsExecutableViaWhere).mockReturnValue(
       'D:\\Program Files\\nvm4w\\nodejs\\claude.cmd'
     );
 
     // Mock file system checks
     vi.mocked(existsSync).mockImplementation((filePath) => {
       const pathStr = String(filePath);
-      if (pathStr.includes('nvm4w\\nodejs\\claude.cmd')) {
+      if (pathStr.includes('nvm4w') && pathStr.includes('claude.cmd')) {
         return true;
       }
       return false;
@@ -527,19 +563,19 @@ describe('cli-tool-manager - Claude CLI Windows where.exe detection', () => {
     const result = getToolInfo('claude');
 
     expect(result.found).toBe(true);
-    expect(result.path).toContain('nvm4w\\nodejs\\claude.cmd');
+    expect(result.path).toContain('nvm4w');
+    expect(result.path).toContain('claude.cmd');
     expect(result.source).toBe('system-path');
     expect(result.message).toContain('Using Windows Claude CLI');
   });
 
-  it('should skip where.exe on non-Windows platforms', async () => {
+  it('should skip where.exe on non-Windows platforms', () => {
     Object.defineProperty(process, 'platform', {
       value: 'darwin',
       writable: true
     });
 
-    const windowsPaths = await import('../utils/windows-paths');
-    vi.mocked(windowsPaths.findWindowsExecutableViaWhere).mockReturnValue(null);
+    vi.mocked(findWindowsExecutableViaWhere).mockReturnValue(null);
 
     // Mock other detection methods to fail
     vi.mocked(existsSync).mockReturnValue(false);
@@ -547,30 +583,22 @@ describe('cli-tool-manager - Claude CLI Windows where.exe detection', () => {
     getToolInfo('claude');
 
     // where.exe should not be called on macOS
-    expect(windowsPaths.findWindowsExecutableViaWhere).not.toHaveBeenCalled();
+    expect(findWindowsExecutableViaWhere).not.toHaveBeenCalled();
   });
 
-  it('should validate Claude CLI before returning where.exe path', async () => {
-    // Set platform to Windows
-    Object.defineProperty(process, 'platform', {
-      value: 'win32',
-      writable: true
-    });
-
+  it('should validate Claude CLI before returning where.exe path', () => {
     vi.mocked(os.homedir).mockReturnValue('C:\\Users\\test');
 
-    const envUtils = await import('../env-utils');
-    vi.mocked(envUtils.findExecutable).mockReturnValue(null);
+    vi.mocked(findExecutable).mockReturnValue(null);
 
-    const windowsPaths = await import('../utils/windows-paths');
-    vi.mocked(windowsPaths.findWindowsExecutableViaWhere).mockReturnValue(
+    vi.mocked(findWindowsExecutableViaWhere).mockReturnValue(
       'D:\\Tools\\claude.cmd'
     );
 
     // Mock file system to return false for all paths except where.exe result
     vi.mocked(existsSync).mockImplementation((filePath) => {
       const pathStr = String(filePath);
-      if (pathStr.includes('D:\\Tools\\claude.cmd')) {
+      if (pathStr.includes('Tools') && pathStr.includes('claude.cmd')) {
         return true;
       }
       return false;
@@ -588,19 +616,17 @@ describe('cli-tool-manager - Claude CLI Windows where.exe detection', () => {
     expect(result.source).toBe('fallback');
   });
 
-  it('should fallback to platform paths if where.exe fails', async () => {
+  it('should fallback to platform paths if where.exe fails', () => {
     vi.mocked(os.homedir).mockReturnValue('C:\\Users\\test');
 
-    const envUtils = await import('../env-utils');
-    vi.mocked(envUtils.findExecutable).mockReturnValue(null);
+    vi.mocked(findExecutable).mockReturnValue(null);
 
-    const windowsPaths = await import('../utils/windows-paths');
-    vi.mocked(windowsPaths.findWindowsExecutableViaWhere).mockReturnValue(null);
+    vi.mocked(findWindowsExecutableViaWhere).mockReturnValue(null);
 
     // Mock platform path exists (AppData npm global)
     vi.mocked(existsSync).mockImplementation((filePath) => {
       const pathStr = String(filePath);
-      if (pathStr.includes('AppData\\Roaming\\npm\\claude.cmd')) {
+      if (pathStr.includes('AppData') && pathStr.includes('npm') && pathStr.includes('claude.cmd')) {
         return true;
       }
       return false;
@@ -611,24 +637,18 @@ describe('cli-tool-manager - Claude CLI Windows where.exe detection', () => {
     const result = getToolInfo('claude');
 
     expect(result.found).toBe(true);
-    expect(result.path).toContain('AppData\\Roaming\\npm\\claude.cmd');
+    expect(result.path).toContain('AppData');
+    expect(result.path).toContain('npm');
+    expect(result.path).toContain('claude.cmd');
   });
 
-  it('should prefer .cmd/.exe paths when where.exe returns multiple results', async () => {
-    // Set platform to Windows
-    Object.defineProperty(process, 'platform', {
-      value: 'win32',
-      writable: true
-    });
-
+  it('should prefer .cmd/.exe paths when where.exe returns multiple results', () => {
     vi.mocked(os.homedir).mockReturnValue('C:\\Users\\test');
 
-    const envUtils = await import('../env-utils');
-    vi.mocked(envUtils.findExecutable).mockReturnValue(null);
+    vi.mocked(findExecutable).mockReturnValue(null);
 
-    const windowsPaths = await import('../utils/windows-paths');
     // Simulate where.exe returning path with .cmd extension (preferred over no extension)
-    vi.mocked(windowsPaths.findWindowsExecutableViaWhere).mockReturnValue(
+    vi.mocked(findWindowsExecutableViaWhere).mockReturnValue(
       'D:\\Program Files\\nvm4w\\nodejs\\claude.cmd'
     );
 
@@ -642,15 +662,13 @@ describe('cli-tool-manager - Claude CLI Windows where.exe detection', () => {
     expect(result.path).toMatch(/\.(cmd|exe)$/i);
   });
 
-  it('should handle where.exe execution errors gracefully', async () => {
+  it('should handle where.exe execution errors gracefully', () => {
     vi.mocked(os.homedir).mockReturnValue('C:\\Users\\test');
 
-    const envUtils = await import('../env-utils');
-    vi.mocked(envUtils.findExecutable).mockReturnValue(null);
+    vi.mocked(findExecutable).mockReturnValue(null);
 
-    const windowsPaths = await import('../utils/windows-paths');
     // Simulate where.exe error (returns null as designed)
-    vi.mocked(windowsPaths.findWindowsExecutableViaWhere).mockReturnValue(null);
+    vi.mocked(findWindowsExecutableViaWhere).mockReturnValue(null);
 
     vi.mocked(existsSync).mockReturnValue(false);
 
@@ -680,24 +698,11 @@ describe('cli-tool-manager - Claude CLI async Windows where.exe detection', () =
   });
 
   it('should detect Claude CLI via where.exe asynchronously', async () => {
-    // Set platform to Windows
-    Object.defineProperty(process, 'platform', {
-      value: 'win32',
-      writable: true
-    });
-
-    // Clear and reset all mocks
-    vi.clearAllMocks();
-
     vi.mocked(os.homedir).mockReturnValue('C:\\Users\\test');
 
-    // Dynamically import and mock modules
-    const envUtils = await import('../env-utils');
-    vi.mocked(envUtils.findExecutableAsync).mockResolvedValue(null);
+    vi.mocked(findExecutableAsync).mockResolvedValue(null);
 
-    const windowsPaths = await import('../utils/windows-paths');
-    const mockWhereAsync = vi.fn().mockResolvedValue(null);
-    vi.mocked(windowsPaths.findWindowsExecutableViaWhereAsync).mockImplementation(mockWhereAsync);
+    vi.mocked(findWindowsExecutableViaWhereAsync).mockResolvedValue(null);
 
     // Mock file system - no platform paths exist
     vi.mocked(existsSync).mockReturnValue(false);
@@ -705,17 +710,15 @@ describe('cli-tool-manager - Claude CLI async Windows where.exe detection', () =
     await getToolPathAsync('claude');
 
     // Verify where.exe was called on Windows
-    expect(mockWhereAsync).toHaveBeenCalledWith('claude', '[Claude CLI]');
+    expect(findWindowsExecutableViaWhereAsync).toHaveBeenCalledWith('claude', '[Claude CLI]');
   });
 
   it('should handle async where.exe errors gracefully', async () => {
     vi.mocked(os.homedir).mockReturnValue('C:\\Users\\test');
 
-    const envUtils = await import('../env-utils');
-    vi.mocked(envUtils.findExecutableAsync).mockResolvedValue(null);
+    vi.mocked(findExecutableAsync).mockResolvedValue(null);
 
-    const windowsPaths = await import('../utils/windows-paths');
-    vi.mocked(windowsPaths.findWindowsExecutableViaWhereAsync).mockResolvedValue(null);
+    vi.mocked(findWindowsExecutableViaWhereAsync).mockResolvedValue(null);
 
     vi.mocked(existsSync).mockReturnValue(false);
 

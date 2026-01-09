@@ -782,7 +782,7 @@ class CLIToolManager {
       }
     }
 
-    // 5. Platform-specific standard locations
+    // 6. Platform-specific standard locations
     for (const claudePath of paths.platformPaths) {
       if (existsSync(claudePath)) {
         const validation = this.validateClaude(claudePath);
@@ -791,7 +791,7 @@ class CLIToolManager {
       }
     }
 
-    // 6. Not found
+    // 7. Not found
     return {
       found: false,
       source: 'fallback',
@@ -1293,7 +1293,7 @@ class CLIToolManager {
       }
     }
 
-    // 5. Platform-specific standard locations
+    // 6. Platform-specific standard locations
     for (const claudePath of paths.platformPaths) {
       if (await existsAsync(claudePath)) {
         const validation = await this.validateClaudeAsync(claudePath);
@@ -1302,7 +1302,7 @@ class CLIToolManager {
       }
     }
 
-    // 6. Not found
+    // 7. Not found
     return {
       found: false,
       source: 'fallback',
