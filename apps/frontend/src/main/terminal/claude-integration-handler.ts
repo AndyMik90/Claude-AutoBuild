@@ -432,7 +432,8 @@ export function invokeClaude(
       } else {
         // Unix shells - use existing temp file method
         const escapedTempFile = escapeShellArg(tempFile);
-        command = buildClaudeShellCommand(cwdCommand, pathPrefix, claudeCmd, {
+        const escapedClaudeCmd = escapeShellArg(claudeCmd);
+        command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, {
           method: "temp-file",
           escapedTempFile,
         });
@@ -464,8 +465,10 @@ export function invokeClaude(
         const escapedConfigDir = escapeShellArgWindows(activeProfile.configDir);
         command = `${cwdCommand}set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && ${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
       } else {
+        // Bash/zsh/fish - use history-safe prefix with bash -c "exec ..." to replace shell
         const escapedConfigDir = escapeShellArg(activeProfile.configDir);
-        command = `${cwdCommand}CLAUDE_CONFIG_DIR=${escapedConfigDir} ${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
+        const escapedClaudeCmd = escapeShellArg(claudeCmd);
+        command = `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${escapedConfigDir} ${pathPrefix}bash -c "exec ${escapedClaudeCmd}"\r`;
       }
 
       debugLog("[ClaudeIntegration:invokeClaude] Executing command (configDir method)");
@@ -680,7 +683,8 @@ export async function invokeClaudeAsync(
       } else {
         // Unix shells - use existing temp file method
         const escapedTempFile = escapeShellArg(tempFile);
-        command = buildClaudeShellCommand(cwdCommand, pathPrefix, claudeCmd, {
+        const escapedClaudeCmd = escapeShellArg(claudeCmd);
+        command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, {
           method: "temp-file",
           escapedTempFile,
         });
@@ -712,8 +716,10 @@ export async function invokeClaudeAsync(
         const escapedConfigDir = escapeShellArgWindows(activeProfile.configDir);
         command = `${cwdCommand}set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && ${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
       } else {
+        // Bash/zsh/fish - use history-safe prefix with bash -c "exec ..." to replace shell
         const escapedConfigDir = escapeShellArg(activeProfile.configDir);
-        command = `${cwdCommand}CLAUDE_CONFIG_DIR=${escapedConfigDir} ${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
+        const escapedClaudeCmd = escapeShellArg(claudeCmd);
+        command = `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${escapedConfigDir} ${pathPrefix}bash -c "exec ${escapedClaudeCmd}"\r`;
       }
 
       debugLog("[ClaudeIntegration:invokeClaudeAsync] Executing command (configDir method)");

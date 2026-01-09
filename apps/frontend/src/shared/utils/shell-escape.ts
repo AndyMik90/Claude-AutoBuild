@@ -158,12 +158,46 @@ export function escapePowerShellArg(arg: string): string {
 }
 
 /**
+ * Normalize PATH separators for the specified shell type.
+ *
+ * Converts between Windows semicolon separators (;) and Unix colon separators (:)
+ * based on the target shell type. This is needed because Windows may provide
+ * PATH values with semicolons, but bash-style shells (even on Windows via WSL
+ * or Git Bash) expect colons.
+ *
+ * @param pathValue - The PATH value to normalize
+ * @param shellType - The shell type (powershell, cmd, bash, etc.)
+ * @returns The PATH with normalized separators
+ *
+ * @example
+ * ```typescript
+ * normalizePathSeparators('C:\\Git\\cmd;C:\\npm', 'bash');
+ * // Returns: `C:\\Git\\cmd:C:\\npm`
+ *
+ * normalizePathSeparators('/usr/bin:/usr/local/bin', 'powershell');
+ * // Returns: `/usr/bin;/usr/local/bin`
+ * ```
+ */
+export function normalizePathSeparators(pathValue: string, shellType: ShellType): string {
+  // Windows shells use semicolon, Unix shells use colon
+  const targetSeparator = shellType === "powershell" || shellType === "cmd" ? ";" : ":";
+  const otherSeparator = targetSeparator === ";" ? ":" : ";";
+
+  // Replace other separators with target separators
+  return pathValue.split(otherSeparator).join(targetSeparator);
+}
+
+/**
  * Build a PATH environment variable assignment for the specified shell type.
  *
  * Different shells use different syntax:
  * - PowerShell: `$env:PATH = 'value'`
  * - cmd.exe: `PATH=value` (or `set "PATH=value"`)
  * - bash/zsh/fish: `PATH='value'` or `export PATH='value'`
+ *
+ * This function also normalizes PATH separators for cross-shell compatibility.
+ * For example, on Windows, a PATH with semicolons will be converted to colons
+ * for bash-style shells.
  *
  * @param pathValue - The PATH value to set
  * @param shellType - The shell type (powershell, cmd, bash, etc.)
@@ -174,30 +208,33 @@ export function escapePowerShellArg(arg: string): string {
  * buildPathAssignment('C:\\Git\\cmd;C:\\npm', 'powershell');
  * // Returns: `$env:PATH = 'C:\\Git\\cmd;C:\\npm'`
  *
- * buildPathAssignment('/usr/bin:/usr/local/bin', 'bash');
- * // Returns: `PATH='/usr/bin:/usr/local/bin'`
+ * buildPathAssignment('C:\\Git\\cmd;C:\\npm', 'bash');
+ * // Returns: `PATH='C:\\Git\\cmd:C:\\npm'`
  * ```
  */
 export function buildPathAssignment(pathValue: string, shellType: ShellType): string {
+  // Normalize PATH separators for the target shell type
+  const normalizedPath = normalizePathSeparators(pathValue, shellType);
+
   switch (shellType) {
     case "powershell":
-      return `$env:PATH = ${escapePowerShellArg(pathValue)}`;
+      return `$env:PATH = ${escapePowerShellArg(normalizedPath)}`;
 
     case "cmd": {
       // cmd.exe uses: PATH=value (no quotes needed for value, but we escape special chars)
       // For safety with special characters, we use set "VAR=value"
-      const escapedCmd = escapeShellArgWindows(pathValue);
+      const escapedCmd = escapeShellArgWindows(normalizedPath);
       return `set "PATH=${escapedCmd}"`;
     }
 
     case "bash":
     case "zsh":
     case "fish":
-      return `PATH=${escapeShellArg(pathValue)}`;
+      return `PATH=${escapeShellArg(normalizedPath)}`;
 
     default:
       // Fallback to bash-style syntax
-      return `PATH=${escapeShellArg(pathValue)}`;
+      return `PATH=${escapeShellArg(normalizedPath)}`;
   }
 }
 
