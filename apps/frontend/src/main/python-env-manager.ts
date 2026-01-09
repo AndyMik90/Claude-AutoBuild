@@ -658,6 +658,21 @@ if sys.version_info >= (3, 12):
       }
     }
 
+    // Determine PYTHONPATH - use configured path, or fallback for packaged apps
+    // even if initialization hasn't completed yet
+    let pythonPath = this.sitePackagesPath;
+
+    // Fallback for packaged apps: ensure PYTHONPATH includes bundled site-packages
+    // even if the manager hasn't been fully initialized (e.g., task started before
+    // async initialization completes). This fixes the "cannot find package dotenv" error.
+    if (!pythonPath && app.isPackaged) {
+      const bundledSitePackages = path.join(process.resourcesPath, 'python-site-packages');
+      if (existsSync(bundledSitePackages)) {
+        pythonPath = bundledSitePackages;
+        console.log('[PythonEnvManager] Using fallback PYTHONPATH:', pythonPath);
+      }
+    }
+
     // Apply our Python configuration on top
     return {
       ...baseEnv,
@@ -668,7 +683,7 @@ if sys.version_info >= (3, 12):
       // Disable user site-packages to avoid conflicts
       PYTHONNOUSERSITE: '1',
       // Override PYTHONPATH if we have bundled packages
-      ...(this.sitePackagesPath ? { PYTHONPATH: this.sitePackagesPath } : {}),
+      ...(pythonPath ? { PYTHONPATH: pythonPath } : {}),
     };
   }
 
