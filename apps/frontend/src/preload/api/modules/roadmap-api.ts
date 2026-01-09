@@ -3,6 +3,8 @@ import type {
   Roadmap,
   RoadmapFeatureStatus,
   RoadmapGenerationStatus,
+  ContinuousResearchState,
+  ContinuousResearchProgress,
   Task,
   IPCResult
 } from '../../../shared/types';
@@ -29,6 +31,12 @@ export interface RoadmapAPI {
     featureId: string
   ) => Promise<IPCResult<Task>>;
 
+  // Continuous Research Operations
+  startContinuousResearch: (projectId: string, durationHours: number) => void;
+  stopContinuousResearch: (projectId: string) => Promise<IPCResult>;
+  getContinuousResearchStatus: (projectId: string) => Promise<IPCResult<ContinuousResearchState | null>>;
+  resumeContinuousResearch: (projectId: string) => void;
+
   // Event Listeners
   onRoadmapProgress: (
     callback: (projectId: string, status: RoadmapGenerationStatus) => void
@@ -40,6 +48,20 @@ export interface RoadmapAPI {
     callback: (projectId: string, error: string) => void
   ) => IpcListenerCleanup;
   onRoadmapStopped: (
+    callback: (projectId: string) => void
+  ) => IpcListenerCleanup;
+
+  // Continuous Research Event Listeners
+  onContinuousResearchProgress: (
+    callback: (projectId: string, progress: ContinuousResearchProgress) => void
+  ) => IpcListenerCleanup;
+  onContinuousResearchIterationComplete: (
+    callback: (projectId: string, state: ContinuousResearchState) => void
+  ) => IpcListenerCleanup;
+  onContinuousResearchError: (
+    callback: (projectId: string, error: string) => void
+  ) => IpcListenerCleanup;
+  onContinuousResearchStopped: (
     callback: (projectId: string) => void
   ) => IpcListenerCleanup;
 }
@@ -80,6 +102,19 @@ export const createRoadmapAPI = (): RoadmapAPI => ({
   ): Promise<IPCResult<Task>> =>
     invokeIpc(IPC_CHANNELS.ROADMAP_CONVERT_TO_SPEC, projectId, featureId),
 
+  // Continuous Research Operations
+  startContinuousResearch: (projectId: string, durationHours: number): void =>
+    sendIpc(IPC_CHANNELS.CONTINUOUS_ROADMAP_START, projectId, durationHours),
+
+  stopContinuousResearch: (projectId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.CONTINUOUS_ROADMAP_STOP, projectId),
+
+  getContinuousResearchStatus: (projectId: string): Promise<IPCResult<ContinuousResearchState | null>> =>
+    invokeIpc(IPC_CHANNELS.CONTINUOUS_ROADMAP_STATUS, projectId),
+
+  resumeContinuousResearch: (projectId: string): void =>
+    sendIpc(IPC_CHANNELS.CONTINUOUS_ROADMAP_RESUME, projectId),
+
   // Event Listeners
   onRoadmapProgress: (
     callback: (projectId: string, status: RoadmapGenerationStatus) => void
@@ -99,5 +134,26 @@ export const createRoadmapAPI = (): RoadmapAPI => ({
   onRoadmapStopped: (
     callback: (projectId: string) => void
   ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.ROADMAP_STOPPED, callback)
+    createIpcListener(IPC_CHANNELS.ROADMAP_STOPPED, callback),
+
+  // Continuous Research Event Listeners
+  onContinuousResearchProgress: (
+    callback: (projectId: string, progress: ContinuousResearchProgress) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.CONTINUOUS_ROADMAP_PROGRESS, callback),
+
+  onContinuousResearchIterationComplete: (
+    callback: (projectId: string, state: ContinuousResearchState) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.CONTINUOUS_ROADMAP_ITERATION_COMPLETE, callback),
+
+  onContinuousResearchError: (
+    callback: (projectId: string, error: string) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.CONTINUOUS_ROADMAP_ERROR, callback),
+
+  onContinuousResearchStopped: (
+    callback: (projectId: string) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.CONTINUOUS_ROADMAP_STOPPED, callback)
 });
