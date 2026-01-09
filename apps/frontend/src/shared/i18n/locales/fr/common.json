@@ -307,5 +307,112 @@
     "done": "Terminé",
     "failedLabel": "Échoué",
     "starting": "Démarrage..."
+  },
+  "continuousResearch": {
+    "title": "Recherche continue",
+    "toggle": {
+      "enable": "Activer le mode continu",
+      "disable": "Désactiver le mode continu",
+      "label": "Mode continu",
+      "tooltip": "Exécuter une recherche autonome nocturne qui découvre et priorise continuellement les fonctionnalités"
+    },
+    "duration": {
+      "label": "Durée",
+      "hours": "{{count}} heure",
+      "hours_plural": "{{count}} heures",
+      "selectDuration": "Sélectionner la durée",
+      "options": {
+        "1h": "1 heure",
+        "2h": "2 heures",
+        "4h": "4 heures",
+        "8h": "8 heures",
+        "12h": "12 heures",
+        "24h": "24 heures"
+      }
+    },
+    "phases": {
+      "sotaLLM": "Développements LLM de pointe",
+      "competitorAnalysis": "Analyse des concurrents",
+      "performanceImprovements": "Améliorations des performances",
+      "uiuxImprovements": "Améliorations UI/UX",
+      "featureDiscovery": "Découverte de fonctionnalités"
+    },
+    "priority": {
+      "label": "Priorité",
+      "score": "Score de priorité",
+      "level": "Niveau de priorité",
+      "levels": {
+        "critical": "Critique",
+        "high": "Haute",
+        "medium": "Moyenne",
+        "low": "Basse"
+      },
+      "factors": {
+        "acceleration": "Accélération du développement",
+        "impact": "Impact",
+        "feasibility": "Faisabilité",
+        "strategic": "Alignement stratégique",
+        "dependency": "Dépendance"
+      }
+    },
+    "status": {
+      "idle": "Inactif",
+      "running": "En cours",
+      "paused": "En pause",
+      "stopped": "Arrêté",
+      "completed": "Terminé",
+      "resuming": "Reprise en cours..."
+    },
+    "progress": {
+      "iteration": "Itération {{current}} sur {{total}}",
+      "currentPhase": "Phase actuelle : {{phase}}",
+      "featuresDiscovered": "{{count}} fonctionnalité découverte",
+      "featuresDiscovered_plural": "{{count}} fonctionnalités découvertes",
+      "timeRemaining": "{{time}} restant",
+      "timeElapsed": "{{time}} écoulé",
+      "rebalancing": "Rééquilibrage des priorités..."
+    },
+    "controls": {
+      "start": "Démarrer la recherche",
+      "stop": "Arrêter la recherche",
+      "pause": "Pause",
+      "resume": "Reprendre",
+      "starting": "Démarrage...",
+      "stopping": "Arrêt en cours..."
+    },
+    "messages": {
+      "started": "Recherche continue démarrée",
+      "stopped": "Recherche continue arrêtée",
+      "paused": "Recherche continue en pause",
+      "resumed": "Recherche continue reprise",
+      "completed": "Recherche continue terminée",
+      "stateSaved": "État de la recherche sauvegardé",
+      "stateRestored": "État de la recherche restauré",
+      "newFeaturesFound": "{{count}} nouvelle fonctionnalité trouvée",
+      "newFeaturesFound_plural": "{{count}} nouvelles fonctionnalités trouvées",
+      "prioritiesUpdated": "Priorités des fonctionnalités mises à jour"
+    },
+    "errors": {
+      "startFailed": "Échec du démarrage de la recherche continue",
+      "stopFailed": "Échec de l'arrêt de la recherche continue",
+      "rateLimited": "Limite atteinte - recherche en pause",
+      "phaseFailed": "Échec de la phase {{phase}}",
+      "stateLoadFailed": "Échec du chargement de l'état de recherche",
+      "stateSaveFailed": "Échec de la sauvegarde de l'état de recherche"
+    },
+    "confirmations": {
+      "stopTitle": "Arrêter la recherche continue ?",
+      "stopMessage": "Cela arrêtera la session de recherche en cours. Votre progression sera sauvegardée et pourra être reprise plus tard.",
+      "discardTitle": "Abandonner l'état de recherche ?",
+      "discardMessage": "Cela supprimera toute la progression de recherche sauvegardée. Cette action ne peut pas être annulée."
+    },
+    "accessibility": {
+      "toggleContinuousModeAriaLabel": "Basculer le mode de recherche continue",
+      "durationSelectorAriaLabel": "Sélectionner la durée de recherche",
+      "startResearchAriaLabel": "Démarrer la recherche continue",
+      "stopResearchAriaLabel": "Arrêter la recherche continue",
+      "resumeResearchAriaLabel": "Reprendre la recherche continue",
+      "progressIndicatorAriaLabel": "Progression de la recherche : {{phase}}, itération {{iteration}}"
+    }
   }
 }
