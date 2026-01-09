@@ -11,7 +11,7 @@ import {
   TaskExecutionOptions,
   RoadmapConfig
 } from './types';
-import type { IdeationConfig } from '../../shared/types';
+import type { IdeationConfig, ContinuousResearchSummary } from '../../shared/types';
 
 /**
  * Main AgentManager - orchestrates agent process lifecycle
@@ -315,6 +315,43 @@ export class AgentManager extends EventEmitter {
    */
   isRoadmapRunning(projectId: string): boolean {
     return this.queueManager.isRoadmapRunning(projectId);
+  }
+
+  /**
+   * Start continuous roadmap research mode
+   */
+  startContinuousRoadmap(
+    projectId: string,
+    projectPath: string,
+    durationHours: number = 8,
+    config?: RoadmapConfig
+  ): void {
+    this.queueManager.startContinuousRoadmap(projectId, projectPath, durationHours, config);
+  }
+
+  /**
+   * Resume continuous roadmap research from saved state
+   */
+  resumeContinuousRoadmap(
+    projectId: string,
+    projectPath: string,
+    config?: RoadmapConfig
+  ): void {
+    this.queueManager.resumeContinuousRoadmap(projectId, projectPath, config);
+  }
+
+  /**
+   * Stop continuous roadmap research for a project
+   */
+  stopContinuousRoadmap(projectId: string): ContinuousResearchSummary | null {
+    return this.queueManager.stopContinuousRoadmap(projectId);
+  }
+
+  /**
+   * Check if continuous roadmap is running for a project
+   */
+  isContinuousRoadmapRunning(projectId: string): boolean {
+    return this.queueManager.isContinuousRoadmapRunning(projectId);
   }
 
   /**
