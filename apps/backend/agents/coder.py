@@ -471,18 +471,17 @@ async def run_autonomous_agent(
             consecutive_errors += 1
             emit_phase(ExecutionPhase.FAILED, "Session encountered an error")
             print_status("Session encountered an error", "error")
-            print(muted("Will retry with a fresh session..."))
+            status_manager.update(state=BuildState.ERROR)
 
             if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
                 print_status(
                     f"Max consecutive errors ({MAX_CONSECUTIVE_ERRORS}) reached. Stopping.",
                     "error",
                 )
-                status_manager.update(state=BuildState.ERROR)
                 break
-
-            status_manager.update(state=BuildState.ERROR)
-            await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+            else:
+                print(muted("Will retry with a fresh session..."))
+                await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 
         # Small delay between sessions
         if max_iterations is None or iteration < max_iterations:

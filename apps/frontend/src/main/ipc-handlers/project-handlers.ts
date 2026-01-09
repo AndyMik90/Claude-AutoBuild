@@ -1,4 +1,4 @@
-﻿import { ipcMain, app } from 'electron';
+import { ipcMain, app } from 'electron';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';

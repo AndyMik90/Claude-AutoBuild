@@ -47,7 +47,7 @@ export default tseslint.config(
       'react-hooks/exhaustive-deps': 'warn',
 
       // General
-      'no-console': ['warn', { allow: ['warn', 'error', 'info', 'debug'] }],
+      'no-console': ['warn', { allow: ['warn', 'error', 'debug'] }],
       'prefer-const': 'warn',
       'no-unused-expressions': 'warn',
       '@typescript-eslint/no-require-imports': 'warn'

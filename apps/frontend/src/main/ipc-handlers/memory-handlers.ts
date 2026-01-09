@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Memory Infrastructure IPC Handlers
  *
  * Provides memory database status and validation for the Graphiti integration.

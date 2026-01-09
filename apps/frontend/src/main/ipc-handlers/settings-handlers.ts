@@ -1,4 +1,4 @@
-﻿import { ipcMain, dialog, app, shell } from 'electron';
+import { ipcMain, dialog, app, shell } from 'electron';
 import { existsSync, writeFileSync, mkdirSync, statSync, readFileSync } from 'fs';
 import { execFileSync } from 'node:child_process';
 import path from 'path';

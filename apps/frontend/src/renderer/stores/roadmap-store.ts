@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import type {
   CompetitorAnalysis,
   Roadmap,
@@ -353,7 +353,7 @@ export async function stopRoadmap(projectId: string): Promise<boolean> {
     console.debug('[Roadmap] Stop result:', { projectId, success: result.success });
   }
 
-  if (!result.success) {
+  if (!result.success && window.DEBUG) {
     // Backend couldn't find/stop the process (likely already finished/crashed)
     console.debug('[Roadmap] Process already stopped');
   }

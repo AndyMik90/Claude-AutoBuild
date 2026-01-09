@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Profile IPC Handlers
  *
  * IPC handlers for API profile management:

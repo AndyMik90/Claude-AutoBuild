@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CLI Tool Manager
  *
  * Centralized management for CLI tools (Python, Git, GitHub CLI, Claude CLI) used throughout

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ModelSearchableSelect - Searchable dropdown for API model selection
  *
  * A custom dropdown component that:

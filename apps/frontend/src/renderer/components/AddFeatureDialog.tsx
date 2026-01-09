@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AddFeatureDialog - Dialog for adding new features to the roadmap
  *
  * Allows users to create new roadmap features with title, description,

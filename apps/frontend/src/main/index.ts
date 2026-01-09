@@ -1,4 +1,4 @@
-﻿// Load .env file FIRST before any other imports that might use process.env
+// Load .env file FIRST before any other imports that might use process.env
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { existsSync } from 'fs';

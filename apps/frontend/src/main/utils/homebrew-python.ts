@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Homebrew Python Detection Utility
  *
  * Shared logic for finding Python installations in Homebrew directories.

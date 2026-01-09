@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Sentry Error Tracking for Renderer Process
  *
  * Initializes Sentry with:

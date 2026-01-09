@@ -1,4 +1,4 @@
-﻿/**
+/**
  * GitLab Triage IPC handlers
  *
  * Handles automatic triage of GitLab issues by:

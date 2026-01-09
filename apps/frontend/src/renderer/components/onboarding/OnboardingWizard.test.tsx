@@ -114,6 +114,31 @@ describe('OnboardingWizard Integration Tests', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    Object.defineProperty(window, 'electronAPI', {
+      value: {
+        saveSettings: mockSaveSettings,
+        onAppUpdateDownloaded: vi.fn(),
+        // OAuth-related methods needed for OAuthStep component
+        onTerminalOAuthToken: vi.fn(() => vi.fn()), // Returns unsubscribe function
+        onTerminalAuthCreated: vi.fn((cb) => {
+          // Simulate successful terminal creation
+          setTimeout(() => cb({ terminalId: 'mock-term-1', profileName: 'Default' }), 0);
+          return vi.fn();
+        }), // Returns unsubscribe function
+        getOAuthToken: vi.fn().mockResolvedValue(null),
+        startOAuthFlow: vi.fn().mockResolvedValue({ success: true }),
+        loadProfiles: vi.fn().mockResolvedValue([]),
+        getClaudeProfiles: vi.fn().mockResolvedValue({ success: true, data: { profiles: [], activeProfileId: null } }),
+        saveClaudeProfile: vi.fn().mockResolvedValue({ success: true, data: { id: 'mock-profile-id' } }),
+        initializeClaudeProfile: vi.fn().mockResolvedValue({ success: true }),
+        deleteClaudeProfile: vi.fn().mockResolvedValue({ success: true }),
+        renameClaudeProfile: vi.fn().mockResolvedValue({ success: true }),
+        setActiveClaudeProfile: vi.fn().mockResolvedValue({ success: true }),
+        setClaudeProfileToken: vi.fn().mockResolvedValue({ success: true })
+      },
+      writable: true
+    });
   });
 
   describe('OAuth Path Navigation', () => {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Claude Code CLI Handlers
  *
  * IPC handlers for Claude Code CLI version checking and installation.

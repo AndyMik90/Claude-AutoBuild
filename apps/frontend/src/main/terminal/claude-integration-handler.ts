@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Claude Integration Handler
  * Manages Claude-specific operations including profile switching, rate limiting, and OAuth token detection
  */

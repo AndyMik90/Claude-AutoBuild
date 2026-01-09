@@ -1,4 +1,4 @@
-﻿import { EventEmitter } from 'events';
+import { EventEmitter } from 'events';
 import path from 'path';
 import { existsSync } from 'fs';
 import { AgentState } from './agent-state';

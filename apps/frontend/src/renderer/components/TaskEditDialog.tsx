@@ -1,4 +1,4 @@
-﻿/**
+/**
  * TaskEditDialog - Dialog for editing task details
  *
  * Allows users to modify all task properties including title, description,

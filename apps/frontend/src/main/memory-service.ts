@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Memory Service
  *
  * Queries the LadybugDB graph database for memories stored by Graphiti.

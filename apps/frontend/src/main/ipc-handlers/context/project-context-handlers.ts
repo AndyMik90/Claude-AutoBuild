@@ -1,4 +1,4 @@
-﻿import { ipcMain } from 'electron';
+import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';

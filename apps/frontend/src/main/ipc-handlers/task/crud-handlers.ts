@@ -35,7 +35,6 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         const { task, project } = findTaskAndProject(taskId);
         if (!task || !project) return { success: false, error: 'Task or project not found' };
 
-        const autoBuildDir = project.autoBuildPath || '.auto-claude';
         const specsBaseDir = getSpecsDir(project.autoBuildPath);
         // Handle worktree paths if available (similar to TASK_DELETE)
         const specDir = task.specsPath || path.join(project.path, specsBaseDir, task.specId);

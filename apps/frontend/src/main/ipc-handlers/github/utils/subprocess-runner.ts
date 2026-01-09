@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Subprocess runner utilities for GitHub Python runners
  *
  * Provides a consistent abstraction for spawning and managing Python subprocesses

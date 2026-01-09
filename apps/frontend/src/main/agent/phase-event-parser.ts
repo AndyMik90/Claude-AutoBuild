@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Structured phase event parser for Python â†” TypeScript protocol.
  * Protocol: __EXEC_PHASE__:{"phase":"coding","message":"Starting"}
  */

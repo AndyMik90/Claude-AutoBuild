@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Sentry Error Tracking for Main Process
  *
  * Initializes Sentry with:

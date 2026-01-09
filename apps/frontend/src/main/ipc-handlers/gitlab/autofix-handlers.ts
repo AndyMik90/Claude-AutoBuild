@@ -1,4 +1,4 @@
-﻿/**
+/**
  * GitLab Auto-Fix IPC handlers
  *
  * Handles automatic fixing of GitLab issues by:

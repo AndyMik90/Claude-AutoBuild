@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Windows Executable Path Discovery Utility
  *
  * Provides reusable logic for finding Windows executables in common installation
