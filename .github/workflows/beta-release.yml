@@ -355,7 +355,7 @@ jobs:
           files-folder: apps/frontend/dist
           files-folder-filter: exe
           file-digest: SHA256
-          timestamp-rfc3161: https://timestamp.acs.microsoft.com
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
 
       - name: Verify Windows executable is signed
