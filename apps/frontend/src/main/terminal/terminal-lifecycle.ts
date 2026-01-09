@@ -66,14 +66,15 @@ export async function createTerminal(
       effectiveCwd = projectPath || os.homedir();
     }
 
-    const ptyProcess = PtyManager.spawnPtyProcess(
+    // Spawn PTY and get shell type for command generation
+    const { pty: ptyProcess, shellType } = PtyManager.spawnPtyProcess(
       effectiveCwd || os.homedir(),
       cols,
       rows,
       profileEnv
     );
 
-    debugLog('[TerminalLifecycle] PTY process spawned, pid:', ptyProcess.pid);
+    debugLog('[TerminalLifecycle] PTY process spawned, pid:', ptyProcess.pid, 'shellType:', shellType);
 
     const terminalCwd = effectiveCwd || os.homedir();
     const terminal: TerminalProcess = {
@@ -83,7 +84,8 @@ export async function createTerminal(
       projectPath,
       cwd: terminalCwd,
       outputBuffer: '',
-      title: `Terminal ${terminals.size + 1}`
+      title: `Terminal ${terminals.size + 1}`,
+      shellType,
     };
 
     terminals.set(id, terminal);
