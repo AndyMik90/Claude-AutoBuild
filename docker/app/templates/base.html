@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Auto-Claude{% endblock %}</title>
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/ws.js"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+
+    <style>
+        /* Toast animations */
+        .toast-enter {
+            animation: slideIn 0.3s ease-out;
+        }
+        .toast-exit {
+            animation: slideOut 0.3s ease-in forwards;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        /* Log viewer */
+        .log-viewer {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+        .log-viewer::-webkit-scrollbar {
+            width: 8px;
+        }
+        .log-viewer::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        .log-viewer::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-full bg-gray-900 text-gray-100" x-data="{ sidebarOpen: true }">
+    <div class="flex h-full">
+        <!-- Sidebar -->
+        <aside
+            class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col"
+            x-show="sidebarOpen"
+            x-transition
+        >
+            <!-- Logo -->
+            <div class="p-4 border-b border-gray-700">
+                <a href="/" class="flex items-center gap-2">
+                    <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span class="text-xl font-bold">Auto-Claude</span>
+                </a>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 p-4">
+                <ul class="space-y-2">
+                    <li>
+                        <a href="/"
+                           class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors
+                                  {% if request.url.path == '/' %}bg-gray-700{% endif %}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                            </svg>
+                            Dashboard
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <!-- Bottom Actions (matches original Electron app) -->
+            <div class="p-4 border-t border-gray-700 space-y-3">
+                <!-- Settings and Help row -->
+                <div class="flex items-center gap-2">
+                    <a href="/settings"
+                       class="flex-1 flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-gray-700 transition-colors
+                              {% if request.url.path == '/settings' %}bg-gray-700{% endif %}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Settings
+                    </a>
+                    <a href="https://github.com/jlengelbrecht/Auto-Claude/issues"
+                       target="_blank"
+                       class="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+                       title="Help & Feedback">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <header class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <button
+                        @click="sidebarOpen = !sidebarOpen"
+                        class="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                    <h1 class="text-xl font-semibold">{% block header %}Dashboard{% endblock %}</h1>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    {% block header_actions %}{% endblock %}
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="flex-1 overflow-auto p-6">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"
+         class="fixed top-4 right-4 z-50 flex flex-col gap-2"
+         hx-swap-oob="true">
+    </div>
+
+    <!-- Global HTMX config -->
+    <script>
+        // Handle toast notifications
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.id === 'toast-container') {
+                const toasts = evt.detail.target.querySelectorAll('.toast');
+                toasts.forEach(toast => {
+                    toast.classList.add('toast-enter');
+                    setTimeout(() => {
+                        toast.classList.remove('toast-enter');
+                        toast.classList.add('toast-exit');
+                        setTimeout(() => toast.remove(), 300);
+                    }, 3000);
+                });
+            }
+        });
+
+        // WebSocket log viewer helper
+        function setupLogViewer(elementId, wsUrl) {
+            const viewer = document.getElementById(elementId);
+            if (!viewer) return;
+
+            const ws = new WebSocket(wsUrl);
+            ws.onmessage = function(event) {
+                viewer.textContent += event.data;
+                viewer.scrollTop = viewer.scrollHeight;
+            };
+            ws.onclose = function() {
+                viewer.textContent += '\n[Connection closed]\n';
+            };
+
+            return ws;
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

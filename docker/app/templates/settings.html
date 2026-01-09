@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Auto-Claude{% endblock %}
+{% block header %}Settings{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl space-y-6">
+    <!-- System Status -->
+    <div class="bg-gray-800 rounded-xl p-6">
+        <h2 class="text-lg font-medium mb-4">System Status</h2>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div class="p-4 bg-gray-700 rounded-lg">
+                <div class="text-sm text-gray-400 mb-1">Claude Authentication</div>
+                <div class="flex items-center gap-2">
+                    {% if settings.has_claude_auth %}
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                        <span class="text-green-400">Configured</span>
+                    {% else %}
+                        <span class="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                        <span class="text-yellow-400">Not configured</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="p-4 bg-gray-700 rounded-lg">
+                <div class="text-sm text-gray-400 mb-1">GitHub Token</div>
+                <div class="flex items-center gap-2">
+                    {% if settings.github_token %}
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                        <span class="text-green-400">Configured</span>
+                    {% else %}
+                        <span class="w-2 h-2 bg-gray-500 rounded-full"></span>
+                        <span class="text-gray-400">Not set (public repos only)</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="p-4 bg-gray-700 rounded-lg">
+                <div class="text-sm text-gray-400 mb-1">Graphiti Memory</div>
+                <div class="flex items-center gap-2">
+                    {% if settings.graphiti_enabled %}
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                        <span class="text-green-400">Enabled</span>
+                    {% else %}
+                        <span class="w-2 h-2 bg-gray-500 rounded-full"></span>
+                        <span class="text-gray-400">Disabled</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="p-4 bg-gray-700 rounded-lg">
+                <div class="text-sm text-gray-400 mb-1">Web Authentication</div>
+                <div class="flex items-center gap-2">
+                    {% if settings.auth_enabled %}
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                        <span class="text-green-400">Enabled</span>
+                    {% else %}
+                        <span class="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                        <span class="text-yellow-400">Disabled (open access)</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration -->
+    <div class="bg-gray-800 rounded-xl p-6">
+        <h2 class="text-lg font-medium mb-4">Configuration</h2>
+
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <div class="text-sm text-gray-400 mb-1">Projects Directory</div>
+                    <div class="font-mono text-sm bg-gray-700 px-3 py-2 rounded">{{ settings.projects_dir }}</div>
+                </div>
+
+                <div>
+                    <div class="text-sm text-gray-400 mb-1">Data Directory</div>
+                    <div class="font-mono text-sm bg-gray-700 px-3 py-2 rounded">{{ settings.data_dir }}</div>
+                </div>
+
+                <div>
+                    <div class="text-sm text-gray-400 mb-1">Auto-Claude Path</div>
+                    <div class="font-mono text-sm bg-gray-700 px-3 py-2 rounded">{{ settings.auto_claude_path }}</div>
+                </div>
+
+                <div>
+                    <div class="text-sm text-gray-400 mb-1">Default Branch</div>
+                    <div class="font-mono text-sm bg-gray-700 px-3 py-2 rounded">{{ settings.default_branch }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Environment Variables Help -->
+    <div class="bg-gray-800 rounded-xl p-6">
+        <h2 class="text-lg font-medium mb-4">Environment Variables</h2>
+        <p class="text-gray-400 mb-4">
+            Configuration is managed through environment variables in your docker-compose.yaml or .env file.
+        </p>
+
+        <div class="bg-gray-900 rounded-lg p-4 font-mono text-sm overflow-x-auto">
+            <pre class="text-gray-300"># Required - Claude Authentication
+CLAUDE_CODE_OAUTH_TOKEN=your-oauth-token
+
+# Optional - GitHub for private repos
+GITHUB_TOKEN=ghp_xxxx
+
+# Optional - Auto-clone repos on startup
+CLONE_REPOS=https://github.com/user/repo1,https://github.com/user/repo2
+
+# Optional - Web UI Authentication
+AUTH_ENABLED=true
+AUTH_USER=admin
+AUTH_PASSWORD=your-password
+
+# Optional - Graphiti Memory
+GRAPHITI_ENABLED=true</pre>
+        </div>
+
+        <p class="text-gray-500 text-sm mt-4">
+            After changing environment variables, restart the container for changes to take effect.
+        </p>
+    </div>
+
+    <!-- Debug Mode -->
+    {% if settings.debug %}
+    <div class="bg-gray-800 rounded-xl p-6 border border-yellow-600">
+        <h2 class="text-lg font-medium mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            Debug Mode Enabled
+        </h2>
+        <p class="text-gray-400">
+            Debug mode is currently enabled. This provides additional logging but may impact performance.
+            Set DEBUG=false in your environment to disable.
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
