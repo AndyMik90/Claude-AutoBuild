@@ -164,7 +164,7 @@ def load_task_metadata(spec_dir: Path) -> TaskMetadataConfig | None:
         return None
 
     try:
-        with open(metadata_path) as f:
+        with open(metadata_path, encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return None

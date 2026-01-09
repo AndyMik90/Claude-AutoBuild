@@ -41,20 +41,22 @@ class ContextLoader:
         """Load all context files from spec directory."""
         # Read spec.md
         spec_file = self.spec_dir / "spec.md"
-        spec_content = spec_file.read_text() if spec_file.exists() else ""
+        spec_content = (
+            spec_file.read_text(encoding="utf-8") if spec_file.exists() else ""
+        )
 
         # Read project_index.json
         index_file = self.spec_dir / "project_index.json"
         project_index = {}
         if index_file.exists():
-            with open(index_file) as f:
+            with open(index_file, encoding="utf-8") as f:
                 project_index = json.load(f)
 
         # Read context.json
         context_file = self.spec_dir / "context.json"
         task_context = {}
         if context_file.exists():
-            with open(context_file) as f:
+            with open(context_file, encoding="utf-8") as f:
                 task_context = json.load(f)
 
         # Determine services involved
@@ -89,7 +91,7 @@ class ContextLoader:
         requirements_file = self.spec_dir / "requirements.json"
         if requirements_file.exists():
             try:
-                with open(requirements_file) as f:
+                with open(requirements_file, encoding="utf-8") as f:
                     requirements = json.load(f)
                 declared_type = _normalize_workflow_type(
                     requirements.get("workflow_type", "")
@@ -103,7 +105,7 @@ class ContextLoader:
         assessment_file = self.spec_dir / "complexity_assessment.json"
         if assessment_file.exists():
             try:
-                with open(assessment_file) as f:
+                with open(assessment_file, encoding="utf-8") as f:
                     assessment = json.load(f)
                 declared_type = _normalize_workflow_type(
                     assessment.get("workflow_type", "")

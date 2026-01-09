@@ -38,7 +38,7 @@ def update_codebase_map(spec_dir: Path, discoveries: dict[str, str]) -> None:
     # Load existing map or create new
     if map_file.exists():
         try:
-            with open(map_file) as f:
+            with open(map_file, encoding="utf-8") as f:
                 codebase_map = json.load(f)
         except (OSError, json.JSONDecodeError):
             codebase_map = {}
@@ -58,7 +58,7 @@ def update_codebase_map(spec_dir: Path, discoveries: dict[str, str]) -> None:
     )
 
     # Write back
-    with open(map_file, "w") as f:
+    with open(map_file, "w", encoding="utf-8") as f:
         json.dump(codebase_map, f, indent=2, sort_keys=True)
 
     # Also save to Graphiti if enabled
@@ -90,7 +90,7 @@ def load_codebase_map(spec_dir: Path) -> dict[str, str]:
         return {}
 
     try:
-        with open(map_file) as f:
+        with open(map_file, encoding="utf-8") as f:
             codebase_map = json.load(f)
 
         # Remove metadata before returning

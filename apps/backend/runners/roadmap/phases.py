@@ -172,7 +172,7 @@ Do NOT ask questions. Make educated inferences and create the file.
         Returns RoadmapPhaseResult if validation succeeds, None otherwise.
         """
         try:
-            with open(self.discovery_file) as f:
+            with open(self.discovery_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             required = ["project_name", "target_audience", "product_vision"]
@@ -288,7 +288,7 @@ Output the complete roadmap to roadmap.json.
         Returns RoadmapPhaseResult if validation succeeds, None otherwise.
         """
         try:
-            with open(self.roadmap_file) as f:
+            with open(self.roadmap_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             required = ["phases", "features", "vision", "target_audience"]

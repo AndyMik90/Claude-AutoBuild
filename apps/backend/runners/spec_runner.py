@@ -221,7 +221,7 @@ Examples:
         if not args.task_file.exists():
             print(f"Error: Task file not found: {args.task_file}")
             sys.exit(1)
-        task_description = args.task_file.read_text().strip()
+        task_description = args.task_file.read_text(encoding="utf-8").strip()
         if not task_description:
             print(f"Error: Task file is empty: {args.task_file}")
             sys.exit(1)

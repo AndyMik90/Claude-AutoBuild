@@ -83,10 +83,14 @@ def apply_single_task_changes(
             # Addition - need to determine where to add
             if change.change_type == ChangeType.ADD_IMPORT:
                 # Add import at top
+                # Use splitlines() to handle all line ending styles (LF, CRLF, CR)
+                has_trailing_newline = content.endswith(("\n", "\r\n", "\r"))
                 lines = content.splitlines()
                 import_end = find_import_end(lines, file_path)
                 lines.insert(import_end, change.content_after)
                 content = line_ending.join(lines)
+                if has_trailing_newline:
+                    content += line_ending
             elif change.change_type == ChangeType.ADD_FUNCTION:
                 # Add function at end (before exports)
                 content += f"{line_ending}{line_ending}{change.content_after}"
@@ -149,6 +153,8 @@ def combine_non_conflicting_changes(
 
     # Add imports
     if imports:
+        # Use splitlines() to handle all line ending styles (LF, CRLF, CR)
+        has_trailing_newline = content.endswith(("\n", "\r\n", "\r"))
         lines = content.splitlines()
         import_end = find_import_end(lines, file_path)
         for imp in imports:
@@ -156,6 +162,8 @@ def combine_non_conflicting_changes(
                 lines.insert(import_end, imp.content_after)
                 import_end += 1
         content = line_ending.join(lines)
+        if has_trailing_newline:
+            content += line_ending
 
     # Apply modifications
     for mod in modifications:

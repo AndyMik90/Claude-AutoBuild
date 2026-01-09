@@ -80,7 +80,7 @@ class IdeationGenerator:
             return False, f"Prompt not found: {prompt_path}"
 
         # Load prompt
-        prompt = prompt_path.read_text()
+        prompt = prompt_path.read_text(encoding="utf-8")
 
         # Add context
         prompt += f"\n\n---\n\n**Output Directory**: {self.output_dir}\n"

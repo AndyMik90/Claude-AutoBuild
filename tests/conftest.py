@@ -471,7 +471,7 @@ Allow users to upload and manage their profile avatars.
 def spec_file(spec_dir: Path, sample_spec: str) -> Path:
     """Create a spec.md file in the spec directory."""
     spec_file = spec_dir / "spec.md"
-    spec_file.write_text(sample_spec)
+    spec_file.write_text(sample_spec, encoding="utf-8")
     return spec_file
 
 

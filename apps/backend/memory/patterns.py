@@ -36,7 +36,7 @@ def append_gotcha(spec_dir: Path, gotcha: str) -> None:
     # Load existing gotchas
     existing_gotchas = set()
     if gotchas_file.exists():
-        content = gotchas_file.read_text()
+        content = gotchas_file.read_text(encoding="utf-8")
         # Extract bullet points
         for line in content.split("\n"):
             line = line.strip()
@@ -47,7 +47,7 @@ def append_gotcha(spec_dir: Path, gotcha: str) -> None:
     gotcha_stripped = gotcha.strip()
     if gotcha_stripped and gotcha_stripped not in existing_gotchas:
         # Append to file
-        with open(gotchas_file, "a") as f:
+        with open(gotchas_file, "a", encoding="utf-8") as f:
             if gotchas_file.stat().st_size == 0:
                 # First entry - add header
                 f.write("# Gotchas and Pitfalls\n\n")
@@ -80,7 +80,7 @@ def load_gotchas(spec_dir: Path) -> list[str]:
     if not gotchas_file.exists():
         return []
 
-    content = gotchas_file.read_text()
+    content = gotchas_file.read_text(encoding="utf-8")
     gotchas = []
 
     for line in content.split("\n"):
@@ -112,7 +112,7 @@ def append_pattern(spec_dir: Path, pattern: str) -> None:
     # Load existing patterns
     existing_patterns = set()
     if patterns_file.exists():
-        content = patterns_file.read_text()
+        content = patterns_file.read_text(encoding="utf-8")
         # Extract bullet points
         for line in content.split("\n"):
             line = line.strip()
@@ -123,7 +123,7 @@ def append_pattern(spec_dir: Path, pattern: str) -> None:
     pattern_stripped = pattern.strip()
     if pattern_stripped and pattern_stripped not in existing_patterns:
         # Append to file
-        with open(patterns_file, "a") as f:
+        with open(patterns_file, "a", encoding="utf-8") as f:
             if patterns_file.stat().st_size == 0:
                 # First entry - add header
                 f.write("# Code Patterns\n\n")
@@ -156,7 +156,7 @@ def load_patterns(spec_dir: Path) -> list[str]:
     if not patterns_file.exists():
         return []
 
-    content = patterns_file.read_text()
+    content = patterns_file.read_text(encoding="utf-8")
     patterns = []
 
     for line in content.split("\n"):

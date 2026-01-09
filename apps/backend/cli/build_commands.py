@@ -412,7 +412,7 @@ def _handle_build_interrupt(
         if human_input:
             # Save to HUMAN_INPUT.md
             input_file = spec_dir / "HUMAN_INPUT.md"
-            input_file.write_text(human_input)
+            input_file.write_text(human_input, encoding="utf-8")
 
             content = [
                 success(f"{icon(Icons.SUCCESS)} INSTRUCTIONS SAVED"),

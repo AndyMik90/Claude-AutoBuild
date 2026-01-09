@@ -207,7 +207,7 @@ async def run_autonomous_agent(
             print("  PAUSED BY HUMAN")
             print("=" * 70)
 
-            pause_content = pause_file.read_text().strip()
+            pause_content = pause_file.read_text(encoding="utf-8").strip()
             if pause_content:
                 print(f"\nMessage: {pause_content}")
 

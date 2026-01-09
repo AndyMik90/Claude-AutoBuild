@@ -149,6 +149,11 @@ function updateBackendInit(newVersion) {
   return true;
 }
 
+// Escape special regex characters to prevent regex injection
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Check if CHANGELOG.md has an entry for the version
 function checkChangelogEntry(version) {
   const changelogPath = path.join(__dirname, '..', 'CHANGELOG.md');
@@ -160,20 +165,12 @@ function checkChangelogEntry(version) {
 
   const content = fs.readFileSync(changelogPath, 'utf8');
 
-  // Look for "## X.Y.Z" or "## X.Y.Z -" header using string matching
-  // This avoids regex injection concerns from user-provided version strings
-  const lines = content.split('\n');
-  const versionHeaderPrefix = `## ${version}`;
+  // Look for "## X.Y.Z" or "## X.Y.Z -" header
+  const escapedVersion = escapeRegex(version);
+  const versionPattern = new RegExp(`^## ${escapedVersion}(\\s|-)`, 'm');
 
-  for (const line of lines) {
-    // Check if line starts with "## X.Y.Z" followed by whitespace, dash, or end of line
-    if (line.startsWith(versionHeaderPrefix)) {
-      const afterVersion = line.slice(versionHeaderPrefix.length);
-      // Valid if nothing follows, or whitespace/dash follows
-      if (afterVersion === '' || afterVersion[0] === ' ' || afterVersion[0] === '-' || afterVersion[0] === '\t') {
-        return true;
-      }
-    }
+  if (versionPattern.test(content)) {
+    return true;
   }
 
   return false;

@@ -169,7 +169,7 @@ def get_planner_prompt(spec_dir: Path) -> str:
             "Make sure the auto-claude/prompts/planner.md file exists."
         )
 
-    prompt = prompt_file.read_text()
+    prompt = prompt_file.read_text(encoding="utf-8")
 
     # Inject spec directory information at the beginning
     spec_context = f"""## SPEC LOCATION
@@ -212,7 +212,7 @@ def get_coding_prompt(spec_dir: Path) -> str:
             "Make sure the auto-claude/prompts/coder.md file exists."
         )
 
-    prompt = prompt_file.read_text()
+    prompt = prompt_file.read_text(encoding="utf-8")
 
     spec_context = f"""## SPEC LOCATION
 
@@ -236,7 +236,7 @@ The project root is the parent of auto-claude/. All code goes in the project roo
     # Check for human input file
     human_input_file = spec_dir / "HUMAN_INPUT.md"
     if human_input_file.exists():
-        human_input = human_input_file.read_text().strip()
+        human_input = human_input_file.read_text(encoding="utf-8").strip()
         if human_input:
             spec_context += f"""## HUMAN INPUT (READ THIS FIRST!)
 
@@ -271,7 +271,7 @@ def _get_recovery_context(spec_dir: Path) -> str:
         return ""
 
     try:
-        with open(attempt_history_file) as f:
+        with open(attempt_history_file, encoding="utf-8") as f:
             history = json.load(f)
 
         # Check for stuck subtasks
@@ -340,7 +340,7 @@ def get_followup_planner_prompt(spec_dir: Path) -> str:
             "Make sure the auto-claude/prompts/followup_planner.md file exists."
         )
 
-    prompt = prompt_file.read_text()
+    prompt = prompt_file.read_text(encoding="utf-8")
 
     # Inject spec directory information at the beginning
     spec_context = f"""## SPEC LOCATION (FOLLOW-UP MODE)
@@ -390,7 +390,7 @@ def is_first_run(spec_dir: Path) -> bool:
         return True
 
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
 
         # Check if there are any phases with subtasks
@@ -422,7 +422,7 @@ def _load_prompt_file(filename: str) -> str:
     prompt_file = PROMPTS_DIR / filename
     if not prompt_file.exists():
         raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
-    return prompt_file.read_text()
+    return prompt_file.read_text(encoding="utf-8")
 
 
 def get_qa_reviewer_prompt(spec_dir: Path, project_dir: Path) -> str:

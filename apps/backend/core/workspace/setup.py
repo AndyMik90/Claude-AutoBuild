@@ -347,7 +347,7 @@ def ensure_timeline_hook_installed(project_dir: Path) -> None:
 
         # Handle worktrees (where .git is a file, not directory)
         if git_dir.is_file():
-            content = git_dir.read_text().strip()
+            content = git_dir.read_text(encoding="utf-8").strip()
             if content.startswith("gitdir:"):
                 git_dir = Path(content.split(":", 1)[1].strip())
             else:
@@ -357,7 +357,7 @@ def ensure_timeline_hook_installed(project_dir: Path) -> None:
 
         # Check if hook already installed
         if hook_path.exists():
-            if "FileTimelineTracker" in hook_path.read_text():
+            if "FileTimelineTracker" in hook_path.read_text(encoding="utf-8"):
                 debug(MODULE, "FileTimelineTracker hook already installed")
                 return
 
@@ -395,7 +395,7 @@ def initialize_timeline_tracking(
         if source_spec_dir:
             plan_path = source_spec_dir / "implementation_plan.json"
             if plan_path.exists():
-                with open(plan_path) as f:
+                with open(plan_path, encoding="utf-8") as f:
                     plan = json.load(f)
                 task_title = plan.get("title", spec_name)
                 task_intent = plan.get("description", "")
@@ -409,6 +409,8 @@ def initialize_timeline_tracking(
         result = run_git(
             ["rev-parse", "HEAD"],
             cwd=project_dir,
+            capture_output=True,
+            encoding="utf-8",
         )
         branch_point = result.stdout.strip() if result.returncode == 0 else None
 

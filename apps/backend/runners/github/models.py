@@ -549,7 +549,7 @@ class PRReviewResult:
         if not review_file.exists():
             return None
 
-        with open(review_file) as f:
+        with open(review_file, encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
 
 
@@ -662,7 +662,7 @@ class TriageResult:
         if not triage_file.exists():
             return None
 
-        with open(triage_file) as f:
+        with open(triage_file, encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
 
 
@@ -796,7 +796,7 @@ class AutoFixState:
         if not autofix_file.exists():
             return None
 
-        with open(autofix_file) as f:
+        with open(autofix_file, encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
 
 
@@ -876,7 +876,7 @@ class GitHubRunnerConfig:
         settings.pop("token", None)
         settings.pop("bot_token", None)
 
-        with open(config_file, "w") as f:
+        with open(config_file, "w", encoding="utf-8") as f:
             json.dump(settings, f, indent=2)
 
     @classmethod
@@ -887,7 +887,7 @@ class GitHubRunnerConfig:
         config_file = github_dir / "config.json"
 
         if config_file.exists():
-            with open(config_file) as f:
+            with open(config_file, encoding="utf-8") as f:
                 settings = json.load(f)
         else:
             settings = {}
