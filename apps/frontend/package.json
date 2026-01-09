@@ -71,7 +71,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@sentry/electron": "^7.5.0",
     "@tailwindcss/typography": "^0.5.19",
-    "@tanstack/react-virtual": "^3.13.13",
+    "@tanstack/react-virtual": "^3.13.18",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-serialize": "^0.14.0",
     "@xterm/addon-web-links": "^0.12.0",
