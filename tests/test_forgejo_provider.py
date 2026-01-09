@@ -131,22 +131,27 @@ class TestForgejoClient:
         config = ForgejoConfig(
             instance_url="https://codeberg.org",
             token="test-token",
-            repo="owner/repo"
+            owner="owner",
+            repo="repo"
         )
-        client = ForgejoClient(config)
+        client = ForgejoClient.from_config(config)
         assert client is not None
-        assert client.config == config
+        assert client.instance_url == config.instance_url
+        assert client.token == config.token
+        assert client.owner == config.owner
+        assert client.repo == config.repo
 
     def test_client_api_url_construction(self):
         """Test API URL is constructed correctly."""
         config = ForgejoConfig(
             instance_url="https://codeberg.org",
             token="test-token",
-            repo="owner/repo"
+            owner="owner",
+            repo="repo"
         )
-        client = ForgejoClient(config)
+        client = ForgejoClient.from_config(config)
         # The base API URL should be instance_url + /api/v1
-        assert "codeberg.org" in config.instance_url
+        assert "codeberg.org" in client.instance_url
 
 
 class TestForgejoProviderProtocol:

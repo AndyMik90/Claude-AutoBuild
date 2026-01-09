@@ -22,7 +22,6 @@ export function ForgejoIssues({ onOpenSettings, onNavigateToTask }: ForgejoIssue
   const tasks = useTaskStore((state) => state.tasks);
 
   const {
-    issues,
     syncStatus,
     isLoading,
     error,

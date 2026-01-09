@@ -14,12 +14,11 @@ Forgejo is API-compatible with Gitea, so this client works with both.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin, quote
+from urllib.parse import quote
 
 try:
     from .rate_limiter import RateLimiter, RateLimitExceeded

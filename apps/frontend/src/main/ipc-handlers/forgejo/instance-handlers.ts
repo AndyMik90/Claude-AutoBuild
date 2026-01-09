@@ -199,7 +199,8 @@ export function registerTestConnection(): void {
         }
 
         try {
-          const user = await forgejoFetch(instance.token, instance.url, '/user') as ForgejoAPIUser;
+          // Verify connection by fetching user info
+          await forgejoFetch(instance.token, instance.url, '/user') as ForgejoAPIUser;
 
           // Update instance status
           instance.connected = true;
