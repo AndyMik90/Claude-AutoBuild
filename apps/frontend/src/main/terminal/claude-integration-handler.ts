@@ -71,15 +71,28 @@ export function buildClaudeShellCommand(
   escapedClaudeCmd: string,
   config: ClaudeCommandConfig
 ): string {
+  // On Windows, we don't use PATH= prefix syntax as it doesn't work in PowerShell/cmd.
+  // Claude CLI should already be in PATH, and even if not, escapedClaudeCmd contains the full path.
+  const isWindows = process.platform === 'win32';
+  const effectivePathPrefix = isWindows ? '' : pathPrefix;
+
   switch (config.method) {
     case 'temp-file':
-      return `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace ${pathPrefix}bash -c "source ${config.escapedTempFile} && rm -f ${config.escapedTempFile} && exec ${escapedClaudeCmd}"\r`;
+      if (isWindows) {
+        // On Windows, temp-file method falls back to default since bash-specific syntax won't work
+        return `${cwdCommand}${escapedClaudeCmd}\r`;
+      }
+      return `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace ${effectivePathPrefix}bash -c "source ${config.escapedTempFile} && rm -f ${config.escapedTempFile} && exec ${escapedClaudeCmd}"\r`;
 
     case 'config-dir':
-      return `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${config.escapedConfigDir} ${pathPrefix}bash -c "exec ${escapedClaudeCmd}"\r`;
+      if (isWindows) {
+        // On Windows, use PowerShell environment variable syntax
+        return `${cwdCommand}$env:CLAUDE_CONFIG_DIR=${config.escapedConfigDir}; ${escapedClaudeCmd}\r`;
+      }
+      return `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${config.escapedConfigDir} ${effectivePathPrefix}bash -c "exec ${escapedClaudeCmd}"\r`;
 
     default:
-      return `${cwdCommand}${pathPrefix}${escapedClaudeCmd}\r`;
+      return `${cwdCommand}${effectivePathPrefix}${escapedClaudeCmd}\r`;
   }
 }
 
@@ -369,8 +382,11 @@ export function invokeClaude(
 
   const cwdCommand = buildCdCommand(cwd);
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
-  const escapedClaudeCmd = escapeShellArg(claudeCmd);
-  const pathPrefix = claudeEnv.PATH
+  // On Windows, use 'claude' directly - PowerShell doesn't execute quoted paths as commands
+  // and Claude CLI is available in PATH anyway
+  const isWindows = process.platform === 'win32';
+  const escapedClaudeCmd = isWindows ? 'claude' : escapeShellArg(claudeCmd);
+  const pathPrefix = (!isWindows && claudeEnv.PATH)
     ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
     : '';
   const needsEnvOverride = profileId && profileId !== previousProfileId;
@@ -456,8 +472,11 @@ export function resumeClaude(
   SessionHandler.releaseSessionId(terminal.id);
 
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
-  const escapedClaudeCmd = escapeShellArg(claudeCmd);
-  const pathPrefix = claudeEnv.PATH
+  // On Windows, use 'claude' directly - PowerShell doesn't execute quoted paths as commands
+  // and Claude CLI is available in PATH anyway
+  const isWindows = process.platform === 'win32';
+  const escapedClaudeCmd = isWindows ? 'claude' : escapeShellArg(claudeCmd);
+  const pathPrefix = (!isWindows && claudeEnv.PATH)
     ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
     : '';
 
@@ -540,8 +559,11 @@ export async function invokeClaudeAsync(
   // Async CLI invocation - non-blocking
   const cwdCommand = buildCdCommand(cwd);
   const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
-  const escapedClaudeCmd = escapeShellArg(claudeCmd);
-  const pathPrefix = claudeEnv.PATH
+  // On Windows, use 'claude' directly - PowerShell doesn't execute quoted paths as commands
+  // and Claude CLI is available in PATH anyway
+  const isWindows = process.platform === 'win32';
+  const escapedClaudeCmd = isWindows ? 'claude' : escapeShellArg(claudeCmd);
+  const pathPrefix = (!isWindows && claudeEnv.PATH)
     ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
     : '';
   const needsEnvOverride = profileId && profileId !== previousProfileId;
@@ -623,8 +645,11 @@ export async function resumeClaudeAsync(
 
   // Async CLI invocation - non-blocking
   const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
-  const escapedClaudeCmd = escapeShellArg(claudeCmd);
-  const pathPrefix = claudeEnv.PATH
+  // On Windows, use 'claude' directly - PowerShell doesn't execute quoted paths as commands
+  // and Claude CLI is available in PATH anyway
+  const isWindows = process.platform === 'win32';
+  const escapedClaudeCmd = isWindows ? 'claude' : escapeShellArg(claudeCmd);
+  const pathPrefix = (!isWindows && claudeEnv.PATH)
     ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
     : '';
 

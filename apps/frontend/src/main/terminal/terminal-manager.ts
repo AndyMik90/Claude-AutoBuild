@@ -145,6 +145,9 @@ export class TerminalManager {
       return;
     }
 
+    // Clear any pending resume - user explicitly wants a fresh Claude session
+    terminal.pendingClaudeResume = false;
+
     await ClaudeIntegration.invokeClaudeAsync(
       terminal,
       cwd,
@@ -171,6 +174,9 @@ export class TerminalManager {
     if (!terminal) {
       return;
     }
+
+    // Clear any pending resume - user explicitly wants a fresh Claude session
+    terminal.pendingClaudeResume = false;
 
     ClaudeIntegration.invokeClaude(
       terminal,

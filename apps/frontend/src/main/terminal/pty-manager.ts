@@ -5,12 +5,14 @@
 
 import * as pty from '@lydell/node-pty';
 import * as os from 'os';
+import * as path from 'path';
 import { existsSync } from 'fs';
 import type { TerminalProcess, WindowGetter } from './types';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { readSettingsFile } from '../settings-utils';
 import type { SupportedTerminal } from '../../shared/types/settings';
+import { getToolInfo } from '../cli-tool-manager';
 
 /**
  * Windows shell paths for different terminal preferences
@@ -40,6 +42,76 @@ const WINDOWS_SHELL_PATHS: Record<string, string[]> = {
     'C:\\msys32\\usr\\bin\\bash.exe',
   ],
 };
+
+/**
+ * Derive the path to bash.exe from the git.exe path on Windows.
+ * Git for Windows installs bash.exe in the Git/bin directory.
+ */
+function deriveGitBashPath(gitExePath: string): string | null {
+  if (process.platform !== 'win32') {
+    return null;
+  }
+
+  try {
+    const gitDir = path.dirname(gitExePath);
+    const gitDirName = path.basename(gitDir).toLowerCase();
+
+    let gitRoot: string;
+
+    if (gitDirName === 'cmd') {
+      // .../Git/cmd/git.exe -> .../Git
+      gitRoot = path.dirname(gitDir);
+    } else if (gitDirName === 'bin') {
+      // Could be .../Git/bin/git.exe OR .../Git/mingw64/bin/git.exe
+      const parent = path.dirname(gitDir);
+      const parentName = path.basename(parent).toLowerCase();
+      if (parentName === 'mingw64' || parentName === 'mingw32') {
+        // .../Git/mingw64/bin/git.exe -> .../Git
+        gitRoot = path.dirname(parent);
+      } else {
+        // .../Git/bin/git.exe -> .../Git
+        gitRoot = parent;
+      }
+    } else {
+      gitRoot = path.dirname(gitDir);
+    }
+
+    const bashPath = path.join(gitRoot, 'bin', 'bash.exe');
+
+    if (existsSync(bashPath)) {
+      return bashPath;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get the CLAUDE_CODE_GIT_BASH_PATH environment variable for Windows.
+ * Claude Code on Windows requires git-bash for proper shell operations.
+ */
+function getGitBashEnv(): Record<string, string> {
+  if (process.platform !== 'win32' || process.env.CLAUDE_CODE_GIT_BASH_PATH) {
+    return {};
+  }
+
+  try {
+    const gitInfo = getToolInfo('git');
+    if (gitInfo.found && gitInfo.path) {
+      const bashPath = deriveGitBashPath(gitInfo.path);
+      if (bashPath) {
+        console.log('[PtyManager] Setting CLAUDE_CODE_GIT_BASH_PATH:', bashPath);
+        return { CLAUDE_CODE_GIT_BASH_PATH: bashPath };
+      }
+    }
+  } catch (error) {
+    console.warn('[PtyManager] Failed to detect git-bash path:', error);
+  }
+
+  return {};
+}
 
 /**
  * Get the Windows shell executable based on preferred terminal setting
@@ -94,6 +166,9 @@ export function spawnPtyProcess(
   // show "Claude API" instead of "Claude Max" when ANTHROPIC_API_KEY is set.
   const { DEBUG: _DEBUG, ANTHROPIC_API_KEY: _ANTHROPIC_API_KEY, ...cleanEnv } = process.env;
 
+  // On Windows, Claude Code requires git-bash path
+  const gitBashEnv = getGitBashEnv();
+
   return pty.spawn(shell, shellArgs, {
     name: 'xterm-256color',
     cols,
@@ -101,6 +176,7 @@ export function spawnPtyProcess(
     cwd: cwd || os.homedir(),
     env: {
       ...cleanEnv,
+      ...gitBashEnv,
       ...profileEnv,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',

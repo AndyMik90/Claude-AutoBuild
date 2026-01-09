@@ -7,6 +7,56 @@ import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager
 import { getValidatedPythonPath } from '../python-detector';
 import { getAugmentedEnv } from '../env-utils';
 import { getEffectiveSourcePath } from '../updater/path-resolver';
+import { getToolInfo } from '../cli-tool-manager';
+
+/**
+ * Derive the path to bash.exe from the git.exe path on Windows.
+ * Git for Windows installs bash.exe in the Git/bin directory.
+ */
+function deriveGitBashPath(gitExePath: string): string | null {
+  if (process.platform !== 'win32') {
+    return null;
+  }
+
+  try {
+    const gitDir = path.dirname(gitExePath);  // e.g., D:\...\Git\mingw64\bin
+    const gitDirName = path.basename(gitDir).toLowerCase();
+
+    // Find Git installation root
+    let gitRoot: string;
+
+    if (gitDirName === 'cmd') {
+      // .../Git/cmd/git.exe -> .../Git
+      gitRoot = path.dirname(gitDir);
+    } else if (gitDirName === 'bin') {
+      // Could be .../Git/bin/git.exe OR .../Git/mingw64/bin/git.exe
+      const parent = path.dirname(gitDir);
+      const parentName = path.basename(parent).toLowerCase();
+      if (parentName === 'mingw64' || parentName === 'mingw32') {
+        // .../Git/mingw64/bin/git.exe -> .../Git
+        gitRoot = path.dirname(parent);
+      } else {
+        // .../Git/bin/git.exe -> .../Git
+        gitRoot = parent;
+      }
+    } else {
+      // Unknown structure - try to find 'bin' sibling
+      gitRoot = path.dirname(gitDir);
+    }
+
+    // Bash.exe is in Git/bin/bash.exe
+    const bashPath = path.join(gitRoot, 'bin', 'bash.exe');
+
+    if (existsSync(bashPath)) {
+      console.log('[InsightsConfig] Derived git-bash path:', bashPath);
+      return bashPath;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Configuration manager for insights service
@@ -140,8 +190,27 @@ export class InsightsConfig {
     // are available even when app is launched from Finder/Dock.
     const augmentedEnv = getAugmentedEnv();
 
+    // On Windows, detect and pass git-bash path for Claude Code CLI
+    // Claude Code on Windows requires git-bash for proper shell operations
+    const gitBashEnv: Record<string, string> = {};
+    if (process.platform === 'win32' && !process.env.CLAUDE_CODE_GIT_BASH_PATH) {
+      try {
+        const gitInfo = getToolInfo('git');
+        if (gitInfo.found && gitInfo.path) {
+          const bashPath = deriveGitBashPath(gitInfo.path);
+          if (bashPath) {
+            gitBashEnv['CLAUDE_CODE_GIT_BASH_PATH'] = bashPath;
+            console.log('[InsightsConfig] Setting CLAUDE_CODE_GIT_BASH_PATH:', bashPath);
+          }
+        }
+      } catch (error) {
+        console.warn('[InsightsConfig] Failed to detect git-bash path:', error);
+      }
+    }
+
     return {
       ...augmentedEnv,
+      ...gitBashEnv,
       ...pythonEnv, // Include PYTHONPATH for bundled site-packages
       ...autoBuildEnv,
       ...oauthModeClearVars,

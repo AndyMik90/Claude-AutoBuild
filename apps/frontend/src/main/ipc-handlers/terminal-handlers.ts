@@ -358,13 +358,13 @@ export function registerTerminalHandlers(
         // Use platform-specific syntax and escaping for environment variables
         let loginCommand: string;
         const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
-        const pathPrefix = claudeEnv.PATH
-          ? (process.platform === 'win32'
-              ? `set "PATH=${escapeShellArgWindows(claudeEnv.PATH)}" && `
-              : `export PATH=${escapeShellArg(claudeEnv.PATH)} && `)
+        // On Windows, use 'claude' directly - PowerShell doesn't execute quoted paths as commands
+        // and Claude CLI is available in PATH anyway
+        const pathPrefix = (process.platform !== 'win32' && claudeEnv.PATH)
+          ? `export PATH=${escapeShellArg(claudeEnv.PATH)} && `
           : '';
         const shellClaudeCmd = process.platform === 'win32'
-          ? `"${escapeShellArgWindows(claudeCmd)}"`
+          ? 'claude'
           : escapeShellArg(claudeCmd);
 
         if (!profile.isDefault && profile.configDir) {
