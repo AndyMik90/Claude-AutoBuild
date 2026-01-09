@@ -192,5 +192,38 @@
       "retry": "重试",
       "fallbackNote": "即使没有嵌入,记忆仍将使用关键字搜索工作。"
     }
+  },
+  "firstSpecStep": {
+    "title": "创建您的第一个任务",
+    "description": "描述您想要构建的内容,让 Auto Claude 处理其余部分",
+    "taskCreatorOpened": "任务创建器已打开",
+    "successMessage": "太好了! 您现在可以创建您的第一个任务或继续向导。您始终可以稍后从主仪表板创建任务。",
+    "tipsTitle": "优秀任务的提示",
+    "tips": {
+      "beDescriptive": {
+        "title": "要有描述性",
+        "description": "清楚地描述您想要构建的内容。包括要求、约束和预期行为。"
+      },
+      "startSmall": {
+        "title": "从小开始",
+        "description": "从一个专注的任务开始,比如添加功能或修复错误。较小的任务更容易验证。"
+      },
+      "includeContext": {
+        "title": "包含上下文",
+        "description": "提及相关文件、API 或模式。您提供的上下文越多,结果越好。"
+      },
+      "letAiHelp": {
+        "title": "让 AI 帮忙",
+        "description": "AI 可以生成标题和分类任务。专注于描述您想要的内容,而不是细节。"
+      }
+    },
+    "exampleTitle": "示例任务描述:",
+    "exampleDescription": "\"在设置页面添加深色模式切换。它应该在 localStorage 中持久化用户的偏好,并立即应用主题而无需页面重新加载。使用 styles/theme.css 中的现有颜色变量。\"",
+    "openTaskCreator": "打开任务创建器",
+    "continueMessage": "您现在可以继续向导或创建更多任务。",
+    "skipMessage": "您可以跳过此步骤,稍后从仪表板创建任务。",
+    "back": "返回",
+    "skip": "跳过",
+    "continue": "继续"
   }
 }

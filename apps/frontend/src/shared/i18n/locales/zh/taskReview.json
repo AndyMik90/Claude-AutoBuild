@@ -34,5 +34,15 @@
       "targetBranch": "留空以使用默认分支",
       "prTitle": "留空以使用任务标题"
     }
+  },
+  "discard": {
+    "title": "放弃构建",
+    "confirmTitle": "您确定要放弃 \"{{taskTitle}}\" 的所有更改吗？",
+    "warning": "这将永久删除独立工作区和所有未提交的更改。任务将移回\"规划\"状态。",
+    "filesChanged": "已更改文件：",
+    "lines": "行数：",
+    "cancel": "取消",
+    "discarding": "正在放弃...",
+    "discard": "放弃构建"
   }
 }

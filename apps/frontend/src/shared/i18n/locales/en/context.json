@@ -1,0 +1,17 @@
+{
+  "prReview": {
+    "title": "PR Review",
+    "approved": "Approved",
+    "changesRequested": "Changes Requested",
+    "commented": "Commented",
+    "followUp": "Follow-up",
+    "finding": "finding",
+    "findings": "findings",
+    "details": "Details",
+    "collapse": "Collapse",
+    "keyFindings": "Key Findings",
+    "gotchasDiscovered": "Gotchas Discovered",
+    "patternsIdentified": "Patterns Identified",
+    "viewPR": "View PR on GitHub"
+  }
+}

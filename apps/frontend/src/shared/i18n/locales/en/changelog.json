@@ -70,5 +70,21 @@
   "clickGenerateChangelog": "Click \"Generate Changelog\" to create release notes.",
   "loadingImage": "Loading image...",
   "imageNotFound": "Image not found",
-  "cannotLoadImage": "Cannot load local image: no project path"
+  "cannotLoadImage": "Cannot load local image: no project path",
+  "backToSelection": "Back to Selection",
+  "includingLabel": "Including {{count}} {{label}}",
+  "releaseInfo": "Release Info",
+  "version": "Version",
+  "date": "Date",
+  "previousVersion": "Previous: {{version}}",
+  "outputStyle": "Output Style",
+  "format": "Format",
+  "audience": "Audience",
+  "emojis": "Emojis",
+  "advancedOptions": "Advanced Options",
+  "customInstructions": "Custom Instructions",
+  "customInstructionsPlaceholder": "Add any special instructions for the AI...",
+  "customInstructionsHint": "Optional. Guide the AI on tone, specific details to include, etc.",
+  "generating": "Generating...",
+  "generateChangelog": "Generate Changelog"
 }

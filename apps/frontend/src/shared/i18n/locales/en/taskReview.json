@@ -34,5 +34,15 @@
       "targetBranch": "Leave empty to use the default branch",
       "prTitle": "Leave empty to use the task title"
     }
+  },
+  "discard": {
+    "title": "Discard Build",
+    "confirmTitle": "Are you sure you want to discard all changes for \"{{taskTitle}}\"?",
+    "warning": "This will permanently delete the isolated workspace and all uncommitted changes. The task will be moved back to Planning status.",
+    "filesChanged": "Files changed:",
+    "lines": "Lines:",
+    "cancel": "Cancel",
+    "discarding": "Discarding...",
+    "discard": "Discard Build"
   }
 }

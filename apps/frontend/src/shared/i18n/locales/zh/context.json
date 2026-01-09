@@ -1,0 +1,17 @@
+{
+  "prReview": {
+    "title": "PR 审查",
+    "approved": "已批准",
+    "changesRequested": "请求更改",
+    "commented": "已评论",
+    "followUp": "跟进",
+    "finding": "发现",
+    "findings": "发现",
+    "details": "详情",
+    "collapse": "折叠",
+    "keyFindings": "关键发现",
+    "gotchasDiscovered": "发现的陷阱",
+    "patternsIdentified": "识别的模式",
+    "viewPR": "在 GitHub 上查看 PR"
+  }
+}

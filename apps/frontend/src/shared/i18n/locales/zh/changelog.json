@@ -52,5 +52,21 @@
   "clickGenerateChangelog": "点击「生成更新日志」来创建发布说明。",
   "loadingImage": "正在加载图片...",
   "imageNotFound": "图片未找到",
-  "cannotLoadImage": "无法加载本地图片：无项目路径"
+  "cannotLoadImage": "无法加载本地图片：无项目路径",
+  "backToSelection": "返回选择",
+  "includingLabel": "包含 {{count}} 个 {{label}}",
+  "releaseInfo": "发布信息",
+  "version": "版本号",
+  "date": "日期",
+  "previousVersion": "上一个版本：{{version}}",
+  "outputStyle": "输出样式",
+  "format": "格式",
+  "audience": "受众",
+  "emojis": "表情符号",
+  "advancedOptions": "高级选项",
+  "customInstructions": "自定义说明",
+  "customInstructionsPlaceholder": "为 AI 添加特殊指令...",
+  "customInstructionsHint": "可选。指导 AI 的语气、需要包含的特定细节等。",
+  "generating": "生成中...",
+  "generateChangelog": "生成更新日志"
 }
