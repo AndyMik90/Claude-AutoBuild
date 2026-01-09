@@ -35,6 +35,7 @@ export const IPC_CHANNELS = {
   TASK_WORKTREE_MERGE: 'task:worktreeMerge',
   TASK_WORKTREE_MERGE_PREVIEW: 'task:worktreeMergePreview',  // Preview merge conflicts before merging
   TASK_WORKTREE_DISCARD: 'task:worktreeDiscard',
+  TASK_WORKTREE_CREATE_PR: 'task:worktreeCreatePR',
   TASK_WORKTREE_OPEN_IN_IDE: 'task:worktreeOpenInIDE',
   TASK_WORKTREE_OPEN_IN_TERMINAL: 'task:worktreeOpenInTerminal',
   TASK_WORKTREE_DETECT_TOOLS: 'task:worktreeDetectTools',  // Detect installed IDEs/terminals
@@ -63,24 +64,35 @@ export const IPC_CHANNELS = {
   TERMINAL_RESIZE: 'terminal:resize',
   TERMINAL_INVOKE_CLAUDE: 'terminal:invokeClaude',
   TERMINAL_GENERATE_NAME: 'terminal:generateName',
+  TERMINAL_SET_TITLE: 'terminal:setTitle',  // Renderer -> Main: user renamed terminal
+  TERMINAL_SET_WORKTREE_CONFIG: 'terminal:setWorktreeConfig',  // Renderer -> Main: worktree association changed
 
   // Terminal session management
   TERMINAL_GET_SESSIONS: 'terminal:getSessions',
   TERMINAL_RESTORE_SESSION: 'terminal:restoreSession',
   TERMINAL_CLEAR_SESSIONS: 'terminal:clearSessions',
   TERMINAL_RESUME_CLAUDE: 'terminal:resumeClaude',
+  TERMINAL_ACTIVATE_DEFERRED_RESUME: 'terminal:activateDeferredResume',  // Trigger deferred Claude resume when terminal becomes active
   TERMINAL_GET_SESSION_DATES: 'terminal:getSessionDates',
   TERMINAL_GET_SESSIONS_FOR_DATE: 'terminal:getSessionsForDate',
   TERMINAL_RESTORE_FROM_DATE: 'terminal:restoreFromDate',
   TERMINAL_CHECK_PTY_ALIVE: 'terminal:checkPtyAlive',
+
+  // Terminal worktree operations (isolated development in worktrees)
+  TERMINAL_WORKTREE_CREATE: 'terminal:worktreeCreate',
+  TERMINAL_WORKTREE_REMOVE: 'terminal:worktreeRemove',
+  TERMINAL_WORKTREE_LIST: 'terminal:worktreeList',
 
   // Terminal events (main -> renderer)
   TERMINAL_OUTPUT: 'terminal:output',
   TERMINAL_EXIT: 'terminal:exit',
   TERMINAL_TITLE_CHANGE: 'terminal:titleChange',
   TERMINAL_CLAUDE_SESSION: 'terminal:claudeSession',  // Claude session ID captured
+  TERMINAL_PENDING_RESUME: 'terminal:pendingResume',  // Terminal has pending Claude resume (for deferred activation)
   TERMINAL_RATE_LIMIT: 'terminal:rateLimit',  // Claude Code rate limit detected
   TERMINAL_OAUTH_TOKEN: 'terminal:oauthToken',  // OAuth token captured from setup-token output
+  TERMINAL_AUTH_CREATED: 'terminal:authCreated',  // Auth terminal created for OAuth flow
+  TERMINAL_CLAUDE_BUSY: 'terminal:claudeBusy',  // Claude Code busy state (for visual indicator)
 
   // Claude profile management (multi-account support)
   CLAUDE_PROFILES_GET: 'claude:profilesGet',
@@ -110,6 +122,17 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_GET_CLI_TOOLS_INFO: 'settings:getCliToolsInfo',
+
+  // API Profile management (custom Anthropic-compatible endpoints)
+  PROFILES_GET: 'profiles:get',
+  PROFILES_SAVE: 'profiles:save',
+  PROFILES_UPDATE: 'profiles:update',
+  PROFILES_DELETE: 'profiles:delete',
+  PROFILES_SET_ACTIVE: 'profiles:setActive',
+  PROFILES_TEST_CONNECTION: 'profiles:test-connection',
+  PROFILES_TEST_CONNECTION_CANCEL: 'profiles:test-connection-cancel',
+  PROFILES_DISCOVER_MODELS: 'profiles:discover-models',
+  PROFILES_DISCOVER_MODELS_CANCEL: 'profiles:discover-models-cancel',
 
   // Dialogs
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',
@@ -232,6 +255,7 @@ export const IPC_CHANNELS = {
 
   // GitLab OAuth (glab CLI authentication)
   GITLAB_CHECK_CLI: 'gitlab:checkCli',
+  GITLAB_INSTALL_CLI: 'gitlab:installCli',
   GITLAB_CHECK_AUTH: 'gitlab:checkAuth',
   GITLAB_START_AUTH: 'gitlab:startAuth',
   GITLAB_GET_TOKEN: 'gitlab:getToken',
@@ -337,6 +361,7 @@ export const IPC_CHANNELS = {
   GITHUB_PR_REVIEW: 'github:pr:review',
   GITHUB_PR_REVIEW_CANCEL: 'github:pr:reviewCancel',
   GITHUB_PR_GET_REVIEW: 'github:pr:getReview',
+  GITHUB_PR_GET_REVIEWS_BATCH: 'github:pr:getReviewsBatch',  // Batch load reviews for multiple PRs
   GITHUB_PR_POST_REVIEW: 'github:pr:postReview',
   GITHUB_PR_DELETE_REVIEW: 'github:pr:deleteReview',
   GITHUB_PR_MERGE: 'github:pr:merge',
@@ -345,11 +370,23 @@ export const IPC_CHANNELS = {
   GITHUB_PR_FIX: 'github:pr:fix',
   GITHUB_PR_FOLLOWUP_REVIEW: 'github:pr:followupReview',
   GITHUB_PR_CHECK_NEW_COMMITS: 'github:pr:checkNewCommits',
+  GITHUB_PR_CHECK_MERGE_READINESS: 'github:pr:checkMergeReadiness',
 
   // GitHub PR Review events (main -> renderer)
   GITHUB_PR_REVIEW_PROGRESS: 'github:pr:reviewProgress',
   GITHUB_PR_REVIEW_COMPLETE: 'github:pr:reviewComplete',
   GITHUB_PR_REVIEW_ERROR: 'github:pr:reviewError',
+
+  // GitHub PR Logs (for viewing AI review logs)
+  GITHUB_PR_GET_LOGS: 'github:pr:getLogs',
+
+  // GitHub PR Memory operations (saves review insights to memory layer)
+  GITHUB_PR_MEMORY_GET: 'github:pr:memory:get',        // Get PR review memories
+  GITHUB_PR_MEMORY_SEARCH: 'github:pr:memory:search',  // Search PR review memories
+
+  // GitHub Workflow Approval (for fork PRs)
+  GITHUB_WORKFLOWS_AWAITING_APPROVAL: 'github:workflows:awaitingApproval',
+  GITHUB_WORKFLOW_APPROVE: 'github:workflow:approve',
 
   // GitHub Issue Triage operations
   GITHUB_TRIAGE_RUN: 'github:triage:run',
@@ -374,16 +411,12 @@ export const IPC_CHANNELS = {
 
   // Ollama model detection and management
   OLLAMA_CHECK_STATUS: 'ollama:checkStatus',
+  OLLAMA_CHECK_INSTALLED: 'ollama:checkInstalled',
+  OLLAMA_INSTALL: 'ollama:install',
   OLLAMA_LIST_MODELS: 'ollama:listModels',
   OLLAMA_LIST_EMBEDDING_MODELS: 'ollama:listEmbeddingModels',
   OLLAMA_PULL_MODEL: 'ollama:pullModel',
   OLLAMA_PULL_PROGRESS: 'ollama:pullProgress',
-
-  // Auto Claude source updates
-  AUTOBUILD_SOURCE_CHECK: 'autobuild:source:check',
-  AUTOBUILD_SOURCE_DOWNLOAD: 'autobuild:source:download',
-  AUTOBUILD_SOURCE_VERSION: 'autobuild:source:version',
-  AUTOBUILD_SOURCE_PROGRESS: 'autobuild:source:progress',
 
   // Auto Claude source environment configuration
   AUTOBUILD_SOURCE_ENV_GET: 'autobuild:source:env:get',
@@ -430,6 +463,7 @@ export const IPC_CHANNELS = {
 
   // File explorer operations
   FILE_EXPLORER_LIST: 'fileExplorer:list',
+  FILE_EXPLORER_READ: 'fileExplorer:read',
 
   // Git operations
   GIT_GET_BRANCHES: 'git:getBranches',
@@ -441,6 +475,7 @@ export const IPC_CHANNELS = {
   // App auto-update operations
   APP_UPDATE_CHECK: 'app-update:check',
   APP_UPDATE_DOWNLOAD: 'app-update:download',
+  APP_UPDATE_DOWNLOAD_STABLE: 'app-update:download-stable',  // Download stable version (for downgrade from beta)
   APP_UPDATE_INSTALL: 'app-update:install',
   APP_UPDATE_GET_VERSION: 'app-update:get-version',
 
@@ -449,6 +484,7 @@ export const IPC_CHANNELS = {
   APP_UPDATE_DOWNLOADED: 'app-update:downloaded',
   APP_UPDATE_PROGRESS: 'app-update:progress',
   APP_UPDATE_ERROR: 'app-update:error',
+  APP_UPDATE_STABLE_DOWNGRADE: 'app-update:stable-downgrade',  // Stable version available for downgrade from beta
 
   // Release operations
   RELEASE_SUGGEST_VERSION: 'release:suggestVersion',
@@ -464,5 +500,18 @@ export const IPC_CHANNELS = {
   DEBUG_OPEN_LOGS_FOLDER: 'debug:openLogsFolder',
   DEBUG_COPY_DEBUG_INFO: 'debug:copyDebugInfo',
   DEBUG_GET_RECENT_ERRORS: 'debug:getRecentErrors',
-  DEBUG_LIST_LOG_FILES: 'debug:listLogFiles'
+  DEBUG_LIST_LOG_FILES: 'debug:listLogFiles',
+
+  // Claude Code CLI operations
+  CLAUDE_CODE_CHECK_VERSION: 'claudeCode:checkVersion',
+  CLAUDE_CODE_INSTALL: 'claudeCode:install',
+
+  // MCP Server health checks
+  MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
+  MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
+
+  // Sentry error reporting
+  SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
+  GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
+  GET_SENTRY_CONFIG: 'sentry:get-config'         // Get full Sentry config (DSN + sample rates)
 } as const;

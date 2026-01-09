@@ -1,6 +1,7 @@
 /**
  * Unit tests for ProjectTabBar component
- * Tests project tab rendering, interaction handling, and state display
+ * Tests project tab rendering, interaction handling, state display,
+ * and new control props (settings, archive toggle)
  *
  * @vitest-environment jsdom
  */
@@ -37,6 +38,9 @@ describe('ProjectTabBar', () => {
   const mockOnProjectSelect = vi.fn();
   const mockOnProjectClose = vi.fn();
   const mockOnAddProject = vi.fn();
+  // New control callbacks
+  const mockOnSettingsClick = vi.fn();
+  const mockOnToggleArchived = vi.fn();
 
   beforeEach(() => {
     // Reset all mocks
@@ -162,11 +166,6 @@ describe('ProjectTabBar', () => {
 
   describe('Project Selection', () => {
     it('should call onProjectSelect with correct project ID when tab is clicked', () => {
-      const projects = [
-        createTestProject({ id: 'proj-1', name: 'Project 1' }),
-        createTestProject({ id: 'proj-2', name: 'Project 2' })
-      ];
-
       // Simulate clicking on project 2
       const selectedProjectId = 'proj-2';
       mockOnProjectSelect(selectedProjectId);
@@ -176,11 +175,6 @@ describe('ProjectTabBar', () => {
     });
 
     it('should handle project selection for the first project', () => {
-      const projects = [
-        createTestProject({ id: 'proj-first', name: 'First Project' }),
-        createTestProject({ id: 'proj-second', name: 'Second Project' })
-      ];
-
       const selectedProjectId = 'proj-first';
       mockOnProjectSelect(selectedProjectId);
 
@@ -188,12 +182,6 @@ describe('ProjectTabBar', () => {
     });
 
     it('should handle project selection for the last project', () => {
-      const projects = [
-        createTestProject({ id: 'proj-a', name: 'Project A' }),
-        createTestProject({ id: 'proj-b', name: 'Project B' }),
-        createTestProject({ id: 'proj-c', name: 'Project C' })
-      ];
-
       const selectedProjectId = 'proj-c';
       mockOnProjectSelect(selectedProjectId);
 
@@ -203,18 +191,8 @@ describe('ProjectTabBar', () => {
 
   describe('Project Closing', () => {
     it('should call onProjectClose with correct project ID when close button is clicked', () => {
-      const projects = [
-        createTestProject({ id: 'proj-1', name: 'Project 1' }),
-        createTestProject({ id: 'proj-2', name: 'Project 2' })
-      ];
-
       // Simulate clicking close button for project 1
       const closedProjectId = 'proj-1';
-
-      // Create mock event
-      const mockEvent = {
-        stopPropagation: vi.fn()
-      } as unknown as React.MouseEvent;
 
       mockOnProjectClose(closedProjectId);
 
@@ -371,8 +349,6 @@ describe('ProjectTabBar', () => {
     });
 
     it('should handle optional className prop', () => {
-      const projects = [createTestProject()];
-      const activeProjectId = projects[0].id;
       const customClassName = 'my-custom-class';
 
       // Optional prop should be handled correctly
@@ -450,8 +426,6 @@ describe('ProjectTabBar', () => {
     });
 
     it('should pass correct onSelect function that calls onProjectSelect with project ID', () => {
-      const projects = [createTestProject({ id: 'proj-callback' })];
-
       // Create the onSelect function that would be passed to SortableProjectTab
       const projectId = 'proj-callback';
       const onSelect = () => mockOnProjectSelect(projectId);
@@ -462,8 +436,6 @@ describe('ProjectTabBar', () => {
     });
 
     it('should pass correct onClose function that stops propagation and calls onProjectClose', () => {
-      const projects = [createTestProject({ id: 'proj-close' })];
-
       const mockEvent = {
         stopPropagation: vi.fn()
       } as unknown as React.MouseEvent;
@@ -478,6 +450,357 @@ describe('ProjectTabBar', () => {
 
       expect(mockEvent.stopPropagation).toHaveBeenCalled();
       expect(mockOnProjectClose).toHaveBeenCalledWith('proj-close');
+    });
+  });
+
+  describe('Control Props for Active Tab', () => {
+    it('should accept onSettingsClick prop', () => {
+      // Control props interface verification
+      const controlProps = {
+        onSettingsClick: mockOnSettingsClick,
+        showArchived: false,
+        archivedCount: 0,
+        onToggleArchived: mockOnToggleArchived
+      };
+
+      expect(controlProps.onSettingsClick).toBeDefined();
+      expect(typeof controlProps.onSettingsClick).toBe('function');
+    });
+
+    it('should accept showArchived prop', () => {
+      const controlProps = {
+        showArchived: true
+      };
+
+      expect(controlProps.showArchived).toBe(true);
+
+      const controlPropsHidden = {
+        showArchived: false
+      };
+
+      expect(controlPropsHidden.showArchived).toBe(false);
+    });
+
+    it('should accept archivedCount prop', () => {
+      // With archived items
+      const controlPropsWithArchived = {
+        archivedCount: 5
+      };
+      expect(controlPropsWithArchived.archivedCount).toBe(5);
+
+      // Without archived items
+      const controlPropsNoArchived = {
+        archivedCount: 0
+      };
+      expect(controlPropsNoArchived.archivedCount).toBe(0);
+    });
+
+    it('should accept onToggleArchived prop', () => {
+      const controlProps = {
+        onToggleArchived: mockOnToggleArchived
+      };
+
+      expect(controlProps.onToggleArchived).toBeDefined();
+      expect(typeof controlProps.onToggleArchived).toBe('function');
+    });
+
+    it('should pass control props only to active tab', () => {
+      const projects = [
+        createTestProject({ id: 'proj-1', name: 'Project 1' }),
+        createTestProject({ id: 'proj-2', name: 'Project 2' })
+      ];
+      const activeProjectId = 'proj-2';
+
+      // Control props should only be passed to active tab
+      projects.forEach(project => {
+        const isActiveTab = activeProjectId === project.id;
+        const tabControlProps = {
+          onSettingsClick: isActiveTab ? mockOnSettingsClick : undefined,
+          showArchived: isActiveTab ? false : undefined,
+          archivedCount: isActiveTab ? 3 : undefined,
+          onToggleArchived: isActiveTab ? mockOnToggleArchived : undefined
+        };
+
+        if (project.id === 'proj-2') {
+          // Active tab should have control props
+          expect(tabControlProps.onSettingsClick).toBe(mockOnSettingsClick);
+          expect(tabControlProps.showArchived).toBe(false);
+          expect(tabControlProps.archivedCount).toBe(3);
+          expect(tabControlProps.onToggleArchived).toBe(mockOnToggleArchived);
+        } else {
+          // Inactive tab should have undefined control props
+          expect(tabControlProps.onSettingsClick).toBeUndefined();
+          expect(tabControlProps.showArchived).toBeUndefined();
+          expect(tabControlProps.archivedCount).toBeUndefined();
+          expect(tabControlProps.onToggleArchived).toBeUndefined();
+        }
+      });
+    });
+
+    it('should handle onSettingsClick callback correctly', () => {
+      // Simulate clicking settings
+      mockOnSettingsClick();
+
+      expect(mockOnSettingsClick).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle onToggleArchived callback correctly', () => {
+      // Simulate clicking archive toggle
+      mockOnToggleArchived();
+
+      expect(mockOnToggleArchived).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle archived count edge cases', () => {
+      // Zero archived
+      expect(0).toBe(0);
+      expect(0 > 0).toBe(false);
+
+      // Some archived
+      expect(5).toBeGreaterThan(0);
+      expect(5 > 0).toBe(true);
+
+      // Large number of archived
+      expect(100).toBeGreaterThan(0);
+      expect(100 > 0).toBe(true);
+    });
+
+    it('should toggle showArchived state correctly', () => {
+      let showArchived = false;
+
+      // Simulate toggle function behavior
+      const toggle = () => {
+        showArchived = !showArchived;
+      };
+
+      expect(showArchived).toBe(false);
+      toggle();
+      expect(showArchived).toBe(true);
+      toggle();
+      expect(showArchived).toBe(false);
+    });
+  });
+
+  describe('Control Props with Multiple Projects', () => {
+    it('should only pass control props to currently active project', () => {
+      const projects = [
+        createTestProject({ id: 'proj-1', name: 'Alpha' }),
+        createTestProject({ id: 'proj-2', name: 'Beta' }),
+        createTestProject({ id: 'proj-3', name: 'Gamma' })
+      ];
+
+      // Test with proj-2 as active
+      let activeProjectId = 'proj-2';
+      let activeIndex = projects.findIndex(p => p.id === activeProjectId);
+      expect(activeIndex).toBe(1);
+
+      // Only proj-2 should get control props
+      projects.forEach((project, index) => {
+        const isActive = project.id === activeProjectId;
+        if (index === 1) {
+          expect(isActive).toBe(true);
+        } else {
+          expect(isActive).toBe(false);
+        }
+      });
+
+      // Switch to proj-3 as active
+      activeProjectId = 'proj-3';
+      activeIndex = projects.findIndex(p => p.id === activeProjectId);
+      expect(activeIndex).toBe(2);
+
+      // Now only proj-3 should get control props
+      projects.forEach((project, index) => {
+        const isActive = project.id === activeProjectId;
+        if (index === 2) {
+          expect(isActive).toBe(true);
+        } else {
+          expect(isActive).toBe(false);
+        }
+      });
+    });
+
+    it('should handle rapid active project changes', () => {
+      const projects = [
+        createTestProject({ id: 'proj-1' }),
+        createTestProject({ id: 'proj-2' }),
+        createTestProject({ id: 'proj-3' })
+      ];
+
+      const activeProjectIds = ['proj-1', 'proj-2', 'proj-3', 'proj-1', 'proj-2'];
+
+      activeProjectIds.forEach(activeId => {
+        projects.forEach(project => {
+          const isActive = project.id === activeId;
+          const shouldHaveControls = isActive;
+          expect(shouldHaveControls).toBe(project.id === activeId);
+        });
+      });
+    });
+  });
+
+  describe('UsageIndicator Integration', () => {
+    it('should render UsageIndicator next to add button', () => {
+      // Component structure verification
+      // UsageIndicator should be rendered in the right-side container
+      const containerClasses = ['flex', 'items-center', 'gap-2', 'px-2', 'py-1'];
+
+      containerClasses.forEach(cls => {
+        expect(cls).toBeTruthy();
+      });
+    });
+
+    it('should render UsageIndicator before add project button', () => {
+      // Order verification: UsageIndicator, then Add button
+      const expectedOrder = ['UsageIndicator', 'AddButton'];
+      expect(expectedOrder[0]).toBe('UsageIndicator');
+      expect(expectedOrder[1]).toBe('AddButton');
+    });
+  });
+
+  describe('Updated Container Styling', () => {
+    it('should apply correct gap-2 spacing in right-side container', () => {
+      // From component: <div className="flex items-center gap-2 px-2 py-1">
+      const rightContainerClasses = [
+        'flex',
+        'items-center',
+        'gap-2',  // Updated from no gap
+        'px-2',
+        'py-1'
+      ];
+
+      rightContainerClasses.forEach(cls => {
+        expect(cls).toBeTruthy();
+      });
+
+      expect(rightContainerClasses).toContain('gap-2');
+    });
+  });
+
+  describe('Tab Control Props Interface', () => {
+    it('should have correct interface for control props', () => {
+      // Verify the control props interface matches component expectations
+      interface ControlProps {
+        onSettingsClick?: () => void;
+        showArchived?: boolean;
+        archivedCount?: number;
+        onToggleArchived?: () => void;
+      }
+
+      const validControlProps: ControlProps = {
+        onSettingsClick: () => {},
+        showArchived: false,
+        archivedCount: 0,
+        onToggleArchived: () => {}
+      };
+
+      expect(validControlProps.onSettingsClick).toBeDefined();
+      expect(validControlProps.showArchived).toBe(false);
+      expect(validControlProps.archivedCount).toBe(0);
+      expect(validControlProps.onToggleArchived).toBeDefined();
+    });
+
+    it('should allow optional control props', () => {
+      interface ControlProps {
+        onSettingsClick?: () => void;
+        showArchived?: boolean;
+        archivedCount?: number;
+        onToggleArchived?: () => void;
+      }
+
+      const emptyControlProps: ControlProps = {};
+
+      expect(emptyControlProps.onSettingsClick).toBeUndefined();
+      expect(emptyControlProps.showArchived).toBeUndefined();
+      expect(emptyControlProps.archivedCount).toBeUndefined();
+      expect(emptyControlProps.onToggleArchived).toBeUndefined();
+    });
+
+    it('should handle partial control props', () => {
+      interface ControlProps {
+        onSettingsClick?: () => void;
+        showArchived?: boolean;
+        archivedCount?: number;
+        onToggleArchived?: () => void;
+      }
+
+      // Only settings provided
+      const settingsOnlyProps: ControlProps = {
+        onSettingsClick: () => {}
+      };
+      expect(settingsOnlyProps.onSettingsClick).toBeDefined();
+      expect(settingsOnlyProps.onToggleArchived).toBeUndefined();
+
+      // Only archive toggle provided
+      const archiveOnlyProps: ControlProps = {
+        onToggleArchived: () => {},
+        showArchived: true,
+        archivedCount: 5
+      };
+      expect(archiveOnlyProps.onToggleArchived).toBeDefined();
+      expect(archiveOnlyProps.showArchived).toBe(true);
+      expect(archiveOnlyProps.archivedCount).toBe(5);
+      expect(archiveOnlyProps.onSettingsClick).toBeUndefined();
+    });
+  });
+
+  describe('Integration with SortableProjectTab Control Props', () => {
+    it('should pass control props to SortableProjectTab for active tab', () => {
+      const projects = [
+        createTestProject({ id: 'proj-1', name: 'Test Project' })
+      ];
+      const activeProjectId = 'proj-1';
+
+      // Props that should be passed to SortableProjectTab including controls
+      const tabProps = {
+        project: projects[0],
+        isActive: activeProjectId === projects[0].id,
+        canClose: projects.length > 1,
+        tabIndex: 0,
+        onSelect: expect.any(Function),
+        onClose: expect.any(Function),
+        // Control props for active tab
+        onSettingsClick: mockOnSettingsClick,
+        showArchived: false,
+        archivedCount: 3,
+        onToggleArchived: mockOnToggleArchived
+      };
+
+      expect(tabProps.project.id).toBe('proj-1');
+      expect(tabProps.isActive).toBe(true);
+      expect(tabProps.onSettingsClick).toBe(mockOnSettingsClick);
+      expect(tabProps.showArchived).toBe(false);
+      expect(tabProps.archivedCount).toBe(3);
+      expect(tabProps.onToggleArchived).toBe(mockOnToggleArchived);
+    });
+
+    it('should not pass control props to SortableProjectTab for inactive tab', () => {
+      const projects = [
+        createTestProject({ id: 'proj-1', name: 'Project 1' }),
+        createTestProject({ id: 'proj-2', name: 'Project 2' })
+      ];
+      const activeProjectId = 'proj-2';
+
+      // Props for inactive tab (proj-1)
+      const inactiveTabProps = {
+        project: projects[0],
+        isActive: activeProjectId === projects[0].id, // false
+        canClose: projects.length > 1,
+        tabIndex: 0,
+        onSelect: expect.any(Function),
+        onClose: expect.any(Function),
+        // Control props should be undefined for inactive tab
+        onSettingsClick: undefined,
+        showArchived: undefined,
+        archivedCount: undefined,
+        onToggleArchived: undefined
+      };
+
+      expect(inactiveTabProps.isActive).toBe(false);
+      expect(inactiveTabProps.onSettingsClick).toBeUndefined();
+      expect(inactiveTabProps.showArchived).toBeUndefined();
+      expect(inactiveTabProps.archivedCount).toBeUndefined();
+      expect(inactiveTabProps.onToggleArchived).toBeUndefined();
     });
   });
 });

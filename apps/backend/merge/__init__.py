@@ -9,7 +9,7 @@ conflict resolution, enabling multiple AI agents to work in parallel without
 traditional merge conflicts.
 
 Components:
-- SemanticAnalyzer: Tree-sitter based semantic change extraction
+- SemanticAnalyzer: Regex-based semantic change extraction
 - ConflictDetector: Rule-based conflict detection and compatibility analysis
 - AutoMerger: Deterministic merge strategies (no AI needed)
 - AIResolver: Minimal-context AI resolution for ambiguous conflicts

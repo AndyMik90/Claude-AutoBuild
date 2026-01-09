@@ -26,11 +26,12 @@ function run(cmd, options = {}) {
   }
 }
 
-// Find Python 3.12
+// Find Python 3.12+
+// Prefer 3.12 first since it has the most stable wheel support for native packages
 function findPython() {
   const candidates = isWindows
-    ? ['py -3.12', 'python3.12', 'python']
-    : ['python3.12', 'python3', 'python'];
+    ? ['py -3.12', 'py -3.13', 'py -3.14', 'python3.12', 'python3.13', 'python3.14', 'python3', 'python']
+    : ['python3.12', 'python3.13', 'python3.14', 'python3', 'python'];
 
   for (const cmd of candidates) {
     try {
@@ -38,9 +39,17 @@ function findPython() {
         encoding: 'utf8',
         shell: true,
       });
-      if (result.status === 0 && result.stdout.includes('3.12')) {
-        console.log(`Found Python 3.12: ${cmd} -> ${result.stdout.trim()}`);
-        return cmd;
+      // Accept Python 3.12+ using proper version parsing
+      if (result.status === 0) {
+        const versionMatch = result.stdout.match(/Python (\d+)\.(\d+)/);
+        if (versionMatch) {
+          const major = parseInt(versionMatch[1], 10);
+          const minor = parseInt(versionMatch[2], 10);
+          if (major === 3 && minor >= 12) {
+            console.log(`Found Python 3.12+: ${cmd} -> ${result.stdout.trim()}`);
+            return cmd;
+          }
+        }
       }
     } catch (e) {
       // Continue to next candidate
@@ -58,11 +67,11 @@ function getPipPath() {
 
 // Main installation
 async function main() {
-  // Check for Python 3.12
+  // Check for Python 3.12+
   const python = findPython();
   if (!python) {
-    console.error('\nError: Python 3.12 is required but not found.');
-    console.error('Please install Python 3.12:');
+    console.error('\nError: Python 3.12+ is required but not found.');
+    console.error('Please install Python 3.12 or higher:');
     if (isWindows) {
       console.error('  winget install Python.Python.3.12');
     } else if (os.platform() === 'darwin') {
@@ -92,6 +101,29 @@ async function main() {
   if (!run(`"${pip}" install -r requirements.txt`)) {
     console.error('Failed to install dependencies');
     process.exit(1);
+  }
+
+  // Create .env file from .env.example if it doesn't exist
+  const envPath = path.join(backendDir, '.env');
+  const envExamplePath = path.join(backendDir, '.env.example');
+
+  if (fs.existsSync(envPath)) {
+    console.log('\n✓ .env file already exists');
+  } else if (fs.existsSync(envExamplePath)) {
+    console.log('\nCreating .env file from .env.example...');
+    try {
+      fs.copyFileSync(envExamplePath, envPath);
+      console.log('✓ Created .env file');
+      console.log('  Please configure it with your credentials:');
+      console.log(`  - Run: claude setup-token`);
+      console.log(`  - Or edit: ${envPath}`);
+    } catch (error) {
+      console.warn('Warning: Could not create .env file:', error.message);
+      console.warn('You will need to manually copy .env.example to .env');
+    }
+  } else {
+    console.warn('\nWarning: .env.example not found. Cannot auto-create .env file.');
+    console.warn('Please create a .env file manually if your configuration requires it.');
   }
 
   console.log('\nBackend installation complete!');

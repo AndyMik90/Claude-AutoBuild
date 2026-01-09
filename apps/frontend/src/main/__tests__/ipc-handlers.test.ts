@@ -139,7 +139,8 @@ function cleanupTestDirs(): void {
   }
 }
 
-describe('IPC Handlers', () => {
+// Increase timeout for all tests in this file due to dynamic imports and setup overhead
+describe('IPC Handlers', { timeout: 15000 }, () => {
   let ipcMain: EventEmitter & {
     handlers: Map<string, Function>;
     invokeHandler: (channel: string, event: unknown, ...args: unknown[]) => Promise<unknown>;
@@ -519,7 +520,8 @@ describe('IPC Handlers', () => {
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
         'task:log',
         'task-1',
-        'Test log message'
+        'Test log message',
+        undefined // projectId is undefined when task not found
       );
     });
 
@@ -532,7 +534,8 @@ describe('IPC Handlers', () => {
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
         'task:error',
         'task-1',
-        'Test error message'
+        'Test error message',
+        undefined // projectId is undefined when task not found
       );
     });
 
@@ -556,7 +559,8 @@ describe('IPC Handlers', () => {
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
         'task:statusChange',
         'task-1',
-        'human_review'
+        'human_review',
+        expect.any(String) // projectId for multi-project filtering
       );
     });
   });

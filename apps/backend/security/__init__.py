@@ -50,13 +50,21 @@ from .profile import (
     reset_profile_cache,
 )
 
+# Tool input validation
+from .tool_input_validator import (
+    get_safe_tool_input,
+    validate_tool_input,
+)
+
 # Validators (for advanced usage)
 from .validator import (
     VALIDATORS,
     validate_chmod_command,
     validate_dropdb_command,
     validate_dropuser_command,
+    validate_git_command,
     validate_git_commit,
+    validate_git_config,
     validate_init_script,
     validate_kill_command,
     validate_killall_command,
@@ -87,7 +95,9 @@ __all__ = [
     "validate_chmod_command",
     "validate_rm_command",
     "validate_init_script",
+    "validate_git_command",
     "validate_git_commit",
+    "validate_git_config",
     "validate_dropdb_command",
     "validate_dropuser_command",
     "validate_psql_command",
@@ -100,4 +110,7 @@ __all__ = [
     "is_command_allowed",
     "needs_validation",
     "BASE_COMMANDS",
+    # Tool input validation
+    "validate_tool_input",
+    "get_safe_tool_input",
 ]

@@ -68,6 +68,7 @@ class ModificationTracker:
         new_content: str,
         evolutions: dict[str, FileEvolution],
         raw_diff: str | None = None,
+        skip_semantic_analysis: bool = False,
     ) -> TaskSnapshot | None:
         """
         Record a file modification by a task.
@@ -79,6 +80,9 @@ class ModificationTracker:
             new_content: File content after modification
             evolutions: Current evolution data (will be updated)
             raw_diff: Optional unified diff for reference
+            skip_semantic_analysis: If True, skip expensive semantic analysis.
+                Use this for lightweight file tracking when only conflict
+                detection is needed (not conflict resolution).
 
         Returns:
             Updated TaskSnapshot, or None if file not being tracked
@@ -87,8 +91,8 @@ class ModificationTracker:
 
         # Get or create evolution
         if rel_path not in evolutions:
-            logger.warning(f"File {rel_path} not being tracked")
-            # Note: We could auto-create here, but for now return None
+            # Debug level: this is expected for files not in baseline (e.g., from main's changes)
+            logger.debug(f"File {rel_path} not in evolution tracking - skipping")
             return None
 
         evolution = evolutions.get(rel_path)
@@ -105,9 +109,19 @@ class ModificationTracker:
                 content_hash_before=compute_content_hash(old_content),
             )
 
-        # Analyze semantic changes
-        analysis = self.analyzer.analyze_diff(rel_path, old_content, new_content)
-        semantic_changes = analysis.changes
+        # Analyze semantic changes (or skip for lightweight tracking)
+        if skip_semantic_analysis:
+            # Fast path: just track the file change without analysis
+            # This is used for files that don't have conflicts
+            semantic_changes = []
+            debug(
+                MODULE,
+                f"Skipping semantic analysis for {rel_path} (lightweight tracking)",
+            )
+        else:
+            # Full analysis (only for conflict files)
+            analysis = self.analyzer.analyze_diff(rel_path, old_content, new_content)
+            semantic_changes = analysis.changes
 
         # Update snapshot
         snapshot.completed_at = datetime.now()
@@ -121,6 +135,7 @@ class ModificationTracker:
         logger.info(
             f"Recorded modification to {rel_path} by {task_id}: "
             f"{len(semantic_changes)} semantic changes"
+            + (" (lightweight)" if skip_semantic_analysis else "")
         )
         return snapshot
 
@@ -130,6 +145,7 @@ class ModificationTracker:
         worktree_path: Path,
         evolutions: dict[str, FileEvolution],
         target_branch: str | None = None,
+        analyze_only_files: set[str] | None = None,
     ) -> None:
         """
         Refresh task snapshots by analyzing git diff from worktree.
@@ -142,6 +158,10 @@ class ModificationTracker:
             worktree_path: Path to the task's worktree
             evolutions: Current evolution data (will be updated)
             target_branch: Branch to compare against (default: detect from worktree)
+            analyze_only_files: If provided, only run full semantic analysis on
+                these files. Other files will be tracked with lightweight mode
+                (no semantic analysis). This optimizes performance by only
+                analyzing files that have actual conflicts.
         """
         # Determine the target branch to compare against
         if not target_branch:
@@ -154,12 +174,27 @@ class ModificationTracker:
             task_id=task_id,
             worktree_path=str(worktree_path),
             target_branch=target_branch,
+            analyze_only_files=list(analyze_only_files)[:10]
+            if analyze_only_files
+            else "all",
         )
 
         try:
-            # Get list of files changed in the worktree vs target branch
+            # Get the merge-base to accurately identify task-only changes
+            # Using two-dot diff (merge-base..HEAD) returns only files changed by the task,
+            # not files changed on the target branch since divergence
+            merge_base_result = subprocess.run(
+                ["git", "merge-base", target_branch, "HEAD"],
+                cwd=worktree_path,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            merge_base = merge_base_result.stdout.strip()
+
+            # Get list of files changed in the worktree since the merge-base
             result = subprocess.run(
-                ["git", "diff", "--name-only", f"{target_branch}...HEAD"],
+                ["git", "diff", "--name-only", f"{merge_base}..HEAD"],
                 cwd=worktree_path,
                 capture_output=True,
                 text=True,
@@ -175,55 +210,103 @@ class ModificationTracker:
                 else changed_files,
             )
 
+            processed_count = 0
             for file_path in changed_files:
-                # Get the diff for this file
-                diff_result = subprocess.run(
-                    ["git", "diff", f"{target_branch}...HEAD", "--", file_path],
-                    cwd=worktree_path,
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-
-                # Get content before (from target branch) and after (current)
                 try:
-                    show_result = subprocess.run(
-                        ["git", "show", f"{target_branch}:{file_path}"],
+                    # Get the diff for this file (using merge-base for accurate task-only diff)
+                    diff_result = subprocess.run(
+                        ["git", "diff", f"{merge_base}..HEAD", "--", file_path],
                         cwd=worktree_path,
                         capture_output=True,
                         text=True,
                         check=True,
                     )
-                    old_content = show_result.stdout
-                except subprocess.CalledProcessError:
-                    # File is new
-                    old_content = ""
 
-                current_file = worktree_path / file_path
-                if current_file.exists():
+                    # Get content before (from merge-base - the point where task branched)
                     try:
-                        new_content = current_file.read_text(encoding="utf-8")
-                    except UnicodeDecodeError:
-                        new_content = current_file.read_text(
-                            encoding="utf-8", errors="replace"
+                        show_result = subprocess.run(
+                            ["git", "show", f"{merge_base}:{file_path}"],
+                            cwd=worktree_path,
+                            capture_output=True,
+                            text=True,
+                            check=True,
                         )
-                else:
-                    # File was deleted
-                    new_content = ""
+                        old_content = show_result.stdout
+                    except subprocess.CalledProcessError:
+                        # File is new
+                        old_content = ""
 
-                # Record the modification
-                self.record_modification(
-                    task_id=task_id,
-                    file_path=file_path,
-                    old_content=old_content,
-                    new_content=new_content,
-                    evolutions=evolutions,
-                    raw_diff=diff_result.stdout,
+                    current_file = worktree_path / file_path
+                    if current_file.exists():
+                        try:
+                            new_content = current_file.read_text(encoding="utf-8")
+                        except UnicodeDecodeError:
+                            new_content = current_file.read_text(
+                                encoding="utf-8", errors="replace"
+                            )
+                    else:
+                        # File was deleted
+                        new_content = ""
+
+                    # Auto-create FileEvolution entry if not already tracked
+                    # This handles retroactive tracking when capture_baselines wasn't called
+                    rel_path = self.storage.get_relative_path(file_path)
+                    if rel_path not in evolutions:
+                        evolutions[rel_path] = FileEvolution(
+                            file_path=rel_path,
+                            baseline_commit=merge_base,
+                            baseline_captured_at=datetime.now(),
+                            baseline_content_hash=compute_content_hash(old_content),
+                            baseline_snapshot_path="",  # Not storing baseline file
+                            task_snapshots=[],
+                        )
+                        debug(
+                            MODULE,
+                            f"Auto-created evolution entry for {rel_path}",
+                            baseline_commit=merge_base[:8],
+                        )
+
+                    # Determine if this file needs full semantic analysis
+                    # If analyze_only_files is provided, only analyze files in that set
+                    # Otherwise, analyze all files (backward compatible)
+                    skip_analysis = False
+                    if analyze_only_files is not None:
+                        skip_analysis = rel_path not in analyze_only_files
+
+                    # Record the modification
+                    self.record_modification(
+                        task_id=task_id,
+                        file_path=file_path,
+                        old_content=old_content,
+                        new_content=new_content,
+                        evolutions=evolutions,
+                        raw_diff=diff_result.stdout,
+                        skip_semantic_analysis=skip_analysis,
+                    )
+                    processed_count += 1
+
+                except subprocess.CalledProcessError as e:
+                    # Log error but continue with remaining files
+                    logger.warning(
+                        f"Failed to process {file_path} in refresh_from_git: {e}"
+                    )
+                    continue
+
+            # Calculate how many files were fully analyzed vs just tracked
+            if analyze_only_files is not None:
+                analyzed_count = len(
+                    [f for f in changed_files if f in analyze_only_files]
                 )
-
-            logger.info(
-                f"Refreshed {len(changed_files)} files from worktree for task {task_id}"
-            )
+                tracked_only_count = processed_count - analyzed_count
+                logger.info(
+                    f"Refreshed {processed_count}/{len(changed_files)} files from worktree for task {task_id} "
+                    f"(analyzed: {analyzed_count}, tracked only: {tracked_only_count})"
+                )
+            else:
+                logger.info(
+                    f"Refreshed {processed_count}/{len(changed_files)} files from worktree for task {task_id} "
+                    "(full analysis on all files)"
+                )
 
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to refresh from git: {e}")
@@ -248,35 +331,23 @@ class ModificationTracker:
 
     def _detect_target_branch(self, worktree_path: Path) -> str:
         """
-        Detect the target branch to compare against for a worktree.
+        Detect the base branch to compare against for a worktree.
 
-        This finds the branch that the worktree was created from by looking
-        at the merge-base between the worktree and common branch names.
+        This finds the branch that the worktree was created FROM by looking
+        for common branch names (main, master, develop) that have a valid
+        merge-base with the worktree.
+
+        Note: We don't use upstream tracking because that returns the worktree's
+        own branch (e.g., origin/auto-claude/...) rather than the base branch.
 
         Args:
             worktree_path: Path to the worktree
 
         Returns:
-            The detected target branch name, defaults to 'main' if detection fails
+            The detected base branch name, defaults to 'main' if detection fails
         """
-        # Try to get the upstream tracking branch
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
-                cwd=worktree_path,
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                upstream = result.stdout.strip()
-                # Extract branch name from origin/branch format
-                if "/" in upstream:
-                    return upstream.split("/", 1)[1]
-                return upstream
-        except subprocess.CalledProcessError:
-            pass
-
         # Try common branch names and find which one has a valid merge-base
+        # This is the reliable way to find what branch the worktree diverged from
         for branch in ["main", "master", "develop"]:
             try:
                 result = subprocess.run(
@@ -286,14 +357,39 @@ class ModificationTracker:
                     text=True,
                 )
                 if result.returncode == 0:
+                    debug(
+                        MODULE,
+                        f"Detected base branch: {branch}",
+                        worktree_path=str(worktree_path),
+                    )
                     return branch
             except subprocess.CalledProcessError:
                 continue
 
-        # Default to main
+        # Before defaulting to 'main', verify it exists
+        # This handles non-standard projects that use trunk, production, etc.
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--verify", "main"],
+                cwd=worktree_path,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                debug_warning(
+                    MODULE,
+                    "Could not find merge-base with standard branches, defaulting to 'main'",
+                    worktree_path=str(worktree_path),
+                )
+                return "main"
+        except subprocess.CalledProcessError:
+            pass
+
+        # Last resort: use HEAD~10 as a fallback comparison point
+        # This allows modification tracking even on non-standard branch setups
         debug_warning(
             MODULE,
-            "Could not detect target branch, defaulting to 'main'",
+            "No standard base branch found, modification tracking may be limited",
             worktree_path=str(worktree_path),
         )
-        return "main"
+        return "HEAD~10"

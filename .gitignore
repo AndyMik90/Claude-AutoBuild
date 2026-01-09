@@ -14,6 +14,7 @@ Desktop.ini
 .env
 .env.*
 !.env.example
+/config.json
 *.pem
 *.key
 *.crt
@@ -163,3 +164,4 @@ _bmad-output/
 .claude/
 /docs
 OPUS_ANALYSIS_AND_IDEAS.md
+/.github/agents

@@ -1,6 +1,28 @@
-import { app, BrowserWindow, shell, nativeImage } from 'electron';
+// Load .env file FIRST before any other imports that might use process.env
+import { config } from 'dotenv';
+import { resolve, dirname } from 'path';
+import { existsSync } from 'fs';
+
+// Load .env from apps/frontend directory
+// In development: __dirname is out/main (compiled), so go up 2 levels
+// In production: app resources directory
+const possibleEnvPaths = [
+  resolve(__dirname, '../../.env'),           // Development: out/main -> apps/frontend/.env
+  resolve(__dirname, '../../../.env'),        // Alternative: might be in different location
+  resolve(process.cwd(), 'apps/frontend/.env'), // Fallback: from workspace root
+];
+
+for (const envPath of possibleEnvPaths) {
+  if (existsSync(envPath)) {
+    config({ path: envPath });
+    console.log(`[dotenv] Loaded environment from: ${envPath}`);
+    break;
+  }
+}
+
+import { app, BrowserWindow, shell, nativeImage, session, screen } from 'electron';
 import { join } from 'path';
-import { accessSync, readFileSync, writeFileSync } from 'fs';
+import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
@@ -12,10 +34,33 @@ import { initializeAppUpdater } from './app-updater';
 import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
+import { initSentryMain } from './sentry';
+import { preWarmToolCache } from './cli-tool-manager';
+import { initializeClaudeProfileManager } from './claude-profile-manager';
 import type { AppSettings } from '../shared/types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Window sizing constants
+// ─────────────────────────────────────────────────────────────────────────────
+/** Preferred window width on startup */
+const WINDOW_PREFERRED_WIDTH: number = 1400;
+/** Preferred window height on startup */
+const WINDOW_PREFERRED_HEIGHT: number = 900;
+/** Absolute minimum window width (supports high DPI displays with scaling) */
+const WINDOW_MIN_WIDTH: number = 800;
+/** Absolute minimum window height (supports high DPI displays with scaling) */
+const WINDOW_MIN_HEIGHT: number = 500;
+/** Margin from screen edges to avoid edge-to-edge windows */
+const WINDOW_SCREEN_MARGIN: number = 20;
+/** Default screen dimensions used as fallback when screen.getPrimaryDisplay() fails */
+const DEFAULT_SCREEN_WIDTH: number = 1920;
+const DEFAULT_SCREEN_HEIGHT: number = 1080;
 
 // Setup error logging early (captures uncaught exceptions)
 setupErrorLogging();
+
+// Initialize Sentry for error tracking (respects user's sentryEnabled setting)
+initSentryMain();
 
 /**
  * Load app settings synchronously (for use during startup).
@@ -24,6 +69,32 @@ setupErrorLogging();
 function loadSettingsSync(): AppSettings {
   const savedSettings = readSettingsFile();
   return { ...DEFAULT_APP_SETTINGS, ...savedSettings } as AppSettings;
+}
+
+/**
+ * Clean up stale update metadata files from the redundant source updater system.
+ *
+ * The old "source updater" wrote .update-metadata.json files that could persist
+ * across app updates and cause version display desync. This cleanup ensures
+ * we use the actual bundled version from app.getVersion().
+ */
+function cleanupStaleUpdateMetadata(): void {
+  const userData = app.getPath('userData');
+  const stalePaths = [
+    join(userData, 'auto-claude-source'),
+    join(userData, 'backend-source'),
+  ];
+
+  for (const stalePath of stalePaths) {
+    if (existsSync(stalePath)) {
+      try {
+        rmSync(stalePath, { recursive: true, force: true });
+        console.warn(`[main] Cleaned up stale update metadata: ${stalePath}`);
+      } catch (e) {
+        console.warn(`[main] Failed to clean up stale metadata at ${stalePath}:`, e);
+      }
+    }
+  }
 }
 
 // Get icon path based on platform
@@ -54,12 +125,51 @@ let agentManager: AgentManager | null = null;
 let terminalManager: TerminalManager | null = null;
 
 function createWindow(): void {
+  // Get the primary display's work area (accounts for taskbar, dock, etc.)
+  // Wrapped in try/catch to handle potential failures with fallback to safe defaults
+  let workAreaSize: { width: number; height: number };
+  try {
+    const display = screen.getPrimaryDisplay();
+    // Validate the returned object has expected structure with valid dimensions
+    if (
+      display &&
+      display.workAreaSize &&
+      typeof display.workAreaSize.width === 'number' &&
+      typeof display.workAreaSize.height === 'number' &&
+      display.workAreaSize.width > 0 &&
+      display.workAreaSize.height > 0
+    ) {
+      workAreaSize = display.workAreaSize;
+    } else {
+      console.error(
+        '[main] screen.getPrimaryDisplay() returned unexpected structure:',
+        JSON.stringify(display)
+      );
+      workAreaSize = { width: DEFAULT_SCREEN_WIDTH, height: DEFAULT_SCREEN_HEIGHT };
+    }
+  } catch (error: unknown) {
+    console.error('[main] Failed to get primary display, using fallback dimensions:', error);
+    workAreaSize = { width: DEFAULT_SCREEN_WIDTH, height: DEFAULT_SCREEN_HEIGHT };
+  }
+
+  // Calculate available space with a small margin to avoid edge-to-edge windows
+  const availableWidth: number = workAreaSize.width - WINDOW_SCREEN_MARGIN;
+  const availableHeight: number = workAreaSize.height - WINDOW_SCREEN_MARGIN;
+
+  // Calculate actual dimensions (preferred, but capped to margin-adjusted available space)
+  const width: number = Math.min(WINDOW_PREFERRED_WIDTH, availableWidth);
+  const height: number = Math.min(WINDOW_PREFERRED_HEIGHT, availableHeight);
+
+  // Ensure minimum dimensions don't exceed the actual initial window size
+  const minWidth: number = Math.min(WINDOW_MIN_WIDTH, width);
+  const minHeight: number = Math.min(WINDOW_MIN_HEIGHT, height);
+
   // Create the browser window
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1000,
-    minHeight: 700,
+    width,
+    height,
+    minWidth,
+    minHeight,
     show: false,
     autoHideMenuBar: true,
     titleBarStyle: 'hiddenInset',
@@ -110,10 +220,28 @@ if (process.platform === 'darwin') {
   app.name = 'Auto Claude';
 }
 
+// Fix Windows GPU cache permission errors (0x5 Access Denied)
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
+  app.commandLine.appendSwitch('disable-gpu-program-cache');
+  console.log('[main] Applied Windows GPU cache fixes');
+}
+
 // Initialize the application
 app.whenReady().then(() => {
   // Set app user model id for Windows
   electronApp.setAppUserModelId('com.autoclaude.ui');
+
+  // Clear cache on Windows to prevent permission errors from stale cache
+  if (process.platform === 'win32') {
+    session.defaultSession.clearCache()
+      .then(() => console.log('[main] Cleared cache on startup'))
+      .catch((err) => console.warn('[main] Failed to clear cache:', err));
+  }
+
+  // Clean up stale update metadata from the old source updater system
+  // This prevents version display desync after electron-updater installs a new version
+  cleanupStaleUpdateMetadata();
 
   // Set dock icon on macOS
   if (process.platform === 'darwin') {
@@ -221,6 +349,23 @@ app.whenReady().then(() => {
 
   // Create window
   createWindow();
+
+  // Pre-warm CLI tool cache in background (non-blocking)
+  // This ensures CLI detection is done before user needs it
+  // Include all commonly used tools to prevent sync blocking on first use
+  setImmediate(() => {
+    preWarmToolCache(['claude', 'git', 'gh', 'python']).catch((error) => {
+      console.warn('[main] Failed to pre-warm CLI cache:', error);
+    });
+  });
+
+  // Pre-initialize Claude profile manager in background (non-blocking)
+  // This ensures profile data is loaded before user clicks "Start Claude Code"
+  setImmediate(() => {
+    initializeClaudeProfileManager().catch((error) => {
+      console.warn('[main] Failed to pre-initialize profile manager:', error);
+    });
+  });
 
   // Initialize usage monitoring after window is created
   if (mainWindow) {

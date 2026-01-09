@@ -18,50 +18,20 @@ try:
     from ...analysis.test_discovery import TestDiscovery
     from ...core.client import create_client
     from ..context_gatherer import PRContext
-    from ..models import PRReviewFinding, ReviewCategory, ReviewSeverity
+    from ..models import PRReviewFinding, ReviewSeverity
+    from .category_utils import map_category
 except (ImportError, ValueError, SystemError):
     from analysis.test_discovery import TestDiscovery
+    from category_utils import map_category
     from context_gatherer import PRContext
     from core.client import create_client
-    from models import PRReviewFinding, ReviewCategory, ReviewSeverity
+    from models import PRReviewFinding, ReviewSeverity
 
 logger = logging.getLogger(__name__)
 
 
-# Map AI-generated category names to valid ReviewCategory enum values
-_CATEGORY_MAPPING = {
-    # Direct matches
-    "security": ReviewCategory.SECURITY,
-    "quality": ReviewCategory.QUALITY,
-    "style": ReviewCategory.STYLE,
-    "test": ReviewCategory.TEST,
-    "docs": ReviewCategory.DOCS,
-    "pattern": ReviewCategory.PATTERN,
-    "performance": ReviewCategory.PERFORMANCE,
-    "verification_failed": ReviewCategory.VERIFICATION_FAILED,
-    "redundancy": ReviewCategory.REDUNDANCY,
-    # AI-generated alternatives
-    "correctness": ReviewCategory.QUALITY,
-    "consistency": ReviewCategory.PATTERN,
-    "testing": ReviewCategory.TEST,
-    "documentation": ReviewCategory.DOCS,
-    "bug": ReviewCategory.QUALITY,
-    "logic": ReviewCategory.QUALITY,
-    "error_handling": ReviewCategory.QUALITY,
-    "maintainability": ReviewCategory.QUALITY,
-    "readability": ReviewCategory.STYLE,
-    "best_practices": ReviewCategory.PATTERN,
-    "architecture": ReviewCategory.PATTERN,
-    "complexity": ReviewCategory.QUALITY,
-    "dead_code": ReviewCategory.REDUNDANCY,
-    "unused": ReviewCategory.REDUNDANCY,
-}
-
-
-def _map_category(category_str: str) -> ReviewCategory:
-    """Map an AI-generated category string to a valid ReviewCategory enum."""
-    normalized = category_str.lower().strip().replace("-", "_")
-    return _CATEGORY_MAPPING.get(normalized, ReviewCategory.QUALITY)
+# Use shared category mapping from category_utils
+_map_category = map_category
 
 
 @dataclass
@@ -170,7 +140,9 @@ async def spawn_security_review(
                 msg_type = type(msg).__name__
                 if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                     for block in msg.content:
-                        if hasattr(block, "text"):
+                        # Must check block type - only TextBlock has .text attribute
+                        block_type = type(block).__name__
+                        if block_type == "TextBlock" and hasattr(block, "text"):
                             result_text += block.text
 
         # Parse findings
@@ -253,7 +225,9 @@ async def spawn_quality_review(
                 msg_type = type(msg).__name__
                 if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                     for block in msg.content:
-                        if hasattr(block, "text"):
+                        # Must check block type - only TextBlock has .text attribute
+                        block_type = type(block).__name__
+                        if block_type == "TextBlock" and hasattr(block, "text"):
                             result_text += block.text
 
         findings = _parse_findings_from_response(result_text, source="quality_agent")
@@ -346,7 +320,9 @@ Output findings in JSON format:
                 msg_type = type(msg).__name__
                 if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                     for block in msg.content:
-                        if hasattr(block, "text"):
+                        # Must check block type - only TextBlock has .text attribute
+                        block_type = type(block).__name__
+                        if block_type == "TextBlock" and hasattr(block, "text"):
                             result_text += block.text
 
         findings = _parse_findings_from_response(result_text, source="deep_analysis")

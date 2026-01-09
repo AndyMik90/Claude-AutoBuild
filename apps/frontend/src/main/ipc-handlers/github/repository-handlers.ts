@@ -51,25 +51,30 @@ export async function detectForkStatus(
     return { isFork: false };
   }
 
-  const repoData = await githubFetch(
-    token,
-    `/repos/${normalizedRepo}`
-  ) as GitHubRepoWithForkInfo;
+  try {
+    const repoData = await githubFetch(
+      token,
+      `/repos/${normalizedRepo}`
+    ) as GitHubRepoWithForkInfo;
 
-  // Check if repository is a fork
-  if (!repoData.fork) {
+    // Check if repository is a fork
+    if (!repoData.fork) {
+      return { isFork: false };
+    }
+
+    // If it's a fork, extract parent repository info
+    const result: ForkStatus = { isFork: true };
+
+    if (repoData.parent) {
+      result.parentRepo = repoData.parent.full_name;
+      result.parentUrl = repoData.parent.html_url;
+    }
+
+    return result;
+  } catch {
+    // If we can't fetch repo info, assume it's not a fork
     return { isFork: false };
   }
-
-  // If it's a fork, extract parent repository info
-  const result: ForkStatus = { isFork: true };
-
-  if (repoData.parent) {
-    result.parentRepo = repoData.parent.full_name;
-    result.parentUrl = repoData.parent.html_url;
-  }
-
-  return result;
 }
 
 /**
@@ -175,24 +180,9 @@ export function registerDetectFork(): void {
         return { success: false, error: 'No GitHub token or repository configured' };
       }
 
-      try {
-        // Normalize repo reference (handles full URLs, git URLs, etc.)
-        const normalizedRepo = normalizeRepoReference(config.repo);
-        if (!normalizedRepo) {
-          return {
-            success: false,
-            error: 'Invalid repository format. Use owner/repo or GitHub URL.'
-          };
-        }
-
-        const forkStatus = await detectForkStatus(config.token, normalizedRepo);
-        return { success: true, data: forkStatus };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to detect fork status'
-        };
-      }
+      // detectForkStatus handles normalization and error handling internally
+      const forkStatus = await detectForkStatus(config.token, config.repo);
+      return { success: true, data: forkStatus };
     }
   );
 }

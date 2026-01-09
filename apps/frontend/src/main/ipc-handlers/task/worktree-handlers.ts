@@ -1,20 +1,218 @@
-import { ipcMain, BrowserWindow, shell } from 'electron';
-import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
-import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, SupportedIDE, SupportedTerminal } from '../../../shared/types';
+import { ipcMain, BrowserWindow, shell, app } from 'electron';
+import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING, MODEL_ID_MAP, THINKING_BUDGET_MAP, getSpecsDir } from '../../../shared/constants';
+import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, WorktreeCreatePROptions, WorktreeCreatePRResult, SupportedIDE, SupportedTerminal, AppSettings } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { execSync, execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { minimatch } = require('minimatch');
 import { projectStore } from '../../project-store';
 import { getConfiguredPythonPath, PythonEnvManager, pythonEnvManager as pythonEnvManagerSingleton } from '../../python-env-manager';
-import { getEffectiveSourcePath } from '../../auto-claude-updater';
+import { getEffectiveSourcePath } from '../../updater/path-resolver';
 import { getProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
 import { parsePythonCommand } from '../../python-detector';
 import { getToolPath } from '../../cli-tool-manager';
 import { promisify } from 'util';
+import {
+  getTaskWorktreeDir,
+  findTaskWorktree,
+} from '../../worktree-paths';
+import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
+
+// Regex pattern for validating git branch names
+const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
+
+// Maximum PR title length (GitHub's limit is 256 characters)
+const MAX_PR_TITLE_LENGTH = 256;
+
+// Regex for validating PR title contains only printable characters
+const PRINTABLE_CHARS_REGEX = /^[\x20-\x7E\u00A0-\uFFFF]*$/;
+
+// Timeout for PR creation operations (2 minutes for network operations)
+const PR_CREATION_TIMEOUT_MS = 120000;
+
+/**
+ * Read utility feature settings (for commit message, merge resolver) from settings file
+ */
+function getUtilitySettings(): { model: string; modelId: string; thinkingLevel: string; thinkingBudget: number | null } {
+  const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+
+  try {
+    if (existsSync(settingsPath)) {
+      const content = readFileSync(settingsPath, 'utf-8');
+      const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(content) };
+
+      // Get utility-specific settings
+      const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
+      const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+
+      const model = featureModels.utility || DEFAULT_FEATURE_MODELS.utility;
+      const thinkingLevel = featureThinking.utility || DEFAULT_FEATURE_THINKING.utility;
+
+      return {
+        model,
+        modelId: MODEL_ID_MAP[model] || MODEL_ID_MAP.haiku,
+        thinkingLevel,
+        thinkingBudget: thinkingLevel in THINKING_BUDGET_MAP ? THINKING_BUDGET_MAP[thinkingLevel] : THINKING_BUDGET_MAP.low
+      };
+    }
+  } catch (error) {
+    // Log parse errors to help diagnose corrupted settings
+    console.warn('[getUtilitySettings] Failed to parse settings.json:', error);
+  }
+
+  // Return defaults if settings file doesn't exist or fails to parse
+  return {
+    model: DEFAULT_FEATURE_MODELS.utility,
+    modelId: MODEL_ID_MAP[DEFAULT_FEATURE_MODELS.utility],
+    thinkingLevel: DEFAULT_FEATURE_THINKING.utility,
+    thinkingBudget: THINKING_BUDGET_MAP[DEFAULT_FEATURE_THINKING.utility]
+  };
+}
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
+
+/**
+ * Check if a repository is misconfigured as bare but has source files.
+ * If so, automatically fix the configuration by unsetting core.bare.
+ *
+ * This can happen when git worktree operations incorrectly set bare=true,
+ * or when users manually misconfigure the repository.
+ *
+ * @param projectPath - Path to check and potentially fix
+ * @returns true if fixed, false if no fix needed or not fixable
+ */
+function fixMisconfiguredBareRepo(projectPath: string): boolean {
+  try {
+    // Check if bare=true is set
+    const bareConfig = execFileSync(
+      getToolPath('git'),
+      ['config', '--get', 'core.bare'],
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+    ).trim().toLowerCase();
+
+    if (bareConfig !== 'true') {
+      return false; // Not marked as bare, nothing to fix
+    }
+
+    // Check if there are source files (indicating misconfiguration)
+    // A truly bare repo would only have git internals, not source code
+    // This covers multiple ecosystems: JS/TS, Python, Rust, Go, Java, C#, etc.
+    //
+    // Markers are separated into exact matches and glob patterns for efficiency.
+    // Exact matches use existsSync() directly, while glob patterns use minimatch
+    // against a cached directory listing.
+    const EXACT_MARKERS = [
+      // JavaScript/TypeScript ecosystem
+      'package.json', 'apps', 'src',
+      // Python ecosystem
+      'pyproject.toml', 'setup.py', 'requirements.txt', 'Pipfile',
+      // Rust ecosystem
+      'Cargo.toml',
+      // Go ecosystem
+      'go.mod', 'go.sum', 'cmd', 'main.go',
+      // Java/JVM ecosystem
+      'pom.xml', 'build.gradle', 'build.gradle.kts',
+      // Ruby ecosystem
+      'Gemfile', 'Rakefile',
+      // PHP ecosystem
+      'composer.json',
+      // General project markers
+      'Makefile', 'CMakeLists.txt', 'README.md', 'LICENSE'
+    ];
+
+    const GLOB_MARKERS = [
+      // .NET/C# ecosystem - patterns that need glob matching
+      '*.csproj', '*.sln', '*.fsproj'
+    ];
+
+    // Check exact matches first (fast path)
+    const hasExactMatch = EXACT_MARKERS.some(marker =>
+      existsSync(path.join(projectPath, marker))
+    );
+
+    if (hasExactMatch) {
+      // Found a project marker, proceed to fix
+    } else {
+      // Check glob patterns - read directory once and cache for all patterns
+      let directoryFiles: string[] | null = null;
+      const MAX_FILES_TO_CHECK = 500; // Limit to avoid reading huge directories
+
+      const hasGlobMatch = GLOB_MARKERS.some(pattern => {
+        // Validate pattern - only support simple glob patterns for security
+        if (pattern.includes('..') || pattern.includes('/')) {
+          console.warn(`[GIT] Unsupported glob pattern ignored: ${pattern}`);
+          return false;
+        }
+
+        // Lazy-load directory listing, cached across patterns
+        if (directoryFiles === null) {
+          try {
+            const allFiles = readdirSync(projectPath);
+            // Limit to first N entries to avoid performance issues
+            directoryFiles = allFiles.slice(0, MAX_FILES_TO_CHECK);
+            if (allFiles.length > MAX_FILES_TO_CHECK) {
+              console.warn(`[GIT] Directory has ${allFiles.length} entries, checking only first ${MAX_FILES_TO_CHECK}`);
+            }
+          } catch (error) {
+            // Log the error for debugging instead of silently swallowing
+            console.warn(`[GIT] Failed to read directory ${projectPath}:`, error instanceof Error ? error.message : String(error));
+            directoryFiles = [];
+          }
+        }
+
+        // Use minimatch for proper glob pattern matching
+        return directoryFiles.some(file => minimatch(file, pattern, { nocase: true }));
+      });
+
+      if (!hasGlobMatch) {
+        return false; // Legitimately bare repo
+      }
+    }
+
+    // Fix the misconfiguration
+    console.warn('[GIT] Detected misconfigured bare repository with source files. Auto-fixing by unsetting core.bare...');
+    execFileSync(
+      getToolPath('git'),
+      ['config', '--unset', 'core.bare'],
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    console.warn('[GIT] Fixed: core.bare has been unset. Git operations should now work correctly.');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if a path is a valid git working tree (not a bare repository).
+ * Returns true if the path is inside a git repository with a working tree.
+ *
+ * NOTE: This is a pure check with no side-effects. If you need to fix
+ * misconfigured bare repos before an operation, call fixMisconfiguredBareRepo()
+ * explicitly before calling this function.
+ *
+ * @param projectPath - Path to check
+ * @returns true if it's a valid working tree, false if bare or not a git repo
+ */
+function isGitWorkTree(projectPath: string): boolean {
+  try {
+    // Use git rev-parse --is-inside-work-tree which returns "true" for working trees
+    // and fails for bare repos or non-git directories
+    const result = execFileSync(
+      getToolPath('git'),
+      ['rev-parse', '--is-inside-work-tree'],
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    return result.trim() === 'true';
+  } catch {
+    // Not a working tree (could be bare repo or not a git repo at all)
+    return false;
+  }
+}
 
 /**
  * IDE and Terminal detection and launching utilities
@@ -635,12 +833,14 @@ const TERMINAL_DETECTION: Partial<Record<SupportedTerminal, { name: string; path
  */
 
 /**
- * Escape single quotes in a path for use in AppleScript strings
- * This prevents command injection via malicious directory names
+ * Escape single quotes in a path for safe use in single-quoted shell/script strings.
+ * Works for both AppleScript and shell (bash/sh) contexts.
+ * This prevents command injection via malicious directory names.
  */
-function escapeAppleScriptPath(dirPath: string): string {
-  // In AppleScript, single quotes are escaped by ending the string,
-  // adding an escaped quote, and starting a new string: ' -> '\''
+function escapeSingleQuotedPath(dirPath: string): string {
+  // Single quotes are escaped by ending the string, adding an escaped quote,
+  // and starting a new string: ' -> '\''
+  // This pattern works in both AppleScript and POSIX shells (bash, sh, zsh)
   return dirPath.replace(/'/g, "'\\''");
 }
 
@@ -977,6 +1177,20 @@ async function openInIDE(dirPath: string, ide: SupportedIDE, customPath?: string
       }
     }
 
+    // Special handling for Windows batch files (.cmd, .bat)
+    // execFile doesn't search PATH, so we need shell: true for batch files
+    if (platform === 'win32' && (command.endsWith('.cmd') || command.endsWith('.bat'))) {
+      return new Promise((resolve) => {
+        const child = spawn(command, [dirPath], {
+          shell: true,
+          detached: true,
+          stdio: 'ignore'
+        });
+        child.unref();
+        resolve({ success: true });
+      });
+    }
+
     // Use command line tool with execFileAsync
     await execFileAsync(command, [dirPath]);
     return { success: true };
@@ -1016,8 +1230,8 @@ async function openInTerminal(dirPath: string, terminal: SupportedTerminal, cust
 
     if (platform === 'darwin') {
       // macOS: Use open command with the directory
-      // Escape single quotes in dirPath to prevent AppleScript injection
-      const escapedPath = escapeAppleScriptPath(dirPath);
+      // Escape single quotes in dirPath to prevent script injection
+      const escapedPath = escapeSingleQuotedPath(dirPath);
 
       if (terminal === 'system') {
         // Use AppleScript to open Terminal.app at the directory
@@ -1059,7 +1273,7 @@ async function openInTerminal(dirPath: string, terminal: SupportedTerminal, cust
           } catch {
             // xterm doesn't have --working-directory, use -e with a script
             // Escape the path for shell use within the xterm command
-            const escapedPath = escapeAppleScriptPath(dirPath);
+            const escapedPath = escapeSingleQuotedPath(dirPath);
             await execFileAsync('xterm', ['-e', `cd '${escapedPath}' && bash`]);
           }
         }
@@ -1086,7 +1300,10 @@ function getTaskBaseBranch(specDir: string): string | undefined {
     if (existsSync(metadataPath)) {
       const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
       // Return baseBranch if explicitly set (not the __project_default__ marker)
-      if (metadata.baseBranch && metadata.baseBranch !== '__project_default__') {
+      // Also validate it's a valid branch name to prevent malformed git commands
+      if (metadata.baseBranch &&
+          metadata.baseBranch !== '__project_default__' &&
+          GIT_BRANCH_REGEX.test(metadata.baseBranch)) {
         return metadata.baseBranch;
       }
     }
@@ -1094,6 +1311,309 @@ function getTaskBaseBranch(specDir: string): string | undefined {
     console.warn('[getTaskBaseBranch] Failed to read task metadata:', e);
   }
   return undefined;
+}
+
+/**
+ * Get the effective base branch for a task with proper fallback chain.
+ * Priority:
+ * 1. Task metadata baseBranch (explicit task-level override from task_metadata.json)
+ * 2. Project settings mainBranch (project-level default)
+ * 3. Git default branch detection (main/master)
+ * 4. Fallback to 'main'
+ *
+ * This should be used instead of getting the current HEAD branch,
+ * as the user may be on a feature branch when viewing worktree status.
+ */
+function getEffectiveBaseBranch(projectPath: string, specId: string, projectMainBranch?: string): string {
+  // 1. Try task metadata baseBranch
+  const specDir = path.join(projectPath, '.auto-claude', 'specs', specId);
+  const taskBaseBranch = getTaskBaseBranch(specDir);
+  if (taskBaseBranch) {
+    return taskBaseBranch;
+  }
+
+  // 2. Try project settings mainBranch
+  if (projectMainBranch && GIT_BRANCH_REGEX.test(projectMainBranch)) {
+    return projectMainBranch;
+  }
+
+  // 3. Try to detect main/master branch
+  for (const branch of ['main', 'master']) {
+    try {
+      execFileSync(getToolPath('git'), ['rev-parse', '--verify', branch], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      return branch;
+    } catch {
+      // Branch doesn't exist, try next
+    }
+  }
+
+  // 4. Fallback to 'main'
+  return 'main';
+}
+
+// ============================================
+// Helper functions for TASK_WORKTREE_CREATE_PR
+// ============================================
+
+/**
+ * Result of parsing JSON output from the create-pr Python script
+ */
+interface ParsedPRResult {
+  success: boolean;
+  prUrl?: string;
+  alreadyExists?: boolean;
+  error?: string;
+}
+
+/**
+ * Validate that a URL is a valid GitHub PR URL.
+ * Supports both github.com and GitHub Enterprise instances (custom domains).
+ * Only requires HTTPS protocol and non-empty hostname to allow any GH Enterprise URL.
+ * @returns true if the URL is a valid HTTPS URL with a non-empty hostname
+ */
+function isValidGitHubUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    // Only require HTTPS with non-empty hostname
+    // This supports GH Enterprise instances with custom domains
+    // The URL comes from gh CLI output which we trust to be valid
+    return parsed.protocol === 'https:' && parsed.hostname.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Parse JSON output from the create-pr Python script
+ * Handles both snake_case and camelCase field names
+ * @returns ParsedPRResult if valid JSON found, null otherwise
+ */
+function parsePRJsonOutput(stdout: string): ParsedPRResult | null {
+  // Find the last complete JSON object in stdout (non-greedy, handles multiple objects)
+  const jsonMatches = stdout.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
+  const jsonMatch = jsonMatches && jsonMatches.length > 0 ? jsonMatches[jsonMatches.length - 1] : null;
+
+  if (!jsonMatch) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(jsonMatch);
+
+    // Validate parsed JSON has expected shape
+    if (typeof parsed !== 'object' || parsed === null) {
+      return null;
+    }
+
+    // Extract and validate fields with proper type checking
+    // Handle both snake_case (from Python) and camelCase field names
+    // Default success to false to avoid masking failures when field is missing
+    const rawPrUrl = typeof parsed.pr_url === 'string' ? parsed.pr_url :
+                     typeof parsed.prUrl === 'string' ? parsed.prUrl : undefined;
+
+    // Validate PR URL is a valid GitHub URL for robustness
+    const validatedPrUrl = rawPrUrl && isValidGitHubUrl(rawPrUrl) ? rawPrUrl : undefined;
+
+    return {
+      success: typeof parsed.success === 'boolean' ? parsed.success : false,
+      prUrl: validatedPrUrl,
+      alreadyExists: typeof parsed.already_exists === 'boolean' ? parsed.already_exists :
+                     typeof parsed.alreadyExists === 'boolean' ? parsed.alreadyExists : undefined,
+      error: typeof parsed.error === 'string' ? parsed.error : undefined
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Result of updating task status after PR creation
+ */
+interface TaskStatusUpdateResult {
+  mainProjectStatus: boolean;
+  mainProjectMetadata: boolean;
+  worktreeStatus: boolean;
+  worktreeMetadata: boolean;
+}
+
+/**
+ * Update task status and metadata after PR creation
+ * Updates both main project and worktree locations
+ * @returns Result object indicating which updates succeeded/failed
+ */
+async function updateTaskStatusAfterPRCreation(
+  specDir: string,
+  worktreePath: string | null,
+  prUrl: string,
+  autoBuildPath: string | undefined,
+  specId: string,
+  debug: (...args: unknown[]) => void
+): Promise<TaskStatusUpdateResult> {
+  const result: TaskStatusUpdateResult = {
+    mainProjectStatus: false,
+    mainProjectMetadata: false,
+    worktreeStatus: false,
+    worktreeMetadata: false
+  };
+
+  const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+  const metadataPath = path.join(specDir, 'task_metadata.json');
+
+  // Await status persistence to ensure completion before resolving
+  try {
+    const persisted = await persistPlanStatus(planPath, 'pr_created');
+    result.mainProjectStatus = persisted;
+    debug('Main project status persisted to pr_created:', persisted);
+  } catch (err) {
+    debug('Failed to persist main project status:', err);
+  }
+
+  // Update metadata with prUrl in main project
+  result.mainProjectMetadata = updateTaskMetadataPrUrl(metadataPath, prUrl);
+  debug('Main project metadata updated with prUrl:', result.mainProjectMetadata);
+
+  // Also persist to WORKTREE location (worktree takes priority when loading tasks)
+  // This ensures the status persists after refresh since getTasks() prefers worktree version
+  if (worktreePath) {
+    const specsBaseDir = getSpecsDir(autoBuildPath);
+    const worktreePlanPath = path.join(worktreePath, specsBaseDir, specId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+    const worktreeMetadataPath = path.join(worktreePath, specsBaseDir, specId, 'task_metadata.json');
+
+    try {
+      const persisted = await persistPlanStatus(worktreePlanPath, 'pr_created');
+      result.worktreeStatus = persisted;
+      debug('Worktree status persisted to pr_created:', persisted);
+    } catch (err) {
+      debug('Failed to persist worktree status:', err);
+    }
+
+    result.worktreeMetadata = updateTaskMetadataPrUrl(worktreeMetadataPath, prUrl);
+    debug('Worktree metadata updated with prUrl:', result.worktreeMetadata);
+  }
+
+  return result;
+}
+
+/**
+ * Build arguments for the create-pr Python script
+ */
+function buildCreatePRArgs(
+  runScript: string,
+  specId: string,
+  projectPath: string,
+  options: WorktreeCreatePROptions | undefined,
+  taskBaseBranch: string | undefined
+): { args: string[]; validationError?: string } {
+  const args = [
+    runScript,
+    '--spec', specId,
+    '--project-dir', projectPath,
+    '--create-pr'
+  ];
+
+  // Add optional arguments with validation
+  if (options?.targetBranch) {
+    // Validate branch name to prevent malformed git commands
+    if (!GIT_BRANCH_REGEX.test(options.targetBranch)) {
+      return { args: [], validationError: 'Invalid target branch name' };
+    }
+    args.push('--pr-target', options.targetBranch);
+  }
+  if (options?.title) {
+    // Validate title for printable characters and length limit
+    if (options.title.length > MAX_PR_TITLE_LENGTH) {
+      return { args: [], validationError: `PR title exceeds maximum length of ${MAX_PR_TITLE_LENGTH} characters` };
+    }
+    if (!PRINTABLE_CHARS_REGEX.test(options.title)) {
+      return { args: [], validationError: 'PR title contains invalid characters' };
+    }
+    args.push('--pr-title', options.title);
+  }
+  if (options?.draft) {
+    args.push('--pr-draft');
+  }
+
+  // Add --base-branch if task was created with a specific base branch
+  if (taskBaseBranch) {
+    args.push('--base-branch', taskBaseBranch);
+  }
+
+  return { args };
+}
+
+/**
+ * Initialize Python environment for PR creation
+ * @returns Error message if initialization fails, undefined on success
+ */
+async function initializePythonEnvForPR(
+  pythonEnvManager: PythonEnvManager
+): Promise<string | undefined> {
+  if (pythonEnvManager.isEnvReady()) {
+    return undefined;
+  }
+
+  const autoBuildSource = getEffectiveSourcePath();
+  if (!autoBuildSource) {
+    return 'Python environment not ready and Auto Claude source not found';
+  }
+
+  const status = await pythonEnvManager.initialize(autoBuildSource);
+  if (!status.ready) {
+    return `Python environment not ready: ${status.error || 'Unknown error'}`;
+  }
+
+  return undefined;
+}
+
+/**
+ * Generic retry wrapper with exponential backoff
+ * @param operation - Async function to execute with retry
+ * @param options - Retry configuration options
+ * @returns Result of the operation or throws after all retries
+ */
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  options: {
+    maxRetries?: number;
+    baseDelayMs?: number;
+    onRetry?: (attempt: number, error: unknown) => void;
+    shouldRetry?: (error: unknown) => boolean;
+  } = {}
+): Promise<T> {
+  const { maxRetries: rawMaxRetries = 3, baseDelayMs = 100, onRetry, shouldRetry } = options;
+
+  // Ensure at least one attempt is made (clamp to minimum of 1)
+  const maxRetries = Math.max(1, rawMaxRetries);
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries;
+
+      // Check if we should retry this error
+      if (shouldRetry && !shouldRetry(error)) {
+        throw error;
+      }
+
+      if (isLastAttempt) {
+        throw error;
+      }
+
+      // Notify about retry
+      onRetry?.(attempt, error);
+
+      // Wait before retry (exponential backoff)
+      await new Promise(r => setTimeout(r, baseDelayMs * Math.pow(2, attempt - 1)));
+    }
+  }
+
+  // This should never be reached, but TypeScript needs it
+  throw new Error('Retry loop exited unexpectedly');
 }
 
 /**
@@ -1105,7 +1625,7 @@ export function registerWorktreeHandlers(
 ): void {
   /**
    * Get the worktree status for a task
-   * Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
+   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_STATUS,
@@ -1116,10 +1636,10 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Task not found' };
         }
 
-        // Per-spec worktree path: .worktrees/{spec-name}/
-        const worktreePath = path.join(project.path, '.worktrees', task.specId);
+        // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
+        const worktreePath = findTaskWorktree(project.path, task.specId);
 
-        if (!existsSync(worktreePath)) {
+        if (!worktreePath) {
           return {
             success: true,
             data: { exists: false }
@@ -1134,17 +1654,10 @@ export function registerWorktreeHandlers(
             encoding: 'utf-8'
           }).trim();
 
-          // Get base branch - the current branch in the main project (where changes will be merged)
-          // This matches the Python merge logic which merges into the user's current branch
-          let baseBranch = 'main';
-          try {
-            baseBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-              cwd: project.path,
-              encoding: 'utf-8'
-            }).trim();
-          } catch {
-            baseBranch = 'main';
-          }
+          // Get base branch using proper fallback chain:
+          // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
+          // Note: We do NOT use current HEAD as that may be a feature branch
+          const baseBranch = getEffectiveBaseBranch(project.path, task.specId, project.settings?.mainBranch);
 
           // Get commit count (cross-platform - no shell syntax)
           let commitCount = 0;
@@ -1215,7 +1728,7 @@ export function registerWorktreeHandlers(
 
   /**
    * Get the diff for a task's worktree
-   * Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
+   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_DIFF,
@@ -1226,23 +1739,17 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Task not found' };
         }
 
-        // Per-spec worktree path: .worktrees/{spec-name}/
-        const worktreePath = path.join(project.path, '.worktrees', task.specId);
+        // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
+        const worktreePath = findTaskWorktree(project.path, task.specId);
 
-        if (!existsSync(worktreePath)) {
+        if (!worktreePath) {
           return { success: false, error: 'No worktree found for this task' };
         }
 
-        // Get base branch - the current branch in the main project (where changes will be merged)
-        let baseBranch = 'main';
-        try {
-          baseBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-            cwd: project.path,
-            encoding: 'utf-8'
-          }).trim();
-        } catch {
-          baseBranch = 'main';
-        }
+        // Get base branch using proper fallback chain:
+        // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
+        // Note: We do NOT use current HEAD as that may be a feature branch
+        const baseBranch = getEffectiveBaseBranch(project.path, task.specId, project.settings?.mainBranch);
 
         // Get the diff with file stats
         const files: WorktreeDiffFile[] = [];
@@ -1317,14 +1824,15 @@ export function registerWorktreeHandlers(
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_MERGE,
     async (_, taskId: string, options?: { noCommit?: boolean }): Promise<IPCResult<WorktreeMergeResult>> => {
-      // Always log merge operations for debugging
+      const isDebugMode = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
       const debug = (...args: unknown[]) => {
-        console.warn('[MERGE DEBUG]', ...args);
+        if (isDebugMode) {
+          console.warn('[MERGE DEBUG]', ...args);
+        }
       };
 
       try {
-        console.warn('[MERGE] Handler called with taskId:', taskId, 'options:', options);
-        debug('Starting merge for taskId:', taskId, 'options:', options);
+        debug('Handler called with taskId:', taskId, 'options:', options);
 
         // Ensure Python environment is ready
         if (!pythonEnvManager.isEnvReady()) {
@@ -1347,6 +1855,12 @@ export function registerWorktreeHandlers(
 
         debug('Found task:', task.specId, 'project:', project.path);
 
+        // Auto-fix any misconfigured bare repo before merge operation
+        // This prevents issues where git operations fail due to incorrect bare=true config
+        if (fixMisconfiguredBareRepo(project.path)) {
+          debug('Fixed misconfigured bare repository at:', project.path);
+        }
+
         // Use run.py --merge to handle the merge
         const sourcePath = getEffectiveSourcePath();
         if (!sourcePath) {
@@ -1362,8 +1876,8 @@ export function registerWorktreeHandlers(
         }
 
         // Check worktree exists before merge
-        const worktreePath = path.join(project.path, '.worktrees', task.specId);
-        debug('Worktree path:', worktreePath, 'exists:', existsSync(worktreePath));
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        debug('Worktree path:', worktreePath, 'exists:', !!worktreePath);
 
         // Check if changes are already staged (for stage-only mode)
         if (options?.noCommit) {
@@ -1390,14 +1904,18 @@ export function registerWorktreeHandlers(
           }
         }
 
-        // Get git status before merge
-        try {
-          const gitStatusBefore = execFileSync(getToolPath('git'), ['status', '--short'], { cwd: project.path, encoding: 'utf-8' });
-          debug('Git status BEFORE merge in main project:\n', gitStatusBefore || '(clean)');
-          const gitBranch = execFileSync(getToolPath('git'), ['branch', '--show-current'], { cwd: project.path, encoding: 'utf-8' }).trim();
-          debug('Current branch:', gitBranch);
-        } catch (e) {
-          debug('Failed to get git status before:', e);
+        // Get git status before merge (only if project is a working tree, not a bare repo)
+        if (isGitWorkTree(project.path)) {
+          try {
+            const gitStatusBefore = execFileSync(getToolPath('git'), ['status', '--short'], { cwd: project.path, encoding: 'utf-8' });
+            debug('Git status BEFORE merge in main project:\n', gitStatusBefore || '(clean)');
+            const gitBranch = execFileSync(getToolPath('git'), ['branch', '--show-current'], { cwd: project.path, encoding: 'utf-8' }).trim();
+            debug('Current branch:', gitBranch);
+          } catch (e) {
+            debug('Failed to get git status before:', e);
+          }
+        } else {
+          debug('Project is a bare repository - skipping pre-merge git status check');
         }
 
         const args = [
@@ -1412,11 +1930,18 @@ export function registerWorktreeHandlers(
           args.push('--no-commit');
         }
 
-        // Add --base-branch if task was created with a specific base branch
+        // Add --base-branch with proper priority:
+        // 1. Task metadata baseBranch (explicit task-level override)
+        // 2. Project settings mainBranch (project-level default)
+        // This matches the logic in execution-handlers.ts
         const taskBaseBranch = getTaskBaseBranch(specDir);
-        if (taskBaseBranch) {
-          args.push('--base-branch', taskBaseBranch);
-          debug('Using stored base branch:', taskBaseBranch);
+        const projectMainBranch = project.settings?.mainBranch;
+        const effectiveBaseBranch = taskBaseBranch || projectMainBranch;
+
+        if (effectiveBaseBranch) {
+          args.push('--base-branch', effectiveBaseBranch);
+          debug('Using base branch:', effectiveBaseBranch,
+            `(source: ${taskBaseBranch ? 'task metadata' : 'project settings'})`);
         }
 
         // Use configured Python path (venv if ready, otherwise bundled/system)
@@ -1439,6 +1964,10 @@ export function registerWorktreeHandlers(
           // Get Python environment for bundled packages
           const pythonEnv = pythonEnvManagerSingleton.getPythonEnv();
 
+          // Get utility settings for merge resolver
+          const utilitySettings = getUtilitySettings();
+          debug('Utility settings for merge:', utilitySettings);
+
           // Parse Python command to handle space-separated commands like "py -3"
           const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
           const mergeProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
@@ -1448,7 +1977,11 @@ export function registerWorktreeHandlers(
               ...pythonEnv, // Include bundled packages PYTHONPATH
               ...profileEnv, // Include active Claude profile OAuth token
               PYTHONUNBUFFERED: '1',
-              PYTHONUTF8: '1'
+              PYTHONUTF8: '1',
+              // Utility feature settings for merge resolver
+              UTILITY_MODEL: utilitySettings.model,
+              UTILITY_MODEL_ID: utilitySettings.modelId,
+              UTILITY_THINKING_BUDGET: utilitySettings.thinkingBudget === null ? '' : (utilitySettings.thinkingBudget?.toString() || '')
             },
             stdio: ['ignore', 'pipe', 'pipe'] // Don't connect stdin to avoid blocking
           });
@@ -1533,14 +2066,18 @@ export function registerWorktreeHandlers(
             debug('Full stdout:', stdout);
             debug('Full stderr:', stderr);
 
-            // Get git status after merge
-            try {
-              const gitStatusAfter = execFileSync(getToolPath('git'), ['status', '--short'], { cwd: project.path, encoding: 'utf-8' });
-              debug('Git status AFTER merge in main project:\n', gitStatusAfter || '(clean)');
-              const gitDiffStaged = execFileSync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' });
-              debug('Staged changes:\n', gitDiffStaged || '(none)');
-            } catch (e) {
-              debug('Failed to get git status after:', e);
+            // Get git status after merge (only if project is a working tree, not a bare repo)
+            if (isGitWorkTree(project.path)) {
+              try {
+                const gitStatusAfter = execFileSync(getToolPath('git'), ['status', '--short'], { cwd: project.path, encoding: 'utf-8' });
+                debug('Git status AFTER merge in main project:\n', gitStatusAfter || '(clean)');
+                const gitDiffStaged = execFileSync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' });
+                debug('Staged changes:\n', gitDiffStaged || '(none)');
+              } catch (e) {
+                debug('Failed to get git status after:', e);
+              }
+            } else {
+              debug('Project is a bare repository - skipping git status check (this is normal for worktree-based projects)');
             }
 
             if (code === 0) {
@@ -1552,32 +2089,39 @@ export function registerWorktreeHandlers(
               let mergeAlreadyCommitted = false;
 
               if (isStageOnly) {
-                try {
-                  const gitDiffStaged = execFileSync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' });
-                  hasActualStagedChanges = gitDiffStaged.trim().length > 0;
-                  debug('Stage-only verification: hasActualStagedChanges:', hasActualStagedChanges);
+                // Only check staged changes if project is a working tree (not bare repo)
+                if (isGitWorkTree(project.path)) {
+                  try {
+                    const gitDiffStaged = execFileSync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' });
+                    hasActualStagedChanges = gitDiffStaged.trim().length > 0;
+                    debug('Stage-only verification: hasActualStagedChanges:', hasActualStagedChanges);
 
-                  if (!hasActualStagedChanges) {
-                    // Check if worktree branch was already merged (merge commit exists)
-                    const specBranch = `auto-claude/${task.specId}`;
-                    try {
-                      // Check if current branch contains all commits from spec branch
-                      // git merge-base --is-ancestor returns exit code 0 if true, 1 if false
-                      execSync(
-                        `git merge-base --is-ancestor ${specBranch} HEAD`,
-                        { cwd: project.path, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
-                      );
-                      // If we reach here, the command succeeded (exit code 0) - branch is merged
-                      mergeAlreadyCommitted = true;
-                      debug('Merge already committed check:', mergeAlreadyCommitted);
-                    } catch {
-                      // Exit code 1 means not merged, or branch may not exist
-                      mergeAlreadyCommitted = false;
-                      debug('Could not check merge status, assuming not merged');
+                    if (!hasActualStagedChanges) {
+                      // Check if worktree branch was already merged (merge commit exists)
+                      const specBranch = `auto-claude/${task.specId}`;
+                      try {
+                        // Check if current branch contains all commits from spec branch
+                        // git merge-base --is-ancestor returns exit code 0 if true, 1 if false
+                        execFileSync(
+                          getToolPath('git'),
+                          ['merge-base', '--is-ancestor', specBranch, 'HEAD'],
+                          { cwd: project.path, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+                        );
+                        // If we reach here, the command succeeded (exit code 0) - branch is merged
+                        mergeAlreadyCommitted = true;
+                        debug('Merge already committed check:', mergeAlreadyCommitted);
+                      } catch {
+                        // Exit code 1 means not merged, or branch may not exist
+                        mergeAlreadyCommitted = false;
+                        debug('Could not check merge status, assuming not merged');
+                      }
                     }
+                  } catch (e) {
+                    debug('Failed to verify staged changes:', e);
                   }
-                } catch (e) {
-                  debug('Failed to verify staged changes:', e);
+                } else {
+                  // For bare repos, skip staging verification - merge happens in worktree
+                  debug('Project is a bare repository - skipping staged changes verification');
                 }
               }
 
@@ -1595,6 +2139,33 @@ export function registerWorktreeHandlers(
                 message = 'Changes were already merged and committed. Task marked as done.';
                 staged = false;
                 debug('Stage-only requested but merge already committed. Marking as done.');
+
+                // Clean up worktree since merge is complete (fixes #243)
+                // This is the same cleanup as the full merge path, needed because
+                // stageOnly defaults to true for human_review tasks
+                try {
+                  if (worktreePath && existsSync(worktreePath)) {
+                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+                      cwd: project.path,
+                      encoding: 'utf-8'
+                    });
+                    debug('Worktree cleaned up (already merged):', worktreePath);
+
+                    // Also delete the task branch
+                    const taskBranch = `auto-claude/${task.specId}`;
+                    try {
+                      execFileSync(getToolPath('git'), ['branch', '-D', taskBranch], {
+                        cwd: project.path,
+                        encoding: 'utf-8'
+                      });
+                      debug('Task branch deleted:', taskBranch);
+                    } catch {
+                      // Branch might not exist or already deleted
+                    }
+                  }
+                } catch (cleanupErr) {
+                  debug('Worktree cleanup failed (non-fatal):', cleanupErr);
+                }
               } else if (isStageOnly && !hasActualStagedChanges) {
                 // Stage-only was requested but no changes to stage (and not committed)
                 // This could mean nothing to merge or an error - keep in human_review for investigation
@@ -1615,6 +2186,33 @@ export function registerWorktreeHandlers(
                 planStatus = 'completed';
                 message = 'Changes merged successfully';
                 staged = false;
+
+                // Clean up worktree after successful full merge (fixes #243)
+                // This allows drag-to-Done workflow since TASK_UPDATE_STATUS blocks 'done' when worktree exists
+                try {
+                  if (worktreePath && existsSync(worktreePath)) {
+                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+                      cwd: project.path,
+                      encoding: 'utf-8'
+                    });
+                    debug('Worktree cleaned up after full merge:', worktreePath);
+
+                    // Also delete the task branch since we merged successfully
+                    const taskBranch = `auto-claude/${task.specId}`;
+                    try {
+                      execFileSync(getToolPath('git'), ['branch', '-D', taskBranch], {
+                        cwd: project.path,
+                        encoding: 'utf-8'
+                      });
+                      debug('Task branch deleted:', taskBranch);
+                    } catch {
+                      // Branch might not exist or already deleted
+                    }
+                  }
+                } catch (cleanupErr) {
+                  debug('Worktree cleanup failed (non-fatal):', cleanupErr);
+                  // Non-fatal - merge succeeded, cleanup can be done manually
+                }
               }
 
               debug('Merge result. isStageOnly:', isStageOnly, 'newStatus:', newStatus, 'staged:', staged);
@@ -1639,57 +2237,66 @@ export function registerWorktreeHandlers(
               // Issue #243: We must update BOTH the main project's plan AND the worktree's plan (if it exists)
               // because ProjectStore prefers the worktree version when deduplicating tasks.
               // OPTIMIZATION: Use async I/O and parallel updates to prevent UI blocking
-              const planPaths = [
+              // NOTE: The worktree has the same directory structure as main project
+              const planPaths: { path: string; isMain: boolean }[] = [
                 { path: path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: true },
-                { path: path.join(worktreePath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false }
               ];
+              // Add worktree plan path if worktree exists
+              if (worktreePath) {
+                const worktreeSpecDir = path.join(worktreePath, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+                planPaths.push({ path: path.join(worktreeSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false });
+              }
 
               const { promises: fsPromises } = require('fs');
 
-              // Fire and forget - don't block the response on file writes
-              // But add retry logic for transient failures and verification
+              // Update plan file with retry logic for transient failures
               // Uses EAFP pattern (try/catch) instead of LBYL (existsSync check) to avoid TOCTOU race conditions
-              const updatePlanWithRetry = async (planPath: string, isMain: boolean, maxRetries = 3) => {
-                for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                  try {
-                    const planContent = await fsPromises.readFile(planPath, 'utf-8');
-                    const plan = JSON.parse(planContent);
-                    plan.status = newStatus;
-                    plan.planStatus = planStatus;
-                    plan.updated_at = new Date().toISOString();
-                    if (staged) {
-                      plan.stagedAt = new Date().toISOString();
-                      plan.stagedInMainProject = true;
-                    }
-                    await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
+              const updatePlanWithRetry = async (planPath: string, isMain: boolean): Promise<boolean> => {
+                // Helper to check if error is ENOENT (file not found)
+                const isFileNotFound = (err: unknown): boolean =>
+                  !!(err && typeof err === 'object' && 'code' in err && err.code === 'ENOENT');
 
-                    // Verify the write succeeded by reading back
-                    const verifyContent = await fsPromises.readFile(planPath, 'utf-8');
-                    const verifyPlan = JSON.parse(verifyContent);
-                    if (verifyPlan.status === newStatus && verifyPlan.planStatus === planStatus) {
-                      return true; // Write verified
-                    }
-                    throw new Error('Write verification failed - status mismatch');
-                  } catch (persistError: unknown) {
-                    // File doesn't exist - nothing to update (not an error)
-                    if (persistError && typeof persistError === 'object' && 'code' in persistError && persistError.code === 'ENOENT') {
-                      return true;
-                    }
-                    const isLastAttempt = attempt === maxRetries;
-                    if (isLastAttempt) {
-                      // Only log error if main plan fails; worktree plan might legitimately be missing or read-only
-                      if (isMain) {
-                        console.error('Failed to persist task status to main plan after retries:', persistError);
-                      } else {
-                        debug('Failed to persist task status to worktree plan (non-critical):', persistError);
+                try {
+                  await withRetry(
+                    async () => {
+                      const planContent = await fsPromises.readFile(planPath, 'utf-8');
+                      const plan = JSON.parse(planContent);
+                      plan.status = newStatus;
+                      plan.planStatus = planStatus;
+                      plan.updated_at = new Date().toISOString();
+                      if (staged) {
+                        plan.stagedAt = new Date().toISOString();
+                        plan.stagedInMainProject = true;
                       }
-                      return false;
+                      await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
+
+                      // Verify the write succeeded by reading back
+                      const verifyContent = await fsPromises.readFile(planPath, 'utf-8');
+                      const verifyPlan = JSON.parse(verifyContent);
+                      if (verifyPlan.status !== newStatus || verifyPlan.planStatus !== planStatus) {
+                        throw new Error('Write verification failed - status mismatch');
+                      }
+                    },
+                    {
+                      maxRetries: 3,
+                      baseDelayMs: 100,
+                      shouldRetry: (err) => !isFileNotFound(err) // Don't retry if file doesn't exist
                     }
-                    // Wait before retry (exponential backoff: 100ms, 200ms, 400ms)
-                    await new Promise(r => setTimeout(r, 100 * Math.pow(2, attempt - 1)));
+                  );
+                  return true;
+                } catch (err) {
+                  // File doesn't exist - nothing to update (not an error)
+                  if (isFileNotFound(err)) {
+                    return true;
                   }
+                  // Only log error if main plan fails; worktree plan might legitimately be missing or read-only
+                  if (isMain) {
+                    console.error('Failed to persist task status to main plan after retries:', err);
+                  } else {
+                    debug('Failed to persist task status to worktree plan (non-critical):', err);
+                  }
+                  return false;
                 }
-                return false;
               };
 
               const updatePlans = async () => {
@@ -1704,8 +2311,15 @@ export function registerWorktreeHandlers(
                 }
               };
 
-              // Run async updates without blocking the response
-              updatePlans().catch(err => debug('Background plan update failed:', err));
+              // IMPORTANT: Wait for plan updates to complete before responding (fixes #243)
+              // Previously this was "fire and forget" which caused a race condition:
+              // resolve() would return before files were written, and UI refresh would read old status
+              try {
+                await updatePlans();
+              } catch (err) {
+                debug('Plan update failed:', err);
+                // Non-fatal: UI will still update, but status may not persist across refresh
+              }
 
               const mainWindow = getMainWindow();
               if (mainWindow) {
@@ -1723,8 +2337,17 @@ export function registerWorktreeHandlers(
                 }
               });
             } else {
-              // Check if there were conflicts
-              const hasConflicts = stdout.includes('conflict') || stderr.includes('conflict');
+              // Check if there were actual merge conflicts
+              // More specific patterns to avoid false positives from debug output like "files_with_conflicts: 0"
+              const conflictPatterns = [
+                /CONFLICT \(/i,                         // Git merge conflict marker
+                /merge conflict/i,                      // Explicit merge conflict message
+                /\bconflict detected\b/i,               // Our own conflict detection message
+                /\bconflicts? found\b/i,                // "conflicts found" or "conflict found"
+                /Automatic merge failed/i,             // Git's automatic merge failure message
+              ];
+              const combinedOutput = stdout + stderr;
+              const hasConflicts = conflictPatterns.some(pattern => pattern.test(combinedOutput));
               debug('Merge failed. hasConflicts:', hasConflicts);
 
               resolve({
@@ -1801,27 +2424,31 @@ export function registerWorktreeHandlers(
         }
         console.warn('[IPC] Found task:', task.specId, 'project:', project.name);
 
-        // Check for uncommitted changes in the main project
+        // Check for uncommitted changes in the main project (only if not a bare repo)
         let hasUncommittedChanges = false;
         let uncommittedFiles: string[] = [];
-        try {
-          const gitStatus = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
-            cwd: project.path,
-            encoding: 'utf-8'
-          });
+        if (isGitWorkTree(project.path)) {
+          try {
+            const gitStatus = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
+              cwd: project.path,
+              encoding: 'utf-8'
+            });
 
-          if (gitStatus && gitStatus.trim()) {
-            // Parse the status output to get file names
-            // Format: XY filename (where X and Y are status chars, then space, then filename)
-            uncommittedFiles = gitStatus
-              .split('\n')
-              .filter(line => line.trim())
-              .map(line => line.substring(3).trim()); // Skip 2 status chars + 1 space, trim any trailing whitespace
+            if (gitStatus && gitStatus.trim()) {
+              // Parse the status output to get file names
+              // Format: XY filename (where X and Y are status chars, then space, then filename)
+              uncommittedFiles = gitStatus
+                .split('\n')
+                .filter(line => line.trim())
+                .map(line => line.substring(3).trim()); // Skip 2 status chars + 1 space, trim any trailing whitespace
 
-            hasUncommittedChanges = uncommittedFiles.length > 0;
+              hasUncommittedChanges = uncommittedFiles.length > 0;
+            }
+          } catch (e) {
+            console.error('[IPC] Failed to check git status:', e);
           }
-        } catch (e) {
-          console.error('[IPC] Failed to check git status:', e);
+        } else {
+          console.warn('[IPC] Project is a bare repository - skipping uncommitted changes check');
         }
 
         const sourcePath = getEffectiveSourcePath();
@@ -1839,11 +2466,18 @@ export function registerWorktreeHandlers(
           '--merge-preview'
         ];
 
-        // Add --base-branch if task was created with a specific base branch
+        // Add --base-branch with proper priority:
+        // 1. Task metadata baseBranch (explicit task-level override)
+        // 2. Project settings mainBranch (project-level default)
+        // This matches the logic in execution-handlers.ts
         const taskBaseBranch = getTaskBaseBranch(specDir);
-        if (taskBaseBranch) {
-          args.push('--base-branch', taskBaseBranch);
-          console.warn('[IPC] Using stored base branch for preview:', taskBaseBranch);
+        const projectMainBranch = project.settings?.mainBranch;
+        const effectiveBaseBranch = taskBaseBranch || projectMainBranch;
+
+        if (effectiveBaseBranch) {
+          args.push('--base-branch', effectiveBaseBranch);
+          console.warn('[IPC] Using base branch for preview:', effectiveBaseBranch,
+            `(source: ${taskBaseBranch ? 'task metadata' : 'project settings'})`);
         }
 
         // Use configured Python path (venv if ready, otherwise bundled/system)
@@ -1950,7 +2584,7 @@ export function registerWorktreeHandlers(
 
   /**
    * Discard the worktree changes
-   * Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
+   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_DISCARD,
@@ -1961,10 +2595,10 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Task not found' };
         }
 
-        // Per-spec worktree path: .worktrees/{spec-name}/
-        const worktreePath = path.join(project.path, '.worktrees', task.specId);
+        // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
+        const worktreePath = findTaskWorktree(project.path, task.specId);
 
-        if (!existsSync(worktreePath)) {
+        if (!worktreePath) {
           return {
             success: true,
             data: {
@@ -2028,7 +2662,7 @@ export function registerWorktreeHandlers(
 
   /**
    * List all spec worktrees for a project
-   * Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
+   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_LIST_WORKTREES,
@@ -2039,23 +2673,11 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Project not found' };
         }
 
-        const worktreesDir = path.join(project.path, '.worktrees');
         const worktrees: WorktreeListItem[] = [];
+        const worktreesDir = getTaskWorktreeDir(project.path);
 
-        if (!existsSync(worktreesDir)) {
-          return { success: true, data: { worktrees } };
-        }
-
-        // Get all directories in .worktrees
-        const entries = readdirSync(worktreesDir);
-        for (const entry of entries) {
-          const entryPath = path.join(worktreesDir, entry);
-          const stat = statSync(entryPath);
-
-          // Skip worker directories and non-directories
-          if (!stat.isDirectory() || entry.startsWith('worker-')) {
-            continue;
-          }
+        // Helper to process a single worktree entry
+        const processWorktreeEntry = (entry: string, entryPath: string) => {
 
           try {
             // Get branch info
@@ -2064,16 +2686,10 @@ export function registerWorktreeHandlers(
               encoding: 'utf-8'
             }).trim();
 
-            // Get base branch - the current branch in the main project (where changes will be merged)
-            let baseBranch = 'main';
-            try {
-              baseBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-                cwd: project.path,
-                encoding: 'utf-8'
-              }).trim();
-            } catch {
-              baseBranch = 'main';
-            }
+            // Get base branch using proper fallback chain:
+            // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
+            // Note: We do NOT use current HEAD as that may be a feature branch
+            const baseBranch = getEffectiveBaseBranch(project.path, entry, project.settings?.mainBranch);
 
             // Get commit count (cross-platform - no shell syntax)
             let commitCount = 0;
@@ -2125,6 +2741,22 @@ export function registerWorktreeHandlers(
           } catch (gitError) {
             console.error(`Error getting info for worktree ${entry}:`, gitError);
             // Skip this worktree if we can't get git info
+          }
+        };
+
+        // Scan worktrees directory
+        if (existsSync(worktreesDir)) {
+          const entries = readdirSync(worktreesDir);
+          for (const entry of entries) {
+            const entryPath = path.join(worktreesDir, entry);
+            try {
+              const stat = statSync(entryPath);
+              if (stat.isDirectory()) {
+                processWorktreeEntry(entry, entryPath);
+              }
+            } catch {
+              // Skip entries that can't be stat'd
+            }
           }
         }
 
@@ -2207,6 +2839,278 @@ export function registerWorktreeHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to open in terminal'
+        };
+      }
+    }
+  );
+
+  /**
+   * Create a Pull Request from the worktree branch
+   * Pushes the branch to origin and creates a GitHub PR using gh CLI
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_CREATE_PR,
+    async (_, taskId: string, options?: WorktreeCreatePROptions): Promise<IPCResult<WorktreeCreatePRResult>> => {
+      const isDebugMode = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
+      const debug = (...args: unknown[]) => {
+        if (isDebugMode) {
+          console.warn('[CREATE_PR DEBUG]', ...args);
+        }
+      };
+
+      try {
+        debug('Handler called with taskId:', taskId, 'options:', options);
+
+        // Ensure Python environment is ready
+        const pythonEnvError = await initializePythonEnvForPR(pythonEnvManager);
+        if (pythonEnvError) {
+          return { success: false, error: pythonEnvError };
+        }
+
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          debug('Task or project not found');
+          return { success: false, error: 'Task not found' };
+        }
+
+        debug('Found task:', task.specId, 'project:', project.path);
+
+        // Use run.py --create-pr to handle the PR creation
+        const sourcePath = getEffectiveSourcePath();
+        if (!sourcePath) {
+          return { success: false, error: 'Auto Claude source not found' };
+        }
+
+        const runScript = path.join(sourcePath, 'run.py');
+        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+
+        // Use EAFP pattern - try to read specDir and catch ENOENT
+        try {
+          statSync(specDir);
+        } catch (err) {
+          if (err && typeof err === 'object' && 'code' in err && err.code === 'ENOENT') {
+            debug('Spec directory not found:', specDir);
+            return { success: false, error: 'Spec directory not found' };
+          }
+          throw err; // Re-throw unexpected errors
+        }
+
+        // Check worktree exists before creating PR
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        if (!worktreePath) {
+          debug('No worktree found for spec:', task.specId);
+          return { success: false, error: 'No worktree found for this task' };
+        }
+        debug('Worktree path:', worktreePath);
+
+        // Build arguments using helper function
+        const taskBaseBranch = getTaskBaseBranch(specDir);
+        const { args, validationError } = buildCreatePRArgs(
+          runScript,
+          task.specId,
+          project.path,
+          options,
+          taskBaseBranch
+        );
+        if (validationError) {
+          return { success: false, error: validationError };
+        }
+        if (taskBaseBranch) {
+          debug('Using stored base branch:', taskBaseBranch);
+        }
+
+        // Use configured Python path
+        const pythonPath = getConfiguredPythonPath();
+        debug('Running command:', pythonPath, args.join(' '));
+        debug('Working directory:', sourcePath);
+
+        // Get profile environment with OAuth token
+        const profileEnv = getProfileEnv();
+
+        return new Promise((resolve) => {
+          let timeoutId: NodeJS.Timeout | null = null;
+          let resolved = false;
+
+          // Get Python environment for bundled packages
+          const pythonEnv = pythonEnvManagerSingleton.getPythonEnv();
+
+          // Parse Python command to handle space-separated commands like "py -3"
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const createPRProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+            cwd: sourcePath,
+            env: {
+              ...process.env,
+              ...pythonEnv,
+              ...profileEnv,
+              PYTHONUNBUFFERED: '1',
+              PYTHONUTF8: '1'
+            },
+            stdio: ['ignore', 'pipe', 'pipe']
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          // Set up timeout to kill hung processes
+          timeoutId = setTimeout(() => {
+            if (!resolved) {
+              debug('TIMEOUT: Create PR process exceeded', PR_CREATION_TIMEOUT_MS, 'ms, killing...');
+              resolved = true;
+
+              // Platform-specific process termination with fallback
+              if (process.platform === 'win32') {
+                try {
+                  createPRProcess.kill();
+                  // Fallback: forcefully kill with taskkill if process ignores initial kill
+                  if (createPRProcess.pid) {
+                    setTimeout(() => {
+                      try {
+                        spawn('taskkill', ['/pid', createPRProcess.pid!.toString(), '/f', '/t'], {
+                          stdio: 'ignore',
+                          detached: true
+                        }).unref();
+                      } catch {
+                        // Process may already be dead
+                      }
+                    }, 5000);
+                  }
+                } catch {
+                  // Process may already be dead
+                }
+              } else {
+                createPRProcess.kill('SIGTERM');
+                setTimeout(() => {
+                  try {
+                    createPRProcess.kill('SIGKILL');
+                  } catch {
+                    // Process may already be dead
+                  }
+                }, 5000);
+              }
+
+              resolve({
+                success: false,
+                error: 'PR creation timed out. Check if the PR was created on GitHub.'
+              });
+            }
+          }, PR_CREATION_TIMEOUT_MS);
+
+          createPRProcess.stdout.on('data', (data: Buffer) => {
+            const chunk = data.toString();
+            stdout += chunk;
+            debug('STDOUT:', chunk);
+          });
+
+          createPRProcess.stderr.on('data', (data: Buffer) => {
+            const chunk = data.toString();
+            stderr += chunk;
+            debug('STDERR:', chunk);
+          });
+
+          /**
+           * Handle process exit - shared logic for both 'close' and 'exit' events.
+           * Parses JSON output, updates task status if PR was created, and resolves the promise.
+           *
+           * @param code - Process exit code (0 = success, non-zero = failure)
+           * @param eventSource - Which event triggered this ('close' or 'exit') for debug logging
+           */
+          const handleCreatePRProcessExit = async (code: number | null, eventSource: 'close' | 'exit'): Promise<void> => {
+            if (resolved) return;
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+
+            debug(`Process exited via ${eventSource} event with code:`, code);
+            debug('Full stdout:', stdout);
+            debug('Full stderr:', stderr);
+
+            if (code === 0) {
+              // Parse JSON output using helper function
+              const result = parsePRJsonOutput(stdout);
+              if (result) {
+                debug('Parsed result:', result);
+
+                // Only update task status if a NEW PR was created (not if it already exists)
+                if (result.success !== false && result.prUrl && !result.alreadyExists) {
+                  await updateTaskStatusAfterPRCreation(
+                    specDir,
+                    worktreePath,
+                    result.prUrl,
+                    project.autoBuildPath,
+                    task.specId,
+                    debug
+                  );
+                } else if (result.alreadyExists) {
+                  debug('PR already exists, not updating task status');
+                }
+
+                resolve({
+                  success: true,
+                  data: {
+                    success: result.success,
+                    prUrl: result.prUrl,
+                    error: result.error,
+                    alreadyExists: result.alreadyExists
+                  }
+                });
+              } else {
+                // No JSON found, but process succeeded
+                debug('No JSON in output, assuming success');
+                resolve({
+                  success: true,
+                  data: {
+                    success: true,
+                    prUrl: undefined
+                  }
+                });
+              }
+            } else {
+              debug('Process failed with code:', code);
+
+              // Try to parse JSON from stdout even on failure
+              const result = parsePRJsonOutput(stdout);
+              if (result) {
+                debug('Parsed error result:', result);
+                resolve({
+                  success: false,
+                  error: result.error || 'Failed to create PR'
+                });
+              } else {
+                // Fallback to raw output if JSON parsing fails
+                // Prefer stdout over stderr since stderr often contains debug messages
+                resolve({
+                  success: false,
+                  error: stdout || stderr || 'Failed to create PR'
+                });
+              }
+            }
+          };
+
+          createPRProcess.on('close', (code: number | null) => {
+            handleCreatePRProcessExit(code, 'close');
+          });
+
+          // Also listen to 'exit' event in case 'close' doesn't fire
+          createPRProcess.on('exit', (code: number | null) => {
+            // Give close event a chance to fire first with complete output
+            setTimeout(() => handleCreatePRProcessExit(code, 'exit'), 100);
+          });
+
+          createPRProcess.on('error', (err: Error) => {
+            if (resolved) return;
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            debug('Process spawn error:', err);
+            resolve({
+              success: false,
+              error: `Failed to run create-pr: ${err.message}`
+            });
+          });
+        });
+      } catch (error) {
+        console.error('[CREATE_PR] Exception in handler:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to create PR'
         };
       }
     }

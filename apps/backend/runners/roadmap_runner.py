@@ -20,8 +20,10 @@ from pathlib import Path
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Load .env file from auto-claude/ directory
-from dotenv import load_dotenv
+# Load .env file with centralized error handling
+from cli.utils import import_dotenv
+
+load_dotenv = import_dotenv()
 
 env_file = Path(__file__).parent.parent / ".env"
 if env_file.exists():
@@ -55,8 +57,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="claude-opus-4-5-20251101",
-        help="Model to use (default: claude-opus-4-5-20251101)",
+        default="sonnet",  # Changed from "opus" (fix #433)
+        help="Model to use (haiku, sonnet, opus, or full model ID)",
     )
     parser.add_argument(
         "--thinking-level",

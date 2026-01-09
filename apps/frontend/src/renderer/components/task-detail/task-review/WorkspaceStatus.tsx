@@ -5,6 +5,7 @@ import {
   Minus,
   Eye,
   GitMerge,
+  GitPullRequest,
   FolderX,
   Loader2,
   RotateCcw,
@@ -14,6 +15,7 @@ import {
   Code,
   Terminal
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
 import { cn } from '../../../lib/utils';
@@ -28,12 +30,14 @@ interface WorkspaceStatusProps {
   isLoadingPreview: boolean;
   isMerging: boolean;
   isDiscarding: boolean;
+  isCreatingPR?: boolean;
   onShowDiffDialog: (show: boolean) => void;
   onShowDiscardDialog: (show: boolean) => void;
   onShowConflictDialog: (show: boolean) => void;
   onLoadMergePreview: () => void;
   onStageOnlyChange: (value: boolean) => void;
   onMerge: () => void;
+  onShowPRDialog?: (show: boolean) => void;
   onClose?: () => void;
   onSwitchToTerminals?: () => void;
   onOpenInbuiltTerminal?: (id: string, cwd: string) => void;
@@ -84,16 +88,19 @@ export function WorkspaceStatus({
   isLoadingPreview,
   isMerging,
   isDiscarding,
+  isCreatingPR,
   onShowDiffDialog,
   onShowDiscardDialog,
   onShowConflictDialog,
   onLoadMergePreview,
   onStageOnlyChange,
   onMerge,
+  onShowPRDialog,
   onClose,
   onSwitchToTerminals,
   onOpenInbuiltTerminal
 }: WorkspaceStatusProps) {
+  const { t } = useTranslation(['taskReview', 'common']);
   const { settings } = useSettingsStore();
   const preferredIDE = settings.preferredIDE || 'vscode';
   const preferredTerminal = settings.preferredTerminal || 'system';
@@ -367,46 +374,99 @@ export function WorkspaceStatus({
 
       {/* Actions Footer */}
       <div className="px-4 py-3 bg-muted/20 border-t border-border space-y-3">
-        {/* Stage Only Option */}
-        <label className="inline-flex items-center gap-2.5 text-sm cursor-pointer select-none px-3 py-2 rounded-lg border border-border bg-background/50 hover:bg-background/80 transition-colors">
-          <Checkbox
-            checked={stageOnly}
-            onCheckedChange={(checked) => onStageOnlyChange(checked === true)}
-            className="border-muted-foreground/50 data-[state=checked]:border-primary"
-          />
-          <span className={cn(
-            "transition-colors",
-            stageOnly ? "text-foreground" : "text-muted-foreground"
-          )}>Stage only (review in IDE before committing)</span>
-        </label>
+        {/* Stage Only Option - only show after conflicts have been checked */}
+        {mergePreview && (
+          <label className="inline-flex items-center gap-2.5 text-sm cursor-pointer select-none px-3 py-2 rounded-lg border border-border bg-background/50 hover:bg-background/80 transition-colors">
+            <Checkbox
+              checked={stageOnly}
+              onCheckedChange={(checked) => onStageOnlyChange(checked === true)}
+              className="border-muted-foreground/50 data-[state=checked]:border-primary"
+            />
+            <span className={cn(
+              "transition-colors",
+              stageOnly ? "text-foreground" : "text-muted-foreground"
+            )}>Stage only (review in IDE before committing)</span>
+          </label>
+        )}
 
         {/* Primary Actions */}
         <div className="flex gap-2">
-          <Button
-            variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
-            onClick={onMerge}
-            disabled={isMerging || isDiscarding}
-            className="flex-1"
-          >
-            {isMerging ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {hasGitConflicts || isBranchBehind || hasPathMappedMerges ? 'Resolving...' : stageOnly ? 'Staging...' : 'Merging...'}
-              </>
-            ) : (
-              <>
-                <GitMerge className="mr-2 h-4 w-4" />
-                {hasGitConflicts || isBranchBehind || hasPathMappedMerges
-                  ? (stageOnly ? 'Stage with AI Merge' : 'Merge with AI')
-                  : (stageOnly ? 'Stage Changes' : 'Merge to Main')}
-              </>
-            )}
-          </Button>
+          {/* State 1: No merge preview yet - show "Check for Conflicts" */}
+          {!mergePreview && !isLoadingPreview && (
+            <Button
+              variant="default"
+              onClick={onLoadMergePreview}
+              disabled={isMerging || isDiscarding}
+              className="flex-1"
+            >
+              <GitMerge className="mr-2 h-4 w-4" />
+              Check for Conflicts
+            </Button>
+          )}
+
+          {/* State 2: Loading merge preview */}
+          {isLoadingPreview && (
+            <Button
+              variant="default"
+              disabled
+              className="flex-1"
+            >
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Checking for conflicts...
+            </Button>
+          )}
+
+          {/* State 3: Merge preview loaded - show appropriate merge/stage button */}
+          {mergePreview && !isLoadingPreview && (
+            <Button
+              variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
+              onClick={onMerge}
+              disabled={isMerging || isDiscarding}
+              className="flex-1"
+            >
+              {isMerging ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {hasGitConflicts || isBranchBehind || hasPathMappedMerges ? 'Resolving...' : stageOnly ? 'Staging...' : 'Merging...'}
+                </>
+              ) : (
+                <>
+                  <GitMerge className="mr-2 h-4 w-4" />
+                  {hasGitConflicts || isBranchBehind || hasPathMappedMerges
+                    ? (stageOnly ? 'Stage with AI Merge' : 'Merge with AI')
+                    : (stageOnly ? 'Stage to Main' : 'Merge to Main')}
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* Create PR Button */}
+          {onShowPRDialog && (
+            <Button
+              variant="info"
+              onClick={() => onShowPRDialog(true)}
+              disabled={isMerging || isDiscarding || isCreatingPR}
+              className="flex-1"
+            >
+              {isCreatingPR ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('taskReview:pr.actions.creating')}
+                </>
+              ) : (
+                <>
+                  <GitPullRequest className="mr-2 h-4 w-4" />
+                  {t('common:buttons.createPR')}
+                </>
+              )}
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="icon"
             onClick={() => onShowDiscardDialog(true)}
-            disabled={isMerging || isDiscarding}
+            disabled={isMerging || isDiscarding || isCreatingPR}
             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
             title="Discard build"
           >

@@ -110,6 +110,57 @@ const browserMockAPI: ElectronAPI = {
   // Infrastructure & Docker Operations
   ...infrastructureMock,
 
+  // API Profile Management (custom Anthropic-compatible endpoints)
+  getAPIProfiles: async () => ({
+    success: true,
+    data: {
+      profiles: [],
+      activeProfileId: null,
+      version: 1
+    }
+  }),
+
+  saveAPIProfile: async (profile) => ({
+    success: true,
+    data: {
+      id: `mock-profile-${Date.now()}`,
+      ...profile,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+  }),
+
+  updateAPIProfile: async (profile) => ({
+    success: true,
+    data: {
+      ...profile,
+      updatedAt: Date.now()
+    }
+  }),
+
+  deleteAPIProfile: async (_profileId: string) => ({
+    success: true
+  }),
+
+  setActiveAPIProfile: async (_profileId: string | null) => ({
+    success: true
+  }),
+
+  testConnection: async (_baseUrl: string, _apiKey: string, _signal?: AbortSignal) => ({
+    success: true,
+    data: {
+      success: true,
+      message: 'Connection successful (mock)'
+    }
+  }),
+
+  discoverModels: async (_baseUrl: string, _apiKey: string, _signal?: AbortSignal) => ({
+    success: true,
+    data: {
+      models: []
+    }
+  }),
+
   // GitHub API
   github: {
     getGitHubRepositories: async () => ({ success: true, data: [] }),
@@ -146,6 +197,7 @@ const browserMockAPI: ElectronAPI = {
     onAutoFixComplete: () => () => {},
     onAutoFixError: () => () => {},
     listPRs: async () => [],
+    getPR: async () => null,
     runPRReview: () => {},
     cancelPRReview: async () => true,
     postPRReview: async () => true,
@@ -153,9 +205,14 @@ const browserMockAPI: ElectronAPI = {
     mergePR: async () => true,
     assignPR: async () => true,
     getPRReview: async () => null,
+    getPRReviewsBatch: async () => ({}),
     deletePRReview: async () => true,
     checkNewCommits: async () => ({ hasNewCommits: false, newCommitCount: 0 }),
+    checkMergeReadiness: async () => ({ isDraft: false, mergeable: 'UNKNOWN' as const, isBehind: false, ciStatus: 'none' as const, blockers: [] }),
     runFollowupReview: () => {},
+    getPRLogs: async () => null,
+    getWorkflowsAwaitingApproval: async () => ({ awaiting_approval: 0, workflow_runs: [], can_approve: false }),
+    approveWorkflow: async () => true,
     onPRReviewProgress: () => () => {},
     onPRReviewComplete: () => () => {},
     onPRReviewError: () => () => {},
@@ -171,6 +228,61 @@ const browserMockAPI: ElectronAPI = {
     onAnalyzePreviewComplete: () => () => {},
     onAnalyzePreviewError: () => () => {}
   },
+
+  // Claude Code Operations
+  checkClaudeCodeVersion: async () => ({
+    success: true,
+    data: {
+      installed: '1.0.0',
+      latest: '1.0.0',
+      isOutdated: false,
+      path: '/usr/local/bin/claude',
+      detectionResult: {
+        found: true,
+        version: '1.0.0',
+        path: '/usr/local/bin/claude',
+        source: 'system-path' as const,
+        message: 'Claude Code CLI found'
+      }
+    }
+  }),
+  installClaudeCode: async () => ({
+    success: true,
+    data: { command: 'npm install -g @anthropic-ai/claude-code' }
+  }),
+
+  // Terminal Worktree Operations
+  createTerminalWorktree: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+  listTerminalWorktrees: async () => ({
+    success: true,
+    data: []
+  }),
+  removeTerminalWorktree: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+
+  // MCP Server Health Check Operations
+  checkMcpHealth: async (server) => ({
+    success: true,
+    data: {
+      serverId: server.id,
+      status: 'unknown' as const,
+      message: 'Health check not available in browser mode',
+      checkedAt: new Date().toISOString()
+    }
+  }),
+  testMcpConnection: async (server) => ({
+    success: true,
+    data: {
+      serverId: server.id,
+      success: false,
+      message: 'Connection test not available in browser mode'
+    }
+  }),
 
   // Debug Operations
   getDebugInfo: async () => ({

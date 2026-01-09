@@ -26,7 +26,7 @@ auto-claude/agents/
 ### `utils.py` (3.6 KB)
 - Git operations: `get_latest_commit()`, `get_commit_count()`
 - Plan management: `load_implementation_plan()`, `find_subtask_in_plan()`, `find_phase_for_subtask()`
-- Workspace sync: `sync_plan_to_source()`
+- Workspace sync: `sync_spec_to_source()`
 
 ### `memory.py` (13 KB)
 - Dual-layer memory system (Graphiti primary, file-based fallback)
@@ -73,7 +73,7 @@ from agents import (
     # Utilities
     get_latest_commit,
     load_implementation_plan,
-    sync_plan_to_source,
+    sync_spec_to_source,
 )
 ```
 

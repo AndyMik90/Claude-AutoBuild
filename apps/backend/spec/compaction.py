@@ -16,7 +16,7 @@ from core.simple_client import create_simple_client
 async def summarize_phase_output(
     phase_name: str,
     phase_output: str,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "sonnet",  # Shorthand - resolved via API Profile if configured
     target_words: int = 500,
 ) -> str:
     """
@@ -73,9 +73,12 @@ Be concise and use bullet points. Skip boilerplate and meta-commentary.
             await client.query(prompt)
             response_text = ""
             async for msg in client.receive_response():
-                if hasattr(msg, "content"):
+                msg_type = type(msg).__name__
+                if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                     for block in msg.content:
-                        if hasattr(block, "text"):
+                        # Must check block type - only TextBlock has .text attribute
+                        block_type = type(block).__name__
+                        if block_type == "TextBlock" and hasattr(block, "text"):
                             response_text += block.text
             return response_text.strip()
     except Exception as e:

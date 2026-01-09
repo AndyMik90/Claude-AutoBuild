@@ -25,8 +25,10 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { cn } from '../../lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { SettingsSection } from './SettingsSection';
 import { loadClaudeProfiles as loadGlobalClaudeProfiles } from '../../stores/claude-profile-store';
+import { useClaudeLoginTerminal } from '../../hooks/useClaudeLoginTerminal';
 import type { AppSettings, ClaudeProfile, ClaudeAutoSwitchSettings } from '../../../shared/types';
 
 interface IntegrationSettingsProps {
@@ -71,6 +73,9 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       loadAutoSwitchSettings();
     }
   }, [isOpen]);
+
+  // Listen for login terminal creation - makes the terminal visible so user can see OAuth flow
+  useClaudeLoginTerminal();
 
   // Listen for OAuth authentication completion
   useEffect(() => {
@@ -126,12 +131,8 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         if (initResult.success) {
           await loadClaudeProfiles();
           setNewProfileName('');
-
-          alert(
-            `Authenticating "${profileName}"...\n\n` +
-            `A browser window will open for you to log in with your Claude account.\n\n` +
-            `The authentication will be saved automatically once complete.`
-          );
+          // Note: The terminal is now visible in the UI via the onTerminalAuthCreated event
+          // Users can see the 'claude setup-token' output directly
         } else {
           await loadClaudeProfiles();
           alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
@@ -201,15 +202,11 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
     setAuthenticatingProfileId(profileId);
     try {
       const initResult = await window.electronAPI.initializeClaudeProfile(profileId);
-      if (initResult.success) {
-        alert(
-          `Authenticating profile...\n\n` +
-          `A browser window will open for you to log in with your Claude account.\n\n` +
-          `The authentication will be saved automatically once complete.`
-        );
-      } else {
+      if (!initResult.success) {
         alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
       }
+      // Note: If successful, the terminal is now visible in the UI via the onTerminalAuthCreated event
+      // Users can see the 'claude setup-token' output and complete OAuth flow directly
     } catch (err) {
       console.error('Failed to authenticate profile:', err);
       alert('Failed to start authentication. Please try again.');
@@ -362,6 +359,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                                 size="icon"
                                 onClick={handleRenameProfile}
                                 className="h-7 w-7 text-success hover:text-success hover:bg-success/10"
+                                aria-label={t('common:accessibility.saveEditAriaLabel')}
                               >
                                 <Check className="h-3 w-3" />
                               </Button>
@@ -370,6 +368,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                                 size="icon"
                                 onClick={cancelEditingProfile}
                                 className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                aria-label={t('common:accessibility.cancelEditAriaLabel')}
                               >
                                 <X className="h-3 w-3" />
                               </Button>
@@ -426,20 +425,25 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                             </Button>
                           ) : (
                             /* Re-authenticate button for already authenticated profiles */
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleAuthenticateProfile(profile.id)}
-                              disabled={authenticatingProfileId === profile.id}
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                              title="Re-authenticate profile"
-                            >
-                              {authenticatingProfileId === profile.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <RefreshCw className="h-3 w-3" />
-                              )}
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleAuthenticateProfile(profile.id)}
+                                  disabled={authenticatingProfileId === profile.id}
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                  aria-label={t('common:accessibility.refreshAriaLabel')}
+                                >
+                                  {authenticatingProfileId === profile.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{t('common:accessibility.reAuthenticateProfileAriaLabel')}</TooltipContent>
+                            </Tooltip>
                           )}
                           {profile.id !== activeProfileId && (
                             <Button
@@ -453,43 +457,60 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                             </Button>
                           )}
                           {/* Toggle token entry button */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => toggleTokenEntry(profile.id)}
-                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            title={expandedTokenProfileId === profile.id ? "Hide token entry" : "Enter token manually"}
-                          >
-                            {expandedTokenProfileId === profile.id ? (
-                              <ChevronDown className="h-3 w-3" />
-                            ) : (
-                              <ChevronRight className="h-3 w-3" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => startEditingProfile(profile)}
-                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            title="Rename profile"
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => toggleTokenEntry(profile.id)}
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                aria-label={expandedTokenProfileId === profile.id ? t('common:accessibility.collapseAriaLabel') : t('common:accessibility.expandAriaLabel')}
+                              >
+                                {expandedTokenProfileId === profile.id ? (
+                                  <ChevronDown className="h-3 w-3" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {expandedTokenProfileId === profile.id ? t('common:accessibility.hideTokenEntryAriaLabel') : t('common:accessibility.enterTokenManuallyAriaLabel')}
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => startEditingProfile(profile)}
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                aria-label={t('common:accessibility.renameAriaLabel')}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{t('common:accessibility.renameProfileAriaLabel')}</TooltipContent>
+                          </Tooltip>
                           {!profile.isDefault && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteProfile(profile.id)}
-                              disabled={deletingProfileId === profile.id}
-                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              title="Delete profile"
-                            >
-                              {deletingProfileId === profile.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-3 w-3" />
-                              )}
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteProfile(profile.id)}
+                                  disabled={deletingProfileId === profile.id}
+                                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  aria-label={t('common:accessibility.deleteAriaLabel')}
+                                >
+                                  {deletingProfileId === profile.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{t('common:accessibility.deleteProfileAriaLabel')}</TooltipContent>
+                            </Tooltip>
                           )}
                         </div>
                       )}

@@ -56,8 +56,10 @@ if sys.platform == "win32":
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-# Load .env file
-from dotenv import load_dotenv
+# Load .env file with centralized error handling
+from cli.utils import import_dotenv
+
+load_dotenv = import_dotenv()
 
 env_file = Path(__file__).parent.parent.parent / ".env"
 if env_file.exists():
@@ -208,7 +210,9 @@ async def cmd_review_pr(args) -> int:
             f"[DEBUG] Calling orchestrator.review_pr({args.pr_number})...", flush=True
         )
 
-    result = await orchestrator.review_pr(args.pr_number)
+    # Pass force_review flag if --force was specified
+    force_review = getattr(args, "force", False)
+    result = await orchestrator.review_pr(args.pr_number, force_review=force_review)
 
     if debug:
         print(f"[DEBUG] review_pr returned, success={result.success}", flush=True)
@@ -680,6 +684,11 @@ def main():
         "--auto-post",
         action="store_true",
         help="Automatically post review to GitHub",
+    )
+    review_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force a new review even if commit was already reviewed",
     )
 
     # followup-review-pr command

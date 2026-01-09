@@ -5,6 +5,7 @@ Workspace Commands
 CLI commands for workspace management (merge, review, discard, list, cleanup)
 """
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -22,6 +23,8 @@ from core.workspace.git_utils import (
     get_merge_base,
     is_lock_file,
 )
+from core.worktree import PushAndCreatePRResult as CreatePRResult
+from core.worktree import WorktreeManager
 from debug import debug_warning
 from ui import (
     Icons,
@@ -30,6 +33,7 @@ from ui import (
 from workspace import (
     cleanup_all_worktrees,
     discard_existing_build,
+    get_existing_build_worktree,
     list_all_worktrees,
     merge_existing_build,
     review_existing_build,
@@ -67,6 +71,7 @@ def _detect_default_branch(project_dir: Path) -> str:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             return env_branch
@@ -78,6 +83,7 @@ def _detect_default_branch(project_dir: Path) -> str:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             return branch
@@ -90,18 +96,32 @@ def _get_changed_files_from_git(
     worktree_path: Path, base_branch: str = "main"
 ) -> list[str]:
     """
-    Get list of changed files from git diff between base branch and HEAD.
+    Get list of files changed by the task (not files changed on base branch).
+
+    Uses merge-base to accurately identify only the files modified in the worktree,
+    not files that changed on the base branch since the worktree was created.
 
     Args:
         worktree_path: Path to the worktree
         base_branch: Base branch to compare against (default: main)
 
     Returns:
-        List of changed file paths
+        List of changed file paths (task changes only)
     """
     try:
+        # First, get the merge-base (the point where the worktree branched)
+        merge_base_result = subprocess.run(
+            ["git", "merge-base", base_branch, "HEAD"],
+            cwd=worktree_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        merge_base = merge_base_result.stdout.strip()
+
+        # Use two-dot diff from merge-base to get only task's changes
         result = subprocess.run(
-            ["git", "diff", "--name-only", f"{base_branch}...HEAD"],
+            ["git", "diff", "--name-only", f"{merge_base}..HEAD"],
             cwd=worktree_path,
             capture_output=True,
             text=True,
@@ -113,10 +133,10 @@ def _get_changed_files_from_git(
         # Log the failure before trying fallback
         debug_warning(
             "workspace_commands",
-            f"git diff (three-dot) failed: returncode={e.returncode}, "
+            f"git diff with merge-base failed: returncode={e.returncode}, "
             f"stderr={e.stderr.strip() if e.stderr else 'N/A'}",
         )
-        # Fallback: try without the three-dot notation
+        # Fallback: try direct two-arg diff (less accurate but works)
         try:
             result = subprocess.run(
                 ["git", "diff", "--name-only", base_branch, "HEAD"],
@@ -131,10 +151,174 @@ def _get_changed_files_from_git(
             # Log the failure before returning empty list
             debug_warning(
                 "workspace_commands",
-                f"git diff (two-arg) failed: returncode={e.returncode}, "
+                f"git diff (fallback) failed: returncode={e.returncode}, "
                 f"stderr={e.stderr.strip() if e.stderr else 'N/A'}",
             )
             return []
+
+
+def _detect_worktree_base_branch(
+    project_dir: Path,
+    worktree_path: Path,
+    spec_name: str,
+) -> str | None:
+    """
+    Detect which branch a worktree was created from.
+
+    Tries multiple strategies:
+    1. Check worktree config file (.auto-claude/worktree-config.json)
+    2. Find merge-base with known branches (develop, main, master)
+    3. Return None if unable to detect
+
+    Args:
+        project_dir: Project root directory
+        worktree_path: Path to the worktree
+        spec_name: Name of the spec
+
+    Returns:
+        The detected base branch name, or None if unable to detect
+    """
+    # Strategy 1: Check for worktree config file
+    config_path = worktree_path / ".auto-claude" / "worktree-config.json"
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text())
+            if config.get("base_branch"):
+                debug(
+                    MODULE,
+                    f"Found base branch in worktree config: {config['base_branch']}",
+                )
+                return config["base_branch"]
+        except Exception as e:
+            debug_warning(MODULE, f"Failed to read worktree config: {e}")
+
+    # Strategy 2: Find which branch has the closest merge-base
+    # Check common branches: develop, main, master
+    spec_branch = f"auto-claude/{spec_name}"
+    candidate_branches = ["develop", "main", "master"]
+
+    best_branch = None
+    best_commits_behind = float("inf")
+
+    for branch in candidate_branches:
+        try:
+            # Check if branch exists
+            check = subprocess.run(
+                ["git", "rev-parse", "--verify", branch],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+            )
+            if check.returncode != 0:
+                continue
+
+            # Get merge base
+            merge_base_result = subprocess.run(
+                ["git", "merge-base", branch, spec_branch],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+            )
+            if merge_base_result.returncode != 0:
+                continue
+
+            merge_base = merge_base_result.stdout.strip()
+
+            # Count commits between merge-base and branch tip
+            # The branch with fewer commits ahead is likely the one we branched from
+            ahead_result = subprocess.run(
+                ["git", "rev-list", "--count", f"{merge_base}..{branch}"],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+            )
+            if ahead_result.returncode == 0:
+                commits_ahead = int(ahead_result.stdout.strip())
+                debug(
+                    MODULE,
+                    f"Branch {branch} is {commits_ahead} commits ahead of merge-base",
+                )
+                if commits_ahead < best_commits_behind:
+                    best_commits_behind = commits_ahead
+                    best_branch = branch
+        except Exception as e:
+            debug_warning(MODULE, f"Error checking branch {branch}: {e}")
+            continue
+
+    if best_branch:
+        debug(
+            MODULE,
+            f"Detected base branch from git history: {best_branch} (commits ahead: {best_commits_behind})",
+        )
+        return best_branch
+
+    return None
+
+
+def _detect_parallel_task_conflicts(
+    project_dir: Path,
+    current_task_id: str,
+    current_task_files: list[str],
+) -> list[dict]:
+    """
+    Detect potential conflicts between this task and other active tasks.
+
+    Uses existing evolution data to check if any of this task's files
+    have been modified by other active tasks. This is a lightweight check
+    that doesn't require re-processing all files.
+
+    Args:
+        project_dir: Project root directory
+        current_task_id: ID of the current task
+        current_task_files: Files modified by this task (from git diff)
+
+    Returns:
+        List of conflict dictionaries with 'file' and 'tasks' keys
+    """
+    try:
+        from merge import MergeOrchestrator
+
+        # Initialize orchestrator just to access evolution data
+        orchestrator = MergeOrchestrator(
+            project_dir,
+            enable_ai=False,
+            dry_run=True,
+        )
+
+        # Get all active tasks from evolution data
+        active_tasks = orchestrator.evolution_tracker.get_active_tasks()
+
+        # Remove current task from active tasks
+        other_active_tasks = active_tasks - {current_task_id}
+
+        if not other_active_tasks:
+            return []
+
+        # Convert current task files to a set for fast lookup
+        current_files_set = set(current_task_files)
+
+        # Get files modified by other active tasks
+        conflicts = []
+        other_task_files = orchestrator.evolution_tracker.get_files_modified_by_tasks(
+            list(other_active_tasks)
+        )
+
+        # Find intersection - files modified by both this task and other tasks
+        for file_path, tasks in other_task_files.items():
+            if file_path in current_files_set:
+                # This file was modified by both current task and other task(s)
+                all_tasks = [current_task_id] + tasks
+                conflicts.append({"file": file_path, "tasks": all_tasks})
+
+        return conflicts
+
+    except Exception as e:
+        # If anything fails, just return empty - parallel task detection is optional
+        debug_warning(
+            "workspace_commands",
+            f"Parallel task conflict detection failed: {e}",
+        )
+        return []
 
 
 # Import debug utilities
@@ -352,7 +536,9 @@ def handle_cleanup_worktrees_command(project_dir: Path) -> None:
     cleanup_all_worktrees(project_dir, confirm=True)
 
 
-def _check_git_merge_conflicts(project_dir: Path, spec_name: str) -> dict:
+def _check_git_merge_conflicts(
+    project_dir: Path, spec_name: str, base_branch: str | None = None
+) -> dict:
     """
     Check for git-level merge conflicts WITHOUT modifying the working directory.
 
@@ -362,6 +548,7 @@ def _check_git_merge_conflicts(project_dir: Path, spec_name: str) -> dict:
     Args:
         project_dir: Project root directory
         spec_name: Name of the spec
+        base_branch: Branch the task was created from (default: auto-detect)
 
     Returns:
         Dictionary with git conflict information:
@@ -380,21 +567,25 @@ def _check_git_merge_conflicts(project_dir: Path, spec_name: str) -> dict:
         "has_conflicts": False,
         "conflicting_files": [],
         "needs_rebase": False,
-        "base_branch": "main",
+        "base_branch": base_branch or "main",
         "spec_branch": spec_branch,
         "commits_behind": 0,
     }
 
     try:
-        # Get the current branch (base branch)
-        base_result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=project_dir,
-            capture_output=True,
-            text=True,
-        )
-        if base_result.returncode == 0:
-            result["base_branch"] = base_result.stdout.strip()
+        # Use provided base_branch, or detect from current HEAD
+        if not base_branch:
+            base_result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+            )
+            if base_result.returncode == 0:
+                result["base_branch"] = base_result.stdout.strip()
+        else:
+            result["base_branch"] = base_branch
+            debug(MODULE, f"Using provided base branch: {base_branch}")
 
         # Get the merge base commit
         merge_base_result = subprocess.run(
@@ -553,7 +744,6 @@ def handle_merge_preview_command(
         spec_name=spec_name,
     )
 
-    from merge import MergeOrchestrator
     from workspace import get_existing_build_worktree
 
     worktree_path = get_existing_build_worktree(project_dir, spec_name)
@@ -580,15 +770,31 @@ def handle_merge_preview_command(
         }
 
     try:
-        # First, check for git-level conflicts (diverged branches)
-        git_conflicts = _check_git_merge_conflicts(project_dir, spec_name)
-
         # Determine the task's source branch (where the task was created from)
-        # Use provided base_branch (from task metadata), or fall back to detected default
+        # Priority:
+        # 1. Provided base_branch (from task metadata)
+        # 2. Detect from worktree's git history (find which branch it diverged from)
+        # 3. Fall back to default branch detection (main/master)
         task_source_branch = base_branch
         if not task_source_branch:
-            # Auto-detect the default branch (main/master) that worktrees are typically created from
+            # Try to detect from worktree's git history
+            task_source_branch = _detect_worktree_base_branch(
+                project_dir, worktree_path, spec_name
+            )
+        if not task_source_branch:
+            # Fall back to auto-detecting main/master
             task_source_branch = _detect_default_branch(project_dir)
+
+        debug(
+            MODULE,
+            f"Using task source branch: {task_source_branch}",
+            provided=base_branch is not None,
+        )
+
+        # Check for git-level conflicts (diverged branches) using the task's source branch
+        git_conflicts = _check_git_merge_conflicts(
+            project_dir, spec_name, base_branch=task_source_branch
+        )
 
         # Get actual changed files from git diff (this is the authoritative count)
         all_changed_files = _get_changed_files_from_git(
@@ -600,49 +806,39 @@ def handle_merge_preview_command(
             changed_files=all_changed_files[:10],  # Log first 10
         )
 
-        debug(MODULE, "Initializing MergeOrchestrator for preview...")
+        # OPTIMIZATION: Skip expensive refresh_from_git() and preview_merge() calls
+        # For merge-preview, we only need to detect:
+        # 1. Git conflicts (task vs base branch) - already calculated in _check_git_merge_conflicts()
+        # 2. Parallel task conflicts (this task vs other active tasks)
+        #
+        # For parallel task detection, we just check if this task's files overlap
+        # with files OTHER tasks have already recorded - no need to re-process all files.
 
-        # Initialize the orchestrator
-        orchestrator = MergeOrchestrator(
-            project_dir,
-            enable_ai=False,  # Don't use AI for preview
-            dry_run=True,  # Don't write anything
+        debug(MODULE, "Checking for parallel task conflicts (lightweight)...")
+
+        # Check for parallel task conflicts by looking at existing evolution data
+        parallel_conflicts = _detect_parallel_task_conflicts(
+            project_dir, spec_name, all_changed_files
         )
-
-        # Refresh evolution data from the worktree
-        # Compare against the task's source branch (where the task was created from)
         debug(
             MODULE,
-            f"Refreshing evolution data from worktree: {worktree_path}",
-            task_source_branch=task_source_branch,
-        )
-        orchestrator.evolution_tracker.refresh_from_git(
-            spec_name, worktree_path, target_branch=task_source_branch
+            f"Parallel task conflicts detected: {len(parallel_conflicts)}",
+            conflicts=parallel_conflicts[:5] if parallel_conflicts else [],
         )
 
-        # Get merge preview (semantic conflicts between parallel tasks)
-        debug(MODULE, "Generating merge preview...")
-        preview = orchestrator.preview_merge([spec_name])
-
-        # Transform semantic conflicts to UI-friendly format
+        # Build conflict list - start with parallel task conflicts
         conflicts = []
-        for c in preview.get("conflicts", []):
-            debug_verbose(
-                MODULE,
-                "Processing semantic conflict",
-                file=c.get("file", ""),
-                severity=c.get("severity", "unknown"),
-            )
+        for pc in parallel_conflicts:
             conflicts.append(
                 {
-                    "file": c.get("file", ""),
-                    "location": c.get("location", ""),
-                    "tasks": c.get("tasks", []),
-                    "severity": c.get("severity", "unknown"),
-                    "canAutoMerge": c.get("can_auto_merge", False),
-                    "strategy": c.get("strategy"),
-                    "reason": c.get("reason", ""),
-                    "type": "semantic",
+                    "file": pc["file"],
+                    "location": "file-level",
+                    "tasks": pc["tasks"],
+                    "severity": "medium",
+                    "canAutoMerge": False,
+                    "strategy": None,
+                    "reason": f"File modified by multiple active tasks: {', '.join(pc['tasks'])}",
+                    "type": "parallel",
                 }
             )
 
@@ -669,13 +865,14 @@ def handle_merge_preview_command(
                 }
             )
 
-        summary = preview.get("summary", {})
         # Count only non-lock-file conflicts
         git_conflict_count = len(git_conflicts.get("conflicting_files", [])) - len(
             lock_files_excluded
         )
-        total_conflicts = summary.get("total_conflicts", 0) + git_conflict_count
-        conflict_files = summary.get("conflict_files", 0) + git_conflict_count
+        # Calculate totals from our conflict lists (git conflicts + parallel conflicts)
+        parallel_conflict_count = len(parallel_conflicts)
+        total_conflicts = git_conflict_count + parallel_conflict_count
+        conflict_files = git_conflict_count + parallel_conflict_count
 
         # Filter lock files from the git conflicts list for the response
         non_lock_conflicting_files = [
@@ -761,7 +958,7 @@ def handle_merge_preview_command(
                 "totalFiles": total_files_from_git,
                 "conflictFiles": conflict_files,
                 "totalConflicts": total_conflicts,
-                "autoMergeable": summary.get("auto_mergeable", 0),
+                "autoMergeable": 0,  # Not tracking auto-merge in lightweight mode
                 "hasGitConflicts": git_conflicts["has_conflicts"]
                 and len(non_lock_conflicting_files) > 0,
                 # Include path-mapped AI merge count for UI display
@@ -776,10 +973,9 @@ def handle_merge_preview_command(
             "Merge preview complete",
             total_files=result["summary"]["totalFiles"],
             total_files_source="git_diff",
-            semantic_tracked_files=summary.get("total_files", 0),
             total_conflicts=result["summary"]["totalConflicts"],
             has_git_conflicts=git_conflicts["has_conflicts"],
-            auto_mergeable=result["summary"]["autoMergeable"],
+            parallel_conflicts=parallel_conflict_count,
             path_mapped_ai_merges=len(path_mapped_ai_merges),
             total_renames=len(path_mappings),
         )
@@ -804,4 +1000,221 @@ def handle_merge_preview_command(
                 "autoMergeable": 0,
                 "pathMappedAIMergeCount": 0,
             },
+        }
+
+
+def handle_create_pr_command(
+    project_dir: Path,
+    spec_name: str,
+    target_branch: str | None = None,
+    title: str | None = None,
+    draft: bool = False,
+) -> CreatePRResult:
+    """
+    Handle the --create-pr command: push branch and create a GitHub PR.
+
+    Args:
+        project_dir: Path to the project directory
+        spec_name: Name of the spec (e.g., "001-feature-name")
+        target_branch: Target branch for PR (defaults to base branch)
+        title: Custom PR title (defaults to spec name)
+        draft: Whether to create as draft PR
+
+    Returns:
+        CreatePRResult with success status, pr_url, and any errors
+    """
+    from core.worktree import WorktreeManager
+
+    print_banner()
+    print("\n" + "=" * 70)
+    print("  CREATE PULL REQUEST")
+    print("=" * 70)
+
+    # Check if worktree exists
+    worktree_path = get_existing_build_worktree(project_dir, spec_name)
+    if not worktree_path:
+        print(f"\n{icon(Icons.ERROR)} No build found for spec: {spec_name}")
+        print("\nA completed build worktree is required to create a PR.")
+        print("Run your build first, then use --create-pr.")
+        error_result: CreatePRResult = {
+            "success": False,
+            "error": "No build found for this spec",
+        }
+        return error_result
+
+    # Create worktree manager
+    manager = WorktreeManager(project_dir, base_branch=target_branch)
+
+    print(f"\n{icon(Icons.BRANCH)} Pushing branch and creating PR...")
+    print(f"   Spec: {spec_name}")
+    print(f"   Target: {target_branch or manager.base_branch}")
+    if title:
+        print(f"   Title: {title}")
+    if draft:
+        print("   Mode: Draft PR")
+
+    # Push and create PR with exception handling for clean JSON output
+    try:
+        raw_result = manager.push_and_create_pr(
+            spec_name=spec_name,
+            target_branch=target_branch,
+            title=title,
+            draft=draft,
+        )
+    except Exception as e:
+        debug_error(MODULE, f"Exception during PR creation: {e}")
+        error_result: CreatePRResult = {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to create PR",
+        }
+        print(f"\n{icon(Icons.ERROR)} Failed to create PR: {e}")
+        print(json.dumps(error_result))
+        return error_result
+
+    # Convert PushAndCreatePRResult to CreatePRResult
+    result: CreatePRResult = {
+        "success": raw_result.get("success", False),
+        "pr_url": raw_result.get("pr_url"),
+        "already_exists": raw_result.get("already_exists", False),
+        "error": raw_result.get("error"),
+        "message": raw_result.get("message"),
+        "pushed": raw_result.get("pushed", False),
+        "remote": raw_result.get("remote", ""),
+        "branch": raw_result.get("branch", ""),
+    }
+
+    if result.get("success"):
+        pr_url = result.get("pr_url")
+        already_exists = result.get("already_exists", False)
+
+        if already_exists:
+            print(f"\n{icon(Icons.SUCCESS)} PR already exists!")
+        else:
+            print(f"\n{icon(Icons.SUCCESS)} PR created successfully!")
+
+        if pr_url:
+            print(f"\n{icon(Icons.LINK)} {pr_url}")
+        else:
+            print(f"\n{icon(Icons.INFO)} Check GitHub for the PR URL")
+
+        print("\nNext steps:")
+        print("  1. Review the PR on GitHub")
+        print("  2. Request reviews from your team")
+        print("  3. Merge when approved")
+
+        # Output JSON for frontend parsing
+        print(json.dumps(result))
+        return result
+    else:
+        error = result.get("error", "Unknown error")
+        print(f"\n{icon(Icons.ERROR)} Failed to create PR: {error}")
+        # Output JSON for frontend parsing
+        print(json.dumps(result))
+        return result
+
+
+def cleanup_old_worktrees_command(
+    project_dir: Path, days: int = 30, dry_run: bool = False
+) -> dict:
+    """
+    Clean up old worktrees that haven't been modified in the specified number of days.
+
+    Args:
+        project_dir: Project root directory
+        days: Number of days threshold (default: 30)
+        dry_run: If True, only show what would be removed (default: False)
+
+    Returns:
+        Dictionary with cleanup results
+    """
+    try:
+        manager = WorktreeManager(project_dir)
+
+        removed, failed = manager.cleanup_old_worktrees(
+            days_threshold=days, dry_run=dry_run
+        )
+
+        return {
+            "success": True,
+            "removed": removed,
+            "failed": failed,
+            "dry_run": dry_run,
+            "days_threshold": days,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "removed": [],
+            "failed": [],
+        }
+
+
+def worktree_summary_command(project_dir: Path) -> dict:
+    """
+    Get a summary of all worktrees with age information.
+
+    Args:
+        project_dir: Project root directory
+
+    Returns:
+        Dictionary with worktree summary data
+    """
+    try:
+        manager = WorktreeManager(project_dir)
+
+        # Print to console for CLI usage
+        manager.print_worktree_summary()
+
+        # Also return data for programmatic access
+        worktrees = manager.list_all_worktrees()
+        warning = manager.get_worktree_count_warning()
+
+        # Categorize by age
+        recent = []
+        week_old = []
+        month_old = []
+        very_old = []
+        unknown_age = []
+
+        for info in worktrees:
+            data = {
+                "spec_name": info.spec_name,
+                "days_since_last_commit": info.days_since_last_commit,
+                "commit_count": info.commit_count,
+            }
+
+            if info.days_since_last_commit is None:
+                unknown_age.append(data)
+            elif info.days_since_last_commit < 7:
+                recent.append(data)
+            elif info.days_since_last_commit < 30:
+                week_old.append(data)
+            elif info.days_since_last_commit < 90:
+                month_old.append(data)
+            else:
+                very_old.append(data)
+
+        return {
+            "success": True,
+            "total_worktrees": len(worktrees),
+            "categories": {
+                "recent": recent,
+                "week_old": week_old,
+                "month_old": month_old,
+                "very_old": very_old,
+                "unknown_age": unknown_age,
+            },
+            "warning": warning,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "total_worktrees": 0,
+            "categories": {},
+            "warning": None,
         }

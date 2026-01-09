@@ -9,6 +9,7 @@ import { projectStore } from '../project-store';
 import { terminalNameGenerator } from '../terminal-name-generator';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { escapeShellArg, escapeShellArgWindows } from '../../shared/utils/shell-escape';
+import { getClaudeCliInvocationAsync } from '../claude-cli-utils';
 
 
 /**
@@ -53,7 +54,10 @@ export function registerTerminalHandlers(
   ipcMain.on(
     IPC_CHANNELS.TERMINAL_INVOKE_CLAUDE,
     (_, id: string, cwd?: string) => {
-      terminalManager.invokeClaude(id, cwd);
+      // Use async version to avoid blocking main process during CLI detection
+      terminalManager.invokeClaudeAsync(id, cwd).catch((error) => {
+        console.error('[terminal-handlers] Failed to invoke Claude:', error);
+      });
     }
   );
 
@@ -73,6 +77,22 @@ export function registerTerminalHandlers(
           error: error instanceof Error ? error.message : 'Failed to generate terminal name'
         };
       }
+    }
+  );
+
+  // Set terminal title (user renamed terminal in renderer)
+  ipcMain.on(
+    IPC_CHANNELS.TERMINAL_SET_TITLE,
+    (_, id: string, title: string) => {
+      terminalManager.setTitle(id, title);
+    }
+  );
+
+  // Set terminal worktree config (user changed worktree association in renderer)
+  ipcMain.on(
+    IPC_CHANNELS.TERMINAL_SET_WORKTREE_CONFIG,
+    (_, id: string, config: import('../../shared/types').TerminalWorktreeConfig | undefined) => {
+      terminalManager.setWorktreeConfig(id, config);
     }
   );
 
@@ -321,7 +341,15 @@ export function registerTerminalHandlers(
         });
 
         // Create a new terminal for the login process
-        await terminalManager.create({ id: terminalId, cwd: homeDir });
+        const createResult = await terminalManager.create({ id: terminalId, cwd: homeDir });
+
+        // If terminal creation failed, return the error
+        if (!createResult.success) {
+          return {
+            success: false,
+            error: createResult.error || 'Failed to create terminal for authentication'
+          };
+        }
 
         // Wait a moment for the terminal to initialize
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -329,20 +357,30 @@ export function registerTerminalHandlers(
         // Build the login command with the profile's config dir
         // Use platform-specific syntax and escaping for environment variables
         let loginCommand: string;
+        const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
+        const pathPrefix = claudeEnv.PATH
+          ? (process.platform === 'win32'
+              ? `set "PATH=${escapeShellArgWindows(claudeEnv.PATH)}" && `
+              : `export PATH=${escapeShellArg(claudeEnv.PATH)} && `)
+          : '';
+        const shellClaudeCmd = process.platform === 'win32'
+          ? `"${escapeShellArgWindows(claudeCmd)}"`
+          : escapeShellArg(claudeCmd);
+
         if (!profile.isDefault && profile.configDir) {
           if (process.platform === 'win32') {
             // SECURITY: Use Windows-specific escaping for cmd.exe
             const escapedConfigDir = escapeShellArgWindows(profile.configDir);
             // Windows cmd.exe syntax: set "VAR=value" with %VAR% for expansion
-            loginCommand = `set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && claude setup-token`;
+            loginCommand = `${pathPrefix}set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && ${shellClaudeCmd} setup-token`;
           } else {
             // SECURITY: Use POSIX escaping for bash/zsh
             const escapedConfigDir = escapeShellArg(profile.configDir);
             // Unix/Mac bash/zsh syntax: export VAR=value with $VAR for expansion
-            loginCommand = `export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && claude setup-token`;
+            loginCommand = `${pathPrefix}export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && ${shellClaudeCmd} setup-token`;
           }
         } else {
-          loginCommand = 'claude setup-token';
+          loginCommand = `${pathPrefix}${shellClaudeCmd} setup-token`;
         }
 
         debugLog('[IPC] Sending login command to terminal:', loginCommand);
@@ -350,10 +388,11 @@ export function registerTerminalHandlers(
         // Write the login command to the terminal
         terminalManager.write(terminalId, `${loginCommand}\r`);
 
-        // Notify the renderer that a login terminal was created
+        // Notify the renderer that an auth terminal was created
+        // This allows the UI to display the terminal so users can see the OAuth flow
         const mainWindow = getMainWindow();
         if (mainWindow) {
-          mainWindow.webContents.send('claude-profile-login-terminal', {
+          mainWindow.webContents.send(IPC_CHANNELS.TERMINAL_AUTH_CREATED, {
             terminalId,
             profileId,
             profileName: profile.name
@@ -599,7 +638,21 @@ export function registerTerminalHandlers(
   ipcMain.on(
     IPC_CHANNELS.TERMINAL_RESUME_CLAUDE,
     (_, id: string, sessionId?: string) => {
-      terminalManager.resumeClaude(id, sessionId);
+      // Use async version to avoid blocking main process during CLI detection
+      terminalManager.resumeClaudeAsync(id, sessionId).catch((error) => {
+        console.error('[terminal-handlers] Failed to resume Claude:', error);
+      });
+    }
+  );
+
+  // Activate deferred Claude resume when terminal becomes active
+  // This is triggered by the renderer when a terminal with pendingClaudeResume becomes the active tab
+  ipcMain.on(
+    IPC_CHANNELS.TERMINAL_ACTIVATE_DEFERRED_RESUME,
+    (_, id: string) => {
+      terminalManager.activateDeferredResume(id).catch((error) => {
+        console.error('[terminal-handlers] Failed to activate deferred Claude resume:', error);
+      });
     }
   );
 

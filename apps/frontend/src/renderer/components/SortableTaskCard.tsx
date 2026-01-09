@@ -1,15 +1,31 @@
+import { memo, useCallback } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TaskCard } from './TaskCard';
 import { cn } from '../lib/utils';
-import type { Task } from '../../shared/types';
+import type { Task, TaskStatus } from '../../shared/types';
 
 interface SortableTaskCardProps {
   task: Task;
   onClick: () => void;
+  onStatusChange?: (newStatus: TaskStatus) => unknown;
 }
 
-export function SortableTaskCard({ task, onClick }: SortableTaskCardProps) {
+// Custom comparator - only re-render when task or onClick actually changed
+function sortableTaskCardPropsAreEqual(
+  prevProps: SortableTaskCardProps,
+  nextProps: SortableTaskCardProps
+): boolean {
+  // TaskCard has its own memo, so we just need to check reference equality
+  // for the task object and onClick handler
+  return (
+    prevProps.task === nextProps.task &&
+    prevProps.onClick === nextProps.onClick &&
+    prevProps.onStatusChange === nextProps.onStatusChange
+  );
+}
+
+export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, onStatusChange }: SortableTaskCardProps) {
   const {
     attributes,
     listeners,
@@ -27,6 +43,11 @@ export function SortableTaskCard({ task, onClick }: SortableTaskCardProps) {
     zIndex: isDragging ? 50 : undefined
   };
 
+  // Memoize onClick to prevent unnecessary TaskCard re-renders
+  const handleClick = useCallback(() => {
+    onClick();
+  }, [onClick]);
+
   return (
     <div
       ref={setNodeRef}
@@ -39,7 +60,7 @@ export function SortableTaskCard({ task, onClick }: SortableTaskCardProps) {
       {...attributes}
       {...listeners}
     >
-      <TaskCard task={task} onClick={onClick} />
+      <TaskCard task={task} onClick={handleClick} onStatusChange={onStatusChange} />
     </div>
   );
-}
+}, sortableTaskCardPropsAreEqual);

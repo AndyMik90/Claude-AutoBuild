@@ -161,15 +161,30 @@ class TestGetRequiredMcpServers:
             os.environ.pop("ELECTRON_MCP_ENABLED", None)
 
     def test_browser_resolved_to_puppeteer_for_web_frontend(self):
-        """Browser should resolve to 'puppeteer' for web frontend projects."""
+        """Browser should resolve to 'puppeteer' for web frontend projects when enabled."""
         from agents.tools_pkg.models import get_required_mcp_servers
 
+        # Puppeteer requires explicit opt-in via project config
         servers = get_required_mcp_servers(
-            "qa_reviewer", project_capabilities={"is_web_frontend": True, "is_electron": False}
+            "qa_reviewer",
+            project_capabilities={"is_web_frontend": True, "is_electron": False},
+            mcp_config={"PUPPETEER_MCP_ENABLED": "true"},
         )
         assert "puppeteer" in servers
         assert "browser" not in servers
         assert "electron" not in servers
+
+    def test_puppeteer_not_included_when_disabled(self):
+        """Puppeteer should NOT be included when not explicitly enabled (default)."""
+        from agents.tools_pkg.models import get_required_mcp_servers
+
+        # Default behavior: puppeteer is NOT auto-enabled for web frontends
+        servers = get_required_mcp_servers(
+            "qa_reviewer",
+            project_capabilities={"is_web_frontend": True, "is_electron": False},
+        )
+        assert "puppeteer" not in servers
+        assert "browser" not in servers
 
 
 class TestGetDefaultThinkingLevel:
@@ -218,15 +233,15 @@ class TestGetAllowedTools:
         assert "Edit" in tools
         assert "Bash" in tools
 
-    def test_qa_reviewer_is_read_only_plus_bash(self):
-        """QA reviewer should be read-only plus Bash for running tests - no Write/Edit."""
+    def test_qa_reviewer_has_write_for_reports(self):
+        """QA reviewer needs Write/Edit to create qa_report.md and update implementation_plan.json."""
         from agents.tools_pkg.permissions import get_allowed_tools
 
         tools = get_allowed_tools("qa_reviewer")
         assert "Read" in tools
         assert "Bash" in tools  # Can run tests
-        assert "Write" not in tools  # Should NOT be able to edit code
-        assert "Edit" not in tools  # Should NOT be able to edit code
+        assert "Write" in tools  # Needs to write qa_report.md
+        assert "Edit" in tools  # Needs to edit implementation_plan.json
 
     def test_pr_reviewer_is_read_only(self):
         """PR reviewer should only have Read tools."""

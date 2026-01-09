@@ -343,6 +343,34 @@ class GraphitiMemory:
 
         return await self._search.get_similar_task_outcomes(task_description, limit)
 
+    async def get_patterns_and_gotchas(
+        self,
+        query: str,
+        num_results: int = 5,
+        min_score: float = 0.5,
+    ) -> tuple[list[dict], list[dict]]:
+        """
+        Get patterns and gotchas relevant to the query.
+
+        This method specifically retrieves PATTERN and GOTCHA episode types
+        to enable cross-session learning. Unlike get_relevant_context(),
+        it filters for these specific types rather than doing generic search.
+
+        Args:
+            query: Search query (task description)
+            num_results: Max results per type
+            min_score: Minimum relevance score (0.0-1.0)
+
+        Returns:
+            Tuple of (patterns, gotchas) lists
+        """
+        if not await self._ensure_initialized():
+            return [], []
+
+        return await self._search.get_patterns_and_gotchas(
+            query, num_results, min_score
+        )
+
     # Status and utility methods
 
     def get_status_summary(self) -> dict:

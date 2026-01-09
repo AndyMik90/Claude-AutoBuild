@@ -1,12 +1,21 @@
 import { ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
+
+// Increase max listeners to accommodate 12 terminals with multiple event types
+// Each terminal can have listeners for: output, exit, titleChange, claudeSession, etc.
+// Default is 10, but with 12 terminals we need more headroom
+ipcRenderer.setMaxListeners(50);
+
 import type {
   IPCResult,
   TerminalCreateOptions,
   RateLimitInfo,
   ClaudeProfile,
   ClaudeProfileSettings,
-  ClaudeUsageSnapshot
+  ClaudeUsageSnapshot,
+  CreateTerminalWorktreeRequest,
+  TerminalWorktreeConfig,
+  TerminalWorktreeResult,
 } from '../../shared/types';
 
 /** Type for proactive swap notification events */
@@ -25,6 +34,8 @@ export interface TerminalAPI {
   resizeTerminal: (id: string, cols: number, rows: number) => void;
   invokeClaudeInTerminal: (id: string, cwd?: string) => void;
   generateTerminalName: (command: string, cwd?: string) => Promise<IPCResult<string>>;
+  setTerminalTitle: (id: string, title: string) => void;
+  setTerminalWorktreeConfig: (id: string, config: TerminalWorktreeConfig | undefined) => void;
 
   // Terminal Session Management
   getTerminalSessions: (projectPath: string) => Promise<IPCResult<import('../../shared/types').TerminalSession[]>>;
@@ -35,6 +46,7 @@ export interface TerminalAPI {
   ) => Promise<IPCResult<import('../../shared/types').TerminalRestoreResult>>;
   clearTerminalSessions: (projectPath: string) => Promise<IPCResult>;
   resumeClaudeInTerminal: (id: string, sessionId?: string) => void;
+  activateDeferredClaudeResume: (id: string) => void;
   getTerminalSessionDates: (projectPath?: string) => Promise<IPCResult<import('../../shared/types').SessionDateInfo[]>>;
   getTerminalSessionsForDate: (
     date: string,
@@ -48,6 +60,11 @@ export interface TerminalAPI {
   ) => Promise<IPCResult<import('../../shared/types').SessionDateRestoreResult>>;
   checkTerminalPtyAlive: (terminalId: string) => Promise<IPCResult<{ alive: boolean }>>;
 
+  // Terminal Worktree Operations (isolated development)
+  createTerminalWorktree: (request: CreateTerminalWorktreeRequest) => Promise<TerminalWorktreeResult>;
+  listTerminalWorktrees: (projectPath: string) => Promise<IPCResult<TerminalWorktreeConfig[]>>;
+  removeTerminalWorktree: (projectPath: string, name: string, deleteBranch?: boolean) => Promise<IPCResult>;
+
   // Terminal Event Listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;
@@ -57,6 +74,11 @@ export interface TerminalAPI {
   onTerminalOAuthToken: (
     callback: (info: { terminalId: string; profileId?: string; email?: string; success: boolean; message?: string; detectedAt: string }) => void
   ) => () => void;
+  onTerminalAuthCreated: (
+    callback: (info: { terminalId: string; profileId: string; profileName: string }) => void
+  ) => () => void;
+  onTerminalClaudeBusy: (callback: (id: string, isBusy: boolean) => void) => () => void;
+  onTerminalPendingResume: (callback: (id: string, sessionId?: string) => void) => () => void;
 
   // Claude Profile Management
   getClaudeProfiles: () => Promise<IPCResult<ClaudeProfileSettings>>;
@@ -100,6 +122,12 @@ export const createTerminalAPI = (): TerminalAPI => ({
   generateTerminalName: (command: string, cwd?: string): Promise<IPCResult<string>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_GENERATE_NAME, command, cwd),
 
+  setTerminalTitle: (id: string, title: string): void =>
+    ipcRenderer.send(IPC_CHANNELS.TERMINAL_SET_TITLE, id, title),
+
+  setTerminalWorktreeConfig: (id: string, config: TerminalWorktreeConfig | undefined): void =>
+    ipcRenderer.send(IPC_CHANNELS.TERMINAL_SET_WORKTREE_CONFIG, id, config),
+
   // Terminal Session Management
   getTerminalSessions: (projectPath: string): Promise<IPCResult<import('../../shared/types').TerminalSession[]>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_GET_SESSIONS, projectPath),
@@ -116,6 +144,9 @@ export const createTerminalAPI = (): TerminalAPI => ({
 
   resumeClaudeInTerminal: (id: string, sessionId?: string): void =>
     ipcRenderer.send(IPC_CHANNELS.TERMINAL_RESUME_CLAUDE, id, sessionId),
+
+  activateDeferredClaudeResume: (id: string): void =>
+    ipcRenderer.send(IPC_CHANNELS.TERMINAL_ACTIVATE_DEFERRED_RESUME, id),
 
   getTerminalSessionDates: (projectPath?: string): Promise<IPCResult<import('../../shared/types').SessionDateInfo[]>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_GET_SESSION_DATES, projectPath),
@@ -136,6 +167,16 @@ export const createTerminalAPI = (): TerminalAPI => ({
 
   checkTerminalPtyAlive: (terminalId: string): Promise<IPCResult<{ alive: boolean }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_CHECK_PTY_ALIVE, terminalId),
+
+  // Terminal Worktree Operations (isolated development)
+  createTerminalWorktree: (request: CreateTerminalWorktreeRequest): Promise<TerminalWorktreeResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_WORKTREE_CREATE, request),
+
+  listTerminalWorktrees: (projectPath: string): Promise<IPCResult<TerminalWorktreeConfig[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_WORKTREE_LIST, projectPath),
+
+  removeTerminalWorktree: (projectPath: string, name: string, deleteBranch: boolean = false): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_WORKTREE_REMOVE, projectPath, name, deleteBranch),
 
   // Terminal Event Listeners
   onTerminalOutput: (
@@ -229,6 +270,53 @@ export const createTerminalAPI = (): TerminalAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, handler);
+    };
+  },
+
+  onTerminalAuthCreated: (
+    callback: (info: { terminalId: string; profileId: string; profileName: string }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      info: { terminalId: string; profileId: string; profileName: string }
+    ): void => {
+      callback(info);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TERMINAL_AUTH_CREATED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_AUTH_CREATED, handler);
+    };
+  },
+
+  onTerminalClaudeBusy: (
+    callback: (id: string, isBusy: boolean) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      id: string,
+      isBusy: boolean
+    ): void => {
+      callback(id, isBusy);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TERMINAL_CLAUDE_BUSY, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_CLAUDE_BUSY, handler);
+    };
+  },
+
+  onTerminalPendingResume: (
+    callback: (id: string, sessionId?: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      id: string,
+      sessionId?: string
+    ): void => {
+      callback(id, sessionId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TERMINAL_PENDING_RESUME, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_PENDING_RESUME, handler);
     };
   },
 

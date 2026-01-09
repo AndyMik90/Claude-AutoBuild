@@ -62,6 +62,11 @@ def generate_environment_context(project_dir: Path, spec_dir: Path) -> str:
 Your filesystem is restricted to your working directory. All file paths should be
 relative to this location. Do NOT use absolute paths.
 
+**⚠️ CRITICAL:** Before ANY git command or file operation, run `pwd` to verify your current
+directory. If you've used `cd` to change directories, you MUST use paths relative to your
+NEW location, not the working directory. See the PATH CONFUSION PREVENTION section in the
+coder prompt for detailed examples.
+
 **Important Files:**
 - Spec: `{relative_spec}/spec.md`
 - Plan: `{relative_spec}/implementation_plan.json`

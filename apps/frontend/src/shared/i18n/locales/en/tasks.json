@@ -4,6 +4,7 @@
     "todo": "To Do",
     "in_progress": "In Progress",
     "review": "Review",
+    "prCreated": "PR Created",
     "complete": "Complete",
     "archived": "Archived"
   },
@@ -14,7 +15,10 @@
     "resume": "Resume",
     "archive": "Archive",
     "delete": "Delete",
-    "view": "View Details"
+    "view": "View Details",
+    "viewPR": "View PR",
+    "moveTo": "Move to",
+    "taskActions": "Task actions"
   },
   "labels": {
     "running": "Running",
@@ -35,7 +39,8 @@
   },
   "tooltips": {
     "archiveTask": "Archive task",
-    "archiveAllDone": "Archive all done tasks"
+    "archiveAllDone": "Archive all done tasks",
+    "viewPR": "Open pull request in browser"
   },
   "creation": {
     "title": "Create New Task",
@@ -45,6 +50,14 @@
   "empty": {
     "title": "No tasks yet",
     "description": "Create your first task to get started"
+  },
+  "columns": {
+    "backlog": "Planning",
+    "in_progress": "In Progress",
+    "ai_review": "AI Review",
+    "human_review": "Human Review",
+    "done": "Done",
+    "pr_created": "PR Created"
   },
   "kanban": {
     "emptyBacklog": "No tasks planned",
@@ -59,7 +72,11 @@
     "emptyDoneHint": "Approved tasks appear here",
     "emptyDefault": "No tasks",
     "dropHere": "Drop here",
-    "showArchived": "Show archived"
+    "showArchived": "Show archived",
+    "addTaskAriaLabel": "Add new task to backlog",
+    "closeTaskDetailsAriaLabel": "Close task details",
+    "editTask": "Edit task",
+    "cannotEditWhileRunning": "Cannot edit while task is running"
   },
   "execution": {
     "phases": {
@@ -81,6 +98,37 @@
       "plan": "Plan",
       "code": "Code",
       "qa": "QA"
+    }
+  },
+  "files": {
+    "title": "Files",
+    "tab": "Files",
+    "noSpecPath": "No spec files available",
+    "noFiles": "No files found",
+    "loading": "Loading files...",
+    "loadingContent": "Loading content...",
+    "errorLoading": "Failed to load files",
+    "errorLoadingContent": "Failed to load file content",
+    "retry": "Retry",
+    "selectFile": "Select a file to view its contents",
+    "openInIDE": "Open in IDE"
+  },
+  "metadata": {
+    "severity": "severity",
+    "pullRequest": "Pull Request"
+  },
+  "images": {
+    "removeImageAriaLabel": "Remove image {{filename}}",
+    "pasteHint": "Tip: Paste screenshots directly with {{shortcut}} to add reference images."
+  },
+  "notifications": {
+    "backgroundTaskTitle": "Task continues in background",
+    "backgroundTaskDescription": "The task is still running. You can reopen this dialog to monitor progress."
+  },
+  "wizard": {
+    "gitOptions": {
+      "useWorktreeLabel": "Use isolated workspace (recommended)",
+      "useWorktreeDescription": "Creates changes in a separate git worktree for safe review before merging. Disable to build directly in your project (faster but riskier)."
     }
   }
 }

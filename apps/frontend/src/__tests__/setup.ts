@@ -28,6 +28,14 @@ Object.defineProperty(global, 'localStorage', {
   value: localStorageMock
 });
 
+// Mock scrollIntoView for Radix Select in jsdom
+if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.scrollIntoView) {
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    value: vi.fn(),
+    writable: true
+  });
+}
+
 // Test data directory for isolated file operations
 export const TEST_DATA_DIR = '/tmp/auto-claude-ui-tests';
 
@@ -88,7 +96,14 @@ if (typeof window !== 'undefined') {
       success: true,
       data: { openProjectIds: [], activeProjectId: null, tabOrder: [] }
     }),
-    saveTabState: vi.fn().mockResolvedValue({ success: true })
+    saveTabState: vi.fn().mockResolvedValue({ success: true }),
+    // Profile-related API methods (API Profile feature)
+    getAPIProfiles: vi.fn(),
+    saveAPIProfile: vi.fn(),
+    updateAPIProfile: vi.fn(),
+    deleteAPIProfile: vi.fn(),
+    setActiveAPIProfile: vi.fn(),
+    testConnection: vi.fn()
   };
 }
 

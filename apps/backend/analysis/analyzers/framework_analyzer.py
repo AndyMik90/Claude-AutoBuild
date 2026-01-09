@@ -408,6 +408,6 @@ class FrameworkAnalyzer(BaseAnalyzer):
             return "pnpm"
         elif self._exists("yarn.lock"):
             return "yarn"
-        elif self._exists("bun.lockb"):
+        elif self._exists("bun.lockb") or self._exists("bun.lock"):
             return "bun"
         return "npm"

@@ -121,6 +121,11 @@ AI_BOT_PATTERNS: dict[str, str] = {
     "codium-ai[bot]": "Qodo",
     "codiumai-agent": "Qodo",
     "qodo-merge-bot": "Qodo",
+    # === Google AI ===
+    "gemini-code-assist": "Gemini Code Assist",
+    "gemini-code-assist[bot]": "Gemini Code Assist",
+    "google-code-assist": "Gemini Code Assist",
+    "google-code-assist[bot]": "Gemini Code Assist",
     # === AI Coding Assistants ===
     "copilot": "GitHub Copilot",
     "copilot[bot]": "GitHub Copilot",
@@ -196,6 +201,14 @@ class PRContext:
     ai_bot_comments: list[AIBotComment] = field(default_factory=list)
     # Flag indicating if full diff was skipped (PR > 20K lines)
     diff_truncated: bool = False
+    # Commit SHAs for worktree creation (PR review isolation)
+    head_sha: str = ""  # Commit SHA of PR head (headRefOid)
+    base_sha: str = ""  # Commit SHA of PR base (baseRefOid)
+    # Merge conflict status
+    has_merge_conflicts: bool = False  # True if PR has conflicts with base branch
+    merge_state_status: str = (
+        ""  # BEHIND, BLOCKED, CLEAN, DIRTY, HAS_HOOKS, UNKNOWN, UNSTABLE
+    )
 
 
 class PRContextGatherer:
@@ -268,6 +281,17 @@ class PRContextGatherer:
         # Check if diff was truncated (empty diff but files were changed)
         diff_truncated = len(diff) == 0 and len(changed_files) > 0
 
+        # Check merge conflict status
+        mergeable = pr_data.get("mergeable", "UNKNOWN")
+        merge_state_status = pr_data.get("mergeStateStatus", "UNKNOWN")
+        has_merge_conflicts = mergeable == "CONFLICTING"
+
+        if has_merge_conflicts:
+            print(
+                f"[Context] ⚠️  PR has merge conflicts (mergeStateStatus: {merge_state_status})",
+                flush=True,
+            )
+
         return PRContext(
             pr_number=self.pr_number,
             title=pr_data["title"],
@@ -286,6 +310,10 @@ class PRContextGatherer:
             total_deletions=pr_data.get("deletions", 0),
             ai_bot_comments=ai_bot_comments,
             diff_truncated=diff_truncated,
+            head_sha=pr_data.get("headRefOid", ""),
+            base_sha=pr_data.get("baseRefOid", ""),
+            has_merge_conflicts=has_merge_conflicts,
+            merge_state_status=merge_state_status,
         )
 
     async def _fetch_pr_metadata(self) -> dict:
@@ -307,6 +335,8 @@ class PRContextGatherer:
                 "deletions",
                 "changedFiles",
                 "labels",
+                "mergeable",  # MERGEABLE, CONFLICTING, or UNKNOWN
+                "mergeStateStatus",  # BEHIND, BLOCKED, CLEAN, DIRTY, HAS_HOOKS, UNKNOWN, UNSTABLE
             ],
         )
 
@@ -352,7 +382,7 @@ class PRContextGatherer:
 
             if proc.returncode == 0:
                 print(
-                    f"[Context] Fetched PR refs: {head_sha[:8]}...{base_sha[:8]}",
+                    f"[Context] Fetched PR refs: base={base_sha[:8]} → head={head_sha[:8]}",
                     flush=True,
                 )
                 return True
@@ -870,8 +900,9 @@ class PRContextGatherer:
         # Start from the directory containing the source file
         base_dir = source_path.parent
 
-        # Resolve relative path
-        resolved = (base_dir / import_path).resolve()
+        # Resolve relative path - MUST prepend project_dir to resolve correctly
+        # when CWD is different from project root (e.g., running from apps/backend/)
+        resolved = (self.project_dir / base_dir / import_path).resolve()
 
         # Try common extensions if no extension provided
         if not resolved.suffix:
@@ -1025,27 +1056,56 @@ class FollowupContextGatherer:
             f"[Followup] Comparing {previous_sha[:8]}...{current_sha[:8]}", flush=True
         )
 
-        # Get commit comparison
+        # Get PR-scoped files and commits (excludes merge-introduced changes)
+        # This solves the problem where merging develop into a feature branch
+        # would include commits from other PRs in the follow-up review.
+        # Pass reviewed_file_blobs for rebase-resistant comparison
+        reviewed_file_blobs = getattr(self.previous_review, "reviewed_file_blobs", {})
         try:
-            comparison = await self.gh_client.compare_commits(previous_sha, current_sha)
-        except Exception as e:
-            print(f"[Followup] Error comparing commits: {e}", flush=True)
-            return FollowupReviewContext(
-                pr_number=self.pr_number,
-                previous_review=self.previous_review,
-                previous_commit_sha=previous_sha,
-                current_commit_sha=current_sha,
+            pr_files, new_commits = await self.gh_client.get_pr_files_changed_since(
+                self.pr_number, previous_sha, reviewed_file_blobs=reviewed_file_blobs
             )
+            print(
+                f"[Followup] PR has {len(pr_files)} files, "
+                f"{len(new_commits)} commits since last review"
+                + (" (blob comparison used)" if reviewed_file_blobs else ""),
+                flush=True,
+            )
+        except Exception as e:
+            print(f"[Followup] Error getting PR files/commits: {e}", flush=True)
+            # Fallback to compare_commits if PR endpoints fail
+            print("[Followup] Falling back to commit comparison...", flush=True)
+            try:
+                comparison = await self.gh_client.compare_commits(
+                    previous_sha, current_sha
+                )
+                new_commits = comparison.get("commits", [])
+                pr_files = comparison.get("files", [])
+                print(
+                    f"[Followup] Fallback: Found {len(new_commits)} commits, "
+                    f"{len(pr_files)} files (may include merge-introduced changes)",
+                    flush=True,
+                )
+            except Exception as e2:
+                print(f"[Followup] Fallback also failed: {e2}", flush=True)
+                return FollowupReviewContext(
+                    pr_number=self.pr_number,
+                    previous_review=self.previous_review,
+                    previous_commit_sha=previous_sha,
+                    current_commit_sha=current_sha,
+                    error=f"Failed to get PR context: {e}, fallback: {e2}",
+                )
 
-        # Extract data from comparison
-        commits = comparison.get("commits", [])
-        files = comparison.get("files", [])
+        # Use PR files as the canonical list (excludes files from merged branches)
+        commits = new_commits
+        files = pr_files
         print(
             f"[Followup] Found {len(commits)} new commits, {len(files)} changed files",
             flush=True,
         )
 
         # Build diff from file patches
+        # Note: PR files endpoint returns 'filename' key, compare returns 'filename' too
         diff_parts = []
         files_changed = []
         for file_info in files:
@@ -1127,6 +1187,26 @@ class FollowupContextGatherer:
             flush=True,
         )
 
+        # Fetch current merge conflict status
+        has_merge_conflicts = False
+        merge_state_status = "UNKNOWN"
+        try:
+            pr_status = await self.gh_client.pr_get(
+                self.pr_number,
+                json_fields=["mergeable", "mergeStateStatus"],
+            )
+            mergeable = pr_status.get("mergeable", "UNKNOWN")
+            merge_state_status = pr_status.get("mergeStateStatus", "UNKNOWN")
+            has_merge_conflicts = mergeable == "CONFLICTING"
+
+            if has_merge_conflicts:
+                print(
+                    f"[Followup] ⚠️  PR has merge conflicts (mergeStateStatus: {merge_state_status})",
+                    flush=True,
+                )
+        except Exception as e:
+            print(f"[Followup] Could not fetch merge status: {e}", flush=True)
+
         return FollowupReviewContext(
             pr_number=self.pr_number,
             previous_review=self.previous_review,
@@ -1139,4 +1219,6 @@ class FollowupContextGatherer:
             + contributor_reviews,
             ai_bot_comments_since_review=ai_comments,
             pr_reviews_since_review=pr_reviews,
+            has_merge_conflicts=has_merge_conflicts,
+            merge_state_status=merge_state_status,
         )

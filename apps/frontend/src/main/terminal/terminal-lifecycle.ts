@@ -4,6 +4,7 @@
  */
 
 import * as os from 'os';
+import { existsSync } from 'fs';
 import type { TerminalCreateOptions } from '../../shared/types';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { TerminalSession } from '../terminal-session-store';
@@ -22,6 +23,9 @@ import { debugLog, debugError } from '../../shared/utils/debug-logger';
 export interface RestoreOptions {
   resumeClaudeSession: boolean;
   captureSessionId: (terminalId: string, projectPath: string, startTime: number) => void;
+  /** Callback triggered when a Claude session needs to be resumed.
+   * Note: sessionId is deprecated and ignored - resumeClaude uses --continue */
+  onResumeNeeded?: (terminalId: string, sessionId: string | undefined) => void;
 }
 
 /**
@@ -54,8 +58,16 @@ export async function createTerminal(
       debugLog('[TerminalLifecycle] Injecting OAuth token from active profile');
     }
 
+    // Validate cwd exists - if the directory doesn't exist (e.g., worktree removed),
+    // fall back to project path to prevent shell exit with code 1
+    let effectiveCwd = cwd;
+    if (cwd && !existsSync(cwd)) {
+      debugLog('[TerminalLifecycle] Terminal cwd does not exist, falling back:', cwd, '->', projectPath || os.homedir());
+      effectiveCwd = projectPath || os.homedir();
+    }
+
     const ptyProcess = PtyManager.spawnPtyProcess(
-      cwd || os.homedir(),
+      effectiveCwd || os.homedir(),
       cols,
       rows,
       profileEnv
@@ -63,7 +75,7 @@ export async function createTerminal(
 
     debugLog('[TerminalLifecycle] PTY process spawned, pid:', ptyProcess.pid);
 
-    const terminalCwd = cwd || os.homedir();
+    const terminalCwd = effectiveCwd || os.homedir();
     const terminal: TerminalProcess = {
       id,
       pty: ptyProcess,
@@ -111,12 +123,31 @@ export async function restoreTerminal(
   cols = 80,
   rows = 24
 ): Promise<TerminalOperationResult> {
-  debugLog('[TerminalLifecycle] Restoring terminal session:', session.id, 'Claude mode:', session.isClaudeMode);
+  // Look up the stored session to get the correct isClaudeMode value
+  // The renderer may pass isClaudeMode: false (by design), but we need the stored value
+  // to determine whether to auto-resume Claude
+  const storedSessions = SessionHandler.getSavedSessions(session.projectPath);
+  const storedSession = storedSessions.find(s => s.id === session.id);
+  const storedIsClaudeMode = storedSession?.isClaudeMode ?? session.isClaudeMode;
+  const storedClaudeSessionId = storedSession?.claudeSessionId ?? session.claudeSessionId;
+
+  debugLog('[TerminalLifecycle] Restoring terminal session:', session.id,
+    'Passed Claude mode:', session.isClaudeMode,
+    'Stored Claude mode:', storedIsClaudeMode,
+    'Stored session ID:', storedClaudeSessionId);
+
+  // Validate cwd exists - if the directory was deleted (e.g., worktree removed),
+  // fall back to project path to prevent shell exit with code 1
+  let effectiveCwd = session.cwd;
+  if (!existsSync(session.cwd)) {
+    debugLog('[TerminalLifecycle] Session cwd does not exist, falling back to project path:', session.cwd, '->', session.projectPath);
+    effectiveCwd = session.projectPath || os.homedir();
+  }
 
   const result = await createTerminal(
     {
       id: session.id,
-      cwd: session.cwd,
+      cwd: effectiveCwd,
       cols,
       rows,
       projectPath: session.projectPath
@@ -135,19 +166,55 @@ export async function restoreTerminal(
     return { success: false, error: 'Terminal not found after creation' };
   }
 
+  // Restore title and worktree config from session
   terminal.title = session.title;
+  // Only restore worktree config if the worktree directory still exists
+  // (effectiveCwd matching session.cwd means no fallback was needed)
+  if (effectiveCwd === session.cwd) {
+    terminal.worktreeConfig = session.worktreeConfig;
+  } else {
+    // Worktree was deleted, clear the config and update terminal's cwd
+    terminal.worktreeConfig = undefined;
+    terminal.cwd = effectiveCwd;
+    debugLog('[TerminalLifecycle] Cleared worktree config for terminal with deleted worktree:', session.id);
+  }
 
-  // Restore Claude mode state without sending resume commands
-  // The PTY daemon keeps processes alive, so we just need to reconnect to the existing session
-  if (session.isClaudeMode) {
+  // Re-persist after restoring title and worktreeConfig
+  // (createTerminal persists before these are set, so we need to persist again)
+  if (terminal.projectPath) {
+    SessionHandler.persistSession(terminal);
+  }
+
+  // Send title change event for all restored terminals so renderer updates
+  const win = getWindow();
+  if (win) {
+    win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, session.title);
+  }
+
+  // Defer Claude resume until terminal becomes active (is viewed by user)
+  // This prevents all terminals from resuming Claude simultaneously on app startup,
+  // which can cause crashes and resource contention.
+  //
+  // Use storedIsClaudeMode which comes from the persisted store,
+  // not the renderer-passed values (renderer always passes isClaudeMode: false)
+  if (options.resumeClaudeSession && storedIsClaudeMode) {
+    // Set Claude mode so it persists correctly across app restarts
+    // Without this, storedIsClaudeMode would be false on next restore
     terminal.isClaudeMode = true;
-    terminal.claudeSessionId = session.claudeSessionId;
+    // Mark terminal as having a pending Claude resume
+    // The actual resume will be triggered when the terminal becomes active
+    terminal.pendingClaudeResume = true;
+    debugLog('[TerminalLifecycle] Marking terminal for deferred Claude resume:', terminal.id);
 
-    debugLog('[TerminalLifecycle] Restored Claude mode state for session:', session.id, 'sessionId:', session.claudeSessionId);
-
-    const win = getWindow();
+    // Notify renderer that this terminal has a pending Claude resume
+    // The renderer will trigger the resume when the terminal tab becomes active
     if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, session.title);
+      win.webContents.send(IPC_CHANNELS.TERMINAL_PENDING_RESUME, terminal.id, storedClaudeSessionId);
+    }
+
+    // Persist the Claude mode and pending resume state
+    if (terminal.projectPath) {
+      SessionHandler.persistSession(terminal);
     }
   }
 
@@ -172,6 +239,8 @@ export async function destroyTerminal(
 
   try {
     SessionHandler.removePersistedSession(terminal);
+    // Release any claimed session ID for this terminal
+    SessionHandler.releaseSessionId(id);
     onCleanup(id);
     PtyManager.killPty(terminal);
     terminals.delete(id);
