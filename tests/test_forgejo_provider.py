@@ -7,17 +7,22 @@ import pytest
 import os
 from unittest.mock import AsyncMock, patch, MagicMock
 import sys
+from pathlib import Path
 
-# Add backend to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'apps', 'backend'))
+# Add specific paths to avoid runners/__init__.py import issues
+_backend_dir = Path(__file__).parent.parent / "apps" / "backend"
+_github_runner_dir = _backend_dir / "runners" / "github"
+sys.path.insert(0, str(_backend_dir))
+sys.path.insert(0, str(_github_runner_dir))
 
-from runners.github.providers.protocol import ProviderType
-from runners.github.providers.factory import (
+# Import directly from providers subpackage to avoid runners/__init__.py
+from providers.protocol import ProviderType
+from providers.factory import (
     get_provider,
     list_available_providers,
     is_provider_available
 )
-from runners.github.forgejo_client import ForgejoClient, ForgejoConfig
+from forgejo_client import ForgejoClient, ForgejoConfig
 
 
 class TestProviderTypeEnum:
@@ -150,8 +155,8 @@ class TestForgejoClient:
             repo="repo"
         )
         client = ForgejoClient.from_config(config)
-        # The base API URL should be instance_url + /api/v1
-        assert "codeberg.org" in client.instance_url
+        # Verify instance_url is preserved correctly
+        assert client.instance_url == "https://codeberg.org"
 
 
 class TestForgejoProviderProtocol:

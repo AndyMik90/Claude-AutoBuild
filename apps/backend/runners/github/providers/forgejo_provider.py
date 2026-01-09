@@ -79,7 +79,7 @@ class ForgejoProvider:
         config: ForgejoConfig,
         project_dir: Path | None = None,
         enable_rate_limiting: bool = True,
-    ) -> "ForgejoProvider":
+    ) -> ForgejoProvider:
         """Create provider from ForgejoConfig."""
         return cls(
             _repo=config.full_repo,

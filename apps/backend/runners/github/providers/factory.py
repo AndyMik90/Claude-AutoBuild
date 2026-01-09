@@ -11,8 +11,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from .github_provider import GitHubProvider
 from .forgejo_provider import ForgejoProvider
+from .github_provider import GitHubProvider
 from .protocol import GitProvider, ProviderType
 
 # Provider registry for dynamic registration

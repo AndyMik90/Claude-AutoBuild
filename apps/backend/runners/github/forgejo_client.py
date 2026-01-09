@@ -77,7 +77,7 @@ class ForgejoConfig:
     repo: str = ""
 
     @classmethod
-    def from_env(cls, project_dir: Path | None = None) -> "ForgejoConfig":
+    def from_env(cls, project_dir: Path | None = None) -> ForgejoConfig:
         """
         Load configuration from environment variables.
 
@@ -219,7 +219,7 @@ class ForgejoClient:
         config: ForgejoConfig,
         project_dir: Path | None = None,
         **kwargs: Any,
-    ) -> "ForgejoClient":
+    ) -> ForgejoClient:
         """Create client from ForgejoConfig."""
         return cls(
             instance_url=config.instance_url,
