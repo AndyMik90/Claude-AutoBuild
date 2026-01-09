@@ -318,6 +318,14 @@ export interface ProjectEnvConfig {
   gitlabProject?: string; // Format: group/project or numeric ID
   gitlabAutoSync?: boolean; // Auto-sync issues on project load
 
+  // Azure DevOps Integration
+  adoEnabled: boolean;
+  adoOrganization?: string; // ADO organization name
+  adoProject?: string; // ADO project name
+  adoRepoName?: string; // ADO repository name (defaults to project name)
+  adoPat?: string; // Personal Access Token
+  adoInstanceUrl?: string; // Default: https://dev.azure.com, or on-prem server URL
+
   // Git/Worktree Settings
   defaultBranch?: string; // Base branch for worktree creation (e.g., 'main', 'develop')
 

@@ -41,6 +41,7 @@ import { GitHubIssues } from './components/GitHubIssues';
 import { GitLabIssues } from './components/GitLabIssues';
 import { GitHubPRs } from './components/github-prs';
 import { GitLabMergeRequests } from './components/gitlab-merge-requests';
+import { ADOWorkItems } from './components/ADOWorkItems';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
 import { AgentTools } from './components/AgentTools';
@@ -872,6 +873,19 @@ export function App() {
                       setIsSettingsDialogOpen(true);
                     }}
                   />
+                )}
+                {activeView === 'ado-work-items' && (activeProjectId || selectedProjectId) && (
+                  <ADOWorkItems
+                    onOpenSettings={() => {
+                      setSettingsInitialProjectSection('integrations');
+                      setIsSettingsDialogOpen(true);
+                    }}
+                  />
+                )}
+                {activeView === 'ado-pull-requests' && (activeProjectId || selectedProjectId) && (
+                  <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                    ADO Pull Requests view coming soon
+                  </div>
                 )}
                 {activeView === 'changelog' && (activeProjectId || selectedProjectId) && (
                   <Changelog />

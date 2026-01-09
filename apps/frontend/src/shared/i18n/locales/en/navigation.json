@@ -15,6 +15,8 @@
     "githubPRs": "GitHub PRs",
     "gitlabIssues": "GitLab Issues",
     "gitlabMRs": "GitLab MRs",
+    "adoWorkItems": "ADO Work Items",
+    "adoPRs": "ADO Pull Requests",
     "worktrees": "Worktrees",
     "agentTools": "MCP Overview"
   },

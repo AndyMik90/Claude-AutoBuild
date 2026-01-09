@@ -20,7 +20,9 @@ import {
   Sparkles,
   GitBranch,
   HelpCircle,
-  Wrench
+  Wrench,
+  Cloud,
+  ListTodo
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -52,7 +54,7 @@ import { RateLimitIndicator } from './RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
 import type { Project, AutoBuildVersionInfo, GitStatus, ProjectEnvConfig } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'ado-work-items' | 'ado-pull-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -91,6 +93,12 @@ const githubNavItems: NavItem[] = [
 const gitlabNavItems: NavItem[] = [
   { id: 'gitlab-issues', labelKey: 'navigation:items.gitlabIssues', icon: GitlabIcon, shortcut: 'B' },
   { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, shortcut: 'R' }
+];
+
+// Azure DevOps nav items shown when ADO is enabled
+const adoNavItems: NavItem[] = [
+  { id: 'ado-work-items', labelKey: 'navigation:items.adoWorkItems', icon: Cloud, shortcut: 'O' },
+  { id: 'ado-pull-requests', labelKey: 'navigation:items.adoPRs', icon: ListTodo, shortcut: 'V' }
 ];
 
 export function Sidebar({
@@ -136,7 +144,7 @@ export function Sidebar({
     loadEnvConfig();
   }, [selectedProject?.id, selectedProject?.autoBuildPath]);
 
-  // Compute visible nav items based on GitHub/GitLab enabled state
+  // Compute visible nav items based on GitHub/GitLab/ADO enabled state
   const visibleNavItems = useMemo(() => {
     const items = [...baseNavItems];
 
@@ -148,8 +156,12 @@ export function Sidebar({
       items.push(...gitlabNavItems);
     }
 
+    if (envConfig?.adoEnabled) {
+      items.push(...adoNavItems);
+    }
+
     return items;
-  }, [envConfig?.githubEnabled, envConfig?.gitlabEnabled]);
+  }, [envConfig?.githubEnabled, envConfig?.gitlabEnabled, envConfig?.adoEnabled]);
 
   // Keyboard shortcuts
   useEffect(() => {

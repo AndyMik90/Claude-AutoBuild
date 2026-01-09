@@ -513,5 +513,49 @@ export const IPC_CHANNELS = {
   // Sentry error reporting
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
-  GET_SENTRY_CONFIG: 'sentry:get-config'         // Get full Sentry config (DSN + sample rates)
+  GET_SENTRY_CONFIG: 'sentry:get-config',        // Get full Sentry config (DSN + sample rates)
+
+  // Azure DevOps integration
+  ADO_CHECK_CONNECTION: 'ado:checkConnection',
+  ADO_TEST_CONNECTION: 'ado:testConnection',  // Test credentials before saving
+  ADO_GET_WORK_ITEMS: 'ado:getWorkItems',
+  ADO_GET_WORK_ITEM: 'ado:getWorkItem',
+  ADO_CREATE_WORK_ITEM: 'ado:createWorkItem',
+  ADO_UPDATE_WORK_ITEM: 'ado:updateWorkItem',
+  ADO_GET_WORK_ITEM_COMMENTS: 'ado:getWorkItemComments',
+  ADO_INVESTIGATE_WORK_ITEM: 'ado:investigateWorkItem',
+  ADO_IMPORT_WORK_ITEMS: 'ado:importWorkItems',
+
+  // Azure DevOps Pull Requests
+  ADO_PR_LIST: 'ado:pr:list',
+  ADO_PR_GET: 'ado:pr:get',
+  ADO_PR_GET_DIFF: 'ado:pr:getDiff',
+  ADO_PR_REVIEW: 'ado:pr:review',
+  ADO_PR_REVIEW_CANCEL: 'ado:pr:reviewCancel',
+  ADO_PR_GET_REVIEW: 'ado:pr:getReview',
+  ADO_PR_POST_REVIEW: 'ado:pr:postReview',
+  ADO_PR_MERGE: 'ado:pr:merge',
+  ADO_PR_ABANDON: 'ado:pr:abandon',
+
+  // Azure DevOps events (main -> renderer)
+  ADO_INVESTIGATION_PROGRESS: 'ado:investigationProgress',
+  ADO_INVESTIGATION_COMPLETE: 'ado:investigationComplete',
+  ADO_INVESTIGATION_ERROR: 'ado:investigationError',
+  ADO_PR_REVIEW_PROGRESS: 'ado:pr:reviewProgress',
+  ADO_PR_REVIEW_COMPLETE: 'ado:pr:reviewComplete',
+  ADO_PR_REVIEW_ERROR: 'ado:pr:reviewError',
+
+  // Azure DevOps Auto-Fix operations
+  ADO_AUTOFIX_START: 'ado:autofix:start',
+  ADO_AUTOFIX_STOP: 'ado:autofix:stop',
+  ADO_AUTOFIX_GET_QUEUE: 'ado:autofix:getQueue',
+  ADO_AUTOFIX_CHECK_TAGS: 'ado:autofix:checkTags',
+  ADO_AUTOFIX_CHECK_NEW: 'ado:autofix:checkNew',
+  ADO_AUTOFIX_GET_CONFIG: 'ado:autofix:getConfig',
+  ADO_AUTOFIX_SAVE_CONFIG: 'ado:autofix:saveConfig',
+
+  // Azure DevOps Auto-Fix events (main -> renderer)
+  ADO_AUTOFIX_PROGRESS: 'ado:autofix:progress',
+  ADO_AUTOFIX_COMPLETE: 'ado:autofix:complete',
+  ADO_AUTOFIX_ERROR: 'ado:autofix:error'
 } as const;

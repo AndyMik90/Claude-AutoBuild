@@ -21,6 +21,16 @@ const GITLAB_ENV_KEYS = {
   AUTO_SYNC: 'GITLAB_AUTO_SYNC'
 } as const;
 
+// Azure DevOps environment variable keys
+const ADO_ENV_KEYS = {
+  ENABLED: 'ADO_ENABLED',
+  ORGANIZATION: 'ADO_ORGANIZATION',
+  PROJECT: 'ADO_PROJECT',
+  REPO_NAME: 'ADO_REPO_NAME',
+  PAT: 'ADO_PAT',
+  INSTANCE_URL: 'ADO_INSTANCE_URL'
+} as const;
+
 /**
  * Helper to generate .env line (DRY)
  */
@@ -133,6 +143,25 @@ export function registerEnvHandlers(
     }
     if (config.gitlabAutoSync !== undefined) {
       existingVars[GITLAB_ENV_KEYS.AUTO_SYNC] = config.gitlabAutoSync ? 'true' : 'false';
+    }
+    // Azure DevOps Integration
+    if (config.adoEnabled !== undefined) {
+      existingVars[ADO_ENV_KEYS.ENABLED] = config.adoEnabled ? 'true' : 'false';
+    }
+    if (config.adoOrganization !== undefined) {
+      existingVars[ADO_ENV_KEYS.ORGANIZATION] = config.adoOrganization;
+    }
+    if (config.adoProject !== undefined) {
+      existingVars[ADO_ENV_KEYS.PROJECT] = config.adoProject;
+    }
+    if (config.adoRepoName !== undefined) {
+      existingVars[ADO_ENV_KEYS.REPO_NAME] = config.adoRepoName;
+    }
+    if (config.adoPat !== undefined) {
+      existingVars[ADO_ENV_KEYS.PAT] = config.adoPat;
+    }
+    if (config.adoInstanceUrl !== undefined) {
+      existingVars[ADO_ENV_KEYS.INSTANCE_URL] = config.adoInstanceUrl;
     }
     // Git/Worktree Settings
     if (config.defaultBranch !== undefined) {
@@ -262,6 +291,16 @@ ${envLine(existingVars, GITLAB_ENV_KEYS.PROJECT, 'group/project')}
 ${envLine(existingVars, GITLAB_ENV_KEYS.AUTO_SYNC, 'false')}
 
 # =============================================================================
+# AZURE DEVOPS INTEGRATION (OPTIONAL)
+# =============================================================================
+${existingVars[ADO_ENV_KEYS.ENABLED] !== undefined ? `${ADO_ENV_KEYS.ENABLED}=${existingVars[ADO_ENV_KEYS.ENABLED]}` : `# ${ADO_ENV_KEYS.ENABLED}=false`}
+${envLine(existingVars, ADO_ENV_KEYS.ORGANIZATION)}
+${envLine(existingVars, ADO_ENV_KEYS.PROJECT)}
+${envLine(existingVars, ADO_ENV_KEYS.REPO_NAME)}
+${envLine(existingVars, ADO_ENV_KEYS.PAT)}
+${envLine(existingVars, ADO_ENV_KEYS.INSTANCE_URL, 'https://dev.azure.com')}
+
+# =============================================================================
 # GIT/WORKTREE SETTINGS (OPTIONAL)
 # =============================================================================
 # Default base branch for worktree creation
@@ -373,6 +412,7 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         linearEnabled: false,
         githubEnabled: false,
         gitlabEnabled: false,
+        adoEnabled: false,
         graphitiEnabled: false,
         enableFancyUi: true,
         claudeTokenIsGlobal: false,
@@ -445,6 +485,25 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       }
       if (vars[GITLAB_ENV_KEYS.AUTO_SYNC]?.toLowerCase() === 'true') {
         config.gitlabAutoSync = true;
+      }
+
+      // Azure DevOps config
+      if (vars[ADO_ENV_KEYS.PAT]) {
+        config.adoPat = vars[ADO_ENV_KEYS.PAT];
+        // Enable by default if PAT exists and ADO_ENABLED is not explicitly false
+        config.adoEnabled = vars[ADO_ENV_KEYS.ENABLED]?.toLowerCase() !== 'false';
+      }
+      if (vars[ADO_ENV_KEYS.ORGANIZATION]) {
+        config.adoOrganization = vars[ADO_ENV_KEYS.ORGANIZATION];
+      }
+      if (vars[ADO_ENV_KEYS.PROJECT]) {
+        config.adoProject = vars[ADO_ENV_KEYS.PROJECT];
+      }
+      if (vars[ADO_ENV_KEYS.REPO_NAME]) {
+        config.adoRepoName = vars[ADO_ENV_KEYS.REPO_NAME];
+      }
+      if (vars[ADO_ENV_KEYS.INSTANCE_URL]) {
+        config.adoInstanceUrl = vars[ADO_ENV_KEYS.INSTANCE_URL];
       }
 
       // Git/Worktree config
