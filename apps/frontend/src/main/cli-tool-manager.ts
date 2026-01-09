@@ -27,6 +27,7 @@ import os from 'os';
 import { promisify } from 'util';
 import { app } from 'electron';
 import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync } from './env-utils';
+import { readSettingsFile } from './settings-utils';
 
 const execFileAsync = promisify(execFile);
 
@@ -1627,15 +1628,101 @@ class CLIToolManager {
   }
 
   /**
+   * Get user-configured path for a specific tool
+   *
+   * Checks this.userConfig first (set by configureTools), then falls back
+   * to reading directly from settings file on disk. This fixes the race
+   * condition where getToolInfo is called before configureTools on Windows
+   * GUI launch.
+   *
+   * @param tool - The CLI tool to get the configured path for
+   * @returns The user-configured path or undefined if not configured
+   */
+  private getUserConfiguredPath(tool: CLITool): string | undefined {
+    // Map tool to settings key
+    const settingsKey = {
+      python: 'pythonPath',
+      git: 'gitPath',
+      gh: 'githubCLIPath',
+      claude: 'claudePath',
+    }[tool] as 'pythonPath' | 'gitPath' | 'githubCLIPath' | 'claudePath' | undefined;
+
+    if (!settingsKey) {
+      return undefined;
+    }
+
+    // First check in-memory config (set by configureTools)
+    const inMemoryPath = this.userConfig[settingsKey];
+    if (inMemoryPath) {
+      return inMemoryPath;
+    }
+
+    // Fallback: read directly from settings file on disk
+    // This handles the race condition where getToolInfo is called before
+    // settings are loaded via SETTINGS_GET → configureTools
+    try {
+      const savedSettings = readSettingsFile();
+      if (savedSettings) {
+        const diskPath = savedSettings[settingsKey];
+        if (typeof diskPath === 'string' && diskPath.length > 0) {
+          return diskPath;
+        }
+      }
+    } catch {
+      // Ignore read errors - will fall back to detection
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Validate a tool by its type
+   *
+   * @param tool - The CLI tool type
+   * @param toolPath - The path to validate
+   * @returns Validation result with version information
+   */
+  private validateToolByType(tool: CLITool, toolPath: string): ToolValidation {
+    switch (tool) {
+      case 'python':
+        return this.validatePython(toolPath);
+      case 'git':
+        return this.validateGit(toolPath);
+      case 'gh':
+        return this.validateGitHubCLI(toolPath);
+      case 'claude':
+        return this.validateClaude(toolPath);
+      default:
+        return { valid: false, message: `Unknown tool: ${tool}` };
+    }
+  }
+
+  /**
    * Get tool detection info for diagnostics
    *
-   * Performs fresh detection without using cache.
+   * Checks user configuration first, then performs fresh detection if needed.
    * Useful for Settings UI to show current detection status.
    *
    * @param tool - The tool to get detection info for
    * @returns Detection result with full metadata
    */
   getToolInfo(tool: CLITool): ToolDetectionResult {
+    // Check user config first - fixes race condition where version check
+    // happens before settings are loaded on Windows GUI launch
+    const userPath = this.getUserConfiguredPath(tool);
+    if (userPath && !isWrongPlatformPath(userPath)) {
+      const validation = this.validateToolByType(tool, userPath);
+      if (validation.valid) {
+        return {
+          found: true,
+          path: userPath,
+          version: validation.version,
+          source: 'user-config',
+          message: `Using user-configured ${tool}: ${userPath}`,
+        };
+      }
+      console.warn(`[CLI Tools] User-configured ${tool} path invalid: ${validation.message}`);
+    }
     return this.detectToolPath(tool);
   }
 }
