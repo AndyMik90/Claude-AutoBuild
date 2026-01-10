@@ -18,8 +18,6 @@ interface PRReviewState {
   result: PRReviewResult | null;
   /** Previous review result - preserved during follow-up review for continuity */
   previousResult: PRReviewResult | null;
-  /** ISO timestamp when the review started */
-  startedAt: string | null;
   error: string | null;
   /** Cached result of new commits check - updated when detail view checks */
   newCommitsCheck: NewCommitsCheck | null;
@@ -63,7 +61,6 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           progress: null,
           result: null,
           previousResult: null,
-          startedAt: new Date().toISOString(),
           error: null,
           newCommitsCheck: existing?.newCommitsCheck ?? null
         }
@@ -94,7 +91,6 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           progress: null,
           result: null,
           previousResult: existing?.result ?? null,  // Preserve for follow-up continuity
-          startedAt: new Date().toISOString(),
           error: null,
           newCommitsCheck: existing?.newCommitsCheck ?? null
         }
@@ -116,7 +112,6 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           progress,
           result: existing?.result ?? null,
           previousResult: existing?.previousResult ?? null,
-          startedAt: existing?.startedAt ?? null,
           error: null,
           newCommitsCheck: existing?.newCommitsCheck ?? null
         }
@@ -134,11 +129,10 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber: result.prNumber,
           projectId,
           isReviewing: false,
-          startedAt: null,
+          startedAt: existing?.startedAt ?? null,
           progress: null,
           result,
           previousResult: existing?.previousResult ?? null,
-          startedAt: existing?.startedAt ?? null,
           error: result.error ?? null,
           // Clear new commits check when review completes (it was just reviewed)
           // BUT preserve it during preload/refresh to avoid race condition
@@ -158,11 +152,10 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber,
           projectId,
           isReviewing: false,
-          startedAt: null,
+          startedAt: existing?.startedAt ?? null,
           progress: null,
           result: existing?.result ?? null,
           previousResult: existing?.previousResult ?? null,
-          startedAt: existing?.startedAt ?? null,
           error,
           newCommitsCheck: existing?.newCommitsCheck ?? null
         }
@@ -186,7 +179,6 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
             progress: null,
             result: null,
             previousResult: null,
-            startedAt: null,
             error: null,
             newCommitsCheck: check
           }

@@ -67,7 +67,6 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     startedAt,
     isReviewing,
     previousReviewResult,
-    startedAt,
     hasMore,
     selectPR,
     runReview,
