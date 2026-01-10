@@ -532,7 +532,7 @@ export function registerTaskExecutionHandlers(
           }
         } else {
           // No worktree - allow marking as done (limbo state recovery)
-          console.log(`[TASK_UPDATE_STATUS] Allowing status 'done' for task ${taskId} (no worktree found - limbo state)`);
+          console.warn(`[TASK_UPDATE_STATUS] Allowing status 'done' for task ${taskId} (no worktree found - limbo state)`);
         }
       }
 
