@@ -312,9 +312,14 @@ describe('PRDetail - Clean Review State Reset Integration', () => {
     // Click the button to attempt posting clean review
     fireEvent.click(postCleanReviewButton);
 
-    // Wait for error message to appear
+    // Wait for normalized error message to appear (shows friendly message, not raw error)
     await waitFor(() => {
-      expect(screen.getByText(/Failed to post comment: Rate limit exceeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/Failed to post clean review/i)).toBeInTheDocument();
+    });
+
+    // "View details" button should be available
+    await waitFor(() => {
+      expect(screen.getByText(/View details/i)).toBeInTheDocument();
     });
 
     // Button should still be visible for retry after error
