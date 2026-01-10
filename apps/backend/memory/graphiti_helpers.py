@@ -49,11 +49,12 @@ def get_graphiti_memory(spec_dir: Path, project_dir: Path | None = None):
         return None
 
     try:
-        from graphiti_memory import GraphitiMemory
+        from graphiti_memory import GraphitiMemory, GroupIdMode
 
         if project_dir is None:
             project_dir = spec_dir.parent.parent
-        return GraphitiMemory(spec_dir, project_dir)
+        # Use project-wide shared memory for cross-spec learning
+        return GraphitiMemory(spec_dir, project_dir, group_id_mode=GroupIdMode.PROJECT)
     except ImportError:
         return None
 
