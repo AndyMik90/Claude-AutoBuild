@@ -1,0 +1,142 @@
+{
+  "status": {
+    "backlog": "バックログ",
+    "todo": "未着手",
+    "in_progress": "進行中",
+    "review": "レビュー",
+    "prCreated": "PR作成済み",
+    "complete": "完了",
+    "archived": "アーカイブ済み"
+  },
+  "actions": {
+    "start": "開始",
+    "stop": "停止",
+    "recover": "復旧",
+    "resume": "再開",
+    "archive": "アーカイブ",
+    "delete": "削除",
+    "view": "詳細を見る",
+    "viewPR": "PRを見る",
+    "moveTo": "移動",
+    "taskActions": "タスク操作"
+  },
+  "labels": {
+    "running": "実行中",
+    "aiReview": "AIレビュー",
+    "needsReview": "レビュー必要",
+    "pending": "保留中",
+    "stuck": "スタック",
+    "incomplete": "未完了",
+    "recovering": "復旧中...",
+    "needsRecovery": "復旧が必要",
+    "needsResume": "再開が必要"
+  },
+  "reviewReason": {
+    "completed": "完了",
+    "hasErrors": "エラーあり",
+    "qaIssues": "QA問題",
+    "approvePlan": "計画を承認"
+  },
+  "tooltips": {
+    "archiveTask": "タスクをアーカイブ",
+    "archiveAllDone": "完了した全タスクをアーカイブ",
+    "viewPR": "プルリクエストをブラウザで開く"
+  },
+  "creation": {
+    "title": "新規タスクを作成",
+    "description": "構築したい内容を説明してください",
+    "placeholder": "タスクを説明してください..."
+  },
+  "empty": {
+    "title": "タスクがありません",
+    "description": "最初のタスクを作成して始めましょう"
+  },
+  "columns": {
+    "backlog": "計画中",
+    "in_progress": "進行中",
+    "ai_review": "AIレビュー",
+    "human_review": "人間レビュー",
+    "done": "完了",
+    "pr_created": "PR作成済み"
+  },
+  "kanban": {
+    "emptyBacklog": "計画されたタスクなし",
+    "emptyBacklogHint": "タスクを追加して開始しましょう",
+    "emptyInProgress": "実行中のタスクなし",
+    "emptyInProgressHint": "バックログからタスクを開始",
+    "emptyAiReview": "レビュー中のタスクなし",
+    "emptyAiReviewHint": "AIが完了したタスクをレビューします",
+    "emptyHumanReview": "レビューするタスクなし",
+    "emptyHumanReviewHint": "承認待ちのタスクがここに表示されます",
+    "emptyDone": "完了したタスクなし",
+    "emptyDoneHint": "承認されたタスクがここに表示されます",
+    "emptyDefault": "タスクなし",
+    "dropHere": "ここにドロップ",
+    "showArchived": "アーカイブを表示",
+    "addTaskAriaLabel": "バックログに新しいタスクを追加",
+    "closeTaskDetailsAriaLabel": "タスク詳細を閉じる",
+    "editTask": "タスクを編集",
+    "cannotEditWhileRunning": "タスク実行中は編集できません",
+    "worktreeCleanupTitle": "ワークツリーのクリーンアップ",
+    "worktreeCleanupStaged": "このタスクはステージされており、ワークツリーがあります。ワークツリーをクリーンアップしますか?",
+    "worktreeCleanupNotStaged": "このタスクには、マージされていない変更を含むワークツリーがあります。完了としてマークするにはワークツリーを削除するか、キャンセルして最初に変更をレビューしてください。",
+    "keepWorktree": "ワークツリーを保持",
+    "deleteWorktree": "ワークツリーを削除して完了にする"
+  },
+  "execution": {
+    "phases": {
+      "idle": "アイドル",
+      "planning": "計画中",
+      "coding": "コーディング中",
+      "reviewing": "レビュー中",
+      "fixing": "修正中",
+      "complete": "完了",
+      "failed": "失敗"
+    },
+    "labels": {
+      "interrupted": "中断",
+      "progress": "進捗",
+      "entry": "エントリ",
+      "entries": "エントリ"
+    },
+    "shortPhases": {
+      "plan": "計画",
+      "code": "コード",
+      "qa": "QA"
+    }
+  },
+  "files": {
+    "title": "ファイル",
+    "tab": "ファイル",
+    "noSpecPath": "仕様書ファイルがありません",
+    "noFiles": "ファイルが見つかりません",
+    "loading": "ファイルを読み込み中...",
+    "loadingContent": "コンテンツを読み込み中...",
+    "errorLoading": "ファイルの読み込みに失敗しました",
+    "errorLoadingContent": "ファイルコンテンツの読み込みに失敗しました",
+    "retry": "再試行",
+    "selectFile": "ファイルを選択してコンテンツを表示",
+    "openInIDE": "IDEで開く"
+  },
+  "metadata": {
+    "severity": "重要度",
+    "pullRequest": "プルリクエスト"
+  },
+  "images": {
+    "removeImageAriaLabel": "画像{{filename}}を削除",
+    "pasteHint": "ヒント: {{shortcut}}でスクリーンショットを直接貼り付けて参照画像を追加できます。"
+  },
+  "notifications": {
+    "backgroundTaskTitle": "タスクはバックグラウンドで続行中",
+    "backgroundTaskDescription": "タスクはまだ実行中です。進捗を監視するには、このダイアログを再度開いてください。"
+  },
+  "wizard": {
+    "gitOptions": {
+      "useWorktreeLabel": "分離されたワークスペースを使用(推奨)",
+      "useWorktreeDescription": "安全にレビューしてからマージするために、別のgitワークツリーに変更を作成します。無効にすると、プロジェクトで直接ビルドします(高速ですがリスクあり)。"
+    }
+  },
+  "subtasks": {
+    "untitled": "無題のサブタスク"
+  }
+}
