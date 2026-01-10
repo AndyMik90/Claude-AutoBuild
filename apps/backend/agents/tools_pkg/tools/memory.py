@@ -54,13 +54,13 @@ async def _save_to_graphiti_async(
         if not is_graphiti_enabled():
             return False
 
-        from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
-        from integrations.graphiti.queries_pkg.schema import GroupIdMode
+        # Use centralized helper for GraphitiMemory instantiation
+        from memory.graphiti_helpers import get_graphiti_memory
 
-        # Use project-wide shared memory for cross-spec learning
-        memory = GraphitiMemory(
-            spec_dir, project_dir, group_id_mode=GroupIdMode.PROJECT
-        )
+        memory = get_graphiti_memory(spec_dir, project_dir)
+        if not memory:
+            return False
+
         try:
             if save_type == "discovery":
                 # Save as codebase discovery
@@ -83,9 +83,6 @@ async def _save_to_graphiti_async(
         finally:
             await memory.close()
 
-    except ImportError as e:
-        logger.debug(f"Graphiti not available for memory tools: {e}")
-        return False
     except Exception as e:
         logger.warning(f"Failed to save to Graphiti: {e}")
         return False
