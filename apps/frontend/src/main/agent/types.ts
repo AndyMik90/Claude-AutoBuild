@@ -22,6 +22,8 @@ export interface ExecutionProgressData {
   overallProgress: number;
   currentSubtask?: string;
   message?: string;
+  // FIX (ACS-203): Track completed phases to prevent phase overlaps
+  completedPhases?: Array<'planning' | 'coding' | 'qa_review' | 'qa_fixing'>;
 }
 
 export type ProcessType = 'spec-creation' | 'task-execution' | 'qa-process';

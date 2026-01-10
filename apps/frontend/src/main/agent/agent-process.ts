@@ -454,13 +454,17 @@ export class AgentProcessManager {
     let stdoutBuffer = '';
     let stderrBuffer = '';
     let sequenceNumber = 0;
+    // FIX (ACS-203): Track completed phases to prevent phase overlaps
+    // When a phase completes, it's added to this array before transitioning to the next phase
+    let completedPhases: Array<'planning' | 'coding' | 'qa_review' | 'qa_fixing'> = [];
 
     this.emitter.emit('execution-progress', taskId, {
       phase: currentPhase,
       phaseProgress: 0,
       overallProgress: this.events.calculateOverallProgress(currentPhase, 0),
       message: isSpecRunner ? 'Starting spec creation...' : 'Starting build process...',
-      sequenceNumber: ++sequenceNumber
+      sequenceNumber: ++sequenceNumber,
+      completedPhases: [...completedPhases]
     });
 
     const isDebug = ['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '');
@@ -486,6 +490,18 @@ export class AgentProcessManager {
           console.log(`[PhaseDebug:${taskId}] Phase update: ${currentPhase} -> ${phaseUpdate.phase} (changed: ${phaseChanged})`);
         }
 
+        // FIX (ACS-203): Manage completedPhases when phases transition
+        // When leaving a non-terminal phase (not complete/failed), add it to completedPhases
+        if (phaseChanged && currentPhase !== 'idle' && currentPhase !== phaseUpdate.phase) {
+          const completablePhases: Array<ExecutionProgressData['phase']> = ['planning', 'coding', 'qa_review', 'qa_fixing'];
+          if (completablePhases.includes(currentPhase) && !completedPhases.includes(currentPhase as any)) {
+            completedPhases.push(currentPhase as any);
+            if (isDebug) {
+              console.log(`[PhaseDebug:${taskId}] Marked phase as completed:`, { phase: currentPhase, completedPhases });
+            }
+          }
+        }
+
         currentPhase = phaseUpdate.phase;
 
         if (phaseUpdate.currentSubtask) {
@@ -504,7 +520,7 @@ export class AgentProcessManager {
         const overallProgress = this.events.calculateOverallProgress(currentPhase, phaseProgress);
 
         if (isDebug) {
-          console.log(`[PhaseDebug:${taskId}] Emitting execution-progress:`, { phase: currentPhase, phaseProgress, overallProgress });
+          console.log(`[PhaseDebug:${taskId}] Emitting execution-progress:`, { phase: currentPhase, phaseProgress, overallProgress, completedPhases });
         }
 
         this.emitter.emit('execution-progress', taskId, {
@@ -513,7 +529,8 @@ export class AgentProcessManager {
           overallProgress,
           currentSubtask,
           message: lastMessage,
-          sequenceNumber: ++sequenceNumber
+          sequenceNumber: ++sequenceNumber,
+          completedPhases: [...completedPhases]
         });
       }
     };
@@ -585,7 +602,8 @@ export class AgentProcessManager {
           phaseProgress: 0,
           overallProgress: this.events.calculateOverallProgress(currentPhase, phaseProgress),
           message: `Process exited with code ${code}`,
-          sequenceNumber: ++sequenceNumber
+          sequenceNumber: ++sequenceNumber,
+          completedPhases: [...completedPhases]
         });
       }
 
@@ -602,7 +620,8 @@ export class AgentProcessManager {
         phaseProgress: 0,
         overallProgress: 0,
         message: `Error: ${err.message}`,
-        sequenceNumber: ++sequenceNumber
+        sequenceNumber: ++sequenceNumber,
+        completedPhases: [...completedPhases]
       });
 
       this.emitter.emit('error', taskId, err.message);

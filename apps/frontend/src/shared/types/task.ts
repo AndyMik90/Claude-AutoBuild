@@ -27,6 +27,10 @@ export interface ExecutionProgress {
   message?: string;  // Current status message
   startedAt?: Date;
   sequenceNumber?: number;  // Monotonically increasing counter to detect stale updates
+  // FIX (ACS-203): Track completed phases to prevent phase overlaps
+  // When a phase completes, it's added to this array before transitioning to the next phase
+  // This ensures that planning is marked complete before coding starts, etc.
+  completedPhases?: ExecutionPhase[];  // Phases that have successfully completed
 }
 
 export interface Subtask {
