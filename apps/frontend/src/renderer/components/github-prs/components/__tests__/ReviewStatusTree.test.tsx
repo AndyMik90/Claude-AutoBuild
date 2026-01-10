@@ -123,7 +123,7 @@ describe('ReviewStatusTree - Reviewing Status (ACS-200)', () => {
 
   describe('Not Reviewed Status with No Active Review', () => {
     it('should render simple status when status is not_reviewed and not reviewing', () => {
-      const { container } = render(
+      render(
         <ReviewStatusTree
           status="not_reviewed"
           isReviewing={false}
@@ -169,7 +169,7 @@ describe('ReviewStatusTree - Reviewing Status (ACS-200)', () => {
 
   describe('Reviewing State - Tree View', () => {
     it('should show tree structure when isReviewing is true', () => {
-      const { container } = render(
+      render(
         <ReviewStatusTree
           status="not_reviewed"
           isReviewing={true}
@@ -409,7 +409,7 @@ describe('ReviewStatusTree - Reviewing Status (ACS-200)', () => {
       };
 
       for (const [status, expectedLabel] of Object.entries(statusLabels)) {
-        const { container } = render(
+        render(
           <ReviewStatusTree
             status={status as ReviewStatus}
             isReviewing={false}
