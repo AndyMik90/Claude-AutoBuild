@@ -40,14 +40,15 @@ const LLM_PROVIDERS: Array<{
   description: string;
   requiresApiKey: boolean;
 }> = [
-  { id: 'openai', name: 'OpenAI', description: 'GPT models (recommended)', requiresApiKey: true },
-  { id: 'anthropic', name: 'Anthropic', description: 'Claude models', requiresApiKey: true },
-  { id: 'google', name: 'Google AI', description: 'Gemini models', requiresApiKey: true },
-  { id: 'groq', name: 'Groq', description: 'Llama models (fast inference)', requiresApiKey: true },
-  { id: 'openrouter', name: 'OpenRouter', description: 'Multi-provider aggregator', requiresApiKey: true },
-  { id: 'azure_openai', name: 'Azure OpenAI', description: 'Enterprise Azure deployment', requiresApiKey: true },
-  { id: 'ollama', name: 'Ollama', description: 'Local models (free)', requiresApiKey: false }
-];
+    { id: 'openai', name: 'OpenAI', description: 'GPT models (recommended)', requiresApiKey: true },
+    { id: 'anthropic', name: 'Anthropic', description: 'Claude models', requiresApiKey: true },
+    { id: 'google', name: 'Google Gemini', description: 'Gemini models', requiresApiKey: true },
+    { id: 'groq', name: 'Groq', description: 'Llama models (fast inference)', requiresApiKey: true },
+    { id: 'openrouter', name: 'OpenRouter', description: 'Multi-provider aggregator', requiresApiKey: true },
+    { id: 'azure_openai', name: 'Azure OpenAI', description: 'Enterprise Azure deployment', requiresApiKey: true },
+    { id: 'ollama', name: 'Ollama', description: 'Local models (free)', requiresApiKey: false },
+    { id: 'zai', name: 'Z.ai', description: 'Zhipu AI (GLM models)', requiresApiKey: true }
+  ];
 
 const EMBEDDING_PROVIDERS: Array<{
   id: GraphitiEmbeddingProvider;
@@ -55,13 +56,13 @@ const EMBEDDING_PROVIDERS: Array<{
   description: string;
   requiresApiKey: boolean;
 }> = [
-  { id: 'ollama', name: 'Ollama', description: 'Local embeddings (free)', requiresApiKey: false },
-  { id: 'openai', name: 'OpenAI', description: 'text-embedding-3-small (recommended)', requiresApiKey: true },
-  { id: 'voyage', name: 'Voyage AI', description: 'voyage-3 (great with Anthropic)', requiresApiKey: true },
-  { id: 'google', name: 'Google AI', description: 'Gemini text-embedding-004', requiresApiKey: true },
-  { id: 'openrouter', name: 'OpenRouter', description: 'OpenAI-compatible embeddings', requiresApiKey: true },
-  { id: 'azure_openai', name: 'Azure OpenAI', description: 'Enterprise Azure embeddings', requiresApiKey: true }
-];
+    { id: 'ollama', name: 'Ollama', description: 'Local embeddings (free)', requiresApiKey: false },
+    { id: 'openai', name: 'OpenAI', description: 'text-embedding-3-small (recommended)', requiresApiKey: true },
+    { id: 'voyage', name: 'Voyage AI', description: 'voyage-3 (great with Anthropic)', requiresApiKey: true },
+    { id: 'google', name: 'Google Gemini', description: 'Gemini text-embedding-004', requiresApiKey: true },
+    { id: 'openrouter', name: 'OpenRouter', description: 'OpenAI-compatible embeddings', requiresApiKey: true },
+    { id: 'zai', name: 'Z.ai', description: 'Zhipu AI (embedding-3)', requiresApiKey: true }
+  ];
 
 interface GraphitiConfig {
   enabled: boolean;
@@ -96,6 +97,8 @@ interface GraphitiConfig {
   ollamaLlmModel: string;
   ollamaEmbeddingModel: string;
   ollamaEmbeddingDim: string;
+  // Z.ai
+  zaiApiKey: string;
 }
 
 interface ValidationStatus {
@@ -133,7 +136,8 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     ollamaBaseUrl: settings.ollamaBaseUrl || 'http://localhost:11434',
     ollamaLlmModel: '',
     ollamaEmbeddingModel: '',
-    ollamaEmbeddingDim: '768'
+    ollamaEmbeddingDim: '768',
+    zaiApiKey: settings.globalZaiApiKey || ''
   });
   const [showApiKey, setShowApiKey] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -214,6 +218,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     if (embeddingProvider === 'ollama') {
       if (!config.ollamaEmbeddingModel.trim()) return 'Ollama embedding model name';
     }
+    if (llmProvider === 'zai' || embeddingProvider === 'zai') {
+      if (!config.zaiApiKey.trim()) return 'Z.ai API key';
+    }
 
     return null;
   };
@@ -232,14 +239,17 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     try {
       // Get the API key for the current LLM provider
       const apiKey = config.llmProvider === 'openai' ? config.openaiApiKey :
-                     config.llmProvider === 'anthropic' ? config.anthropicApiKey :
-                     config.llmProvider === 'google' ? config.googleApiKey :
-                     config.llmProvider === 'groq' ? config.groqApiKey :
-                     config.llmProvider === 'openrouter' ? config.openrouterApiKey :
-                     config.llmProvider === 'azure_openai' ? config.azureOpenaiApiKey :
-                     config.llmProvider === 'ollama' ? '' :  // Ollama doesn't need API key
-                     config.embeddingProvider === 'openai' ? config.openaiApiKey :
-                     config.embeddingProvider === 'openrouter' ? config.openrouterApiKey : '';
+        config.llmProvider === 'anthropic' ? config.anthropicApiKey :
+          config.llmProvider === 'google' ? config.googleApiKey :
+            config.llmProvider === 'groq' ? config.groqApiKey :
+              config.llmProvider === 'openrouter' ? config.openrouterApiKey :
+                config.llmProvider === 'azure_openai' ? config.azureOpenaiApiKey :
+                  config.llmProvider === 'azure_openai' ? config.azureOpenaiApiKey :
+                    config.llmProvider === 'ollama' ? '' :  // Ollama doesn't need API key
+                      config.llmProvider === 'zai' ? config.zaiApiKey :
+                        config.embeddingProvider === 'openai' ? config.openaiApiKey :
+                          config.embeddingProvider === 'openrouter' ? config.openrouterApiKey :
+                            config.embeddingProvider === 'zai' ? config.zaiApiKey : '';
 
       const result = await window.electronAPI.testGraphitiConnection({
         dbPath: config.dbPath || undefined,
@@ -322,6 +332,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
       if (config.openrouterApiKey.trim()) {
         settingsToSave.globalOpenRouterApiKey = config.openrouterApiKey.trim();
       }
+      if (config.zaiApiKey.trim()) {
+        settingsToSave.globalZaiApiKey = config.zaiApiKey.trim();
+      }
       if (config.ollamaBaseUrl.trim()) {
         settingsToSave.ollamaBaseUrl = config.ollamaBaseUrl.trim();
       }
@@ -330,12 +343,13 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
 
       if (result?.success) {
         // Update local settings store with API key settings
-        const storeUpdate: Partial<Pick<AppSettings, 'globalOpenAIApiKey' | 'globalAnthropicApiKey' | 'globalGoogleApiKey' | 'globalGroqApiKey' | 'globalOpenRouterApiKey' | 'ollamaBaseUrl'>> = {};
+        const storeUpdate: Partial<Pick<AppSettings, 'globalOpenAIApiKey' | 'globalAnthropicApiKey' | 'globalGoogleApiKey' | 'globalGroqApiKey' | 'globalOpenRouterApiKey' | 'globalZaiApiKey' | 'ollamaBaseUrl'>> = {};
         if (config.openaiApiKey.trim()) storeUpdate.globalOpenAIApiKey = config.openaiApiKey.trim();
         if (config.anthropicApiKey.trim()) storeUpdate.globalAnthropicApiKey = config.anthropicApiKey.trim();
         if (config.googleApiKey.trim()) storeUpdate.globalGoogleApiKey = config.googleApiKey.trim();
         if (config.groqApiKey.trim()) storeUpdate.globalGroqApiKey = config.groqApiKey.trim();
         if (config.openrouterApiKey.trim()) storeUpdate.globalOpenRouterApiKey = config.openrouterApiKey.trim();
+        if (config.zaiApiKey.trim()) storeUpdate.globalZaiApiKey = config.zaiApiKey.trim();
         if (config.ollamaBaseUrl.trim()) storeUpdate.ollamaBaseUrl = config.ollamaBaseUrl.trim();
         updateSettings(storeUpdate);
         onNext();
@@ -377,6 +391,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     const needsGroq = llmProvider === 'groq';
     const needsOpenRouter = llmProvider === 'openrouter' || embeddingProvider === 'openrouter';
     const needsOllama = llmProvider === 'ollama' || embeddingProvider === 'ollama';
+    const needsZai = llmProvider === 'zai' || embeddingProvider === 'zai';
 
     return (
       <div className="space-y-4">

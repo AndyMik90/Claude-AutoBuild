@@ -20,6 +20,7 @@ from .ollama_embedder import (
 from .openai_embedder import create_openai_embedder
 from .openrouter_embedder import create_openrouter_embedder
 from .voyage_embedder import create_voyage_embedder
+from .zai_embedder import create_zai_embedder
 
 __all__ = [
     "create_openai_embedder",
@@ -28,6 +29,7 @@ __all__ = [
     "create_ollama_embedder",
     "create_google_embedder",
     "create_openrouter_embedder",
+    "create_zai_embedder",
     "KNOWN_OLLAMA_EMBEDDING_MODELS",
     "get_embedding_dim_for_model",
 ]
