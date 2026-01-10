@@ -91,7 +91,9 @@ class TestForgejoConfig:
             config = ForgejoConfig.from_env()
             assert config.instance_url == 'https://codeberg.org'
             assert config.token == 'test-token'
-            assert config.repo == 'owner/repo'
+            assert config.owner == 'owner'
+            assert config.repo == 'repo'
+            assert config.full_repo == 'owner/repo'
 
     def test_config_from_env_missing_url(self):
         """Test ForgejoConfig raises when URL is missing."""
