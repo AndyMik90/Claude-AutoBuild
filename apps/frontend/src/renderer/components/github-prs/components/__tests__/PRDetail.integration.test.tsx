@@ -62,10 +62,13 @@ function createMockPR(overrides: Partial<PRData> = {}): PRData {
 // Create a mock clean review result
 function createMockCleanReviewResult(overrides: Partial<PRReviewResult> = {}): PRReviewResult {
   return {
+    prNumber: 123,
+    repo: 'test/repo',
     success: true,
     overallStatus: 'approve',
     summary: 'All code passes review. No issues found.',
     findings: [],
+    reviewedAt: '2024-01-01T00:00:00Z',
     reviewedCommitSha: 'abc123',
     ...overrides
   };
@@ -201,17 +204,22 @@ describe('PRDetail - Clean Review State Reset Integration', () => {
   it('should not show Post Clean Review button when review has HIGH severity findings', async () => {
     const initialPR = createMockPR({ number: 123 });
     const reviewWithHighFindings: PRReviewResult = {
+      prNumber: 123,
+      repo: 'test/repo',
       success: true,
       overallStatus: 'request_changes',
       summary: 'Found high severity issues.',
+      reviewedAt: '2024-01-01T00:00:00Z',
       findings: [
         {
           id: 'finding-1',
           severity: 'high',
           category: 'security',
+          title: 'Security Issue',
           file: 'src/test.ts',
           line: 10,
-          description: 'High severity issue'
+          description: 'High severity issue',
+          fixable: true
         }
       ],
       reviewedCommitSha: 'abc123'
@@ -280,17 +288,22 @@ describe('PRDetail - Clean Review State Reset Integration', () => {
 
     // Test 2: Dirty review (HIGH findings)
     const dirtyReviewResult: PRReviewResult = {
+      prNumber: 123,
+      repo: 'test/repo',
       success: true,
       overallStatus: 'request_changes',
       summary: 'Found issues.',
+      reviewedAt: '2024-01-01T00:00:00Z',
       findings: [
         {
           id: 'finding-1',
           severity: 'high',
           category: 'security',
+          title: 'Security Issue',
           file: 'src/test.ts',
           line: 10,
-          description: 'High severity issue'
+          description: 'High severity issue',
+          fixable: true
         }
       ],
       reviewedCommitSha: 'abc123'
