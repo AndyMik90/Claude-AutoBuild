@@ -537,15 +537,24 @@ export function preparePythonSubprocessCommand(executablePath: string): PythonSu
   }
 
   // Analyze path to determine quoting requirements
-  const { needsShell, needsQuoting } = analyzePathQuoting(executablePath);
-  const quotedPath = needsQuoting ? `"${executablePath}"` : executablePath;
+  const { needsShell, needsQuoting, isAlreadyQuoted } = analyzePathQuoting(executablePath);
 
-  // For shell mode, the path must be quoted in the command string.
-  // We escape the quoted path for Python string representation.
+  // For shell mode, build the properly quoted and escaped path for Python string representation.
   // For list mode (no shell), just escape backslashes and quotes.
-  const commandPath = needsShell
-    ? `"${quotedPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
-    : quotedPath.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  let commandPath: string;
+  if (needsShell) {
+    // If path is already quoted, just escape it for Python without adding more quotes
+    // Otherwise, quote it if needed and then escape
+    const pathToEscape = isAlreadyQuoted
+      ? executablePath
+      : needsQuoting
+        ? `"${executablePath}"`
+        : executablePath;
+    commandPath = `"${pathToEscape.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  } else {
+    // List mode: escape backslashes and single quotes
+    commandPath = executablePath.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  }
 
   return { commandPath, needsShell };
 }
@@ -620,6 +629,13 @@ export function prepareShellCommand(executablePath: string): ShellCommandResult 
   // Validate input
   if (!executablePath || typeof executablePath !== "string") {
     throw new Error("prepareShellCommand: executablePath is required and must be a string");
+  }
+
+  // Security validation: ensure path doesn't contain dangerous characters
+  if (!isSecurePath(executablePath)) {
+    throw new Error(
+      `prepareShellCommand: executablePath contains potentially dangerous characters. Path: ${executablePath}`
+    );
   }
 
   // Analyze path to determine quoting requirements

@@ -6,7 +6,7 @@
  * Unit tests for useXterm keyboard handlers
  * Tests terminal copy/paste keyboard shortcuts and platform detection
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from "vitest";
 import type { Mock } from "vitest";
 import { act, render } from "@testing-library/react";
 import React from "react";
@@ -59,13 +59,34 @@ vi.mock("../../../../lib/terminal-buffer-manager", () => ({
 }));
 
 // Mock navigator.platform for platform detection
-const originalNavigatorPlatform = navigator.platform;
+// Capture the full property descriptor to properly restore it later
+const originalNavigatorPlatformDescriptor = Object.getOwnPropertyDescriptor(
+  navigator,
+  "platform"
+) ?? {
+  value: navigator.platform,
+  writable: true,
+  configurable: true,
+  enumerable: true,
+};
+
+/**
+ * Helper function to set navigator.platform with configurable:true
+ * to avoid poisoning the property descriptor across tests
+ */
+function setNavigatorPlatform(value: string): void {
+  Object.defineProperty(navigator, "platform", {
+    value,
+    configurable: true,
+    writable: true,
+  });
+}
 
 // Mock requestAnimationFrame for jsdom environment (not provided by default)
-global.requestAnimationFrame = vi.fn(
-  (cb: FrameRequestCallback) => setTimeout(cb, 0) as unknown as number
-);
-global.cancelAnimationFrame = vi.fn((id: unknown) => clearTimeout(id as number));
+// Save originals to restore in afterAll hook
+const origRequestAnimationFrame = global.requestAnimationFrame;
+const origCancelAnimationFrame = global.cancelAnimationFrame;
+const origResizeObserver = global.ResizeObserver;
 
 /**
  * Helper function to set up XTerm mocks and render the hook
@@ -78,7 +99,15 @@ async function setupMockXterm(
     paste?: ReturnType<typeof vi.fn>;
     input?: ReturnType<typeof vi.fn>;
   } = {}
-) {
+): Promise<{
+  keyEventHandler: (event: KeyboardEvent) => boolean;
+  mockInstance: {
+    hasSelection?: () => boolean;
+    getSelection?: () => string;
+    paste?: ReturnType<typeof vi.fn>;
+    input?: ReturnType<typeof vi.fn>;
+  };
+}> {
   let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
 
   // Override XTerm mock to be constructable
@@ -139,7 +168,10 @@ async function setupMockXterm(
   render(React.createElement(TestWrapper));
 
   // After rendering, keyEventHandler is guaranteed to be set by attachCustomKeyEventHandler
-  // Use non-null assertion since we know the hook will set it
+  // Fail fast with a clear error if the hook stops attaching the handler
+  if (!keyEventHandler) {
+    throw new Error("useXterm did not attach a custom key event handler");
+  }
   return {
     keyEventHandler: keyEventHandler!,
     mockInstance: {
@@ -160,6 +192,12 @@ describe("useXterm keyboard handlers", () => {
   beforeEach(() => {
     // Clear all mocks before each test
     vi.clearAllMocks();
+
+    // Re-set global mocks (they get restored by vi.restoreAllMocks() in afterEach)
+    global.requestAnimationFrame = vi.fn(
+      (cb: FrameRequestCallback) => setTimeout(cb, 0) as unknown as number
+    );
+    global.cancelAnimationFrame = vi.fn((id: unknown) => clearTimeout(id as number));
 
     // Ensure window and navigator exist in test environment
     if (typeof window === "undefined") {
@@ -189,11 +227,15 @@ describe("useXterm keyboard handlers", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    // Reset navigator.platform to original value
-    Object.defineProperty(navigator, "platform", {
-      value: originalNavigatorPlatform,
-      writable: true,
-    });
+    // Restore the full original navigator.platform descriptor
+    Object.defineProperty(navigator, "platform", originalNavigatorPlatformDescriptor);
+  });
+
+  afterAll(() => {
+    // Restore original global shims after all tests complete
+    global.requestAnimationFrame = origRequestAnimationFrame;
+    global.cancelAnimationFrame = origCancelAnimationFrame;
+    global.ResizeObserver = origResizeObserver;
   });
 
   describe("Platform detection", () => {
@@ -201,10 +243,7 @@ describe("useXterm keyboard handlers", () => {
       const mockPaste = vi.fn();
 
       // Mock Windows platform
-      Object.defineProperty(navigator, "platform", {
-        value: "Win32",
-        writable: true,
-      });
+      setNavigatorPlatform("Win32");
 
       const { keyEventHandler } = await setupMockXterm({ paste: mockPaste });
 
@@ -227,10 +266,7 @@ describe("useXterm keyboard handlers", () => {
       const mockPaste = vi.fn();
 
       // Mock Linux platform
-      Object.defineProperty(navigator, "platform", {
-        value: "Linux",
-        writable: true,
-      });
+      setNavigatorPlatform("Linux");
 
       const { keyEventHandler } = await setupMockXterm({ paste: mockPaste });
 
@@ -268,10 +304,7 @@ describe("useXterm keyboard handlers", () => {
       const mockGetSelection = vi.fn(() => "selected text");
 
       // Mock Linux platform
-      Object.defineProperty(navigator, "platform", {
-        value: "Linux",
-        writable: true,
-      });
+      setNavigatorPlatform("Linux");
 
       const { keyEventHandler } = await setupMockXterm({
         hasSelection: mockHasSelection,
@@ -311,10 +344,7 @@ describe("useXterm keyboard handlers", () => {
       const mockPaste = vi.fn();
 
       // Mock macOS platform
-      Object.defineProperty(navigator, "platform", {
-        value: "MacIntel",
-        writable: true,
-      });
+      setNavigatorPlatform("MacIntel");
 
       const { keyEventHandler } = await setupMockXterm({ paste: mockPaste });
 
@@ -442,10 +472,7 @@ describe("useXterm keyboard handlers", () => {
       const mockPaste = vi.fn();
 
       // Mock Windows platform (navigator)
-      Object.defineProperty(navigator, "platform", {
-        value: "Win32",
-        writable: true,
-      });
+      setNavigatorPlatform("Win32");
 
       const { keyEventHandler } = await setupMockXterm({ paste: mockPaste });
 
@@ -473,10 +500,7 @@ describe("useXterm keyboard handlers", () => {
       const mockPaste = vi.fn();
 
       // Mock Linux platform (navigator)
-      Object.defineProperty(navigator, "platform", {
-        value: "Linux",
-        writable: true,
-      });
+      setNavigatorPlatform("Linux");
 
       const { keyEventHandler } = await setupMockXterm({ paste: mockPaste });
 
@@ -500,10 +524,7 @@ describe("useXterm keyboard handlers", () => {
       const mockPaste = vi.fn();
 
       // Mock macOS platform (navigator)
-      Object.defineProperty(navigator, "platform", {
-        value: "MacIntel",
-        writable: true,
-      });
+      setNavigatorPlatform("MacIntel");
 
       const { keyEventHandler } = await setupMockXterm({ paste: mockPaste });
 
@@ -531,10 +552,7 @@ describe("useXterm keyboard handlers", () => {
       const mockGetSelection = vi.fn(() => "selected text");
 
       // Mock Linux platform (navigator)
-      Object.defineProperty(navigator, "platform", {
-        value: "Linux",
-        writable: true,
-      });
+      setNavigatorPlatform("Linux");
 
       const { keyEventHandler } = await setupMockXterm({
         hasSelection: mockHasSelection,
@@ -559,10 +577,7 @@ describe("useXterm keyboard handlers", () => {
 
     it("should not trigger CTRL+SHIFT+C on Windows", async () => {
       // Mock Windows platform (navigator)
-      Object.defineProperty(navigator, "platform", {
-        value: "Win32",
-        writable: true,
-      });
+      setNavigatorPlatform("Win32");
 
       const { keyEventHandler } = await setupMockXterm({
         hasSelection: vi.fn(() => false),
@@ -591,10 +606,7 @@ describe("useXterm keyboard handlers", () => {
       const mockPaste = vi.fn();
 
       // Mock Linux platform (navigator)
-      Object.defineProperty(navigator, "platform", {
-        value: "Linux",
-        writable: true,
-      });
+      setNavigatorPlatform("Linux");
 
       const { keyEventHandler } = await setupMockXterm({ paste: mockPaste });
 
@@ -654,10 +666,7 @@ describe("useXterm keyboard handlers", () => {
       const mockPaste = vi.fn();
 
       // Mock Windows platform to enable custom paste handler
-      Object.defineProperty(navigator, "platform", {
-        value: "Win32",
-        writable: true,
-      });
+      setNavigatorPlatform("Win32");
 
       // Mock clipboard read failure
       mockClipboard.readText = vi.fn().mockRejectedValue(new Error("Clipboard read failed"));
