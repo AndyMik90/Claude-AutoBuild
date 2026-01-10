@@ -152,17 +152,17 @@
       "notReviewed": "未レビュー",
       "notReviewedDesc": "このMRを分析するにはAIレビューを実行してください",
       "reviewComplete": "レビュー完了",
-      "reviewCompleteDesc": "件の指摘が見つかりました。選択してGitLabに投稿してください。",
+      "reviewCompleteDesc": "{{count}}件の指摘が見つかりました。選択してGitLabに投稿してください。",
       "waitingForChanges": "変更待ち",
-      "waitingForChangesDesc": "件の指摘が投稿されました。コントリビューターが問題に対処するのを待っています。",
+      "waitingForChangesDesc": "{{count}}件の指摘が投稿されました。コントリビューターが問題に対処するのを待っています。",
       "readyToMerge": "マージ準備完了",
       "readyToMergeDesc": "ブロックする問題は見つかりませんでした。このMRはマージできます。",
       "needsAttention": "要注意",
-      "needsAttentionDesc": "件の指摘をGitLabに投稿する必要があります。",
+      "needsAttentionDesc": "{{count}}件の指摘をGitLabに投稿する必要があります。",
       "readyForFollowup": "フォローアップ準備完了",
-      "readyForFollowupDesc": "件のコミットがレビュー以降にあります。フォローアップを実行して問題が解決されたか確認してください。",
+      "readyForFollowupDesc": "レビュー以降{{count}}件のコミットがあります。フォローアップを実行して問題が解決されたか確認してください。",
       "blockingIssues": "ブロックする問題",
-      "blockingIssuesDesc": "件のブロックする問題がまだオープンです。"
+      "blockingIssuesDesc": "{{count}}件のブロックする問題がまだオープンです。"
     },
     "overallStatus": {
       "approve": "承認",
