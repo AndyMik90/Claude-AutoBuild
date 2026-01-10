@@ -214,17 +214,8 @@ class TestAIMergeRetryMechanism:
 
     def test_ai_merge_system_prompt_enhanced(self):
         """AI merge system prompt is enhanced for better success rate (ACS-194)."""
-        # Import from the correct location - workspace.py, not the package
-        import importlib.util
-        from pathlib import Path
-
-        # Load workspace.py explicitly (not the workspace package)
-        workspace_file = Path(__file__).parent.parent / "apps" / "backend" / "core" / "workspace.py"
-        spec = importlib.util.spec_from_file_location("workspace_module", workspace_file)
-        workspace_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(workspace_module)
-
-        AI_MERGE_SYSTEM_PROMPT = workspace_module.AI_MERGE_SYSTEM_PROMPT
+        # Import from workspace package (standard import)
+        from core.workspace import AI_MERGE_SYSTEM_PROMPT
 
         # Verify the system prompt includes enhanced guidance
         assert "expert code merge assistant" in AI_MERGE_SYSTEM_PROMPT
@@ -240,16 +231,8 @@ class TestAIMergeRetryMechanism:
 
     def test_build_merge_prompt_includes_task_context(self):
         """Merge prompt builder includes task context (ACS-194)."""
-        import importlib.util
-        from pathlib import Path
-
-        # Load workspace.py explicitly
-        workspace_file = Path(__file__).parent.parent / "apps" / "backend" / "core" / "workspace.py"
-        spec = importlib.util.spec_from_file_location("workspace_module", workspace_file)
-        workspace_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(workspace_module)
-
-        _build_merge_prompt = workspace_module._build_merge_prompt
+        # Import from workspace package (standard import)
+        from core.workspace import _build_merge_prompt
 
         # Test that prompt includes task name
         prompt = _build_merge_prompt(

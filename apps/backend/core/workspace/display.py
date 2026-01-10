@@ -189,12 +189,14 @@ def print_conflict_info(result: dict) -> None:
             # Add severity indicator
             severity_icon = ""
             if severity == "high":
-                severity_icon = "🔴 "
+                severity_icon = "🔴"
             elif severity == "medium":
-                severity_icon = "🟡 "
+                severity_icon = "🟡"
 
             file_paths.append(file_path)
-            print(f"    {highlight(file_path)} {severity_icon}")
+            # Only add space if icon is present (no trailing space when empty)
+            icon_with_space = f" {severity_icon}" if severity_icon else ""
+            print(f"    {highlight(file_path)}{icon_with_space}")
             if reason:
                 print(f"      {muted(reason)}")
             has_ai_conflicts = True
