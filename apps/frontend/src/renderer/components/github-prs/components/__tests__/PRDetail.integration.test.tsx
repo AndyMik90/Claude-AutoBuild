@@ -13,7 +13,8 @@ import { PRDetail } from '../PRDetail';
 import type { PRData, PRReviewResult } from '../../hooks/useGitHubPRs';
 
 // Mock window.electronAPI
-const mockOnPostComment = vi.fn() as ReturnType<typeof vi.fn>;
+type PostCommentFn = (body: string) => void | Promise<void>;
+const mockOnPostComment = vi.fn<PostCommentFn>();
 const mockOnPostReview = vi.fn();
 const mockOnRunReview = vi.fn();
 const mockOnRunFollowupReview = vi.fn();
@@ -86,7 +87,7 @@ describe('PRDetail - Clean Review State Reset Integration', () => {
   function renderPRDetail(overrides: {
     pr?: PRData;
     reviewResult?: PRReviewResult;
-    onPostComment?: ReturnType<typeof vi.fn>;
+    onPostComment?: PostCommentFn;
   } = {}) {
     const defaultPR = createMockPR({ number: 123 });
     const defaultReviewResult = createMockCleanReviewResult();
