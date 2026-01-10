@@ -161,7 +161,7 @@ class AutoFixProcessor:
             try:
                 issue_number = int(f.stem.replace("autofix_", ""))
                 state = AutoFixState.load(self.github_dir, issue_number)
-                if state:
+                if state is None:
                     queue.append(state)
             except (ValueError, json.JSONDecodeError):
                 continue
