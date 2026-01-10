@@ -76,6 +76,11 @@ class ForgejoConfig:
     owner: str = ""
     repo: str = ""
 
+    def __post_init__(self) -> None:
+        """Normalize instance URL by stripping trailing slashes."""
+        if self.instance_url:
+            self.instance_url = self.instance_url.rstrip("/")
+
     @classmethod
     def from_env(cls, project_dir: Path | None = None) -> ForgejoConfig:
         """

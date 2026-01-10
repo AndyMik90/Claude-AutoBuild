@@ -110,7 +110,8 @@ class TestForgejoConfig:
         config = ForgejoConfig(
             instance_url="https://codeberg.org/",
             token="test-token",
-            repo="owner/repo"
+            owner="owner",
+            repo="repo"
         )
         assert config.instance_url == "https://codeberg.org"
 
@@ -119,14 +120,16 @@ class TestForgejoConfig:
         valid_config = ForgejoConfig(
             instance_url="https://codeberg.org",
             token="test-token",
-            repo="owner/repo"
+            owner="owner",
+            repo="repo"
         )
         assert valid_config.is_valid() is True
 
         invalid_config = ForgejoConfig(
-            instance_url=None,
+            instance_url="",
             token="test-token",
-            repo="owner/repo"
+            owner="owner",
+            repo="repo"
         )
         assert invalid_config.is_valid() is False
 
