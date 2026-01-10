@@ -296,7 +296,10 @@
     "approveAllWorkflows": "Approuver tous les workflows",
     "postCleanReview": "Publier révision propre",
     "postingCleanReview": "Publication...",
-    "cleanReviewPosted": "Révision propre publiée"
+    "cleanReviewPosted": "Révision propre publiée",
+    "cleanReviewMessageTitle": "## ✅ Auto Claude PR Review - APPROUVÉ",
+    "cleanReviewMessageStatus": "**Statut :** Tout le code est bon",
+    "cleanReviewMessageFooter": "*Cet examen automatisé n'a trouvé aucun problème. Généré par Auto Claude.*"
   },
   "downloads": {
     "toggleExpand": "Afficher/masquer les détails",
