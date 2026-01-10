@@ -212,55 +212,55 @@ class TestStatsTracking:
 class TestAIMergeRetryMechanism:
     """Tests for AI merge retry mechanism with fallback (ACS-194)."""
 
-    def test_attempt_ai_merge_returns_tuple(self):
-        """_attempt_ai_merge returns (success, content, error) tuple (ACS-194)."""
-        from core.workspace import _attempt_ai_merge
-        from unittest.mock import AsyncMock
+    def test_ai_merge_system_prompt_enhanced(self):
+        """AI merge system prompt is enhanced for better success rate (ACS-194)."""
+        # Import from the correct location - workspace.py, not the package
+        import importlib.util
+        from pathlib import Path
 
-        # Create a mock task
-        class MockTask:
-            file_path = "test.py"
-            base_content = "base"
-            main_content = "main"
-            worktree_content = "worktree"
-            spec_name = "test-spec"
-            project_dir = "/tmp/test"
+        # Load workspace.py explicitly (not the workspace package)
+        workspace_file = Path(__file__).parent.parent / "apps" / "backend" / "core" / "workspace.py"
+        spec = importlib.util.spec_from_file_location("workspace_module", workspace_file)
+        workspace_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(workspace_module)
 
-        task = MockTask()
-        prompt = "Test prompt"
+        AI_MERGE_SYSTEM_PROMPT = workspace_module.AI_MERGE_SYSTEM_PROMPT
 
-        # Mock the simple_client to avoid actual AI calls
-        with pytest.mock.patch("core.workspace.create_simple_client") as mock_client:
-            mock_client_instance = AsyncMock()
-            mock_client.return_value = mock_client_instance
-
-            # Mock successful merge
-            mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
-            mock_client_instance.__aexit__ = AsyncMock()
-            mock_client_instance.query = AsyncMock()
-            mock_client_instance.receive_response = AsyncMock()
-
-            async def mock_response():
-                from unittest.mock import MagicMock
-                msg = MagicMock()
-                msg_type = "AssistantMessage"
-                msg.content = [MagicMock(type="TextBlock", text="def merged(): pass")]
-                yield msg
-
-            mock_client_instance.receive_response = mock_response()
-
-            # This would normally require async context, but we're testing the interface
-            assert callable(_attempt_ai_merge)
-
-    def test_ai_merge_uses_haiku_then_sonnet_fallback(self):
-        """AI merge tries Haiku first, then falls back to Sonnet (ACS-194)."""
-        from core.workspace import AI_MERGE_SYSTEM_PROMPT
-
-        # Verify the system prompt mentions both models
+        # Verify the system prompt includes enhanced guidance
         assert "expert code merge assistant" in AI_MERGE_SYSTEM_PROMPT
-        assert "3-way merge" in AI_MERGE_SYSTEM_PROMPT
-
-        # The actual retry logic is tested in integration tests
-        # This unit test verifies the system prompt is enhanced
-        assert "semantic purpose" in AI_MERGE_SYSTEM_PROMPT
+        assert "3-way merges" in AI_MERGE_SYSTEM_PROMPT
+        # Note: The prompt focuses on "intelligently" and "task's intent" not "semantic understanding"
+        assert "intelligently" in AI_MERGE_SYSTEM_PROMPT.lower()
+        assert "task's intent" in AI_MERGE_SYSTEM_PROMPT or "task intent" in AI_MERGE_SYSTEM_PROMPT
         assert "best-effort" in AI_MERGE_SYSTEM_PROMPT
+        # Verify key merge strategies are documented
+        assert "Preserve all functional changes" in AI_MERGE_SYSTEM_PROMPT
+        assert "Combine independent changes" in AI_MERGE_SYSTEM_PROMPT
+        assert "Resolve overlapping changes" in AI_MERGE_SYSTEM_PROMPT
+
+    def test_build_merge_prompt_includes_task_context(self):
+        """Merge prompt builder includes task context (ACS-194)."""
+        import importlib.util
+        from pathlib import Path
+
+        # Load workspace.py explicitly
+        workspace_file = Path(__file__).parent.parent / "apps" / "backend" / "core" / "workspace.py"
+        spec = importlib.util.spec_from_file_location("workspace_module", workspace_file)
+        workspace_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(workspace_module)
+
+        _build_merge_prompt = workspace_module._build_merge_prompt
+
+        # Test that prompt includes task name
+        prompt = _build_merge_prompt(
+            "test.py",
+            "base content",
+            "main content",
+            "worktree content",
+            "my-task-spec",
+        )
+
+        assert "my-task-spec" in prompt
+        assert "OURS" in prompt
+        assert "THEIRS" in prompt
+        assert "BASE" in prompt or "common ancestor" in prompt

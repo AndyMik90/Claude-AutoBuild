@@ -399,7 +399,7 @@ class TestPerSpecWorktreeName:
 class TestConflictInfoDisplay:
     """Tests for conflict info display function (ACS-179)."""
 
-    def test_print_conflict_info_with_string_list(self, temp_git_repo: Path, capsys):
+    def test_print_conflict_info_with_string_list(self, capsys):
         """print_conflict_info handles string list of file paths (ACS-179)."""
         from core.workspace.display import print_conflict_info
 
@@ -416,7 +416,7 @@ class TestConflictInfoDisplay:
         assert "file3.js" in captured.out
         assert "git add" in captured.out
 
-    def test_print_conflict_info_with_dict_list(self, temp_git_repo: Path, capsys):
+    def test_print_conflict_info_with_dict_list(self, capsys):
         """print_conflict_info handles dict list with file/reason/severity (ACS-179)."""
         from core.workspace.display import print_conflict_info
 
@@ -437,8 +437,11 @@ class TestConflictInfoDisplay:
         assert "file3.js" in captured.out
         assert "Syntax error" in captured.out
         assert "Merge conflict" in captured.out
+        # Verify severity emoji indicators
+        assert "🔴" in captured.out  # High severity
+        assert "🟡" in captured.out  # Medium severity
 
-    def test_print_conflict_info_mixed_formats(self, temp_git_repo: Path, capsys):
+    def test_print_conflict_info_mixed_formats(self, capsys):
         """print_conflict_info handles mixed string and dict conflicts (ACS-179)."""
         from core.workspace.display import print_conflict_info
 
@@ -491,6 +494,18 @@ class TestMergeErrorHandling:
         # Should return False on merge conflict
         assert result is False
 
+        # Verify side effects: base branch content is unchanged
+        subprocess.run(["git", "checkout", manager.base_branch], cwd=temp_git_repo, capture_output=True)
+        base_content = (temp_git_repo / "worker-file.txt").read_text()
+        assert base_content == "main content", "Base branch should be unchanged after failed merge"
+
+        # Verify worktree still exists (delete_after=False)
+        assert worker_info.path.exists(), "Worktree should still exist after failed merge"
+
+        # Verify worktree content is unchanged
+        worktree_content = (worker_info.path / "worker-file.txt").read_text()
+        assert worktree_content == "worker content", "Worktree content should be unchanged"
+
     def test_merge_success_returns_true(self, temp_git_repo: Path):
         """Successful merge returns True (ACS-163 verification)."""
         manager = WorktreeManager(temp_git_repo)
@@ -509,3 +524,9 @@ class TestMergeErrorHandling:
         result = manager.merge_worktree("worker-spec", delete_after=False)
 
         assert result is True
+
+        # Verify the file was merged into base branch
+        subprocess.run(["git", "checkout", manager.base_branch], cwd=temp_git_repo, capture_output=True)
+        assert (temp_git_repo / "worker-file.txt").exists(), "Merged file should exist in base branch"
+        merged_content = (temp_git_repo / "worker-file.txt").read_text()
+        assert merged_content == "worker content", "Merged file should have worktree content"

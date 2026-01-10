@@ -1464,19 +1464,20 @@ async def _attempt_ai_merge(
     if response_text:
         merged_content = _strip_code_fences(response_text.strip())
 
-        # Check if AI returned natural language instead of code
+        # Check if AI returned natural language instead of code (case-insensitive)
         natural_language_patterns = [
-            "I need to",
-            "Let me",
-            "I cannot",
-            "I'm unable",
-            "The file appears",
-            "I don't have",
-            "Unfortunately",
-            "I apologize",
+            "i need to",
+            "let me",
+            "i cannot",
+            "i'm unable",
+            "the file appears",
+            "i don't have",
+            "unfortunately",
+            "i apologize",
         ]
         first_line = merged_content.split("\n")[0] if merged_content else ""
-        if any(pattern in first_line for pattern in natural_language_patterns):
+        first_line_lower = first_line.lower()
+        if any(pattern in first_line_lower for pattern in natural_language_patterns):
             return (
                 False,
                 None,

@@ -177,16 +177,19 @@ class TestWorktreeCommitAndMerge:
         manager.setup()
 
         # Ensure we're on the base branch
-        subprocess.run(["git", "checkout", manager.base_branch], cwd=temp_git_repo, capture_output=True)
+        result = subprocess.run(["git", "checkout", manager.base_branch], cwd=temp_git_repo, capture_output=True)
+        assert result.returncode == 0, f"Checkout failed: {result.stderr}"
 
         # Create a worktree with changes
         worker_info = manager.create_worktree("worker-spec")
         (worker_info.path / "worker-file.txt").write_text("worker content")
-        subprocess.run(["git", "add", "."], cwd=worker_info.path, capture_output=True)
-        subprocess.run(
+        result = subprocess.run(["git", "add", "."], cwd=worker_info.path, capture_output=True)
+        assert result.returncode == 0, f"Git add failed: {result.stderr}"
+        result = subprocess.run(
             ["git", "commit", "-m", "Worker commit"],
             cwd=worker_info.path, capture_output=True
         )
+        assert result.returncode == 0, f"Commit failed: {result.stderr}"
 
         # Already on target branch, should skip checkout and still merge successfully
         result = manager.merge_worktree("worker-spec", delete_after=False)

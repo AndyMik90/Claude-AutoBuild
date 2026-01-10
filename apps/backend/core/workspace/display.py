@@ -155,6 +155,8 @@ def print_conflict_info(result: dict) -> None:
     - List of strings (file paths) - for git conflict markers
     - List of dicts with keys: file, reason, severity - for AI merge failures
     """
+    import shlex
+
     from ui import highlight, muted, warning
 
     conflicts = result.get("conflicts", [])
@@ -169,12 +171,15 @@ def print_conflict_info(result: dict) -> None:
     )
 
     # Extract file paths from conflicts (handle both strings and dicts)
-    file_paths = []
+    file_paths: list[str] = []
+    has_marker_conflicts = False
+    has_ai_conflicts = False
     for conflict in conflicts:
         if isinstance(conflict, str):
             # Simple string - just the file path
             file_paths.append(conflict)
             print(f"    {highlight(conflict)}")
+            has_marker_conflicts = True
         elif isinstance(conflict, dict):
             # Dict with file, reason, severity keys
             file_path = conflict.get("file", "unknown")
@@ -192,11 +197,25 @@ def print_conflict_info(result: dict) -> None:
             print(f"    {highlight(file_path)} {severity_icon}")
             if reason:
                 print(f"      {muted(reason)}")
+            has_ai_conflicts = True
 
     print()
-    print(muted("  These files have conflict markers (<<<<<<< =======  >>>>>>>)"))
-    print(muted("  Review and resolve them, then run:"))
-    print(f"    git add {' '.join(file_paths)}")
+    if has_marker_conflicts:
+        print(
+            muted(
+                "  Some files may contain conflict markers (<<<<<<< =======  >>>>>>>)."
+            )
+        )
+    if has_ai_conflicts:
+        print(
+            muted(
+                "  Some files could not be auto-merged; review and resolve as needed."
+            )
+        )
+    print(muted("  Then run:"))
+    # Quote paths and dedupe while preserving order
+    quoted = " ".join(shlex.quote(p) for p in dict.fromkeys(file_paths))
+    print(f"    git add {quoted}")
     print("    git commit")
     print()
 

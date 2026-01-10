@@ -625,13 +625,17 @@ class WorktreeManager:
                 new_branch = self._get_current_branch()
                 if new_branch == self.base_branch:
                     # Branch did change - likely a hook failure, continue with merge
+                    stderr_msg = result.stderr[:100] if result.stderr else "<no stderr>"
                     debug_warning(
                         "worktree",
-                        f"Checkout succeeded but hook returned non-zero: {result.stderr[:100]}",
+                        f"Checkout succeeded but hook returned non-zero: {stderr_msg}",
                     )
                 else:
                     # Actual checkout failure
-                    print(f"Error: Could not checkout base branch: {result.stderr}")
+                    stderr_msg = (
+                        result.stderr if result.stderr is not None else "<no stderr>"
+                    )
+                    print(f"Error: Could not checkout base branch: {stderr_msg}")
                     return False
 
         # Merge the spec branch
