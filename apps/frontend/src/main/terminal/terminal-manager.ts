@@ -17,6 +17,7 @@ import * as SessionHandler from './session-handler';
 import * as TerminalLifecycle from './terminal-lifecycle';
 import * as TerminalEventHandler from './terminal-event-handler';
 import * as ClaudeIntegration from './claude-integration-handler';
+import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
 export class TerminalManager {
   private terminals: Map<string, TerminalProcess> = new Map();
@@ -84,7 +85,7 @@ export class TerminalManager {
         onResumeNeeded: (terminalId, sessionId) => {
           // Use async version to avoid blocking main process
           this.resumeClaudeAsync(terminalId, sessionId).catch((error) => {
-            console.error('[terminal-manager] Failed to resume Claude session:', error);
+            debugError('[terminal-manager] Failed to resume Claude session:', error);
           });
         }
       },
@@ -120,9 +121,14 @@ export class TerminalManager {
    * Send input to a terminal
    */
   write(id: string, data: string): void {
+    debugLog('[TerminalManager:write] Writing to terminal:', id, 'data length:', data.length);
     const terminal = this.terminals.get(id);
     if (terminal) {
+      debugLog('[TerminalManager:write] Terminal found, calling writeToPty...');
       PtyManager.writeToPty(terminal, data);
+      debugLog('[TerminalManager:write] writeToPty completed');
+    } else {
+      debugError('[TerminalManager:write] Terminal NOT found:', id);
     }
   }
 
@@ -311,7 +317,7 @@ export class TerminalManager {
         onResumeNeeded: (terminalId, sessionId) => {
           // Use async version to avoid blocking main process
           this.resumeClaudeAsync(terminalId, sessionId).catch((error) => {
-            console.error('[terminal-manager] Failed to resume Claude session:', error);
+            debugError('[terminal-manager] Failed to resume Claude session:', error);
           });
         }
       },

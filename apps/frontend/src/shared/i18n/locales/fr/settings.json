@@ -436,7 +436,19 @@
     "apiKeys": "Clés API",
     "apiKeysInfo": "Les clés définies ici sont utilisées par défaut. Les projets individuels peuvent les remplacer dans leurs paramètres.",
     "openaiKey": "Clé API OpenAI",
-    "openaiKeyDescription": "Requise pour le backend mémoire Graphiti (embeddings)"
+    "openaiKeyDescription": "Requise pour le backend mémoire Graphiti (embeddings)",
+    "toast": {
+      "authSuccess": "Profil authentifié",
+      "authSuccessWithEmail": "Connecté en tant que {{email}}",
+      "authSuccessGeneric": "Authentification terminée. Vous pouvez maintenant utiliser ce profil.",
+      "authStartFailed": "Échec de l'authentification",
+      "addProfileFailed": "Échec de l'ajout du profil",
+      "tokenSaved": "Token enregistré",
+      "tokenSavedDescription": "Votre token a été enregistré avec succès.",
+      "tokenSaveFailed": "Échec de l'enregistrement du token",
+      "settingsUpdateFailed": "Échec de la mise à jour des paramètres",
+      "tryAgain": "Veuillez réessayer."
+    }
   },
   "debug": {
     "title": "Debug & Logs",

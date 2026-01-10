@@ -436,7 +436,19 @@
     "apiKeys": "API Keys",
     "apiKeysInfo": "Keys set here are used as defaults. Individual projects can override these in their settings.",
     "openaiKey": "OpenAI API Key",
-    "openaiKeyDescription": "Required for Graphiti memory backend (embeddings)"
+    "openaiKeyDescription": "Required for Graphiti memory backend (embeddings)",
+    "toast": {
+      "authSuccess": "Profile Authenticated",
+      "authSuccessWithEmail": "Connected as {{email}}",
+      "authSuccessGeneric": "Authentication complete. You can now use this profile.",
+      "authStartFailed": "Authentication Failed",
+      "addProfileFailed": "Failed to Add Profile",
+      "tokenSaved": "Token Saved",
+      "tokenSavedDescription": "Your token has been saved successfully.",
+      "tokenSaveFailed": "Failed to Save Token",
+      "settingsUpdateFailed": "Failed to Update Settings",
+      "tryAgain": "Please try again."
+    }
   },
   "debug": {
     "title": "Debug & Logs",
