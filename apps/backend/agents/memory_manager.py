@@ -114,14 +114,14 @@ async def get_graphiti_context(
             debug("memory", "Graphiti not enabled, skipping context retrieval")
         return None
 
-    # Use centralized helper for GraphitiMemory instantiation
-    memory = get_graphiti_memory(spec_dir, project_dir)
-    if not memory:
-        if is_debug_enabled():
-            debug_warning("memory", "GraphitiMemory not available")
-        return None
-
+    memory = None
     try:
+        # Use centralized helper for GraphitiMemory instantiation
+        memory = get_graphiti_memory(spec_dir, project_dir)
+        if memory is None:
+            if is_debug_enabled():
+                debug_warning("memory", "GraphitiMemory not available")
+            return None
         # Build search query from subtask description
         subtask_desc = subtask.get("description", "")
         subtask_id = subtask.get("id", "")
@@ -317,18 +317,23 @@ async def save_session_memory(
         if is_debug_enabled():
             debug("memory", "Attempting PRIMARY storage: Graphiti")
 
-        # Use centralized helper for GraphitiMemory instantiation
-        memory = get_graphiti_memory(spec_dir, project_dir)
-        if memory:
-            if is_debug_enabled():
-                debug_detailed(
-                    "memory",
-                    "GraphitiMemory instance created",
-                    is_enabled=memory.is_enabled,
-                    group_id=getattr(memory, "group_id", "unknown"),
-                )
-
+        memory = None
         try:
+            # Use centralized helper for GraphitiMemory instantiation
+            memory = get_graphiti_memory(spec_dir, project_dir)
+            if memory is None:
+                if is_debug_enabled():
+                    debug_warning("memory", "GraphitiMemory not available")
+                # Continue to file-based fallback
+            else:
+                if is_debug_enabled():
+                    debug_detailed(
+                        "memory",
+                        "GraphitiMemory instance created",
+                        is_enabled=memory.is_enabled,
+                        group_id=getattr(memory, "group_id", "unknown"),
+                    )
+
             if memory and memory.is_enabled:
                 if is_debug_enabled():
                     debug("memory", "Saving to Graphiti...")

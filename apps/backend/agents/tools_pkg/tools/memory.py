@@ -48,17 +48,12 @@ async def _save_to_graphiti_async(
         True if save succeeded, False otherwise
     """
     try:
-        # Check if Graphiti is enabled
-        from graphiti_config import is_graphiti_enabled
-
-        if not is_graphiti_enabled():
-            return False
-
         # Use centralized helper for GraphitiMemory instantiation
+        # The helper handles enablement checks internally
         from memory.graphiti_helpers import get_graphiti_memory
 
         memory = get_graphiti_memory(spec_dir, project_dir)
-        if not memory:
+        if memory is None:
             return False
 
         try:
