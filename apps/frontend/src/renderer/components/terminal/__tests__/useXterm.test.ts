@@ -229,6 +229,11 @@ describe("useXterm keyboard handlers", () => {
     vi.restoreAllMocks();
     // Restore the full original navigator.platform descriptor
     Object.defineProperty(navigator, "platform", originalNavigatorPlatformDescriptor);
+    // Re-apply global mocks (they get cleared by vi.restoreAllMocks)
+    global.requestAnimationFrame = vi.fn(
+      (cb: FrameRequestCallback) => setTimeout(cb, 0) as unknown as number
+    );
+    global.cancelAnimationFrame = vi.fn((id: unknown) => clearTimeout(id as number));
   });
 
   afterAll(() => {

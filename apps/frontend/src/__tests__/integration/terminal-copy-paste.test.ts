@@ -6,24 +6,28 @@
  * Integration tests for terminal copy/paste functionality
  * Tests xterm.js selection API integration with clipboard operations
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, act } from '@testing-library/react';
-import React from 'react';
-import type { Mock } from 'vitest';
-import { Terminal as XTerm } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { WebLinksAddon } from '@xterm/addon-web-links';
-import { SerializeAddon } from '@xterm/addon-serialize';
+import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from "vitest";
+import { render, act } from "@testing-library/react";
+import React from "react";
+import type { Mock } from "vitest";
+import { Terminal as XTerm } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
+import { SerializeAddon } from "@xterm/addon-serialize";
 
 // Mock xterm.js and its addons
-vi.mock('@xterm/xterm', () => ({
-  Terminal: vi.fn().mockImplementation(function() {
+vi.mock("@xterm/xterm", () => ({
+  Terminal: vi.fn().mockImplementation(function () {
     return {
       open: vi.fn(),
       loadAddon: vi.fn(),
       attachCustomKeyEventHandler: vi.fn(),
-      hasSelection: vi.fn(function() { return false; }),
-      getSelection: vi.fn(function() { return ''; }),
+      hasSelection: vi.fn(function () {
+        return false;
+      }),
+      getSelection: vi.fn(function () {
+        return "";
+      }),
       paste: vi.fn(),
       input: vi.fn(),
       onData: vi.fn(),
@@ -31,35 +35,43 @@ vi.mock('@xterm/xterm', () => ({
       dispose: vi.fn(),
       write: vi.fn(),
       cols: 80,
-      rows: 24
+      rows: 24,
     };
-  })
+  }),
 }));
 
-vi.mock('@xterm/addon-fit', () => ({
-  FitAddon: vi.fn().mockImplementation(function() {
+vi.mock("@xterm/addon-fit", () => ({
+  FitAddon: vi.fn().mockImplementation(function () {
     return {
-      fit: vi.fn()
+      fit: vi.fn(),
     };
-  })
+  }),
 }));
 
-vi.mock('@xterm/addon-web-links', () => ({
-  WebLinksAddon: vi.fn().mockImplementation(function() {
+vi.mock("@xterm/addon-web-links", () => ({
+  WebLinksAddon: vi.fn().mockImplementation(function () {
     return {};
-  })
+  }),
 }));
 
-vi.mock('@xterm/addon-serialize', () => ({
-  SerializeAddon: vi.fn().mockImplementation(function() {
+vi.mock("@xterm/addon-serialize", () => ({
+  SerializeAddon: vi.fn().mockImplementation(function () {
     return {
-      serialize: vi.fn(function() { return ''; }),
-      dispose: vi.fn()
+      serialize: vi.fn(function () {
+        return "";
+      }),
+      dispose: vi.fn(),
     };
-  })
+  }),
 }));
 
-describe('Terminal copy/paste integration', () => {
+// Mock requestAnimationFrame for jsdom environment (not provided by default)
+// Save originals to restore in afterAll hook
+const origRequestAnimationFrame = global.requestAnimationFrame;
+const origCancelAnimationFrame = global.cancelAnimationFrame;
+const origResizeObserver = global.ResizeObserver;
+
+describe("Terminal copy/paste integration", () => {
   let mockClipboard: {
     writeText: Mock;
     readText: Mock;
@@ -68,50 +80,72 @@ describe('Terminal copy/paste integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    // Mock requestAnimationFrame
+    global.requestAnimationFrame = vi.fn(
+      (cb: FrameRequestCallback) => setTimeout(cb, 0) as unknown as number
+    );
+    global.cancelAnimationFrame = vi.fn((id: unknown) => clearTimeout(id as number));
+
     // Mock ResizeObserver
-    global.ResizeObserver = vi.fn().mockImplementation(function() {
+    global.ResizeObserver = vi.fn().mockImplementation(function () {
       return {
         observe: vi.fn(),
         unobserve: vi.fn(),
-        disconnect: vi.fn()
+        disconnect: vi.fn(),
       };
     });
 
     // Mock navigator.clipboard
     mockClipboard = {
       writeText: vi.fn().mockResolvedValue(undefined),
-      readText: vi.fn().mockResolvedValue('clipboard content')
+      readText: vi.fn().mockResolvedValue("clipboard content"),
     };
 
-    Object.defineProperty(global.navigator, 'clipboard', {
+    Object.defineProperty(global.navigator, "clipboard", {
       value: mockClipboard,
-      writable: true
+      writable: true,
     });
 
     // Mock window.electronAPI
     (window as unknown as { electronAPI: unknown }).electronAPI = {
-      sendTerminalInput: vi.fn()
+      sendTerminalInput: vi.fn(),
     };
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    // Re-apply global mocks (they get cleared by vi.restoreAllMocks)
+    global.requestAnimationFrame = vi.fn(
+      (cb: FrameRequestCallback) => setTimeout(cb, 0) as unknown as number
+    );
+    global.cancelAnimationFrame = vi.fn((id: unknown) => clearTimeout(id as number));
   });
 
-  describe('xterm.js selection API integration with clipboard write', () => {
-    it('should integrate xterm.hasSelection() with clipboard write', async () => {
-      const { useXterm } = await import('../../renderer/components/terminal/useXterm');
+  afterAll(() => {
+    // Restore original global shims after all tests complete
+    global.requestAnimationFrame = origRequestAnimationFrame;
+    global.cancelAnimationFrame = origCancelAnimationFrame;
+    global.ResizeObserver = origResizeObserver;
+  });
+
+  describe("xterm.js selection API integration with clipboard write", () => {
+    it("should integrate xterm.hasSelection() with clipboard write", async () => {
+      const { useXterm } = await import("../../renderer/components/terminal/useXterm");
 
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
-      const mockHasSelection = vi.fn(function() { return true; });
-      const mockGetSelection = vi.fn(function() { return 'selected terminal text'; });
+      const mockHasSelection = vi.fn(function () {
+        return true;
+      });
+      const mockGetSelection = vi.fn(function () {
+        return "selected terminal text";
+      });
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
           hasSelection: mockHasSelection,
@@ -123,45 +157,47 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
         };
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
-          dispose: vi.fn()
+          serialize: vi.fn(function () {
+            return "";
+          }),
+          dispose: vi.fn(),
         };
       });
 
       // Create a test wrapper component that provides the DOM element
       const TestWrapper = () => {
-        const { terminalRef } = useXterm({ terminalId: 'test-terminal' });
-        return React.createElement('div', { ref: terminalRef });
+        const { terminalRef } = useXterm({ terminalId: "test-terminal" });
+        return React.createElement("div", { ref: terminalRef });
       };
 
       render(React.createElement(TestWrapper));
 
       await act(async () => {
         // Simulate copy operation
-        const event = new KeyboardEvent('keydown', {
-          key: 'c',
-          ctrlKey: true
+        const event = new KeyboardEvent("keydown", {
+          key: "c",
+          ctrlKey: true,
         });
 
         if (keyEventHandler) {
           keyEventHandler(event);
           // Wait for clipboard write
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise((resolve) => setTimeout(resolve, 0));
         }
       });
 
@@ -172,22 +208,26 @@ describe('Terminal copy/paste integration', () => {
       expect(mockGetSelection).toHaveBeenCalled();
 
       // Verify integration: clipboard.writeText() called with selection
-      expect(mockClipboard.writeText).toHaveBeenCalledWith('selected terminal text');
+      expect(mockClipboard.writeText).toHaveBeenCalledWith("selected terminal text");
     });
 
-    it('should not call getSelection when hasSelection returns false', async () => {
-      const { useXterm } = await import('../../renderer/components/terminal/useXterm');
+    it("should not call getSelection when hasSelection returns false", async () => {
+      const { useXterm } = await import("../../renderer/components/terminal/useXterm");
 
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
-      const mockHasSelection = vi.fn(function() { return false; });
-      const mockGetSelection = vi.fn(function() { return ''; });
+      const mockHasSelection = vi.fn(function () {
+        return false;
+      });
+      const mockGetSelection = vi.fn(function () {
+        return "";
+      });
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
           hasSelection: mockHasSelection,
@@ -199,38 +239,40 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
         };
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
-          dispose: vi.fn()
+          serialize: vi.fn(function () {
+            return "";
+          }),
+          dispose: vi.fn(),
         };
       });
 
       // Create a test wrapper component that provides the DOM element
       const TestWrapper = () => {
-        const { terminalRef } = useXterm({ terminalId: 'test-terminal' });
-        return React.createElement('div', { ref: terminalRef });
+        const { terminalRef } = useXterm({ terminalId: "test-terminal" });
+        return React.createElement("div", { ref: terminalRef });
       };
 
       render(React.createElement(TestWrapper));
 
       await act(async () => {
-        const event = new KeyboardEvent('keydown', {
-          key: 'c',
-          ctrlKey: true
+        const event = new KeyboardEvent("keydown", {
+          key: "c",
+          ctrlKey: true,
         });
 
         if (keyEventHandler) {
@@ -249,7 +291,7 @@ describe('Terminal copy/paste integration', () => {
     });
   });
 
-  describe('clipboard read with xterm paste integration', () => {
+  describe("clipboard read with xterm paste integration", () => {
     let originalNavigatorPlatform: string;
 
     beforeEach(() => {
@@ -259,30 +301,30 @@ describe('Terminal copy/paste integration', () => {
 
     afterEach(() => {
       // Restore navigator.platform
-      Object.defineProperty(navigator, 'platform', {
+      Object.defineProperty(navigator, "platform", {
         value: originalNavigatorPlatform,
-        writable: true
+        writable: true,
       });
     });
 
-    it('should integrate clipboard.readText() with xterm.paste()', async () => {
-      const { useXterm } = await import('../../renderer/components/terminal/useXterm');
+    it("should integrate clipboard.readText() with xterm.paste()", async () => {
+      const { useXterm } = await import("../../renderer/components/terminal/useXterm");
 
       // Mock Windows platform
-      Object.defineProperty(navigator, 'platform', {
-        value: 'Win32',
-        writable: true
+      Object.defineProperty(navigator, "platform", {
+        value: "Win32",
+        writable: true,
       });
 
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
       const mockPaste = vi.fn();
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
           hasSelection: vi.fn(),
@@ -294,46 +336,48 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
         };
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
-          dispose: vi.fn()
+          serialize: vi.fn(function () {
+            return "";
+          }),
+          dispose: vi.fn(),
         };
       });
 
-      mockClipboard.readText.mockResolvedValue('pasted text');
+      mockClipboard.readText.mockResolvedValue("pasted text");
 
       // Create a test wrapper component that provides the DOM element
       const TestWrapper = () => {
-        const { terminalRef } = useXterm({ terminalId: 'test-terminal' });
-        return React.createElement('div', { ref: terminalRef });
+        const { terminalRef } = useXterm({ terminalId: "test-terminal" });
+        return React.createElement("div", { ref: terminalRef });
       };
 
       render(React.createElement(TestWrapper));
 
       await act(async () => {
-        const event = new KeyboardEvent('keydown', {
-          key: 'v',
-          ctrlKey: true
+        const event = new KeyboardEvent("keydown", {
+          key: "v",
+          ctrlKey: true,
         });
 
         if (keyEventHandler) {
           keyEventHandler(event);
           // Wait for clipboard read and paste
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise((resolve) => setTimeout(resolve, 0));
         }
       });
 
@@ -341,27 +385,27 @@ describe('Terminal copy/paste integration', () => {
       expect(mockClipboard.readText).toHaveBeenCalled();
 
       // Verify integration: xterm.paste() called with clipboard content
-      expect(mockPaste).toHaveBeenCalledWith('pasted text');
+      expect(mockPaste).toHaveBeenCalledWith("pasted text");
     });
 
-    it('should not paste when clipboard is empty', async () => {
-      const { useXterm } = await import('../../renderer/components/terminal/useXterm');
+    it("should not paste when clipboard is empty", async () => {
+      const { useXterm } = await import("../../renderer/components/terminal/useXterm");
 
       // Mock Linux platform
-      Object.defineProperty(navigator, 'platform', {
-        value: 'Linux',
-        writable: true
+      Object.defineProperty(navigator, "platform", {
+        value: "Linux",
+        writable: true,
       });
 
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
       const mockPaste = vi.fn();
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
           hasSelection: vi.fn(),
@@ -373,47 +417,49 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
         };
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
-          dispose: vi.fn()
+          serialize: vi.fn(function () {
+            return "";
+          }),
+          dispose: vi.fn(),
         };
       });
 
       // Mock empty clipboard
-      mockClipboard.readText.mockResolvedValue('');
+      mockClipboard.readText.mockResolvedValue("");
 
       // Create a test wrapper component that provides the DOM element
       const TestWrapper = () => {
-        const { terminalRef } = useXterm({ terminalId: 'test-terminal' });
-        return React.createElement('div', { ref: terminalRef });
+        const { terminalRef } = useXterm({ terminalId: "test-terminal" });
+        return React.createElement("div", { ref: terminalRef });
       };
 
       render(React.createElement(TestWrapper));
 
       await act(async () => {
-        const event = new KeyboardEvent('keydown', {
-          key: 'v',
-          ctrlKey: true
+        const event = new KeyboardEvent("keydown", {
+          key: "v",
+          ctrlKey: true,
         });
 
         if (keyEventHandler) {
           keyEventHandler(event);
           // Wait for clipboard read
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise((resolve) => setTimeout(resolve, 0));
         }
       });
 
@@ -425,25 +471,29 @@ describe('Terminal copy/paste integration', () => {
     });
   });
 
-  describe('keyboard event propagation', () => {
-    it('should prevent copy/paste events from interfering with other shortcuts', async () => {
-      const { useXterm } = await import('../../renderer/components/terminal/useXterm');
+  describe("keyboard event propagation", () => {
+    it("should prevent copy/paste events from interfering with other shortcuts", async () => {
+      const { useXterm } = await import("../../renderer/components/terminal/useXterm");
 
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
       let eventCallOrder: string[] = [];
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
-          hasSelection: vi.fn(function() { return true; }),
-          getSelection: vi.fn(function() { return 'selection'; }),
+          hasSelection: vi.fn(function () {
+            return true;
+          }),
+          getSelection: vi.fn(function () {
+            return "selection";
+          }),
           paste: vi.fn(),
-          input: vi.fn(function(data: string) {
+          input: vi.fn(function (data: string) {
             eventCallOrder.push(`input:${data}`);
           }),
           onData: vi.fn(),
@@ -451,41 +501,43 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
         };
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
-          dispose: vi.fn()
+          serialize: vi.fn(function () {
+            return "";
+          }),
+          dispose: vi.fn(),
         };
       });
 
       // Create a test wrapper component that provides the DOM element
       const TestWrapper = () => {
-        const { terminalRef } = useXterm({ terminalId: 'test-terminal' });
-        return React.createElement('div', { ref: terminalRef });
+        const { terminalRef } = useXterm({ terminalId: "test-terminal" });
+        return React.createElement("div", { ref: terminalRef });
       };
 
       render(React.createElement(TestWrapper));
 
       await act(async () => {
         // Test SHIFT+Enter (should work independently of copy/paste)
-        const shiftEnterEvent = new KeyboardEvent('keydown', {
-          key: 'Enter',
+        const shiftEnterEvent = new KeyboardEvent("keydown", {
+          key: "Enter",
           shiftKey: true,
           ctrlKey: false,
-          metaKey: false
+          metaKey: false,
         });
 
         if (keyEventHandler) {
@@ -493,34 +545,34 @@ describe('Terminal copy/paste integration', () => {
         }
 
         // Verify SHIFT+Enter still works (sends newline)
-        expect(eventCallOrder.some(s => s.includes('\x1b\n'))).toBe(true);
+        expect(eventCallOrder.some((s) => s.includes("\x1b\n"))).toBe(true);
 
         // Test CTRL+C with selection (should not interfere)
         eventCallOrder = [];
-        const copyEvent = new KeyboardEvent('keydown', {
-          key: 'c',
-          ctrlKey: true
+        const copyEvent = new KeyboardEvent("keydown", {
+          key: "c",
+          ctrlKey: true,
         });
 
         if (keyEventHandler) {
           keyEventHandler(copyEvent);
           // Wait for clipboard write
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise((resolve) => setTimeout(resolve, 0));
         }
 
         // Copy should not send input to terminal
         expect(eventCallOrder).toHaveLength(0);
 
         // Test CTRL+V (should not interfere)
-        const pasteEvent = new KeyboardEvent('keydown', {
-          key: 'v',
-          ctrlKey: true
+        const pasteEvent = new KeyboardEvent("keydown", {
+          key: "v",
+          ctrlKey: true,
         });
 
         if (keyEventHandler) {
           keyEventHandler(pasteEvent);
           // Wait for clipboard read
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise((resolve) => setTimeout(resolve, 0));
         }
 
         // Paste should use xterm.paste(), not xterm.input()
@@ -529,19 +581,21 @@ describe('Terminal copy/paste integration', () => {
       });
     });
 
-    it('should maintain correct handler ordering for existing shortcuts', async () => {
-      const { useXterm } = await import('../../renderer/components/terminal/useXterm');
+    it("should maintain correct handler ordering for existing shortcuts", async () => {
+      const { useXterm } = await import("../../renderer/components/terminal/useXterm");
 
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
       let handlerResults: { key: string; handled: boolean }[] = [];
-      const mockHasSelection = vi.fn(function() { return false; });
+      const mockHasSelection = vi.fn(function () {
+        return false;
+      });
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
           hasSelection: mockHasSelection,
@@ -553,41 +607,43 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
         };
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
-          dispose: vi.fn()
+          serialize: vi.fn(function () {
+            return "";
+          }),
+          dispose: vi.fn(),
         };
       });
 
       // Create a test wrapper component that provides the DOM element
       const TestWrapper = () => {
-        const { terminalRef } = useXterm({ terminalId: 'test-terminal' });
-        return React.createElement('div', { ref: terminalRef });
+        const { terminalRef } = useXterm({ terminalId: "test-terminal" });
+        return React.createElement("div", { ref: terminalRef });
       };
 
       render(React.createElement(TestWrapper));
 
       // Helper to test key handling
       const testKey = (key: string, ctrl: boolean, meta: boolean, shift: boolean) => {
-        const event = new KeyboardEvent('keydown', {
+        const event = new KeyboardEvent("keydown", {
           key,
           ctrlKey: ctrl,
           metaKey: meta,
-          shiftKey: shift
+          shiftKey: shift,
         });
 
         if (keyEventHandler) {
@@ -598,18 +654,18 @@ describe('Terminal copy/paste integration', () => {
 
       await act(async () => {
         // Test existing shortcuts (should return false to bubble up)
-        testKey('1', true, false, false); // Ctrl+1
-        testKey('Tab', true, false, false); // Ctrl+Tab
-        testKey('t', true, false, false); // Ctrl+T
-        testKey('w', true, false, false); // Ctrl+W
+        testKey("1", true, false, false); // Ctrl+1
+        testKey("Tab", true, false, false); // Ctrl+Tab
+        testKey("t", true, false, false); // Ctrl+T
+        testKey("w", true, false, false); // Ctrl+W
 
         // Verify these return false (bubble to window handler)
-        expect(handlerResults.filter(r => !r.handled)).toHaveLength(4);
+        expect(handlerResults.filter((r) => !r.handled)).toHaveLength(4);
 
         // Test copy/paste WITHOUT selection (should pass through to send ^C)
         handlerResults = [];
         mockHasSelection.mockReturnValue(false);
-        testKey('c', true, false, false); // Ctrl+C without selection
+        testKey("c", true, false, false); // Ctrl+C without selection
 
         // Should return true (let ^C pass through to terminal for interrupt signal)
         expect(handlerResults[0].handled).toBe(true);
@@ -617,14 +673,14 @@ describe('Terminal copy/paste integration', () => {
     });
   });
 
-  describe('clipboard error handling without breaking terminal', () => {
-    it('should continue terminal operation after clipboard error', async () => {
-      const { useXterm } = await import('../../renderer/components/terminal/useXterm');
+  describe("clipboard error handling without breaking terminal", () => {
+    it("should continue terminal operation after clipboard error", async () => {
+      const { useXterm } = await import("../../renderer/components/terminal/useXterm");
 
       // Mock Windows platform to enable custom paste handler
-      Object.defineProperty(navigator, 'platform', {
-        value: 'Win32',
-        writable: true
+      Object.defineProperty(navigator, "platform", {
+        value: "Win32",
+        writable: true,
       });
 
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
@@ -634,78 +690,82 @@ describe('Terminal copy/paste integration', () => {
       let onDataCallback: ((data: string) => void) | undefined;
       let errorLogged = false;
 
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(function(...args: unknown[]) {
-        if (String(args[0]).includes('[useXterm]')) {
+      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(function (
+        ...args: unknown[]
+      ) {
+        if (String(args[0]).includes("[useXterm]")) {
           errorLogged = true;
         }
       });
 
       // Mock clipboard error
-      mockClipboard.readText = vi.fn().mockRejectedValue(new Error('Clipboard denied'));
+      mockClipboard.readText = vi.fn().mockRejectedValue(new Error("Clipboard denied"));
 
       // Mock window.electronAPI with sendTerminalInput
       (window as unknown as { electronAPI: { sendTerminalInput: Mock } }).electronAPI = {
-        sendTerminalInput: mockSendTerminalInput
+        sendTerminalInput: mockSendTerminalInput,
       };
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
           hasSelection: vi.fn(),
           getSelection: vi.fn(),
           paste: mockPaste,
           input: mockInput,
-          onData: vi.fn(function(callback: (data: string) => void) {
+          onData: vi.fn(function (callback: (data: string) => void) {
             onDataCallback = callback;
           }),
           onResize: vi.fn(),
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
         };
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
-          dispose: vi.fn()
+          serialize: vi.fn(function () {
+            return "";
+          }),
+          dispose: vi.fn(),
         };
       });
 
       // Create a test wrapper component that provides the DOM element
       const TestWrapper = () => {
-        const { terminalRef } = useXterm({ terminalId: 'test-terminal' });
-        return React.createElement('div', { ref: terminalRef });
+        const { terminalRef } = useXterm({ terminalId: "test-terminal" });
+        return React.createElement("div", { ref: terminalRef });
       };
 
       render(React.createElement(TestWrapper));
 
       await act(async () => {
         // Try to paste (will fail)
-        const pasteEvent = new KeyboardEvent('keydown', {
-          key: 'v',
-          ctrlKey: true
+        const pasteEvent = new KeyboardEvent("keydown", {
+          key: "v",
+          ctrlKey: true,
         });
 
         if (keyEventHandler) {
           keyEventHandler(pasteEvent);
           // Wait for clipboard error
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise((resolve) => setTimeout(resolve, 0));
         }
       });
 
@@ -713,14 +773,14 @@ describe('Terminal copy/paste integration', () => {
       expect(errorLogged).toBe(true);
 
       // Verify terminal still works (can accept input through onData callback)
-      const inputData = 'test command';
+      const inputData = "test command";
 
       if (onDataCallback) {
         onDataCallback(inputData);
       }
 
       // Verify input was sent to electronAPI (terminal still functional)
-      expect(mockSendTerminalInput).toHaveBeenCalledWith('test-terminal', 'test command');
+      expect(mockSendTerminalInput).toHaveBeenCalledWith("test-terminal", "test command");
 
       consoleErrorSpy.mockRestore();
     });
