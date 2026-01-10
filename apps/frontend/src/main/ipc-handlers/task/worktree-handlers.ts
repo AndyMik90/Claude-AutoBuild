@@ -1406,6 +1406,50 @@ function getEffectiveBaseBranch(projectPath: string, specId: string, projectMain
   return 'main';
 }
 
+/**
+ * Resolve a branch name to a valid git ref that exists in the repository.
+ * In worktree contexts, the local branch might not exist (only origin/branch does).
+ *
+ * Priority:
+ * 1. Local branch (e.g., 'develop')
+ * 2. Remote tracking branch (e.g., 'origin/develop')
+ * 3. Return original branch name if neither exists (let git fail with proper error)
+ */
+function resolveGitRef(branchName: string, cwd: string): string {
+  // Skip resolution for refs that already look like remote refs
+  if (branchName.startsWith('origin/') || branchName.startsWith('refs/')) {
+    return branchName;
+  }
+
+  // Try local branch first
+  try {
+    execFileSync(getToolPath('git'), ['rev-parse', '--verify', branchName], {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return branchName;
+  } catch {
+    // Local branch doesn't exist, try remote
+  }
+
+  // Try origin/{branch}
+  const remoteBranch = `origin/${branchName}`;
+  try {
+    execFileSync(getToolPath('git'), ['rev-parse', '--verify', remoteBranch], {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return remoteBranch;
+  } catch {
+    // Remote branch doesn't exist either
+  }
+
+  // Return original - git commands will fail but with proper error
+  return branchName;
+}
+
 // ============================================
 // Helper functions for TASK_WORKTREE_CREATE_PR
 // ============================================
@@ -1710,10 +1754,14 @@ export function registerWorktreeHandlers(
           // Note: We do NOT use current HEAD as that may be a feature branch
           const baseBranch = getEffectiveBaseBranch(project.path, task.specId, project.settings?.mainBranch);
 
+          // Resolve base branch to a valid git ref in the worktree context
+          // In worktrees, local branches might not exist - we may need origin/{branch}
+          const resolvedRef = resolveGitRef(baseBranch, worktreePath);
+
           // Get commit count (cross-platform - no shell syntax)
           let commitCount = 0;
           try {
-            const countOutput = execFileSync(getToolPath('git'), ['rev-list', '--count', `${baseBranch}..HEAD`], {
+            const countOutput = execFileSync(getToolPath('git'), ['rev-list', '--count', `${resolvedRef}..HEAD`], {
               cwd: worktreePath,
               encoding: 'utf-8',
               stdio: ['pipe', 'pipe', 'pipe']
@@ -1730,7 +1778,7 @@ export function registerWorktreeHandlers(
 
           let diffStat = '';
           try {
-            diffStat = execFileSync(getToolPath('git'), ['diff', '--stat', `${baseBranch}...HEAD`], {
+            diffStat = execFileSync(getToolPath('git'), ['diff', '--stat', `${resolvedRef}...HEAD`], {
               cwd: worktreePath,
               encoding: 'utf-8',
               stdio: ['pipe', 'pipe', 'pipe']
@@ -1802,6 +1850,10 @@ export function registerWorktreeHandlers(
         // Note: We do NOT use current HEAD as that may be a feature branch
         const baseBranch = getEffectiveBaseBranch(project.path, task.specId, project.settings?.mainBranch);
 
+        // Resolve base branch to a valid git ref in the worktree context
+        // In worktrees, local branches might not exist - we may need origin/{branch}
+        const resolvedRef = resolveGitRef(baseBranch, worktreePath);
+
         // Get the diff with file stats
         const files: WorktreeDiffFile[] = [];
 
@@ -1809,14 +1861,14 @@ export function registerWorktreeHandlers(
         let nameStatus = '';
         try {
           // Get numstat for additions/deletions per file (cross-platform)
-          numstat = execFileSync(getToolPath('git'), ['diff', '--numstat', `${baseBranch}...HEAD`], {
+          numstat = execFileSync(getToolPath('git'), ['diff', '--numstat', `${resolvedRef}...HEAD`], {
             cwd: worktreePath,
             encoding: 'utf-8',
             stdio: ['pipe', 'pipe', 'pipe']
           }).trim();
 
           // Get name-status for file status (cross-platform)
-          nameStatus = execFileSync(getToolPath('git'), ['diff', '--name-status', `${baseBranch}...HEAD`], {
+          nameStatus = execFileSync(getToolPath('git'), ['diff', '--name-status', `${resolvedRef}...HEAD`], {
             cwd: worktreePath,
             encoding: 'utf-8',
             stdio: ['pipe', 'pipe', 'pipe']
@@ -2782,10 +2834,14 @@ export function registerWorktreeHandlers(
             // Note: We do NOT use current HEAD as that may be a feature branch
             const baseBranch = getEffectiveBaseBranch(project.path, entry, project.settings?.mainBranch);
 
+            // Resolve base branch to a valid git ref in the worktree context
+            // In worktrees, local branches might not exist - we may need origin/{branch}
+            const resolvedRef = resolveGitRef(baseBranch, entryPath);
+
             // Get commit count (cross-platform - no shell syntax)
             let commitCount = 0;
             try {
-              const countOutput = execFileSync(getToolPath('git'), ['rev-list', '--count', `${baseBranch}..HEAD`], {
+              const countOutput = execFileSync(getToolPath('git'), ['rev-list', '--count', `${resolvedRef}..HEAD`], {
                 cwd: entryPath,
                 encoding: 'utf-8',
                 stdio: ['pipe', 'pipe', 'pipe']
@@ -2802,7 +2858,7 @@ export function registerWorktreeHandlers(
             let diffStat = '';
 
             try {
-              diffStat = execFileSync(getToolPath('git'), ['diff', '--shortstat', `${baseBranch}...HEAD`], {
+              diffStat = execFileSync(getToolPath('git'), ['diff', '--shortstat', `${resolvedRef}...HEAD`], {
                 cwd: entryPath,
                 encoding: 'utf-8',
                 stdio: ['pipe', 'pipe', 'pipe']
