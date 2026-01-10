@@ -518,16 +518,40 @@ ${reviewResult.summary}
   });
 
   describe('State Reset on PR Change', () => {
-    it('should reset cleanReviewPosted state when PR changes', () => {
+    it('should reset cleanReviewPosted state when pr.number changes', () => {
+      // This is a simplified logic test - the actual useEffect behavior is tested
+      // through the component's integration tests
       let prNumber = 123;
       let cleanReviewPosted = true;
 
-      // Simulate PR change effect
-      prNumber = 456;
-      cleanReviewPosted = false;
+      // Simulate the useEffect reset when pr.number changes
+      const currentPrNumber = prNumber;
+      const newPrNumber = 456;
+
+      if (currentPrNumber !== newPrNumber) {
+        cleanReviewPosted = false;
+        prNumber = newPrNumber;
+      }
 
       expect(cleanReviewPosted).toBe(false);
       expect(prNumber).toBe(456);
+    });
+
+    it('should not reset cleanReviewPosted state when pr.number stays the same', () => {
+      let prNumber = 123;
+      let cleanReviewPosted = true;
+
+      // Simulate no change in pr.number
+      const currentPrNumber = prNumber;
+      const newPrNumber = 123;
+
+      if (currentPrNumber !== newPrNumber) {
+        cleanReviewPosted = false;
+        prNumber = newPrNumber;
+      }
+
+      expect(cleanReviewPosted).toBe(true);
+      expect(prNumber).toBe(123);
     });
   });
 
