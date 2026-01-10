@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { shouldUseShell, getSpawnOptions } from '../env-utils';
+import { shouldUseShell, getSpawnOptions, getSpawnCommand } from '../env-utils';
 
 describe('shouldUseShell', () => {
   const originalPlatform = process.platform;
@@ -195,6 +195,81 @@ describe('getSpawnOptions', () => {
     expect(opts).toEqual({
       cwd: 'D:\\project',
       shell: true,
+    });
+  });
+});
+
+describe('getSpawnCommand', () => {
+  const originalPlatform = process.platform;
+
+  afterEach(() => {
+    // Restore original platform after each test
+    Object.defineProperty(process, 'platform', {
+      value: originalPlatform,
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  describe('Windows platform', () => {
+    beforeEach(() => {
+      Object.defineProperty(process, 'platform', {
+        value: 'win32',
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it('should quote .cmd files with spaces', () => {
+      const cmd = getSpawnCommand('C:\\Users\\OXFAM MONS\\AppData\\Roaming\\npm\\claude.cmd');
+      expect(cmd).toBe('"C:\\Users\\OXFAM MONS\\AppData\\Roaming\\npm\\claude.cmd"');
+    });
+
+    it('should quote .cmd files without spaces too (idempotent)', () => {
+      const cmd = getSpawnCommand('C:\\Users\\admin\\AppData\\Roaming\\npm\\claude.cmd');
+      expect(cmd).toBe('"C:\\Users\\admin\\AppData\\Roaming\\npm\\claude.cmd"');
+    });
+
+    it('should quote .bat files with spaces', () => {
+      const cmd = getSpawnCommand('D:\\Program Files (x86)\\scripts\\setup.bat');
+      expect(cmd).toBe('"D:\\Program Files (x86)\\scripts\\setup.bat"');
+    });
+
+    it('should NOT quote .exe files', () => {
+      const cmd = getSpawnCommand('C:\\Program Files\\Git\\cmd\\git.exe');
+      expect(cmd).toBe('C:\\Program Files\\Git\\cmd\\git.exe');
+    });
+
+    it('should NOT quote extensionless files', () => {
+      const cmd = getSpawnCommand('D:\\Git\\bin\\bash');
+      expect(cmd).toBe('D:\\Git\\bin\\bash');
+    });
+
+    it('should handle uppercase .CMD and .BAT extensions', () => {
+      expect(getSpawnCommand('D:\\Tools\\CLAUDE.CMD')).toBe('"D:\\Tools\\CLAUDE.CMD"');
+      expect(getSpawnCommand('C:\\Scripts\\SETUP.BAT')).toBe('"C:\\Scripts\\SETUP.BAT"');
+    });
+  });
+
+  describe('Non-Windows platforms', () => {
+    it('should NOT quote commands on macOS', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'darwin',
+        writable: true,
+        configurable: true,
+      });
+      expect(getSpawnCommand('/usr/local/bin/claude')).toBe('/usr/local/bin/claude');
+      expect(getSpawnCommand('/opt/homebrew/bin/claude.cmd')).toBe('/opt/homebrew/bin/claude.cmd');
+    });
+
+    it('should NOT quote commands on Linux', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'linux',
+        writable: true,
+        configurable: true,
+      });
+      expect(getSpawnCommand('/usr/bin/claude')).toBe('/usr/bin/claude');
+      expect(getSpawnCommand('/home/user/.local/bin/claude.bat')).toBe('/home/user/.local/bin/claude.bat');
     });
   });
 });
