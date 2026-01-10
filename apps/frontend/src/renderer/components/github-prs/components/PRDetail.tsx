@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Bot,
@@ -119,6 +119,9 @@ export function PRDetail({
   const [workflowsAwaiting, setWorkflowsAwaiting] = useState<WorkflowsAwaitingApprovalResult | null>(null);
   const [isApprovingWorkflow, setIsApprovingWorkflow] = useState<number | null>(null);
   const [workflowsExpanded, setWorkflowsExpanded] = useState(true);
+
+  // Generate stable IDs for accessibility
+  const cleanReviewErrorDetailsId = useId();
 
   // Sync with store's newCommitsCheck when it changes (e.g., when switching PRs or after refresh)
   // Always sync to keep local state in sync with store, including null values
@@ -841,6 +844,9 @@ ${t('prReview.cleanReviewMessageFooter')}`;
                </div>
              )}
 
+             {/* Clean review error display - inline pattern for action bar context */}
+             {/* Note: Uses inline layout (not Card) to match other action bar status messages.
+                 Separate Card-based error at line 972 handles review result errors. */}
              {cleanReviewError && (
                <div className="ml-auto flex items-center gap-2">
                  <div className="flex items-center gap-2 text-destructive text-sm font-medium">
@@ -849,6 +855,8 @@ ${t('prReview.cleanReviewMessageFooter')}`;
                  </div>
                  <button
                    onClick={() => setShowCleanReviewErrorDetails(!showCleanReviewErrorDetails)}
+                   aria-expanded={showCleanReviewErrorDetails}
+                   aria-controls={cleanReviewErrorDetailsId}
                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                  >
                    {showCleanReviewErrorDetails ? (
@@ -866,7 +874,11 @@ ${t('prReview.cleanReviewMessageFooter')}`;
                </div>
              )}
              {cleanReviewError && showCleanReviewErrorDetails && (
-               <div className="ml-auto text-xs text-muted-foreground max-w-md truncate" title={cleanReviewError}>
+               <div
+                 id={cleanReviewErrorDetailsId}
+                 className="ml-auto text-xs text-muted-foreground max-w-md truncate"
+                 title={cleanReviewError}
+               >
                  {cleanReviewError}
                </div>
              )}

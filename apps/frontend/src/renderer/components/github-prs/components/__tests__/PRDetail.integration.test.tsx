@@ -192,8 +192,19 @@ describe('PRDetail - Clean Review State Reset Integration', () => {
     expect(successMessage).not.toBeInTheDocument();
 
     // The "Post Clean Review" button should be visible
-    const postCleanReviewButton = screen.queryByRole('button', { name: /post clean review/i });
+    const postCleanReviewButton = screen.getByRole('button', { name: /post clean review/i });
     expect(postCleanReviewButton).toBeInTheDocument();
+
+    // Click the button to post clean review
+    fireEvent.click(postCleanReviewButton);
+
+    // Wait for success message to appear
+    await waitFor(() => {
+      expect(screen.getByText(/clean review posted/i)).toBeInTheDocument();
+    });
+
+    // Button should be hidden after posting
+    expect(screen.queryByRole('button', { name: /post clean review/i })).not.toBeInTheDocument();
 
     unmount();
   });

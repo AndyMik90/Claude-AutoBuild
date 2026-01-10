@@ -60,6 +60,16 @@ describe('PRDetail Clean Review Functionality', () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * NOTE: These tests verify the core ALGORITHM (isCleanReview logic, button visibility conditions).
+   *
+   * The actual React component behavior (rendering, user interactions, useEffect hooks) is tested
+   * in PRDetail.integration.test.tsx. These algorithm tests provide rapid feedback on logic
+   * changes but duplicate the implementation expressions. If the component logic changes,
+   * these tests must be updated to match.
+   *
+   * Alternative: Export isCleanReview as a pure function for direct testing.
+   */
   describe('isCleanReview Logic', () => {
     it('should return true for review with no findings', () => {
       const reviewResult = createReviewResult({
@@ -517,10 +527,16 @@ ${reviewResult.summary}
     });
   });
 
+  /**
+   * NOTE: These tests verify the STATE RESET ALGORITHM with plain JavaScript if-statements.
+   *
+   * The actual React useEffect hook behavior is tested in PRDetail.integration.test.tsx
+   * via component rerendering. These algorithm tests provide rapid feedback on the
+   * reset logic but don't verify the hook triggers correctly on PR changes.
+   */
   describe('State Reset on PR Change', () => {
     it('should reset cleanReviewPosted state when pr.number changes', () => {
-      // This is a simplified logic test - the actual useEffect behavior is tested
-      // through the component's integration tests
+      // Simplified logic test - actual useEffect behavior tested in integration tests
       let prNumber = 123;
       let cleanReviewPosted = true;
 
