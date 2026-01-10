@@ -101,12 +101,6 @@ async function setupMockXterm(
   } = {}
 ): Promise<{
   keyEventHandler: (event: KeyboardEvent) => boolean;
-  mockInstance: {
-    hasSelection?: () => boolean;
-    getSelection?: () => string;
-    paste?: ReturnType<typeof vi.fn>;
-    input?: ReturnType<typeof vi.fn>;
-  };
 }> {
   let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
 
@@ -173,13 +167,7 @@ async function setupMockXterm(
     throw new Error("useXterm did not attach a custom key event handler");
   }
   return {
-    keyEventHandler: keyEventHandler!,
-    mockInstance: {
-      hasSelection: overrides.hasSelection,
-      getSelection: overrides.getSelection,
-      paste: overrides.paste,
-      input: overrides.input,
-    },
+    keyEventHandler, // No non-null assertion needed - guaranteed non-null by check above
   };
 }
 
@@ -445,11 +433,9 @@ describe("useXterm keyboard handlers", () => {
           metaKey: false,
         });
 
-        if (keyEventHandler) {
-          keyEventHandler!(event);
-          // Wait for clipboard write
-          await new Promise((resolve) => setTimeout(resolve, 0));
-        }
+        keyEventHandler(event);
+        // Wait for clipboard write
+        await new Promise((resolve) => setTimeout(resolve, 0));
       });
 
       // Test metaKey (Mac)
@@ -460,11 +446,9 @@ describe("useXterm keyboard handlers", () => {
           metaKey: true,
         });
 
-        if (keyEventHandler) {
-          keyEventHandler!(event);
-          // Wait for clipboard write
-          await new Promise((resolve) => setTimeout(resolve, 0));
-        }
+        keyEventHandler(event);
+        // Wait for clipboard write
+        await new Promise((resolve) => setTimeout(resolve, 0));
       });
 
       // Both should trigger clipboard write
@@ -487,13 +471,11 @@ describe("useXterm keyboard handlers", () => {
           ctrlKey: true,
         });
 
-        if (keyEventHandler) {
-          const handled = keyEventHandler!(event);
-          expect(handled).toBe(false); // Should prevent literal ^V
+        const handled = keyEventHandler(event);
+        expect(handled).toBe(false); // Should prevent literal ^V
 
-          // Wait for clipboard read and paste
-          await new Promise((resolve) => setTimeout(resolve, 0));
-        }
+        // Wait for clipboard read and paste
+        await new Promise((resolve) => setTimeout(resolve, 0));
       });
 
       // Verify clipboard read and paste
@@ -596,9 +578,7 @@ describe("useXterm keyboard handlers", () => {
           shiftKey: true,
         });
 
-        if (keyEventHandler) {
-          keyEventHandler!(event);
-        }
+        keyEventHandler(event);
       });
 
       // Should not copy on Windows
@@ -712,9 +692,7 @@ describe("useXterm keyboard handlers", () => {
           metaKey: false,
         });
 
-        if (keyEventHandler) {
-          keyEventHandler!(event);
-        }
+        keyEventHandler(event);
       });
 
       // Should send ESC+newline for multi-line input
@@ -733,9 +711,7 @@ describe("useXterm keyboard handlers", () => {
           metaKey: false,
         });
 
-        if (keyEventHandler) {
-          keyEventHandler!(event);
-        }
+        keyEventHandler(event);
       });
 
       // Should send Ctrl+U for delete line
@@ -753,10 +729,8 @@ describe("useXterm keyboard handlers", () => {
             ctrlKey: true,
           });
 
-          if (keyEventHandler) {
-            const handled = keyEventHandler!(event);
-            expect(handled).toBe(false); // Should bubble to window handler
-          }
+          const handled = keyEventHandler(event);
+          expect(handled).toBe(false); // Should bubble to window handler
         });
       }
     });

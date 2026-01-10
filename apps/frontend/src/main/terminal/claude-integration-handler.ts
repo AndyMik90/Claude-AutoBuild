@@ -578,7 +578,9 @@ export function invokeClaude(
       const tempFile = path.join(os.tmpdir(), `.claude-token-${Date.now()}-${nonce}`);
 
       debugLog("[ClaudeIntegration:invokeClaude] Writing token to temp file:", tempFile);
-      // Write token file with Unix-only permissions (mode 0o600 is not supported on Windows)
+      // Write token file with Unix-only POSIX file permissions - mode 0o600 (owner read/write only)
+      // is a POSIX-specific permission bit that is not applicable on Windows; Node.js on Windows
+      // ignores POSIX mode flags, so we only set writeOptions.mode when process.platform !== "win32"
       const writeOptions: fs.WriteFileOptions = {};
       if (process.platform !== "win32") {
         writeOptions.mode = 0o600;
@@ -819,7 +821,9 @@ export async function invokeClaudeAsync(
       const tempFile = path.join(os.tmpdir(), `.claude-token-${Date.now()}-${nonce}`);
 
       debugLog("[ClaudeIntegration:invokeClaudeAsync] Writing token to temp file:", tempFile);
-      // Build options object - mode 0o600 is Unix-only (not supported on Windows)
+      // Build options object - mode 0o600 is a Unix-only POSIX file permission flag
+      // that is ignored/unsupported on Windows; Node.js on Windows ignores POSIX mode flags,
+      // so we only set writeOptions.mode when process.platform !== "win32" to avoid errors
       const writeOptions: fs.WriteFileOptions = {};
       if (process.platform !== "win32") {
         writeOptions.mode = 0o600;
