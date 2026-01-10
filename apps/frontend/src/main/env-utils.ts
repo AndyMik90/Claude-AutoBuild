@@ -15,6 +15,7 @@ import * as fs from "fs";
 import { promises as fsPromises } from "fs";
 import { execFileSync, execFile } from "child_process";
 import { promisify } from "util";
+import { isSecurePath } from "./utils/windows-paths";
 
 const execFileAsync = promisify(execFile);
 
@@ -525,6 +526,13 @@ export function preparePythonSubprocessCommand(executablePath: string): PythonSu
   if (!executablePath || typeof executablePath !== "string") {
     throw new Error(
       "preparePythonSubprocessCommand: executablePath is required and must be a string"
+    );
+  }
+
+  // Security validation: ensure path doesn't contain dangerous characters
+  if (!isSecurePath(executablePath)) {
+    throw new Error(
+      `preparePythonSubprocessCommand: executablePath contains potentially dangerous characters. Path: ${executablePath}`
     );
   }
 

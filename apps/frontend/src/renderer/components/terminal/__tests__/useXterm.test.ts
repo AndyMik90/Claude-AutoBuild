@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Mock } from "vitest";
-import { renderHook, act, render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import React from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { useXterm } from "../useXterm";

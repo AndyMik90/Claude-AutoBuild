@@ -1,6 +1,7 @@
 import type { ChangelogGenerationRequest, TaskSpecContent, GitCommit } from "../../shared/types";
 import { extractSpecOverview } from "./parser";
 import { preparePythonSubprocessCommand } from "../env-utils";
+import { isSecurePath } from "../utils/windows-paths";
 
 /**
  * Format instructions for different changelog styles
@@ -321,6 +322,13 @@ CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory
  * Create Python script for Claude generation
  */
 export function createGenerationScript(prompt: string, claudePath: string): string {
+  // Validate claudePath is secure before using it in shell commands
+  if (!isSecurePath(claudePath)) {
+    throw new Error(
+      `Invalid Claude CLI path: path contains potentially dangerous characters. Path: ${claudePath}`
+    );
+  }
+
   // Convert prompt to base64 to avoid any string escaping issues in Python
   const base64Prompt = Buffer.from(prompt, "utf-8").toString("base64");
 

@@ -4,6 +4,7 @@ import type { GitCommit } from "../../shared/types";
 import { getProfileEnv } from "../rate-limit-detector";
 import { parsePythonCommand } from "../python-detector";
 import { getAugmentedEnv, preparePythonSubprocessCommand } from "../env-utils";
+import { isSecurePath } from "../utils/windows-paths";
 
 interface VersionSuggestion {
   version: string;
@@ -24,6 +25,12 @@ export class VersionSuggester {
     private autoBuildSourcePath: string,
     debugEnabled: boolean
   ) {
+    // Validate claudePath is secure before using it in shell commands
+    if (!isSecurePath(claudePath)) {
+      throw new Error(
+        `Invalid Claude CLI path: path contains potentially dangerous characters. Path: ${claudePath}`
+      );
+    }
     this.debugEnabled = debugEnabled;
   }
 
