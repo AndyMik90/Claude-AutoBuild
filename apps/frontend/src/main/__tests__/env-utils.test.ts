@@ -221,8 +221,8 @@ describe('getSpawnCommand', () => {
     });
 
     it('should quote .cmd files with spaces', () => {
-      const cmd = getSpawnCommand('C:\\Users\\OXFAM MONS\\AppData\\Roaming\\npm\\claude.cmd');
-      expect(cmd).toBe('"C:\\Users\\OXFAM MONS\\AppData\\Roaming\\npm\\claude.cmd"');
+      const cmd = getSpawnCommand('C:\\Users\\First Last\\AppData\\Roaming\\npm\\claude.cmd');
+      expect(cmd).toBe('"C:\\Users\\First Last\\AppData\\Roaming\\npm\\claude.cmd"');
     });
 
     it('should quote .cmd files without spaces too (idempotent)', () => {
@@ -249,6 +249,33 @@ describe('getSpawnCommand', () => {
       expect(getSpawnCommand('D:\\Tools\\CLAUDE.CMD')).toBe('"D:\\Tools\\CLAUDE.CMD"');
       expect(getSpawnCommand('C:\\Scripts\\SETUP.BAT')).toBe('"C:\\Scripts\\SETUP.BAT"');
     });
+
+    it('should be idempotent - already quoted .cmd files stay quoted', () => {
+      const cmd = getSpawnCommand('"C:\\Users\\admin\\AppData\\Roaming\\npm\\claude.cmd"');
+      expect(cmd).toBe('"C:\\Users\\admin\\AppData\\Roaming\\npm\\claude.cmd"');
+    });
+
+    it('should be idempotent - already quoted .bat files stay quoted', () => {
+      const cmd = getSpawnCommand('"D:\\Program Files\\scripts\\setup.bat"');
+      expect(cmd).toBe('"D:\\Program Files\\scripts\\setup.bat"');
+    });
+
+    it('should be idempotent - double-quoting does not occur', () => {
+      const once = getSpawnCommand('C:\\Users\\admin\\npm\\claude.cmd');
+      const twice = getSpawnCommand(once);
+      expect(once).toBe(twice);
+      expect(once).toBe('"C:\\Users\\admin\\npm\\claude.cmd"');
+    });
+
+    it('should trim whitespace before processing', () => {
+      const cmd = getSpawnCommand('  C:\\Users\\admin\\npm\\claude.cmd  ');
+      expect(cmd).toBe('"C:\\Users\\admin\\npm\\claude.cmd"');
+    });
+
+    it('should handle already-quoted .cmd with spaces', () => {
+      const cmd = getSpawnCommand('"C:\\Users\\First Last\\npm\\claude.cmd"');
+      expect(cmd).toBe('"C:\\Users\\First Last\\npm\\claude.cmd"');
+    });
   });
 
   describe('Non-Windows platforms', () => {
@@ -270,6 +297,47 @@ describe('getSpawnCommand', () => {
       });
       expect(getSpawnCommand('/usr/bin/claude')).toBe('/usr/bin/claude');
       expect(getSpawnCommand('/home/user/.local/bin/claude.bat')).toBe('/home/user/.local/bin/claude.bat');
+    });
+  });
+});
+
+describe('shouldUseShell with quoted paths', () => {
+  const originalPlatform = process.platform;
+
+  afterEach(() => {
+    // Restore original platform after each test
+    Object.defineProperty(process, 'platform', {
+      value: originalPlatform,
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  describe('Windows platform', () => {
+    beforeEach(() => {
+      Object.defineProperty(process, 'platform', {
+        value: 'win32',
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it('should detect .cmd files in quoted paths', () => {
+      expect(shouldUseShell('"C:\\Users\\admin\\npm\\claude.cmd"')).toBe(true);
+      expect(shouldUseShell('"D:\\Tools\\CLAUDE.CMD"')).toBe(true);
+    });
+
+    it('should detect .bat files in quoted paths', () => {
+      expect(shouldUseShell('"C:\\Scripts\\setup.bat"')).toBe(true);
+      expect(shouldUseShell('"D:\\Program Files\\script.BAT"')).toBe(true);
+    });
+
+    it('should NOT detect .exe files in quoted paths', () => {
+      expect(shouldUseShell('"C:\\Program Files\\git.exe"')).toBe(false);
+    });
+
+    it('should handle whitespace around quoted paths', () => {
+      expect(shouldUseShell('  "C:\\Users\\admin\\npm\\claude.cmd"  ')).toBe(true);
     });
   });
 });

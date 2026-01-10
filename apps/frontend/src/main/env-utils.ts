@@ -463,8 +463,12 @@ export function shouldUseShell(command: string): boolean {
     return false;
   }
 
+  const trimmed = command.trim();
+  const unquoted =
+    trimmed.startsWith('"') && trimmed.endsWith('"') ? trimmed.slice(1, -1) : trimmed;
+
   // Check if command ends with .cmd or .bat (case-insensitive)
-  return /\.(cmd|bat)$/i.test(command);
+  return /\.(cmd|bat)$/i.test(unquoted);
 }
 
 /**
@@ -528,8 +532,13 @@ export function getSpawnOptions(
 export function getSpawnCommand(command: string): string {
   // For .cmd/.bat files on Windows, quote the command to handle spaces
   // The shell will parse the quoted path correctly
-  if (shouldUseShell(command)) {
-    return `"${command}"`;
+  const trimmed = command.trim();
+  if (shouldUseShell(trimmed)) {
+    // Idempotent if already quoted
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      return trimmed;
+    }
+    return `"${trimmed}"`;
   }
   return command;
 }
