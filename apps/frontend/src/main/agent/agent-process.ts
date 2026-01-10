@@ -18,6 +18,7 @@ import type { AppSettings } from '../../shared/types/settings';
 import { getOAuthModeClearVars } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo } from '../cli-tool-manager';
+import { AVAILABLE_LANGUAGES } from '../../shared/constants/i18n';
 
 
 function deriveGitBashPath(gitExePath: string): string | null {
@@ -134,9 +135,35 @@ export class AgentProcessManager {
       }
     }
 
+    // Read user's language preference from settings and pass to backend
+    // This allows AI agents to respond in the user's preferred language
+    const languageEnv: Record<string, string> = {};
+    try {
+      const settings = readSettingsFile();
+      const language = settings?.language;
+
+      // Validate against allowlist (AVAILABLE_LANGUAGES) to prevent prompt injection
+      // Only set env vars if the language is in our supported list
+      if (typeof language === 'string' && language.trim()) {
+        const langConfig = AVAILABLE_LANGUAGES.find(l => l.value === language);
+
+        // Only pass to backend if language is in the allowlist
+        if (langConfig) {
+          languageEnv['AUTO_CLAUDE_USER_LANGUAGE'] = langConfig.value;  // Use validated value
+          languageEnv['AUTO_CLAUDE_USER_LANGUAGE_NAME'] = langConfig.label;  // Use validated label
+          console.log('[AgentProcess] Setting AUTO_CLAUDE_USER_LANGUAGE:', langConfig.value, langConfig.label);
+        } else {
+          console.warn('[AgentProcess] Unsupported language in settings.json:', language, '- ignoring');
+        }
+      }
+    } catch (error) {
+      console.warn('[AgentProcess] Failed to read language setting:', error);
+    }
+
     return {
       ...augmentedEnv,
       ...gitBashEnv,
+      ...languageEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',

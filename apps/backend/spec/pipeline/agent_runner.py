@@ -14,6 +14,7 @@ configure_safe_encoding()
 
 from core.client import create_client
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
+from prompts_pkg.prompt_generator import get_user_language_instruction
 from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
     LogEntryType,
@@ -88,6 +89,16 @@ class AgentRunner:
             "Loaded prompt file",
             prompt_length=len(prompt),
         )
+
+        # Add language instruction at the top (if user prefers non-English)
+        language_instruction = get_user_language_instruction()
+        if language_instruction:
+            prompt = language_instruction + prompt
+            debug_detailed(
+                "agent_runner",
+                "Added language instruction",
+                language_instruction_length=len(language_instruction),
+            )
 
         # Add context
         prompt += f"\n\n---\n\n**Spec Directory**: {self.spec_dir}\n"

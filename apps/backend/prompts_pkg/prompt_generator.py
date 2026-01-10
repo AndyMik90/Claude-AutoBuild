@@ -13,7 +13,68 @@ This approach:
 """
 
 import json
+import os
 from pathlib import Path
+
+
+def get_user_language_instruction() -> str:
+    """
+    Get language instruction based on user's language preference.
+
+    Reads from environment variables:
+    - AUTO_CLAUDE_USER_LANGUAGE: language code (e.g., 'fr')
+    - AUTO_CLAUDE_USER_LANGUAGE_NAME: display name (e.g., 'French', 'Français')
+
+    The frontend validates against AVAILABLE_LANGUAGES before passing to backend,
+    but we validate again here for defense in depth.
+
+    Returns:
+        Language instruction string to prepend to prompts, or empty string if English
+    """
+    import re
+
+    user_lang = os.environ.get("AUTO_CLAUDE_USER_LANGUAGE", "en").lower().strip()
+
+    # Validate against allowlist to prevent prompt injection
+    # IMPORTANT: Keep this in sync with apps/frontend/src/shared/constants/i18n.ts
+    SUPPORTED_LANGUAGES = {"en", "fr"}
+
+    if user_lang not in SUPPORTED_LANGUAGES or user_lang == "en":
+        # English is the default - no special instruction needed
+        # Also returns empty string for unsupported languages (security fallback)
+        return ""
+
+    # Get language name from environment (frontend passes it)
+    # Sanitize to prevent prompt injection via lang_name
+    lang_name = os.environ.get("AUTO_CLAUDE_USER_LANGUAGE_NAME", user_lang)
+
+    # Remove potentially dangerous characters (keep only alphanumeric, spaces, hyphens, common accents)
+    # This allows "Français" but blocks prompt injection attempts
+    lang_name = re.sub(r"[^\w\s\-àâäèéêëîïôùûüÿçœæ]", "", lang_name, flags=re.UNICODE)
+    lang_name = lang_name.strip()[:50]  # Limit length to 50 characters
+
+    # Final safety check - if sanitization left nothing, use the language code
+    if not lang_name:
+        lang_name = user_lang
+
+    return f"""## LANGUAGE PREFERENCE
+
+**IMPORTANT:** The user prefers to receive responses in **{lang_name}**.
+
+Please provide all explanations, comments, commit messages, and user-facing text in {lang_name}.
+Code, variable names, function names, and technical identifiers should remain in English.
+
+Examples:
+- ✅ Code comments: in {lang_name}
+- ✅ Commit messages: in {lang_name}
+- ✅ Error messages: in {lang_name}
+- ✅ Documentation: in {lang_name}
+- ❌ Variable/function names: keep in English
+- ❌ Code syntax: keep in English
+
+---
+
+"""
 
 
 def get_relative_spec_path(spec_dir: Path, project_dir: Path) -> str:
@@ -54,7 +115,10 @@ def generate_environment_context(project_dir: Path, spec_dir: Path) -> str:
     """
     relative_spec = get_relative_spec_path(spec_dir, project_dir)
 
-    return f"""## YOUR ENVIRONMENT
+    # Get language instruction first
+    language_instruction = get_user_language_instruction()
+
+    return f"""{language_instruction}## YOUR ENVIRONMENT
 
 **Working Directory:** `{project_dir}`
 **Spec Location:** `{relative_spec}/`
