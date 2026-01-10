@@ -6,9 +6,8 @@
  * Unit tests for useXterm keyboard handlers
  * Tests terminal copy/paste keyboard shortcuts and platform detection
  */
-import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from "vitest";
-import type { Mock } from "vitest";
-import { act, render } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
+import { act, render, cleanup } from "@testing-library/react";
 import React from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { useXterm } from "../useXterm";
@@ -105,7 +104,7 @@ async function setupMockXterm(
   let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
 
   // Override XTerm mock to be constructable
-  (XTerm as unknown as Mock).mockImplementation(function () {
+  vi.mocked(XTerm).mockImplementation(function () {
     return {
       open: vi.fn(),
       loadAddon: vi.fn(),
@@ -127,7 +126,7 @@ async function setupMockXterm(
 
   // Setup addon mocks
   const { FitAddon } = await import("@xterm/addon-fit");
-  (FitAddon as unknown as Mock).mockImplementation(function () {
+  vi.mocked(FitAddon).mockImplementation(function () {
     return { fit: vi.fn() };
   });
 

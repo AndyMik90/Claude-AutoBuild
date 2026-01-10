@@ -156,18 +156,26 @@ def print_conflict_info(result: dict) -> None:
     if not conflicts:
         return
 
+    # Extract file paths from conflicts (can be strings or dicts with "file" key)
+    conflict_files = []
+    for conflict in conflicts:
+        if isinstance(conflict, dict):
+            conflict_files.append(conflict.get("file", str(conflict)))
+        else:
+            conflict_files.append(str(conflict))
+
     print()
     print(
         warning(
-            f"  {len(conflicts)} file{'s' if len(conflicts) != 1 else ''} had conflicts:"
+            f"  {len(conflict_files)} file{'s' if len(conflict_files) != 1 else ''} had conflicts:"
         )
     )
-    for conflict_file in conflicts:
+    for conflict_file in conflict_files:
         print(f"    {highlight(conflict_file)}")
     print()
     print(muted("  These files have conflict markers (<<<<<<< =======  >>>>>>>)"))
     print(muted("  Review and resolve them, then run:"))
-    print(f"    git add {' '.join(conflicts)}")
+    print(f"    git add {' '.join(conflict_files)}")
     print("    git commit")
     print()
 

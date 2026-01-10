@@ -1215,6 +1215,13 @@ def _resolve_git_conflicts_with_ai(
             print(muted(f"    - {conflict['file']}: {conflict['reason']}"))
         print(muted("  These files may need manual review."))
 
+        # ACS-194: Provide helpful guidance when AI merge fails
+        # The "Merge with AI" button has limited context compared to the chat agent
+        print()
+        print(warning("  💡 For complex conflicts, try asking the AI chat agent:"))
+        print(muted('     "Please fix the merge conflicts and commit the changes"'))
+        print(muted("  The chat agent has full context and can iterate on solutions."))
+
     # Notify about excluded lock files that need regeneration
     if lock_files_excluded:
         result["lock_files_excluded"] = lock_files_excluded

@@ -614,11 +614,34 @@ class WorktreeManager:
         else:
             print(f"Merging {info.branch} into {self.base_branch}...")
 
-        # Switch to base branch in main project
-        result = self._run_git(["checkout", self.base_branch])
-        if result.returncode != 0:
-            print(f"Error: Could not checkout base branch: {result.stderr}")
-            return False
+        # Check current branch - only checkout if not already on target
+        # This avoids triggering git hooks unnecessarily (ACS-174)
+        current_branch_result = self._run_git(["rev-parse", "--abbrev-ref", "HEAD"])
+        current_branch = (
+            current_branch_result.stdout.strip()
+            if current_branch_result.returncode == 0
+            else ""
+        )
+
+        if current_branch != self.base_branch:
+            # Switch to base branch in main project
+            result = self._run_git(["checkout", self.base_branch])
+            if result.returncode != 0:
+                # Check if this is a git hook failure (ACS-174)
+                stderr = result.stderr.lower()
+                if "hook" in stderr or "script failed" in stderr:
+                    print(
+                        "Error: Git checkout blocked by a git hook returning non-zero exit code."
+                    )
+                    print("Suggested fixes:")
+                    print("  1. Fix the hook to return 0 on success")
+                    print(
+                        "  2. Temporarily disable hooks: HUSKY=0 git checkout <branch>"
+                    )
+                    print("  3. Or manually checkout and run merge again")
+                else:
+                    print(f"Error: Could not checkout base branch: {result.stderr}")
+                return False
 
         # Merge the spec branch
         merge_args = ["merge", "--no-ff", info.branch]
@@ -635,7 +658,20 @@ class WorktreeManager:
             self._run_git(["merge", "--abort"])
             return False
 
+        # ACS-163: Verify that changes were actually merged
+        # Git merge returns 0 even when it's a no-op (already up to date)
+        # Check if the merge actually changed something
         if no_commit:
+            # Check if there are staged changes
+            staged_result = self._run_git(["diff", "--staged", "--name-only"])
+            has_changes = staged_result.returncode == 0 and staged_result.stdout.strip()
+
+            if not has_changes:
+                print(f"Note: No changes to merge from {info.branch}")
+                print("The branch is already up to date with main.")
+                # Don't delete worktree if no changes were made
+                return False
+
             # Unstage any files that are gitignored in the main branch
             # These get staged during merge because they exist in the worktree branch
             self._unstage_gitignored_files()
@@ -645,7 +681,16 @@ class WorktreeManager:
             print("Review the changes, then commit when ready:")
             print("  git commit -m 'your commit message'")
         else:
-            print(f"Successfully merged {info.branch}")
+            # For committed merges, check if HEAD moved (merge commit was created)
+            log_result = self._run_git(["log", "--oneline", "-1"])
+            if "auto-claude: Merge" in log_result.stdout:
+                print(f"Successfully merged {info.branch}")
+            else:
+                # No merge commit was created - this means there was nothing to merge
+                print(f"Note: No changes to merge from {info.branch}")
+                print("The branch is already up to date with main.")
+                # Don't delete worktree if no changes were made
+                return False
 
         if delete_after:
             self.remove_worktree(spec_name, delete_branch=True)

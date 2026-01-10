@@ -38,11 +38,11 @@ AICallFunction = Callable[[str, str], str]
 
 class AIResolver:
     """
-    Resolves conflicts using AI with minimal context.
+    Resolves conflicts using AI with full context.
 
     This class:
-    1. Builds minimal conflict context
-    2. Creates focused prompts
+    1. Builds comprehensive conflict context (ACS-194)
+    2. Creates focused prompts with full surrounding code
     3. Calls AI and parses response
     4. Returns MergeResult with merged code
 
@@ -51,8 +51,9 @@ class AIResolver:
         result = resolver.resolve_conflict(conflict, context)
     """
 
-    # Maximum tokens to send to AI (keeps costs down)
-    MAX_CONTEXT_TOKENS = 4000
+    # Maximum tokens to send to AI (increased for ACS-194 to match chat agent success)
+    # The previous 4000 token limit was too small for complex merges
+    MAX_CONTEXT_TOKENS = 16000
 
     def __init__(
         self,
