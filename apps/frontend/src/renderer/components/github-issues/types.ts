@@ -53,6 +53,7 @@ export type AutoPRReviewStatus =
   | 'awaiting_checks'
   | 'pr_reviewing'
   | 'pr_fixing'
+  | 'awaiting_changes'
   | 'pr_ready_to_merge'
   | 'needs_human_review'
   | 'completed'
@@ -153,7 +154,7 @@ export interface AutoPRReviewStatusResponse {
 
 /** Type guard to check if a status is a terminal state */
 export function isTerminalStatus(status: AutoPRReviewStatus): boolean {
-  return ['completed', 'failed', 'cancelled', 'pr_ready_to_merge', 'max_iterations', 'needs_human_review'].includes(status);
+  return ['completed', 'failed', 'cancelled', 'pr_ready_to_merge', 'max_iterations', 'needs_human_review', 'awaiting_changes'].includes(status);
 }
 
 /** Type guard to check if a status indicates the review is in progress */

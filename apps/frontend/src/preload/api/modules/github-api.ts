@@ -495,6 +495,7 @@ export type AutoPRReviewStatus =
   | 'awaiting_checks'
   | 'pr_reviewing'
   | 'pr_fixing'
+  | 'awaiting_changes'
   | 'pr_ready_to_merge'
   | 'needs_human_review'
   | 'completed'

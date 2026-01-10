@@ -48,6 +48,7 @@
       "awaiting_checks": "Waiting for Checks",
       "pr_reviewing": "AI Reviewing",
       "pr_fixing": "Fixing Issues",
+      "awaitingChanges": "Awaiting Changes",
       "pr_ready_to_merge": "Ready for Human Review",
       "completed": "Completed",
       "cancelled": "Cancelled",

@@ -77,6 +77,12 @@ const STATUS_CONFIG: Record<AutoPRReviewStatus, StatusConfig> = {
     bgColor: 'bg-amber-50 dark:bg-amber-900/30',
     borderColor: 'border-amber-300 dark:border-amber-700',
   },
+  awaiting_changes: {
+    label: 'autoPRReview.status.awaitingChanges',
+    color: 'text-orange-600 dark:text-orange-400',
+    bgColor: 'bg-orange-50 dark:bg-orange-900/30',
+    borderColor: 'border-orange-300 dark:border-orange-700',
+  },
   pr_ready_to_merge: {
     label: 'autoPRReview.status.readyToMerge',
     color: 'text-green-600 dark:text-green-400',
