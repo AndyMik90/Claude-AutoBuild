@@ -105,6 +105,23 @@ vi.mock('../env-utils', () => ({
     }
     return /\.(cmd|bat)$/i.test(command);
   }),
+  getSpawnCommand: vi.fn((command: string) => {
+    // Mock getSpawnCommand to match actual behavior
+    const trimmed = command.trim();
+    // On Windows, quote .cmd/.bat files
+    if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(trimmed)) {
+      // Idempotent - if already quoted, return as-is
+      if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+        return trimmed;
+      }
+      return `"${trimmed}"`;
+    }
+    // For non-.cmd/.bat files, return trimmed (strip quotes if present)
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      return trimmed.slice(1, -1);
+    }
+    return trimmed;
+  }),
   getSpawnOptions: vi.fn((command: string, baseOptions?: any) => ({
     ...baseOptions,
     shell: /\.(cmd|bat)$/i.test(command) && process.platform === 'win32'

@@ -463,8 +463,12 @@ export function shouldUseShell(command: string): boolean {
     return false;
   }
 
+  const trimmed = command.trim();
+  const unquoted =
+    trimmed.startsWith('"') && trimmed.endsWith('"') ? trimmed.slice(1, -1) : trimmed;
+
   // Check if command ends with .cmd or .bat (case-insensitive)
-  return /\.(cmd|bat)$/i.test(command);
+  return /\.(cmd|bat)$/i.test(unquoted);
 }
 
 /**
@@ -473,6 +477,9 @@ export function shouldUseShell(command: string): boolean {
  * Provides a consistent way to create spawn options that work across platforms.
  * Handles the shell requirement for Windows .cmd/.bat files automatically.
  *
+ * For .cmd/.bat files on Windows, returns options that tell the caller to use
+ * proper quoting for paths with spaces.
+ *
  * @param command - The command path to execute
  * @param baseOptions - Base spawn options to merge with (optional)
  * @returns Spawn options with correct shell setting
@@ -480,7 +487,7 @@ export function shouldUseShell(command: string): boolean {
  * @example
  * ```typescript
  * const opts = getSpawnOptions(claudeCmd, { cwd: '/project', env: {...} });
- * spawn(claudeCmd, ['--version'], opts);
+ * spawn(getSpawnCommand(claudeCmd), ['--version'], opts);
  * ```
  */
 export function getSpawnOptions(
@@ -504,4 +511,38 @@ export function getSpawnOptions(
     ...baseOptions,
     shell: shouldUseShell(command),
   };
+}
+
+/**
+ * Get the properly quoted command for use with spawn()
+ *
+ * For .cmd/.bat files on Windows with shell:true, the command path must be
+ * quoted to handle paths containing spaces correctly (e.g., C:\Users\OXFAM MONS\...).
+ *
+ * @param command - The command path to execute
+ * @returns The command (quoted if needed for .cmd/.bat files on Windows)
+ *
+ * @example
+ * ```typescript
+ * const cmd = getSpawnCommand(claudeCmd); // "C:\Users\OXFAM MONS\...\claude.cmd"
+ * const opts = getSpawnOptions(claudeCmd, { cwd: '/project', env: {...} });
+ * spawn(cmd, ['--version'], opts);
+ * ```
+ */
+export function getSpawnCommand(command: string): string {
+  // For .cmd/.bat files on Windows, quote the command to handle spaces
+  // The shell will parse the quoted path correctly
+  const trimmed = command.trim();
+  if (shouldUseShell(trimmed)) {
+    // Idempotent if already quoted
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      return trimmed;
+    }
+    return `"${trimmed}"`;
+  }
+  // For non-.cmd/.bat files, strip quotes if present (defensive: no double quotes with shell:false)
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
 }
