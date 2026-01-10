@@ -9,8 +9,10 @@
  * - Linear integration
  * - GitHub integration
  * - Shell operations
+ * - Custom Agents operations
  */
 
+import { ipcRenderer } from 'electron';
 import { createRoadmapAPI, RoadmapAPI } from './modules/roadmap-api';
 import { createIdeationAPI, IdeationAPI } from './modules/ideation-api';
 import { createInsightsAPI, InsightsAPI } from './modules/insights-api';
@@ -19,6 +21,19 @@ import { createLinearAPI, LinearAPI } from './modules/linear-api';
 import { createGitHubAPI, GitHubAPI } from './modules/github-api';
 import { createGitLabAPI, GitLabAPI } from './modules/gitlab-api';
 import { createShellAPI, ShellAPI } from './modules/shell-api';
+import type { CustomAgent } from '../../main/ipc-handlers/custom-agent-handlers';
+
+export type { CustomAgent };
+
+/**
+ * Interface for Custom Agent operations
+ */
+export interface CustomAgentAPI {
+  getCustomAgents: () => Promise<{ success: boolean; data?: CustomAgent[]; error?: string }>;
+  getCustomAgentDetails: (path: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+  saveCustomAgent: (id: string, content: string) => Promise<{ success: boolean; error?: string }>;
+  deleteCustomAgent: (id: string) => Promise<{ success: boolean; error?: string }>;
+}
 
 /**
  * Combined Agent API interface
@@ -32,7 +47,8 @@ export interface AgentAPI extends
   LinearAPI,
   GitHubAPI,
   GitLabAPI,
-  ShellAPI {}
+  ShellAPI,
+  CustomAgentAPI { }
 
 /**
  * Creates the complete Agent API by combining all module APIs
@@ -72,7 +88,13 @@ export const createAgentAPI = (): AgentAPI => {
     ...gitlabAPI,
 
     // Shell Operations API
-    ...shellAPI
+    ...shellAPI,
+
+    // Custom Agent API
+    getCustomAgents: () => ipcRenderer.invoke('get-custom-agents'),
+    getCustomAgentDetails: (path: string) => ipcRenderer.invoke('get-custom-agent-details', path),
+    saveCustomAgent: (id: string, content: string) => ipcRenderer.invoke('save-custom-agent', { id, content }),
+    deleteCustomAgent: (id: string) => ipcRenderer.invoke('delete-custom-agent', id)
   };
 };
 

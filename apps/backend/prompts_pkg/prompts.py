@@ -569,3 +569,60 @@ The project root is: `{project_dir}`
 
 """
     return spec_context + base_prompt
+
+
+def _get_custom_agents_context() -> str:
+    """
+    Load custom agent definitions from special_agents directory.
+
+    Returns:
+        Formatted string containing custom agent definitions or empty string
+    """
+    special_agents_dir = Path.home() / ".config/claude/agents"
+    if not special_agents_dir.exists():
+        return ""
+
+    agents_context = "## CUSTOM AGENTS AVAILABLE\n\n"
+    agents_context += "The following specialized agents are available for you to use. "
+    agents_context += (
+        "You can delegate specific subtasks to these agents when appropriate.\n\n"
+    )
+
+    found_agents = False
+    for agent_file in special_agents_dir.glob("*.md"):
+        try:
+            content = agent_file.read_text()
+            # Simple frontmatter parsing
+            if content.startswith("---"):
+                parts = content.split("---", 2)
+                if len(parts) >= 3:
+                    frontmatter = parts[1]
+                    # Extract name and description
+                    name_match = re.search(r"name:\s*(.+)", frontmatter)
+                    desc_match = re.search(
+                        r"description:\s*(.+)", frontmatter, re.DOTALL
+                    )
+
+                    if name_match:
+                        name = name_match.group(1).strip()
+                        # Clean up description (multiline support)
+                        description = ""
+                        if desc_match:
+                            raw_desc = desc_match.group(1).strip()
+                            # Stop at next yaml key or end
+                            description = re.split(r"\n\w+:", raw_desc)[0].strip()
+                            description = " ".join(
+                                line.strip() for line in description.splitlines()
+                            )
+
+                        agents_context += f"### {name}\n"
+                        agents_context += f"{description}\n\n"
+                        found_agents = True
+        except Exception:
+            continue
+
+    if not found_agents:
+        return ""
+
+    agents_context += "---\n\n"
+    return agents_context

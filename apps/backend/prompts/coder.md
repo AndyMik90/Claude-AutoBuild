@@ -321,7 +321,32 @@ If subtask says "Add Stripe payment integration":
 
 ---
 
-## STEP 5.5: GENERATE & REVIEW PRE-IMPLEMENTATION CHECKLIST
+## STEP 5.5: DELEGATE TO SPECIALIZED SUB-AGENT (CLEAN ARCHITECTURE)
+
+**CRITICAL**: If your subtask is assigned to a **Specialized Agent** (e.g., `backend-entity-repo`), you MUST delegate the work to a sub-agent to keep your context clean.
+
+**Do NOT implement the code yourself.** instead:
+
+1.  **Construct the Delegation Command**:
+    ```bash
+    claude code --agent [agent-name] --goal "[subtask description]"
+    ```
+
+2.  **Execute via `run_command`**:
+    - Call the `run_command` tool with this command.
+    - Wait for the sub-agent to complete.
+    - Verify the sub-agent's output.
+
+**Example**:
+- **Subtask**: "Create User entity"
+- **Agent**: `backend-entity-repo`
+- **Action**: Run `claude code --agent backend-entity-repo --goal "Create User entity with Lombok and standard auditing fields"`
+
+This ensures that the specialized agent, with its specific context and rules loaded from `~/.config/claude/agents/`, handles the implementation.
+
+---
+
+## STEP 5.6: GENERATE & REVIEW PRE-IMPLEMENTATION CHECKLIST
 
 **CRITICAL**: Before writing any code, generate a predictive bug prevention checklist.
 

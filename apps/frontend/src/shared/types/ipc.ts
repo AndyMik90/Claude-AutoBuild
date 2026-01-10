@@ -785,6 +785,12 @@ export interface ElectronAPI {
     modified: string;
   }>>;
 
+  // Custom Agent operations
+  getCustomAgents: () => Promise<IPCResult<import('../../main/ipc-handlers/custom-agent-handlers').CustomAgent[]>>;
+  getCustomAgentDetails: (path: string) => Promise<IPCResult<string>>;
+  saveCustomAgent: (id: string, content: string) => Promise<IPCResult>;
+  deleteCustomAgent: (id: string) => Promise<IPCResult>;
+
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;

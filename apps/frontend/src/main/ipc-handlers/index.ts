@@ -33,6 +33,7 @@ import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
+import { registerCustomAgentHandlers } from './custom-agent-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -118,6 +119,9 @@ export function setupIpcHandlers(
   // API Profile handlers (custom Anthropic-compatible endpoints)
   registerProfileHandlers();
 
+  // Custom Agent handlers
+  registerCustomAgentHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -144,5 +148,6 @@ export {
   registerDebugHandlers,
   registerClaudeCodeHandlers,
   registerMcpHandlers,
-  registerProfileHandlers
+  registerProfileHandlers,
+  registerCustomAgentHandlers
 };
