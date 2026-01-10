@@ -15,7 +15,8 @@ export type ReviewStatus =
   | 'ready_to_merge'
   | 'needs_attention'
   | 'ready_for_followup'
-  | 'followup_issues_remain';
+  | 'followup_issues_remain'
+  | 'reviewing';
 
 export interface ReviewStatusTreeProps {
   status: ReviewStatus;

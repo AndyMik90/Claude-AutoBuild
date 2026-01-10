@@ -104,7 +104,7 @@ export function PRDetail({
   const [prLogs, setPrLogs] = useState<PRLogsType | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const logsLoadedRef = useRef(false);
-  
+
   // Merge readiness state (real-time validation of AI verdict freshness)
   const [mergeReadiness, setMergeReadiness] = useState<MergeReadiness | null>(null);
   const mergeReadinessAbortRef = useRef<AbortController | null>(null);
@@ -379,8 +379,20 @@ export function PRDetail({
   }, [reviewResult]);
 
   // Compute the overall PR review status for visual display
-  type PRStatus = 'not_reviewed' | 'reviewed_pending_post' | 'waiting_for_changes' | 'ready_to_merge' | 'needs_attention' | 'ready_for_followup' | 'followup_issues_remain';
+  type PRStatus = 'not_reviewed' | 'reviewed_pending_post' | 'waiting_for_changes' | 'ready_to_merge' | 'needs_attention' | 'ready_for_followup' | 'followup_issues_remain' | 'reviewing';
   const prStatus: { status: PRStatus; label: string; description: string; icon: React.ReactNode; color: string } = useMemo(() => {
+    // Check for in-progress review FIRST (before checking result)
+    // This ensures the running review state is visible when switching back to a PR
+    if (isReviewing) {
+      return {
+        status: 'reviewing',
+        label: t('prReview.aiReviewInProgress'),
+        description: reviewProgress?.message || t('prReview.analysisInProgress'),
+        icon: <Bot className="h-5 w-5 animate-pulse" />,
+        color: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
+      };
+    }
+
     if (!reviewResult || !reviewResult.success) {
       return {
         status: 'not_reviewed',
@@ -523,7 +535,7 @@ export function PRDetail({
       icon: <MessageSquare className="h-5 w-5" />,
       color: 'bg-primary/20 text-primary border-primary/50',
     };
-  }, [reviewResult, postedFindingIds, isReadyToMerge, newCommitsCheck, t]);
+  }, [isReviewing, reviewProgress, reviewResult, postedFindingIds, isReadyToMerge, newCommitsCheck, t]);
 
   const handlePostReview = async () => {
     const idsToPost = Array.from(selectedFindingIds);
