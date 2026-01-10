@@ -55,8 +55,12 @@ async def _save_to_graphiti_async(
             return False
 
         from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
+        from integrations.graphiti.queries_pkg.schema import GroupIdMode
 
-        memory = GraphitiMemory(spec_dir, project_dir)
+        # Use project-wide shared memory for cross-spec learning
+        memory = GraphitiMemory(
+            spec_dir, project_dir, group_id_mode=GroupIdMode.PROJECT
+        )
         try:
             if save_type == "discovery":
                 # Save as codebase discovery

@@ -114,10 +114,12 @@ async def get_graphiti_context(
         return None
 
     try:
-        from graphiti_memory import GraphitiMemory
+        from graphiti_memory import GraphitiMemory, GroupIdMode
 
-        # Create memory manager
-        memory = GraphitiMemory(spec_dir, project_dir)
+        # Create memory manager with project-wide shared memory
+        memory = GraphitiMemory(
+            spec_dir, project_dir, group_id_mode=GroupIdMode.PROJECT
+        )
 
         if not memory.is_enabled:
             if is_debug_enabled():
@@ -322,9 +324,12 @@ async def save_session_memory(
             debug("memory", "Attempting PRIMARY storage: Graphiti")
 
         try:
-            from graphiti_memory import GraphitiMemory
+            from graphiti_memory import GraphitiMemory, GroupIdMode
 
-            memory = GraphitiMemory(spec_dir, project_dir)
+            # Use project-wide shared memory for cross-spec learning
+            memory = GraphitiMemory(
+                spec_dir, project_dir, group_id_mode=GroupIdMode.PROJECT
+            )
 
             if is_debug_enabled():
                 debug_detailed(
