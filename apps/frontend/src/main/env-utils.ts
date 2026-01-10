@@ -540,5 +540,5 @@ export function getSpawnCommand(command: string): string {
     }
     return `"${trimmed}"`;
   }
-  return command;
+  return trimmed;
 }

@@ -298,6 +298,26 @@ describe('getSpawnCommand', () => {
       expect(getSpawnCommand('/usr/bin/claude')).toBe('/usr/bin/claude');
       expect(getSpawnCommand('/home/user/.local/bin/claude.bat')).toBe('/home/user/.local/bin/claude.bat');
     });
+
+    it('should trim whitespace on macOS', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'darwin',
+        writable: true,
+        configurable: true,
+      });
+      expect(getSpawnCommand('  /usr/local/bin/claude  ')).toBe('/usr/local/bin/claude');
+      expect(getSpawnCommand('\t/opt/homebrew/bin/claude\t')).toBe('/opt/homebrew/bin/claude');
+    });
+
+    it('should trim whitespace on Linux', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'linux',
+        writable: true,
+        configurable: true,
+      });
+      expect(getSpawnCommand('  /usr/bin/claude  ')).toBe('/usr/bin/claude');
+      expect(getSpawnCommand('\t/home/user/.local/bin/claude\t')).toBe('/home/user/.local/bin/claude');
+    });
   });
 });
 
