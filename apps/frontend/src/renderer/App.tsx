@@ -65,6 +65,7 @@ import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 import { AddProjectModal } from './components/AddProjectModal';
 import { ViewStateProvider } from './contexts/ViewStateContext';
+import { ConsoleLogsPanel } from './components/ConsoleLogsPanel';
 
 // Wrapper component for ProjectTabBar
 interface ProjectTabBarWithContextProps {
@@ -892,6 +893,9 @@ export function App() {
               />
             )}
           </main>
+
+          {/* Console logs panel - shows at bottom when toggled */}
+          <ConsoleLogsPanel />
         </div>
 
         {/* Task detail modal */}
