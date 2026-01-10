@@ -47,6 +47,7 @@ if sys.version_info < (3, 10):  # noqa: UP036
 import asyncio
 import io
 import os
+import subprocess
 from pathlib import Path
 
 # Configure safe encoding on Windows BEFORE any imports that might print
@@ -358,8 +359,15 @@ Examples:
             print(f"  {muted('Running:')} {' '.join(run_cmd)}")
             print()
 
-            # Execute run.py - replace current process
-            os.execv(sys.executable, run_cmd)
+            # Execute run.py - replace current process on Unix, use subprocess on Windows
+            if sys.platform == "win32":
+                # On Windows, os.execv() doesn't replace the process - it spawns a new one
+                # and the original continues. Use subprocess.run() instead.
+                result = subprocess.run(run_cmd)
+                sys.exit(result.returncode)
+            else:
+                # On Unix, os.execv() properly replaces the current process
+                os.execv(sys.executable, run_cmd)
 
         sys.exit(0)
 

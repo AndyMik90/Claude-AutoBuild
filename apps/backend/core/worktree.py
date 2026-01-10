@@ -530,9 +530,71 @@ class WorktreeManager:
         )
 
         if result.returncode != 0:
-            raise WorktreeError(
-                f"Failed to create worktree for {spec_name}: {result.stderr}"
-            )
+            # Windows workaround: git worktree add can fail due to filesystem/path issues
+            # Use alternative approach: create worktree without checkout, then manually checkout
+            import sys
+
+            if sys.platform == "win32":
+                print(
+                    f"Standard worktree creation failed, trying Windows workaround..."
+                )
+
+                # Clean up any partial state from failed attempt
+                if worktree_path.exists():
+                    shutil.rmtree(worktree_path, ignore_errors=True)
+                self._run_git(["worktree", "prune"])
+
+                # Step 1: Create the worktree directory manually
+                worktree_path.mkdir(parents=True, exist_ok=True)
+
+                # Step 2: Register worktree without checking out files
+                result = self._run_git(
+                    [
+                        "worktree",
+                        "add",
+                        "--no-checkout",
+                        "-b",
+                        branch_name,
+                        str(worktree_path),
+                        start_point,
+                    ]
+                )
+
+                if result.returncode != 0:
+                    # Clean up on failure
+                    shutil.rmtree(worktree_path, ignore_errors=True)
+                    self._run_git(["worktree", "prune"])
+                    raise WorktreeError(
+                        f"Failed to create worktree for {spec_name} (Windows fallback): {result.stderr}"
+                    )
+
+                # Step 3: Use git read-tree to read the tree into the index
+                result = self._run_git(
+                    ["read-tree", "-u", "HEAD"], cwd=worktree_path
+                )
+
+                if result.returncode != 0:
+                    # Try alternative: checkout-index approach
+                    # First reset the index to HEAD
+                    self._run_git(["reset", "HEAD"], cwd=worktree_path)
+                    # Then checkout all files from the index
+                    result = self._run_git(
+                        ["checkout-index", "-a", "-f"], cwd=worktree_path
+                    )
+
+                    if result.returncode != 0:
+                        # Clean up on failure
+                        shutil.rmtree(worktree_path, ignore_errors=True)
+                        self._run_git(["worktree", "prune"])
+                        raise WorktreeError(
+                            f"Failed to checkout files in worktree for {spec_name}: {result.stderr}"
+                        )
+
+                print(f"Windows workaround succeeded for worktree: {worktree_path.name}")
+            else:
+                raise WorktreeError(
+                    f"Failed to create worktree for {spec_name}: {result.stderr}"
+                )
 
         print(f"Created worktree: {worktree_path.name} on branch {branch_name}")
 

@@ -5,6 +5,7 @@ Unit tests for PR Context Gatherer
 Tests the context gathering functionality without requiring actual GitHub API calls.
 """
 
+import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -56,7 +57,7 @@ async def test_gather_basic_pr_context(tmp_path):
 
 def test_normalize_status():
     """Test file status normalization."""
-    gatherer = PRContextGatherer(Path("/tmp"), 1)
+    gatherer = PRContextGatherer(Path(tempfile.gettempdir()), 1)
 
     assert gatherer._normalize_status("added") == "added"
     assert gatherer._normalize_status("ADD") == "added"

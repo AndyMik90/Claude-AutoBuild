@@ -113,11 +113,14 @@ def install_hook(project_path: Path) -> bool:
         hook_path.write_text(HOOK_SCRIPT)
         print(f"Created new hook at {hook_path}")
 
-    # Make executable
-    hook_path.chmod(
-        hook_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-    )
-    print("Hook is now executable")
+    # Make executable (not needed on Windows - git hooks work without chmod)
+    if sys.platform != "win32":
+        hook_path.chmod(
+            hook_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        )
+        print("Hook is now executable")
+    else:
+        print("Hook installed (chmod skipped on Windows)")
 
     return True
 
