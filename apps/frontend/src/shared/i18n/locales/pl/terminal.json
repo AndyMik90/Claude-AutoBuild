@@ -1,0 +1,26 @@
+{
+  "worktree": {
+    "create": "Worktree",
+    "createNew": "+ Nowy Worktree",
+    "existing": "Istniejące Worktrees",
+    "createTitle": "Utwórz Worktree Terminala",
+    "createDescription": "Utwórz izolowaną przestrzeń roboczą dla tego terminala. Cała praca będzie odbywać się w katalogu worktree.",
+    "name": "Nazwa Worktree",
+    "namePlaceholder": "moja-funkcja",
+    "nameRequired": "Nazwa worktree jest wymagana",
+    "nameInvalid": "Nazwa musi zaczynać i kończyć się literą lub cyfrą",
+    "nameHelp": "Tylko małe litery, cyfry, myślniki i podkreślenia",
+    "associateTask": "Powiąż z zadaniem",
+    "selectTask": "Wybierz zadanie...",
+    "noTask": "Bez zadania (samodzielny worktree)",
+    "createBranch": "Utwórz gałąź Git",
+    "branchHelp": "Tworzy gałąź: {{branch}}",
+    "baseBranch": "Gałąź bazowa",
+    "selectBaseBranch": "Wybierz gałąź bazową...",
+    "useProjectDefault": "Użyj domyślnej projektu ({{branch}})",
+    "baseBranchHelp": "Gałąź, z której zostanie utworzony worktree",
+    "openInIDE": "Otwórz w IDE",
+    "maxReached": "Osiągnięto maksymalną liczbę 12 worktrees terminala",
+    "alreadyExists": "Worktree o tej nazwie już istnieje"
+  }
+}
