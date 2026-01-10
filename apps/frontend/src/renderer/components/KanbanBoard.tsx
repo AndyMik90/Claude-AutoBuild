@@ -28,6 +28,7 @@ import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
 import { persistTaskStatus, forceCompleteTask, archiveTasks } from '../stores/task-store';
+import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import type { Task, TaskStatus } from '../../shared/types';
 
@@ -332,7 +333,8 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
 }, droppableColumnPropsAreEqual);
 
 export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing }: KanbanBoardProps) {
-  const { t } = useTranslation(['tasks', 'dialogs']);
+  const { t } = useTranslation(['tasks', 'dialogs', 'common']);
+  const { toast } = useToast();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const { showArchived, toggleShowArchived } = useViewState();
@@ -465,16 +467,25 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const task = providedTask || tasks.find(t => t.id === taskId);
     const result = await persistTaskStatus(taskId, newStatus);
 
-    if (!result.success && result.worktreeExists) {
-      // Show the worktree cleanup dialog
-      setWorktreeCleanupDialog({
-        open: true,
-        taskId: taskId,
-        taskTitle: task?.title || t('tasks:untitled'),
-        worktreePath: result.worktreePath,
-        isProcessing: false,
-        error: undefined
-      });
+    if (!result.success) {
+      if (result.worktreeExists) {
+        // Show the worktree cleanup dialog
+        setWorktreeCleanupDialog({
+          open: true,
+          taskId: taskId,
+          taskTitle: task?.title || t('tasks:untitled'),
+          worktreePath: result.worktreePath,
+          isProcessing: false,
+          error: undefined
+        });
+      } else {
+        // Show error toast for other failures
+        toast({
+          title: t('common:errors.operationFailed'),
+          description: result.error || t('common:errors.unknownError'),
+          variant: 'destructive'
+        });
+      }
     }
   };
 

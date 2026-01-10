@@ -66,7 +66,7 @@ export function WorktreeCleanupDialog({
                 </>
               )}
               {worktreePath && (
-                <div className="bg-muted/50 rounded-lg p-3 text-sm font-mono text-xs break-all">
+                <div className="bg-muted/50 rounded-lg p-3 font-mono text-xs break-all">
                   {worktreePath}
                 </div>
               )}
