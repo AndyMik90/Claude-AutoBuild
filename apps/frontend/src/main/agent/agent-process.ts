@@ -140,17 +140,20 @@ export class AgentProcessManager {
     const languageEnv: Record<string, string> = {};
     try {
       const settings = readSettingsFile();
-      if (settings?.language) {
-        languageEnv['AUTO_CLAUDE_USER_LANGUAGE'] = settings.language;
+      const language = settings?.language;
+
+      // Only set language env vars if language is a non-empty string
+      if (typeof language === 'string' && language.trim()) {
+        languageEnv['AUTO_CLAUDE_USER_LANGUAGE'] = language;
 
         // Also pass the language display name so backend doesn't need to maintain a mapping
         // This makes frontend (i18n.ts) the single source of truth for language names
-        const langConfig = AVAILABLE_LANGUAGES.find(l => l.value === settings.language);
+        const langConfig = AVAILABLE_LANGUAGES.find(l => l.value === language);
         if (langConfig) {
           languageEnv['AUTO_CLAUDE_USER_LANGUAGE_NAME'] = langConfig.label;
         }
 
-        console.log('[AgentProcess] Setting AUTO_CLAUDE_USER_LANGUAGE:', settings.language, langConfig?.label);
+        console.log('[AgentProcess] Setting AUTO_CLAUDE_USER_LANGUAGE:', language, langConfig?.label);
       }
     } catch (error) {
       console.warn('[AgentProcess] Failed to read language setting:', error);
