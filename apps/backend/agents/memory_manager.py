@@ -386,7 +386,7 @@ async def save_session_memory(
                 debug_error("memory", "Graphiti save failed", error=str(e))
         finally:
             # Always close the memory connection
-            if memory:
+            if memory is not None:
                 await memory.close()
     else:
         if is_debug_enabled():
