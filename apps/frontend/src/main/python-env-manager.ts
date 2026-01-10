@@ -673,9 +673,38 @@ if sys.version_info >= (3, 12):
       }
     }
 
+    // On Windows with bundled packages, add pywin32 paths that are normally set by .pth files
+    // pywin32.pth expects: win32, win32/lib, Pythonwin to be in PYTHONPATH
+    // This fixes "No module named 'pywintypes'" error in packaged apps
+    let pywin32DllPath: string | undefined;
+    if (pythonPath && process.platform === 'win32' && app.isPackaged) {
+      const win32Path = path.join(pythonPath, 'win32');
+      const win32LibPath = path.join(pythonPath, 'win32', 'lib');
+      const pythonwinPath = path.join(pythonPath, 'Pythonwin');
+      const pathSep = ';'; // Windows path separator
+      pythonPath = [pythonPath, win32Path, win32LibPath, pythonwinPath].join(pathSep);
+      console.log('[PythonEnvManager] Added pywin32 paths to PYTHONPATH');
+
+      // Also add pywin32_system32 to PATH for DLL loading (pywintypes312.dll, pythoncom312.dll)
+      // This is what pywin32_bootstrap.py does via os.add_dll_directory() but we need to do it
+      // via PATH since .pth files aren't processed in bundled apps
+      const bundledSitePackages = path.join(process.resourcesPath, 'python-site-packages');
+      const pywin32System32 = path.join(bundledSitePackages, 'pywin32_system32');
+      if (existsSync(pywin32System32)) {
+        pywin32DllPath = pywin32System32;
+        console.log('[PythonEnvManager] Adding pywin32_system32 to PATH for DLL loading:', pywin32DllPath);
+      }
+    }
+
     // Apply our Python configuration on top
+    // On Windows, prepend pywin32_system32 to PATH so Windows can find the DLLs
+    const pathEnv = pywin32DllPath
+      ? { PATH: `${pywin32DllPath};${baseEnv['PATH'] || baseEnv['Path'] || ''}` }
+      : {};
+
     return {
       ...baseEnv,
+      ...pathEnv,
       // Don't write bytecode - not needed and avoids permission issues
       PYTHONDONTWRITEBYTECODE: '1',
       // Use UTF-8 encoding

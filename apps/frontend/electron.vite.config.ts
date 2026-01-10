@@ -6,7 +6,9 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({
       // Bundle these packages into the main process (they won't be in node_modules in packaged app)
+      // The 'exclude' list means "exclude from externalization" = "bundle these"
       exclude: [
+        'dotenv',  // Required at startup before any other imports
         'uuid',
         'chokidar',
         'kuzu',

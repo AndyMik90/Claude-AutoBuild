@@ -28,6 +28,50 @@ const WORKTREE_NAME_REGEX = /^[a-z0-9][a-z0-9_-]*[a-z0-9]$|^[a-z0-9]$/;
 const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
 
 /**
+ * Force remove a directory, handling Windows EBUSY errors.
+ * On Windows, directories can be locked by processes, so we:
+ * 1. Try regular rmSync first
+ * 2. If EBUSY, wait and retry a few times
+ */
+async function forceRemoveDirectory(dirPath: string, maxRetries = 3): Promise<void> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      rmSync(dirPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+      debugLog(`[TerminalWorktree] Successfully removed directory: ${dirPath}`);
+      return;
+    } catch (error) {
+      const errorCode = (error as NodeJS.ErrnoException).code;
+      const isLockError = errorCode === 'EBUSY' || errorCode === 'EPERM' || errorCode === 'ENOTEMPTY';
+
+      if (!isLockError || attempt === maxRetries) {
+        debugError(`[TerminalWorktree] Failed to remove directory after ${attempt} attempts:`, error);
+        throw new Error(`Failed to remove worktree directory: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+
+      debugLog(`[TerminalWorktree] Directory busy (attempt ${attempt}/${maxRetries}), waiting before retry...`);
+
+      // On Windows, try to release locks
+      if (process.platform === 'win32') {
+        try {
+          // Remove git index.lock if it exists
+          const indexLock = path.join(dirPath, '.git', 'index.lock');
+          try {
+            rmSync(indexLock, { force: true });
+          } catch {
+            // Ignore - file might not exist
+          }
+        } catch {
+          // Ignore errors from lock release attempts
+        }
+      }
+
+      // Wait before retry (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+    }
+  }
+}
+
+/**
  * Fix repositories that are incorrectly marked with core.bare=true.
  * This can happen when git worktree operations incorrectly set bare=true
  * on a working repository that has source files.
@@ -476,12 +520,41 @@ async function removeTerminalWorktree(
 
   try {
     if (existsSync(worktreePath)) {
-      execFileSync('git', ['worktree', 'remove', '--force', worktreePath], {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-      debugLog('[TerminalWorktree] Removed git worktree');
+      try {
+        execFileSync('git', ['worktree', 'remove', '--force', worktreePath], {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+        debugLog('[TerminalWorktree] Removed git worktree');
+      } catch (removeError) {
+        // Check if this is the "is not a working tree" error
+        const errorMsg = removeError instanceof Error ? removeError.message : '';
+        if (errorMsg.includes('is not a working tree') || errorMsg.includes('is not a valid worktree')) {
+          debugLog('[TerminalWorktree] Worktree not recognized by git, pruning and removing directory');
+
+          // Prune stale worktree references
+          try {
+            execFileSync('git', ['worktree', 'prune'], {
+              cwd: projectPath,
+              encoding: 'utf-8',
+              stdio: ['pipe', 'pipe', 'pipe'],
+            });
+          } catch {
+            // Prune might fail, continue anyway
+          }
+
+          // Manually remove the directory since git doesn't recognize it
+          await forceRemoveDirectory(worktreePath);
+        } else if (errorMsg.includes('EBUSY') || errorMsg.includes('resource busy')) {
+          // Directory is locked by another process
+          debugLog('[TerminalWorktree] Worktree directory is busy, attempting force removal');
+          await forceRemoveDirectory(worktreePath);
+        } else {
+          // Re-throw other errors
+          throw removeError;
+        }
+      }
     }
 
     if (deleteBranch && config.hasGitBranch && config.branchName) {

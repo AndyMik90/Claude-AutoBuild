@@ -76,6 +76,57 @@ const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
 /**
+ * Force remove a directory, handling Windows EBUSY errors.
+ * On Windows, directories can be locked by processes, so we:
+ * 1. Try regular rmSync first
+ * 2. If EBUSY, wait and retry a few times
+ * 3. On Windows, try to kill processes that might have locks
+ */
+async function forceRemoveDirectory(dirPath: string, maxRetries = 3): Promise<void> {
+  const { rmSync } = await import('fs');
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      rmSync(dirPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+      console.log(`Successfully removed directory: ${dirPath}`);
+      return;
+    } catch (error) {
+      const errorCode = (error as NodeJS.ErrnoException).code;
+      const isLockError = errorCode === 'EBUSY' || errorCode === 'EPERM' || errorCode === 'ENOTEMPTY';
+
+      if (!isLockError || attempt === maxRetries) {
+        // Not a lock error or final attempt - throw
+        console.error(`Failed to remove directory after ${attempt} attempts:`, error);
+        throw new Error(`Failed to remove worktree directory: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+
+      console.warn(`Directory busy (attempt ${attempt}/${maxRetries}), waiting before retry...`);
+
+      // On Windows, try to release locks
+      if (process.platform === 'win32') {
+        try {
+          // Remove git index.lock if it exists
+          const indexLock = path.join(dirPath, '.git', 'index.lock');
+          try {
+            rmSync(indexLock, { force: true });
+          } catch {
+            // Ignore - file might not exist
+          }
+
+          // Try to close handles using handle utility if available (requires sysinternals)
+          // This is best-effort and may not work on all systems
+        } catch {
+          // Ignore errors from lock release attempts
+        }
+      }
+
+      // Wait before retry (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+    }
+  }
+}
+
+/**
  * Check if a repository is misconfigured as bare but has source files.
  * If so, automatically fix the configuration by unsetting core.bare.
  *
@@ -2610,25 +2661,61 @@ export function registerWorktreeHandlers(
 
         try {
           // Get the branch name before removing
-          const branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-            cwd: worktreePath,
-            encoding: 'utf-8'
-          }).trim();
-
-          // Remove the worktree
-          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
-            cwd: project.path,
-            encoding: 'utf-8'
-          });
-
-          // Delete the branch
+          let branch: string | null = null;
           try {
-            execFileSync(getToolPath('git'), ['branch', '-D', branch], {
+            branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
+              cwd: worktreePath,
+              encoding: 'utf-8'
+            }).trim();
+          } catch {
+            // Worktree might be corrupted, continue anyway
+            console.warn('Could not get branch from worktree, may be corrupted');
+          }
+
+          // Try to remove the worktree
+          try {
+            execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
               cwd: project.path,
               encoding: 'utf-8'
             });
-          } catch {
-            // Branch might already be deleted or not exist
+          } catch (removeError) {
+            // Check if this is the "is not a working tree" error
+            const errorMsg = removeError instanceof Error ? removeError.message : '';
+            if (errorMsg.includes('is not a working tree') || errorMsg.includes('is not a valid worktree')) {
+              console.warn('Worktree not recognized by git, pruning stale entries and removing directory');
+
+              // Prune stale worktree references
+              try {
+                execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+                  cwd: project.path,
+                  encoding: 'utf-8'
+                });
+              } catch {
+                // Prune might fail, continue anyway
+              }
+
+              // Manually remove the directory since git doesn't recognize it
+              await forceRemoveDirectory(worktreePath);
+            } else if (errorMsg.includes('EBUSY') || errorMsg.includes('resource busy')) {
+              // Directory is locked by another process
+              console.warn('Worktree directory is busy, attempting force removal');
+              await forceRemoveDirectory(worktreePath);
+            } else {
+              // Re-throw other errors
+              throw removeError;
+            }
+          }
+
+          // Delete the branch if we found one
+          if (branch) {
+            try {
+              execFileSync(getToolPath('git'), ['branch', '-D', branch], {
+                cwd: project.path,
+                encoding: 'utf-8'
+              });
+            } catch {
+              // Branch might already be deleted or not exist
+            }
           }
 
           // Only send status change to backlog if not skipped

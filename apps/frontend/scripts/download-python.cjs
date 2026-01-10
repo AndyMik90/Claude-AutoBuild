@@ -809,6 +809,21 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
       // Install packages
       installPackages(pythonBin, requirementsPath, sitePackagesDir);
 
+      // Fix pywin32 for Windows: Create __init__.py in pywin32_system32 directory
+      // pywin32 uses namespace packages that rely on .pth file processing, which doesn't
+      // work in bundled apps. We need to make pywin32_system32 importable as a regular package.
+      // This fixes "No module named 'pywintypes'" error in packaged apps.
+      if (info.nodePlatform === 'win32') {
+        const pywin32System32Dir = path.join(sitePackagesDir, 'pywin32_system32');
+        if (fs.existsSync(pywin32System32Dir)) {
+          const initFile = path.join(pywin32System32Dir, '__init__.py');
+          if (!fs.existsSync(initFile)) {
+            fs.writeFileSync(initFile, '# Auto-generated for bundled app compatibility\n');
+            console.log(`[download-python] Created ${initFile} for pywin32 compatibility`);
+          }
+        }
+      }
+
       // Verify critical packages were installed before creating marker (fixes #416)
       // Note: Same list exists in python-env-manager.ts - keep them in sync
       // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)

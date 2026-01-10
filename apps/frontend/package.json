@@ -1,6 +1,6 @@
 {
   "name": "auto-claude-ui",
-  "version": "2.7.3-beta.3",
+  "version": "2.7.3-beta.9",
   "type": "module",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
   "homepage": "https://github.com/AndyMik90/Auto-Claude",
@@ -53,6 +53,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@lydell/node-pty": "^1.1.0",
+    "@lydell/node-pty-win32-x64": "^1.1.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-checkbox": "^1.1.4",
     "@radix-ui/react-collapsible": "^1.1.3",
@@ -164,6 +165,10 @@
         "to": "node_modules/@lydell/node-pty"
       },
       {
+        "from": "../../node_modules/@lydell/node-pty-${platform}-${arch}",
+        "to": "node_modules/@lydell/node-pty-${platform}-${arch}"
+      },
+      {
         "from": "resources/icon.ico",
         "to": "icon.ico"
       },
@@ -212,6 +217,13 @@
         "nsis",
         "zip"
       ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Auto Claude"
     },
     "linux": {
       "icon": "resources/icons",
