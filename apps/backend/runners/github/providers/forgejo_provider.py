@@ -152,7 +152,9 @@ class ForgejoProvider:
                     continue
 
             if filters.labels:
-                pr_labels = [label.get("name", "") for label in pr_data.get("labels", [])]
+                pr_labels = [
+                    label.get("name", "") for label in pr_data.get("labels", [])
+                ]
                 if not all(label in pr_labels for label in filters.labels):
                     continue
 
@@ -437,7 +439,9 @@ class ForgejoProvider:
     ) -> PRData:
         """Parse Forgejo PR data into PRData."""
         user = data.get("user", {})
-        author_login = user.get("login", "unknown") if isinstance(user, dict) else "unknown"
+        author_login = (
+            user.get("login", "unknown") if isinstance(user, dict) else "unknown"
+        )
 
         labels = []
         for label in data.get("labels", []) or []:
@@ -495,7 +499,9 @@ class ForgejoProvider:
     def _parse_issue_data(self, data: dict[str, Any]) -> IssueData:
         """Parse Forgejo issue data into IssueData."""
         user = data.get("user", {})
-        author_login = user.get("login", "unknown") if isinstance(user, dict) else "unknown"
+        author_login = (
+            user.get("login", "unknown") if isinstance(user, dict) else "unknown"
+        )
 
         labels = []
         for label in data.get("labels", []) or []:

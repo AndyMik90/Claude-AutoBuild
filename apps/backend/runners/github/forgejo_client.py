@@ -206,6 +206,7 @@ class ForgejoClient:
         # Import aiohttp here to avoid import errors if not installed
         try:
             import aiohttp
+
             self._aiohttp = aiohttp
         except ImportError:
             raise ImportError(
@@ -306,7 +307,9 @@ class ForgejoClient:
                     if data is not None:
                         request_kwargs["json"] = data
 
-                    async with getattr(session, method.lower())(**request_kwargs) as response:
+                    async with getattr(session, method.lower())(
+                        **request_kwargs
+                    ) as response:
                         total_time = asyncio.get_event_loop().time() - start_time
 
                         # Read response body
@@ -383,13 +386,20 @@ class ForgejoClient:
                         f"{self.max_retries} attempts ({total_time:.1f}s total)"
                     )
 
-            except (ForgejoTimeoutError, ForgejoAPIError, ForgejoAuthError, RateLimitExceeded):
+            except (
+                ForgejoTimeoutError,
+                ForgejoAPIError,
+                ForgejoAuthError,
+                RateLimitExceeded,
+            ):
                 raise
 
             except Exception as e:
                 logger.error(f"Unexpected error in Forgejo API request: {e}")
                 if attempt == self.max_retries:
-                    raise ForgejoAPIError(f"Forgejo API {method} {endpoint} failed: {e}")
+                    raise ForgejoAPIError(
+                        f"Forgejo API {method} {endpoint} failed: {e}"
+                    )
                 else:
                     backoff_delay = 2 ** (attempt - 1)
                     logger.info(f"Retrying in {backoff_delay}s after error...")
