@@ -2588,7 +2588,7 @@ export function registerWorktreeHandlers(
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_DISCARD,
-    async (_, taskId: string): Promise<IPCResult<WorktreeDiscardResult>> => {
+    async (_, taskId: string, skipStatusChange?: boolean): Promise<IPCResult<WorktreeDiscardResult>> => {
       try {
         const { task, project } = findTaskAndProject(taskId);
         if (!task || !project) {
@@ -2631,9 +2631,13 @@ export function registerWorktreeHandlers(
             // Branch might already be deleted or not exist
           }
 
-          const mainWindow = getMainWindow();
-          if (mainWindow) {
-            mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, 'backlog');
+          // Only send status change to backlog if not skipped
+          // (skip when caller will set a different status, e.g., 'done')
+          if (!skipStatusChange) {
+            const mainWindow = getMainWindow();
+            if (mainWindow) {
+              mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, 'backlog');
+            }
           }
 
           return {
@@ -2839,6 +2843,82 @@ export function registerWorktreeHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to open in terminal'
+        };
+      }
+    }
+  );
+
+  /**
+   * Clear the staged state for a task
+   * This allows the user to re-stage changes if needed
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_CLEAR_STAGED_STATE,
+    async (_, taskId: string): Promise<IPCResult<{ cleared: boolean }>> => {
+      try {
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          return { success: false, error: 'Task not found' };
+        }
+
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specDir = path.join(project.path, specsBaseDir, task.specId);
+        const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+        // Use EAFP pattern (try/catch) instead of LBYL (existsSync check) to avoid TOCTOU race conditions
+        const { promises: fsPromises } = require('fs');
+        const isFileNotFound = (err: unknown): boolean =>
+          !!(err && typeof err === 'object' && 'code' in err && err.code === 'ENOENT');
+
+        // Read, update, and write the plan file
+        let planContent: string;
+        try {
+          planContent = await fsPromises.readFile(planPath, 'utf-8');
+        } catch (readErr) {
+          if (isFileNotFound(readErr)) {
+            return { success: false, error: 'Implementation plan not found' };
+          }
+          throw readErr;
+        }
+
+        const plan = JSON.parse(planContent);
+
+        // Clear the staged state flags
+        delete plan.stagedInMainProject;
+        delete plan.stagedAt;
+        plan.updated_at = new Date().toISOString();
+
+        await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
+
+        // Also update worktree plan if it exists
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        if (worktreePath) {
+          const worktreePlanPath = path.join(worktreePath, specsBaseDir, task.specId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+          try {
+            const worktreePlanContent = await fsPromises.readFile(worktreePlanPath, 'utf-8');
+            const worktreePlan = JSON.parse(worktreePlanContent);
+            delete worktreePlan.stagedInMainProject;
+            delete worktreePlan.stagedAt;
+            worktreePlan.updated_at = new Date().toISOString();
+            await fsPromises.writeFile(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
+          } catch (e) {
+            // Non-fatal - worktree plan update is best-effort
+            // ENOENT is expected when worktree has no plan file
+            if (!isFileNotFound(e)) {
+              console.warn('[CLEAR_STAGED_STATE] Failed to update worktree plan:', e);
+            }
+          }
+        }
+
+        // Invalidate tasks cache to force reload
+        projectStore.invalidateTasksCache(project.id);
+
+        return { success: true, data: { cleared: true } };
+      } catch (error) {
+        console.error('Failed to clear staged state:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to clear staged state'
         };
       }
     }

@@ -42,6 +42,7 @@ export const IPC_CHANNELS = {
   TASK_LIST_WORKTREES: 'task:listWorktrees',
   TASK_ARCHIVE: 'task:archive',
   TASK_UNARCHIVE: 'task:unarchive',
+  TASK_CLEAR_STAGED_STATE: 'task:clearStagedState',
 
   // Task events (main -> renderer)
   TASK_PROGRESS: 'task:progress',

@@ -43,6 +43,7 @@ interface TaskReviewProps {
   onClose?: () => void;
   onSwitchToTerminals?: () => void;
   onOpenInbuiltTerminal?: (id: string, cwd: string) => void;
+  onReviewAgain?: () => void;
   // PR creation
   showPRDialog: boolean;
   isCreatingPR: boolean;
@@ -90,6 +91,7 @@ export function TaskReview({
   onClose,
   onSwitchToTerminals,
   onOpenInbuiltTerminal,
+  onReviewAgain,
   showPRDialog,
   isCreatingPR,
   onShowPRDialog,
@@ -108,10 +110,23 @@ export function TaskReview({
         />
       )}
 
-      {/* Workspace Status - hide if staging was successful (worktree is deleted after staging) */}
+      {/* Workspace Status - priority: loading > fresh staging success > already staged (persisted) > worktree exists > no workspace */}
       {isLoadingWorktree ? (
         <LoadingMessage />
-      ) : worktreeStatus?.exists && !stagedSuccess ? (
+      ) : stagedSuccess ? (
+        /* Fresh staging just completed - StagedSuccessMessage is rendered above */
+        null
+      ) : task.stagedInMainProject ? (
+        /* Task was previously staged (persisted state) - show even if worktree still exists */
+        <StagedInProjectMessage
+          task={task}
+          projectPath={stagedProjectPath}
+          hasWorktree={worktreeStatus?.exists || false}
+          onClose={onClose}
+          onReviewAgain={onReviewAgain}
+        />
+      ) : worktreeStatus?.exists ? (
+        /* Worktree exists but not yet staged - show staging UI */
         <WorkspaceStatus
           worktreeStatus={worktreeStatus}
           workspaceError={workspaceError}
@@ -131,13 +146,6 @@ export function TaskReview({
           onClose={onClose}
           onSwitchToTerminals={onSwitchToTerminals}
           onOpenInbuiltTerminal={onOpenInbuiltTerminal}
-        />
-      ) : task.stagedInMainProject && !stagedSuccess ? (
-        <StagedInProjectMessage
-          task={task}
-          projectPath={stagedProjectPath}
-          hasWorktree={worktreeStatus?.exists || false}
-          onClose={onClose}
         />
       ) : (
         <NoWorkspaceMessage task={task} onClose={onClose} />

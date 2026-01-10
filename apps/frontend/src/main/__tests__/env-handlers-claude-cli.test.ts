@@ -41,9 +41,29 @@ vi.mock('../project-store', () => ({
   },
 }));
 
-vi.mock('child_process', () => ({
-  spawn: spawnMock,
-}));
+vi.mock('child_process', () => {
+  const mockExecFile = vi.fn((cmd: any, args: any, options: any, callback: any) => {
+    // Return a minimal ChildProcess-like object
+    const childProcess = {
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi.fn()
+    };
+
+    // If callback is provided, call it asynchronously
+    if (typeof callback === 'function') {
+      setImmediate(() => callback(null, '', ''));
+    }
+
+    return childProcess as any;
+  });
+
+  return {
+    spawn: spawnMock,
+    execFileSync: vi.fn(),
+    execFile: mockExecFile
+  };
+});
 
 vi.mock('electron', () => ({
   app: {
