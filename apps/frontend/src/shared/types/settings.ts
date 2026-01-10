@@ -216,6 +216,12 @@ export interface AgentProfile {
   isAutoProfile?: boolean;
 }
 
+// Terminal font selection (embedded Nerd Fonts and system fallbacks)
+export type TerminalFont =
+  | 'jetbrains-mono'    // JetBrains Mono Nerd Font (default)
+  | 'fira-code'         // Fira Code Nerd Font
+  | 'cascadia-code';    // Cascadia Code Nerd Font / Caskaydia Cove
+
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   colorTheme?: ColorTheme;
@@ -267,6 +273,8 @@ export interface AppSettings {
   changelogEmojiLevel?: ChangelogEmojiLevel;
   // UI Scale setting (75-200%, default 100)
   uiScale?: number;
+  // Terminal font preference (Nerd Fonts with fallbacks)
+  terminalFont?: TerminalFont;
   // Beta updates opt-in (receive pre-release updates)
   betaUpdates?: boolean;
   // Migration flags (internal use)

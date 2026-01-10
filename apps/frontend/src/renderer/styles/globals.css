@@ -1708,3 +1708,25 @@ body {
 [data-ui-scale="190"] { font-size: 30.4px; }
 [data-ui-scale="195"] { font-size: 31.2px; }
 [data-ui-scale="200"] { font-size: 32px; }
+
+/* ============================================
+   Terminal Font System
+   ============================================ */
+
+/* Default fallback */
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Dynamic font family based on data-terminal-font attribute */
+[data-terminal-font="jetbrains-mono"] .font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+[data-terminal-font="fira-code"] .font-mono {
+  font-family: 'Fira Code', monospace;
+}
+
+[data-terminal-font="cascadia-code"] .font-mono {
+  font-family: 'Cascadia Code', monospace;
+}

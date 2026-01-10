@@ -1,0 +1,60 @@
+/* Terminal Fonts - Embedded @font-face declarations */
+
+/* JetBrains Mono Nerd Font - with powerline icons and symbols */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../../resources/fonts/webfonts/JetBrainsMonoNerdFont-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../../resources/fonts/webfonts/JetBrainsMonoNerdFont-Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../../resources/fonts/webfonts/JetBrainsMonoNerdFont-Italic.ttf') format('truetype');
+}
+
+/* Fira Code Nerd Font - with powerline icons and symbols */
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../../resources/fonts/webfonts/FiraCodeNerdFont-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../../resources/fonts/webfonts/FiraCodeNerdFont-Bold.ttf') format('truetype');
+}
+
+/* Cascadia Code Nerd Font (Caskaydia Cove) - with powerline icons and symbols */
+@font-face {
+  font-family: 'Cascadia Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../../resources/fonts/webfonts/CaskaydiaCoveNerdFont-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Cascadia Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../../resources/fonts/webfonts/CaskaydiaCoveNerdFont-Bold.ttf') format('truetype');
+}

@@ -3,6 +3,46 @@
  * Default settings, file paths, and project structure
  */
 
+import type { TerminalFont } from '../types/settings';
+
+// ============================================
+// Terminal Font Constants
+// ============================================
+
+export interface TerminalFontDefinition {
+  id: TerminalFont;
+  name: string;
+  description?: string;
+  cssFamily: string;
+  hasLigatures: boolean;
+}
+
+export const TERMINAL_FONTS: TerminalFontDefinition[] = [
+  {
+    id: 'jetbrains-mono',
+    name: 'JetBrains Mono',
+    description: 'Excellent readability with programming ligatures',
+    cssFamily: "'JetBrains Mono', monospace",
+    hasLigatures: true
+  },
+  {
+    id: 'fira-code',
+    name: 'Fira Code',
+    description: 'Clean design with programming ligatures',
+    cssFamily: "'Fira Code', monospace",
+    hasLigatures: true
+  },
+  {
+    id: 'cascadia-code',
+    name: 'Cascadia Code',
+    description: "Microsoft's monospaced font with ligatures",
+    cssFamily: "'Cascadia Code', 'Caskaydia Cove', monospace",
+    hasLigatures: true
+  }
+];
+
+export const TERMINAL_FONT_DEFAULT: TerminalFont = 'jetbrains-mono';
+
 // ============================================
 // UI Scale Constants
 // ============================================

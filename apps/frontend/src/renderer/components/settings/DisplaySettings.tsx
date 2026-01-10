@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Monitor, ZoomIn, ZoomOut, RotateCcw, Check } from 'lucide-react';
+import { Monitor, ZoomIn, ZoomOut, RotateCcw, Check, Type } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Label } from '../ui/label';
 import { SettingsSection } from './SettingsSection';
 import { useSettingsStore } from '../../stores/settings-store';
-import { UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT, UI_SCALE_STEP } from '../../../shared/constants';
-import type { AppSettings } from '../../../shared/types';
+import { useToast } from '../../hooks/use-toast';
+import { UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT, UI_SCALE_STEP, TERMINAL_FONTS, TERMINAL_FONT_DEFAULT } from '../../../shared/constants';
+import type { AppSettings, TerminalFont } from '../../../shared/types';
 
 interface DisplaySettingsProps {
   settings: AppSettings;
@@ -20,6 +21,9 @@ const SCALE_PRESETS = [
   { value: 150, label: '150%', descriptionKey: 'scale.large' }
 ] as const;
 
+// Code sample for font preview (not translatable - it's code)
+const FONT_PREVIEW_CODE = 'const hello = () => "world";';
+
 /**
  * Display settings section for UI scale/zoom control
  * Provides preset buttons (100%, 125%, 150%) and a fine-tune slider (75-200%)
@@ -27,6 +31,7 @@ const SCALE_PRESETS = [
  */
 export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsProps) {
   const { t } = useTranslation('settings');
+  const { toast } = useToast();
   const updateStoreSettings = useSettingsStore((state) => state.updateSettings);
 
   const currentScale = settings.uiScale ?? UI_SCALE_DEFAULT;
@@ -90,12 +95,79 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
     handlePresetChange(UI_SCALE_DEFAULT);
   };
 
+  // Font selection handlers
+  const currentFont = settings.terminalFont ?? TERMINAL_FONT_DEFAULT;
+
+  const handleFontChange = async (newFont: TerminalFont) => {
+    onSettingsChange({ ...settings, terminalFont: newFont });
+    updateStoreSettings({ terminalFont: newFont });
+    // Save to backend immediately
+    try {
+      await window.electronAPI.saveSettings({ terminalFont: newFont });
+    } catch (error) {
+      console.error('Failed to save terminal font setting:', error);
+      toast({
+        title: t('font.saveFailed'),
+        description: error instanceof Error ? error.message : t('font.saveFailedDescription'),
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <SettingsSection
       title={t('sections.display.title')}
       description={t('sections.display.description')}
     >
       <div className="space-y-6">
+        {/* Terminal Font Selection */}
+        <div className="space-y-3">
+          <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+            <Type className="h-4 w-4" />
+            {t('font.label')}
+          </Label>
+          <p className="text-sm text-muted-foreground">
+            {t('font.description')}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+            {TERMINAL_FONTS.map((font) => {
+              const isSelected = currentFont === font.id;
+              return (
+                <button
+                  type="button"
+                  key={font.id}
+                  onClick={() => handleFontChange(font.id)}
+                  className={cn(
+                    'flex flex-col items-start gap-2 p-3 rounded-lg border-2 transition-all text-left',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                    isSelected
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                  )}
+                >
+                  <div className="w-full">
+                    <div className="text-sm font-medium flex items-center justify-between">
+                      <span>{font.name}</span>
+                    {font.hasLigatures && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                        {t('font.ligatures')}
+                      </span>
+                    )}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">{font.description}</div>
+                    <div 
+                      className="text-xs mt-2 p-1.5 rounded bg-muted/50"
+                      style={{ fontFamily: font.cssFamily }}
+                    >
+                      {FONT_PREVIEW_CODE}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Preset Buttons */}
         <div className="space-y-3">
           <Label className="text-sm font-medium text-foreground">{t('scale.presets')}</Label>
