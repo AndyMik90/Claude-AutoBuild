@@ -26,7 +26,7 @@ import path from 'path';
 import os from 'os';
 import { promisify } from 'util';
 import { app } from 'electron';
-import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell, existsAsync } from './env-utils';
+import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell, existsAsync, getSpawnCommand } from './env-utils';
 import type { ToolDetectionResult } from '../shared/types';
 
 const execFileAsync = promisify(execFile);
@@ -923,7 +923,7 @@ class CLIToolManager {
       if (needsShell) {
         // For .cmd/.bat files on Windows, use execSync with quoted path
         // execFileSync doesn't handle spaces in .cmd paths correctly even with shell:true
-        const quotedCmd = `"${claudeCmd}"`;
+        const quotedCmd = getSpawnCommand(claudeCmd);
         version = execSync(`${quotedCmd} --version`, {
           encoding: 'utf-8',
           timeout: 5000,
@@ -1039,7 +1039,7 @@ class CLIToolManager {
 
       if (needsShell) {
         // For .cmd/.bat files on Windows, use exec with quoted path
-        const quotedCmd = `"${claudeCmd}"`;
+        const quotedCmd = getSpawnCommand(claudeCmd);
         const result = await execAsync(`${quotedCmd} --version`, {
           encoding: 'utf-8',
           timeout: 5000,
