@@ -101,7 +101,7 @@ async def save_to_graphiti_async(
         True if save succeeded, False otherwise
     """
     graphiti = get_graphiti_memory(spec_dir, project_dir)
-    if not graphiti:
+    if graphiti is None:
         return False
 
     try:
@@ -121,13 +121,12 @@ async def save_to_graphiti_async(
         for gotcha in discoveries.get("gotchas_encountered", []):
             await graphiti.save_gotcha(gotcha)
 
-        await graphiti.close()
         return result
 
     except Exception as e:
         logger.warning(f"Failed to save to Graphiti: {e}")
-        try:
-            await graphiti.close()
-        except Exception:
-            pass
         return False
+    finally:
+        # Always close the graphiti connection
+        if graphiti is not None:
+            await graphiti.close()
