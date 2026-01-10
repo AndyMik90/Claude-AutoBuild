@@ -56,6 +56,17 @@
     "delete": "Supprimer le worktree ?",
     "deleteDescription": "Ceci supprimera définitivement le worktree et toutes les modifications non committées. Cette action est irréversible."
   },
+  "worktreeCleanup": {
+    "title": "Terminer la tâche",
+    "hasWorktree": "La tâche <strong>\"{{taskTitle}}\"</strong> a encore un espace de travail isolé (worktree).",
+    "willDelete": "Pour marquer cette tâche comme terminée, le worktree et sa branche associée seront supprimés.",
+    "warning": "Assurez-vous d'avoir fusionné ou sauvegardé les modifications que vous souhaitez conserver avant de continuer.",
+    "confirm": "Supprimer le worktree et terminer",
+    "completing": "Finalisation...",
+    "retry": "Réessayer",
+    "errorTitle": "Échec du nettoyage",
+    "errorDescription": "Échec du nettoyage du worktree. Veuillez réessayer."
+  },
   "update": {
     "title": "Auto Claude",
     "projectInitialized": "Le projet est initialisé."

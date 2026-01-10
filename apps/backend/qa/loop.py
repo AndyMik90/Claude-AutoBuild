@@ -317,15 +317,16 @@ async def run_qa_validation_loop(
                 issues=current_issues[:3] if current_issues else [],  # Show first 3
             )
 
-            # Record rejected iteration
-            record_iteration(
-                spec_dir, qa_iteration, "rejected", current_issues, iteration_duration
-            )
-
-            # Check for recurring issues
+            # Check for recurring issues BEFORE recording current iteration
+            # This prevents the current issues from matching themselves in history
             history = get_iteration_history(spec_dir)
             has_recurring, recurring_issues = has_recurring_issues(
                 current_issues, history
+            )
+
+            # Record rejected iteration AFTER checking for recurring issues
+            record_iteration(
+                spec_dir, qa_iteration, "rejected", current_issues, iteration_duration
             )
 
             if has_recurring:

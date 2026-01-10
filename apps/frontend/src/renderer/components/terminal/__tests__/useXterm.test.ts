@@ -6,7 +6,7 @@
  * Unit tests for useXterm keyboard handlers
  * Tests terminal copy/paste keyboard shortcuts and platform detection
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import type { Mock } from 'vitest';
 import { renderHook, act, render } from '@testing-library/react';
 import React from 'react';
@@ -61,8 +61,9 @@ vi.mock('../../../../lib/terminal-buffer-manager', () => ({
 // Mock navigator.platform for platform detection
 const originalNavigatorPlatform = navigator.platform;
 
-// Mock requestAnimationFrame for jsdom environment (not provided by default)
-global.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => setTimeout(cb, 0) as unknown as number);
+// Store original requestAnimationFrame for restoration after tests
+const originalRequestAnimationFrame = global.requestAnimationFrame;
+const originalCancelAnimationFrame = global.cancelAnimationFrame;
 
 /**
  * Helper function to set up XTerm mocks and render the hook
@@ -152,7 +153,22 @@ describe('useXterm keyboard handlers', () => {
     readText: ReturnType<typeof vi.fn>;
   };
 
+  // Mock requestAnimationFrame for jsdom environment (not provided by default)
+  // Isolated to this test file to prevent affecting other tests
+  beforeAll(() => {
+    global.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => setTimeout(cb, 0) as unknown as number);
+    global.cancelAnimationFrame = vi.fn((id: number) => clearTimeout(id));
+  });
+
+  afterAll(() => {
+    global.requestAnimationFrame = originalRequestAnimationFrame;
+    global.cancelAnimationFrame = originalCancelAnimationFrame;
+  });
+
   beforeEach(() => {
+    // Use fake timers to control async behavior and prevent timer leaks
+    vi.useFakeTimers();
+
     // Clear all mocks before each test
     vi.clearAllMocks();
 
@@ -183,6 +199,11 @@ describe('useXterm keyboard handlers', () => {
   });
 
   afterEach(() => {
+    // Clear all pending timers before restoring mocks to prevent
+    // "requestAnimationFrame is not defined" errors from delayed callbacks
+    vi.clearAllTimers();
+    vi.useRealTimers();
+
     vi.restoreAllMocks();
     // Reset navigator.platform to original value
     Object.defineProperty(navigator, 'platform', {
@@ -211,7 +232,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         keyEventHandler(event);
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
       });
 
       // Windows should enable CTRL+V paste
@@ -238,7 +259,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         keyEventHandler(event);
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
       });
 
       expect(mockPaste).toHaveBeenCalledTimes(1);
@@ -252,7 +273,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         keyEventHandler(event);
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
       });
 
       expect(mockPaste).toHaveBeenCalledTimes(2);
@@ -282,7 +303,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         keyEventHandler(event);
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
       });
 
       expect(mockClipboard.writeText).toHaveBeenCalledTimes(1);
@@ -296,7 +317,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         keyEventHandler(event);
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
       });
 
       expect(mockClipboard.writeText).toHaveBeenCalledTimes(2);
@@ -321,7 +342,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         keyEventHandler(event);
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
       });
 
       // macOS should NOT use custom CTRL+V handler (uses system Cmd+V instead)
@@ -352,7 +373,7 @@ describe('useXterm keyboard handlers', () => {
         expect(handled).toBe(false); // Should prevent xterm handling
 
         // Wait for clipboard write
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
       });
 
       // Verify the xterm instance methods were called
@@ -408,7 +429,7 @@ describe('useXterm keyboard handlers', () => {
         if (keyEventHandler) {
           keyEventHandler!(event);
           // Wait for clipboard write
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await vi.advanceTimersByTimeAsync(0);
         }
       });
 
@@ -423,7 +444,7 @@ describe('useXterm keyboard handlers', () => {
         if (keyEventHandler) {
           keyEventHandler!(event);
           // Wait for clipboard write
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await vi.advanceTimersByTimeAsync(0);
         }
       });
 
@@ -455,7 +476,7 @@ describe('useXterm keyboard handlers', () => {
           expect(handled).toBe(false); // Should prevent literal ^V
 
           // Wait for clipboard read and paste
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await vi.advanceTimersByTimeAsync(0);
         }
       });
 
@@ -484,7 +505,7 @@ describe('useXterm keyboard handlers', () => {
         const handled = keyEventHandler(event);
         expect(handled).toBe(false);
 
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
       });
 
       expect(mockClipboard.readText).toHaveBeenCalled();
@@ -546,7 +567,7 @@ describe('useXterm keyboard handlers', () => {
         const handled = keyEventHandler(event);
         expect(handled).toBe(false);
 
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
       });
 
       expect(mockClipboard.writeText).toHaveBeenCalledWith('selected text');
@@ -603,7 +624,7 @@ describe('useXterm keyboard handlers', () => {
         const handled = keyEventHandler(event);
         expect(handled).toBe(false);
 
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
       });
 
       expect(mockClipboard.readText).toHaveBeenCalled();
@@ -632,7 +653,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         keyEventHandler(event);
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
       });
 
       // Should log error but not throw
@@ -666,7 +687,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         keyEventHandler(event);
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
       });
 
       // Should log error but not throw

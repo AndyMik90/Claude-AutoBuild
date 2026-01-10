@@ -56,6 +56,17 @@
     "delete": "Delete Worktree?",
     "deleteDescription": "This will permanently delete the worktree and all uncommitted changes. This action cannot be undone."
   },
+  "worktreeCleanup": {
+    "title": "Complete Task",
+    "hasWorktree": "The task <strong>\"{{taskTitle}}\"</strong> still has an isolated workspace (worktree).",
+    "willDelete": "To mark this task as complete, the worktree and its associated branch will be deleted.",
+    "warning": "Make sure you have merged or saved any changes you want to keep before proceeding.",
+    "confirm": "Delete Worktree & Complete",
+    "completing": "Completing...",
+    "retry": "Try Again",
+    "errorTitle": "Cleanup Failed",
+    "errorDescription": "Failed to cleanup worktree. Please try again."
+  },
   "update": {
     "title": "Auto Claude",
     "projectInitialized": "Project is initialized."

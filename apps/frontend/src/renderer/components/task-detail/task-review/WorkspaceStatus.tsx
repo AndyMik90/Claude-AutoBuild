@@ -192,12 +192,12 @@ export function WorkspaceStatus({
           </span>
         </div>
 
-        {/* Branch info */}
+        {/* Branch info: spec branch → user's current branch (merge target) */}
         {worktreeStatus.branch && (
           <div className="mt-2 text-xs text-muted-foreground">
             <code className="bg-background/80 px-1.5 py-0.5 rounded text-[11px]">{worktreeStatus.branch}</code>
             <span className="mx-1.5">→</span>
-            <code className="bg-background/80 px-1.5 py-0.5 rounded text-[11px]">{worktreeStatus.baseBranch || 'main'}</code>
+            <code className="bg-background/80 px-1.5 py-0.5 rounded text-[11px]">{worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main'}</code>
           </div>
         )}
 

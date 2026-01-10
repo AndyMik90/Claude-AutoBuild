@@ -101,6 +101,7 @@
   "errors": {
     "generic": "Une erreur s'est produite",
     "unknownError": "Une erreur inconnue s'est produite",
+    "operationFailed": "Opération échouée",
     "networkError": "Erreur réseau",
     "notFound": "Non trouvé",
     "unauthorized": "Non autorisé"

@@ -252,9 +252,10 @@ def merge_existing_build(
                 stats = smart_result.get("stats", {})
                 had_conflicts = stats.get("conflicts_resolved", 0) > 0
                 ai_assisted = stats.get("ai_assisted", 0) > 0
+                direct_copy = stats.get("direct_copy", False)
 
-                if had_conflicts or ai_assisted:
-                    # AI actually resolved conflicts or assisted with merges
+                if had_conflicts or ai_assisted or direct_copy:
+                    # AI resolved conflicts, assisted with merges, or direct copy was used
                     # Changes are already written and staged - no need for git merge
                     _print_merge_success(
                         no_commit, stats, spec_name=spec_name, keep_worktree=True
@@ -499,6 +500,155 @@ def _try_smart_merge_inner(
                     "error": resolution_result.get("error"),
                 }
 
+        # Check if branches diverged but no actual conflicts (can do direct copy)
+        if git_conflicts.get("diverged_but_no_conflicts"):
+            debug(MODULE, "Branches diverged but no conflicts - doing direct file copy")
+            print(muted("  Branches diverged but no conflicts detected"))
+            print(muted("  Copying changed files directly from worktree..."))
+
+            # Get changed files from spec branch
+            spec_branch = f"auto-claude/{spec_name}"
+            base_branch = git_conflicts.get("base_branch", "main")
+
+            # Get merge-base for diff
+            merge_base_result = subprocess.run(
+                ["git", "merge-base", base_branch, spec_branch],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+            )
+            merge_base = (
+                merge_base_result.stdout.strip()
+                if merge_base_result.returncode == 0
+                else None
+            )
+
+            if merge_base:
+                # Get list of changed files in spec branch
+                changed_files = _get_changed_files_from_branch(
+                    project_dir, merge_base, spec_branch
+                )
+
+                resolved_files = []
+                skipped_files = []  # Track files that failed to copy
+                files_to_stage = []
+                for file_path, status in changed_files:
+                    if _is_auto_claude_file(file_path):
+                        continue
+
+                    try:
+                        target_path = project_dir / file_path
+
+                        if status == "D":
+                            # Deleted in worktree
+                            if target_path.exists():
+                                target_path.unlink()
+                            files_to_stage.append(file_path)
+                            resolved_files.append(file_path)
+                            print(success(f"    ✓ {file_path} (deleted)"))
+                        else:
+                            # New or modified - copy from spec branch
+                            target_path.parent.mkdir(parents=True, exist_ok=True)
+
+                            if _is_binary_file(file_path):
+                                binary_content = _get_binary_file_content_from_ref(
+                                    project_dir, spec_branch, file_path
+                                )
+                                if binary_content is not None:
+                                    target_path.write_bytes(binary_content)
+                                    files_to_stage.append(file_path)
+                                    resolved_files.append(file_path)
+                                    status_label = (
+                                        "new file" if status == "A" else "updated"
+                                    )
+                                    print(
+                                        success(f"    ✓ {file_path} ({status_label})")
+                                    )
+                                else:
+                                    skipped_files.append(file_path)
+                                    debug_warning(
+                                        MODULE,
+                                        f"Could not retrieve binary content for {file_path}",
+                                    )
+                            else:
+                                content = _get_file_content_from_ref(
+                                    project_dir, spec_branch, file_path
+                                )
+                                if content is not None:
+                                    target_path.write_text(content, encoding="utf-8")
+                                    files_to_stage.append(file_path)
+                                    resolved_files.append(file_path)
+                                    status_label = (
+                                        "new file" if status == "A" else "updated"
+                                    )
+                                    print(
+                                        success(f"    ✓ {file_path} ({status_label})")
+                                    )
+                                else:
+                                    skipped_files.append(file_path)
+                                    debug_warning(
+                                        MODULE,
+                                        f"Could not retrieve content for {file_path}",
+                                    )
+
+                    except Exception as e:
+                        skipped_files.append(file_path)
+                        debug_warning(MODULE, f"Could not copy {file_path}: {e}")
+
+                # Stage all files in a single git add call for efficiency
+                if files_to_stage:
+                    try:
+                        subprocess.run(
+                            ["git", "add"] + files_to_stage,
+                            cwd=project_dir,
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                        )
+                    except subprocess.CalledProcessError as e:
+                        debug_warning(
+                            MODULE, f"Failed to stage files for direct copy: {e.stderr}"
+                        )
+                        # Return failure - files were written but not staged
+                        return {
+                            "success": False,
+                            "error": f"Failed to stage files: {e.stderr}",
+                            "resolved_files": [],
+                        }
+
+                # Build result - check for skipped files to detect partial merges
+                result = {
+                    "success": len(skipped_files) == 0,
+                    "resolved_files": resolved_files,
+                    "stats": {
+                        "files_merged": len(resolved_files),
+                        "conflicts_resolved": 0,
+                        "ai_assisted": 0,
+                        "auto_merged": len(resolved_files),
+                        "direct_copy": True,  # Flag indicating direct copy was used
+                        "skipped_count": len(skipped_files),
+                    },
+                }
+                if skipped_files:
+                    result["skipped_files"] = skipped_files
+                    result["partial_success"] = len(resolved_files) > 0
+                    print()
+                    print(
+                        warning(
+                            f"  ⚠ {len(skipped_files)} file(s) could not be retrieved:"
+                        )
+                    )
+                    for skipped_file in skipped_files:
+                        print(muted(f"    - {skipped_file}"))
+                    print(muted("  These files may need manual review."))
+                return result
+            else:
+                # merge-base failed - branches may not share history
+                debug_warning(
+                    MODULE,
+                    "Could not find merge-base between branches - falling back to semantic analysis",
+                )
+
         # No git conflicts - proceed with semantic analysis
         debug(MODULE, "No git conflicts, proceeding with semantic analysis")
         preview = orchestrator.preview_merge([spec_name])
@@ -623,11 +773,10 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
             text=True,
         )
 
-        # merge-tree returns exit code 1 if there are conflicts
+        # merge-tree returns exit code 1 if there are actual text conflicts
+        # Exit code 0 means clean merge possible
         if merge_tree_result.returncode != 0:
-            result["has_conflicts"] = True
-
-            # Parse the output for conflicting files
+            # Parse the output for ACTUAL conflicting files (look for CONFLICT markers)
             output = merge_tree_result.stdout + merge_tree_result.stderr
             for line in output.split("\n"):
                 if "CONFLICT" in line:
@@ -645,38 +794,27 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
                         ):
                             result["conflicting_files"].append(file_path)
 
-            # Fallback: if we didn't parse conflicts, use diff to find files changed in both branches
-            if not result["conflicting_files"]:
-                main_files_result = subprocess.run(
-                    ["git", "diff", "--name-only", merge_base, main_commit],
-                    cwd=project_dir,
-                    capture_output=True,
-                    text=True,
+            # Only set has_conflicts if we found ACTUAL CONFLICT markers
+            # A non-zero exit code without CONFLICT markers just means branches diverged
+            # but git can auto-merge them - we handle this with direct file copy
+            if result["conflicting_files"]:
+                result["has_conflicts"] = True
+                debug(
+                    MODULE,
+                    f"Found {len(result['conflicting_files'])} actual git conflicts",
+                    files=result["conflicting_files"],
                 )
-                main_files = (
-                    set(main_files_result.stdout.strip().split("\n"))
-                    if main_files_result.stdout.strip()
-                    else set()
+            else:
+                # No CONFLICT markers = no actual conflicts
+                # Branches diverged but changes don't overlap - git can auto-merge
+                # We'll handle this by copying files directly from spec branch
+                debug(
+                    MODULE,
+                    "No CONFLICT markers - branches diverged but can be auto-merged",
+                    merge_tree_returncode=merge_tree_result.returncode,
                 )
-
-                spec_files_result = subprocess.run(
-                    ["git", "diff", "--name-only", merge_base, spec_commit],
-                    cwd=project_dir,
-                    capture_output=True,
-                    text=True,
-                )
-                spec_files = (
-                    set(spec_files_result.stdout.strip().split("\n"))
-                    if spec_files_result.stdout.strip()
-                    else set()
-                )
-
-                # Files modified in both = potential conflicts
-                # Filter out .auto-claude files - they should never be merged
-                conflicting = main_files & spec_files
-                result["conflicting_files"] = [
-                    f for f in conflicting if not _is_auto_claude_file(f)
-                ]
+                result["has_conflicts"] = False
+                result["diverged_but_no_conflicts"] = True  # Flag for direct copy
 
     except Exception as e:
         print(muted(f"  Error checking git conflicts: {e}"))
@@ -829,6 +967,7 @@ def _resolve_git_conflicts_with_ai(
         tuple[str, str | None]
     ] = []  # (file_path, merged_content or None for delete)
     lock_files_excluded: list[str] = []  # Lock files excluded from merge
+    auto_merged_simple: set[str] = set()  # Files that were auto-merged via simple 3-way
 
     debug(MODULE, "Categorizing conflicting files for parallel processing")
 
@@ -887,27 +1026,49 @@ def _resolve_git_conflicts_with_ai(
                         f"  {target_file_path}: lock file (excluded - will use main version)",
                     )
                 else:
-                    # Regular file - needs AI merge
-                    # Store the TARGET path for writing, but track original for content retrieval
-                    files_needing_ai_merge.append(
-                        ParallelMergeTask(
-                            file_path=target_file_path,  # Use target path for writing
-                            main_content=main_content,
-                            worktree_content=worktree_content,
-                            base_content=base_content,
-                            spec_name=spec_name,
-                            project_dir=project_dir,
+                    # File exists in both - try simple 3-way merge FIRST (no AI needed)
+                    # This handles cases where:
+                    # - Only one side changed from base (ours==base or theirs==base)
+                    # - Both sides made identical changes (ours==theirs)
+                    simple_success, simple_merged = _try_simple_3way_merge(
+                        base_content, main_content, worktree_content
+                    )
+
+                    if simple_success and simple_merged is not None:
+                        # Simple 3-way merge succeeded - no AI needed!
+                        simple_merges.append((target_file_path, simple_merged))
+                        auto_merged_simple.add(target_file_path)  # Track for stats
+                        debug(
+                            MODULE,
+                            f"  {file_path}: auto-merged (simple 3-way, no AI needed)"
+                            + (
+                                f" (will write to {target_file_path})"
+                                if target_file_path != file_path
+                                else ""
+                            ),
                         )
-                    )
-                    debug(
-                        MODULE,
-                        f"  {file_path}: needs AI merge"
-                        + (
-                            f" (will write to {target_file_path})"
-                            if target_file_path != file_path
-                            else ""
-                        ),
-                    )
+                    else:
+                        # Simple merge failed - needs AI merge
+                        # Store the TARGET path for writing, but track original for content retrieval
+                        files_needing_ai_merge.append(
+                            ParallelMergeTask(
+                                file_path=target_file_path,  # Use target path for writing
+                                main_content=main_content,
+                                worktree_content=worktree_content,
+                                base_content=base_content,
+                                spec_name=spec_name,
+                                project_dir=project_dir,
+                            )
+                        )
+                        debug(
+                            MODULE,
+                            f"  {file_path}: needs AI merge (both sides changed differently)"
+                            + (
+                                f" (will write to {target_file_path})"
+                                if target_file_path != file_path
+                                else ""
+                            ),
+                        )
 
         except Exception as e:
             print(error(f"    ✗ Failed to categorize {file_path}: {e}"))
@@ -932,7 +1093,18 @@ def _resolve_git_conflicts_with_ai(
                         ["git", "add", file_path], cwd=project_dir, capture_output=True
                     )
                     resolved_files.append(file_path)
-                    print(success(f"    ✓ {file_path} (new file)"))
+                    # Show appropriate message based on merge type
+                    if file_path in auto_merged_simple:
+                        print(success(f"    ✓ {file_path} (auto-merged)"))
+                        auto_merged_count += 1  # Count for stats
+                    elif file_path in lock_files_excluded:
+                        print(
+                            success(
+                                f"    ✓ {file_path} (lock file - kept main version)"
+                            )
+                        )
+                    else:
+                        print(success(f"    ✓ {file_path} (new file)"))
                 else:
                     # Delete the file
                     target_path = project_dir / file_path
@@ -1198,6 +1370,9 @@ def _resolve_git_conflicts_with_ai(
             "conflicts_resolved": len(conflicting_files) - len(remaining_conflicts),
             "ai_assisted": ai_merged_count,
             "auto_merged": auto_merged_count,
+            "simple_3way_merged": len(
+                auto_merged_simple
+            ),  # Files auto-merged without AI
             "parallel_ai_merges": len(files_needing_ai_merge),
             "lock_files_excluded": len(lock_files_excluded),
         },

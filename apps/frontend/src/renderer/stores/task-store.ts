@@ -452,29 +452,61 @@ export async function submitReview(
 }
 
 /**
+ * Result type for persistTaskStatus with worktree info
+ */
+export interface PersistStatusResult {
+  success: boolean;
+  worktreeExists?: boolean;
+  worktreePath?: string;
+  error?: string;
+}
+
+/**
  * Update task status and persist to file
+ * Returns additional info if a worktree exists and needs cleanup confirmation
  */
 export async function persistTaskStatus(
   taskId: string,
-  status: TaskStatus
-): Promise<boolean> {
+  status: TaskStatus,
+  options?: { forceCleanup?: boolean }
+): Promise<PersistStatusResult> {
   const store = useTaskStore.getState();
 
   try {
-    // Update local state first for immediate feedback
-    store.updateTaskStatus(taskId, status);
+    // Persist to file first (don't optimistically update for 'done' status)
+    const result = await window.electronAPI.updateTaskStatus(taskId, status, options);
 
-    // Persist to file
-    const result = await window.electronAPI.updateTaskStatus(taskId, status);
     if (!result.success) {
+      // Check if this is a worktree exists case
+      if (result.worktreeExists) {
+        console.log('[persistTaskStatus] Worktree exists, confirmation needed');
+        return {
+          success: false,
+          worktreeExists: true,
+          worktreePath: result.worktreePath,
+          error: result.error
+        };
+      }
       console.error('Failed to persist task status:', result.error);
-      return false;
+      return { success: false, error: result.error };
     }
-    return true;
+
+    // Only update local state after backend confirms success
+    store.updateTaskStatus(taskId, status);
+    return { success: true };
   } catch (error) {
     console.error('Error persisting task status:', error);
-    return false;
+    return { success: false, error: String(error) };
   }
+}
+
+/**
+ * Force complete a task by cleaning up its worktree
+ * Used when user confirms they want to delete the worktree and mark as done
+ * Returns full result including error details for better UX
+ */
+export async function forceCompleteTask(taskId: string): Promise<PersistStatusResult> {
+  return persistTaskStatus(taskId, 'done', { forceCleanup: true });
 }
 
 /**

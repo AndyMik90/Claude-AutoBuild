@@ -1656,8 +1656,18 @@ export function registerWorktreeHandlers(
 
           // Get base branch using proper fallback chain:
           // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
-          // Note: We do NOT use current HEAD as that may be a feature branch
           const baseBranch = getEffectiveBaseBranch(project.path, task.specId, project.settings?.mainBranch);
+
+          // Get user's current branch in main project (this is where changes will merge INTO)
+          let currentProjectBranch: string | undefined;
+          try {
+            currentProjectBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
+              cwd: project.path,
+              encoding: 'utf-8'
+            }).trim();
+          } catch {
+            // Ignore - might be in detached HEAD or git error
+          }
 
           // Get commit count (cross-platform - no shell syntax)
           let commitCount = 0;
@@ -1703,6 +1713,7 @@ export function registerWorktreeHandlers(
               worktreePath,
               branch,
               baseBranch,
+              currentProjectBranch,
               commitCount,
               filesChanged,
               additions,
@@ -2133,39 +2144,16 @@ export function registerWorktreeHandlers(
 
               if (isStageOnly && !hasActualStagedChanges && mergeAlreadyCommitted) {
                 // Stage-only was requested but merge was already committed previously
-                // Mark as done since changes are already in the branch
-                newStatus = 'done';
-                planStatus = 'completed';
-                message = 'Changes were already merged and committed. Task marked as done.';
+                // Keep in human_review and let user explicitly mark as done (which will trigger cleanup confirmation)
+                // This ensures user is in control of when the worktree is deleted
+                newStatus = 'human_review';
+                planStatus = 'review';
+                message = 'Changes were already merged and committed. You can mark this task as complete when ready.';
                 staged = false;
-                debug('Stage-only requested but merge already committed. Marking as done.');
-
-                // Clean up worktree since merge is complete (fixes #243)
-                // This is the same cleanup as the full merge path, needed because
-                // stageOnly defaults to true for human_review tasks
-                try {
-                  if (worktreePath && existsSync(worktreePath)) {
-                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
-                      cwd: project.path,
-                      encoding: 'utf-8'
-                    });
-                    debug('Worktree cleaned up (already merged):', worktreePath);
-
-                    // Also delete the task branch
-                    const taskBranch = `auto-claude/${task.specId}`;
-                    try {
-                      execFileSync(getToolPath('git'), ['branch', '-D', taskBranch], {
-                        cwd: project.path,
-                        encoding: 'utf-8'
-                      });
-                      debug('Task branch deleted:', taskBranch);
-                    } catch {
-                      // Branch might not exist or already deleted
-                    }
-                  }
-                } catch (cleanupErr) {
-                  debug('Worktree cleanup failed (non-fatal):', cleanupErr);
-                }
+                debug('Stage-only requested but merge already committed. Keeping in human_review for user to confirm completion.');
+                // NOTE: We intentionally do NOT auto-clean the worktree here.
+                // User can drag the task to "Done" column which will show a confirmation dialog
+                // asking if they want to delete the worktree and mark complete.
               } else if (isStageOnly && !hasActualStagedChanges) {
                 // Stage-only was requested but no changes to stage (and not committed)
                 // This could mean nothing to merge or an error - keep in human_review for investigation

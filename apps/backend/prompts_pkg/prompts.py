@@ -58,7 +58,7 @@ def _validate_branch_name(branch: str | None) -> str | None:
     return branch
 
 
-def _get_base_branch_from_metadata(spec_dir: Path) -> str | None:
+def get_base_branch_from_metadata(spec_dir: Path) -> str | None:
     """
     Read baseBranch from task_metadata.json if it exists.
 
@@ -79,6 +79,10 @@ def _get_base_branch_from_metadata(spec_dir: Path) -> str | None:
         except (json.JSONDecodeError, OSError):
             pass
     return None
+
+
+# Alias for backwards compatibility (internal use)
+_get_base_branch_from_metadata = get_base_branch_from_metadata
 
 
 def _detect_base_branch(spec_dir: Path, project_dir: Path) -> str:
