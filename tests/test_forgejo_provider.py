@@ -212,8 +212,8 @@ class TestForgejoProviderProtocol:
 class TestForgejoProviderAsync:
     """Async tests for ForgejoProvider operations."""
 
-    async def test_list_prs_returns_list(self):
-        """Test that list_prs returns a list (mocked)."""
+    async def test_fetch_prs_returns_list(self):
+        """Test that fetch_prs returns a list (mocked)."""
         provider = get_provider(
             ProviderType.FORGEJO,
             repo="owner/repo",
@@ -228,11 +228,11 @@ class TestForgejoProviderAsync:
                 data=[]
             )
 
-            result = await provider.list_prs()
+            result = await provider.fetch_prs()
             assert isinstance(result, list)
 
-    async def test_list_issues_returns_list(self):
-        """Test that list_issues returns a list (mocked)."""
+    async def test_fetch_issues_returns_list(self):
+        """Test that fetch_issues returns a list (mocked)."""
         provider = get_provider(
             ProviderType.FORGEJO,
             repo="owner/repo",
@@ -246,7 +246,7 @@ class TestForgejoProviderAsync:
                 data=[]
             )
 
-            result = await provider.list_issues()
+            result = await provider.fetch_issues()
             assert isinstance(result, list)
 
 
