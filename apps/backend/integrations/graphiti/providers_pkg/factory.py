@@ -18,6 +18,7 @@ from .embedder_providers import (
     create_openai_embedder,
     create_openrouter_embedder,
     create_voyage_embedder,
+    create_zai_embedder,
 )
 from .exceptions import ProviderError
 from .llm_providers import (
@@ -27,6 +28,7 @@ from .llm_providers import (
     create_ollama_llm_client,
     create_openai_llm_client,
     create_openrouter_llm_client,
+    create_zai_llm_client,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,6 +64,8 @@ def create_llm_client(config: "GraphitiConfig") -> Any:
         return create_google_llm_client(config)
     elif provider == "openrouter":
         return create_openrouter_llm_client(config)
+    elif provider == "zai":
+        return create_zai_llm_client(config)
     else:
         raise ProviderError(f"Unknown LLM provider: {provider}")
 
@@ -96,5 +100,7 @@ def create_embedder(config: "GraphitiConfig") -> Any:
         return create_google_embedder(config)
     elif provider == "openrouter":
         return create_openrouter_embedder(config)
+    elif provider == "zai":
+        return create_zai_embedder(config)
     else:
         raise ProviderError(f"Unknown embedder provider: {provider}")

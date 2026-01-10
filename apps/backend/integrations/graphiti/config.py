@@ -8,8 +8,8 @@ Follows the same patterns as linear_config.py for consistency.
 Uses LadybugDB as the embedded graph database (no Docker required, requires Python 3.12+).
 
 Multi-Provider Support (V2):
-- LLM Providers: OpenAI, Anthropic, Azure OpenAI, Ollama, Google AI, OpenRouter
-- Embedder Providers: OpenAI, Voyage AI, Azure OpenAI, Ollama, Google AI, OpenRouter
+- LLM Providers: OpenAI, Anthropic, Azure OpenAI, Ollama, Google AI, OpenRouter, Z.ai
+- Embedder Providers: OpenAI, Voyage AI, Azure OpenAI, Ollama, Google AI, OpenRouter, Z.ai
 
 Environment Variables:
     # Core
@@ -53,6 +53,12 @@ Environment Variables:
         - qwen3-embedding:0.6b (1024), :4b (2560), :8b (4096) - Qwen3 series
         - nomic-embed-text (768), mxbai-embed-large (1024), bge-large (1024)
     OLLAMA_EMBEDDING_DIM: Override dimension (optional if using known model)
+
+    # Z.ai (Zhipu AI)
+    ZAI_API_KEY: Required for Z.ai provider
+    ZAI_BASE_URL: Base URL (default: https://open.bigmodel.cn/api/paas/v4)
+    ZAI_LLM_MODEL: Model for LLM (default: glm-4)
+    ZAI_EMBEDDING_MODEL: Model for embeddings (default: embedding-3)
 """
 
 import json
@@ -90,6 +96,7 @@ class LLMProvider(str, Enum):
     OLLAMA = "ollama"
     GOOGLE = "google"
     OPENROUTER = "openrouter"
+    ZAI = "zai"
 
 
 class EmbedderProvider(str, Enum):
@@ -101,6 +108,7 @@ class EmbedderProvider(str, Enum):
     OLLAMA = "ollama"
     GOOGLE = "google"
     OPENROUTER = "openrouter"
+    ZAI = "zai"
 
 
 @dataclass
@@ -154,6 +162,12 @@ class GraphitiConfig:
     ollama_llm_model: str = ""
     ollama_embedding_model: str = ""
     ollama_embedding_dim: int = 0  # Required for Ollama embeddings
+
+    # Z.ai settings
+    zai_api_key: str = ""
+    zai_base_url: str = "https://open.bigmodel.cn/api/paas/v4"
+    zai_llm_model: str = "glm-4"
+    zai_embedding_model: str = "embedding-3"
 
     @classmethod
     def from_env(cls) -> "GraphitiConfig":
@@ -227,6 +241,14 @@ class GraphitiConfig:
         except ValueError:
             ollama_embedding_dim = 0
 
+        # Z.ai settings
+        zai_api_key = os.environ.get("ZAI_API_KEY", "")
+        zai_base_url = os.environ.get(
+            "ZAI_BASE_URL", "https://open.bigmodel.cn/api/paas/v4"
+        )
+        zai_llm_model = os.environ.get("ZAI_LLM_MODEL", "glm-4")
+        zai_embedding_model = os.environ.get("ZAI_EMBEDDING_MODEL", "embedding-3")
+
         return cls(
             enabled=enabled,
             llm_provider=llm_provider,
@@ -255,6 +277,10 @@ class GraphitiConfig:
             ollama_llm_model=ollama_llm_model,
             ollama_embedding_model=ollama_embedding_model,
             ollama_embedding_dim=ollama_embedding_dim,
+            zai_api_key=zai_api_key,
+            zai_base_url=zai_base_url,
+            zai_llm_model=zai_llm_model,
+            zai_embedding_model=zai_embedding_model,
         )
 
     def is_valid(self) -> bool:
@@ -293,6 +319,8 @@ class GraphitiConfig:
             return bool(self.google_api_key)
         elif self.embedder_provider == "openrouter":
             return bool(self.openrouter_api_key)
+        elif self.embedder_provider == "zai":
+            return bool(self.zai_api_key)
         return False
 
     def get_validation_errors(self) -> list[str]:
@@ -340,6 +368,9 @@ class GraphitiConfig:
                 errors.append(
                     "OpenRouter embedder provider requires OPENROUTER_API_KEY"
                 )
+        elif self.embedder_provider == "zai":
+            if not self.zai_api_key:
+                errors.append("Z.ai embedder provider requires ZAI_API_KEY")
         else:
             errors.append(f"Unknown embedder provider: {self.embedder_provider}")
 
@@ -410,6 +441,11 @@ class GraphitiConfig:
                 return 768  # Google text-embedding-004
             # Add more providers as needed
             return 1536  # Default for unknown OpenRouter models
+        elif self.embedder_provider == "zai":
+            # Z.ai embedding-3 uses 1024 dimensions
+            if "embedding-2" in self.zai_embedding_model:
+                return 1024
+            return 1024  # Default for embedding-3
         return 768  # Safe default
 
     def get_provider_signature(self) -> str:
@@ -453,6 +489,7 @@ class GraphitiConfig:
             "google",
             "azure_openai",
             "openrouter",
+            "zai",
         ]:
             if f"_{provider}_" in base_name:
                 base_name = base_name.split(f"_{provider}_")[0]
@@ -690,6 +727,11 @@ def get_available_providers() -> dict:
         available_llm.append("ollama")
     if config.ollama_embedding_model and config.ollama_embedding_dim:
         available_embedder.append("ollama")
+
+    # Check Z.ai
+    if config.zai_api_key:
+        available_llm.append("zai")
+        available_embedder.append("zai")
 
     return {
         "llm_providers": available_llm,
