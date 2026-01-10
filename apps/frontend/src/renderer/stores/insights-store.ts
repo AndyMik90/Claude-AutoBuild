@@ -11,10 +11,85 @@ import type {
   Task
 } from '../../shared/types';
 
+// ============================================
+// Session State Types (for cross-session isolation)
+// ============================================
+
 interface ToolUsage {
   name: string;
   input?: string;
 }
+
+/**
+ * Session-scoped state that must be isolated per conversation.
+ * This prevents state leakage between different sessions and projects.
+ */
+export interface SessionState {
+  streamingContent: string;
+  currentTool: ToolUsage | null;
+  status: InsightsChatStatus;
+  toolsUsed: InsightsToolUsage[];
+  lastUpdated: Date;
+}
+
+// ============================================
+// Composite Key Utilities
+// ============================================
+
+/**
+ * Maximum number of session states to keep per project.
+ * Older sessions (by lastUpdated) will be cleaned up to prevent memory leaks.
+ */
+const MAX_SESSIONS_PER_PROJECT = 10;
+
+/**
+ * Creates a composite key for session-scoped state lookup.
+ * Format: "${projectId}:${sessionId}"
+ */
+export function getSessionKey(projectId: string, sessionId: string): string {
+  return `${projectId}:${sessionId}`;
+}
+
+/**
+ * Parses a composite key back into projectId and sessionId.
+ * Returns null if the key is invalid.
+ */
+export function parseSessionKey(key: string): { projectId: string; sessionId: string } | null {
+  const colonIndex = key.indexOf(':');
+  if (colonIndex === -1) return null;
+  return {
+    projectId: key.substring(0, colonIndex),
+    sessionId: key.substring(colonIndex + 1)
+  };
+}
+
+/**
+ * Default session state for new or non-existent sessions
+ */
+function getDefaultSessionState(): SessionState {
+  return {
+    streamingContent: '',
+    currentTool: null,
+    status: { phase: 'idle', message: '' },
+    toolsUsed: [],
+    lastUpdated: new Date()
+  };
+}
+
+/**
+ * Returns existing session state or creates a default one.
+ * Does NOT mutate the map - caller is responsible for storing if needed.
+ */
+export function getOrCreateSessionState(
+  key: string,
+  sessionStates: Map<string, SessionState>
+): SessionState {
+  return sessionStates.get(key) || getDefaultSessionState();
+}
+
+// ============================================
+// Main Store Interface
+// ============================================
 
 interface InsightsState {
   // Data
@@ -26,6 +101,11 @@ interface InsightsState {
   currentTool: ToolUsage | null; // Currently executing tool
   toolsUsed: InsightsToolUsage[]; // Tools used during current response
   isLoadingSessions: boolean;
+
+  // Session-scoped state (for cross-session isolation)
+  activeProjectId: string | null;
+  activeSessionId: string | null;
+  sessionStates: Map<string, SessionState>;
 
   // Actions
   setSession: (session: InsightsSession | null) => void;
@@ -42,6 +122,15 @@ interface InsightsState {
   finalizeStreamingMessage: (suggestedTask?: InsightsChatMessage['suggestedTask']) => void;
   clearSession: () => void;
   setLoadingSessions: (loading: boolean) => void;
+
+  // Session-scoped state actions
+  setActiveContext: (projectId: string, sessionId: string) => void;
+  getSessionState: (projectId: string, sessionId: string) => SessionState;
+
+  // Session state cleanup actions
+  removeSessionState: (projectId: string, sessionId: string) => void;
+  cleanupOldSessions: (projectId: string) => void;
+  cleanupProjectSessions: (projectId: string) => void;
 }
 
 const initialStatus: InsightsChatStatus = {
@@ -49,7 +138,7 @@ const initialStatus: InsightsChatStatus = {
   message: ''
 };
 
-export const useInsightsStore = create<InsightsState>((set, _get) => ({
+export const useInsightsStore = create<InsightsState>((set, get) => ({
   // Initial state
   session: null,
   sessions: [],
@@ -60,12 +149,61 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
   toolsUsed: [],
   isLoadingSessions: false,
 
+  // Session-scoped state (for cross-session isolation)
+  activeProjectId: null,
+  activeSessionId: null,
+  sessionStates: new Map<string, SessionState>(),
+
   // Actions
-  setSession: (session) => set({ session }),
+  setSession: (session) => {
+    if (session) {
+      // Update active context when session changes
+      const key = getSessionKey(session.projectId, session.id);
+      const currentState = get();
+      const existingSessionState = currentState.sessionStates.get(key);
+
+      // Initialize session state if it doesn't exist
+      if (!existingSessionState) {
+        const newSessionStates = new Map(currentState.sessionStates);
+        newSessionStates.set(key, getDefaultSessionState());
+        set({
+          session,
+          activeProjectId: session.projectId,
+          activeSessionId: session.id,
+          sessionStates: newSessionStates
+        });
+      } else {
+        set({
+          session,
+          activeProjectId: session.projectId,
+          activeSessionId: session.id
+        });
+      }
+    } else {
+      set({ session });
+    }
+  },
 
   setSessions: (sessions) => set({ sessions }),
 
-  setStatus: (status) => set({ status }),
+  setStatus: (status) => {
+    const state = get();
+    // Update global status for backwards compatibility
+    set({ status });
+
+    // Also update session-specific status if we have active context
+    if (state.activeProjectId && state.activeSessionId) {
+      const key = getSessionKey(state.activeProjectId, state.activeSessionId);
+      const sessionState = getOrCreateSessionState(key, state.sessionStates);
+      const newSessionStates = new Map(state.sessionStates);
+      newSessionStates.set(key, {
+        ...sessionState,
+        status,
+        lastUpdated: new Date()
+      });
+      set({ sessionStates: newSessionStates });
+    }
+  },
 
   setLoadingSessions: (loading) => set({ isLoadingSessions: loading }),
 
@@ -116,81 +254,296 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
       };
     }),
 
-  appendStreamingContent: (content) =>
-    set((state) => ({
-      streamingContent: state.streamingContent + content
-    })),
+  appendStreamingContent: (content) => {
+    const state = get();
+    // Update global streamingContent for backwards compatibility
+    set({ streamingContent: state.streamingContent + content });
 
-  clearStreamingContent: () => set({ streamingContent: '' }),
+    // Also update session-specific streamingContent if we have active context
+    if (state.activeProjectId && state.activeSessionId) {
+      const key = getSessionKey(state.activeProjectId, state.activeSessionId);
+      const sessionState = getOrCreateSessionState(key, state.sessionStates);
+      const newSessionStates = new Map(state.sessionStates);
+      newSessionStates.set(key, {
+        ...sessionState,
+        streamingContent: sessionState.streamingContent + content,
+        lastUpdated: new Date()
+      });
+      set({ sessionStates: newSessionStates });
+    }
+  },
 
-  setCurrentTool: (tool) => set({ currentTool: tool }),
+  clearStreamingContent: () => {
+    const state = get();
+    // Clear global streamingContent for backwards compatibility
+    set({ streamingContent: '' });
 
-  addToolUsage: (tool) =>
-    set((state) => ({
-      toolsUsed: [
-        ...state.toolsUsed,
-        {
-          name: tool.name,
-          input: tool.input,
-          timestamp: new Date()
-        }
-      ]
-    })),
+    // Also clear session-specific streamingContent if we have active context
+    if (state.activeProjectId && state.activeSessionId) {
+      const key = getSessionKey(state.activeProjectId, state.activeSessionId);
+      const sessionState = getOrCreateSessionState(key, state.sessionStates);
+      const newSessionStates = new Map(state.sessionStates);
+      newSessionStates.set(key, {
+        ...sessionState,
+        streamingContent: '',
+        lastUpdated: new Date()
+      });
+      set({ sessionStates: newSessionStates });
+    }
+  },
 
-  clearToolsUsed: () => set({ toolsUsed: [] }),
+  setCurrentTool: (tool) => {
+    const state = get();
+    // Update global currentTool for backwards compatibility
+    set({ currentTool: tool });
 
-  finalizeStreamingMessage: (suggestedTask) =>
-    set((state) => {
-      const content = state.streamingContent;
-      const toolsUsed = state.toolsUsed.length > 0 ? [...state.toolsUsed] : undefined;
+    // Also update session-specific currentTool if we have active context
+    if (state.activeProjectId && state.activeSessionId) {
+      const key = getSessionKey(state.activeProjectId, state.activeSessionId);
+      const sessionState = getOrCreateSessionState(key, state.sessionStates);
+      const newSessionStates = new Map(state.sessionStates);
+      newSessionStates.set(key, {
+        ...sessionState,
+        currentTool: tool,
+        lastUpdated: new Date()
+      });
+      set({ sessionStates: newSessionStates });
+    }
+  },
 
-      if (!content && !suggestedTask && !toolsUsed) {
-        return { streamingContent: '', toolsUsed: [] };
-      }
+  addToolUsage: (tool) => {
+    const state = get();
+    const newToolUsage: InsightsToolUsage = {
+      name: tool.name,
+      input: tool.input,
+      timestamp: new Date()
+    };
 
-      const newMessage: InsightsChatMessage = {
-        id: `msg-${Date.now()}`,
-        role: 'assistant',
-        content,
-        timestamp: new Date(),
-        suggestedTask,
-        toolsUsed
-      };
+    // Update global toolsUsed for backwards compatibility
+    set({ toolsUsed: [...state.toolsUsed, newToolUsage] });
 
-      if (!state.session) {
-        return {
-          streamingContent: '',
-          toolsUsed: [],
-          session: {
-            id: `session-${Date.now()}`,
-            projectId: '',
-            messages: [newMessage],
-            createdAt: new Date(),
-            updatedAt: new Date()
-          }
-        };
-      }
+    // Also update session-specific toolsUsed if we have active context
+    if (state.activeProjectId && state.activeSessionId) {
+      const key = getSessionKey(state.activeProjectId, state.activeSessionId);
+      const sessionState = getOrCreateSessionState(key, state.sessionStates);
+      const newSessionStates = new Map(state.sessionStates);
+      newSessionStates.set(key, {
+        ...sessionState,
+        toolsUsed: [...sessionState.toolsUsed, newToolUsage],
+        lastUpdated: new Date()
+      });
+      set({ sessionStates: newSessionStates });
+    }
+  },
 
-      return {
+  clearToolsUsed: () => {
+    const state = get();
+    // Clear global toolsUsed for backwards compatibility
+    set({ toolsUsed: [] });
+
+    // Also clear session-specific toolsUsed if we have active context
+    if (state.activeProjectId && state.activeSessionId) {
+      const key = getSessionKey(state.activeProjectId, state.activeSessionId);
+      const sessionState = getOrCreateSessionState(key, state.sessionStates);
+      const newSessionStates = new Map(state.sessionStates);
+      newSessionStates.set(key, {
+        ...sessionState,
+        toolsUsed: [],
+        lastUpdated: new Date()
+      });
+      set({ sessionStates: newSessionStates });
+    }
+  },
+
+  finalizeStreamingMessage: (suggestedTask) => {
+    const state = get();
+
+    // Read from session-specific state if available to ensure correct isolation
+    const sessionState = state.activeProjectId && state.activeSessionId
+      ? getOrCreateSessionState(getSessionKey(state.activeProjectId, state.activeSessionId), state.sessionStates)
+      : null;
+    const content = sessionState?.streamingContent ?? state.streamingContent;
+    const toolsUsed = sessionState?.toolsUsed ?? state.toolsUsed;
+    const toolsUsedList = toolsUsed.length > 0 ? [...toolsUsed] : undefined;
+
+    // Also clear session-specific state if we have active context
+    if (state.activeProjectId && state.activeSessionId) {
+      const key = getSessionKey(state.activeProjectId, state.activeSessionId);
+      const sessionState = getOrCreateSessionState(key, state.sessionStates);
+      const newSessionStates = new Map(state.sessionStates);
+      newSessionStates.set(key, {
+        ...sessionState,
+        streamingContent: '',
+        toolsUsed: [],
+        currentTool: null,
+        lastUpdated: new Date()
+      });
+      set({ sessionStates: newSessionStates });
+    }
+
+    if (!content && !suggestedTask && !toolsUsedList) {
+      set({ streamingContent: '', toolsUsed: [] });
+      return;
+    }
+
+    const newMessage: InsightsChatMessage = {
+      id: `msg-${Date.now()}`,
+      role: 'assistant',
+      content,
+      timestamp: new Date(),
+      suggestedTask,
+      toolsUsed: toolsUsedList
+    };
+
+    if (!state.session) {
+      set({
         streamingContent: '',
         toolsUsed: [],
         session: {
-          ...state.session,
-          messages: [...state.session.messages, newMessage],
+          id: `session-${Date.now()}`,
+          projectId: '',
+          messages: [newMessage],
+          createdAt: new Date(),
           updatedAt: new Date()
         }
-      };
-    }),
+      });
+      return;
+    }
 
-  clearSession: () =>
     set({
-      session: null,
-      status: initialStatus,
-      pendingMessage: '',
       streamingContent: '',
-      currentTool: null,
-      toolsUsed: []
-    })
+      toolsUsed: [],
+      session: {
+        ...state.session,
+        messages: [...state.session.messages, newMessage],
+        updatedAt: new Date()
+      }
+    });
+  },
+
+  clearSession: () => {
+    const state = get();
+
+    // Clear session-specific state if we have active context
+    if (state.activeProjectId && state.activeSessionId) {
+      const key = getSessionKey(state.activeProjectId, state.activeSessionId);
+      const newSessionStates = new Map(state.sessionStates);
+      newSessionStates.set(key, getDefaultSessionState());
+      set({
+        session: null,
+        status: initialStatus,
+        pendingMessage: '',
+        streamingContent: '',
+        currentTool: null,
+        toolsUsed: [],
+        sessionStates: newSessionStates
+      });
+    } else {
+      set({
+        session: null,
+        status: initialStatus,
+        pendingMessage: '',
+        streamingContent: '',
+        currentTool: null,
+        toolsUsed: []
+      });
+    }
+  },
+
+  // Session-scoped state actions
+  setActiveContext: (projectId, sessionId) => {
+    const state = get();
+    const key = getSessionKey(projectId, sessionId);
+
+    // Initialize session state if it doesn't exist
+    if (!state.sessionStates.has(key)) {
+      const newSessionStates = new Map(state.sessionStates);
+      newSessionStates.set(key, getDefaultSessionState());
+      set({
+        activeProjectId: projectId,
+        activeSessionId: sessionId,
+        sessionStates: newSessionStates
+      });
+    } else {
+      set({
+        activeProjectId: projectId,
+        activeSessionId: sessionId
+      });
+    }
+  },
+
+  getSessionState: (projectId, sessionId) => {
+    const key = getSessionKey(projectId, sessionId);
+    return getOrCreateSessionState(key, get().sessionStates);
+  },
+
+  // Session state cleanup actions
+  removeSessionState: (projectId, sessionId) => {
+    const key = getSessionKey(projectId, sessionId);
+    const state = get();
+    if (state.sessionStates.has(key)) {
+      const newSessionStates = new Map(state.sessionStates);
+      newSessionStates.delete(key);
+      set({ sessionStates: newSessionStates });
+    }
+  },
+
+  cleanupOldSessions: (projectId) => {
+    const state = get();
+
+    // Collect all sessions for this project
+    const projectSessions: Array<{ key: string; lastUpdated: Date }> = [];
+    for (const [key, sessionState] of state.sessionStates.entries()) {
+      const parsed = parseSessionKey(key);
+      if (parsed && parsed.projectId === projectId) {
+        projectSessions.push({ key, lastUpdated: sessionState.lastUpdated });
+      }
+    }
+
+    // If under the limit, no cleanup needed
+    if (projectSessions.length <= MAX_SESSIONS_PER_PROJECT) {
+      return;
+    }
+
+    // Sort by lastUpdated descending (most recent first)
+    projectSessions.sort((a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime());
+
+    // Keep only the most recent MAX_SESSIONS_PER_PROJECT sessions
+    const sessionsToRemove = projectSessions.slice(MAX_SESSIONS_PER_PROJECT);
+
+    // Don't remove the active session even if it's old
+    const activeKey = state.activeProjectId && state.activeSessionId
+      ? getSessionKey(state.activeProjectId, state.activeSessionId)
+      : null;
+
+    const newSessionStates = new Map(state.sessionStates);
+    for (const { key } of sessionsToRemove) {
+      if (key !== activeKey) {
+        newSessionStates.delete(key);
+      }
+    }
+
+    if (newSessionStates.size !== state.sessionStates.size) {
+      set({ sessionStates: newSessionStates });
+    }
+  },
+
+  cleanupProjectSessions: (projectId) => {
+    const state = get();
+    const newSessionStates = new Map<string, SessionState>();
+
+    // Keep only sessions from other projects
+    for (const [key, sessionState] of state.sessionStates.entries()) {
+      const parsed = parseSessionKey(key);
+      if (!parsed || parsed.projectId !== projectId) {
+        newSessionStates.set(key, sessionState);
+      }
+    }
+
+    if (newSessionStates.size !== state.sessionStates.size) {
+      set({ sessionStates: newSessionStates });
+    }
+  }
 }));
 
 // Helper functions
@@ -263,7 +616,21 @@ export async function clearSession(projectId: string): Promise<void> {
 export async function newSession(projectId: string): Promise<void> {
   const result = await window.electronAPI.newInsightsSession(projectId);
   if (result.success && result.data) {
-    useInsightsStore.getState().setSession(result.data);
+    const store = useInsightsStore.getState();
+    store.setSession(result.data);
+
+    // Sync global state with the new session's default state to prevent stale data
+    const key = getSessionKey(projectId, result.data.id);
+    const sessionState = getOrCreateSessionState(key, store.sessionStates);
+    useInsightsStore.setState({
+      streamingContent: sessionState.streamingContent,
+      currentTool: sessionState.currentTool,
+      toolsUsed: sessionState.toolsUsed,
+      status: sessionState.status
+    });
+
+    // Cleanup old session states to prevent memory leaks
+    store.cleanupOldSessions(projectId);
     // Reload sessions list
     await loadInsightsSessions(projectId);
   }
@@ -272,18 +639,33 @@ export async function newSession(projectId: string): Promise<void> {
 export async function switchSession(projectId: string, sessionId: string): Promise<void> {
   const result = await window.electronAPI.switchInsightsSession(projectId, sessionId);
   if (result.success && result.data) {
-    useInsightsStore.getState().setSession(result.data);
-    // Reset streaming state when switching sessions
-    useInsightsStore.getState().clearStreamingContent();
-    useInsightsStore.getState().clearToolsUsed();
-    useInsightsStore.getState().setCurrentTool(null);
-    useInsightsStore.getState().setStatus({ phase: 'idle', message: '' });
+    const store = useInsightsStore.getState();
+    // Set the session (which also updates activeProjectId/activeSessionId)
+    store.setSession(result.data);
+
+    // Sync global state with the new session's state
+    // This ensures backwards compatibility while using session-scoped state
+    const key = getSessionKey(projectId, sessionId);
+    const sessionState = getOrCreateSessionState(key, store.sessionStates);
+
+    // Update global state to match session state
+    useInsightsStore.setState({
+      streamingContent: sessionState.streamingContent,
+      currentTool: sessionState.currentTool,
+      toolsUsed: sessionState.toolsUsed,
+      status: sessionState.status
+    });
+
+    // Cleanup old session states to prevent memory leaks
+    store.cleanupOldSessions(projectId);
   }
 }
 
 export async function deleteSession(projectId: string, sessionId: string): Promise<boolean> {
   const result = await window.electronAPI.deleteInsightsSession(projectId, sessionId);
   if (result.success) {
+    // Remove session state from the Map to prevent memory leaks
+    useInsightsStore.getState().removeSessionState(projectId, sessionId);
     // Reload sessions list and current session
     await loadInsightsSession(projectId);
     return true;
@@ -339,80 +721,246 @@ export async function createTaskFromSuggestion(
   return null;
 }
 
+/**
+ * Helper function to update session-specific state in the sessionStates Map.
+ * This ensures immutability by creating a new Map and new SessionState object.
+ * Also updates global state for backwards compatibility.
+ */
+function updateSessionState(
+  state: InsightsState,
+  projectId: string,
+  sessionId: string,
+  updater: (sessionState: SessionState) => Partial<SessionState>
+): Partial<InsightsState> {
+  const key = getSessionKey(projectId, sessionId);
+  const currentSessionState = getOrCreateSessionState(key, state.sessionStates);
+  const updates = updater(currentSessionState);
+
+  const newSessionStates = new Map(state.sessionStates);
+  newSessionStates.set(key, {
+    ...currentSessionState,
+    ...updates,
+    lastUpdated: new Date()
+  });
+
+  return { sessionStates: newSessionStates };
+}
+
 // IPC listener setup - call this once when the app initializes
 export function setupInsightsListeners(): () => void {
   const store = useInsightsStore.getState;
 
   // Listen for streaming chunks
   const unsubStreamChunk = window.electronAPI.onInsightsStreamChunk(
-    (_projectId, chunk: InsightsStreamChunk) => {
+    (projectId, chunk: InsightsStreamChunk) => {
+      const currentState = store();
+
+      // CRITICAL: Filter events by projectId to prevent cross-project contamination
+      if (projectId !== currentState.activeProjectId) {
+        if (window.DEBUG) {
+          console.debug(
+            '[InsightsStore] Filtered stream chunk event - projectId mismatch:',
+            { received: projectId, active: currentState.activeProjectId }
+          );
+        }
+        return;
+      }
+
+      // CRITICAL: Ensure we have an active session to update
+      const sessionId = currentState.activeSessionId;
+      if (!sessionId) {
+        if (window.DEBUG) {
+          console.debug(
+            '[InsightsStore] Filtered stream chunk event - no active session'
+          );
+        }
+        return;
+      }
+
+      // Create composite key for session-specific state lookup
+      const key = getSessionKey(projectId, sessionId);
+      const sessionState = getOrCreateSessionState(key, currentState.sessionStates);
+
       switch (chunk.type) {
         case 'text':
           if (chunk.content) {
-            store().appendStreamingContent(chunk.content);
-            store().setCurrentTool(null); // Clear tool when receiving text
-            store().setStatus({
-              phase: 'streaming',
-              message: 'Receiving response...'
-            });
+            // Update session-specific state directly
+            const newStreamingContent = sessionState.streamingContent + chunk.content;
+            const newStatus: InsightsChatStatus = { phase: 'streaming', message: 'Receiving response...' };
+
+            useInsightsStore.setState((state) => ({
+              // Global state for backwards compatibility
+              streamingContent: state.streamingContent + chunk.content,
+              currentTool: null,
+              status: newStatus,
+              // Session-specific state
+              ...updateSessionState(state, projectId, sessionId, () => ({
+                streamingContent: newStreamingContent,
+                currentTool: null,
+                status: newStatus
+              }))
+            }));
           }
           break;
+
         case 'tool_start':
           if (chunk.tool) {
-            store().setCurrentTool({
+            const tool: ToolUsage = {
               name: chunk.tool.name,
               input: chunk.tool.input
-            });
-            // Record this tool usage for history
-            store().addToolUsage({
+            };
+            const newToolUsage: InsightsToolUsage = {
               name: chunk.tool.name,
-              input: chunk.tool.input
-            });
-            store().setStatus({
+              input: chunk.tool.input,
+              timestamp: new Date()
+            };
+            const newStatus: InsightsChatStatus = {
               phase: 'streaming',
               message: `Using ${chunk.tool.name}...`
+            };
+
+            useInsightsStore.setState((state) => {
+              const key = getSessionKey(projectId, sessionId);
+              const currentSessionState = getOrCreateSessionState(key, state.sessionStates);
+
+              return {
+                // Global state for backwards compatibility
+                currentTool: tool,
+                toolsUsed: [...state.toolsUsed, newToolUsage],
+                status: newStatus,
+                // Session-specific state
+                ...updateSessionState(state, projectId, sessionId, () => ({
+                  currentTool: tool,
+                  toolsUsed: [...currentSessionState.toolsUsed, newToolUsage],
+                  status: newStatus
+                }))
+              };
             });
           }
           break;
+
         case 'tool_end':
-          store().setCurrentTool(null);
+          useInsightsStore.setState((state) => ({
+            // Global state for backwards compatibility
+            currentTool: null,
+            // Session-specific state
+            ...updateSessionState(state, projectId, sessionId, () => ({
+              currentTool: null
+            }))
+          }));
           break;
+
         case 'task_suggestion':
           // Finalize the message with task suggestion
           store().setCurrentTool(null);
           store().finalizeStreamingMessage(chunk.suggestedTask);
           break;
+
         case 'done':
           // Finalize any remaining content
           store().setCurrentTool(null);
           store().finalizeStreamingMessage();
-          store().setStatus({
-            phase: 'complete',
-            message: ''
-          });
+
+          // Set complete status for both global and session-specific state
+          const completeStatus: InsightsChatStatus = { phase: 'complete', message: '' };
+          useInsightsStore.setState((state) => ({
+            status: completeStatus,
+            ...updateSessionState(state, projectId, sessionId, () => ({
+              status: completeStatus
+            }))
+          }));
           break;
+
         case 'error':
-          store().setCurrentTool(null);
-          store().setStatus({
-            phase: 'error',
-            error: chunk.error
-          });
+          const errorStatus: InsightsChatStatus = { phase: 'error', error: chunk.error };
+          useInsightsStore.setState((state) => ({
+            // Global state for backwards compatibility
+            currentTool: null,
+            status: errorStatus,
+            // Session-specific state
+            ...updateSessionState(state, projectId, sessionId, () => ({
+              currentTool: null,
+              status: errorStatus
+            }))
+          }));
           break;
       }
     }
   );
 
   // Listen for status updates
-  const unsubStatus = window.electronAPI.onInsightsStatus((_projectId, status) => {
-    store().setStatus(status);
+  const unsubStatus = window.electronAPI.onInsightsStatus((projectId, status) => {
+    const currentState = store();
+
+    // CRITICAL: Filter events by projectId to prevent cross-project contamination
+    if (projectId !== currentState.activeProjectId) {
+      if (window.DEBUG) {
+        console.debug(
+          '[InsightsStore] Filtered status event - projectId mismatch:',
+          { received: projectId, active: currentState.activeProjectId }
+        );
+      }
+      return;
+    }
+
+    // CRITICAL: Ensure we have an active session to update
+    const sessionId = currentState.activeSessionId;
+    if (!sessionId) {
+      if (window.DEBUG) {
+        console.debug(
+          '[InsightsStore] Filtered status event - no active session'
+        );
+      }
+      return;
+    }
+
+    // Update both global and session-specific state
+    useInsightsStore.setState((state) => ({
+      // Global state for backwards compatibility
+      status,
+      // Session-specific state
+      ...updateSessionState(state, projectId, sessionId, () => ({
+        status
+      }))
+    }));
   });
 
   // Listen for errors
-  const unsubError = window.electronAPI.onInsightsError((_projectId, error) => {
-    store().setStatus({
-      phase: 'error',
-      error
-    });
+  const unsubError = window.electronAPI.onInsightsError((projectId, error) => {
+    const currentState = store();
+
+    // CRITICAL: Filter events by projectId to prevent cross-project contamination
+    if (projectId !== currentState.activeProjectId) {
+      if (window.DEBUG) {
+        console.debug(
+          '[InsightsStore] Filtered error event - projectId mismatch:',
+          { received: projectId, active: currentState.activeProjectId }
+        );
+      }
+      return;
+    }
+
+    // CRITICAL: Ensure we have an active session to update
+    const sessionId = currentState.activeSessionId;
+    if (!sessionId) {
+      if (window.DEBUG) {
+        console.debug(
+          '[InsightsStore] Filtered error event - no active session'
+        );
+      }
+      return;
+    }
+
+    // Update both global and session-specific state
+    const errorStatus: InsightsChatStatus = { phase: 'error', error };
+    useInsightsStore.setState((state) => ({
+      // Global state for backwards compatibility
+      status: errorStatus,
+      // Session-specific state
+      ...updateSessionState(state, projectId, sessionId, () => ({
+        status: errorStatus
+      }))
+    }));
   });
 
   // Return cleanup function

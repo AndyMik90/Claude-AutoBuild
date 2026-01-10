@@ -34,12 +34,14 @@ import {
   renameSession,
   updateModelConfig,
   createTaskFromSuggestion,
-  setupInsightsListeners
+  setupInsightsListeners,
+  getSessionKey,
+  getOrCreateSessionState
 } from '../stores/insights-store';
 import { loadTasks } from '../stores/task-store';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
 import { InsightsModelSelector } from './InsightsModelSelector';
-import type { InsightsChatMessage, InsightsModelConfig } from '../../shared/types';
+import type { InsightsChatMessage, InsightsModelConfig, InsightsChatStatus } from '../../shared/types';
 import {
   TASK_CATEGORY_LABELS,
   TASK_CATEGORY_COLORS,
@@ -91,10 +93,32 @@ export function Insights({ projectId }: InsightsProps) {
   const { t } = useTranslation('common');
   const session = useInsightsStore((state) => state.session);
   const sessions = useInsightsStore((state) => state.sessions);
-  const status = useInsightsStore((state) => state.status);
-  const streamingContent = useInsightsStore((state) => state.streamingContent);
-  const currentTool = useInsightsStore((state) => state.currentTool);
   const isLoadingSessions = useInsightsStore((state) => state.isLoadingSessions);
+  const setActiveContext = useInsightsStore((state) => state.setActiveContext);
+  const sessionStates = useInsightsStore((state) => state.sessionStates);
+
+  // Derive session-specific state using the composite key
+  // This ensures we always show the correct state for the current session
+  const sessionId = session?.id || '';
+  const sessionState = useMemo(() => {
+    if (!sessionId) {
+      // Return default state if no session
+      return {
+        streamingContent: '',
+        currentTool: null as { name: string; input?: string } | null,
+        status: { phase: 'idle' as const, message: '' } as InsightsChatStatus,
+        toolsUsed: [],
+        lastUpdated: new Date()
+      };
+    }
+    const key = getSessionKey(projectId, sessionId);
+    return getOrCreateSessionState(key, sessionStates);
+  }, [projectId, sessionId, sessionStates]);
+
+  // Use session-specific state instead of global state
+  const streamingContent = sessionState.streamingContent;
+  const currentTool = sessionState.currentTool;
+  const status = sessionState.status;
 
   // Create markdown components with translated accessibility text
   const markdownComponents = useMemo(() => ({
@@ -116,6 +140,14 @@ export function Insights({ projectId }: InsightsProps) {
     return cleanup;
   }, [projectId]);
 
+  // Set active context when projectId or sessionId changes
+  // This ensures IPC events are properly filtered to the current session
+  useEffect(() => {
+    if (sessionId) {
+      setActiveContext(projectId, sessionId);
+    }
+  }, [projectId, sessionId, setActiveContext]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -126,10 +158,18 @@ export function Insights({ projectId }: InsightsProps) {
     textareaRef.current?.focus();
   }, []);
 
-  // Reset taskCreated when switching sessions
+  // Reset all local state when switching sessions or projects
+  // This prevents task suggestion leakage and stale state between sessions
   useEffect(() => {
+    // Reset task creation tracking for new session
     setTaskCreated(new Set());
-  }, [session?.id]);
+    // Clear any in-progress task creation since message IDs are session-specific
+    setCreatingTask(null);
+    // Clear input value to prevent sending messages intended for another session
+    setInputValue('');
+    // Focus the textarea for immediate user input
+    textareaRef.current?.focus();
+  }, [projectId, session?.id]);
 
   const handleSend = () => {
     const message = inputValue.trim();
@@ -148,8 +188,7 @@ export function Insights({ projectId }: InsightsProps) {
 
   const handleNewSession = async () => {
     await newSession(projectId);
-    setTaskCreated(new Set());
-    textareaRef.current?.focus();
+    // Note: Local state reset is handled by the useEffect that watches [projectId, session?.id]
   };
 
   const handleSelectSession = async (sessionId: string) => {
