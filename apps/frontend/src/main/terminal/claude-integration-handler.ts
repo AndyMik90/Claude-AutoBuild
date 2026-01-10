@@ -39,17 +39,24 @@ import type { TerminalProcess, WindowGetter, RateLimitEvent, OAuthTokenEvent } f
  * @returns true if bash is available, false otherwise
  */
 // Cache result at module level - result doesn't change during app lifetime
-let bashAvailableCache: boolean | undefined;
+// Caches the absolute path to bash executable, or null if not found
+let bashPathCache: string | null | undefined;
 
-function isBashAvailable(): boolean {
+/**
+ * Get the absolute path to bash executable.
+ * On Unix systems, returns "bash" (assumed to be in PATH).
+ * On Windows, searches for bash in PATH first, then common installation locations.
+ * Returns the absolute path if found, null otherwise.
+ */
+function getBashPath(): string | null {
   // Return cached result if available
-  if (bashAvailableCache !== undefined) {
-    return bashAvailableCache;
+  if (bashPathCache !== undefined) {
+    return bashPathCache;
   }
 
   if (process.platform !== "win32") {
-    bashAvailableCache = true; // Unix systems always have bash
-    return true;
+    bashPathCache = "bash"; // Unix systems always have bash in PATH
+    return "bash";
   }
 
   // On Windows, check if bash is in PATH by trying common locations
@@ -60,20 +67,137 @@ function isBashAvailable(): boolean {
     "C:\\cygwin64\\bin\\bash.exe",
   ];
 
-  // Check if bash exists in common locations or via PATH
+  // Check if bash is in PATH (returns "bash" if found via PATH)
   try {
     require("child_process").execSync("bash --version", {
       stdio: "ignore",
       timeout: 1000, // Add timeout to prevent blocking
     });
-    bashAvailableCache = true;
-    return true;
+    bashPathCache = "bash";
+    return "bash";
   } catch {
     // bash not found in PATH, check common installation locations
-    const result = commonBashPaths.some((bashPath) => fs.existsSync(bashPath));
-    bashAvailableCache = result;
-    return result;
+    for (const bashPath of commonBashPaths) {
+      if (fs.existsSync(bashPath)) {
+        bashPathCache = bashPath;
+        return bashPath;
+      }
+    }
+    // bash not found anywhere
+    bashPathCache = null;
+    return null;
   }
+}
+
+/**
+ * Parameters for building profile-specific Claude commands
+ */
+interface BuildProfileCommandParams {
+  /** Shell type (PowerShell, cmd, bash, zsh, fish, or unknown) */
+  shellType: ShellType | "unknown";
+  /** Command to change directory (empty string if no change needed) */
+  cwdCommand: string;
+  /** PATH prefix for Claude CLI (empty string if not needed) */
+  pathPrefix: string;
+  /** Claude CLI command (not escaped) */
+  claudeCmd: string;
+  /** OAuth token (for token-based authentication) */
+  token?: string;
+  /** Custom config directory (for configDir-based profiles) */
+  configDir?: string;
+  /** Temp file path (required for token-based method) */
+  tempFile?: string;
+}
+
+/**
+ * Build the command string for profile-specific Claude invocation.
+ *
+ * This helper function reduces code duplication between sync and async versions
+ * by centralizing the shell-specific command building logic.
+ *
+ * Handles two methods:
+ * - 'token': Uses temp file with OAuth token, supports bash fallback and native Windows shells
+ * - 'configDir': Sets CLAUDE_CONFIG_DIR for custom profile location
+ *
+ * @param params - Command building parameters
+ * @returns The command string, or null if default method should be used
+ *
+ * @example
+ * // Token-based method with bash available
+ * buildProfileCommandString({
+ *   shellType: 'powershell',
+ *   cwdCommand: 'cd C:\\path && ',
+ *   pathPrefix: '',
+ *   claudeCmd: 'claude',
+ *   token: 'my-token',
+ *   tempFile: 'C:\\Users\\...\\token-file'
+ * });
+ */
+function buildProfileCommandString(params: BuildProfileCommandParams): string | null {
+  const { shellType, cwdCommand, pathPrefix, claudeCmd, token, configDir, tempFile } = params;
+
+  // Token-based method (OAuth)
+  if (token && tempFile) {
+    if (shellType === "powershell" || shellType === "cmd") {
+      // On Windows, check if bash is available
+      const bashPath = getBashPath();
+      if (bashPath) {
+        // Use bash-style temp file with bash -c wrapper
+        const tempFileBash = tempFile.replace(/\\/g, "/");
+        const bashClaudeCmd = claudeCmd.replace(/\\/g, "/");
+        const escapedClaudeBash = escapeShellArg(bashClaudeCmd);
+        const escapedTempFileBash = escapeShellArg(tempFileBash);
+        // Use the discovered bash path (may be absolute path on Windows)
+        const bashExe = bashPath === "bash" ? "bash" : bashPath.replace(/\\/g, "/");
+
+        // Both PowerShell and cmd.exe use the same bash command
+        return `${cwdCommand}${pathPrefix}${bashExe} -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
+      } else {
+        // Bash not available - use native PowerShell/cmd syntax
+        // For native Windows shells, we need to create a different temp file format
+        // and set the token as an environment variable directly
+        if (shellType === "powershell") {
+          // PowerShell: set environment variable, invoke claude, then remove temp file
+          const escapedToken = escapePowerShellArg(token);
+          const escapedClaude = escapePowerShellArg(claudeCmd);
+          const escapedTempFile = escapePowerShellArg(tempFile);
+          return `Clear-Host; ${cwdCommand}$env:CLAUDE_CODE_OAUTH_TOKEN=${escapedToken}; ${pathPrefix}${escapedClaude}; Remove-Item -Force ${escapedTempFile}\r`;
+        } else {
+          // cmd.exe: set environment variable, invoke claude, then remove temp file
+          const escapedToken = escapeShellArgWindows(token);
+          const escapedClaudeCmdWin = escapeShellArgWindows(claudeCmd);
+          const escapedTempFileWin = escapeShellArgWindows(tempFile);
+          return `cls && ${cwdCommand}set "CLAUDE_CODE_OAUTH_TOKEN=${escapedToken}" && ${pathPrefix}"${escapedClaudeCmdWin}" && del /f "${escapedTempFileWin}"\r`;
+        }
+      }
+    } else {
+      // Unix shells - use existing temp file method
+      const escapedTempFile = escapeShellArg(tempFile);
+      const escapedClaudeCmd = escapeShellArg(claudeCmd);
+      return buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, {
+        method: "temp-file",
+        escapedTempFile,
+      });
+    }
+  }
+
+  // ConfigDir-based method
+  if (configDir) {
+    if (shellType === "powershell") {
+      return `${cwdCommand}${pathPrefix}$env:CLAUDE_CONFIG_DIR=${escapePowerShellArg(configDir)}; ${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
+    } else if (shellType === "cmd") {
+      const escapedConfigDir = escapeShellArgWindows(configDir);
+      return `${cwdCommand}set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && ${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
+    } else {
+      // Bash/zsh/fish - use history-safe prefix with bash -c "exec ..." to replace shell
+      const escapedConfigDir = escapeShellArg(configDir);
+      const escapedClaudeCmd = escapeShellArg(claudeCmd);
+      return `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${escapedConfigDir} ${pathPrefix}bash -c "exec ${escapedClaudeCmd}"\r`;
+    }
+  }
+
+  // No profile-specific method applicable
+  return null;
 }
 
 /**
@@ -465,101 +589,63 @@ export function invokeClaude(
         writeOptions
       );
 
-      // Build shell-specific command for temp file method
-      let command: string;
-      if (shellType === "powershell" || shellType === "cmd") {
-        // On Windows, check if bash is available
-        if (isBashAvailable()) {
-          // Use bash-style temp file with bash -c wrapper
-          const tempFileBash = tempFile.replace(/\\/g, "/");
-          const bashClaudeCmd = claudeCmd.replace(/\\/g, "/");
-          const escapedClaudeBash = escapeShellArg(bashClaudeCmd);
-          const escapedTempFileBash = escapeShellArg(tempFileBash);
+      // Build shell-specific command for temp file method using shared helper
+      const command = buildProfileCommandString({
+        shellType,
+        cwdCommand,
+        pathPrefix,
+        claudeCmd,
+        token,
+        tempFile,
+      });
 
-          if (shellType === "powershell") {
-            command = `${cwdCommand}${pathPrefix}bash -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
-          } else {
-            // cmd.exe - similar approach
-            command = `${cwdCommand}${pathPrefix}bash -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
-          }
-        } else {
-          // Bash not available - use native PowerShell/cmd syntax
-          debugLog(
-            "[ClaudeIntegration:invokeClaude] Bash not found on Windows, using native shell syntax for OAuth token"
-          );
-          // For native Windows shells, we need to create a different temp file format
-          // and set the token as an environment variable directly
-          if (shellType === "powershell") {
-            // PowerShell: set environment variable, invoke claude, then remove temp file
-            const escapedToken = escapePowerShellArg(token);
-            const escapedClaude = escapePowerShellArg(claudeCmd);
-            const escapedTempFile = escapePowerShellArg(tempFile);
-            command = `clear && ${cwdCommand}$env:CLAUDE_CODE_OAUTH_TOKEN=${escapedToken}; ${pathPrefix}${escapedClaude}; Remove-Item -Force ${escapedTempFile}\r`;
-          } else {
-            // cmd.exe: set environment variable, invoke claude, then remove temp file
-            const escapedToken = escapeShellArgWindows(token);
-            const escapedClaudeCmdWin = escapeShellArgWindows(claudeCmd);
-            const escapedTempFileWin = escapeShellArgWindows(tempFile);
-            command = `clear && ${cwdCommand}set "CLAUDE_CODE_OAUTH_TOKEN=${escapedToken}" && ${pathPrefix}"${escapedClaudeCmdWin}" && del /f "${escapedTempFileWin}"\r`;
-          }
-        }
-      } else {
-        // Unix shells - use existing temp file method
-        const escapedTempFile = escapeShellArg(tempFile);
-        const escapedClaudeCmd = escapeShellArg(claudeCmd);
-        command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, {
-          method: "temp-file",
-          escapedTempFile,
-        });
+      if (command) {
+        debugLog(
+          "[ClaudeIntegration:invokeClaude] Executing command (temp file method, history-safe)"
+        );
+        terminal.pty.write(command);
+        profileManager.markProfileUsed(activeProfile.id);
+        finalizeClaudeInvoke(
+          terminal,
+          activeProfile,
+          projectPath,
+          startTime,
+          getWindow,
+          onSessionCapture
+        );
+        debugLog(
+          "[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (temp file) =========="
+        );
+        return;
       }
-
-      debugLog(
-        "[ClaudeIntegration:invokeClaude] Executing command (temp file method, history-safe)"
-      );
-      terminal.pty.write(command);
-      profileManager.markProfileUsed(activeProfile.id);
-      finalizeClaudeInvoke(
-        terminal,
-        activeProfile,
-        projectPath,
-        startTime,
-        getWindow,
-        onSessionCapture
-      );
-      debugLog(
-        "[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (temp file) =========="
-      );
-      return;
+      // If command is null, fall through to default method
     } else if (activeProfile.configDir) {
       // For profiles with custom config dir
-      let command: string;
-      if (shellType === "powershell") {
-        command = `${cwdCommand}${pathPrefix}$env:CLAUDE_CONFIG_DIR=${escapePowerShellArg(activeProfile.configDir)}; ${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
-      } else if (shellType === "cmd") {
-        const escapedConfigDir = escapeShellArgWindows(activeProfile.configDir);
-        command = `${cwdCommand}set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && ${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
-      } else {
-        // Bash/zsh/fish - use history-safe prefix with bash -c "exec ..." to replace shell
-        const escapedConfigDir = escapeShellArg(activeProfile.configDir);
-        const escapedClaudeCmd = escapeShellArg(claudeCmd);
-        command = `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${escapedConfigDir} ${pathPrefix}bash -c "exec ${escapedClaudeCmd}"\r`;
-      }
+      const command = buildProfileCommandString({
+        shellType,
+        cwdCommand,
+        pathPrefix,
+        claudeCmd,
+        configDir: activeProfile.configDir,
+      });
 
-      debugLog("[ClaudeIntegration:invokeClaude] Executing command (configDir method)");
-      terminal.pty.write(command);
-      profileManager.markProfileUsed(activeProfile.id);
-      finalizeClaudeInvoke(
-        terminal,
-        activeProfile,
-        projectPath,
-        startTime,
-        getWindow,
-        onSessionCapture
-      );
-      debugLog(
-        "[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (configDir) =========="
-      );
-      return;
+      if (command) {
+        debugLog("[ClaudeIntegration:invokeClaude] Executing command (configDir method)");
+        terminal.pty.write(command);
+        profileManager.markProfileUsed(activeProfile.id);
+        finalizeClaudeInvoke(
+          terminal,
+          activeProfile,
+          projectPath,
+          startTime,
+          getWindow,
+          onSessionCapture
+        );
+        debugLog(
+          "[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (configDir) =========="
+        );
+        return;
+      }
     } else {
       debugLog(
         "[ClaudeIntegration:invokeClaude] WARNING: No token or configDir available for non-default profile"
@@ -744,101 +830,63 @@ export async function invokeClaudeAsync(
         writeOptions
       );
 
-      // Build shell-specific command for temp file method
-      let command: string;
-      if (shellType === "powershell" || shellType === "cmd") {
-        // On Windows, check if bash is available
-        if (isBashAvailable()) {
-          // Use bash-style temp file with bash -c wrapper
-          const tempFileBash = tempFile.replace(/\\/g, "/");
-          const bashClaudeCmd = claudeCmd.replace(/\\/g, "/");
-          const escapedClaudeBash = escapeShellArg(bashClaudeCmd);
-          const escapedTempFileBash = escapeShellArg(tempFileBash);
+      // Build shell-specific command for temp file method using shared helper
+      const command = buildProfileCommandString({
+        shellType,
+        cwdCommand,
+        pathPrefix,
+        claudeCmd,
+        token,
+        tempFile,
+      });
 
-          if (shellType === "powershell") {
-            command = `${cwdCommand}${pathPrefix}bash -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
-          } else {
-            // cmd.exe - similar approach
-            command = `${cwdCommand}${pathPrefix}bash -c "source ${escapedTempFileBash} && rm -f ${escapedTempFileBash} && exec ${escapedClaudeBash}"\r`;
-          }
-        } else {
-          // Bash not available - use native PowerShell/cmd syntax
-          debugLog(
-            "[ClaudeIntegration:invokeClaudeAsync] Bash not found on Windows, using native shell syntax for OAuth token"
-          );
-          // For native Windows shells, we need to create a different temp file format
-          // and set the token as an environment variable directly
-          if (shellType === "powershell") {
-            // PowerShell: set environment variable, invoke claude, then remove temp file
-            const escapedToken = escapePowerShellArg(token);
-            const escapedClaude = escapePowerShellArg(claudeCmd);
-            const escapedTempFile = escapePowerShellArg(tempFile);
-            command = `clear && ${cwdCommand}$env:CLAUDE_CODE_OAUTH_TOKEN=${escapedToken}; ${pathPrefix}${escapedClaude}; Remove-Item -Force ${escapedTempFile}\r`;
-          } else {
-            // cmd.exe: set environment variable, invoke claude, then remove temp file
-            const escapedToken = escapeShellArgWindows(token);
-            const escapedClaudeCmdWin = escapeShellArgWindows(claudeCmd);
-            const escapedTempFileWin = escapeShellArgWindows(tempFile);
-            command = `clear && ${cwdCommand}set "CLAUDE_CODE_OAUTH_TOKEN=${escapedToken}" && ${pathPrefix}"${escapedClaudeCmdWin}" && del /f "${escapedTempFileWin}"\r`;
-          }
-        }
-      } else {
-        // Unix shells - use existing temp file method
-        const escapedTempFile = escapeShellArg(tempFile);
-        const escapedClaudeCmd = escapeShellArg(claudeCmd);
-        command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, {
-          method: "temp-file",
-          escapedTempFile,
-        });
+      if (command) {
+        debugLog(
+          "[ClaudeIntegration:invokeClaudeAsync] Executing command (temp file method, history-safe)"
+        );
+        terminal.pty.write(command);
+        profileManager.markProfileUsed(activeProfile.id);
+        finalizeClaudeInvoke(
+          terminal,
+          activeProfile,
+          projectPath,
+          startTime,
+          getWindow,
+          onSessionCapture
+        );
+        debugLog(
+          "[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE COMPLETE (temp file) =========="
+        );
+        return;
       }
-
-      debugLog(
-        "[ClaudeIntegration:invokeClaudeAsync] Executing command (temp file method, history-safe)"
-      );
-      terminal.pty.write(command);
-      profileManager.markProfileUsed(activeProfile.id);
-      finalizeClaudeInvoke(
-        terminal,
-        activeProfile,
-        projectPath,
-        startTime,
-        getWindow,
-        onSessionCapture
-      );
-      debugLog(
-        "[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE COMPLETE (temp file) =========="
-      );
-      return;
+      // If command is null, fall through to default method
     } else if (activeProfile.configDir) {
       // For profiles with custom config dir
-      let command: string;
-      if (shellType === "powershell") {
-        command = `${cwdCommand}${pathPrefix}$env:CLAUDE_CONFIG_DIR=${escapePowerShellArg(activeProfile.configDir)}; ${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
-      } else if (shellType === "cmd") {
-        const escapedConfigDir = escapeShellArgWindows(activeProfile.configDir);
-        command = `${cwdCommand}set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && ${pathPrefix}${buildCommandInvocation(claudeCmd, [], shellType)}\r`;
-      } else {
-        // Bash/zsh/fish - use history-safe prefix with bash -c "exec ..." to replace shell
-        const escapedConfigDir = escapeShellArg(activeProfile.configDir);
-        const escapedClaudeCmd = escapeShellArg(claudeCmd);
-        command = `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${escapedConfigDir} ${pathPrefix}bash -c "exec ${escapedClaudeCmd}"\r`;
-      }
+      const command = buildProfileCommandString({
+        shellType,
+        cwdCommand,
+        pathPrefix,
+        claudeCmd,
+        configDir: activeProfile.configDir,
+      });
 
-      debugLog("[ClaudeIntegration:invokeClaudeAsync] Executing command (configDir method)");
-      terminal.pty.write(command);
-      profileManager.markProfileUsed(activeProfile.id);
-      finalizeClaudeInvoke(
-        terminal,
-        activeProfile,
-        projectPath,
-        startTime,
-        getWindow,
-        onSessionCapture
-      );
-      debugLog(
-        "[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE COMPLETE (configDir) =========="
-      );
-      return;
+      if (command) {
+        debugLog("[ClaudeIntegration:invokeClaudeAsync] Executing command (configDir method)");
+        terminal.pty.write(command);
+        profileManager.markProfileUsed(activeProfile.id);
+        finalizeClaudeInvoke(
+          terminal,
+          activeProfile,
+          projectPath,
+          startTime,
+          getWindow,
+          onSessionCapture
+        );
+        debugLog(
+          "[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE COMPLETE (configDir) =========="
+        );
+        return;
+      }
     } else {
       debugLog(
         "[ClaudeIntegration:invokeClaudeAsync] WARNING: No token or configDir available for non-default profile"
