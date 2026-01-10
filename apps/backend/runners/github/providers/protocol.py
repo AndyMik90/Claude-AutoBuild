@@ -21,6 +21,7 @@ class ProviderType(str, Enum):
     GITLAB = "gitlab"
     BITBUCKET = "bitbucket"
     GITEA = "gitea"
+    FORGEJO = "forgejo"
     AZURE_DEVOPS = "azure_devops"
 
 

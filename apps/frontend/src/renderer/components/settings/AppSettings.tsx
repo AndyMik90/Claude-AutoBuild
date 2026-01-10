@@ -31,6 +31,18 @@ function GitLabIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+// Forgejo icon component (official Forgejo logo - stylized 'f' shape)
+function ForgejoIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" role="img" aria-labelledby="forgejo-icon-title">
+      <title id="forgejo-icon-title">Forgejo</title>
+      {/* Forgejo logo: stylized 'f' with curved top */}
+      <path d="M8 22 v-14 a6 6 0 0 1 6-6 h4" />
+      <path d="M8 22 v-4 a6 6 0 0 1 6-6 h4" />
+    </svg>
+  );
+}
 import {
   FullScreenDialog,
   FullScreenDialogContent,
@@ -93,6 +105,7 @@ const projectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
   { id: 'linear', icon: Zap },
   { id: 'github', icon: Github },
   { id: 'gitlab', icon: GitLabIcon },
+  { id: 'forgejo', icon: ForgejoIcon },
   { id: 'memory', icon: Database }
 ];
 

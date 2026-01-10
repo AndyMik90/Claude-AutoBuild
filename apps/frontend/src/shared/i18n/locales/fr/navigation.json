@@ -15,6 +15,8 @@
     "githubPRs": "PRs GitHub",
     "gitlabIssues": "Issues GitLab",
     "gitlabMRs": "MRs GitLab",
+    "forgejoIssues": "Issues Forgejo",
+    "forgejoPRs": "PRs Forgejo",
     "worktrees": "Worktrees",
     "agentTools": "Aperçu MCP"
   },

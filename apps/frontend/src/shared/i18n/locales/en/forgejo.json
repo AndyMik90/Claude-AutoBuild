@@ -1,0 +1,186 @@
+{
+  "title": "Forgejo Issues",
+  "description": "Self-hosted Git integration for Forgejo and Gitea instances",
+
+  "states": {
+    "open": "Open",
+    "closed": "Closed"
+  },
+  "complexity": {
+    "simple": "Simple",
+    "standard": "Standard",
+    "complex": "Complex"
+  },
+  "header": {
+    "open": "open",
+    "searchPlaceholder": "Search issues..."
+  },
+  "filters": {
+    "open": "Open",
+    "closed": "Closed",
+    "all": "All"
+  },
+  "empty": {
+    "noMatch": "No issues match your search",
+    "selectIssue": "Select an issue to view details"
+  },
+  "notConnected": {
+    "title": "Forgejo Not Connected",
+    "description": "Configure your Forgejo token and repository in project settings to sync issues.",
+    "openSettings": "Open Settings"
+  },
+  "detail": {
+    "comments": "comments",
+    "viewTask": "View Task",
+    "createTask": "Create Task",
+    "taskLinked": "Task Linked",
+    "taskId": "Task ID",
+    "description": "Description",
+    "noDescription": "No description provided.",
+    "assignees": "Assignees",
+    "milestone": "Milestone"
+  },
+  "investigation": {
+    "title": "Create Task from Issue",
+    "issuePrefix": "Issue",
+    "description": "Create a task from this Forgejo issue. The task will be added to your Kanban board in the Backlog column.",
+    "selectComments": "Select Comments to Include",
+    "deselectAll": "Deselect All",
+    "selectAll": "Select All",
+    "willInclude": "The task will include:",
+    "includeTitle": "Issue title and description",
+    "includeLink": "Link back to the Forgejo issue",
+    "includeLabels": "Labels and metadata from the issue",
+    "noComments": "No comments (this issue has no comments)",
+    "failedToLoadComments": "Failed to load comments",
+    "taskCreated": "Task created! View it in your Kanban board.",
+    "creating": "Creating...",
+    "cancel": "Cancel",
+    "done": "Done",
+    "close": "Close"
+  },
+
+  "instances": {
+    "title": "Forgejo Instances",
+    "add": "Add Instance",
+    "addDescription": "Connect a self-hosted Forgejo or Gitea instance",
+    "edit": "Edit Instance",
+    "remove": "Remove Instance",
+    "noInstances": "No Forgejo instances configured",
+    "testConnection": "Test Connection",
+    "testing": "Testing connection...",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "lastSynced": "Last synced"
+  },
+
+  "form": {
+    "name": "Instance Name",
+    "namePlaceholder": "My Forgejo Server",
+    "nameHelp": "A friendly name to identify this instance",
+    "url": "Instance URL",
+    "urlPlaceholder": "https://codeberg.org",
+    "urlHelp": "The base URL of your Forgejo or Gitea instance",
+    "token": "Access Token",
+    "tokenPlaceholder": "Enter your API access token",
+    "tokenHelp": "Generate a token in your Forgejo instance under Settings > Applications"
+  },
+
+  "issues": {
+    "title": "Issues",
+    "noIssues": "No issues found",
+    "open": "Open",
+    "closed": "Closed",
+    "all": "All",
+    "loading": "Loading issues...",
+    "error": "Failed to load issues",
+    "investigate": "Investigate",
+    "import": "Import as Task",
+    "importMultiple": "Import Selected",
+    "createTask": "Create Task from Issue"
+  },
+
+  "prs": {
+    "title": "Pull Requests",
+    "noPRs": "No pull requests found",
+    "open": "Open",
+    "closed": "Closed",
+    "merged": "Merged",
+    "all": "All",
+    "loading": "Loading pull requests...",
+    "error": "Failed to load pull requests",
+    "review": "Review",
+    "merge": "Merge",
+    "close": "Close",
+    "draft": "Draft"
+  },
+
+  "review": {
+    "title": "AI Review",
+    "running": "Running review...",
+    "complete": "Review complete",
+    "findings": "Findings",
+    "noFindings": "No issues found",
+    "approve": "Approve",
+    "requestChanges": "Request Changes",
+    "comment": "Comment",
+    "post": "Post Review"
+  },
+
+  "sync": {
+    "title": "Sync Status",
+    "connected": "Connected to {{instanceName}}",
+    "disconnected": "Not connected",
+    "lastSync": "Last synced {{time}}",
+    "refresh": "Refresh",
+    "syncing": "Syncing..."
+  },
+
+  "config": {
+    "title": "Configuration",
+    "envVars": "Environment Variables",
+    "instanceUrl": "FORGEJO_INSTANCE_URL",
+    "token": "FORGEJO_TOKEN",
+    "repo": "FORGEJO_REPO",
+    "help": "Add these to your project's .env file to connect to a Forgejo instance"
+  },
+
+  "errors": {
+    "notConfigured": "Forgejo not configured. Please add FORGEJO_INSTANCE_URL, FORGEJO_TOKEN, and FORGEJO_REPO to your .env file.",
+    "connectionFailed": "Failed to connect to Forgejo instance",
+    "invalidToken": "Invalid or expired access token",
+    "repoNotFound": "Repository not found"
+  },
+
+  "settings": {
+    "enableIssues": "Enable Forgejo Issues",
+    "enableIssuesDescription": "Sync issues from Forgejo/Gitea and create tasks automatically",
+    "instance": "Forgejo Instance",
+    "instanceDescription": "Enter the URL of your self-hosted Forgejo or Gitea instance (e.g., codeberg.org)",
+    "personalAccessToken": "Personal Access Token",
+    "tokenScope": "Create a token with",
+    "scopeRepo": "repo",
+    "scopeFrom": "scope from",
+    "forgejoSettings": "Forgejo Settings",
+    "tokenPlaceholder": "Enter your API access token",
+    "repository": "Repository",
+    "repositoryFormat": "Format:",
+    "repositoryFormatExample": "(e.g., octocat/hello-world)",
+    "connectionStatus": "Connection Status",
+    "checking": "Checking connection...",
+    "connectedTo": "Connected to",
+    "notConnected": "Not connected",
+    "issuesAvailable": "Forgejo Issues Available",
+    "issuesAvailableDescription": "View and import Forgejo issues from the sidebar navigation.",
+    "defaultBranch": "Default Branch",
+    "defaultBranchDescription": "Base branch for creating task worktrees",
+    "loadingBranches": "Loading branches...",
+    "autoDetect": "Auto-detect",
+    "searchBranches": "Search branches...",
+    "noMatchingBranches": "No matching branches",
+    "noBranchesFound": "No branches found",
+    "branchFromNote": "All new tasks will branch from",
+    "autoSyncOnLoad": "Auto-Sync on Load",
+    "autoSyncDescription": "Automatically fetch issues when the project loads"
+  }
+}

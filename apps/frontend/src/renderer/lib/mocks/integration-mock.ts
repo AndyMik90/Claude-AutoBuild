@@ -11,8 +11,11 @@ export const integrationMock = {
       linearEnabled: false,
       githubEnabled: false,
       gitlabEnabled: false,
+      forgejoEnabled: false,
       graphitiEnabled: false,
-      enableFancyUi: true
+      enableFancyUi: true,
+      claudeTokenIsGlobal: false,
+      openaiKeyIsGlobal: false
     }
   }),
 

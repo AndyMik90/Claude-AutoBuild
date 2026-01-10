@@ -12,6 +12,7 @@ pytest-mock>=3.0.0
 
 # For testing async code
 anyio>=4.0.0
+aiohttp>=3.8.0  # Required for ForgejoClient tests
 
 # Code coverage
 coverage>=7.0.0

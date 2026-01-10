@@ -9,6 +9,7 @@ import { InsightsAPI, createInsightsAPI } from './modules/insights-api';
 import { AppUpdateAPI, createAppUpdateAPI } from './app-update-api';
 import { GitHubAPI, createGitHubAPI } from './modules/github-api';
 import { GitLabAPI, createGitLabAPI } from './modules/gitlab-api';
+import { ForgejoAPI, createForgejoAPI } from './modules/forgejo-api';
 import { DebugAPI, createDebugAPI } from './modules/debug-api';
 import { ClaudeCodeAPI, createClaudeCodeAPI } from './modules/claude-code-api';
 import { McpAPI, createMcpAPI } from './modules/mcp-api';
@@ -30,6 +31,7 @@ export interface ElectronAPI extends
   McpAPI,
   ProfileAPI {
   github: GitHubAPI;
+  forgejo: ForgejoAPI;
 }
 
 export const createElectronAPI = (): ElectronAPI => ({
@@ -47,7 +49,8 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createClaudeCodeAPI(),
   ...createMcpAPI(),
   ...createProfileAPI(),
-  github: createGitHubAPI()
+  github: createGitHubAPI(),
+  forgejo: createForgejoAPI()
 });
 
 // Export individual API creators for potential use in tests or specialized contexts
@@ -64,6 +67,7 @@ export {
   createProfileAPI,
   createGitHubAPI,
   createGitLabAPI,
+  createForgejoAPI,
   createDebugAPI,
   createClaudeCodeAPI,
   createMcpAPI
@@ -82,6 +86,7 @@ export type {
   ProfileAPI,
   GitHubAPI,
   GitLabAPI,
+  ForgejoAPI,
   DebugAPI,
   ClaudeCodeAPI,
   McpAPI

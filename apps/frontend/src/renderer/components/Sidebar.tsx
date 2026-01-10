@@ -52,7 +52,7 @@ import { RateLimitIndicator } from './RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
 import type { Project, AutoBuildVersionInfo, GitStatus, ProjectEnvConfig } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'forgejo-issues' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -91,6 +91,21 @@ const githubNavItems: NavItem[] = [
 const gitlabNavItems: NavItem[] = [
   { id: 'gitlab-issues', labelKey: 'navigation:items.gitlabIssues', icon: GitlabIcon, shortcut: 'B' },
   { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, shortcut: 'R' }
+];
+
+// Forgejo icon component
+function ForgejoIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      <path d="M8 22 v-14 a6 6 0 0 1 6-6 h4" />
+      <path d="M8 22 v-4 a6 6 0 0 1 6-6 h4" />
+    </svg>
+  );
+}
+
+// Forgejo nav items shown when Forgejo is enabled
+const forgejoNavItems: NavItem[] = [
+  { id: 'forgejo-issues', labelKey: 'navigation:items.forgejoIssues', icon: ForgejoIcon, shortcut: 'F' }
 ];
 
 export function Sidebar({
@@ -136,7 +151,7 @@ export function Sidebar({
     loadEnvConfig();
   }, [selectedProject?.id, selectedProject?.autoBuildPath]);
 
-  // Compute visible nav items based on GitHub/GitLab enabled state
+  // Compute visible nav items based on GitHub/GitLab/Forgejo enabled state
   const visibleNavItems = useMemo(() => {
     const items = [...baseNavItems];
 
@@ -148,8 +163,12 @@ export function Sidebar({
       items.push(...gitlabNavItems);
     }
 
+    if (envConfig?.forgejoEnabled) {
+      items.push(...forgejoNavItems);
+    }
+
     return items;
-  }, [envConfig?.githubEnabled, envConfig?.gitlabEnabled]);
+  }, [envConfig?.githubEnabled, envConfig?.gitlabEnabled, envConfig?.forgejoEnabled]);
 
   // Keyboard shortcuts
   useEffect(() => {

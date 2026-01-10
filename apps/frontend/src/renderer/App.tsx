@@ -39,6 +39,7 @@ import { Ideation } from './components/Ideation';
 import { Insights } from './components/Insights';
 import { GitHubIssues } from './components/GitHubIssues';
 import { GitLabIssues } from './components/GitLabIssues';
+import { ForgejoIssues } from './components/ForgejoIssues';
 import { GitHubPRs } from './components/github-prs';
 import { GitLabMergeRequests } from './components/gitlab-merge-requests';
 import { Changelog } from './components/Changelog';
@@ -847,6 +848,15 @@ export function App() {
                   <GitLabIssues
                     onOpenSettings={() => {
                       setSettingsInitialProjectSection('gitlab');
+                      setIsSettingsDialogOpen(true);
+                    }}
+                    onNavigateToTask={handleGoToTask}
+                  />
+                )}
+                {activeView === 'forgejo-issues' && (activeProjectId || selectedProjectId) && (
+                  <ForgejoIssues
+                    onOpenSettings={() => {
+                      setSettingsInitialProjectSection('forgejo');
                       setIsSettingsDialogOpen(true);
                     }}
                     onNavigateToTask={handleGoToTask}

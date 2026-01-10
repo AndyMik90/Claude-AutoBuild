@@ -425,6 +425,200 @@ export interface GitLabTriageResult {
 }
 
 // ============================================
+// Forgejo Integration Types
+// ============================================
+
+export interface ForgejoInstance {
+  id: string;
+  name: string;
+  url: string; // Base URL of the instance (e.g., https://codeberg.org)
+  token?: string; // API access token (stored securely)
+  connected: boolean;
+  lastSyncedAt?: string;
+}
+
+export interface ForgejoRepository {
+  id: number;
+  name: string;
+  fullName: string; // owner/repo
+  description?: string;
+  webUrl: string;
+  defaultBranch: string;
+  private: boolean;
+  owner: {
+    login: string;
+    avatarUrl?: string;
+  };
+  instanceUrl: string; // Which Forgejo instance this repo belongs to
+}
+
+export interface ForgejoIssue {
+  id: number;
+  number: number;
+  title: string;
+  body?: string;
+  state: 'open' | 'closed';
+  labels: Array<{ id: number; name: string; color: string; description?: string }>;
+  assignees: Array<{ login: string; avatarUrl?: string }>;
+  author: {
+    login: string;
+    avatarUrl?: string;
+  };
+  milestone?: {
+    id: number;
+    title: string;
+    state: 'open' | 'closed';
+  };
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string;
+  commentsCount: number;
+  webUrl: string;
+  repoFullName: string;
+  instanceUrl: string;
+}
+
+export interface ForgejoPullRequest {
+  id: number;
+  number: number;
+  title: string;
+  body?: string;
+  state: 'open' | 'closed' | 'merged';
+  sourceBranch: string;
+  targetBranch: string;
+  author: {
+    login: string;
+    avatarUrl?: string;
+  };
+  assignees: Array<{ login: string; avatarUrl?: string }>;
+  reviewers: Array<{ login: string; avatarUrl?: string }>;
+  labels: Array<{ id: number; name: string; color: string }>;
+  webUrl: string;
+  createdAt: string;
+  updatedAt: string;
+  mergedAt?: string;
+  mergeable: boolean;
+  draft: boolean;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+}
+
+export interface ForgejoSyncStatus {
+  connected: boolean;
+  instanceUrl?: string;
+  instanceName?: string;
+  repoFullName?: string;
+  repoDescription?: string;
+  issueCount?: number;
+  lastSyncedAt?: string;
+  error?: string;
+}
+
+export interface ForgejoImportResult {
+  success: boolean;
+  imported: number;
+  failed: number;
+  errors?: string[];
+  tasks?: import('./task').Task[];
+}
+
+export interface ForgejoInvestigationResult {
+  success: boolean;
+  issueNumber: number;
+  analysis: {
+    summary: string;
+    proposedSolution: string;
+    affectedFiles: string[];
+    estimatedComplexity: 'simple' | 'standard' | 'complex';
+    acceptanceCriteria: string[];
+  };
+  taskId?: string;
+  error?: string;
+}
+
+export interface ForgejoInvestigationStatus {
+  phase: 'idle' | 'fetching' | 'analyzing' | 'creating_task' | 'complete' | 'error';
+  issueNumber?: number;
+  progress: number;
+  message: string;
+  error?: string;
+}
+
+// ============================================
+// Forgejo PR Review Types
+// ============================================
+
+export interface ForgejoPRReviewFinding {
+  id: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  category: 'security' | 'quality' | 'style' | 'test' | 'docs' | 'pattern' | 'performance';
+  title: string;
+  description: string;
+  file: string;
+  line: number;
+  endLine?: number;
+  suggestedFix?: string;
+  fixable: boolean;
+}
+
+export interface ForgejoPRReviewResult {
+  prNumber: number;
+  repo: string;
+  instanceUrl: string;
+  success: boolean;
+  findings: ForgejoPRReviewFinding[];
+  summary: string;
+  overallStatus: 'approve' | 'request_changes' | 'comment';
+  reviewedAt: string;
+  reviewedCommitSha?: string;
+}
+
+export interface ForgejoPRReviewProgress {
+  phase: 'fetching' | 'analyzing' | 'generating' | 'posting' | 'complete';
+  prNumber: number;
+  progress: number;
+  message: string;
+}
+
+// ============================================
+// Forgejo Auto-Fix Types
+// ============================================
+
+export interface ForgejoAutoFixConfig {
+  enabled: boolean;
+  labels: string[];
+  requireHumanApproval: boolean;
+  model: string;
+  thinkingLevel: string;
+}
+
+export interface ForgejoAutoFixProgress {
+  phase: 'checking' | 'fetching' | 'analyzing' | 'creating_spec' | 'building' | 'qa_review' | 'creating_pr' | 'complete';
+  issueNumber: number;
+  progress: number;
+  message: string;
+}
+
+// ============================================
+// Forgejo Triage Types
+// ============================================
+
+export type ForgejoTriageCategory = 'bug' | 'feature' | 'documentation' | 'question' | 'duplicate' | 'spam';
+
+export interface ForgejoTriageResult {
+  issueNumber: number;
+  category: ForgejoTriageCategory;
+  confidence: number;
+  labelsToAdd: string[];
+  labelsToRemove: string[];
+  duplicateOf?: number;
+  priority: 'high' | 'medium' | 'low';
+  comment?: string;
+  triagedAt: string;
+}
+
+// ============================================
 // Roadmap Integration Types (Canny, etc.)
 // ============================================
 

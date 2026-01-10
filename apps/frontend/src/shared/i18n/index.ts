@@ -10,6 +10,7 @@ import enWelcome from './locales/en/welcome.json';
 import enOnboarding from './locales/en/onboarding.json';
 import enDialogs from './locales/en/dialogs.json';
 import enGitlab from './locales/en/gitlab.json';
+import enForgejo from './locales/en/forgejo.json';
 import enTaskReview from './locales/en/taskReview.json';
 import enTerminal from './locales/en/terminal.json';
 
@@ -22,6 +23,7 @@ import frWelcome from './locales/fr/welcome.json';
 import frOnboarding from './locales/fr/onboarding.json';
 import frDialogs from './locales/fr/dialogs.json';
 import frGitlab from './locales/fr/gitlab.json';
+import frForgejo from './locales/fr/forgejo.json';
 import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
 
@@ -37,6 +39,7 @@ export const resources = {
     onboarding: enOnboarding,
     dialogs: enDialogs,
     gitlab: enGitlab,
+    forgejo: enForgejo,
     taskReview: enTaskReview,
     terminal: enTerminal
   },
@@ -49,6 +52,7 @@ export const resources = {
     onboarding: frOnboarding,
     dialogs: frDialogs,
     gitlab: frGitlab,
+    forgejo: frForgejo,
     taskReview: frTaskReview,
     terminal: frTerminal
   }
@@ -61,7 +65,7 @@ i18n
     lng: 'en', // Default language (will be overridden by settings)
     fallbackLng: 'en',
     defaultNS,
-    ns: ['common', 'navigation', 'settings', 'tasks', 'welcome', 'onboarding', 'dialogs', 'gitlab', 'taskReview', 'terminal'],
+    ns: ['common', 'navigation', 'settings', 'tasks', 'welcome', 'onboarding', 'dialogs', 'gitlab', 'forgejo', 'taskReview', 'terminal'],
     interpolation: {
       escapeValue: false // React already escapes values
     },

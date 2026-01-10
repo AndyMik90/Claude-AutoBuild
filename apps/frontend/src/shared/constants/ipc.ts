@@ -513,5 +513,45 @@ export const IPC_CHANNELS = {
   // Sentry error reporting
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
-  GET_SENTRY_CONFIG: 'sentry:get-config'         // Get full Sentry config (DSN + sample rates)
+  GET_SENTRY_CONFIG: 'sentry:get-config',        // Get full Sentry config (DSN + sample rates)
+
+  // Forgejo integration (self-hosted git instances)
+  FORGEJO_GET_INSTANCES: 'forgejo:getInstances',           // List configured Forgejo instances
+  FORGEJO_ADD_INSTANCE: 'forgejo:addInstance',             // Add a new Forgejo instance
+  FORGEJO_REMOVE_INSTANCE: 'forgejo:removeInstance',       // Remove an instance
+  FORGEJO_UPDATE_INSTANCE: 'forgejo:updateInstance',       // Update instance configuration
+  FORGEJO_TEST_CONNECTION: 'forgejo:testConnection',       // Test instance connection
+  FORGEJO_GET_REPOSITORIES: 'forgejo:getRepositories',     // List repos for an instance
+  FORGEJO_GET_ISSUES: 'forgejo:getIssues',                 // Get issues for a repo
+  FORGEJO_GET_ISSUE: 'forgejo:getIssue',                   // Get single issue
+  FORGEJO_GET_ISSUE_COMMENTS: 'forgejo:getIssueComments',  // Get issue comments
+  FORGEJO_CHECK_CONNECTION: 'forgejo:checkConnection',     // Check connection status
+  FORGEJO_INVESTIGATE_ISSUE: 'forgejo:investigateIssue',   // AI investigation
+  FORGEJO_IMPORT_ISSUES: 'forgejo:importIssues',           // Import issues as tasks
+  FORGEJO_CREATE_ISSUE: 'forgejo:createIssue',             // Create new issue
+  FORGEJO_CLOSE_ISSUE: 'forgejo:closeIssue',               // Close issue
+  FORGEJO_ADD_COMMENT: 'forgejo:addComment',               // Add comment to issue
+
+  // Forgejo PR operations
+  FORGEJO_PR_LIST: 'forgejo:pr:list',                      // List pull requests
+  FORGEJO_PR_GET: 'forgejo:pr:get',                        // Get single PR
+  FORGEJO_PR_GET_DIFF: 'forgejo:pr:getDiff',               // Get PR diff
+  FORGEJO_PR_REVIEW: 'forgejo:pr:review',                  // AI review PR
+  FORGEJO_PR_REVIEW_CANCEL: 'forgejo:pr:reviewCancel',     // Cancel review
+  FORGEJO_PR_GET_REVIEW: 'forgejo:pr:getReview',           // Get stored review
+  FORGEJO_PR_POST_REVIEW: 'forgejo:pr:postReview',         // Post review to Forgejo
+  FORGEJO_PR_MERGE: 'forgejo:pr:merge',                    // Merge PR
+  FORGEJO_PR_CLOSE: 'forgejo:pr:close',                    // Close PR
+
+  // Forgejo events (main -> renderer)
+  FORGEJO_INVESTIGATION_PROGRESS: 'forgejo:investigationProgress',
+  FORGEJO_INVESTIGATION_COMPLETE: 'forgejo:investigationComplete',
+  FORGEJO_INVESTIGATION_ERROR: 'forgejo:investigationError',
+  FORGEJO_PR_REVIEW_PROGRESS: 'forgejo:pr:reviewProgress',
+  FORGEJO_PR_REVIEW_COMPLETE: 'forgejo:pr:reviewComplete',
+  FORGEJO_PR_REVIEW_ERROR: 'forgejo:pr:reviewError',
+
+  // Forgejo Sync operations
+  FORGEJO_SYNC_ISSUES: 'forgejo:syncIssues',               // Sync issues from instance
+  FORGEJO_GET_SYNC_STATUS: 'forgejo:getSyncStatus'         // Get sync status
 } as const;

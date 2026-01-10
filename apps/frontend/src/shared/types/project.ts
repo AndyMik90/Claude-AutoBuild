@@ -318,6 +318,13 @@ export interface ProjectEnvConfig {
   gitlabProject?: string; // Format: group/project or numeric ID
   gitlabAutoSync?: boolean; // Auto-sync issues on project load
 
+  // Forgejo Integration (self-hosted Forgejo/Gitea instances)
+  forgejoEnabled: boolean;
+  forgejoInstanceUrl?: string; // e.g., https://codeberg.org or self-hosted URL
+  forgejoToken?: string;
+  forgejoRepo?: string; // Format: owner/repo
+  forgejoAutoSync?: boolean; // Auto-sync issues on project load
+
   // Git/Worktree Settings
   defaultBranch?: string; // Base branch for worktree creation (e.g., 'main', 'develop')
 
