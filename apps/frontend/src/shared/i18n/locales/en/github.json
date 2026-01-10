@@ -9,6 +9,9 @@
     "iterationTooltip": "Each cycle: check CI → run AI review → fix issues if needed",
     "ciChecks": "CI Checks",
     "ciPassed": "Passed",
+    "ciRunning": "Running...",
+    "ciDonePassed": "Done (passed)",
+    "ciDoneFailed": "Done (failed)",
     "checkingCI": "Checking...",
     "ciPassedNoDetails": "All CI checks passed",
     "noChecks": "No checks",
@@ -34,6 +37,8 @@
     "botPending": "Waiting",
     "readyForReview": "Ready for Human Review",
     "humanApprovalRequired": "This PR has passed all automated checks and is ready for human approval.",
+    "needsHumanReviewTitle": "Human Review Required",
+    "needsHumanReviewMessage": "Some findings cannot be automatically fixed (e.g., CI failures without file paths). Please review and fix these manually.",
     "details": "Details",
     "viewDetails": "View details",
     "progressCard": "Auto PR Review Progress",
@@ -47,7 +52,8 @@
       "completed": "Completed",
       "cancelled": "Cancelled",
       "failed": "Failed",
-      "max_iterations": "Max Iterations Reached"
+      "max_iterations": "Max Iterations Reached",
+      "needsHumanReview": "Human Review Required"
     },
     "progress": {
       "title": "PR Review Progress",

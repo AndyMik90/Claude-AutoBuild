@@ -172,9 +172,10 @@ export function useGitHubPRs(
               }
 
               // Batch preload review results for PRs not in store (single IPC call)
+              // Skip PRs that have an active review - loading old result would overwrite isReviewing
               const prsNeedingPreload = result.filter((pr) => {
                 const existingState = getPRReviewState(projectId, pr.number);
-                return !existingState?.result;
+                return !existingState?.result && !existingState?.isReviewing;
               });
 
               if (prsNeedingPreload.length > 0) {
@@ -185,8 +186,14 @@ export function useGitHubPRs(
                 );
 
                 // Update store with loaded results
+                // Double-check each PR doesn't have an active review before overwriting
                 for (const reviewResult of Object.values(batchReviews)) {
                   if (reviewResult) {
+                    const currentState = getPRReviewState(projectId, reviewResult.prNumber);
+                    if (currentState?.isReviewing) {
+                      // Review started while we were loading, don't overwrite
+                      continue;
+                    }
                     usePRReviewStore.getState().setPRReviewResult(projectId, reviewResult, {
                       preserveNewCommitsCheck: true,
                     });
@@ -286,9 +293,18 @@ export function useGitHubPRs(
         // Load existing review from disk if not already in store
         const existingState = getPRReviewState(projectId, prNumber);
         // Only fetch from disk if we don't have a result in the store
-        if (!existingState?.result) {
+        // IMPORTANT: Do NOT load from disk if a review is currently in progress,
+        // because loading the old result would overwrite isReviewing=true with false
+        if (!existingState?.result && !existingState?.isReviewing) {
           window.electronAPI.github.getPRReview(projectId, prNumber).then((result) => {
             if (result) {
+              // Double-check that a review hasn't started in the meantime
+              const currentState = getPRReviewState(projectId, prNumber);
+              if (currentState?.isReviewing) {
+                // Review started while we were loading from disk, don't overwrite
+                return;
+              }
+
               // Update store with the loaded result
               // Preserve newCommitsCheck when loading existing review from disk
               usePRReviewStore

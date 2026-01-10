@@ -329,13 +329,16 @@ class GitHubOrchestrator:
                 commits=pr_context.commits,
             )
 
-            # Allow forcing a review to bypass "already reviewed" check
-            if should_skip and force_review and "Already reviewed" in skip_reason:
-                print(
-                    f"[BOT DETECTION] Force review requested - bypassing: {skip_reason}",
-                    flush=True,
-                )
-                should_skip = False
+            # Allow forcing a review to bypass "already reviewed" or "cooling off period" checks
+            # This is used by the Auto-PR-Review orchestrator during iteration loops
+            if should_skip and force_review:
+                bypass_reasons = ["Already reviewed", "Cooling off period"]
+                if any(reason in skip_reason for reason in bypass_reasons):
+                    print(
+                        f"[BOT DETECTION] Force review requested - bypassing: {skip_reason}",
+                        flush=True,
+                    )
+                    should_skip = False
 
             if should_skip:
                 print(
@@ -1048,13 +1051,15 @@ class GitHubOrchestrator:
         risk_assessment: dict,
         ci_status: dict | None = None,
     ) -> str:
-        """Generate enhanced summary with verdict, risk, and actionable next steps."""
+        """Generate enhanced summary matching the rich follow-up review format."""
         verdict_emoji = {
             MergeVerdict.READY_TO_MERGE: "✅",
             MergeVerdict.MERGE_WITH_CHANGES: "🟡",
             MergeVerdict.NEEDS_REVISION: "🟠",
             MergeVerdict.BLOCKED: "🔴",
         }
+
+        emoji = verdict_emoji.get(verdict, "📝")
 
         # Generate bottom line for quick scanning
         bottom_line = self._generate_bottom_line(
@@ -1064,55 +1069,49 @@ class GitHubOrchestrator:
             findings=findings,
         )
 
-        lines = [
-            f"### Merge Verdict: {verdict_emoji.get(verdict, '⚪')} {verdict.value.upper().replace('_', ' ')}",
-            "",
-            f"> {bottom_line}",
-            "",
-            verdict_reasoning,
-            "",
-            "### Risk Assessment",
-            "| Factor | Level | Notes |",
-            "|--------|-------|-------|",
-            f"| Complexity | {risk_assessment['complexity'].capitalize()} | Based on lines changed |",
-            f"| Security Impact | {risk_assessment['security_impact'].capitalize()} | Based on security findings |",
-            f"| Scope Coherence | {risk_assessment['scope_coherence'].capitalize()} | Based on structural review |",
-            "",
-        ]
+        # Count findings by severity
+        by_severity: dict[str, list[PRReviewFinding]] = {}
+        for f in findings:
+            severity = f.severity.value
+            if severity not in by_severity:
+                by_severity[severity] = []
+            by_severity[severity].append(f)
 
-        # Blockers
-        if blockers:
-            lines.append("### 🚨 Blocking Issues (Must Fix)")
-            for blocker in blockers:
-                lines.append(f"- {blocker}")
-            lines.append("")
+        critical_count = len(by_severity.get("critical", []))
+        high_count = len(by_severity.get("high", []))
+        medium_count = len(by_severity.get("medium", []))
+        low_count = len(by_severity.get("low", []))
+        total_findings = len(findings)
 
-        # Findings summary
+        # Build findings overview section
+        findings_section = ""
         if findings:
-            by_severity = {}
-            for f in findings:
-                severity = f.severity.value
-                if severity not in by_severity:
-                    by_severity[severity] = []
-                by_severity[severity].append(f)
+            findings_lines = ["### Findings Overview"]
+            findings_lines.append(
+                f"**{total_findings} issue(s)** identified in this review:"
+            )
+            findings_lines.append("")
+            if critical_count > 0:
+                findings_lines.append(
+                    f"- 🔴 **Critical**: {critical_count} issue(s) - must fix before merge"
+                )
+            if high_count > 0:
+                findings_lines.append(
+                    f"- 🟠 **High**: {high_count} issue(s) - should fix before merge"
+                )
+            if medium_count > 0:
+                findings_lines.append(
+                    f"- 🟡 **Medium**: {medium_count} issue(s) - recommended to fix"
+                )
+            if low_count > 0:
+                findings_lines.append(
+                    f"- 🔵 **Low**: {low_count} issue(s) - minor improvements"
+                )
+            findings_lines.append("")
+            findings_section = "\n".join(findings_lines)
 
-            lines.append("### Findings Summary")
-            for severity in ["critical", "high", "medium", "low"]:
-                if severity in by_severity:
-                    count = len(by_severity[severity])
-                    lines.append(f"- **{severity.capitalize()}**: {count} issue(s)")
-            lines.append("")
-
-        # Structural issues
-        if structural_issues:
-            lines.append("### 🏗️ Structural Issues")
-            for issue in structural_issues[:5]:
-                lines.append(f"- **{issue.title}**: {issue.description}")
-            if len(structural_issues) > 5:
-                lines.append(f"- ... and {len(structural_issues) - 5} more")
-            lines.append("")
-
-        # AI triages summary
+        # Build AI triage validation section
+        validation_section = ""
         if ai_triages:
             critical_ai = [
                 t for t in ai_triages if t.verdict == AICommentVerdict.CRITICAL
@@ -1120,20 +1119,68 @@ class GitHubOrchestrator:
             important_ai = [
                 t for t in ai_triages if t.verdict == AICommentVerdict.IMPORTANT
             ]
-            if critical_ai or important_ai:
-                lines.append("### 🤖 AI Tool Comments Review")
-                if critical_ai:
-                    lines.append(f"- **Critical**: {len(critical_ai)} validated issues")
-                if important_ai:
-                    lines.append(
-                        f"- **Important**: {len(important_ai)} recommended fixes"
-                    )
-                lines.append("")
+            false_positives = [
+                t for t in ai_triages if t.verdict == AICommentVerdict.FALSE_POSITIVE
+            ]
+            if critical_ai or important_ai or false_positives:
+                validation_section = f"""
+### Finding Validation
+- ✓ **Confirmed Critical**: {len(critical_ai)} findings verified as blocking issues
+- ⚠️ **Confirmed Important**: {len(important_ai)} findings verified as genuine issues
+- 🔍 **Dismissed as False Positives**: {len(false_positives)} findings from bots/tools were incorrect
+"""
 
-        lines.append("---")
-        lines.append("_Generated by Auto Claude PR Review_")
+        # Build blockers section
+        blockers_section = ""
+        if blockers:
+            blockers_list = "\n".join(f"- {b}" for b in blockers)
+            blockers_section = f"""
+### 🚨 Blocking Issues
+{blockers_list}
+"""
 
-        return "\n".join(lines)
+        # Build structural issues section
+        structural_section = ""
+        if structural_issues:
+            struct_lines = ["### 🏗️ Structural Issues"]
+            for issue in structural_issues[:5]:
+                struct_lines.append(f"- **{issue.title}**: {issue.description}")
+            if len(structural_issues) > 5:
+                struct_lines.append(f"- ... and {len(structural_issues) - 5} more")
+            struct_lines.append("")
+            structural_section = "\n".join(struct_lines)
+
+        # Build risk assessment section (compact)
+        risk_section = f"""### Risk Assessment
+| Factor | Level | Notes |
+|--------|-------|-------|
+| Complexity | {risk_assessment["complexity"].capitalize()} | Based on lines changed |
+| Security Impact | {risk_assessment["security_impact"].capitalize()} | Based on security findings |
+| Scope Coherence | {risk_assessment["scope_coherence"].capitalize()} | Based on structural review |
+"""
+
+        # Determine review process info
+        agents_used = ["security-reviewer", "quality-reviewer", "structural-reviewer"]
+        if ai_triages:
+            agents_used.append("ai-triage-reviewer")
+        agents_str = ", ".join(agents_used)
+
+        # Build the complete summary
+        summary = f"""## {emoji} Initial Review: {verdict.value.replace("_", " ").title()}
+
+> {bottom_line}
+
+{findings_section}{validation_section}{blockers_section}{structural_section}{risk_section}
+### Verdict
+{verdict_reasoning}
+
+### Review Process
+Agents invoked: {agents_str}
+
+---
+*This is an AI-generated initial review using parallel specialist analysis.*
+"""
+        return summary
 
     def _generate_bottom_line(
         self,

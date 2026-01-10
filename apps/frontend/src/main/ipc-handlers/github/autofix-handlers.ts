@@ -1234,6 +1234,7 @@ export function registerAutoFixHandlers(
                   'fixing': 'pr_fixing',
                   'pushing': 'pr_fixing',
                   'pr_ready_to_merge': 'pr_ready_to_merge',
+                  'needs_human_review': 'needs_human_review',
                   'completed': 'completed',
                   'failed': 'failed',
                   'max_iterations': 'max_iterations',
@@ -1258,6 +1259,17 @@ export function registerAutoFixHandlers(
                   entry.progress.errorMessage = data.error;
                 }
 
+                // Track CI completion status
+                // CI is complete when we're past the awaiting_checks phase
+                if (data.phase && ['pr_reviewing', 'pr_fixing', 'pr_ready_to_merge', 'completed', 'needs_human_review', 'max_iterations'].includes(data.phase)) {
+                  entry.progress.ciCompleted = true;
+                }
+                // Capture ci_passed from backend (explicit boolean)
+                if (data.ci_passed !== undefined) {
+                  entry.progress.ciPassed = data.ci_passed;
+                  entry.progress.ciCompleted = true;
+                }
+
                 debugLog('Auto-PR-Review progress update', {
                   status: entry.progress.status,
                   activity: entry.progress.currentActivity,
@@ -1277,6 +1289,7 @@ export function registerAutoFixHandlers(
                 const resultToStatus: Record<string, AutoPRReviewProgress['status']> = {
                   'ready_to_merge': 'pr_ready_to_merge',
                   'no_findings': 'completed',
+                  'needs_human_review': 'needs_human_review',
                   'max_iterations': 'max_iterations',
                   'ci_failed': 'failed',
                   'cancelled': 'cancelled',
@@ -1294,6 +1307,12 @@ export function registerAutoFixHandlers(
                 entry.progress.remainingFindingsCount = data.findings_unfixed || 0;
                 entry.progress.isCancellable = false;
 
+                // Capture CI status from result
+                entry.progress.ciCompleted = true;
+                if (data.ci_all_passed !== undefined) {
+                  entry.progress.ciPassed = data.ci_all_passed;
+                }
+
                 if (data.error_message) {
                   entry.progress.errorMessage = data.error_message;
                 }
@@ -1302,6 +1321,7 @@ export function registerAutoFixHandlers(
                   result: data.result,
                   status: entry.progress.status,
                   findingsFixed: entry.progress.fixedFindingsCount,
+                  ciPassed: entry.progress.ciPassed,
                 });
               } catch (e) {
                 debugLog('Failed to parse result line', { line, error: e });
@@ -1332,7 +1352,7 @@ export function registerAutoFixHandlers(
               // Mark as completed if not already in a terminal state
               const entry = activeAutoPRReviews.get(key);
               if (entry) {
-                const terminalStates = ['completed', 'failed', 'cancelled', 'max_iterations', 'pr_ready_to_merge'];
+                const terminalStates = ['completed', 'failed', 'cancelled', 'max_iterations', 'pr_ready_to_merge', 'needs_human_review'];
                 if (!terminalStates.includes(entry.progress.status)) {
                   entry.progress.status = 'completed';
                 }

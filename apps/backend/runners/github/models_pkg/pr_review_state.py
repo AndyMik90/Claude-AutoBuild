@@ -55,6 +55,7 @@ class PRReviewStatus(str, Enum):
 
     # Terminal states
     READY_TO_MERGE = "ready_to_merge"  # All checks pass, human approval needed
+    NEEDS_HUMAN_REVIEW = "needs_human_review"  # Findings exist but can't be auto-fixed
     COMPLETED = "completed"  # Human merged the PR
     CANCELLED = "cancelled"  # User cancelled
     FAILED = "failed"  # Unrecoverable error
@@ -65,6 +66,7 @@ class PRReviewStatus(str, Enum):
         """States that represent end of workflow."""
         return {
             cls.READY_TO_MERGE,
+            cls.NEEDS_HUMAN_REVIEW,
             cls.COMPLETED,
             cls.CANCELLED,
             cls.FAILED,

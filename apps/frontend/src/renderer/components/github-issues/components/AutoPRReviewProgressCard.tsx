@@ -107,18 +107,32 @@ const STATUS_CONFIG: Record<AutoPRReviewStatus, StatusConfig> = {
     bgColor: 'bg-orange-50 dark:bg-orange-900/30',
     borderColor: 'border-orange-300 dark:border-orange-700',
   },
+  needs_human_review: {
+    label: 'autoPRReview.status.needsHumanReview',
+    color: 'text-yellow-600 dark:text-yellow-400',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-900/30',
+    borderColor: 'border-yellow-300 dark:border-yellow-700',
+  },
 };
 
 /**
  * CI check status configurations
+ * Maps both frontend status names and backend status names
  */
-const CI_STATUS_CONFIG: Record<CICheckStatus['status'], { icon: string; color: string }> = {
+const CI_STATUS_CONFIG: Record<string, { icon: string; color: string }> = {
+  // Frontend status names
   pending: { icon: '\u23F3', color: 'text-gray-500' }, // Hourglass
   in_progress: { icon: '\u25B6', color: 'text-blue-500' }, // Play
   success: { icon: '\u2714', color: 'text-green-500' }, // Check mark
   failure: { icon: '\u2718', color: 'text-red-500' }, // X mark
   cancelled: { icon: '\u26AA', color: 'text-gray-400' }, // Circle
   skipped: { icon: '\u2192', color: 'text-gray-400' }, // Arrow
+  // Backend status names (mapped to same icons)
+  running: { icon: '\u25B6', color: 'text-blue-500' }, // Play (same as in_progress)
+  passed: { icon: '\u2714', color: 'text-green-500' }, // Check mark (same as success)
+  failed: { icon: '\u2718', color: 'text-red-500' }, // X mark (same as failure)
+  timed_out: { icon: '\u23F1', color: 'text-orange-500' }, // Stopwatch
+  unknown: { icon: '\u2753', color: 'text-gray-400' }, // Question mark
 };
 
 // =============================================================================
@@ -160,7 +174,11 @@ function ProgressBar({
  * Single CI check item
  */
 function CICheckItem({ check, t }: { check: CICheckStatus; t: (key: string) => string }) {
-  const config = CI_STATUS_CONFIG[check.status];
+  // Use fallback config for unknown status values to prevent crashes
+  const config = CI_STATUS_CONFIG[check.status] ?? {
+    icon: '\u2753', // Question mark
+    color: 'text-gray-400',
+  };
 
   return (
     <div
@@ -188,53 +206,61 @@ function CICheckItem({ check, t }: { check: CICheckStatus; t: (key: string) => s
 
 /**
  * CI checks summary badge
+ *
+ * Shows CI status in three states:
+ * - Running: CI checks are still in progress
+ * - Done (passed): CI checks completed and all passed
+ * - Done (failed): CI checks completed but some failed
  */
 function CISummaryBadge({
   summary,
   status,
+  ciCompleted,
+  ciPassed,
   t,
 }: {
   summary: AutoPRReviewProgress['ciSummary'];
   status: AutoPRReviewStatus;
+  ciCompleted?: boolean;
+  ciPassed?: boolean;
   t: (key: string) => string;
 }) {
   const { total, passed, failed, pending } = summary;
 
-  // If we're past awaiting_checks phase, CI must have passed (we wouldn't proceed otherwise)
-  const isPastAwaitingChecks = ['pr_reviewing', 'pr_fixing', 'pr_ready_to_merge', 'completed'].includes(status);
+  // Determine CI completion from explicit flag or from phase
+  const isPastAwaitingChecks = ['pr_reviewing', 'pr_fixing', 'pr_ready_to_merge', 'completed', 'needs_human_review', 'max_iterations'].includes(status);
+  const isCompleted = ciCompleted ?? isPastAwaitingChecks;
 
-  if (total === 0) {
-    // If no CI data but we're reviewing/fixing, CI passed
-    if (isPastAwaitingChecks) {
-      return (
-        <span className="text-sm text-green-600 dark:text-green-400">
-          {'\u2714'} {t('autoPRReview.ciPassed')}
-        </span>
-      );
-    }
+  // If CI hasn't completed yet, show running state
+  if (!isCompleted) {
     return (
-      <span className="text-sm text-gray-500 dark:text-gray-400">{t('autoPRReview.checkingCI')}</span>
+      <span className="text-sm text-blue-500 dark:text-blue-400 flex items-center gap-1">
+        <span
+          className="animate-spin inline-block w-3 h-3 border-2 border-blue-300 dark:border-blue-600 border-t-blue-500 dark:border-t-blue-400 rounded-full"
+          aria-hidden="true"
+        />
+        {t('autoPRReview.ciRunning')}
+      </span>
     );
   }
 
+  // CI is done - show pass/fail status
+  // Use explicit ciPassed if available, otherwise infer from summary
+  const allPassed = ciPassed ?? (total === 0 || (failed === 0 && pending === 0));
+
+  if (allPassed) {
+    return (
+      <span className="text-sm text-green-600 dark:text-green-400">
+        {'\u2714'} {t('autoPRReview.ciDonePassed')}
+      </span>
+    );
+  }
+
+  // CI done but failed
   return (
-    <div className="flex items-center gap-2 text-sm" aria-label={`CI: ${passed}/${total} passed`}>
-      {passed > 0 && (
-        <span className="text-green-600 dark:text-green-400">
-          {'\u2714'} {passed}
-        </span>
-      )}
-      {failed > 0 && (
-        <span className="text-red-600 dark:text-red-400">
-          {'\u2718'} {failed}
-        </span>
-      )}
-      {pending > 0 && (
-        <span className="text-gray-500 dark:text-gray-400">
-          {'\u23F3'} {pending}
-        </span>
-      )}
-    </div>
+    <span className="text-sm text-red-600 dark:text-red-400">
+      {'\u2718'} {t('autoPRReview.ciDoneFailed')}
+    </span>
   );
 }
 
@@ -337,7 +363,7 @@ export function AutoPRReviewProgressCard({
   );
 
   const isTerminal = useMemo(
-    () => ['completed', 'failed', 'cancelled', 'pr_ready_to_merge', 'max_iterations'].includes(progress.status),
+    () => ['completed', 'failed', 'cancelled', 'pr_ready_to_merge', 'max_iterations', 'needs_human_review'].includes(progress.status),
     [progress.status]
   );
 
@@ -472,7 +498,13 @@ export function AutoPRReviewProgressCard({
             {t('autoPRReview.ciChecks')}
           </span>
           <div className="flex items-center gap-2">
-            <CISummaryBadge summary={progress.ciSummary} status={progress.status} t={t} />
+            <CISummaryBadge
+              summary={progress.ciSummary}
+              status={progress.status}
+              ciCompleted={progress.ciCompleted}
+              ciPassed={progress.ciPassed}
+              t={t}
+            />
             <span
               className="text-gray-400 transform transition-transform duration-200"
               style={{ transform: showCIDetails ? 'rotate(180deg)' : 'rotate(0deg)' }}
@@ -543,6 +575,17 @@ export function AutoPRReviewProgressCard({
         >
           <strong>{t('autoPRReview.readyForReview')}</strong>
           <p className="mt-1">{t('autoPRReview.humanApprovalRequired')}</p>
+        </div>
+      )}
+
+      {/* Needs human review notice */}
+      {progress.status === 'needs_human_review' && (
+        <div
+          className="mt-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-md text-sm text-yellow-700 dark:text-yellow-400"
+          role="status"
+        >
+          <strong>{t('autoPRReview.needsHumanReviewTitle')}</strong>
+          <p className="mt-1">{t('autoPRReview.needsHumanReviewMessage')}</p>
         </div>
       )}
 

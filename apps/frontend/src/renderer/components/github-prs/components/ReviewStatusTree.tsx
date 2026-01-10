@@ -28,6 +28,8 @@ export interface ReviewStatusTreeProps {
   onCancelReview: () => void;
   newCommitsCheck: NewCommitsCheck | null;
   lastPostedAt?: number | null;
+  /** When true, hides action buttons (e.g., for closed/merged PRs) */
+  hideActions?: boolean;
 }
 
 /**
@@ -44,7 +46,8 @@ export function ReviewStatusTree({
   onRunFollowupReview,
   onCancelReview,
   newCommitsCheck,
-  lastPostedAt
+  lastPostedAt,
+  hideActions = false
 }: ReviewStatusTreeProps) {
   const { t, i18n } = useTranslation('common');
   const [isOpen, setIsOpen] = useState(true);
@@ -60,10 +63,12 @@ export function ReviewStatusTree({
           <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-muted-foreground/30" />
           <span className="font-medium text-muted-foreground truncate">{t('prReview.notReviewed')}</span>
         </div>
-        <Button onClick={onRunReview} size="sm" className="gap-2 shrink-0 ml-auto sm:ml-0">
-          <Play className="h-3.5 w-3.5" />
-          {t('prReview.runAIReview')}
-        </Button>
+        {!hideActions && (
+          <Button onClick={onRunReview} size="sm" className="gap-2 shrink-0 ml-auto sm:ml-0">
+            <Play className="h-3.5 w-3.5" />
+            {t('prReview.runAIReview')}
+          </Button>
+        )}
       </div>
     );
   }
@@ -144,7 +149,7 @@ export function ReviewStatusTree({
         label: t('prReview.analysisComplete', { count: reviewResult.findings.length }),
         status: 'completed',
         date: reviewResult.reviewedAt,
-        action: (
+        action: hideActions ? undefined : (
           <Button
             size="sm"
             variant="ghost"
@@ -188,7 +193,7 @@ export function ReviewStatusTree({
         id: 'followup',
         label: t('prReview.readyForFollowup'),
         status: 'pending',
-        action: (
+        action: hideActions ? undefined : (
           <Button size="sm" variant="outline" onClick={onRunFollowupReview} className="ml-2 h-6 text-xs px-2">
             {t('prReview.runFollowup')}
           </Button>

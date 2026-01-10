@@ -122,6 +122,9 @@ class OrchestratorResult(str, Enum):
     READY_TO_MERGE = "ready_to_merge"  # All checks pass, human approval needed
     NO_FINDINGS = "no_findings"  # No findings to fix
 
+    # Human review required
+    NEEDS_HUMAN_REVIEW = "needs_human_review"  # Findings exist but can't be auto-fixed
+
     # Failure states
     MAX_ITERATIONS = "max_iterations"  # Hit iteration limit
     CI_FAILED = "ci_failed"  # CI checks failed and couldn't be fixed
@@ -819,7 +822,7 @@ class AutoPRReviewOrchestrator:
 
         # Import PR Fixer Agent
         try:
-            from ...agents.pr_fixer import (
+            from agents.pr_fixer import (
                 FindingSeverity,
                 FindingSource,
                 PRFinding,
@@ -827,22 +830,37 @@ class AutoPRReviewOrchestrator:
             )
 
             # Convert findings to PRFinding objects
+            # Only include findings that have a file_path - without it, we can't fix them
             pr_findings = []
+            skipped_findings = []
+
+            source_map = {
+                "ci": FindingSource.CI,
+                "coderabbit": FindingSource.CODERABBIT,
+                "coderabbitai[bot]": FindingSource.CODERABBIT,
+                "cursor": FindingSource.CURSOR,
+                "dependabot": FindingSource.DEPENDABOT,
+                "dependabot[bot]": FindingSource.DEPENDABOT,
+            }
+            severity_map = {
+                "critical": FindingSeverity.CRITICAL,
+                "high": FindingSeverity.HIGH,
+                "medium": FindingSeverity.MEDIUM,
+                "low": FindingSeverity.LOW,
+            }
+
             for f in findings:
-                source_map = {
-                    "ci": FindingSource.CI,
-                    "coderabbit": FindingSource.CODERABBIT,
-                    "coderabbitai[bot]": FindingSource.CODERABBIT,
-                    "cursor": FindingSource.CURSOR,
-                    "dependabot": FindingSource.DEPENDABOT,
-                    "dependabot[bot]": FindingSource.DEPENDABOT,
-                }
-                severity_map = {
-                    "critical": FindingSeverity.CRITICAL,
-                    "high": FindingSeverity.HIGH,
-                    "medium": FindingSeverity.MEDIUM,
-                    "low": FindingSeverity.LOW,
-                }
+                file_path = f.get("file_path", "").strip()
+
+                # Skip findings without a file path - they cannot be auto-fixed
+                if not file_path:
+                    skipped_findings.append(f)
+                    self._log_warning(
+                        f"Skipping finding '{f.get('finding_id', 'unknown')}' - "
+                        f"no file_path specified (source: {f.get('source', 'unknown')}). "
+                        "This finding requires human review."
+                    )
+                    continue
 
                 source_str = f.get("source", "other").lower()
                 source = source_map.get(source_str, FindingSource.OTHER)
@@ -855,13 +873,21 @@ class AutoPRReviewOrchestrator:
                         finding_id=f["finding_id"],
                         source=source,
                         severity=severity,
-                        file_path=f.get("file_path", ""),
+                        file_path=file_path,
                         line_number=f.get("line_number"),
                         description=f.get("description", ""),
                         suggestion=f.get("suggestion"),
                         trusted=f.get("trusted", False),
                     )
                 )
+
+            # If all findings were skipped, report that human review is needed
+            if not pr_findings and skipped_findings:
+                self._log_info(
+                    f"All {len(skipped_findings)} findings lack file paths and require human review. "
+                    "No auto-fixes possible."
+                )
+                return 0, 0  # No failures, but no fixes either - needs human review
 
             # Create and run fixer agent
             agent = PRFixerAgent(
@@ -1217,31 +1243,72 @@ Co-Authored-By: Claude <noreply@anthropic.com>
                 # Collect findings from CI failures and bot comments first
                 findings = await self._collect_findings(state, check_result)
 
-                # If CI passed, run AI review to find code quality issues
-                if check_result.all_passed:
-                    self._log_info(
-                        "CI passed, running AI review",
-                        pr_number=state.pr_number,
-                        iteration=state.current_iteration,
+                # Always run AI review after CI/bots complete (CI is just a timing gate)
+                # The AI review will analyze the code and report on issues including CI failures
+                self._log_info(
+                    "CI checks complete, running AI review",
+                    pr_number=state.pr_number,
+                    iteration=state.current_iteration,
+                    ci_all_passed=check_result.all_passed,
+                )
+
+                if on_progress:
+                    on_progress(
+                        "ai_reviewing",
+                        {
+                            "iteration": state.current_iteration,
+                            "message": "Running AI code review...",
+                            "ci_passed": check_result.all_passed,
+                        },
                     )
 
-                    if on_progress:
-                        on_progress(
-                            "ai_reviewing",
-                            {
-                                "iteration": state.current_iteration,
-                                "message": "Running AI code review...",
-                            },
-                        )
+                # Run AI review regardless of CI status
+                # AI will analyze the code and can report on CI failures too
+                ai_findings = await self._run_ai_review(state, on_progress)
+                findings.extend(ai_findings)
 
-                    # Run AI review
-                    ai_findings = await self._run_ai_review(state, on_progress)
-                    findings.extend(ai_findings)
+                self._log_info(
+                    "AI review complete",
+                    ai_findings_count=len(ai_findings),
+                    total_findings_count=len(findings),
+                    ci_all_passed=check_result.all_passed,
+                )
 
-                    self._log_info(
-                        "AI review complete",
-                        ai_findings_count=len(ai_findings),
-                        total_findings_count=len(findings),
+                # Check how many findings are actually fixable (have file_path)
+                fixable_findings = [
+                    f for f in findings if f.get("file_path", "").strip()
+                ]
+                unfixable_findings = len(findings) - len(fixable_findings)
+
+                # If we have findings but none are fixable, mark as needs human review
+                if findings and not fixable_findings:
+                    self._log_warning(
+                        "All findings lack file paths - human review required",
+                        total_findings=len(findings),
+                        unfixable_findings=unfixable_findings,
+                    )
+                    state.complete_iteration(
+                        findings_count=len(findings),
+                        fixes_applied=0,
+                        ci_status="failed" if not check_result.all_passed else "passed",
+                        status="needs_human_review",
+                        notes=f"{unfixable_findings} finding(s) require human review (no file paths)",
+                    )
+                    state.mark_completed(PRReviewStatus.NEEDS_HUMAN_REVIEW)
+                    self._save_state(state)
+
+                    return OrchestratorRunResult(
+                        result=OrchestratorResult.NEEDS_HUMAN_REVIEW,
+                        pr_number=pr_number,
+                        repo=repo,
+                        iterations_completed=state.current_iteration,
+                        findings_fixed=total_fixes_applied,
+                        findings_unfixed=unfixable_findings,
+                        ci_all_passed=check_result.all_passed,
+                        needs_human_review=True,
+                        state=state,
+                        error_message=f"{unfixable_findings} finding(s) require human review",
+                        duration_seconds=time.monotonic() - start_time,
                     )
 
                 # If no findings at all (CI passed AND AI review found nothing)

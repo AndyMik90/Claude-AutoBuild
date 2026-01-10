@@ -654,7 +654,8 @@ export function PRDetail({
         <PRHeader pr={pr} isLoadingFiles={isLoadingFiles} />
 
         {/* Auto PR Review Section - Autonomous review and fix loop */}
-        {repoFullName && (
+        {/* Only show for open PRs - closed/merged PRs cannot be reviewed */}
+        {repoFullName && pr.state.toLowerCase() === 'open' && (
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="py-4">
               <div className="flex items-start gap-4">
@@ -713,7 +714,7 @@ export function PRDetail({
                     <div className="mt-4">
                       <AutoPRReviewProgressCard
                         progress={autoPRReviewProgress}
-                        t={(key: string) => t(key, key.split('.').pop() ?? key)}
+                        t={(key: string) => t(`github:${key}`, { defaultValue: key.split('.').pop() ?? key })}
                       />
                     </div>
                   )}
@@ -764,10 +765,12 @@ export function PRDetail({
           onCancelReview={onCancelReview}
           newCommitsCheck={newCommitsCheck}
           lastPostedAt={postSuccess?.timestamp || (reviewResult?.postedAt ? new Date(reviewResult.postedAt).getTime() : null)}
+          hideActions={pr.state.toLowerCase() !== 'open'}
         />
 
         {/* Action Bar (Legacy Actions that fit under the tree context) */}
-        {reviewResult && reviewResult.success && !isReviewing && (
+        {/* Only show for open PRs - actions don't apply to closed/merged PRs */}
+        {reviewResult && reviewResult.success && !isReviewing && pr.state.toLowerCase() === 'open' && (
           <div className="flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
              {selectedCount > 0 && (
                 <Button onClick={handlePostReview} variant="secondary" disabled={isPostingFindings} className="flex-1 sm:flex-none">

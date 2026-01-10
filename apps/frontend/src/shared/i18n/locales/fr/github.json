@@ -9,6 +9,9 @@
     "iterationTooltip": "Chaque cycle: vérifier CI → examen IA → corriger les problèmes si nécessaire",
     "ciChecks": "Vérifications CI",
     "ciPassed": "Réussi",
+    "ciRunning": "En cours...",
+    "ciDonePassed": "Terminé (réussi)",
+    "ciDoneFailed": "Terminé (échoué)",
     "checkingCI": "Vérification...",
     "ciPassedNoDetails": "Toutes les vérifications CI réussies",
     "noChecks": "Aucune vérification",
@@ -34,6 +37,8 @@
     "botPending": "En attente",
     "readyForReview": "Prêt pour l'examen humain",
     "humanApprovalRequired": "Cette PR a passé toutes les vérifications automatisées et est prête pour l'approbation humaine.",
+    "needsHumanReviewTitle": "Examen humain requis",
+    "needsHumanReviewMessage": "Certains résultats ne peuvent pas être corrigés automatiquement (ex: échecs CI sans chemin de fichier). Veuillez les examiner et les corriger manuellement.",
     "details": "Détails",
     "viewDetails": "Voir les détails",
     "progressCard": "Progression de l'examen Auto PR",
@@ -47,7 +52,8 @@
       "completed": "Terminé",
       "cancelled": "Annulé",
       "failed": "Échoué",
-      "max_iterations": "Nombre maximum d'itérations atteint"
+      "max_iterations": "Nombre maximum d'itérations atteint",
+      "needsHumanReview": "Examen humain requis"
     },
     "progress": {
       "title": "Progression de l'examen PR",

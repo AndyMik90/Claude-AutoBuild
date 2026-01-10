@@ -32,7 +32,7 @@ if env_file.exists():
 from debug import debug, debug_error, debug_warning
 
 # Import from refactored roadmap package
-from roadmap import RoadmapOrchestrator
+from .roadmap import RoadmapOrchestrator
 
 
 def main():

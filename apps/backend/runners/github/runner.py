@@ -530,6 +530,28 @@ async def cmd_auto_pr_review(args) -> int:
             print("\n** HUMAN APPROVAL REQUIRED **")
             print(f"PR is ready for review at: {pr_url}")
             return 0
+        elif result.result == OrchestratorResult.NEEDS_HUMAN_REVIEW:
+            # Valid terminal state - findings exist but can't be auto-fixed
+            emit_progress(
+                "needs_human_review",
+                100,
+                f"PR #{args.pr_number} requires human review",
+                ci_passed=result.ci_all_passed,
+                findings_fixed=result.findings_fixed,
+                findings_remaining=result.findings_unfixed,
+            )
+            print(f"\n{'=' * 60}")
+            print(f"Auto-PR-Review: Human Review Required for PR #{args.pr_number}")
+            print(f"{'=' * 60}")
+            print(f"Result: {result.result.value}")
+            print(f"Iterations: {result.iterations_completed}")
+            print(f"Findings Fixed: {result.findings_fixed}")
+            print(f"Findings Requiring Manual Review: {result.findings_unfixed}")
+            print("\n** HUMAN REVIEW REQUIRED **")
+            print("Some findings cannot be automatically fixed (e.g., CI failures")
+            print("without specific file paths). Please review and fix manually.")
+            print(f"PR URL: {pr_url}")
+            return 0  # Exit successfully - this is a valid terminal state
         else:
             emit_progress(
                 "failed"

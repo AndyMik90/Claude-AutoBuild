@@ -64,9 +64,25 @@ class FrontendStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     MAX_ITERATIONS = "max_iterations"
+    NEEDS_HUMAN_REVIEW = "needs_human_review"  # Findings exist but can't be auto-fixed
 
     # Unknown/error state
     UNKNOWN = "unknown"
+
+
+# Map backend CheckStatus values to frontend CI status values
+# Backend uses: pending, running, passed, failed, skipped, timed_out, unknown
+# Frontend expects: pending, in_progress, success, failure, cancelled, skipped
+CI_STATUS_TO_FRONTEND = {
+    "pending": "pending",
+    "running": "in_progress",
+    "passed": "success",
+    "failed": "failure",
+    "skipped": "skipped",
+    "timed_out": "failure",  # Map timed_out to failure
+    "unknown": "pending",  # Map unknown to pending
+    "cancelled": "cancelled",  # If backend adds cancelled, pass through
+}
 
 
 @dataclass
@@ -74,7 +90,7 @@ class CICheckInfo:
     """CI check information for frontend display."""
 
     name: str
-    status: str  # "pending" | "running" | "passed" | "failed" | "skipped"
+    status: str  # Frontend values: "pending" | "in_progress" | "success" | "failure" | "cancelled" | "skipped"
     url: str | None = None
 
 
@@ -223,6 +239,7 @@ class FrontendStateAdapter:
         "reviewing": FrontendStatus.PR_REVIEWING.value,
         "fixing": FrontendStatus.PR_FIXING.value,
         "ready_to_merge": FrontendStatus.PR_READY_TO_MERGE.value,
+        "needs_human_review": FrontendStatus.NEEDS_HUMAN_REVIEW.value,
         "completed": FrontendStatus.COMPLETED.value,
         "cancelled": FrontendStatus.CANCELLED.value,
         "failed": FrontendStatus.FAILED.value,
@@ -236,6 +253,7 @@ class FrontendStateAdapter:
         "pr_reviewing": "AI reviewing PR changes",
         "pr_fixing": "Applying fixes to resolve findings",
         "pr_ready_to_merge": "Ready for human approval",
+        "needs_human_review": "Findings require human review (cannot auto-fix)",
     }
 
     @classmethod
@@ -324,6 +342,7 @@ class FrontendStateAdapter:
             "pr_reviewing": 40,
             "pr_fixing": 60,
             "pr_ready_to_merge": 90,
+            "needs_human_review": 100,  # Terminal state - findings need human attention
             "completed": 100,
             "merged": 100,
             "cancelled": 100,
@@ -424,7 +443,7 @@ class FrontendStateAdapter:
             ci_checks = [
                 CICheckInfo(
                     name=c.name,
-                    status=c.status.value,
+                    status=CI_STATUS_TO_FRONTEND.get(c.status.value, "pending"),
                     url=c.url,
                 )
                 for c in pr_state.ci_checks

@@ -496,6 +496,7 @@ export type AutoPRReviewStatus =
   | 'pr_reviewing'
   | 'pr_fixing'
   | 'pr_ready_to_merge'
+  | 'needs_human_review'
   | 'completed'
   | 'failed'
   | 'cancelled'
@@ -532,6 +533,10 @@ export interface AutoPRReviewProgress {
   elapsedMs: number;
   ciChecks: CICheckStatus[];
   ciSummary: { total: number; passed: number; failed: number; pending: number };
+  /** Whether CI checks have completed (regardless of pass/fail) */
+  ciCompleted?: boolean;
+  /** Whether all CI checks passed (only meaningful when ciCompleted is true) */
+  ciPassed?: boolean;
   externalBots: ExternalBotStatus[];
   fixedFindingsCount: number;
   remainingFindingsCount: number;
@@ -586,7 +591,7 @@ export interface AutoPRReviewStatusResponse {
 
 /** Type guard to check if a status is a terminal state */
 export function isTerminalStatus(status: AutoPRReviewStatus): boolean {
-  return ['completed', 'failed', 'cancelled', 'pr_ready_to_merge', 'max_iterations'].includes(status);
+  return ['completed', 'failed', 'cancelled', 'pr_ready_to_merge', 'max_iterations', 'needs_human_review'].includes(status);
 }
 
 /** Type guard to check if a status indicates the review is in progress */

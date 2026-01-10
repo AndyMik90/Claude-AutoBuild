@@ -84,6 +84,22 @@ function getReviewKey(repository: string, prNumber: number): string {
   return `${repository}#${prNumber}`;
 }
 
+/**
+ * Custom event name for cross-instance state synchronization.
+ * When a review is started/stopped in one hook instance, other instances
+ * should immediately refresh to show the updated state.
+ */
+const AUTO_PR_REVIEW_STATE_CHANGED_EVENT = 'auto-pr-review-state-changed';
+
+/**
+ * Dispatch a state change event to notify all hook instances
+ */
+function dispatchStateChangedEvent(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(AUTO_PR_REVIEW_STATE_CHANGED_EVENT));
+  }
+}
+
 // =============================================================================
 // Hook Implementation
 // =============================================================================
@@ -327,6 +343,9 @@ export function useAutoPRReview(options?: {
       await refreshStatus();
       console.log('[useAutoPRReview] refreshStatus completed');
 
+      // Notify other hook instances to refresh their state
+      dispatchStateChangedEvent();
+
       if (isMountedRef.current && result.error) {
         setError(result.error);
       } else if (isMountedRef.current) {
@@ -370,6 +389,8 @@ export function useAutoPRReview(options?: {
       if (result.success) {
         // Refresh to update the cancelled state in UI
         await refreshStatus();
+        // Notify other hook instances to refresh their state
+        dispatchStateChangedEvent();
       }
 
       if (isMountedRef.current && result.error) {
@@ -457,6 +478,23 @@ export function useAutoPRReview(options?: {
       }
     };
   }, [autoRefresh, pollInterval, refreshStatus, hasAPI]);
+
+  // Listen for cross-instance state change events
+  // This allows immediate sync when a review is started/stopped from another hook instance
+  useEffect(() => {
+    if (!hasAPI) return;
+
+    const handleStateChanged = () => {
+      console.log('[useAutoPRReview] State change event received, refreshing...');
+      refreshStatus();
+    };
+
+    window.addEventListener(AUTO_PR_REVIEW_STATE_CHANGED_EVENT, handleStateChanged);
+
+    return () => {
+      window.removeEventListener(AUTO_PR_REVIEW_STATE_CHANGED_EVENT, handleStateChanged);
+    };
+  }, [hasAPI, refreshStatus]);
 
   // ==========================================================================
   // Return
