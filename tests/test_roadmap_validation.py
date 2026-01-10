@@ -189,9 +189,52 @@ def test_original_bug_scenario():
     ), "Should identify the type error"
 
 
+def test_full_validation_workflow():
+    """Test complete validation workflow with multiple features."""
+    from apps.backend.runners.roadmap.models import RoadmapFeature
+    from apps.backend.runners.roadmap.validators import DependencyValidator
+
+    features = [
+        RoadmapFeature(
+            id="feat-1",
+            title="Auth System",
+            description="Authentication",
+            dependencies=[],
+            status="planned"
+        ),
+        RoadmapFeature(
+            id="feat-2",
+            title="User Management",
+            description="User CRUD",
+            dependencies=["feat-1"],
+            status="planned"
+        ),
+        RoadmapFeature(
+            id="feat-3",
+            title="Admin Panel",
+            description="Admin interface",
+            dependencies=["feat-2"],
+            status="planned"
+        ),
+    ]
+
+    validator = DependencyValidator()
+    result = validator.validate_all(features)
+
+    # Should have no issues
+    assert not result.has_missing
+    assert not result.has_circular
+
+    # Reverse dependencies should be correct
+    assert result.reverse_deps_map["feat-1"] == ["feat-2"]
+    assert result.reverse_deps_map["feat-2"] == ["feat-3"]
+    assert result.reverse_deps_map["feat-3"] == []
+
+
 if __name__ == "__main__":
     # Run tests manually if needed
     test_target_audience_validation_logic()
     test_roadmap_file_validation_simulation()
     test_original_bug_scenario()
+    test_full_validation_workflow()
     print("All validation tests passed!")

@@ -1,0 +1,47 @@
+{
+  "dependencyDetailPanel": {
+    "title": "Detail Dependensi",
+    "description": "Deskripsi",
+    "details": "Detail",
+    "priority": "Prioritas",
+    "complexity": "Kompleksitas",
+    "impact": "Dampak",
+    "status": "Status",
+    "dependencies": "Dependensi",
+    "dependenciesCount": "Dependensi ({{count}})",
+    "requiredBy": "Dibutuhkan Oleh",
+    "requiredByCount": "Dibutuhkan Oleh ({{count}})",
+    "goToTask": "Pergi ke Tugas",
+    "convertToSpec": "Konversi ke Spesifikasi",
+    "viewInRoadmap": "Lihat di Roadmap",
+    "closePanel": "Tutup panel",
+    "viewDependency": "Lihat dependensi: {{title}}",
+    "viewRequiredBy": "Lihat fitur yang bergantung pada ini: {{title}}"
+  },
+  "featureDetailPanel": {
+    "description": "Deskripsi",
+    "rationale": "Rasional",
+    "complexity": "Kompleksitas",
+    "impact": "Dampak",
+    "dependencies": "Dependensi",
+    "userStories": "User Stories",
+    "acceptanceCriteria": "Kriteria Penerimaan",
+    "requiredBy": "Dibutuhkan Oleh ({{count}})",
+    "goToTask": "Pergi ke Tugas",
+    "convertToAutoBuildTask": "Konversi ke Tugas Auto-Build"
+  },
+  "featureCard": {
+    "deps": "{{count}} deps",
+    "deps_one": "{{count}} dep",
+    "deps_other": "{{count}} deps",
+    "dependencies": "Dependensi",
+    "more": "+{{count}} lagi",
+    "requiredBy": "{{count}} dibutuhkan oleh",
+    "requiredBy_one": "1 dibutuhkan oleh",
+    "requiredBy_other": "{{count}} dibutuhkan oleh",
+    "requiredByLabel": "Dibutuhkan oleh:"
+  },
+  "validation": {
+    "circularDependency": "Dependensi melingkar"
+  }
+}

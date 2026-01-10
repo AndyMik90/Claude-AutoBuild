@@ -57,6 +57,7 @@ export function registerRoadmapHandlers(
     async (_, projectId: string): Promise<IPCResult<Roadmap | null>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
+        debugLog('[Roadmap GET] Project not found:', projectId);
         return { success: false, error: 'Project not found' };
       }
 
@@ -170,6 +171,13 @@ export function registerRoadmapHandlers(
             impact: feature.impact || 'medium',
             phaseId: feature.phase_id,
             dependencies: feature.dependencies || [],
+            reverseDependencies: (feature.reverse_dependencies as string[]) || undefined,
+            dependencyValidation: feature.dependency_validation as {
+              hasMissing: boolean;
+              hasCircular: boolean;
+              missingIds: string[];
+              circularPaths: string[][];
+            } | undefined,
             status: feature.status || 'under_review',
             acceptanceCriteria: feature.acceptance_criteria || [],
             userStories: feature.user_stories || [],
@@ -377,6 +385,8 @@ export function registerRoadmapHandlers(
           impact: feature.impact,
           phase_id: feature.phaseId,
           dependencies: feature.dependencies || [],
+          reverse_dependencies: feature.reverseDependencies || [],
+          dependency_validation: feature.dependencyValidation || undefined,
           status: feature.status,
           acceptance_criteria: feature.acceptanceCriteria || [],
           user_stories: feature.userStories || [],

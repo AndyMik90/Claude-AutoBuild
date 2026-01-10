@@ -1,3 +1,21 @@
+## [Unreleased]
+
+### Added
+- **Roadmap:** Dependency visualization in all roadmap views
+- **Roadmap:** Bidirectional dependency display (dependencies and reverse dependencies)
+- **Roadmap:** Dependency validation with circular and missing dependency detection
+- **Roadmap:** Clickable dependency chips with detail side panel
+- **Roadmap:** Dependency status indicators (completed, in-progress, planned, missing)
+- **Roadmap:** Reverse dependency calculation and display
+
+### Changed
+- Enhanced roadmap data model with dependency metadata
+- Improved roadmap refresh with dependency preservation (TODO in future phase)
+
+### Fixed
+- Duplicate circular dependency path reporting in validator
+- Missing i18n namespace registration for roadmap translations
+
 ## 2.7.2 - Stability & Performance Enhancements
 
 ### ✨ New Features

@@ -9,7 +9,14 @@ import json
 from pathlib import Path
 
 from client import create_client
-from debug import debug, debug_error, debug_section, debug_success
+from debug import (
+    debug,
+    debug_detailed,
+    debug_error,
+    debug_section,
+    debug_success,
+    debug_warning,
+)
 from init import init_auto_claude_dir
 from phase_config import get_thinking_budget
 from ui import Icons, box, icon, muted, print_section, print_status
@@ -17,7 +24,9 @@ from ui import Icons, box, icon, muted, print_section, print_status
 from .competitor_analyzer import CompetitorAnalyzer
 from .executor import AgentExecutor, ScriptExecutor
 from .graph_integration import GraphHintsProvider
+from .models import RoadmapFeature
 from .phases import DiscoveryPhase, FeaturesPhase, ProjectIndexPhase
+from .validators import DependencyValidator
 
 
 class RoadmapOrchestrator:
@@ -188,9 +197,123 @@ class RoadmapOrchestrator:
             return False
         debug_success("roadmap_orchestrator", "Phase 3 complete")
 
+        # Enrich features with dependency validation
+        debug(
+            "roadmap_orchestrator",
+            "Enriching features with dependency validation",
+        )
+        self._enrich_roadmap_features()
+        debug_success("roadmap_orchestrator", "Feature enrichment complete")
+
         # Summary
         self._print_summary()
         return True
+
+    def _enrich_roadmap_features(self):
+        """Enrich features with dependency validation and reverse dependencies."""
+        roadmap_file = self.output_dir / "roadmap.json"
+        if not roadmap_file.exists():
+            debug_warning(
+                "roadmap_orchestrator", "Roadmap file not found for enrichment"
+            )
+            return None
+
+        try:
+            with open(roadmap_file) as f:
+                roadmap_data = json.load(f)
+
+            features_data = roadmap_data.get("features", [])
+            if not features_data:
+                debug_warning("roadmap_orchestrator", "No features found in roadmap")
+                return None
+
+            # Convert dict features to RoadmapFeature objects
+            features = []
+            for feat_dict in features_data:
+                feature = RoadmapFeature(
+                    id=feat_dict.get("id", ""),
+                    title=feat_dict.get("title", ""),
+                    description=feat_dict.get("description", ""),
+                    dependencies=feat_dict.get("dependencies", []),
+                    status=feat_dict.get("status", "planned"),
+                )
+                features.append(feature)
+
+            # Run validator
+            validator = DependencyValidator()
+            validation_result = validator.validate_all(features)
+
+            debug_detailed(
+                "roadmap_orchestrator",
+                "Validation results",
+                has_missing=validation_result.has_missing,
+                has_circular=validation_result.has_circular,
+                missing_ids=validation_result.missing_ids,
+                circular_paths_count=len(validation_result.circular_paths),
+            )
+
+            # Pre-compute all dependent IDs for efficient lookup
+            all_dependent_ids = {dep for f in features for dep in f.dependencies}
+
+            # Create a mapping of feature IDs to feature data for O(1) lookup
+            # This avoids O(N^2) complexity from repeated linear searches
+            features_by_id = {f.get("id"): f for f in features_data}
+
+            # Enrich each feature
+            enriched_features = []
+            for feature in features:
+                # Find the original feature dict using O(1) lookup
+                feat_dict = features_by_id.get(feature.id, {})
+
+                # Add reverse dependencies (snake_case for JSON, IPC handlers convert to camelCase)
+                feat_dict["reverse_dependencies"] = (
+                    validation_result.reverse_deps_map.get(feature.id, [])
+                )
+
+                # Add validation metadata for features with dependencies
+                if feature.id in all_dependent_ids or len(feature.dependencies) > 0:
+                    feat_dict["dependency_validation"] = {
+                        "has_missing": validation_result.has_missing,
+                        "has_circular": validation_result.has_circular,
+                        "missing_ids": [
+                            mid
+                            for mid in validation_result.missing_ids
+                            if mid in feature.dependencies
+                        ],
+                        "circular_paths": [
+                            cp
+                            for cp in validation_result.circular_paths
+                            if feature.id in cp
+                        ],
+                    }
+
+                enriched_features.append(feat_dict)
+
+            # Update roadmap with enriched features
+            roadmap_data["features"] = enriched_features
+
+            # Write back to file
+            with open(roadmap_file, "w") as f:
+                json.dump(roadmap_data, f, indent=2)
+
+            debug_success(
+                "roadmap_orchestrator",
+                "Enriched roadmap features",
+                features_count=len(enriched_features),
+            )
+            return True
+
+        except Exception as e:
+            # Log enrichment failure - surface error to user rather than hiding it
+            # Enrichment adds reverse dependencies and validation metadata that users expect
+            debug_error(
+                "roadmap_orchestrator",
+                "Failed to enrich roadmap features",
+                error=str(e),
+            )
+            print_status("Feature enrichment failed", "error")
+            print(f"  {muted('Error:')} {e}")
+            return False
 
     def _print_summary(self):
         """Print the final roadmap generation summary."""

@@ -8,8 +8,10 @@ import { RoadmapHeader } from './roadmap/RoadmapHeader';
 import { RoadmapEmptyState } from './roadmap/RoadmapEmptyState';
 import { RoadmapTabs } from './roadmap/RoadmapTabs';
 import { FeatureDetailPanel } from './roadmap/FeatureDetailPanel';
+import { DependencyDetailSidePanel } from './roadmap/DependencyDetailSidePanel';
 import { useRoadmapData, useFeatureActions, useRoadmapGeneration, useRoadmapSave, useFeatureDelete } from './roadmap/hooks';
-import { getCompetitorInsightsForFeature } from './roadmap/utils';
+import { useRoadmapStore } from '../stores/roadmap-store';
+import { getFeatureById, getCompetitorInsightsForFeature } from './roadmap/utils';
 import type { RoadmapFeature } from '../../shared/types';
 import type { RoadmapProps } from './roadmap/types';
 
@@ -19,6 +21,10 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   const [activeTab, setActiveTab] = useState('kanban');
   const [showAddFeatureDialog, setShowAddFeatureDialog] = useState(false);
   const [showCompetitorViewer, setShowCompetitorViewer] = useState(false);
+
+  // Dependency detail panel state from store
+  const dependencyDetailFeatureId = useRoadmapStore(s => s.dependencyDetailFeatureId);
+  const closeDependencyDetail = useRoadmapStore(s => s.closeDependencyDetail);
 
   // Custom hooks
   const { roadmap, competitorAnalysis, generationStatus } = useRoadmapData(projectId);
@@ -51,6 +57,13 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   const handleGoToTask = (specId: string) => {
     if (onGoToTask) {
       onGoToTask(specId);
+    }
+  };
+
+  const handleDependencyClick = (depId: string) => {
+    const depFeature = getFeatureById(roadmap, depId);
+    if (depFeature) {
+      setSelectedFeature(depFeature);
     }
   };
 
@@ -126,6 +139,23 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
           onGoToTask={handleGoToTask}
           onDelete={deleteFeature}
           competitorInsights={getCompetitorInsightsForFeature(selectedFeature, competitorAnalysis)}
+          onDependencyClick={handleDependencyClick}
+        />
+      )}
+
+      {/* Dependency Detail Side Panel */}
+      {dependencyDetailFeatureId && (
+        <DependencyDetailSidePanel
+          feature={getFeatureById(roadmap, dependencyDetailFeatureId) || null}
+          onClose={closeDependencyDetail}
+          roadmap={roadmap}
+          onGoToFeature={(featureId) => {
+            const feature = getFeatureById(roadmap, featureId);
+            if (feature) {
+              setSelectedFeature(feature);
+              closeDependencyDetail();
+            }
+          }}
         />
       )}
 

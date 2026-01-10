@@ -1,0 +1,47 @@
+{
+  "dependencyDetailPanel": {
+    "title": "Détails de la dépendance",
+    "description": "Description",
+    "details": "Détails",
+    "priority": "Priorité",
+    "complexity": "Complexité",
+    "impact": "Impact",
+    "status": "Statut",
+    "dependencies": "Dépendances",
+    "dependenciesCount": "Dépendances ({{count}})",
+    "requiredBy": "Requis par",
+    "requiredByCount": "Requis par ({{count}})",
+    "goToTask": "Aller à la tâche",
+    "convertToSpec": "Convertir en spécification",
+    "viewInRoadmap": "Voir dans la feuille de route",
+    "closePanel": "Fermer le panneau",
+    "viewDependency": "Voir la dépendance : {{title}}",
+    "viewRequiredBy": "Voir la fonctionnalité qui dépend de ceci : {{title}}"
+  },
+  "featureDetailPanel": {
+    "description": "Description",
+    "rationale": "Raison",
+    "complexity": "Complexité",
+    "impact": "Impact",
+    "dependencies": "Dépendances",
+    "userStories": "Récits utilisateurs",
+    "acceptanceCriteria": "Critères d'acceptation",
+    "requiredBy": "Requis par ({{count}})",
+    "goToTask": "Aller à la tâche",
+    "convertToAutoBuildTask": "Convertir en tâche de construction automatique"
+  },
+  "featureCard": {
+    "deps": "{{count}} dép.",
+    "deps_one": "{{count}} dép.",
+    "deps_other": "{{count}} dép.",
+    "dependencies": "Dépendances",
+    "more": "+{{count}} plus",
+    "requiredBy": "{{count}} requis par",
+    "requiredBy_one": "1 requis par",
+    "requiredBy_other": "{{count}} requis par",
+    "requiredByLabel": "Requis par :"
+  },
+  "validation": {
+    "circularDependency": "Dépendance circulaire"
+  }
+}

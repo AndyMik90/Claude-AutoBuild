@@ -19,6 +19,7 @@ import {
   arrayMove
 } from '@dnd-kit/sortable';
 import { Plus, Inbox, Eye, Calendar, Play, Check } from 'lucide-react';
+import { getFeatureById } from './roadmap/utils';
 import { ScrollArea } from './ui/scroll-area';
 import { Badge } from './ui/badge';
 import { Card } from './ui/card';
@@ -159,6 +160,12 @@ function DroppableStatusColumn({
                     onClick={() => onFeatureClick(feature)}
                     onConvertToSpec={onConvertToSpec}
                     onGoToTask={onGoToTask}
+                    onDependencyClick={(depId) => {
+                      const depFeature = getFeatureById(roadmap, depId);
+                      if (depFeature) {
+                        onFeatureClick(depFeature);
+                      }
+                    }}
                   />
                 ))
               )}
@@ -207,7 +214,7 @@ export function RoadmapKanbanView({
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const feature = roadmap.features.find((f) => f.id === active.id);
+    const feature = getFeatureById(roadmap, active.id as string);
     if (feature) {
       setActiveFeature(feature);
     }
@@ -230,7 +237,7 @@ export function RoadmapKanbanView({
     }
 
     // Check if over a feature - get its status
-    const overFeature = roadmap.features.find((f) => f.id === overId);
+    const overFeature = getFeatureById(roadmap, overId);
     if (overFeature) {
       setOverColumnId(overFeature.status);
     }
@@ -245,7 +252,7 @@ export function RoadmapKanbanView({
 
     const activeFeatureId = active.id as string;
     const overId = over.id as string;
-    const draggedFeature = roadmap.features.find((f) => f.id === activeFeatureId);
+    const draggedFeature = getFeatureById(roadmap, activeFeatureId);
 
     if (!draggedFeature) return;
 
@@ -257,7 +264,7 @@ export function RoadmapKanbanView({
       targetStatus = overId as RoadmapFeatureStatus;
     } else {
       // Dropped on a feature - get its status
-      const overFeature = roadmap.features.find((f) => f.id === overId);
+      const overFeature = getFeatureById(roadmap, overId);
       if (!overFeature) return;
       targetStatus = overFeature.status;
     }

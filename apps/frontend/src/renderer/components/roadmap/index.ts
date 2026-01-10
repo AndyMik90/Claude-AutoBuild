@@ -4,6 +4,7 @@ export { RoadmapTabs } from './RoadmapTabs';
 export { PhaseCard } from './PhaseCard';
 export { FeatureCard } from './FeatureCard';
 export { FeatureDetailPanel } from './FeatureDetailPanel';
+export { DependencyDetailSidePanel } from './DependencyDetailSidePanel';
 export { useRoadmapData, useFeatureActions, useRoadmapGeneration, useRoadmapSave, useFeatureDelete } from './hooks';
 export { getCompetitorInsightsForFeature, hasCompetitorInsight } from './utils';
 export type * from './types';

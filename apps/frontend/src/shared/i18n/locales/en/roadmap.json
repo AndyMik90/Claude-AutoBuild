@@ -1,0 +1,47 @@
+{
+  "dependencyDetailPanel": {
+    "title": "Dependency Details",
+    "description": "Description",
+    "details": "Details",
+    "priority": "Priority",
+    "complexity": "Complexity",
+    "impact": "Impact",
+    "status": "Status",
+    "dependencies": "Dependencies",
+    "dependenciesCount": "Dependencies ({{count}})",
+    "requiredBy": "Required By",
+    "requiredByCount": "Required By ({{count}})",
+    "goToTask": "Go to Task",
+    "convertToSpec": "Convert to Spec",
+    "viewInRoadmap": "View in Roadmap",
+    "closePanel": "Close panel",
+    "viewDependency": "View dependency: {{title}}",
+    "viewRequiredBy": "View feature that depends on this: {{title}}"
+  },
+  "featureDetailPanel": {
+    "description": "Description",
+    "rationale": "Rationale",
+    "complexity": "Complexity",
+    "impact": "Impact",
+    "dependencies": "Dependencies",
+    "userStories": "User Stories",
+    "acceptanceCriteria": "Acceptance Criteria",
+    "requiredBy": "Required By ({{count}})",
+    "goToTask": "Go to Task",
+    "convertToAutoBuildTask": "Convert to Auto-Build Task"
+  },
+  "featureCard": {
+    "deps": "{{count}} deps",
+    "deps_one": "{{count}} dep",
+    "deps_other": "{{count}} deps",
+    "dependencies": "Dependencies",
+    "more": "+{{count}} more",
+    "requiredBy": "{{count}} required by",
+    "requiredBy_one": "1 required by",
+    "requiredBy_other": "{{count}} required by",
+    "requiredByLabel": "Required by:"
+  },
+  "validation": {
+    "circularDependency": "Circular dependency"
+  }
+}

@@ -12,7 +12,7 @@ import {
   ROADMAP_COMPLEXITY_COLORS,
   ROADMAP_IMPACT_COLORS,
 } from '../../../shared/constants';
-import { hasCompetitorInsight } from './utils';
+import { getFeatureById, hasCompetitorInsight } from './utils';
 import type { RoadmapTabsProps } from './types';
 import type { RoadmapFeature, RoadmapPhase } from '../../../shared/types';
 
@@ -25,6 +25,19 @@ export function RoadmapTabs({
   onGoToTask,
   onSave,
 }: RoadmapTabsProps) {
+  const handleDependencyClick = (depId: string) => {
+    const depFeature = getFeatureById(roadmap, depId);
+    if (!depFeature) {
+      console.warn(
+        `[RoadmapTabs] handleDependencyClick: dependency feature not found - depId: "${depId}", ` +
+          `roadmap: "${roadmap.projectName}" (${roadmap.id}), ` +
+          `total features: ${roadmap.features.length}`
+      );
+      return;
+    }
+    onFeatureSelect(depFeature);
+  };
+
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="h-full flex flex-col">
       <TabsList className="shrink-0 mx-4 mt-4">
@@ -70,10 +83,12 @@ export function RoadmapTabs({
             <FeatureCard
               key={feature.id}
               feature={feature}
+              roadmap={roadmap}
               onClick={() => onFeatureSelect(feature)}
               onConvertToSpec={onConvertToSpec}
               onGoToTask={onGoToTask}
               hasCompetitorInsight={hasCompetitorInsight(feature)}
+              onDependencyClick={handleDependencyClick}
             />
           ))}
         </div>
