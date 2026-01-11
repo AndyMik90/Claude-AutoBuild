@@ -11,6 +11,7 @@ compatibility. In CI/CD with pytest-asyncio, these could use @pytest.mark.asynci
 
 import asyncio
 import json
+import sys
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock
@@ -19,7 +20,6 @@ import pytest
 
 # Add apps/backend to path for imports
 sys_path = Path(__file__).parent.parent / "apps" / "backend"
-import sys
 sys.path.insert(0, str(sys_path))
 
 
