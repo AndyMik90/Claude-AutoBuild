@@ -76,11 +76,88 @@ const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
 /**
- * Force remove a directory, handling Windows EBUSY errors.
+ * Force remove a directory on Windows using rd /s /q with \\?\ prefix for long paths.
+ * This handles paths exceeding Windows MAX_PATH (260 characters) limitation.
+ * @param dirPath - The directory path to remove
+ * @returns Promise that resolves when removal is complete
+ */
+async function forceRemoveDirectoryWindows(dirPath: string): Promise<void> {
+  // Convert forward slashes to backslashes for Windows
+  const normalizedPath = dirPath.replace(/\//g, '\\');
+
+  // Use \\?\ prefix to bypass MAX_PATH limitation
+  // Note: \\?\ prefix requires absolute path with backslashes
+  const longPath = normalizedPath.startsWith('\\\\?\\')
+    ? normalizedPath
+    : `\\\\?\\${normalizedPath}`;
+
+  console.log(`Attempting Windows long path removal: ${longPath}`);
+
+  try {
+    // Use rd /s /q which handles long paths better with \\?\ prefix
+    execFileSync('cmd.exe', ['/c', 'rd', '/s', '/q', longPath], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    console.log(`Successfully removed directory with rd: ${dirPath}`);
+    return;
+  } catch (rdError) {
+    console.warn(`rd /s /q failed, trying robocopy method:`, rdError);
+  }
+
+  // Fallback: Use robocopy trick - mirror empty dir to delete everything
+  const { mkdtempSync, rmdirSync } = await import('fs');
+  const { tmpdir } = await import('os');
+
+  const emptyDir = mkdtempSync(path.join(tmpdir(), 'empty-'));
+
+  try {
+    // robocopy /MIR mirrors empty dir to target, effectively deleting all contents
+    // /R:1 = 1 retry, /W:1 = 1 second wait, /NFL /NDL /NJH /NJS = suppress output
+    execFileSync('robocopy', [emptyDir, normalizedPath, '/MIR', '/R:1', '/W:1', '/NFL', '/NDL', '/NJH', '/NJS'], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+  } catch {
+    // robocopy returns non-zero for various reasons, check if dir is now empty
+  }
+
+  // Clean up the temp empty dir
+  try {
+    rmdirSync(emptyDir);
+  } catch {
+    // Ignore cleanup errors
+  }
+
+  // Now remove the emptied directory
+  try {
+    execFileSync('cmd.exe', ['/c', 'rd', '/s', '/q', longPath], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    console.log(`Successfully removed directory with robocopy+rd: ${dirPath}`);
+  } catch (finalError) {
+    // If still failing, try standard rmdir as last resort
+    try {
+      const { rmSync } = await import('fs');
+      rmSync(dirPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+      console.log(`Successfully removed directory with rmSync: ${dirPath}`);
+    } catch (rmError) {
+      throw new Error(`Failed to remove directory with long path: ${rmError instanceof Error ? rmError.message : 'Unknown error'}`);
+    }
+  }
+}
+
+/**
+ * Force remove a directory, handling Windows EBUSY errors and long paths.
  * On Windows, directories can be locked by processes, so we:
  * 1. Try regular rmSync first
  * 2. If EBUSY, wait and retry a few times
  * 3. On Windows, try to kill processes that might have locks
+ * 4. For long path errors on Windows, use special handling with \\?\ prefix
  */
 async function forceRemoveDirectory(dirPath: string, maxRetries = 3): Promise<void> {
   const { rmSync } = await import('fs');
@@ -92,7 +169,19 @@ async function forceRemoveDirectory(dirPath: string, maxRetries = 3): Promise<vo
       return;
     } catch (error) {
       const errorCode = (error as NodeJS.ErrnoException).code;
+      const errorMsg = error instanceof Error ? error.message : '';
       const isLockError = errorCode === 'EBUSY' || errorCode === 'EPERM' || errorCode === 'ENOTEMPTY';
+      const isLongPathError = errorCode === 'ENAMETOOLONG' ||
+                              errorMsg.includes('Filename too long') ||
+                              errorMsg.includes('path too long') ||
+                              errorMsg.toLowerCase().includes('enametoolong');
+
+      // On Windows, handle long path errors with special method
+      if (isLongPathError && process.platform === 'win32') {
+        console.warn(`Long path detected, using Windows-specific removal: ${dirPath}`);
+        await forceRemoveDirectoryWindows(dirPath);
+        return;
+      }
 
       if (!isLockError || attempt === maxRetries) {
         // Not a lock error or final attempt - throw
@@ -2751,6 +2840,22 @@ export function registerWorktreeHandlers(
             } else if (errorMsg.includes('EBUSY') || errorMsg.includes('resource busy')) {
               // Directory is locked by another process
               console.warn('Worktree directory is busy, attempting force removal');
+              await forceRemoveDirectory(worktreePath);
+            } else if (errorMsg.includes('Filename too long') || errorMsg.includes('path too long') || errorMsg.toLowerCase().includes('enametoolong')) {
+              // Windows long path issue - git can't handle paths > 260 chars
+              console.warn('Long path detected in git worktree remove, using manual removal');
+
+              // Prune stale worktree references first
+              try {
+                execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+                  cwd: project.path,
+                  encoding: 'utf-8'
+                });
+              } catch {
+                // Prune might fail, continue anyway
+              }
+
+              // Use Windows-specific long path removal
               await forceRemoveDirectory(worktreePath);
             } else {
               // Re-throw other errors
