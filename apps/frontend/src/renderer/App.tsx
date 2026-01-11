@@ -581,6 +581,12 @@ export function App() {
 
           // Open a tab for the new project
           openProjectTab(project.id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to import folder:', error);
+    }
+  };
 
   const handleProjectAdded = (project: Project, needsInit: boolean) => {
     openProjectTab(project.id);
