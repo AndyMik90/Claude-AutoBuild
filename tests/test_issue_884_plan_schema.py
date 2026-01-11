@@ -400,6 +400,7 @@ async def test_worktree_planning_to_coding_sync_updates_source_phase_status(
             return "continue", "planned"
 
         # First coding session should see planning already completed in source spec logs
+        # Note: task_logs.json is created/synced by run_autonomous_agent; absence indicates a bug.
         logs = json.loads(
             (source_spec_dir / "task_logs.json").read_text(encoding="utf-8")
         )

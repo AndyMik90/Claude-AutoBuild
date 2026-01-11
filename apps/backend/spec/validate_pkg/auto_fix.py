@@ -58,7 +58,7 @@ def auto_fix_plan(spec_dir: Path) -> bool:
     if "phases" not in plan and (
         isinstance(plan.get("subtasks"), list) or isinstance(plan.get("chunks"), list)
     ):
-        subtasks = plan.get("subtasks", plan.get("chunks", [])) or []
+        subtasks = plan.get("subtasks") or plan.get("chunks") or []
         plan["phases"] = [
             {
                 "id": "1",

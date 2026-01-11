@@ -471,7 +471,7 @@ async def run_autonomous_agent(
                         attempt_count=attempt_count,
                     )
                     print_status("Linear notified of stuck subtask", "info")
-        elif plan_validated and is_planning_phase and source_spec_dir:
+        elif plan_validated and source_spec_dir:
             # After planning phase, sync the newly created implementation plan back to source
             if sync_spec_to_source(spec_dir, source_spec_dir):
                 print_status("Implementation plan synced to main project", "success")
