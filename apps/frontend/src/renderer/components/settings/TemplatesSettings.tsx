@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Plus, Folder, Trash2, Pencil, Key, ArrowLeft, HelpCircle, Code2, Search } from 'lucide-react';
+import { Plus, Folder, Trash2, Pencil, Key, ArrowLeft, HelpCircle, Code2, Search, ExternalLink } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardContent } from '../ui/card';
+import { Badge } from '../ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -11,9 +12,10 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 import { SettingsSection } from './SettingsSection';
-import type { Template } from '../../../shared/types';
+import type { Template, AppSettings } from '../../../shared/types';
 import { AddTemplateDialog } from './AddTemplateDialog';
 import { SecretsManager } from './SecretsManager';
+import { useToast } from '../../hooks/use-toast';
 
 type View = 'templates' | 'secrets';
 
@@ -25,6 +27,9 @@ export function TemplatesSettings() {
   const [view, setView] = useState<View>('templates');
   const [showGuide, setShowGuide] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [paramCounts, setParamCounts] = useState<Record<string, number>>({});
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const { toast } = useToast();
 
   const loadTemplates = async () => {
     setIsLoading(true);
@@ -32,6 +37,8 @@ export function TemplatesSettings() {
       const result = await window.electronAPI.getTemplates();
       if (result.success && result.data) {
         setTemplates(result.data);
+        // Load parameter counts for each template
+        await loadParameterCounts(result.data);
       }
     } catch (error) {
       console.error('Failed to load templates:', error);
@@ -40,8 +47,37 @@ export function TemplatesSettings() {
     }
   };
 
+  const loadParameterCounts = async (templates: Template[]) => {
+    const counts: Record<string, number> = {};
+    await Promise.all(
+      templates.map(async (template) => {
+        try {
+          const result = await window.electronAPI.parseTemplateParameters(template.id);
+          if (result.success && result.data) {
+            counts[template.id] = result.data.parameters.length;
+          }
+        } catch (error) {
+          console.error(`Failed to parse parameters for template ${template.id}:`, error);
+        }
+      })
+    );
+    setParamCounts(counts);
+  };
+
+  const loadSettings = async () => {
+    try {
+      const result = await window.electronAPI.getSettings();
+      if (result.success && result.data) {
+        setSettings(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
+
   useEffect(() => {
     loadTemplates();
+    loadSettings();
   }, []);
 
   const handleAddTemplate = () => {
@@ -73,6 +109,40 @@ export function TemplatesSettings() {
     loadTemplates();
     setIsAddDialogOpen(false);
     setEditingTemplate(null);
+  };
+
+  const handleOpenInIDE = async (template: Template) => {
+    try {
+      // Get preferred IDE from settings, fallback to vscode
+      const preferredIDE = settings?.preferredIDE || 'vscode';
+      const customIDEPath = settings?.customIDEPath;
+
+      const result = await window.electronAPI.worktreeOpenInIDE(
+        template.folderPath,
+        preferredIDE,
+        customIDEPath
+      );
+
+      if (result.success && result.data?.opened) {
+        toast({
+          title: 'Template opened',
+          description: `Opened ${template.name} in your IDE`
+        });
+      } else {
+        toast({
+          title: 'Failed to open template',
+          description: result.error || 'Could not open template in IDE',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Failed to open template in IDE:', error);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred',
+        variant: 'destructive'
+      });
+    }
   };
 
   // Filter templates based on search query
@@ -232,8 +302,15 @@ export function TemplatesSettings() {
                       )}
                     </div>
 
-                    {/* Template Name */}
-                    <h3 className="font-medium text-sm mb-1 truncate">{template.name}</h3>
+                    {/* Template Name and Parameter Count */}
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-medium text-sm truncate flex-1">{template.name}</h3>
+                      {paramCounts[template.id] !== undefined && paramCounts[template.id] > 0 && (
+                        <Badge variant="secondary" className="text-xs shrink-0">
+                          {paramCounts[template.id]} param{paramCounts[template.id] !== 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </div>
 
                     {/* Template Path */}
                     <p className="text-xs text-muted-foreground truncate mb-3">
@@ -242,6 +319,15 @@ export function TemplatesSettings() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenInIDE(template)}
+                        className="gap-1"
+                        title="Open in IDE"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
