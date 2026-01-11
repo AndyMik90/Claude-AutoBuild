@@ -10,6 +10,7 @@ class LogPhase(str, Enum):
     """Log phases matching the execution flow."""
 
     PLANNING = "planning"
+    DISCOVERY = "discovery"
     CODING = "coding"
     VALIDATION = "validation"
 

@@ -51,6 +51,7 @@ SPEC_PHASE_THINKING_LEVELS: dict[str, str] = {
 DEFAULT_PHASE_MODELS: dict[str, str] = {
     "spec": "sonnet",
     "planning": "sonnet",  # Changed from "opus" (fix #433)
+    "discovery": "opus",  # Code Discovery uses Opus 4.5
     "coding": "sonnet",
     "qa": "sonnet",
 }
@@ -58,6 +59,7 @@ DEFAULT_PHASE_MODELS: dict[str, str] = {
 DEFAULT_PHASE_THINKING: dict[str, str] = {
     "spec": "medium",
     "planning": "high",
+    "discovery": "ultrathink",  # Code Discovery uses maximum thinking budget
     "coding": "medium",
     "qa": "high",
 }
@@ -66,6 +68,7 @@ DEFAULT_PHASE_THINKING: dict[str, str] = {
 class PhaseModelConfig(TypedDict, total=False):
     spec: str
     planning: str
+    discovery: str
     coding: str
     qa: str
 
@@ -73,6 +76,7 @@ class PhaseModelConfig(TypedDict, total=False):
 class PhaseThinkingConfig(TypedDict, total=False):
     spec: str
     planning: str
+    discovery: str
     coding: str
     qa: str
 
@@ -87,7 +91,7 @@ class TaskMetadataConfig(TypedDict, total=False):
     thinkingLevel: str
 
 
-Phase = Literal["spec", "planning", "coding", "qa"]
+Phase = Literal["spec", "planning", "discovery", "coding", "qa"]
 
 
 def resolve_model_id(model: str) -> str:
