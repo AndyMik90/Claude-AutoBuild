@@ -40,6 +40,7 @@ from .models import (
     ELECTRON_TOOLS,
     GRAPHITI_MCP_TOOLS,
     LINEAR_TOOLS,
+    PLAYWRIGHT_TOOLS,
     PUPPETEER_TOOLS,
     # Auto-Claude tool names
     TOOL_GET_BUILD_PROGRESS,
@@ -54,6 +55,7 @@ from .models import (
     get_default_thinking_level,
     get_required_mcp_servers,
     is_electron_mcp_enabled,
+    is_playwright_enabled,
 )
 from .permissions import get_all_agent_types, get_allowed_tools
 from .registry import create_auto_claude_mcp_server, is_tools_available
@@ -78,6 +80,7 @@ __all__ = [
     "LINEAR_TOOLS",
     "GRAPHITI_MCP_TOOLS",
     "ELECTRON_TOOLS",
+    "PLAYWRIGHT_TOOLS",
     "PUPPETEER_TOOLS",
     # Auto-Claude tool name constants
     "TOOL_UPDATE_SUBTASK_STATUS",
@@ -88,4 +91,5 @@ __all__ = [
     "TOOL_UPDATE_QA_STATUS",
     # Config
     "is_electron_mcp_enabled",
+    "is_playwright_enabled",
 ]
