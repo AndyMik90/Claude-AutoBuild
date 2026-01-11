@@ -203,6 +203,40 @@ def test_auto_fix_plan_normalizes_nonstandard_schema_and_validates(spec_dir: Pat
     assert result.valid is True
 
 
+def test_auto_fix_plan_normalizes_numeric_phase_ids_for_depends_on_validation(
+    spec_dir: Path,
+):
+    plan = {
+        "feature": "Test feature",
+        "workflow_type": "feature",
+        "phases": [
+            {
+                "phase_id": "1",
+                "title": "Phase 1",
+                "subtasks": [
+                    {"id": "1.1", "description": "Done", "status": "completed"}
+                ],
+            },
+            {
+                "phase_id": "2",
+                "title": "Phase 2",
+                "depends_on": ["1"],
+                "subtasks": [{"id": "2.1", "description": "Next", "status": "pending"}],
+            },
+        ],
+    }
+    plan_path = spec_dir / "implementation_plan.json"
+    _write_plan(plan_path, plan)
+
+    fixed = auto_fix_plan(spec_dir)
+    assert fixed is True
+
+    loaded = json.loads(plan_path.read_text(encoding="utf-8"))
+    assert loaded["phases"][0]["id"] == "1"
+    assert loaded["phases"][0]["phase"] == 1
+    assert SpecValidator(spec_dir).validate_implementation_plan().valid is True
+
+
 def test_auto_fix_plan_sets_phase_from_numeric_phase_id_even_with_existing_id(
     spec_dir: Path,
 ):
@@ -248,6 +282,7 @@ async def test_planner_session_does_not_trigger_post_session_processing_on_retry
 
     spec_dir = temp_git_repo / ".auto-claude" / "specs" / "001-test"
     spec_dir.mkdir(parents=True, exist_ok=True)
+    (spec_dir / "spec.md").write_text("# Test spec\n", encoding="utf-8")
 
     class DummyClient:
         async def __aenter__(self):
@@ -314,6 +349,8 @@ async def test_worktree_planning_to_coding_sync_updates_source_phase_status(
     source_spec_dir = temp_git_repo / ".auto-claude" / "specs" / "001-test"
     worktree_spec_dir.mkdir(parents=True, exist_ok=True)
     source_spec_dir.mkdir(parents=True, exist_ok=True)
+    for d in (worktree_spec_dir, source_spec_dir):
+        (d / "spec.md").write_text("# Test spec\n", encoding="utf-8")
 
     class DummyClient:
         async def __aenter__(self):

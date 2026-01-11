@@ -61,6 +61,7 @@ def auto_fix_plan(spec_dir: Path) -> bool:
         subtasks = plan.get("subtasks", plan.get("chunks", [])) or []
         plan["phases"] = [
             {
+                "id": "1",
                 "phase": 1,
                 "name": "Phase 1",
                 "subtasks": subtasks,
@@ -91,24 +92,45 @@ def auto_fix_plan(spec_dir: Path) -> bool:
             fixed = True
 
         if "phase" not in phase and "phase_id" in phase:
-            phase_fixed = False
             phase_id = phase.get("phase_id")
-            if isinstance(phase_id, (int, float)):
-                phase["phase"] = int(phase_id)
-                phase_fixed = True
-            elif isinstance(phase_id, str) and phase_id.strip().isdigit():
-                phase["phase"] = int(phase_id.strip())
-                phase_fixed = True
-            else:
-                if "id" not in phase:
-                    phase["id"] = str(phase_id)
-                    phase_fixed = True
+            phase_id_str = str(phase_id).strip() if phase_id is not None else ""
+            phase_num: int | None = None
+            if isinstance(phase_id, int) and not isinstance(phase_id, bool):
+                phase_num = phase_id
+            elif (
+                isinstance(phase_id, float)
+                and not isinstance(phase_id, bool)
+                and phase_id.is_integer()
+            ):
+                phase_num = int(phase_id)
+            elif isinstance(phase_id, str) and phase_id_str.isdigit():
+                phase_num = int(phase_id_str)
 
-            if phase_fixed:
+            if phase_num is not None:
+                if "id" not in phase:
+                    phase["id"] = str(phase_num)
+                    fixed = True
+                phase["phase"] = phase_num
+                fixed = True
+            elif "id" not in phase and phase_id is not None:
+                phase["id"] = phase_id_str
                 fixed = True
 
         if "phase" not in phase:
             phase["phase"] = i + 1
+            fixed = True
+
+        depends_on_raw = phase.get("depends_on", [])
+        if isinstance(depends_on_raw, list):
+            normalized_depends_on = [
+                str(d).strip() for d in depends_on_raw if d is not None
+            ]
+        elif depends_on_raw is None:
+            normalized_depends_on = []
+        else:
+            normalized_depends_on = [str(depends_on_raw).strip()]
+        if normalized_depends_on != depends_on_raw:
+            phase["depends_on"] = normalized_depends_on
             fixed = True
 
         if "name" not in phase:
