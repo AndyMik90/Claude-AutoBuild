@@ -394,7 +394,7 @@ def is_first_run(spec_dir: Path) -> bool:
         return True
 
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
 
         # Check if there are any phases with subtasks
