@@ -185,9 +185,22 @@ function createWindow(): void {
   });
 
   // Show window when ready to avoid visual flash
+  let windowShown = false;
   mainWindow.on('ready-to-show', () => {
+    windowShown = true;
     mainWindow?.show();
+    console.warn('[main] Window shown via ready-to-show event');
   });
+
+  // Fallback: force show window after 3 seconds if ready-to-show doesn't fire
+  // This helps in VMs or systems with display issues where the event might not fire
+  setTimeout(() => {
+    if (!windowShown && mainWindow && !mainWindow.isDestroyed()) {
+      console.warn('[main] Forcing window show (ready-to-show did not fire)');
+      mainWindow.show();
+      windowShown = true;
+    }
+  }, 3000);
 
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler((details) => {

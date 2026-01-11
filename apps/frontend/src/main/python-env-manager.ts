@@ -177,17 +177,10 @@ export class PythonEnvManager extends EventEmitter {
       // - dotenv: Environment variable loading (required)
       // - google.generativeai: Google AI/Gemini support (required for full functionality)
       // - real_ladybug + graphiti_core: Graphiti memory system (Python 3.12+ only)
-      const checkScript = `
-import sys
-import claude_agent_sdk
-import dotenv
-import google.generativeai
-# Graphiti dependencies only available on Python 3.12+
-if sys.version_info >= (3, 12):
-    import real_ladybug
-    import graphiti_core
-`;
-      execSync(`"${venvPython}" -c "${checkScript.replace(/\n/g, '; ').replace(/; ; /g, '; ')}"`, {
+      // Use separate imports on one line to avoid complex escaping
+      // Use single quotes for Python strings to avoid shell quoting issues
+      const checkScript = `import sys, claude_agent_sdk, dotenv, google.generativeai; sys.version_info >= (3, 12) and __import__('real_ladybug') and __import__('graphiti_core')`;
+      execSync(`"${venvPython}" -c "${checkScript}"`, {
         stdio: 'pipe',
         timeout: 15000
       });
