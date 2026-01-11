@@ -156,6 +156,35 @@ def test_auto_fix_plan_normalizes_nonstandard_schema_and_validates(spec_dir: Pat
     assert result.valid is True
 
 
+def test_auto_fix_plan_sets_phase_from_numeric_phase_id_even_with_existing_id(
+    spec_dir: Path,
+):
+    plan = {
+        "feature": "Test feature",
+        "workflow_type": "feature",
+        "phases": [
+            {
+                "id": "phase-foo",
+                "phase_id": 2,
+                "name": "Phase Foo",
+                "subtasks": [
+                    {"id": "2.1", "description": "Do thing", "status": "pending"},
+                ],
+            }
+        ],
+    }
+    plan_path = spec_dir / "implementation_plan.json"
+    _write_plan(plan_path, plan)
+
+    fixed = auto_fix_plan(spec_dir)
+    assert fixed is True
+
+    loaded = json.loads(plan_path.read_text(encoding="utf-8"))
+    assert loaded["phases"][0]["id"] == "phase-foo"
+    assert loaded["phases"][0]["phase"] == 2
+    assert SpecValidator(spec_dir).validate_implementation_plan().valid is True
+
+
 @pytest.mark.asyncio
 async def test_planner_session_does_not_trigger_post_session_processing_on_retry(
     temp_git_repo: Path, monkeypatch: pytest.MonkeyPatch

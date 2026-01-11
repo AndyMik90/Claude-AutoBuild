@@ -11,6 +11,7 @@ Enhanced with colored output, icons, and better visual formatting.
 import json
 from pathlib import Path
 
+from core.plan_normalization import normalize_subtask_aliases
 from ui import (
     Icons,
     bold,
@@ -450,18 +451,7 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
             for subtask in phase.get("subtasks", phase.get("chunks", [])):
                 status = subtask.get("status", "pending")
                 if status in {"pending", "not_started", "not started"}:
-                    subtask_out = dict(subtask)
-                    if "id" not in subtask_out and "subtask_id" in subtask_out:
-                        subtask_out["id"] = str(subtask_out.get("subtask_id"))
-                    if (
-                        (
-                            "description" not in subtask_out
-                            or not subtask_out.get("description")
-                        )
-                        and "title" in subtask_out
-                        and subtask_out.get("title")
-                    ):
-                        subtask_out["description"] = subtask_out.get("title")
+                    subtask_out, _changed = normalize_subtask_aliases(subtask)
                     subtask_out["status"] = "pending"
                     return {
                         "phase_id": phase_id,

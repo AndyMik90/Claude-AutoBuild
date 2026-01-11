@@ -8,6 +8,8 @@ Automated fixes for common implementation plan issues.
 import json
 from pathlib import Path
 
+from core.plan_normalization import normalize_subtask_aliases
+
 
 def _normalize_status(value: object) -> str:
     """Normalize common status variants to schema-compliant values."""
@@ -88,15 +90,22 @@ def auto_fix_plan(spec_dir: Path) -> bool:
             phase["name"] = phase.get("title")
             fixed = True
 
-        if "id" not in phase and "phase" not in phase and "phase_id" in phase:
+        if "phase" not in phase and "phase_id" in phase:
+            phase_fixed = False
             phase_id = phase.get("phase_id")
             if isinstance(phase_id, (int, float)):
                 phase["phase"] = int(phase_id)
+                phase_fixed = True
             elif isinstance(phase_id, str) and phase_id.strip().isdigit():
                 phase["phase"] = int(phase_id.strip())
+                phase_fixed = True
             else:
-                phase["id"] = str(phase_id)
-            fixed = True
+                if "id" not in phase:
+                    phase["id"] = str(phase_id)
+                    phase_fixed = True
+
+            if phase_fixed:
+                fixed = True
 
         if "phase" not in phase:
             phase["phase"] = i + 1
@@ -116,17 +125,9 @@ def auto_fix_plan(spec_dir: Path) -> bool:
 
         # Fix subtasks
         for j, subtask in enumerate(phase.get("subtasks", [])):
-            # Normalize common subtask field aliases
-            if "id" not in subtask and "subtask_id" in subtask:
-                subtask["id"] = str(subtask.get("subtask_id"))
-                fixed = True
-
-            if (
-                ("description" not in subtask or not subtask.get("description"))
-                and "title" in subtask
-                and subtask.get("title")
-            ):
-                subtask["description"] = subtask.get("title")
+            normalized, changed = normalize_subtask_aliases(subtask)
+            if changed:
+                subtask.update(normalized)
                 fixed = True
 
             if "id" not in subtask:
