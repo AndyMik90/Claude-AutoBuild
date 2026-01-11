@@ -1,10 +1,10 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
-import type { IPCResult, APIProfile } from '../../shared/types';
+import type { IPCResult, APIProfile, AppSettings } from '../../shared/types';
 import { templateEditorService } from '../template-editor-service';
 import { loadProfilesFile } from '../utils/profile-manager';
-import { settingsStore } from '../settings-store';
+import { readSettingsFile } from '../settings-utils';
 
 /**
  * Get the active API profile or create one from global settings
@@ -21,8 +21,10 @@ async function getActiveProfile(): Promise<APIProfile | null> {
   }
 
   // Fallback to global Anthropic API key from settings
-  const settings = settingsStore.getSettings();
-  if (settings.globalAnthropicApiKey) {
+  const settingsData = readSettingsFile();
+  const settings = settingsData as AppSettings | undefined;
+
+  if (settings?.globalAnthropicApiKey) {
     // Create a temporary profile from global settings
     return {
       id: 'temp-anthropic',
