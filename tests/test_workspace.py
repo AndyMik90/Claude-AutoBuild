@@ -13,7 +13,6 @@ Tests the workspace.py module functionality including:
 import subprocess
 import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 from workspace import (
     WorkspaceMode,
@@ -394,3 +393,139 @@ class TestPerSpecWorktreeName:
         # New path: .auto-claude/worktrees/tasks/{spec_name}
         assert "worktrees" in str(working_dir)
         assert working_dir.parent.name == "tasks"
+
+
+class TestConflictInfoDisplay:
+    """Tests for conflict info display function (ACS-179)."""
+
+    def test_print_conflict_info_with_string_list(self, capsys):
+        """print_conflict_info handles string list of file paths (ACS-179)."""
+        from core.workspace.display import print_conflict_info
+
+        result = {
+            "conflicts": ["file1.txt", "file2.py", "file3.js"]
+        }
+
+        print_conflict_info(result)
+
+        captured = capsys.readouterr()
+        assert "3 file" in captured.out
+        assert "file1.txt" in captured.out
+        assert "file2.py" in captured.out
+        assert "file3.js" in captured.out
+        assert "git add" in captured.out
+
+    def test_print_conflict_info_with_dict_list(self, capsys):
+        """print_conflict_info handles dict list with file/reason/severity (ACS-179)."""
+        from core.workspace.display import print_conflict_info
+
+        result = {
+            "conflicts": [
+                {"file": "file1.txt", "reason": "Syntax error", "severity": "high"},
+                {"file": "file2.py", "reason": "Merge conflict", "severity": "medium"},
+                {"file": "file3.js", "reason": "Unknown error", "severity": "low"},
+            ]
+        }
+
+        print_conflict_info(result)
+
+        captured = capsys.readouterr()
+        assert "3 file" in captured.out
+        assert "file1.txt" in captured.out
+        assert "file2.py" in captured.out
+        assert "file3.js" in captured.out
+        assert "Syntax error" in captured.out
+        assert "Merge conflict" in captured.out
+        # Verify severity emoji indicators
+        assert "🔴" in captured.out  # High severity
+        assert "🟡" in captured.out  # Medium severity
+
+    def test_print_conflict_info_mixed_formats(self, capsys):
+        """print_conflict_info handles mixed string and dict conflicts (ACS-179)."""
+        from core.workspace.display import print_conflict_info
+
+        result = {
+            "conflicts": [
+                "simple-file.txt",
+                {"file": "complex-file.py", "reason": "AI merge failed", "severity": "high"},
+            ]
+        }
+
+        print_conflict_info(result)
+
+        captured = capsys.readouterr()
+        assert "2 file" in captured.out
+        assert "simple-file.txt" in captured.out
+        assert "complex-file.py" in captured.out
+        assert "AI merge failed" in captured.out
+
+
+class TestMergeErrorHandling:
+    """Tests for merge error handling (ACS-163)."""
+
+    def test_merge_failure_returns_false_immediately(self, temp_git_repo: Path):
+        """Failed merge returns False without falling through (ACS-163)."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create a worktree with changes
+        worker_info = manager.create_worktree("worker-spec")
+        (worker_info.path / "worker-file.txt").write_text("worker content")
+        subprocess.run(["git", "add", "."], cwd=worker_info.path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Worker commit"],
+            cwd=worker_info.path, capture_output=True
+        )
+
+        # Create a conflicting change on main
+        subprocess.run(["git", "checkout", manager.base_branch], cwd=temp_git_repo, capture_output=True)
+        (temp_git_repo / "worker-file.txt").write_text("main content")
+        subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Main commit"],
+            cwd=temp_git_repo, capture_output=True
+        )
+
+        # Merge should fail (conflict) and return False
+        # This tests the fix for ACS-163 where failed merge would fall through
+        result = manager.merge_worktree("worker-spec", delete_after=False)
+
+        # Should return False on merge conflict
+        assert result is False
+
+        # Verify side effects: base branch content is unchanged
+        subprocess.run(["git", "checkout", manager.base_branch], cwd=temp_git_repo, capture_output=True)
+        base_content = (temp_git_repo / "worker-file.txt").read_text()
+        assert base_content == "main content", "Base branch should be unchanged after failed merge"
+
+        # Verify worktree still exists (delete_after=False)
+        assert worker_info.path.exists(), "Worktree should still exist after failed merge"
+
+        # Verify worktree content is unchanged
+        worktree_content = (worker_info.path / "worker-file.txt").read_text()
+        assert worktree_content == "worker content", "Worktree content should be unchanged"
+
+    def test_merge_success_returns_true(self, temp_git_repo: Path):
+        """Successful merge returns True (ACS-163 verification)."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create a worktree with non-conflicting changes
+        worker_info = manager.create_worktree("worker-spec")
+        (worker_info.path / "worker-file.txt").write_text("worker content")
+        subprocess.run(["git", "add", "."], cwd=worker_info.path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Worker commit"],
+            cwd=worker_info.path, capture_output=True
+        )
+
+        # Merge should succeed
+        result = manager.merge_worktree("worker-spec", delete_after=False)
+
+        assert result is True
+
+        # Verify the file was merged into base branch
+        subprocess.run(["git", "checkout", manager.base_branch], cwd=temp_git_repo, capture_output=True)
+        assert (temp_git_repo / "worker-file.txt").exists(), "Merged file should exist in base branch"
+        merged_content = (temp_git_repo / "worker-file.txt").read_text()
+        assert merged_content == "worker content", "Merged file should have worktree content"
