@@ -154,6 +154,9 @@ class GraphitiSearch:
                         data = (
                             json.loads(content) if isinstance(content, str) else content
                         )
+                        # Ensure data is a dict before processing (fixes ACS-215)
+                        if not isinstance(data, dict):
+                            continue
                         if data.get("type") == EPISODE_TYPE_SESSION_INSIGHT:
                             # Filter by spec if requested
                             if (
@@ -205,6 +208,9 @@ class GraphitiSearch:
                         data = (
                             json.loads(content) if isinstance(content, str) else content
                         )
+                        # Ensure data is a dict before processing (fixes ACS-215)
+                        if not isinstance(data, dict):
+                            continue
                         if data.get("type") == EPISODE_TYPE_TASK_OUTCOME:
                             outcomes.append(
                                 {
@@ -269,6 +275,9 @@ class GraphitiSearch:
                         data = (
                             json.loads(content) if isinstance(content, str) else content
                         )
+                        # Ensure data is a dict before processing (fixes ACS-215)
+                        if not isinstance(data, dict):
+                            continue
                         if data.get("type") == EPISODE_TYPE_PATTERN:
                             patterns.append(
                                 {
@@ -302,6 +311,9 @@ class GraphitiSearch:
                         data = (
                             json.loads(content) if isinstance(content, str) else content
                         )
+                        # Ensure data is a dict before processing (fixes ACS-215)
+                        if not isinstance(data, dict):
+                            continue
                         if data.get("type") == EPISODE_TYPE_GOTCHA:
                             gotchas.append(
                                 {
