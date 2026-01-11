@@ -67,7 +67,7 @@ export function CleanProjectDialog({
     if (open && projectPath) {
       loadPreview();
     }
-  }, [open, projectPath]);
+  }, [open, projectPath, loadPreview]);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -225,12 +225,12 @@ export function CleanProjectDialog({
                     <span>{getItemDisplayName(item)}</span>
                     {item.specCount !== undefined && item.specCount > 0 && (
                       <span className="text-muted-foreground">
-                        ({item.specCount} specs)
+                        ({item.specCount} {t('common:cleanProject.items.specs')})
                       </span>
                     )}
                     {item.worktreeCount !== undefined && item.worktreeCount > 0 && (
                       <span className="text-muted-foreground">
-                        ({item.worktreeCount} worktrees)
+                        ({item.worktreeCount} {t('common:cleanProject.items.worktrees')})
                       </span>
                     )}
                   </div>

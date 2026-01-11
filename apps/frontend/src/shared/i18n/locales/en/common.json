@@ -32,7 +32,9 @@
       "securityJson": "Security profile",
       "statusFile": "Status file",
       "settingsFile": "Settings file",
-      "securityKey": "Security key"
+      "securityKey": "Security key",
+      "specs": "specs",
+      "worktrees": "worktrees"
     },
     "mode": {
       "archive": "Archive & Clean",

@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import { spawn } from 'child_process';
+import { existsSync } from 'fs';
 import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
@@ -31,6 +32,11 @@ interface CleanupExecuteResult extends IPCResult {
 
 /**
  * Parse Python script output for cleanup preview
+ *
+ * Extracts cleanup items, sizes, and archive location from the script's stdout.
+ *
+ * @param output - Raw stdout from the Python cleanup script
+ * @returns Parsed cleanup preview with items and totals, or null if parsing fails
  */
 function parseCleanupPreview(output: string): CleanupPreview | null {
   try {
@@ -106,6 +112,11 @@ function parseCleanupPreview(output: string): CleanupPreview | null {
 
 /**
  * Parse size string to bytes
+ *
+ * Converts human-readable size strings (e.g., "1.5 MB") to bytes.
+ *
+ * @param sizeStr - Size string in format "N.N UNIT" (e.g., "1.5 MB")
+ * @returns Size in bytes, or 0 if parsing fails
  */
 function parseSizeString(sizeStr: string): number {
   const match = sizeStr.match(/(\d+\.?\d*)\s+(B|KB|MB|GB|TB)/);
@@ -127,6 +138,11 @@ function parseSizeString(sizeStr: string): number {
 
 /**
  * Parse Python script output for cleanup execution
+ *
+ * Extracts the count of cleaned items, total size freed, and execution duration.
+ *
+ * @param output - Raw stdout from the Python cleanup script execution
+ * @returns Object with count, size (bytes), and duration (seconds), or null if parsing fails
  */
 function parseCleanupResult(output: string): { count: number; size: number; duration: number } | null {
   try {
@@ -163,6 +179,12 @@ function parseCleanupResult(output: string): { count: number; size: number; dura
 
 /**
  * Run Python cleanup command
+ *
+ * @param pythonEnvManager - Python environment manager instance
+ * @param projectPath - Path to the project directory to clean
+ * @param dryRun - If true, only preview changes without executing
+ * @param preserveArchive - If true, archive data instead of deleting
+ * @returns Promise resolving to command output, error, and exit code
  */
 async function runCleanupCommand(
   pythonEnvManager: PythonEnvManager,
@@ -181,15 +203,40 @@ async function runCleanupCommand(
       return;
     }
 
-    // pythonPath is like: C:\...\apps\backend\.venv\Scripts\python.exe
-    // We need to go up 3 levels to get to backend directory
-    const backendPath = path.dirname(path.dirname(path.dirname(pythonPath)));
-    const runPyPath = path.join(backendPath, 'run.py');
+    // Find backend directory more robustly by searching for run.py
+    // pythonPath is typically: <backend>/.venv/Scripts/python.exe (Windows)
+    // or <backend>/.venv/bin/python (Unix)
+    let backendPath = path.dirname(pythonPath);
+
+    // Navigate up until we find run.py or reach root
+    let runPyPath: string | null = null;
+    for (let i = 0; i < 5; i++) {
+      backendPath = path.dirname(backendPath);
+      const testPath = path.join(backendPath, 'run.py');
+      try {
+        if (existsSync(testPath)) {
+          runPyPath = testPath;
+          break;
+        }
+      } catch {
+        // Continue searching
+      }
+    }
+
+    if (!runPyPath) {
+      resolve({
+        output: '',
+        error: 'Could not locate run.py in backend directory',
+        exitCode: 1,
+      });
+      return;
+    }
 
     // Build command arguments
     const args = [runPyPath, '--clean'];
     if (!dryRun) {
       args.push('--execute');
+      args.push('--yes'); // Auto-confirm instead of using stdin timeout
     }
     if (!preserveArchive) {
       args.push('--no-archive');
@@ -232,13 +279,7 @@ async function runCleanupCommand(
       });
     });
 
-    // For execute mode (not dry-run), send confirmation automatically
-    if (!dryRun) {
-      setTimeout(() => {
-        cleanupProcess.stdin.write('clean\n');
-        cleanupProcess.stdin.end();
-      }, 100);
-    }
+    // Note: We use --yes flag in args instead of stdin confirmation to avoid race conditions
   });
 }
 
