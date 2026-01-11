@@ -13,7 +13,7 @@ from .executor import (
     get_browser,
     get_page,
 )
-from .sdk_integration import get_playwright_custom_tools
+from .sdk_integration import get_playwright_mcp_server
 from .tools import (
     PlaywrightAssertTool,
     PlaywrightClickTool,
@@ -41,5 +41,5 @@ __all__ = [
     "get_page",
     "close_browser",
     # SDK Integration
-    "get_playwright_custom_tools",
+    "get_playwright_mcp_server",
 ]

@@ -669,6 +669,8 @@ def create_client(
         )
     if "puppeteer" in required_servers:
         mcp_servers_list.append("puppeteer (browser automation)")
+    if "playwright" in required_servers:
+        mcp_servers_list.append("playwright (browser automation, native)")
     if "linear" in required_servers:
         mcp_servers_list.append("linear (project management)")
     if graphiti_mcp_enabled:
@@ -735,6 +737,14 @@ def create_client(
         if auto_claude_mcp_server:
             mcp_servers["auto-claude"] = auto_claude_mcp_server
 
+    # Add Playwright SDK MCP server if required (built-in, not external process)
+    if "playwright" in required_servers:
+        from integrations.playwright import get_playwright_mcp_server
+
+        playwright_server = get_playwright_mcp_server()
+        mcp_servers["playwright"] = playwright_server
+        logger.info("Playwright SDK MCP server added (native Python, not external process)")
+
     # Add custom MCP servers from project config
     custom_servers = mcp_config.get("CUSTOM_MCP_SERVERS", [])
     for custom in custom_servers:
@@ -783,14 +793,6 @@ def create_client(
         print("   - CLAUDE.md: disabled by project settings")
     print()
 
-    # Add Playwright custom tools if required (built-in, not MCP)
-    custom_tools = []
-    if "playwright" in required_servers:
-        from integrations.playwright import get_playwright_custom_tools
-
-        custom_tools = get_playwright_custom_tools()
-        logger.info("Playwright custom tools added (native Python, not MCP)")
-
     # Build options dict, conditionally including output_format
     options_kwargs = {
         "model": model,
@@ -814,10 +816,6 @@ def create_client(
         # This prevents "File has not been read yet" errors in recovery sessions
         "enable_file_checkpointing": True,
     }
-
-    # Add custom tools if available (Playwright, etc.)
-    if custom_tools:
-        options_kwargs["custom_tools"] = custom_tools
 
     # Add structured output format if specified
     # See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs

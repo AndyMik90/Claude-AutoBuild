@@ -5,8 +5,9 @@ Playwright SDK Integration
 Provides Playwright tools for Claude Agent SDK with execution handlers.
 """
 
-import asyncio
 import logging
+
+from claude_agent_sdk import create_sdk_mcp_server, tool
 
 from .executor import execute_playwright_tool
 from .tools import get_playwright_tools
@@ -14,49 +15,57 @@ from .tools import get_playwright_tools
 logger = logging.getLogger(__name__)
 
 
-def _create_handler(tool_name: str):
+def _create_sdk_tool(schema: dict):
     """
-    Create handler function for a specific Playwright tool.
-    Uses factory pattern to avoid closure issues.
+    Create an SDK MCP tool from a Playwright tool schema.
 
     Args:
-        tool_name: Name of the Playwright tool
+        schema: Tool schema dict with name, description, input_schema
 
     Returns:
-        Async handler function
+        SdkMcpTool decorated function
     """
+    tool_name = schema["name"]
+    description = schema["description"]
+    input_schema = schema["input_schema"]
 
-    async def handler(tool_input: dict):
-        """Execute Playwright tool."""
-        return await execute_playwright_tool(tool_name, tool_input)
+    # Create the tool function using the @tool decorator
+    @tool(tool_name, description, input_schema)
+    async def handler(args: dict):
+        """Execute Playwright tool and return MCP response."""
+        result = await execute_playwright_tool(tool_name, args)
 
-    handler.__name__ = f"{tool_name}_handler"
+        # Convert result to MCP response format
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": str(result) if not isinstance(result, str) else result,
+                }
+            ]
+        }
+
     return handler
 
 
-def get_playwright_custom_tools():
+def get_playwright_mcp_server():
     """
-    Get Playwright tools as Claude Agent SDK custom tools.
-
-    Returns list of dicts with:
-    - tool schema (name, description, input_schema)
-    - async handler function
+    Get Playwright tools as an SDK MCP server for Claude Agent SDK.
 
     Returns:
-        List of custom tool definitions for ClaudeAgentOptions
+        McpSdkServerConfig that can be used in ClaudeAgentOptions.mcp_servers
     """
     schemas = get_playwright_tools()
 
-    # Create custom tools with handlers using factory pattern
-    custom_tools = []
-    for schema in schemas:
-        tool_name = schema["name"]
-        custom_tools.append({
-            "schema": schema,
-            "handler": _create_handler(tool_name),
-        })
+    # Create SDK MCP tools from schemas
+    sdk_tools = [_create_sdk_tool(schema) for schema in schemas]
 
-    return custom_tools
+    # Create and return the MCP SDK server
+    return create_sdk_mcp_server(
+        name="playwright",
+        version="1.0.0",
+        tools=sdk_tools,
+    )
 
 
 # Alternative: Create handlers dict for manual routing
