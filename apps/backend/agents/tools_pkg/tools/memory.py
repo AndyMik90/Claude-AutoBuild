@@ -80,7 +80,9 @@ async def _save_to_graphiti_async(
             try:
                 await memory.close()
             except Exception as e:
-                logger.debug("Failed to close Graphiti memory connection", exc_info=e)
+                logger.debug(
+                    "Failed to close Graphiti memory connection", exc_info=True
+                )
 
     except Exception as e:
         logger.warning(f"Failed to save to Graphiti: {e}")

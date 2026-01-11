@@ -235,7 +235,9 @@ async def get_graphiti_context(
             try:
                 await memory.close()
             except Exception as e:
-                logger.debug("Failed to close Graphiti memory connection", exc_info=e)
+                logger.debug(
+                    "Failed to close Graphiti memory connection", exc_info=True
+                )
 
 
 async def save_session_memory(
