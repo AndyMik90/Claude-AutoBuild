@@ -686,7 +686,7 @@ export class AgentQueueManager {
       this.emitter.emit('roadmap-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: stripAnsiCodes(log.trim()).substring(0, 200) // Truncate long messages
+        message: stripAnsiCodes(log.trim()).split('\n')[0].substring(0, 200) // Extract first line, then truncate
       });
     });
 
@@ -700,7 +700,7 @@ export class AgentQueueManager {
       this.emitter.emit('roadmap-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: stripAnsiCodes(log.trim()).substring(0, 200)
+        message: stripAnsiCodes(log.trim()).split('\n')[0].substring(0, 200)
       });
     });
 
