@@ -4,9 +4,6 @@ Unit tests for GraphitiSearch class (ACS-215 bug fix).
 
 Tests the isinstance(dict) validation that prevents AttributeError when
 Graphiti returns non-dict objects for session insights.
-
-Note: Uses asyncio.run() in synchronous test methods for broader
-compatibility. In CI/CD with pytest-asyncio, these could use @pytest.mark.asyncio.
 """
 
 import asyncio
@@ -18,9 +15,10 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
-# Add apps/backend to path for imports
+# Add apps/backend to path for imports (idempotent guard)
 sys_path = Path(__file__).parent.parent / "apps" / "backend"
-sys.path.insert(0, str(sys_path))
+if str(sys_path) not in sys.path:
+    sys.path.insert(0, str(sys_path))
 
 
 from integrations.graphiti.queries_pkg.schema import (
@@ -55,15 +53,7 @@ def project_dir(tmp_path):
 
 
 @pytest.fixture
-def spec_dir(tmp_path):
-    """Create a temporary spec directory."""
-    spec = tmp_path / "test_spec"
-    spec.mkdir()
-    return spec
-
-
-@pytest.fixture
-def graphiti_search(mock_client, project_dir, spec_dir):
+def graphiti_search(mock_client, project_dir):
     """Create a GraphitiSearch instance for testing."""
     return GraphitiSearch(
         client=mock_client,
@@ -153,7 +143,8 @@ class TestBugFixACS215:
     # get_session_history() tests
     # --------------------------------------------------------------------------
 
-    def test_get_session_history_with_string_content(
+    @pytest.mark.asyncio
+    async def test_get_session_history_with_string_content(
         self, graphiti_search, mock_client
     ):
         """Test get_session_history handles string JSON content correctly."""
@@ -164,13 +155,14 @@ class TestBugFixACS215:
         ]
 
         # Execute
-        result = asyncio.run(graphiti_search.get_session_history(limit=5))
+        result = await graphiti_search.get_session_history(limit=5)
 
         # Verify
         assert len(result) == 1
         assert result[0]["session_number"] == 1
 
-    def test_get_session_history_with_dict_content(
+    @pytest.mark.asyncio
+    async def test_get_session_history_with_dict_content(
         self, graphiti_search, mock_client
     ):
         """Test get_session_history handles dict content correctly."""
@@ -181,13 +173,14 @@ class TestBugFixACS215:
         ]
 
         # Execute
-        result = asyncio.run(graphiti_search.get_session_history(limit=5))
+        result = await graphiti_search.get_session_history(limit=5)
 
         # Verify
         assert len(result) == 1
         assert result[0]["session_number"] == 2
 
-    def test_get_session_history_with_non_dict_object(
+    @pytest.mark.asyncio
+    async def test_get_session_history_with_non_dict_object(
         self, graphiti_search, mock_client
     ):
         """
@@ -206,20 +199,21 @@ class TestBugFixACS215:
 
         # Setup: Mix of valid and invalid data
         valid_insight = _create_valid_session_insight(session_number=1)
-        mock_client.graphiti.search.return_value = [
+        mock_client.graphiti_search.return_value = [
             _create_mock_result(content=valid_insight, score=0.9),  # Valid dict
             _create_mock_result(content=bad_object, score=0.5),  # Invalid non-dict
             _create_mock_result(content="random string", score=0.3),  # Invalid string
         ]
 
         # Execute - should NOT crash
-        result = asyncio.run(graphiti_search.get_session_history(limit=5))
+        result = await graphiti_search.get_session_history(limit=5)
 
         # Verify: Only valid dict results should be returned
         assert len(result) == 1
         assert result[0]["session_number"] == 1
 
-    def test_get_session_history_with_custom_object(
+    @pytest.mark.asyncio
+    async def test_get_session_history_with_custom_object(
         self, graphiti_search, mock_client
     ):
         """
@@ -237,19 +231,20 @@ class TestBugFixACS215:
 
         # Setup: Return fake object
         valid_insight = _create_valid_session_insight(session_number=3)
-        mock_client.graphiti.search.return_value = [
+        mock_client.graphiti_search.return_value = [
             _create_mock_result(content=valid_insight, score=0.9),
             _create_mock_result(content=fake_object, score=0.6),
         ]
 
         # Execute - should NOT crash
-        result = asyncio.run(graphiti_search.get_session_history(limit=5))
+        result = await graphiti_search.get_session_history(limit=5)
 
         # Verify: Only the actual dict should be returned
         assert len(result) == 1
         assert result[0]["session_number"] == 3
 
-    def test_get_session_history_sorting_does_not_crash(
+    @pytest.mark.asyncio
+    async def test_get_session_history_sorting_does_not_crash(
         self, graphiti_search, mock_client
     ):
         """
@@ -273,10 +268,10 @@ class TestBugFixACS215:
             _create_mock_result(content=insights[2], score=0.7),
         ]
 
-        mock_client.graphiti.search.return_value = results
+        mock_client.graphiti_search.return_value = results
 
         # Execute - sorting with .get() should work
-        result = asyncio.run(graphiti_search.get_session_history(limit=5))
+        result = await graphiti_search.get_session_history(limit=5)
 
         # Verify: Results are sorted by session_number (descending)
         assert len(result) == 3
@@ -288,7 +283,8 @@ class TestBugFixACS215:
     # get_similar_task_outcomes() tests
     # --------------------------------------------------------------------------
 
-    def test_get_similar_task_outcomes_with_non_dict_object(
+    @pytest.mark.asyncio
+    async def test_get_similar_task_outcomes_with_non_dict_object(
         self, graphiti_search, mock_client
     ):
         """
@@ -296,15 +292,20 @@ class TestBugFixACS215:
         """
         valid_outcome = _create_valid_task_outcome()
 
-        mock_client.graphiti.search.return_value = [
+        # Create non-dict object with EPISODE_TYPE marker to trigger parsing
+        class NonDictTaskOutcome:
+            def __str__(self):
+                return f"{EPISODE_TYPE_TASK_OUTCOME} invalid"
+
+        mock_client.graphiti_search.return_value = [
             _create_mock_result(content=valid_outcome, score=0.9),
-            _create_mock_result(content=object(), score=0.5),
+            _create_mock_result(content=NonDictTaskOutcome(), score=0.5),
         ]
 
         # Execute
-        result = asyncio.run(graphiti_search.get_similar_task_outcomes(
+        result = await graphiti_search.get_similar_task_outcomes(
             task_description="test task", limit=5
-        ))
+        )
 
         # Verify: Only valid dict results
         assert len(result) == 1
@@ -314,7 +315,8 @@ class TestBugFixACS215:
     # get_patterns_and_gotchas() tests
     # --------------------------------------------------------------------------
 
-    def test_get_patterns_and_gotchas_with_non_dict_objects(
+    @pytest.mark.asyncio
+    async def test_get_patterns_and_gotchas_with_non_dict_objects(
         self, graphiti_search, mock_client
     ):
         """
@@ -323,24 +325,33 @@ class TestBugFixACS215:
         valid_pattern = _create_valid_pattern()
         valid_gotcha = _create_valid_gotcha()
 
+        # Create non-dict objects with EPISODE_TYPE markers
+        class NonDictPattern:
+            def __str__(self):
+                return f"{EPISODE_TYPE_PATTERN} invalid"
+
+        class NonDictGotcha:
+            def __str__(self):
+                return f"{EPISODE_TYPE_GOTCHA} invalid"
+
         # Mock pattern results with non-dict
-        mock_client.graphiti.search = AsyncMock(
+        mock_client.graphiti_search = AsyncMock(
             side_effect=[
                 [  # Pattern search results
                     _create_mock_result(content=valid_pattern, score=0.9),
-                    _create_mock_result(content=object(), score=0.5),
+                    _create_mock_result(content=NonDictPattern(), score=0.5),
                 ],
                 [  # Gotcha search results
                     _create_mock_result(content=valid_gotcha, score=0.8),
-                    _create_mock_result(content="invalid", score=0.4),
+                    _create_mock_result(content=NonDictGotcha(), score=0.4),
                 ],
             ]
         )
 
         # Execute
-        patterns, gotchas = asyncio.run(graphiti_search.get_patterns_and_gotchas(
+        patterns, gotchas = await graphiti_search.get_patterns_and_gotchas(
             query="auth task", num_results=5, min_score=0.3
-        ))
+        )
 
         # Verify: Only valid dict results
         assert len(patterns) == 1
@@ -357,36 +368,42 @@ class TestBugFixACS215:
 class TestEdgeCases:
     """Additional edge case tests for robustness."""
 
-    def test_get_session_history_with_none_content(
+    @pytest.mark.asyncio
+    async def test_get_session_history_with_none_content(
         self, graphiti_search, mock_client
     ):
         """Test handling of None content."""
-        mock_client.graphiti.search.return_value = [
+        mock_client.graphiti_search.return_value = [
             _create_mock_result(content=None, score=0.5),
         ]
 
-        result = asyncio.run(graphiti_search.get_session_history(limit=5))
+        result = await graphiti_search.get_session_history(limit=5)
 
         assert len(result) == 0
 
-    def test_get_session_history_with_invalid_json(
+    @pytest.mark.asyncio
+    async def test_get_session_history_with_invalid_json(
         self, graphiti_search, mock_client
     ):
-        """Test handling of invalid JSON string."""
-        mock_client.graphiti.search.return_value = [
-            _create_mock_result(content='{"invalid": json}', score=0.5),
+        """Test handling of invalid JSON string with EPISODE_TYPE marker."""
+        # Malformed JSON that includes the session_insight marker
+        # so it triggers the json.loads path
+        invalid_json = f'{{"type": "{EPISODE_TYPE_SESSION_INSIGHT}", invalid json}}'
+        mock_client.graphiti_search.return_value = [
+            _create_mock_result(content=invalid_json, score=0.5),
         ]
 
         # Should not crash, just skip invalid JSON
-        result = asyncio.run(graphiti_search.get_session_history(limit=5))
+        result = await graphiti_search.get_session_history(limit=5)
 
         assert len(result) == 0
 
-    def test_get_session_history_with_list_content(
+    @pytest.mark.asyncio
+    async def test_get_session_history_with_list_content(
         self, graphiti_search, mock_client
     ):
         """Test handling of list content (not a dict)."""
-        mock_client.graphiti.search.return_value = [
+        mock_client.graphiti_search.return_value = [
             _create_mock_result(
                 content=[
                     EPISODE_TYPE_SESSION_INSIGHT,
@@ -397,11 +414,12 @@ class TestEdgeCases:
         ]
 
         # List should be filtered out by isinstance check
-        result = asyncio.run(graphiti_search.get_session_history(limit=5))
+        result = await graphiti_search.get_session_history(limit=5)
 
         assert len(result) == 0
 
-    def test_get_session_history_spec_filtering(
+    @pytest.mark.asyncio
+    async def test_get_session_history_spec_filtering(
         self, graphiti_search, mock_client
     ):
         """Test spec_id filtering works correctly."""
@@ -413,21 +431,22 @@ class TestEdgeCases:
             session_number=2, spec_id="other_spec_456"
         )
 
-        mock_client.graphiti.search.return_value = [
+        mock_client.graphiti_search.return_value = [
             _create_mock_result(content=insight_1, score=0.9),
             _create_mock_result(content=insight_2, score=0.8),
         ]
 
         # Execute with spec_only=True (default)
-        result = asyncio.run(graphiti_search.get_session_history(
+        result = await graphiti_search.get_session_history(
             limit=5, spec_only=True
-        ))
+        )
 
         # Verify: Only matching spec_id should be returned
         assert len(result) == 1
         assert result[0]["spec_id"] == "test_spec_123"
 
-    def test_get_session_history_all_specs(
+    @pytest.mark.asyncio
+    async def test_get_session_history_all_specs(
         self, graphiti_search, mock_client
     ):
         """Test getting sessions from all specs."""
@@ -438,15 +457,15 @@ class TestEdgeCases:
             session_number=2, spec_id="other_spec_456"
         )
 
-        mock_client.graphiti.search.return_value = [
+        mock_client.graphiti_search.return_value = [
             _create_mock_result(content=insight_1, score=0.9),
             _create_mock_result(content=insight_2, score=0.8),
         ]
 
         # Execute with spec_only=False
-        result = asyncio.run(graphiti_search.get_session_history(
+        result = await graphiti_search.get_session_history(
             limit=5, spec_only=False
-        ))
+        )
 
         # Verify: All insights should be returned
         assert len(result) == 2
