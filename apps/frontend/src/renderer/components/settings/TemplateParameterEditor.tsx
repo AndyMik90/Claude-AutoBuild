@@ -99,22 +99,28 @@ export function TemplateParameterEditor({ open, onOpenChange, template, onSaved 
   };
 
   const generateParameterSyntax = (param: EditableParameter): string => {
+    // Check if original placeholder used escaped quotes (was in a string)
+    const usesEscapedQuotes = param.placeholder.includes('\\"');
+
     const parts: string[] = [];
 
-    parts.push(`title="${param.title}"`);
+    // Use escaped or regular quotes based on original context
+    const quote = usesEscapedQuotes ? '\\"' : '"';
+
+    parts.push(`title=${quote}${param.title}${quote}`);
     parts.push(`type=${param.type}`);
 
     if (param.default) {
-      parts.push(`default="${param.default}"`);
+      parts.push(`default=${quote}${param.default}${quote}`);
     }
 
     if (param.type === 'dropdown' && param.options && param.options.length > 0) {
-      parts.push(`options="${param.options.join(',')}"`);
+      parts.push(`options=${quote}${param.options.join(',')}${quote}`);
     }
 
     if (param.type === 'secret') {
-      if (param.group) parts.push(`group="${param.group}"`);
-      if (param.secretKey) parts.push(`key="${param.secretKey}"`);
+      if (param.group) parts.push(`group=${quote}${param.group}${quote}`);
+      if (param.secretKey) parts.push(`key=${quote}${param.secretKey}${quote}`);
     }
 
     return `{{${parts.join(',')}}}`;
@@ -156,10 +162,17 @@ export function TemplateParameterEditor({ open, onOpenChange, template, onSaved 
         for (const param of sortedParams) {
           const newSyntax = generateParameterSyntax(param);
 
-          // Need to handle escaping if the parameter is inside a quoted string
-          // For now, we'll do a simple replacement
+          console.log('[ParameterEditor] Replacing:', {
+            placeholder: param.placeholder,
+            newSyntax: newSyntax,
+            filePath
+          });
+
+          // Replace the old placeholder with the new syntax
           newContent = newContent.replace(param.placeholder, newSyntax);
         }
+
+        console.log('[ParameterEditor] Writing updated content to:', filePath);
 
         // Write the updated file
         const writeResult = await window.electronAPI.writeFile(filePath, newContent);
