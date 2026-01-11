@@ -236,6 +236,12 @@ export interface TaskMetadata {
   archivedInVersion?: string;  // Version in which task was archived (from changelog)
 }
 
+// Structured error information for tasks with parse errors
+export interface TaskErrorInfo {
+  key: string;  // Translation key (e.g., 'errors:task.parseImplementationPlan')
+  meta?: { error?: string };  // Error message for substitution in translation
+}
+
 export interface Task {
   id: string;
   specId: string;
@@ -248,6 +254,7 @@ export interface Task {
   qaReport?: QAReport;
   logs: string[];
   metadata?: TaskMetadata;  // Rich metadata from ideation or manual entry
+  errorInfo?: TaskErrorInfo;  // Structured error information for i18n (set when status is 'error')
   executionProgress?: ExecutionProgress;  // Real-time execution progress
   releasedInVersion?: string;  // Version in which this task was released
   stagedInMainProject?: boolean;  // True if changes were staged to main project (worktree merged with --no-commit)

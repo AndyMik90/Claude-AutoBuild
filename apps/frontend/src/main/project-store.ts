@@ -2,7 +2,7 @@ import { app } from 'electron';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
+import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, TaskErrorInfo, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
@@ -384,7 +384,7 @@ export class ProjectStore {
 
         // Try to read implementation plan
         let plan: ImplementationPlan | null = null;
-        let parseError: string | null = null;
+        let parseError: TaskErrorInfo | null = null;
         if (existsSync(planPath)) {
           console.warn(`[ProjectStore] Loading implementation_plan.json for spec: ${dir.name} from ${location}`);
           try {
@@ -399,8 +399,8 @@ export class ProjectStore {
             });
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            parseError = `Failed to parse implementation_plan.json: ${errorMessage}`;
-            console.error(`[ProjectStore] ${parseError} for ${dir.name}`);
+            parseError = { key: 'errors:task.parseImplementationPlan', meta: { error: errorMessage } };
+            console.error(`[ProjectStore] Failed to parse implementation_plan.json for ${dir.name}:`, errorMessage);
           }
         } else {
           console.warn(`[ProjectStore] No implementation_plan.json found for spec: ${dir.name} at ${planPath}`);
@@ -462,10 +462,11 @@ export class ProjectStore {
         let finalStatus: TaskStatus;
         let finalDescription = description;
         let finalReviewReason: ReviewReason | undefined = undefined;
+        let finalErrorInfo: TaskErrorInfo | undefined = undefined;
 
         if (parseError) {
           finalStatus = 'error';
-          finalDescription = parseError;
+          finalErrorInfo = parseError;
           console.error(`[ProjectStore] Creating error task for ${dir.name}:`, parseError);
         } else {
           const { status, reviewReason } = this.determineTaskStatusAndReason(plan, specPath, metadata);
@@ -520,6 +521,7 @@ export class ProjectStore {
           subtasks,
           logs: [],
           metadata,
+          errorInfo: finalErrorInfo,
           stagedInMainProject,
           stagedAt,
           location, // Add location metadata (main vs worktree)

@@ -257,16 +257,17 @@ def get_project_dir(provided_dir: Path | None) -> Path:
     return project_dir
 
 
-def find_specs_dir(project_dir: Path) -> Path | None:
+def find_specs_dir(project_dir: Path) -> Path:
     """
     Find the specs directory for a project.
 
-    Checks both '.auto-claude/specs' and 'auto-claude/specs' locations.
+    Returns the '.auto-claude/specs' directory path.
+    The directory is guaranteed to exist (get_specs_dir calls init_auto_claude_dir).
 
     Args:
         project_dir: Project root directory
 
     Returns:
-        Path to specs directory, or None if not found
+        Path to specs directory (always returns a valid Path)
     """
     return get_specs_dir(project_dir)

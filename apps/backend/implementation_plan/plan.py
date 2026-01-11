@@ -8,6 +8,7 @@ tracking, status management, and follow-up capabilities.
 """
 
 import asyncio
+import functools
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -127,15 +128,15 @@ class ImplementationPlan:
         self.update_status_from_subtasks()
 
         # Run sync write in thread pool to avoid blocking event loop
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(
-            None,
+        loop = asyncio.get_running_loop()
+        partial_write = functools.partial(
             write_json_atomic,
             path,
             self.to_dict(),
-            2,  # indent
-            False,  # ensure_ascii
+            indent=2,
+            ensure_ascii=False,
         )
+        await loop.run_in_executor(None, partial_write)
 
     def update_status_from_subtasks(self):
         """Update overall status and planStatus based on subtask completion state.

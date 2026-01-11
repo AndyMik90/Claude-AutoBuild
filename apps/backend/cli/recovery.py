@@ -52,14 +52,7 @@ def detect_corrupted_files(specs_dir: Path) -> list[tuple[Path, str]]:
         if not spec_dir.is_dir():
             continue
 
-        # Check implementation_plan.json
-        plan_file = spec_dir / "implementation_plan.json"
-        if plan_file.exists():
-            is_valid, error = check_json_file(plan_file)
-            if not is_valid:
-                corrupted.append((plan_file, error))
-
-        # Check other JSON files
+        # Check all JSON files in spec directory
         for json_file in spec_dir.glob("*.json"):
             is_valid, error = check_json_file(json_file)
             if not is_valid:
@@ -129,11 +122,6 @@ def main():
         specs_dir = args.specs_dir
     else:
         specs_dir = find_specs_dir(args.project_dir)
-
-    if not specs_dir:
-        print("[ERROR] Could not find specs directory")
-        print("Hint: Use --specs-dir to specify the path")
-        sys.exit(1)
 
     print(f"[INFO] Scanning specs directory: {specs_dir}")
 

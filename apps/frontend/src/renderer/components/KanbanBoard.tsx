@@ -384,6 +384,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const tasksByStatus = useMemo(() => {
     // Note: pr_created tasks are shown in the 'done' column since they're essentially complete
     const grouped: Record<typeof TASK_STATUS_COLUMNS[number], Task[]> = {
+      error: [],
       backlog: [],
       in_progress: [],
       ai_review: [],
