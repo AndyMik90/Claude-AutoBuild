@@ -6,19 +6,131 @@ Functions for creating and configuring the Claude Agent SDK client.
 
 All AI interactions should use `create_client()` to ensure consistent OAuth authentication
 and proper tool/MCP configuration. For simple message calls without full agent sessions,
-use `ClaudeSDKClient` directly with `allowed_tools=[]` and `max_turns=1`.
+use `create_simple_client()` from `core.simple_client`.
+
+The client factory now uses AGENT_CONFIGS from agents/tools_pkg/models.py as the
+single source of truth for phase-aware tool and MCP server configuration.
 """
 
+import copy
 import json
+import logging
 import os
+import platform
+import threading
+import time
 from pathlib import Path
+from typing import Any
 
-from auto_claude_tools import (
+logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Project Index Cache
+# =============================================================================
+# Caches project index and capabilities to avoid reloading on every create_client() call.
+# This significantly reduces the time to create new agent sessions.
+
+_PROJECT_INDEX_CACHE: dict[str, tuple[dict[str, Any], dict[str, bool], float]] = {}
+_CACHE_TTL_SECONDS = 300  # 5 minute TTL
+_CACHE_LOCK = threading.Lock()  # Protects _PROJECT_INDEX_CACHE access
+
+
+def _get_cached_project_data(
+    project_dir: Path,
+) -> tuple[dict[str, Any], dict[str, bool]]:
+    """
+    Get project index and capabilities with caching.
+
+    Args:
+        project_dir: Path to the project directory
+
+    Returns:
+        Tuple of (project_index, project_capabilities)
+    """
+
+    key = str(project_dir.resolve())
+    now = time.time()
+    debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
+
+    # Check cache with lock
+    with _CACHE_LOCK:
+        if key in _PROJECT_INDEX_CACHE:
+            cached_index, cached_capabilities, cached_time = _PROJECT_INDEX_CACHE[key]
+            cache_age = now - cached_time
+            if cache_age < _CACHE_TTL_SECONDS:
+                if debug:
+                    print(
+                        f"[ClientCache] Cache HIT for project index (age: {cache_age:.1f}s / TTL: {_CACHE_TTL_SECONDS}s)"
+                    )
+                logger.debug(f"Using cached project index for {project_dir}")
+                # Return deep copies to prevent callers from corrupting the cache
+                return copy.deepcopy(cached_index), copy.deepcopy(cached_capabilities)
+            elif debug:
+                print(
+                    f"[ClientCache] Cache EXPIRED for project index (age: {cache_age:.1f}s > TTL: {_CACHE_TTL_SECONDS}s)"
+                )
+
+    # Cache miss or expired - load fresh data (outside lock to avoid blocking)
+    load_start = time.time()
+    logger.debug(f"Loading project index for {project_dir}")
+    project_index = load_project_index(project_dir)
+    project_capabilities = detect_project_capabilities(project_index)
+
+    if debug:
+        load_duration = (time.time() - load_start) * 1000
+        print(
+            f"[ClientCache] Cache MISS - loaded project index in {load_duration:.1f}ms"
+        )
+
+    # Store in cache with lock - use double-checked locking pattern
+    # Re-check if another thread populated the cache while we were loading
+    with _CACHE_LOCK:
+        if key in _PROJECT_INDEX_CACHE:
+            cached_index, cached_capabilities, cached_time = _PROJECT_INDEX_CACHE[key]
+            cache_age = time.time() - cached_time
+            if cache_age < _CACHE_TTL_SECONDS:
+                # Another thread already cached valid data while we were loading
+                if debug:
+                    print(
+                        "[ClientCache] Cache was populated by another thread, using cached data"
+                    )
+                # Return deep copies to prevent callers from corrupting the cache
+                return copy.deepcopy(cached_index), copy.deepcopy(cached_capabilities)
+        # Either no cache entry or it's expired - store our fresh data
+        _PROJECT_INDEX_CACHE[key] = (project_index, project_capabilities, time.time())
+
+    # Return the freshly loaded data (no need to copy since it's not from cache)
+    return project_index, project_capabilities
+
+
+def invalidate_project_cache(project_dir: Path | None = None) -> None:
+    """
+    Invalidate the project index cache.
+
+    Args:
+        project_dir: Specific project to invalidate, or None to clear all
+    """
+    with _CACHE_LOCK:
+        if project_dir is None:
+            _PROJECT_INDEX_CACHE.clear()
+            logger.debug("Cleared all project index cache entries")
+        else:
+            key = str(project_dir.resolve())
+            if key in _PROJECT_INDEX_CACHE:
+                del _PROJECT_INDEX_CACHE[key]
+                logger.debug(f"Invalidated project index cache for {project_dir}")
+
+
+from agents.tools_pkg import (
+    CONTEXT7_TOOLS,
+    ELECTRON_TOOLS,
+    GRAPHITI_MCP_TOOLS,
+    LINEAR_TOOLS,
+    PUPPETEER_TOOLS,
     create_auto_claude_mcp_server,
+    get_allowed_tools,
+    get_required_mcp_servers,
     is_tools_available,
-)
-from auto_claude_tools import (
-    get_allowed_tools as get_agent_allowed_tools,
 )
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from claude_agent_sdk.types import HookMatcher
@@ -26,6 +138,245 @@ from core.auth import get_sdk_env_vars, require_auth_token
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
 from security import bash_security_hook
+
+
+def _validate_custom_mcp_server(server: dict) -> bool:
+    """
+    Validate a custom MCP server configuration for security.
+
+    Ensures only expected fields with valid types are present.
+    Rejects configurations that could lead to command injection.
+
+    Args:
+        server: Dict representing a custom MCP server configuration
+
+    Returns:
+        True if valid, False otherwise
+    """
+    if not isinstance(server, dict):
+        return False
+
+    # Required fields
+    required_fields = {"id", "name", "type"}
+    if not all(field in server for field in required_fields):
+        logger.warning(
+            f"Custom MCP server missing required fields: {required_fields - server.keys()}"
+        )
+        return False
+
+    # Validate field types
+    if not isinstance(server.get("id"), str) or not server["id"]:
+        return False
+    if not isinstance(server.get("name"), str) or not server["name"]:
+        return False
+    # FIX: Changed from ('command', 'url') to ('command', 'http') to match actual usage
+    if server.get("type") not in ("command", "http"):
+        logger.warning(f"Invalid MCP server type: {server.get('type')}")
+        return False
+
+    # Allowlist of safe executable commands for MCP servers
+    # Only allow known package managers and interpreters - NO shell commands
+    SAFE_COMMANDS = {
+        "npx",
+        "npm",
+        "node",
+        "python",
+        "python3",
+        "uv",
+        "uvx",
+    }
+
+    # Blocklist of dangerous shell commands that should never be allowed
+    DANGEROUS_COMMANDS = {
+        "bash",
+        "sh",
+        "cmd",
+        "powershell",
+        "pwsh",  # PowerShell Core
+        "/bin/bash",
+        "/bin/sh",
+        "/bin/zsh",
+        "/usr/bin/bash",
+        "/usr/bin/sh",
+        "zsh",
+        "fish",
+    }
+
+    # Dangerous interpreter flags that allow arbitrary code execution
+    # Covers Python (-e, -c, -m, -p), Node.js (--eval, --print, loaders), and general
+    DANGEROUS_FLAGS = {
+        "--eval",
+        "-e",
+        "-c",
+        "--exec",
+        "-m",  # Python module execution
+        "-p",  # Python eval+print
+        "--print",  # Node.js print
+        "--input-type=module",  # Node.js ES module mode
+        "--experimental-loader",  # Node.js custom loaders
+        "--require",  # Node.js require injection
+        "-r",  # Node.js require shorthand
+    }
+
+    # Type-specific validation
+    if server["type"] == "command":
+        if not isinstance(server.get("command"), str) or not server["command"]:
+            logger.warning("Command-type MCP server missing 'command' field")
+            return False
+
+        # SECURITY FIX: Validate command is in safe list and not in dangerous list
+        command = server.get("command", "")
+
+        # Reject paths - commands must be bare names only (no / or \)
+        # This prevents path traversal like '/custom/malicious' or './evil'
+        if "/" in command or "\\" in command:
+            logger.warning(
+                f"Rejected command with path in MCP server: {command}. "
+                f"Commands must be bare names without path separators."
+            )
+            return False
+
+        if command in DANGEROUS_COMMANDS:
+            logger.warning(
+                f"Rejected dangerous command in MCP server: {command}. "
+                f"Shell commands are not allowed for security reasons."
+            )
+            return False
+
+        if command not in SAFE_COMMANDS:
+            logger.warning(
+                f"Rejected unknown command in MCP server: {command}. "
+                f"Only allowed commands: {', '.join(sorted(SAFE_COMMANDS))}"
+            )
+            return False
+
+        # Validate args is a list of strings if present
+        if "args" in server:
+            if not isinstance(server["args"], list):
+                return False
+            if not all(isinstance(arg, str) for arg in server["args"]):
+                return False
+            # Check for dangerous interpreter flags that allow code execution
+            for arg in server["args"]:
+                if arg in DANGEROUS_FLAGS:
+                    logger.warning(
+                        f"Rejected dangerous flag '{arg}' in MCP server args. "
+                        f"Interpreter code execution flags are not allowed."
+                    )
+                    return False
+    elif server["type"] == "http":
+        if not isinstance(server.get("url"), str) or not server["url"]:
+            logger.warning("HTTP-type MCP server missing 'url' field")
+            return False
+        # Validate headers is a dict of strings if present
+        if "headers" in server:
+            if not isinstance(server["headers"], dict):
+                return False
+            if not all(
+                isinstance(k, str) and isinstance(v, str)
+                for k, v in server["headers"].items()
+            ):
+                return False
+
+    # Optional description must be string if present
+    if "description" in server and not isinstance(server.get("description"), str):
+        return False
+
+    # Reject any unexpected fields that could be exploited
+    allowed_fields = {
+        "id",
+        "name",
+        "type",
+        "command",
+        "args",
+        "url",
+        "headers",
+        "description",
+    }
+    unexpected_fields = set(server.keys()) - allowed_fields
+    if unexpected_fields:
+        logger.warning(f"Custom MCP server has unexpected fields: {unexpected_fields}")
+        return False
+
+    return True
+
+
+def load_project_mcp_config(project_dir: Path) -> dict:
+    """
+    Load MCP configuration from project's .auto-claude/.env file.
+
+    Returns a dict of MCP-related env vars:
+    - CONTEXT7_ENABLED (default: true)
+    - LINEAR_MCP_ENABLED (default: true)
+    - ELECTRON_MCP_ENABLED (default: false)
+    - PUPPETEER_MCP_ENABLED (default: false)
+    - AGENT_MCP_<agent>_ADD (per-agent MCP additions)
+    - AGENT_MCP_<agent>_REMOVE (per-agent MCP removals)
+    - CUSTOM_MCP_SERVERS (JSON array of custom server configs)
+
+    Args:
+        project_dir: Path to the project directory
+
+    Returns:
+        Dict of MCP configuration values (string values, except CUSTOM_MCP_SERVERS which is parsed JSON)
+    """
+    env_path = project_dir / ".auto-claude" / ".env"
+    if not env_path.exists():
+        return {}
+
+    config = {}
+    mcp_keys = {
+        "CONTEXT7_ENABLED",
+        "LINEAR_MCP_ENABLED",
+        "ELECTRON_MCP_ENABLED",
+        "PUPPETEER_MCP_ENABLED",
+    }
+
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip().strip("\"'")
+                    # Include global MCP toggles
+                    if key in mcp_keys:
+                        config[key] = value
+                    # Include per-agent MCP overrides (AGENT_MCP_<agent>_ADD/REMOVE)
+                    elif key.startswith("AGENT_MCP_"):
+                        config[key] = value
+                    # Include custom MCP servers (parse JSON with schema validation)
+                    elif key == "CUSTOM_MCP_SERVERS":
+                        try:
+                            parsed = json.loads(value)
+                            if not isinstance(parsed, list):
+                                logger.warning(
+                                    "CUSTOM_MCP_SERVERS must be a JSON array"
+                                )
+                                config["CUSTOM_MCP_SERVERS"] = []
+                            else:
+                                # Validate each server and filter out invalid ones
+                                valid_servers = []
+                                for i, server in enumerate(parsed):
+                                    if _validate_custom_mcp_server(server):
+                                        valid_servers.append(server)
+                                    else:
+                                        logger.warning(
+                                            f"Skipping invalid custom MCP server at index {i}"
+                                        )
+                                config["CUSTOM_MCP_SERVERS"] = valid_servers
+                        except json.JSONDecodeError:
+                            logger.warning(
+                                f"Failed to parse CUSTOM_MCP_SERVERS JSON: {value}"
+                            )
+                            config["CUSTOM_MCP_SERVERS"] = []
+    except Exception as e:
+        logger.debug(f"Failed to load project MCP config from {env_path}: {e}")
+
+    return config
 
 
 def is_graphiti_mcp_enabled() -> bool:
@@ -59,78 +410,28 @@ def get_electron_debug_port() -> int:
     return int(os.environ.get("ELECTRON_DEBUG_PORT", "9222"))
 
 
-# Puppeteer MCP tools for browser automation
-# NOTE: Screenshots must be compressed (1280x720, quality 60, JPEG) to stay under
-# Claude SDK's 1MB JSON message buffer limit. See GitHub issue #74.
-PUPPETEER_TOOLS = [
-    "mcp__puppeteer__puppeteer_connect_active_tab",
-    "mcp__puppeteer__puppeteer_navigate",
-    "mcp__puppeteer__puppeteer_screenshot",
-    "mcp__puppeteer__puppeteer_click",
-    "mcp__puppeteer__puppeteer_fill",
-    "mcp__puppeteer__puppeteer_select",
-    "mcp__puppeteer__puppeteer_hover",
-    "mcp__puppeteer__puppeteer_evaluate",
-]
+def should_use_claude_md() -> bool:
+    """Check if CLAUDE.md instructions should be included in system prompt."""
+    return os.environ.get("USE_CLAUDE_MD", "").lower() == "true"
 
-# Linear MCP tools for project management (when LINEAR_API_KEY is set)
-LINEAR_TOOLS = [
-    "mcp__linear-server__list_teams",
-    "mcp__linear-server__get_team",
-    "mcp__linear-server__list_projects",
-    "mcp__linear-server__get_project",
-    "mcp__linear-server__create_project",
-    "mcp__linear-server__update_project",
-    "mcp__linear-server__list_issues",
-    "mcp__linear-server__get_issue",
-    "mcp__linear-server__create_issue",
-    "mcp__linear-server__update_issue",
-    "mcp__linear-server__list_comments",
-    "mcp__linear-server__create_comment",
-    "mcp__linear-server__list_issue_statuses",
-    "mcp__linear-server__list_issue_labels",
-    "mcp__linear-server__list_users",
-    "mcp__linear-server__get_user",
-]
 
-# Context7 MCP tools for documentation lookup (always enabled)
-CONTEXT7_TOOLS = [
-    "mcp__context7__resolve-library-id",
-    "mcp__context7__get-library-docs",
-]
+def load_claude_md(project_dir: Path) -> str | None:
+    """
+    Load CLAUDE.md content from project root if it exists.
 
-# Graphiti MCP tools for knowledge graph memory (when GRAPHITI_MCP_ENABLED is set)
-# See: https://github.com/getzep/graphiti
-GRAPHITI_MCP_TOOLS = [
-    "mcp__graphiti-memory__search_nodes",  # Search entity summaries
-    "mcp__graphiti-memory__search_facts",  # Search relationships between entities
-    "mcp__graphiti-memory__add_episode",  # Add data to knowledge graph
-    "mcp__graphiti-memory__get_episodes",  # Retrieve recent episodes
-    "mcp__graphiti-memory__get_entity_edge",  # Get specific entity/relationship
-]
+    Args:
+        project_dir: Root directory of the project
 
-# Electron MCP tools for desktop app automation (when ELECTRON_MCP_ENABLED is set)
-# Uses electron-mcp-server to connect to Electron apps via Chrome DevTools Protocol.
-# Electron app must be started with --remote-debugging-port=9222 (or ELECTRON_DEBUG_PORT).
-# These tools are only available to QA agents (qa_reviewer, qa_fixer), not Coder/Planner.
-# NOTE: Screenshots must be compressed to stay under Claude SDK's 1MB JSON message buffer limit.
-# See GitHub issue #74.
-ELECTRON_TOOLS = [
-    "mcp__electron__get_electron_window_info",  # Get info about running Electron windows
-    "mcp__electron__take_screenshot",  # Capture screenshot of Electron window
-    "mcp__electron__send_command_to_electron",  # Send commands (click, fill, evaluate JS)
-    "mcp__electron__read_electron_logs",  # Read console logs from Electron app
-]
-
-# Built-in tools
-BUILTIN_TOOLS = [
-    "Read",
-    "Write",
-    "Edit",
-    "Glob",
-    "Grep",
-    "Bash",
-]
+    Returns:
+        Content of CLAUDE.md if found, None otherwise
+    """
+    claude_md_path = project_dir / "CLAUDE.md"
+    if claude_md_path.exists():
+        try:
+            return claude_md_path.read_text(encoding="utf-8")
+        except Exception:
+            return None
+    return None
 
 
 def create_client(
@@ -140,16 +441,21 @@ def create_client(
     agent_type: str = "coder",
     max_thinking_tokens: int | None = None,
     output_format: dict | None = None,
+    agents: dict | None = None,
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
+
+    Uses AGENT_CONFIGS for phase-aware tool and MCP server configuration.
+    Only starts MCP servers that the agent actually needs, reducing context
+    window bloat and startup latency.
 
     Args:
         project_dir: Root directory for the project (working directory)
         spec_dir: Directory containing the spec (for settings file)
         model: Claude model to use
-        agent_type: Type of agent - 'planner', 'coder', 'qa_reviewer', or 'qa_fixer'
-                   This determines which custom auto-claude tools are available.
+        agent_type: Agent type identifier from AGENT_CONFIGS
+                   (e.g., 'coder', 'planner', 'qa_reviewer', 'spec_gatherer')
         max_thinking_tokens: Token budget for extended thinking (None = disabled)
                             - ultrathink: 16000 (spec creation)
                             - high: 10000 (QA review)
@@ -158,9 +464,16 @@ def create_client(
         output_format: Optional structured output format for validated JSON responses.
                       Use {"type": "json_schema", "schema": Model.model_json_schema()}
                       See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
+        agents: Optional dict of subagent definitions for SDK parallel execution.
+               Format: {"agent-name": {"description": "...", "prompt": "...",
+                        "tools": [...], "model": "inherit"}}
+               See: https://platform.claude.com/docs/en/agent-sdk/subagents
 
     Returns:
         Configured ClaudeSDKClient
+
+    Raises:
+        ValueError: If agent_type is not found in AGENT_CONFIGS
 
     Security layers (defense in depth):
     1. Sandbox - OS-level bash command isolation prevents filesystem escape
@@ -176,6 +489,12 @@ def create_client(
     # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, etc.)
     sdk_env = get_sdk_env_vars()
 
+    # Debug: Log git-bash path detection on Windows
+    if "CLAUDE_CODE_GIT_BASH_PATH" in sdk_env:
+        logger.info(f"Git Bash path found: {sdk_env['CLAUDE_CODE_GIT_BASH_PATH']}")
+    elif platform.system() == "Windows":
+        logger.warning("Git Bash path not detected on Windows!")
+
     # Check if Linear integration is enabled
     linear_enabled = is_linear_enabled()
     linear_api_key = os.environ.get("LINEAR_API_KEY", "")
@@ -185,71 +504,138 @@ def create_client(
 
     # Load project capabilities for dynamic MCP tool selection
     # This enables context-aware tool injection based on project type
-    project_index = load_project_index(project_dir)
-    project_capabilities = detect_project_capabilities(project_index)
+    # Uses caching to avoid reloading on every create_client() call
+    project_index, project_capabilities = _get_cached_project_data(project_dir)
 
-    # Build the list of allowed tools
-    # Start with agent-specific tools (includes base tools + auto-claude tools)
-    # Pass project capabilities for dynamic MCP tool filtering
-    if auto_claude_tools_enabled:
-        allowed_tools_list = get_agent_allowed_tools(agent_type, project_capabilities)
-    else:
-        allowed_tools_list = [*BUILTIN_TOOLS]
+    # Load per-project MCP configuration from .auto-claude/.env
+    mcp_config = load_project_mcp_config(project_dir)
 
-    # Check if Graphiti MCP is enabled
-    graphiti_mcp_enabled = is_graphiti_mcp_enabled()
+    # Get allowed tools using phase-aware configuration
+    # This respects AGENT_CONFIGS and only includes tools the agent needs
+    # Also respects per-project MCP configuration
+    allowed_tools_list = get_allowed_tools(
+        agent_type,
+        project_capabilities,
+        linear_enabled,
+        mcp_config,
+    )
 
-    # Check if Electron MCP is enabled (for QA agents testing Electron apps)
-    electron_mcp_enabled = is_electron_mcp_enabled()
+    # Get required MCP servers for this agent type
+    # This is the key optimization - only start servers the agent needs
+    # Now also respects per-project MCP configuration
+    required_servers = get_required_mcp_servers(
+        agent_type,
+        project_capabilities,
+        linear_enabled,
+        mcp_config,
+    )
 
-    # Add external MCP tools based on project capabilities
-    # This saves context window by only including relevant tools
-    allowed_tools_list.extend(CONTEXT7_TOOLS)  # Always available
-    if linear_enabled:
-        allowed_tools_list.extend(LINEAR_TOOLS)
-    if graphiti_mcp_enabled:
-        allowed_tools_list.extend(GRAPHITI_MCP_TOOLS)
-    # Note: Browser automation tools (ELECTRON_TOOLS, PUPPETEER_TOOLS) are already
-    # added by get_agent_allowed_tools() via _get_qa_mcp_tools() for QA agents
+    # Check if Graphiti MCP is enabled (already filtered by get_required_mcp_servers)
+    graphiti_mcp_enabled = "graphiti" in required_servers
 
-    # Determine which browser automation tools to allow based on project type
-    # Note: Must check "not is_electron" for Puppeteer to avoid tool mismatch
-    # when Electron MCP is disabled for an Electron project
+    # Determine browser tools for permissions (already in allowed_tools_list)
     browser_tools_permissions = []
-    if agent_type in ("qa_reviewer", "qa_fixer"):
-        if project_capabilities.get("is_electron") and electron_mcp_enabled:
-            browser_tools_permissions = ELECTRON_TOOLS
-        elif project_capabilities.get(
-            "is_web_frontend"
-        ) and not project_capabilities.get("is_electron"):
-            # Only add Puppeteer for non-Electron web frontends
-            browser_tools_permissions = PUPPETEER_TOOLS
+    if "electron" in required_servers:
+        browser_tools_permissions = ELECTRON_TOOLS
+    elif "puppeteer" in required_servers:
+        browser_tools_permissions = PUPPETEER_TOOLS
 
     # Create comprehensive security settings
-    # Note: Using relative paths ("./**") restricts access to project directory
-    # since cwd is set to project_dir
+    # Note: Using both relative paths ("./**") and absolute paths to handle
+    # cases where Claude uses absolute paths for file operations
+    project_path_str = str(project_dir.resolve())
+    spec_path_str = str(spec_dir.resolve())
+
+    # Detect if we're running in a worktree and get the original project directory
+    # Worktrees are located in either:
+    # - .auto-claude/worktrees/tasks/{spec-name}/ (new location)
+    # - .worktrees/{spec-name}/ (legacy location)
+    # When running in a worktree, we need to allow access to both the worktree
+    # and the original project's .auto-claude/ directory for spec files
+    original_project_permissions = []
+    resolved_project_path = project_dir.resolve()
+
+    # Check for worktree paths and extract original project directory
+    # This handles spec worktrees, PR review worktrees, and legacy worktrees
+    # Note: Windows paths are normalized to forward slashes before comparison
+    worktree_markers = [
+        "/.auto-claude/worktrees/tasks/",  # Spec/task worktrees
+        "/.auto-claude/github/pr/worktrees/",  # PR review worktrees
+        "/.worktrees/",  # Legacy worktree location
+    ]
+    project_path_posix = str(resolved_project_path).replace("\\", "/")
+
+    for marker in worktree_markers:
+        if marker in project_path_posix:
+            # Extract the original project directory (parent of worktree location)
+            # Use rsplit to get the rightmost occurrence (handles nested projects)
+            original_project_str = project_path_posix.rsplit(marker, 1)[0]
+            original_project_dir = Path(original_project_str)
+
+            # Grant permissions for relevant directories in the original project
+            permission_ops = ["Read", "Write", "Edit", "Glob", "Grep"]
+            dirs_to_permit = [
+                original_project_dir / ".auto-claude",
+                original_project_dir / ".worktrees",  # Legacy support
+            ]
+
+            for dir_path in dirs_to_permit:
+                if dir_path.exists():
+                    path_str = str(dir_path.resolve())
+                    original_project_permissions.extend(
+                        [f"{op}({path_str}/**)" for op in permission_ops]
+                    )
+            break
+
     security_settings = {
         "sandbox": {"enabled": True, "autoAllowBashIfSandboxed": True},
         "permissions": {
             "defaultMode": "acceptEdits",  # Auto-approve edits within allowed directories
             "allow": [
                 # Allow all file operations within the project directory
+                # Include both relative (./**) and absolute paths for compatibility
                 "Read(./**)",
                 "Write(./**)",
                 "Edit(./**)",
                 "Glob(./**)",
                 "Grep(./**)",
+                # Also allow absolute paths (Claude sometimes uses full paths)
+                f"Read({project_path_str}/**)",
+                f"Write({project_path_str}/**)",
+                f"Edit({project_path_str}/**)",
+                f"Glob({project_path_str}/**)",
+                f"Grep({project_path_str}/**)",
+                # Allow spec directory explicitly (needed when spec is in worktree)
+                f"Read({spec_path_str}/**)",
+                f"Write({spec_path_str}/**)",
+                f"Edit({spec_path_str}/**)",
+                # Allow original project's .auto-claude/ and .worktrees/ directories
+                # when running in a worktree (fixes issue #385 - permission errors)
+                *original_project_permissions,
                 # Bash permission granted here, but actual commands are validated
                 # by the bash_security_hook (see security.py for allowed commands)
                 "Bash(*)",
-                # Allow Context7 MCP tools for documentation lookup
-                *CONTEXT7_TOOLS,
-                # Allow Linear MCP tools for project management (if enabled)
-                *(LINEAR_TOOLS if linear_enabled else []),
-                # Allow Graphiti MCP tools for knowledge graph memory (if enabled)
-                *(GRAPHITI_MCP_TOOLS if graphiti_mcp_enabled else []),
-                # Allow browser automation tools based on project type
-                *browser_tools_permissions,
+                # Allow web tools for documentation and research
+                "WebFetch(*)",
+                "WebSearch(*)",
+                # Allow MCP tools based on required servers
+                # Format: tool_name(*) allows all arguments
+                *(
+                    [f"{tool}(*)" for tool in CONTEXT7_TOOLS]
+                    if "context7" in required_servers
+                    else []
+                ),
+                *(
+                    [f"{tool}(*)" for tool in LINEAR_TOOLS]
+                    if "linear" in required_servers
+                    else []
+                ),
+                *(
+                    [f"{tool}(*)" for tool in GRAPHITI_MCP_TOOLS]
+                    if graphiti_mcp_enabled
+                    else []
+                ),
+                *[f"{tool}(*)" for tool in browser_tools_permissions],
             ],
         },
     }
@@ -262,30 +648,34 @@ def create_client(
     print(f"Security settings: {settings_file}")
     print("   - Sandbox enabled (OS-level bash isolation)")
     print(f"   - Filesystem restricted to: {project_dir.resolve()}")
+    if original_project_permissions:
+        print("   - Worktree permissions: granted for original project directories")
     print("   - Bash commands restricted to allowlist")
     if max_thinking_tokens:
         print(f"   - Extended thinking: {max_thinking_tokens:,} tokens")
     else:
         print("   - Extended thinking: disabled")
 
-    # Build list of MCP servers for display
-    mcp_servers_list = ["context7 (documentation)"]
-    if agent_type in ("qa_reviewer", "qa_fixer"):
-        if project_capabilities.get("is_electron") and electron_mcp_enabled:
-            mcp_servers_list.append(
-                f"electron (desktop automation, port {get_electron_debug_port()})"
-            )
-        elif project_capabilities.get(
-            "is_web_frontend"
-        ) and not project_capabilities.get("is_electron"):
-            mcp_servers_list.append("puppeteer (browser automation)")
-    if linear_enabled:
+    # Build list of MCP servers for display based on required_servers
+    mcp_servers_list = []
+    if "context7" in required_servers:
+        mcp_servers_list.append("context7 (documentation)")
+    if "electron" in required_servers:
+        mcp_servers_list.append(
+            f"electron (desktop automation, port {get_electron_debug_port()})"
+        )
+    if "puppeteer" in required_servers:
+        mcp_servers_list.append("puppeteer (browser automation)")
+    if "linear" in required_servers:
         mcp_servers_list.append("linear (project management)")
     if graphiti_mcp_enabled:
         mcp_servers_list.append("graphiti-memory (knowledge graph)")
-    if auto_claude_tools_enabled:
+    if "auto-claude" in required_servers and auto_claude_tools_enabled:
         mcp_servers_list.append(f"auto-claude ({agent_type} tools)")
-    print(f"   - MCP servers: {', '.join(mcp_servers_list)}")
+    if mcp_servers_list:
+        print(f"   - MCP servers: {', '.join(mcp_servers_list)}")
+    else:
+        print("   - MCP servers: none (minimal configuration)")
 
     # Show detected project capabilities for QA agents
     if agent_type in ("qa_reviewer", "qa_fixer") and any(project_capabilities.values()):
@@ -297,65 +687,103 @@ def create_client(
         print(f"   - Project capabilities: {', '.join(caps)}")
     print()
 
-    # Configure MCP servers
-    mcp_servers = {
-        "context7": {"command": "npx", "args": ["-y", "@upstash/context7-mcp"]},
-    }
+    # Configure MCP servers - ONLY start servers that are required
+    # This is the key optimization to reduce context bloat and startup latency
+    mcp_servers = {}
 
-    # Add browser automation MCP server based on project type
-    if agent_type in ("qa_reviewer", "qa_fixer"):
-        if project_capabilities.get("is_electron") and electron_mcp_enabled:
-            # Electron MCP for desktop apps
-            # Electron app must be started with --remote-debugging-port=<port>
-            mcp_servers["electron"] = {
-                "command": "npm",
-                "args": ["exec", "electron-mcp-server"],
-            }
-        elif project_capabilities.get(
-            "is_web_frontend"
-        ) and not project_capabilities.get("is_electron"):
-            # Puppeteer for web frontends (not Electron)
-            mcp_servers["puppeteer"] = {
-                "command": "npx",
-                "args": ["puppeteer-mcp-server"],
-            }
+    if "context7" in required_servers:
+        mcp_servers["context7"] = {
+            "command": "npx",
+            "args": ["-y", "@upstash/context7-mcp"],
+        }
 
-    # Add Linear MCP server if enabled
-    if linear_enabled:
+    if "electron" in required_servers:
+        # Electron MCP for desktop apps
+        # Electron app must be started with --remote-debugging-port=<port>
+        mcp_servers["electron"] = {
+            "command": "npm",
+            "args": ["exec", "electron-mcp-server"],
+        }
+
+    if "puppeteer" in required_servers:
+        # Puppeteer for web frontends (not Electron)
+        mcp_servers["puppeteer"] = {
+            "command": "npx",
+            "args": ["puppeteer-mcp-server"],
+        }
+
+    if "linear" in required_servers:
         mcp_servers["linear"] = {
             "type": "http",
             "url": "https://mcp.linear.app/mcp",
             "headers": {"Authorization": f"Bearer {linear_api_key}"},
         }
 
-    # Add Graphiti MCP server if enabled
-    # Graphiti MCP server for knowledge graph memory (uses embedded LadybugDB)
+    # Graphiti MCP server for knowledge graph memory
     if graphiti_mcp_enabled:
         mcp_servers["graphiti-memory"] = {
             "type": "http",
             "url": get_graphiti_mcp_url(),
         }
 
-    # Add custom auto-claude MCP server if available
-    auto_claude_mcp_server = None
-    if auto_claude_tools_enabled:
+    # Add custom auto-claude MCP server if required and available
+    if "auto-claude" in required_servers and auto_claude_tools_enabled:
         auto_claude_mcp_server = create_auto_claude_mcp_server(spec_dir, project_dir)
         if auto_claude_mcp_server:
             mcp_servers["auto-claude"] = auto_claude_mcp_server
 
+    # Add custom MCP servers from project config
+    custom_servers = mcp_config.get("CUSTOM_MCP_SERVERS", [])
+    for custom in custom_servers:
+        server_id = custom.get("id")
+        if not server_id:
+            continue
+        # Only include if agent has it in their effective server list
+        if server_id not in required_servers:
+            continue
+        server_type = custom.get("type", "command")
+        if server_type == "command":
+            mcp_servers[server_id] = {
+                "command": custom.get("command", "npx"),
+                "args": custom.get("args", []),
+            }
+        elif server_type == "http":
+            server_config = {
+                "type": "http",
+                "url": custom.get("url", ""),
+            }
+            if custom.get("headers"):
+                server_config["headers"] = custom["headers"]
+            mcp_servers[server_id] = server_config
+
+    # Build system prompt
+    base_prompt = (
+        f"You are an expert full-stack developer building production-quality software. "
+        f"Your working directory is: {project_dir.resolve()}\n"
+        f"Your filesystem access is RESTRICTED to this directory only. "
+        f"Use relative paths (starting with ./) for all file operations. "
+        f"Never use absolute paths or try to access files outside your working directory.\n\n"
+        f"You follow existing code patterns, write clean maintainable code, and verify "
+        f"your work through thorough testing. You communicate progress through Git commits "
+        f"and build-progress.txt updates."
+    )
+
+    # Include CLAUDE.md if enabled and present
+    if should_use_claude_md():
+        claude_md_content = load_claude_md(project_dir)
+        if claude_md_content:
+            base_prompt = f"{base_prompt}\n\n# Project Instructions (from CLAUDE.md)\n\n{claude_md_content}"
+            print("   - CLAUDE.md: included in system prompt")
+        else:
+            print("   - CLAUDE.md: not found in project root")
+    else:
+        print("   - CLAUDE.md: disabled by project settings")
+    print()
+
     # Build options dict, conditionally including output_format
     options_kwargs = {
         "model": model,
-        "system_prompt": (
-            f"You are an expert full-stack developer building production-quality software. "
-            f"Your working directory is: {project_dir.resolve()}\n"
-            f"Your filesystem access is RESTRICTED to this directory only. "
-            f"Use relative paths (starting with ./) for all file operations. "
-            f"Never use absolute paths or try to access files outside your working directory.\n\n"
-            f"You follow existing code patterns, write clean maintainable code, and verify "
-            f"your work through thorough testing. You communicate progress through Git commits "
-            f"and build-progress.txt updates."
-        ),
+        "system_prompt": base_prompt,
         "allowed_tools": allowed_tools_list,
         "mcp_servers": mcp_servers,
         "hooks": {
@@ -368,11 +796,22 @@ def create_client(
         "settings": str(settings_file.resolve()),
         "env": sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess
         "max_thinking_tokens": max_thinking_tokens,  # Extended thinking budget
+        "max_buffer_size": 10
+        * 1024
+        * 1024,  # 10MB buffer (default: 1MB) - fixes large tool results
+        # Enable file checkpointing to track file read/write state across tool calls
+        # This prevents "File has not been read yet" errors in recovery sessions
+        "enable_file_checkpointing": True,
     }
 
     # Add structured output format if specified
     # See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
     if output_format:
         options_kwargs["output_format"] = output_format
+
+    # Add subagent definitions if specified
+    # See: https://platform.claude.com/docs/en/agent-sdk/subagents
+    if agents:
+        options_kwargs["agents"] = agents
 
     return ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))

@@ -48,7 +48,9 @@ export const DEFAULT_APP_SETTINGS = {
   // Beta updates opt-in (receive pre-release versions)
   betaUpdates: false,
   // Language preference (default to English)
-  language: 'en' as const
+  language: 'en' as const,
+  // Anonymous error reporting (Sentry) - enabled by default to help improve the app
+  sentryEnabled: true
 };
 
 // ============================================
@@ -67,7 +69,9 @@ export const DEFAULT_PROJECT_SETTINGS = {
   },
   // Graphiti MCP server for agent-accessible knowledge graph (enabled by default)
   graphitiMcpEnabled: true,
-  graphitiMcpUrl: 'http://localhost:8000/mcp/'
+  graphitiMcpUrl: 'http://localhost:8000/mcp/',
+  // Include CLAUDE.md instructions in agent context (enabled by default)
+  useClaudeMd: true
 };
 
 // ============================================

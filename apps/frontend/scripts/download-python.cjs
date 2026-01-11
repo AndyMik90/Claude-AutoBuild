@@ -25,6 +25,106 @@ const nodeCrypto = require('crypto');
 // Python version to bundle (must be 3.10+ for claude-agent-sdk, 3.12+ for full Graphiti support)
 const PYTHON_VERSION = '3.12.8';
 
+// Patterns for files/directories to strip from site-packages to reduce size
+// These are safe to remove - Python doesn't need them at runtime
+const STRIP_PATTERNS = {
+  // Directories to remove entirely
+  dirs: [
+    '__pycache__',
+    'tests',
+    'test',
+    'testing',
+    'docs',
+    'doc',
+    'examples',
+    'example',
+    'benchmarks',
+    'benchmark',
+    '.git',
+    '.github',
+    '.tox',
+    '.pytest_cache',
+    '.mypy_cache',
+    '__pypackages__',
+    // Windows-specific bloat
+    'pythonwin',       // PyWin32 IDE - not needed (9MB)
+  ],
+  // File extensions to remove
+  extensions: [
+    '.pyc',
+    '.pyo',
+    '.pyi',      // Type stubs - IDE only, not needed at runtime
+    '.c',        // C source files (compiled extensions don't need these)
+    '.h',        // C headers
+    '.cpp',
+    '.hpp',
+    '.md',
+    '.rst',
+    '.txt',      // Will preserve LICENSE.txt
+    '.yml',
+    '.yaml',
+    '.toml',
+    '.ini',
+    '.cfg',
+    '.coveragerc',
+    '.gitignore',
+    '.gitattributes',
+    '.editorconfig',
+    '.chm',      // Windows help files - not needed
+  ],
+  // Specific files to remove
+  files: [
+    'README',
+    'README.md',
+    'README.rst',
+    'CHANGELOG',
+    'CHANGELOG.md',
+    'CHANGES',
+    'CHANGES.md',
+    'HISTORY',
+    'HISTORY.md',
+    'AUTHORS',
+    'AUTHORS.md',
+    'CONTRIBUTORS',
+    'CONTRIBUTORS.md',
+    'CONTRIBUTING',
+    'CONTRIBUTING.md',
+    'CODE_OF_CONDUCT.md',
+    'SECURITY.md',
+    'Makefile',
+    'setup.py',
+    'setup.cfg',
+    'pyproject.toml',
+    'tox.ini',
+    '.travis.yml',
+    'conftest.py',
+    'pytest.ini',
+  ],
+  // Specific paths within packages to remove (relative to package directory)
+  // Format: 'package_name/subpath' - removes the entire subpath
+  packagePaths: [
+    'googleapiclient/discovery_cache/documents',  // Cached Google API discovery docs (92MB!)
+    'claude_agent_sdk/_bundled',                  // Bundled Claude CLI (224MB!) - users have it installed separately
+  ],
+  // Packages that should NEVER be bundled (too large, specialized)
+  // If these appear in dependencies, warn and skip
+  blockedPackages: [
+    'torch',
+    'torchvision',
+    'torchaudio',
+    'tensorflow',
+    'tensorflow-gpu',
+    'transformers',
+    'jax',
+    'jaxlib',
+    'keras',
+    'onnxruntime',
+    'opencv-python',
+    'opencv-contrib-python',
+    'scipy',  // Often pulled in, but large - warn if present
+  ],
+};
+
 // python-build-standalone release tag
 const RELEASE_TAG = '20241219';
 
@@ -259,10 +359,12 @@ function extractTarGz(archivePath, destDir) {
 
   // On Windows, use Windows' built-in bsdtar (not Git Bash tar which has path issues)
   // Git Bash's /usr/bin/tar interprets D: as a remote host, causing extraction to fail
-  // Windows Server 2019+ and Windows 10+ have bsdtar at C:\Windows\System32\tar.exe
+  // Windows Server 2019+ and Windows 10+ have bsdtar at %SystemRoot%\System32\tar.exe
   if (isWindows) {
     // Use explicit path to Windows tar to avoid Git Bash's /usr/bin/tar
-    const windowsTar = 'C:\\Windows\\System32\\tar.exe';
+    // Use SystemRoot environment variable to handle non-standard Windows installations
+    const systemRoot = process.env.SystemRoot || process.env.windir || 'C:\\Windows';
+    const windowsTar = path.join(systemRoot, 'System32', 'tar.exe');
 
     const result = spawnSync(windowsTar, ['-xzf', archivePath, '-C', destDir], {
       stdio: 'inherit',
@@ -313,11 +415,268 @@ function verifyPythonBinary(pythonBin) {
 }
 
 /**
- * Main function to download and set up Python.
+ * Get the size of a directory in bytes.
  */
-async function downloadPython(targetPlatform, targetArch) {
+function getDirectorySize(dirPath) {
+  let totalSize = 0;
+
+  function walkDir(currentPath) {
+    try {
+      const entries = fs.readdirSync(currentPath, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(currentPath, entry.name);
+        if (entry.isDirectory()) {
+          walkDir(fullPath);
+        } else if (entry.isFile()) {
+          try {
+            const stats = fs.statSync(fullPath);
+            totalSize += stats.size;
+          } catch {
+            // Skip files we can't stat
+          }
+        }
+      }
+    } catch {
+      // Skip directories we can't read
+    }
+  }
+
+  walkDir(dirPath);
+  return totalSize;
+}
+
+/**
+ * Format bytes to human readable string.
+ */
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Strip unnecessary files from site-packages to reduce bundle size.
+ * This removes tests, docs, cache files, and other non-essential content.
+ */
+function stripSitePackages(sitePackagesDir) {
+  console.log(`[download-python] Stripping unnecessary files from site-packages...`);
+
+  const sizeBefore = getDirectorySize(sitePackagesDir);
+  let removedCount = 0;
+
+  // First, remove specific package paths (e.g., googleapiclient/discovery_cache/documents)
+  // Use try/catch instead of existsSync to avoid TOCTOU race conditions
+  if (STRIP_PATTERNS.packagePaths) {
+    for (const pkgPath of STRIP_PATTERNS.packagePaths) {
+      const fullPath = path.join(sitePackagesDir, pkgPath);
+      try {
+        // Get size first (may throw ENOENT if path doesn't exist)
+        let pathSize = 0;
+        try {
+          pathSize = getDirectorySize(fullPath);
+        } catch {
+          // Path doesn't exist or can't get size - skip
+          continue;
+        }
+        fs.rmSync(fullPath, { recursive: true, force: true });
+        console.log(`[download-python] Removed ${pkgPath} (${formatBytes(pathSize)})`);
+        removedCount++;
+      } catch (err) {
+        // ENOENT means file was already gone - not an error
+        if (err.code !== 'ENOENT') {
+          console.warn(`[download-python] Failed to remove ${pkgPath}: ${err.message}`);
+        }
+      }
+    }
+  }
+
+  function shouldRemoveDir(name) {
+    return STRIP_PATTERNS.dirs.includes(name.toLowerCase());
+  }
+
+  function shouldRemoveFile(name) {
+    const lowerName = name.toLowerCase();
+
+    // Check exact file matches
+    if (STRIP_PATTERNS.files.includes(name) || STRIP_PATTERNS.files.includes(lowerName)) {
+      return true;
+    }
+
+    // Check extensions
+    for (const ext of STRIP_PATTERNS.extensions) {
+      if (lowerName.endsWith(ext)) {
+        // Preserve LICENSE files
+        if (lowerName.includes('license')) {
+          return false;
+        }
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function walkAndStrip(currentPath) {
+    let entries;
+    try {
+      entries = fs.readdirSync(currentPath, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const fullPath = path.join(currentPath, entry.name);
+
+      if (entry.isDirectory()) {
+        if (shouldRemoveDir(entry.name)) {
+          try {
+            fs.rmSync(fullPath, { recursive: true, force: true });
+            removedCount++;
+          } catch {
+            // Ignore removal errors
+          }
+        } else {
+          walkAndStrip(fullPath);
+        }
+      } else if (entry.isFile()) {
+        if (shouldRemoveFile(entry.name)) {
+          try {
+            fs.unlinkSync(fullPath);
+            removedCount++;
+          } catch {
+            // Ignore removal errors
+          }
+        }
+      }
+    }
+  }
+
+  walkAndStrip(sitePackagesDir);
+
+  const sizeAfter = getDirectorySize(sitePackagesDir);
+  const savedPercent = ((sizeBefore - sizeAfter) / sizeBefore * 100).toFixed(1);
+
+  console.log(`[download-python] Stripped ${removedCount} files/dirs`);
+  console.log(`[download-python] Size reduced: ${formatBytes(sizeBefore)} → ${formatBytes(sizeAfter)} (saved ${savedPercent}%)`);
+}
+
+/**
+ * Check for blocked packages in requirements and warn.
+ */
+function checkForBlockedPackages(requirementsPath) {
+  const content = fs.readFileSync(requirementsPath, 'utf-8');
+  const lines = content.split('\n');
+  const blocked = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim().toLowerCase();
+    if (trimmed.startsWith('#') || trimmed === '') continue;
+
+    // Extract package name (before any version specifier)
+    const pkgName = trimmed.split(/[<>=!@[]/)[0].trim();
+
+    for (const blockedPkg of STRIP_PATTERNS.blockedPackages) {
+      if (pkgName === blockedPkg || pkgName.startsWith(`${blockedPkg}-`)) {
+        blocked.push(pkgName);
+      }
+    }
+  }
+
+  if (blocked.length > 0) {
+    console.warn(`\n[download-python] ⚠️  WARNING: Large packages detected in requirements:`);
+    for (const pkg of blocked) {
+      console.warn(`[download-python]    - ${pkg} (consider making this an on-demand install)`);
+    }
+    console.warn(`[download-python] These packages may significantly increase app size.\n`);
+  }
+
+  return blocked;
+}
+
+/**
+ * Install Python packages into a site-packages directory.
+ * Uses pip with optimizations for smaller output.
+ */
+function installPackages(pythonBin, requirementsPath, targetSitePackages) {
+  console.log(`[download-python] Installing packages from: ${requirementsPath}`);
+  console.log(`[download-python] Target: ${targetSitePackages}`);
+
+  // Check for blocked packages first
+  checkForBlockedPackages(requirementsPath);
+
+  // Ensure target directory exists
+  fs.mkdirSync(targetSitePackages, { recursive: true });
+
+  // Install packages directly to target directory
+  // --no-compile: Don't create .pyc files (saves space, Python will work without them)
+  // --target: Install to specific directory
+  // --only-binary: Force binary wheels for pydantic (prevents silent source build failures)
+  // Note: We intentionally DO use pip's cache to preserve built wheels for packages
+  // like real_ladybug that must be compiled from source on Intel Mac (no PyPI wheel)
+  const pipArgs = [
+    '-m', 'pip', 'install',
+    '--no-compile',
+    '--only-binary', 'pydantic,pydantic-core',
+    '--target', targetSitePackages,
+    '-r', requirementsPath,
+  ];
+
+  console.log(`[download-python] Running: ${pythonBin} ${pipArgs.join(' ')}`);
+
+  const result = spawnSync(pythonBin, pipArgs, {
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      // Disable bytecode writing
+      PYTHONDONTWRITEBYTECODE: '1',
+      // Use UTF-8 encoding
+      PYTHONIOENCODING: 'utf-8',
+    },
+  });
+
+  if (result.error) {
+    throw new Error(`Failed to run pip: ${result.error.message}`);
+  }
+
+  if (result.status !== 0) {
+    throw new Error(`pip install failed with exit code ${result.status}`);
+  }
+
+  console.log(`[download-python] Packages installed successfully`);
+
+  // Strip unnecessary files
+  stripSitePackages(targetSitePackages);
+
+  // Remove bin/Scripts directory (we don't need console scripts)
+  const binDir = path.join(targetSitePackages, 'bin');
+  const scriptsDir = path.join(targetSitePackages, 'Scripts');
+  if (fs.existsSync(binDir)) {
+    fs.rmSync(binDir, { recursive: true, force: true });
+    console.log(`[download-python] Removed bin/ directory`);
+  }
+  if (fs.existsSync(scriptsDir)) {
+    fs.rmSync(scriptsDir, { recursive: true, force: true });
+    console.log(`[download-python] Removed Scripts/ directory`);
+  }
+
+  const finalSize = getDirectorySize(targetSitePackages);
+  console.log(`[download-python] Final site-packages size: ${formatBytes(finalSize)}`);
+}
+
+/**
+ * Main function to download and set up Python.
+ * Downloads Python binary and installs all dependencies into site-packages.
+ *
+ * @param {string} targetPlatform - Target platform (darwin, win32, linux)
+ * @param {string} targetArch - Target architecture (x64, arm64)
+ * @param {Object} options - Additional options
+ * @param {boolean} options.skipPackages - Skip package installation (just download Python)
+ * @param {string} options.requirementsPath - Custom path to requirements.txt
+ */
+async function downloadPython(targetPlatform, targetArch, options = {}) {
   const platform = targetPlatform || os.platform();
   const arch = targetArch || os.arch();
+  const { skipPackages = false, requirementsPath: customRequirementsPath } = options;
 
   const info = getDownloadInfo(platform, arch);
   console.log(`[download-python] Setting up Python ${PYTHON_VERSION} for ${info.outputDir}`);
@@ -326,69 +685,159 @@ async function downloadPython(targetPlatform, targetArch) {
   const runtimeDir = path.join(frontendDir, OUTPUT_DIR);
   const platformDir = path.join(runtimeDir, info.outputDir);
 
-  // Check if already downloaded
+  // Paths for Python binary and site-packages
   const pythonBin = info.nodePlatform === 'win32'
     ? path.join(platformDir, 'python', 'python.exe')
     : path.join(platformDir, 'python', 'bin', 'python3');
 
-  if (fs.existsSync(pythonBin)) {
-    console.log(`[download-python] Python already exists at ${pythonBin}`);
+  const sitePackagesDir = path.join(platformDir, 'site-packages');
 
-    // Verify it works
+  // Path to requirements.txt (in backend directory)
+  const requirementsPath = customRequirementsPath || path.join(frontendDir, '..', 'backend', 'requirements.txt');
+
+  // Check if already fully set up (Python + packages)
+  const packagesMarker = path.join(sitePackagesDir, '.bundled');
+  if (fs.existsSync(pythonBin) && fs.existsSync(packagesMarker)) {
+    console.log(`[download-python] Python and packages already bundled at ${platformDir}`);
+
+    // Verify Python works
     try {
       const version = verifyPythonBinary(pythonBin);
       console.log(`[download-python] Verified: ${version}`);
-      return { success: true, pythonPath: pythonBin };
-    } catch {
-      console.log(`[download-python] Existing Python is broken, re-downloading...`);
-      // Remove broken installation
+
+      // Verify critical packages exist (fixes GitHub issue #416)
+      // Without this check, corrupted caches with missing packages would be accepted
+      // Note: Same list exists in python-env-manager.ts - keep them in sync
+      // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
+      const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core'];
+      const missingPackages = criticalPackages.filter(pkg => {
+        const pkgPath = path.join(sitePackagesDir, pkg);
+        // Check both directory and __init__.py for more robust validation
+        const initFile = path.join(pkgPath, '__init__.py');
+        return !fs.existsSync(pkgPath) || !fs.existsSync(initFile);
+      });
+
+      if (missingPackages.length > 0) {
+        console.log(`[download-python] Critical packages missing or incomplete: ${missingPackages.join(', ')}`);
+        console.log(`[download-python] Reinstalling packages...`);
+        // Remove site-packages to force reinstall, keep Python binary
+        // Flow continues below to re-install packages (skipPackages check at line 794)
+        fs.rmSync(sitePackagesDir, { recursive: true, force: true });
+      } else {
+        console.log(`[download-python] All critical packages verified`);
+        return { success: true, pythonPath: pythonBin, sitePackagesPath: sitePackagesDir };
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.log(`[download-python] Existing installation is broken: ${errorMsg}`);
       fs.rmSync(platformDir, { recursive: true, force: true });
     }
   }
 
-  // Create directories
-  fs.mkdirSync(platformDir, { recursive: true });
+  // Check if just Python exists (need to install packages)
+  let needsPythonDownload = !fs.existsSync(pythonBin);
 
-  // Download
-  const archivePath = path.join(runtimeDir, info.filename);
-  let needsDownload = true;
-
-  if (fs.existsSync(archivePath)) {
-    console.log(`[download-python] Found cached archive: ${archivePath}`);
-    // Verify cached archive checksum
+  if (fs.existsSync(pythonBin)) {
+    // Verify existing Python
     try {
-      verifyChecksum(archivePath, info.checksum);
-      needsDownload = false;
-    } catch (err) {
-      console.log(`[download-python] Cached archive failed verification: ${err.message}`);
-      fs.unlinkSync(archivePath);
+      const version = verifyPythonBinary(pythonBin);
+      console.log(`[download-python] Found existing Python: ${version}`);
+      needsPythonDownload = false;
+    } catch {
+      console.log(`[download-python] Existing Python is broken, re-downloading...`);
+      fs.rmSync(platformDir, { recursive: true, force: true });
+      needsPythonDownload = true;
     }
   }
 
-  if (needsDownload) {
-    await downloadFile(info.url, archivePath);
-    // Verify downloaded file
-    verifyChecksum(archivePath, info.checksum);
+  if (needsPythonDownload) {
+    // Create directories
+    fs.mkdirSync(platformDir, { recursive: true });
+
+    // Download
+    const archivePath = path.join(runtimeDir, info.filename);
+    let needsDownload = true;
+
+    if (fs.existsSync(archivePath)) {
+      console.log(`[download-python] Found cached archive: ${archivePath}`);
+      // Verify cached archive checksum
+      try {
+        verifyChecksum(archivePath, info.checksum);
+        needsDownload = false;
+      } catch (err) {
+        console.log(`[download-python] Cached archive failed verification: ${err.message}`);
+        fs.unlinkSync(archivePath);
+      }
+    }
+
+    if (needsDownload) {
+      await downloadFile(info.url, archivePath);
+      // Verify downloaded file
+      verifyChecksum(archivePath, info.checksum);
+    }
+
+    // Extract
+    extractTarGz(archivePath, platformDir);
+
+    // Verify binary exists
+    if (!fs.existsSync(pythonBin)) {
+      throw new Error(`Python binary not found after extraction: ${pythonBin}`);
+    }
+
+    // Make executable on Unix
+    if (info.nodePlatform !== 'win32') {
+      fs.chmodSync(pythonBin, 0o755);
+    }
+
+    // Verify it works
+    const version = verifyPythonBinary(pythonBin);
+    console.log(`[download-python] Installed Python: ${version}`);
   }
 
-  // Extract
-  extractTarGz(archivePath, platformDir);
+  // Install packages unless skipped
+  if (!skipPackages) {
+    if (!fs.existsSync(requirementsPath)) {
+      console.warn(`[download-python] Warning: requirements.txt not found at ${requirementsPath}`);
+      console.warn(`[download-python] Skipping package installation`);
+    } else {
+      // Remove existing site-packages to ensure clean install
+      if (fs.existsSync(sitePackagesDir)) {
+        console.log(`[download-python] Removing existing site-packages...`);
+        fs.rmSync(sitePackagesDir, { recursive: true, force: true });
+      }
 
-  // Verify binary exists
-  if (!fs.existsSync(pythonBin)) {
-    throw new Error(`Python binary not found after extraction: ${pythonBin}`);
+      // Install packages
+      installPackages(pythonBin, requirementsPath, sitePackagesDir);
+
+      // Verify critical packages were installed before creating marker (fixes #416)
+      // Note: Same list exists in python-env-manager.ts - keep them in sync
+      // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
+      const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core'];
+      const postInstallMissing = criticalPackages.filter(pkg => {
+        const pkgPath = path.join(sitePackagesDir, pkg);
+        const initFile = path.join(pkgPath, '__init__.py');
+        return !fs.existsSync(pkgPath) || !fs.existsSync(initFile);
+      });
+
+      if (postInstallMissing.length > 0) {
+        throw new Error(`Package installation failed - missing critical packages: ${postInstallMissing.join(', ')}`);
+      }
+
+      console.log(`[download-python] All critical packages verified after installation`);
+
+      // Create marker file to indicate successful bundling
+      fs.writeFileSync(packagesMarker, JSON.stringify({
+        bundledAt: new Date().toISOString(),
+        pythonVersion: PYTHON_VERSION,
+        platform: info.nodePlatform,
+        arch: arch,
+      }, null, 2));
+
+      console.log(`[download-python] Created bundle marker: ${packagesMarker}`);
+    }
   }
 
-  // Make executable on Unix
-  if (info.nodePlatform !== 'win32') {
-    fs.chmodSync(pythonBin, 0o755);
-  }
-
-  // Verify it works
-  const version = verifyPythonBinary(pythonBin);
-  console.log(`[download-python] Installed: ${version}`);
-
-  return { success: true, pythonPath: pythonBin };
+  return { success: true, pythonPath: pythonBin, sitePackagesPath: sitePackagesDir };
 }
 
 /**

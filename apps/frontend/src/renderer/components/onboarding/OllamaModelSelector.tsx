@@ -1,13 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Check,
   Download,
   Loader2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
+import { useDownloadStore } from '../../stores/download-store';
+
+type OllamaState = 'checking' | 'not-installed' | 'not-running' | 'available';
 
 interface OllamaModel {
   name: string;
@@ -15,6 +20,7 @@ interface OllamaModel {
   size_estimate?: string;
   dim: number;
   installed: boolean;
+  badge?: 'recommended' | 'quality' | 'fast';
 }
 
 interface OllamaModelSelectorProps {
@@ -25,11 +31,35 @@ interface OllamaModelSelectorProps {
 }
 
 // Recommended embedding models for Auto Claude Memory
-// embeddinggemma is first as the recommended default
+// qwen3-embedding:4b is first as the recommended default (balanced quality/speed)
 const RECOMMENDED_MODELS: OllamaModel[] = [
   {
+    name: 'qwen3-embedding:4b',
+    description: 'Qwen3 4B - Balanced quality and speed',
+    size_estimate: '3.1 GB',
+    dim: 2560,
+    installed: false,
+    badge: 'recommended',
+  },
+  {
+    name: 'qwen3-embedding:8b',
+    description: 'Qwen3 8B - Best embedding quality',
+    size_estimate: '6.0 GB',
+    dim: 4096,
+    installed: false,
+    badge: 'quality',
+  },
+  {
+    name: 'qwen3-embedding:0.6b',
+    description: 'Qwen3 0.6B - Smallest and fastest',
+    size_estimate: '494 MB',
+    dim: 1024,
+    installed: false,
+    badge: 'fast',
+  },
+  {
     name: 'embeddinggemma',
-    description: "Google's lightweight embedding model (Recommended)",
+    description: "Google's lightweight embedding model",
     size_estimate: '621 MB',
     dim: 768,
     installed: false,
@@ -41,26 +71,8 @@ const RECOMMENDED_MODELS: OllamaModel[] = [
     dim: 768,
     installed: false,
   },
-  {
-    name: 'mxbai-embed-large',
-    description: 'MixedBread AI large embeddings',
-    size_estimate: '670 MB',
-    dim: 1024,
-    installed: false,
-  },
 ];
 
-/**
- * Progress state for a single model download.
- * Tracks percentage completion, download speed, and estimated time remaining.
- */
-interface DownloadProgress {
-  [modelName: string]: {
-    percentage: number;
-    speed?: string;
-    timeRemaining?: string;
-  };
-}
 
 /**
  * OllamaModelSelector Component
@@ -96,24 +108,26 @@ export function OllamaModelSelector({
   disabled = false,
   className,
 }: OllamaModelSelectorProps) {
+  const { t } = useTranslation('onboarding');
   const [models, setModels] = useState<OllamaModel[]>(RECOMMENDED_MODELS);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDownloading, setIsDownloading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ollamaAvailable, setOllamaAvailable] = useState(true);
-  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress>({});
+  const [ollamaState, setOllamaState] = useState<OllamaState>('checking');
+  const [isInstalling, setIsInstalling] = useState(false);
+  const [installSuccess, setInstallSuccess] = useState(false);
 
-  // Track previous progress for speed calculation
-  const downloadProgressRef = useRef<{
-    [modelName: string]: {
-      lastCompleted: number;
-      lastUpdate: number;
-    };
-  }>({});
+  // Track timeout for cleanup on unmount
+  const installCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Use global download store for tracking downloads
+  const downloads = useDownloadStore((state) => state.downloads);
+  const startDownload = useDownloadStore((state) => state.startDownload);
+  const completeDownload = useDownloadStore((state) => state.completeDownload);
+  const failDownload = useDownloadStore((state) => state.failDownload);
 
   /**
-   * Checks Ollama service status and fetches list of installed embedding models.
-   * Updates component state with installation status for each recommended model.
+   * Checks if Ollama is installed, running, and fetches installed models.
+   * Updates component state based on Ollama availability.
    *
    * @param {AbortSignal} [abortSignal] - Optional abort signal to cancel the request
    * @returns {Promise<void>}
@@ -121,40 +135,73 @@ export function OllamaModelSelector({
   const checkInstalledModels = async (abortSignal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
+    setOllamaState('checking');
 
     try {
-      // Check Ollama status first
-      const statusResult = await window.electronAPI.checkOllamaStatus();
+      // First check if Ollama is installed (binary exists)
+      const installResult = await window.electronAPI.checkOllamaInstalled();
       if (abortSignal?.aborted) return;
 
-      if (!statusResult?.success || !statusResult?.data?.running) {
-        setOllamaAvailable(false);
+      if (!installResult?.success || !installResult?.data?.installed) {
+        setOllamaState('not-installed');
         setIsLoading(false);
         return;
       }
 
-      setOllamaAvailable(true);
+      // Ollama is installed, now check if it's running
+      const statusResult = await window.electronAPI.checkOllamaStatus();
+      if (abortSignal?.aborted) return;
+
+      if (!statusResult?.success || !statusResult?.data?.running) {
+        setOllamaState('not-running');
+        setIsLoading(false);
+        return;
+      }
+
+      setOllamaState('available');
 
       // Get list of installed embedding models
       const result = await window.electronAPI.listOllamaEmbeddingModels();
       if (abortSignal?.aborted) return;
 
       if (result?.success && result?.data?.embedding_models) {
-        const installedNames = new Set(
-          result.data.embedding_models.map((m: { name: string }) => {
-            // Normalize: "embeddinggemma:latest" -> "embeddinggemma"
-            const name = m.name;
-            return name.includes(':') ? name.split(':')[0] : name;
-          })
-        );
+        // Build a set of installed model names (full, base, and version-matched)
+        const installedFullNames = new Set<string>();
+        const installedBaseNames = new Set<string>();
+        const installedVersionNames = new Set<string>();
+
+        result.data.embedding_models.forEach((m: { name: string }) => {
+          const name = m.name;
+          installedFullNames.add(name);
+
+          // Normalize :latest suffix
+          if (name.endsWith(':latest')) {
+            installedBaseNames.add(name.replace(':latest', ''));
+          } else if (!name.includes(':')) {
+            installedBaseNames.add(name);
+          }
+
+          // Handle quantization variants (e.g., qwen3-embedding:8b-q4_K_M)
+          // Extract base:version without quantization suffix
+          const quantMatch = name.match(/^([^:]+:[^-]+)/);
+          if (quantMatch) {
+            installedVersionNames.add(quantMatch[1]);
+          }
+        });
 
         // Update models with installation status
         setModels(
           RECOMMENDED_MODELS.map(model => {
-            const baseName = model.name.includes(':') ? model.name.split(':')[0] : model.name;
+            // Check multiple matching strategies:
+            // 1. Exact match (e.g., "qwen3-embedding:8b" === "qwen3-embedding:8b")
+            // 2. Base name match for :latest normalization (handles "embeddinggemma" matching "embeddinggemma:latest")
+            // 3. Version match ignoring quantization suffix (e.g., "qwen3-embedding:8b" matches "qwen3-embedding:8b-q4_K_M")
+            const isInstalled = installedFullNames.has(model.name) ||
+              installedBaseNames.has(model.name) ||
+              installedVersionNames.has(model.name);
             return {
               ...model,
-              installed: installedNames.has(baseName) || installedNames.has(model.name),
+              installed: isInstalled,
             };
           })
         );
@@ -171,136 +218,96 @@ export function OllamaModelSelector({
     }
   };
 
+  /**
+   * Install Ollama by opening terminal with the official install command.
+   */
+  const handleInstallOllama = async () => {
+    setIsInstalling(true);
+    setError(null);
+
+    try {
+      const result = await window.electronAPI.installOllama();
+      if (result?.success) {
+        setInstallSuccess(true);
+        // Clear any existing timeout before setting a new one
+        if (installCheckTimeoutRef.current) {
+          clearTimeout(installCheckTimeoutRef.current);
+        }
+        // Re-check after a delay to give user time to complete installation
+        installCheckTimeoutRef.current = setTimeout(() => {
+          checkInstalledModels();
+        }, 5000);
+      } else {
+        setError(result?.error || 'Failed to start Ollama installation');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to install Ollama');
+    } finally {
+      setIsInstalling(false);
+    }
+  };
+
   // Fetch installed models on mount with cleanup
   useEffect(() => {
     const controller = new AbortController();
     checkInstalledModels(controller.signal);
-    return () => controller.abort();
-  }, []);
-
-   /**
-    * Progress listener effect:
-    * Subscribes to real-time download progress events from the main process.
-    * Calculates and formats download speed (MB/s, KB/s, B/s) and time remaining.
-    * Uses useRef to track previous state for accurate speed calculations.
-    */
-   useEffect(() => {
-     const handleProgress = (data: {
-       modelName: string;
-       status: string;
-       completed: number;
-       total: number;
-       percentage: number;
-     }) => {
-      const now = Date.now();
-
-      // Initialize tracking for this model if needed
-      if (!downloadProgressRef.current[data.modelName]) {
-        downloadProgressRef.current[data.modelName] = {
-          lastCompleted: data.completed,
-          lastUpdate: now
-        };
-      }
-
-      const prevData = downloadProgressRef.current[data.modelName];
-      const timeDelta = now - prevData.lastUpdate;
-      const bytesDelta = data.completed - prevData.lastCompleted;
-
-      // Calculate speed only if we have meaningful time delta (> 100ms)
-      let speedStr = '';
-      let timeStr = '';
-
-      if (timeDelta > 100 && bytesDelta > 0) {
-        const speed = (bytesDelta / timeDelta) * 1000; // bytes per second
-        const remaining = data.total - data.completed;
-        const timeRemaining = speed > 0 ? Math.ceil(remaining / speed) : 0;
-
-        // Format speed (MB/s or KB/s)
-        if (speed > 1024 * 1024) {
-          speedStr = `${(speed / (1024 * 1024)).toFixed(1)} MB/s`;
-        } else if (speed > 1024) {
-          speedStr = `${(speed / 1024).toFixed(1)} KB/s`;
-        } else if (speed > 0) {
-          speedStr = `${Math.round(speed)} B/s`;
-        }
-
-        // Format time remaining
-        if (timeRemaining > 3600) {
-          timeStr = `${Math.ceil(timeRemaining / 3600)}h remaining`;
-        } else if (timeRemaining > 60) {
-          timeStr = `${Math.ceil(timeRemaining / 60)}m remaining`;
-        } else if (timeRemaining > 0) {
-          timeStr = `${Math.ceil(timeRemaining)}s remaining`;
-        }
-      }
-
-      // Update tracking
-      downloadProgressRef.current[data.modelName] = {
-        lastCompleted: data.completed,
-        lastUpdate: now
-      };
-
-      setDownloadProgress(prev => {
-        const updated = { ...prev };
-        updated[data.modelName] = {
-          percentage: data.percentage,
-          speed: speedStr,
-          timeRemaining: timeStr
-        };
-        return updated;
-      });
-    };
-
-    // Register the progress listener
-    let unsubscribe: (() => void) | undefined;
-    if (window.electronAPI?.onDownloadProgress) {
-      unsubscribe = window.electronAPI.onDownloadProgress(handleProgress);
-    }
-
     return () => {
-      // Clean up listener
-      if (unsubscribe) {
-        unsubscribe();
+      controller.abort();
+      // Clean up the install check timeout to prevent setState on unmounted component
+      if (installCheckTimeoutRef.current) {
+        clearTimeout(installCheckTimeoutRef.current);
       }
     };
   }, []);
+
+  // Progress is now handled globally by the download store listener initialized in App.tsx
 
    /**
     * Initiates download of an Ollama embedding model.
-    * Updates UI state during download and refreshes model list after completion.
+    * Uses global download store for state tracking and refreshes model list after completion.
     *
     * @param {string} modelName - Name of the model to download (e.g., 'embeddinggemma')
     * @returns {Promise<void>}
     */
    const handleDownload = async (modelName: string) => {
-     setIsDownloading(modelName);
+     startDownload(modelName);
      setError(null);
 
      try {
        const result = await window.electronAPI.pullOllamaModel(modelName);
        if (result?.success) {
+         completeDownload(modelName);
          // Refresh the model list
          await checkInstalledModels();
        } else {
-         setError(result?.error || `Failed to download ${modelName}`);
+         const errorMsg = result?.error || `Failed to download ${modelName}`;
+         failDownload(modelName, errorMsg);
+         setError(errorMsg);
        }
      } catch (err) {
-       setError(err instanceof Error ? err.message : 'Download failed');
-     } finally {
-       setIsDownloading(null);
+       const errorMsg = err instanceof Error ? err.message : 'Download failed';
+       failDownload(modelName, errorMsg);
+       setError(errorMsg);
      }
    };
 
    /**
-    * Handles model selection by calling the parent callback.
+    * Handles model selection with toggle behavior.
+    * Clicking an already-selected model will deselect it.
     * Only allows selection of installed models and when component is not disabled.
     *
-    * @param {OllamaModel} model - The model to select
+    * @param {OllamaModel} model - The model to select or deselect
     * @returns {void}
     */
    const handleSelect = (model: OllamaModel) => {
      if (!model.installed || disabled) return;
-     onModelSelect(model.name, model.dim);
+
+     // Toggle behavior: if already selected, deselect by passing empty values
+     if (selectedModel === model.name) {
+       onModelSelect('', 0);
+     } else {
+       onModelSelect(model.name, model.dim);
+     }
    };
 
   if (isLoading) {
@@ -312,15 +319,99 @@ export function OllamaModelSelector({
     );
   }
 
-  if (!ollamaAvailable) {
+  // Ollama not installed - show install option
+  if (ollamaState === 'not-installed') {
+    return (
+      <div className={cn('rounded-lg border border-info/30 bg-info/10 p-4', className)}>
+        <div className="flex items-start gap-3">
+          <Download className="h-5 w-5 text-info shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">
+              {t('ollama.notInstalled.title')}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {t('ollama.notInstalled.description')}
+            </p>
+
+            {/* Install success message */}
+            {installSuccess && (
+              <div className="mt-3 p-2 rounded-md bg-success/10 border border-success/30">
+                <p className="text-sm text-success">
+                  {t('ollama.notInstalled.installSuccess')}
+                </p>
+              </div>
+            )}
+
+            {/* Error message */}
+            {error && (
+              <div className="mt-3 p-2 rounded-md bg-destructive/10 border border-destructive/30">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 mt-3">
+              <Button
+                onClick={handleInstallOllama}
+                disabled={isInstalling}
+                size="sm"
+              >
+                {isInstalling ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    {t('ollama.notInstalled.installing')}
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    {t('ollama.notInstalled.installButton')}
+                  </>
+                )}
+              </Button>
+              {/* Note: isLoading is always false when this block renders because we only show
+                  this block after setIsLoading(false) is called. However, clicking Retry calls
+                  checkInstalledModels() which immediately sets isLoading=true, triggering a
+                  re-render that shows the loading block instead. This React batching behavior
+                  naturally prevents double-clicks without needing the disabled prop. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => checkInstalledModels()}
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                {t('ollama.notInstalled.retry')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => window.electronAPI?.openExternal?.('https://ollama.com')}
+                className="text-muted-foreground"
+              >
+                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                {t('ollama.notInstalled.learnMore')}
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground mt-3">
+              {t('ollama.notInstalled.fallbackNote')}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Ollama installed but not running
+  if (ollamaState === 'not-running') {
     return (
       <div className={cn('rounded-lg border border-warning/30 bg-warning/10 p-4', className)}>
         <div className="flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-warning">Ollama not running</p>
+            <p className="text-sm font-medium text-warning">
+              {t('ollama.notRunning.title')}
+            </p>
             <p className="text-sm text-warning/80 mt-1">
-              Start Ollama to use local embedding models. Memory will still work with keyword search.
+              {t('ollama.notRunning.description')}
             </p>
             <Button
               variant="outline"
@@ -329,8 +420,11 @@ export function OllamaModelSelector({
               className="mt-3"
             >
               <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-              Retry
+              {t('ollama.notRunning.retry')}
             </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              {t('ollama.notRunning.fallbackNote')}
+            </p>
           </div>
         </div>
       </div>
@@ -348,8 +442,9 @@ export function OllamaModelSelector({
        <div className="space-y-2">
          {models.map(model => {
            const isSelected = selectedModel === model.name;
-           const isCurrentlyDownloading = isDownloading === model.name;
-           const progress = downloadProgress[model.name];
+           const download = downloads[model.name];
+           const isCurrentlyDownloading = download?.status === 'starting' || download?.status === 'downloading';
+           const progress = download;
 
            return (
              <div
@@ -386,6 +481,21 @@ export function OllamaModelSelector({
                        <span className="text-xs text-muted-foreground">
                          ({model.dim} dim)
                        </span>
+                       {model.badge === 'recommended' && (
+                         <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+                           Recommended
+                         </span>
+                       )}
+                       {model.badge === 'quality' && (
+                         <span className="inline-flex items-center rounded-full bg-violet-500/15 px-2 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
+                           Highest Quality
+                         </span>
+                       )}
+                       {model.badge === 'fast' && (
+                         <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                           Fastest
+                         </span>
+                       )}
                        {model.installed && (
                          <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-xs text-success">
                            Installed
@@ -429,23 +539,28 @@ export function OllamaModelSelector({
                </div>
 
                {/* Progress bar for downloading models */}
-               {isCurrentlyDownloading && progress && (
+               {isCurrentlyDownloading && (
                  <div className="px-3 pb-3 space-y-1.5">
                    {/* Progress bar */}
-                   <div className="w-full bg-muted rounded-full h-2">
-                     <div
-                       className="h-full rounded-full bg-gradient-to-r from-primary via-primary to-primary/80 transition-all duration-300"
-                       style={{ width: `${Math.max(0, Math.min(100, progress.percentage))}%` }}
-                     />
+                   <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                     {progress && progress.percentage > 0 ? (
+                       <div
+                         className="h-full rounded-full bg-gradient-to-r from-primary via-primary to-primary/80 transition-all duration-300"
+                         style={{ width: `${Math.max(0, Math.min(100, progress.percentage))}%` }}
+                       />
+                     ) : (
+                       /* Indeterminate/sliding state while waiting for progress events */
+                       <div className="h-full w-1/4 rounded-full bg-gradient-to-r from-primary via-primary to-primary/80 animate-indeterminate" />
+                     )}
                    </div>
                    {/* Progress info: percentage, speed, time remaining */}
                    <div className="flex items-center justify-between text-xs text-muted-foreground">
                      <span className="font-medium text-foreground">
-                       {Math.round(progress.percentage)}%
+                       {progress && progress.percentage > 0 ? `${Math.round(progress.percentage)}%` : 'Starting download...'}
                      </span>
                      <div className="flex items-center gap-2">
-                       {progress.speed && <span>{progress.speed}</span>}
-                       {progress.timeRemaining && <span className="text-primary">{progress.timeRemaining}</span>}
+                       {progress?.speed && <span>{progress.speed}</span>}
+                       {progress?.timeRemaining && <span className="text-primary">{progress.timeRemaining}</span>}
                      </div>
                    </div>
                  </div>

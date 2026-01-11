@@ -447,7 +447,7 @@ export function MemoryBackendSection({
                   />
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Common models: nomic-embed-text, bge-base-en, mxbai-embed-large
+                  Recommended: qwen3-embedding:4b (balanced), :8b (quality), :0.6b (fast)
                 </p>
               </div>
 

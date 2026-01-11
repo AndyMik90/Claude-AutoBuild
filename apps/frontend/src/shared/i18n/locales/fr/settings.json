@@ -17,6 +17,10 @@
       "title": "Langue",
       "description": "Choisissez votre langue préférée"
     },
+    "devtools": {
+      "title": "Outils de développement",
+      "description": "Préférences IDE et terminal"
+    },
     "agent": {
       "title": "Paramètres de l'agent",
       "description": "Modèle par défaut et framework"
@@ -29,6 +33,10 @@
       "title": "Intégrations",
       "description": "Clés API & comptes Claude"
     },
+    "api-profiles": {
+      "title": "Profils API",
+      "description": "Profils d'endpoint API personnalisés"
+    },
     "updates": {
       "title": "Mises à jour",
       "description": "Mises à jour Auto Claude"
@@ -36,7 +44,133 @@
     "notifications": {
       "title": "Notifications",
       "description": "Préférences d'alertes"
+    },
+    "debug": {
+      "title": "Debug & Logs",
+      "description": "Outils de dépannage"
     }
+  },
+  "apiProfiles": {
+    "title": "Profils API",
+    "description": "Configurez des endpoints API compatibles Anthropic personnalisés",
+    "addButton": "Ajouter un profil",
+    "presets": {
+      "anthropic": "Anthropic",
+      "openrouter": "OpenRouter",
+      "groq": "Groq",
+      "glmGlobal": "GLM (Global)",
+      "glmChina": "GLM (China)"
+    },
+    "fields": {
+      "name": "Nom",
+      "preset": "Préréglage",
+      "baseUrl": "URL de base",
+      "apiKey": "Clé API"
+    },
+    "placeholders": {
+      "name": "Mon API personnalisée",
+      "preset": "Choisir un préréglage de fournisseur",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "sk-ant-..."
+    },
+    "hints": {
+      "preset": "Les préréglages remplissent l'URL de base ; vous devez toujours coller votre clé API.",
+      "baseUrl": "Exemple : https://api.anthropic.com ou http://localhost:8080"
+    },
+    "validation": {
+      "nameRequired": "Le nom est requis",
+      "baseUrlRequired": "L'URL de base est requise",
+      "baseUrlInvalid": "Format d'URL invalide (doit être http:// ou https://)",
+      "apiKeyRequired": "La clé API est requise",
+      "apiKeyInvalid": "Format de clé API invalide"
+    },
+    "actions": {
+      "save": "Enregistrer le profil",
+      "saving": "Enregistrement...",
+      "cancel": "Annuler",
+      "changeKey": "Modifier",
+      "cancelKeyChange": "Annuler"
+    },
+    "testConnection": {
+      "label": "Tester la connexion",
+      "testing": "Test en cours...",
+      "success": "Connexion réussie",
+      "failure": "Échec de la connexion"
+    },
+    "models": {
+      "title": "Optionnel : correspondance des noms de modèles",
+      "description": "Sélectionnez des modèles auprès de votre fournisseur d'API. Laissez vide pour utiliser les valeurs par défaut.",
+      "defaultLabel": "Modèle par défaut (optionnel)",
+      "haikuLabel": "Modèle Haiku (optionnel)",
+      "sonnetLabel": "Modèle Sonnet (optionnel)",
+      "opusLabel": "Modèle Opus (optionnel)",
+      "defaultPlaceholder": "ex. : claude-3-5-sonnet-20241022",
+      "haikuPlaceholder": "ex. : claude-3-5-haiku-20241022",
+      "sonnetPlaceholder": "ex. : claude-3-5-sonnet-20241022",
+      "opusPlaceholder": "ex. : claude-3-5-opus-20241022"
+    },
+    "empty": {
+      "title": "Aucun profil API configuré",
+      "description": "Créez un profil pour configurer des endpoints API personnalisés pour vos builds.",
+      "action": "Créer le premier profil"
+    },
+    "switchToOauth": {
+      "label": "Passer à OAuth",
+      "loading": "Basculement..."
+    },
+    "activeBadge": "Actif",
+    "customModels": "Modèles personnalisés : {{models}}",
+    "setActive": {
+      "label": "Définir comme actif",
+      "loading": "Activation..."
+    },
+    "tooltips": {
+      "edit": "Modifier le profil",
+      "deleteActive": "Passez à OAuth avant de supprimer",
+      "deleteInactive": "Supprimer le profil"
+    },
+    "deleteAriaLabel": "Supprimer le profil {{name}}",
+    "toast": {
+      "create": {
+        "title": "Profil créé",
+        "description": "\"{{name}}\" a été ajouté avec succès."
+      },
+      "update": {
+        "title": "Profil mis à jour",
+        "description": "\"{{name}}\" a été mis à jour avec succès."
+      },
+      "delete": {
+        "title": "Profil supprimé",
+        "description": "\"{{name}}\" a été supprimé.",
+        "errorTitle": "Échec de la suppression du profil",
+        "errorFallback": "Une erreur s'est produite lors de la suppression du profil."
+      },
+      "switch": {
+        "oauthTitle": "Passé à OAuth",
+        "oauthDescription": "Authentification OAuth utilisée",
+        "profileTitle": "Profil activé",
+        "profileDescription": "Utilisation de {{name}}",
+        "errorTitle": "Échec du changement d'authentification",
+        "errorFallback": "Une erreur s'est produite lors du changement de méthode d'authentification."
+      }
+    },
+    "dialog": {
+      "createTitle": "Ajouter un profil API",
+      "editTitle": "Modifier le profil",
+      "description": "Configurez un endpoint API compatible Anthropic personnalisé pour vos builds.",
+      "deleteTitle": "Supprimer le profil ?",
+      "deleteDescription": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" ? Cette action est irréversible.",
+      "cancel": "Annuler",
+      "delete": "Supprimer",
+      "deleting": "Suppression..."
+    }
+  },
+  "modelSelect": {
+    "placeholder": "Sélectionner un modèle ou saisir manuellement",
+    "placeholderManual": "Saisir le nom du modèle (ex. : claude-3-5-sonnet-20241022)",
+    "searchPlaceholder": "Rechercher des modèles...",
+    "noResults": "Aucun modèle ne correspond à votre recherche",
+    "discoveryNotAvailable": "Découverte de modèles indisponible. Saisissez le nom du modèle manuellement."
   },
   "language": {
     "label": "Langue de l'interface",
@@ -83,6 +217,7 @@
     "sourceUserConfig": "Configuration utilisateur",
     "sourceVenv": "Environnement virtuel",
     "sourceHomebrew": "Homebrew",
+    "sourceNvm": "NVM",
     "sourceSystemPath": "PATH système",
     "sourceBundled": "Intégré",
     "sourceFallback": "Valeur par défaut",
@@ -103,6 +238,30 @@
     "system": "Système",
     "colorTheme": "Thème de couleur",
     "colorThemeDescription": "Choisissez votre palette de couleurs préférée"
+  },
+  "devtools": {
+    "title": "Outils de développement",
+    "description": "Configurez votre IDE et terminal préférés pour travailler avec les worktrees",
+    "detecting": "Détection des outils installés...",
+    "detectAgain": "Détecter à nouveau",
+    "ide": {
+      "label": "IDE préféré",
+      "description": "Auto Claude ouvrira les worktrees dans cet éditeur",
+      "placeholder": "Sélectionner un IDE...",
+      "customPath": "Chemin IDE personnalisé",
+      "customPathPlaceholder": "/chemin/vers/votre/ide"
+    },
+    "terminal": {
+      "label": "Terminal préféré",
+      "description": "Auto Claude ouvrira les sessions terminal ici",
+      "placeholder": "Sélectionner un terminal...",
+      "customPath": "Chemin terminal personnalisé",
+      "customPathPlaceholder": "/chemin/vers/votre/terminal"
+    },
+    "detected": "Détecté",
+    "notInstalled": "Non installé",
+    "detectedSummary": "Détecté sur votre système :",
+    "noToolsDetected": "Aucun outil supplémentaire détecté (VS Code et le terminal système seront utilisés)"
   },
   "updates": {
     "title": "Mises à jour",
@@ -125,7 +284,11 @@
     "autoUpdateProjects": "Mise à jour automatique des projets",
     "autoUpdateProjectsDescription": "Mettre à jour automatiquement Auto Claude dans les projets quand une nouvelle version est disponible",
     "betaUpdates": "Mises à jour bêta",
-    "betaUpdatesDescription": "Recevoir les versions bêta pré-release avec de nouvelles fonctionnalités (peut être moins stable)"
+    "betaUpdatesDescription": "Recevoir les versions bêta pré-release avec de nouvelles fonctionnalités (peut être moins stable)",
+    "stableDowngradeAvailable": "Version stable disponible",
+    "stableDowngradeDescription": "Vous êtes actuellement sur une version bêta. Comme vous avez désactivé les mises à jour bêta, vous pouvez passer à la dernière version stable.",
+    "stableVersion": "Version stable",
+    "downloadStableVersion": "Télécharger la version stable"
   },
   "notifications": {
     "title": "Notifications",
@@ -147,7 +310,9 @@
   "projectSections": {
     "general": {
       "title": "Général",
-      "description": "Auto-Build et configuration de l'agent"
+      "description": "Auto-Build et configuration de l'agent",
+      "useClaudeMd": "Utiliser CLAUDE.md",
+      "useClaudeMdDescription": "Inclure les instructions CLAUDE.md dans le contexte de l'agent"
     },
     "claude": {
       "title": "Auth Claude",
@@ -155,15 +320,31 @@
     },
     "linear": {
       "title": "Linear",
-      "description": "Intégration Linear"
+      "description": "Intégration Linear",
+      "integrationTitle": "Intégration Linear",
+      "integrationDescription": "Se connecter à Linear pour le suivi des issues et l'import de tâches",
+      "syncDescription": "Synchroniser avec Linear pour le suivi des issues"
     },
     "github": {
       "title": "GitHub",
-      "description": "Synchronisation issues GitHub"
+      "description": "Synchronisation issues GitHub",
+      "integrationTitle": "Intégration GitHub",
+      "integrationDescription": "Se connecter à GitHub pour le suivi des issues",
+      "syncDescription": "Synchroniser avec GitHub Issues"
+    },
+    "gitlab": {
+      "title": "GitLab",
+      "description": "Synchronisation issues GitLab",
+      "integrationTitle": "Intégration GitLab",
+      "integrationDescription": "Se connecter à GitLab pour le suivi des issues",
+      "syncDescription": "Synchroniser avec GitLab Issues"
     },
     "memory": {
       "title": "Mémoire",
-      "description": "Backend mémoire Graphiti"
+      "description": "Backend mémoire Graphiti",
+      "integrationTitle": "Mémoire",
+      "integrationDescription": "Configurer la mémoire persistante inter-sessions pour les agents",
+      "syncDescription": "Configurer la mémoire persistante"
     }
   },
   "agentProfile": {
@@ -184,7 +365,9 @@
     "selectThinkingLevel": "Sélectionner un niveau de réflexion",
     "perPhaseOptimization": "(optimisation par phase)",
     "resetToDefaults": "Réinitialiser par défaut",
-    "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec le profil Auto. Vous pouvez les modifier par tâche dans l'assistant de création.",
+    "resetToProfileDefaults": "Réinitialiser aux défauts de {{profile}}",
+    "customized": "Personnalisé",
+    "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec ce profil. Vous pouvez les modifier par tâche dans l'assistant de création.",
     "phases": {
       "spec": {
         "label": "Création de spec",
@@ -327,6 +510,129 @@
         "group": "Êtes-vous sûr de vouloir supprimer ce groupe de secrets et tous ses comptes ? Cette action ne peut pas être annulée.",
         "account": "Êtes-vous sûr de vouloir supprimer ce compte ?"
       }
+    }
+  },
+  "debug": {
+    "title": "Debug & Logs",
+    "description": "Accédez aux logs et informations de débogage pour le dépannage",
+    "errorReporting": {
+      "label": "Rapports d'erreurs anonymes",
+      "description": "Envoyer des rapports de crash pour améliorer Auto Claude. Aucune donnée personnelle ni code n'est collecté."
+    },
+    "openLogsFolder": "Ouvrir le dossier des logs",
+    "copyDebugInfo": "Copier les infos de débogage",
+    "copied": "Copié !",
+    "loadInfo": "Charger les infos de débogage",
+    "systemInfo": "Informations système",
+    "logsLocation": "Emplacement des logs",
+    "recentErrors": "Erreurs récentes",
+    "noRecentErrors": "Aucune erreur récente",
+    "helpTitle": "Signaler des problèmes",
+    "helpText": "Lors du signalement de bugs, cliquez sur \"Copier les infos de débogage\" pour obtenir les informations système et les erreurs récentes qui nous aident à diagnostiquer le problème."
+  },
+  "projectSettings": {
+    "noProjectSelected": {
+      "title": "Aucun projet sélectionné",
+      "description": "Sélectionnez un projet dans la barre latérale pour configurer ses paramètres."
+    }
+  },
+  "mcp": {
+    "title": "Aperçu des serveurs MCP",
+    "titleWithProject": "Aperçu des serveurs MCP pour {{projectName}}",
+    "description": "Configurez quels serveurs MCP sont disponibles pour les agents dans ce projet",
+    "descriptionNoProject": "Sélectionnez un projet pour configurer les serveurs MCP",
+    "serversEnabled": "{{count}} serveurs activés",
+    "configuration": "Configuration des serveurs MCP",
+    "configurationHint": "Les serveurs désactivés réduisent l'utilisation du contexte et le temps de démarrage",
+    "noProjectSelected": "Aucun projet sélectionné",
+    "noProjectSelectedDescription": "Sélectionnez un projet dans le menu déroulant pour voir et configurer les serveurs MCP.",
+    "projectNotInitialized": "Projet non initialisé",
+    "projectNotInitializedDescription": "Initialisez Auto Claude pour ce projet pour configurer les serveurs MCP.",
+    "browserAutomation": "Automatisation du navigateur (agents QA uniquement)",
+    "alwaysEnabled": "toujours activé",
+    "addServer": "Ajouter un serveur",
+    "addMcpTo": "Ajouter un serveur MCP à {{agent}}",
+    "addMcpDescription": "Sélectionnez un serveur MCP à ajouter à cet agent",
+    "allMcpsAdded": "Tous les serveurs MCP disponibles sont déjà ajoutés",
+    "added": "ajouté",
+    "removed": "supprimé",
+    "remove": "Supprimer",
+    "restore": "Restaurer",
+    "noMcpServers": "Aucun serveur MCP",
+    "cannotRemove": "Impossible à supprimer (requis)",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "Recherche de documentation pour les bibliothèques"
+      },
+      "graphiti": {
+        "name": "Graphiti Memory",
+        "description": "Graphe de connaissances pour le contexte inter-sessions",
+        "notConfigured": "Nécessite la configuration mémoire (voir paramètres Mémoire)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Intégration gestion de projet",
+        "notConfigured": "Nécessite l'intégration Linear (voir paramètres Linear)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "Automatisation d'applications desktop via Chrome DevTools"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "Automatisation du navigateur web pour les tests"
+      },
+      "autoClaude": {
+        "name": "Outils Auto-Claude",
+        "description": "Suivi de la progression du build"
+      }
+    },
+    "customServers": "Serveurs personnalisés",
+    "addCustomServer": "Ajouter un serveur personnalisé",
+    "editCustomServer": "Modifier le serveur personnalisé",
+    "customServerDescription": "Ajouter un serveur MCP basé sur une commande ou HTTP",
+    "serverType": "Type de serveur",
+    "typeCommand": "Commande (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "Nom",
+    "serverNamePlaceholder": "Mon serveur MCP",
+    "serverDescription": "Description",
+    "serverDescriptionPlaceholder": "Ce que fait ce serveur",
+    "command": "Commande",
+    "args": "Arguments",
+    "argsHint": "Arguments séparés par des espaces",
+    "url": "URL",
+    "headers": "En-têtes",
+    "headerName": "Nom de l'en-tête",
+    "headerValue": "Valeur de l'en-tête",
+    "noCustomServers": "Aucun serveur personnalisé configuré. Ajoutez-en un pour l'utiliser avec vos agents.",
+    "errorNameRequired": "Le nom du serveur est requis",
+    "errorIdExists": "Un serveur avec cet ID existe déjà",
+    "errorCommandRequired": "La commande est requise pour les serveurs basés sur commande",
+    "errorUrlRequired": "L'URL est requise pour les serveurs basés sur HTTP",
+    "testConnection": "Test",
+    "testing": "Test en cours...",
+    "authToken": "Jeton d'authentification",
+    "authTokenPlaceholder": "Collez votre jeton API ou PAT ici",
+    "authTokenHint": "Utilisé comme jeton Bearer dans l'en-tête Authorization",
+    "advancedHeaders": "En-têtes supplémentaires",
+    "status": {
+      "healthy": "Le serveur répond",
+      "unhealthy": "Le serveur ne répond pas",
+      "needsAuth": "Authentification requise",
+      "checking": "Vérification...",
+      "unknown": "Statut inconnu"
+    },
+    "hints": {
+      "github": "Ceci ressemble à un serveur MCP GitHub. Vous aurez besoin d'un Personal Access Token avec les scopes appropriés.",
+      "createGithubPat": "Créer un PAT GitHub",
+      "google": "Ceci ressemble à une API Google. Vous aurez besoin d'un jeton OAuth ou d'une clé API.",
+      "createGoogleToken": "Créer des identifiants Google",
+      "anthropic": "Ceci ressemble à une API Anthropic. Vous aurez besoin d'une clé API.",
+      "createAnthropicKey": "Créer une clé API Anthropic",
+      "openai": "Ceci ressemble à une API OpenAI. Vous aurez besoin d'une clé API.",
+      "createOpenaiKey": "Créer une clé API OpenAI"
     }
   }
 }

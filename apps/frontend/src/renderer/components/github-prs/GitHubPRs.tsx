@@ -1,33 +1,36 @@
-import { useCallback } from 'react';
-import { GitPullRequest, RefreshCw, ExternalLink, Settings } from 'lucide-react';
-import { useProjectStore } from '../../stores/project-store';
-import { useGitHubPRs } from './hooks';
-import { PRList, PRDetail } from './components';
-import { Button } from '../ui/button';
+import { useCallback } from "react";
+import { GitPullRequest, RefreshCw, ExternalLink, Settings } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useProjectStore } from "../../stores/project-store";
+import { useGitHubPRs, usePRFiltering } from "./hooks";
+import { PRList, PRDetail, PRFilterBar } from "./components";
+import { Button } from "../ui/button";
+import { ResizablePanels } from "../ui/resizable-panels";
 
 interface GitHubPRsProps {
   onOpenSettings?: () => void;
+  isActive?: boolean;
 }
 
 function NotConnectedState({
   error,
-  onOpenSettings
+  onOpenSettings,
+  t,
 }: {
   error: string | null;
   onOpenSettings?: () => void;
+  t: (key: string) => string;
 }) {
   return (
     <div className="flex-1 flex items-center justify-center p-8">
       <div className="text-center max-w-md">
         <GitPullRequest className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-        <h3 className="text-lg font-medium mb-2">GitHub Not Connected</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          {error || 'Connect your GitHub account to view and review pull requests.'}
-        </p>
+        <h3 className="text-lg font-medium mb-2">{t("prReview.notConnected")}</h3>
+        <p className="text-sm text-muted-foreground mb-4">{error || t("prReview.connectPrompt")}</p>
         {onOpenSettings && (
           <Button onClick={onOpenSettings} variant="outline">
             <Settings className="h-4 w-4 mr-2" />
-            Open Settings
+            {t("prReview.openSettings")}
           </Button>
         )}
       </div>
@@ -46,7 +49,8 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
+export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) {
+  const { t } = useTranslation("common");
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -54,12 +58,16 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
   const {
     prs,
     isLoading,
+    isLoadingMore,
+    isLoadingPRDetails,
     error,
     selectedPRNumber,
     reviewResult,
     reviewProgress,
+    startedAt,
     isReviewing,
-    activePRReviews,
+    previousReviewResult,
+    hasMore,
     selectPR,
     runReview,
     runFollowupReview,
@@ -70,12 +78,28 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
     mergePR,
     assignPR,
     refresh,
+    loadMore,
     isConnected,
     repoFullName,
     getReviewStateForPR,
-  } = useGitHubPRs(selectedProject?.id);
+    selectedPR,
+  } = useGitHubPRs(selectedProject?.id, { isActive });
 
-  const selectedPR = prs.find(pr => pr.number === selectedPRNumber);
+  // Get newCommitsCheck for the selected PR (other values come from hook to ensure consistency)
+  const selectedPRReviewState = selectedPRNumber ? getReviewStateForPR(selectedPRNumber) : null;
+  const storedNewCommitsCheck = selectedPRReviewState?.newCommitsCheck ?? null;
+
+  // PR filtering
+  const {
+    filteredPRs,
+    contributors,
+    filters,
+    setSearchQuery,
+    setContributors,
+    setStatuses,
+    clearFilters,
+    hasActiveFilters,
+  } = usePRFiltering(prs, getReviewStateForPR);
 
   const handleRunReview = useCallback(() => {
     if (selectedPRNumber) {
@@ -102,34 +126,56 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
     }
   }, [selectedPRNumber, cancelReview]);
 
-  const handlePostReview = useCallback(async (selectedFindingIds?: string[]): Promise<boolean> => {
-    if (selectedPRNumber && reviewResult) {
-      return await postReview(selectedPRNumber, selectedFindingIds);
-    }
-    return false;
-  }, [selectedPRNumber, reviewResult, postReview]);
+  const handlePostReview = useCallback(
+    async (
+      selectedFindingIds?: string[],
+      options?: { forceApprove?: boolean }
+    ): Promise<boolean> => {
+      if (selectedPRNumber && reviewResult) {
+        return await postReview(selectedPRNumber, selectedFindingIds, options);
+      }
+      return false;
+    },
+    [selectedPRNumber, reviewResult, postReview]
+  );
 
-  const handlePostComment = useCallback(async (body: string) => {
-    if (selectedPRNumber) {
-      await postComment(selectedPRNumber, body);
-    }
-  }, [selectedPRNumber, postComment]);
+  const handlePostComment = useCallback(
+    async (body: string) => {
+      if (selectedPRNumber) {
+        await postComment(selectedPRNumber, body);
+      }
+    },
+    [selectedPRNumber, postComment]
+  );
 
-  const handleMergePR = useCallback(async (mergeMethod?: 'merge' | 'squash' | 'rebase') => {
-    if (selectedPRNumber) {
-      await mergePR(selectedPRNumber, mergeMethod);
-    }
-  }, [selectedPRNumber, mergePR]);
+  const handleMergePR = useCallback(
+    async (mergeMethod?: "merge" | "squash" | "rebase") => {
+      if (selectedPRNumber) {
+        await mergePR(selectedPRNumber, mergeMethod);
+      }
+    },
+    [selectedPRNumber, mergePR]
+  );
 
-  const handleAssignPR = useCallback(async (username: string) => {
-    if (selectedPRNumber) {
-      await assignPR(selectedPRNumber, username);
+  const handleAssignPR = useCallback(
+    async (username: string) => {
+      if (selectedPRNumber) {
+        await assignPR(selectedPRNumber, username);
+      }
+    },
+    [selectedPRNumber, assignPR]
+  );
+
+  const handleGetLogs = useCallback(async () => {
+    if (selectedProjectId && selectedPRNumber) {
+      return await window.electronAPI.github.getPRLogs(selectedProjectId, selectedPRNumber);
     }
-  }, [selectedPRNumber, assignPR]);
+    return null;
+  }, [selectedProjectId, selectedPRNumber]);
 
   // Not connected state
   if (!isConnected) {
-    return <NotConnectedState error={error} onOpenSettings={onOpenSettings} />;
+    return <NotConnectedState error={error} onOpenSettings={onOpenSettings} t={t} />;
   }
 
   return (
@@ -139,7 +185,7 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium flex items-center gap-2">
             <GitPullRequest className="h-4 w-4" />
-            Pull Requests
+            {t("prReview.pullRequests")}
           </h2>
           {repoFullName && (
             <a
@@ -153,42 +199,57 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
             </a>
           )}
           <span className="text-xs text-muted-foreground">
-            {prs.length} open
+            {prs.length} {t("prReview.open")}
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={refresh}
-          disabled={isLoading}
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+        <Button variant="ghost" size="icon" onClick={refresh} disabled={isLoading}>
+          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
         </Button>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex min-h-0">
-        {/* PR List */}
-        <div className="w-1/2 border-r border-border flex flex-col">
-          <PRList
-            prs={prs}
-            selectedPRNumber={selectedPRNumber}
-            isLoading={isLoading}
-            error={error}
-            activePRReviews={activePRReviews}
-            getReviewStateForPR={getReviewStateForPR}
-            onSelectPR={selectPR}
-          />
-        </div>
-
-        {/* PR Detail */}
-        <div className="w-1/2 flex flex-col">
-          {selectedPR ? (
+      {/* Content - Resizable split panels */}
+      <ResizablePanels
+        defaultLeftWidth={50}
+        minLeftWidth={30}
+        maxLeftWidth={70}
+        storageKey="github-prs-panel-width"
+        leftPanel={
+          <div className="flex flex-col h-full">
+            <PRFilterBar
+              filters={filters}
+              contributors={contributors}
+              hasActiveFilters={hasActiveFilters}
+              onSearchChange={setSearchQuery}
+              onContributorsChange={setContributors}
+              onStatusesChange={setStatuses}
+              onClearFilters={clearFilters}
+            />
+            <PRList
+              prs={filteredPRs}
+              selectedPRNumber={selectedPRNumber}
+              isLoading={isLoading}
+              isLoadingMore={isLoadingMore}
+              hasMore={hasMore}
+              error={error}
+              getReviewStateForPR={getReviewStateForPR}
+              onSelectPR={selectPR}
+              onLoadMore={loadMore}
+            />
+          </div>
+        }
+        rightPanel={
+          selectedPR ? (
             <PRDetail
               pr={selectedPR}
+              projectId={selectedProjectId || ""}
               reviewResult={reviewResult}
+              previousReviewResult={previousReviewResult}
               reviewProgress={reviewProgress}
+              startedAt={startedAt}
               isReviewing={isReviewing}
+              initialNewCommitsCheck={storedNewCommitsCheck}
+              isActive={isActive}
+              isLoadingFiles={isLoadingPRDetails}
               onRunReview={handleRunReview}
               onRunFollowupReview={handleRunFollowupReview}
               onCheckNewCommits={handleCheckNewCommits}
@@ -197,12 +258,13 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
               onPostComment={handlePostComment}
               onMergePR={handleMergePR}
               onAssignPR={handleAssignPR}
+              onGetLogs={handleGetLogs}
             />
           ) : (
-            <EmptyState message="Select a pull request to view details" />
-          )}
-        </div>
-      </div>
+            <EmptyState message={t("prReview.selectPRToView")} />
+          )
+        }
+      />
     </div>
   );
 }

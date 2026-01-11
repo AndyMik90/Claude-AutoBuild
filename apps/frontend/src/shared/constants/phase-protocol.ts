@@ -49,6 +49,12 @@ export type ExecutionPhase = (typeof EXECUTION_PHASES)[number];
 export type BackendPhase = (typeof BACKEND_PHASES)[number];
 
 /**
+ * Phases that can be completed and tracked in completedPhases array.
+ * Excludes 'idle', 'complete', and 'failed' which are not completable workflow phases.
+ */
+export type CompletablePhase = 'planning' | 'coding' | 'qa_review' | 'qa_fixing';
+
+/**
  * Phase ordering index for regression detection.
  * Higher index = later in the pipeline.
  * Used to prevent fallback text matching from regressing phases.
@@ -111,4 +117,104 @@ export function isValidBackendPhase(value: string): value is BackendPhase {
  */
 export function isValidExecutionPhase(value: string): value is ExecutionPhase {
   return (EXECUTION_PHASES as readonly string[]).includes(value);
+}
+
+/**
+ * FIX (ACS-203): Validate that a phase transition is valid based on completed phases.
+ * This prevents multiple phases from being active simultaneously.
+ *
+ * Phase transition rules:
+ * - 'idle' can transition to any phase
+ * - 'planning' can transition to 'coding' (once planning is in completedPhases)
+ * - 'coding' can transition to 'qa_review' (once coding is in completedPhases)
+ * - 'qa_review' can transition to 'qa_fixing' or 'complete'
+ * - 'qa_fixing' can transition to 'qa_review' or 'complete'
+ * - 'complete' and 'failed' are terminal (no transitions out)
+ *
+ * @param currentPhase - The current phase
+ * @param newPhase - The proposed new phase
+ * @param completedPhases - Array of phases that have completed
+ * @returns true if the transition is valid, false otherwise
+ */
+export function isValidPhaseTransition(
+  currentPhase: ExecutionPhase,
+  newPhase: ExecutionPhase,
+  completedPhases: CompletablePhase[] = []
+): boolean {
+  // Terminal phases can't transition to anything else
+  if (isTerminalPhase(currentPhase)) {
+    return false;
+  }
+
+  // idle can transition to any active phase
+  if (currentPhase === 'idle') {
+    return BACKEND_PHASES.includes(newPhase as BackendPhase);
+  }
+
+  // Same phase is always valid (progress update within phase)
+  if (currentPhase === newPhase) {
+    return true;
+  }
+
+  // Define expected previous phases for each transition
+  const phasePrerequisites: Record<ExecutionPhase, CompletablePhase[]> = {
+    idle: [],
+    planning: [],
+    coding: ['planning'],
+    qa_review: ['coding'],
+    qa_fixing: ['qa_review'],
+    complete: ['qa_review', 'qa_fixing'],
+    failed: []  // Can enter failed from any phase
+  };
+
+  // Check if the prerequisite phase has been completed
+  const prerequisites = phasePrerequisites[newPhase];
+
+  // Special cases that don't require prerequisites:
+  // - Can go to failed from any phase (error handling)
+  // - Can go from qa_fixing back to qa_review (re-running QA after fixes)
+  if (newPhase === 'failed') {
+    return true;
+  }
+  if (currentPhase === 'qa_fixing' && newPhase === 'qa_review') {
+    return true; // Re-running QA after fixes
+  }
+
+  // For all other transitions, verify prerequisites are met
+  if (prerequisites.length === 0) {
+    return true; // No prerequisites needed
+  }
+
+  // Check if at least one prerequisite phase has been completed
+  const hasCompletedPrerequisite = prerequisites.some(p => completedPhases.includes(p));
+
+  if (!hasCompletedPrerequisite) {
+    console.warn(`[isValidPhaseTransition] Blocked transition ${currentPhase} -> ${newPhase}: prerequisite phases not completed`, {
+      required: prerequisites,
+      completed: completedPhases
+    });
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Get the expected previous phase for a given phase.
+ * Used to validate that phase transitions follow the expected workflow.
+ *
+ * @param phase - The phase to get the prerequisite for
+ * @returns The expected previous phase, or null if no prerequisite
+ */
+export function getExpectedPreviousPhase(phase: ExecutionPhase): ExecutionPhase | null {
+  const previousPhases: Record<ExecutionPhase, ExecutionPhase | null> = {
+    idle: null,
+    planning: 'idle',
+    coding: 'planning',
+    qa_review: 'coding',
+    qa_fixing: 'qa_review',
+    complete: 'qa_review',
+    failed: null  // Can fail from any phase
+  };
+  return previousPhases[phase];
 }

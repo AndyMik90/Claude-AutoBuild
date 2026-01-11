@@ -69,6 +69,22 @@ export const infrastructureMock = {
     }
   }),
 
+  checkOllamaInstalled: async () => ({
+    success: true,
+    data: {
+      installed: true,
+      path: '/usr/local/bin/ollama',
+      version: '0.1.0',
+    }
+  }),
+
+  installOllama: async () => ({
+    success: true,
+    data: {
+      command: 'curl -fsSL https://ollama.com/install.sh | sh',
+    }
+  }),
+
   listOllamaModels: async () => ({
     success: true,
     data: {
@@ -157,28 +173,6 @@ export const infrastructureMock = {
   onIdeationStopped: () => () => {},
   onIdeationTypeComplete: () => () => {},
   onIdeationTypeFailed: () => () => {},
-
-  // Auto-Build Source Update Operations
-  checkAutoBuildSourceUpdate: async () => ({
-    success: true,
-    data: {
-      updateAvailable: true,
-      currentVersion: '1.0.0',
-      latestVersion: '1.1.0',
-      releaseNotes: '## v1.1.0\n\n- New feature: Enhanced spec creation\n- Bug fix: Improved error handling\n- Performance improvements'
-    }
-  }),
-
-  downloadAutoBuildSourceUpdate: () => {
-    console.warn('[Browser Mock] downloadAutoBuildSourceUpdate called');
-  },
-
-  getAutoBuildSourceVersion: async () => ({
-    success: true,
-    data: '1.0.0'
-  }),
-
-  onAutoBuildSourceUpdateProgress: () => () => {},
 
   // Shell Operations
   openExternal: async (url: string) => {

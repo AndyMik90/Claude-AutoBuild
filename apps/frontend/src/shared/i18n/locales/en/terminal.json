@@ -1,0 +1,36 @@
+{
+  "expand": {
+    "expand": "Expand terminal",
+    "collapse": "Collapse terminal"
+  },
+  "auth": {
+    "terminalTitle": "Auth: {{profileName}}",
+    "maxTerminalsReached": "Cannot open auth terminal: maximum terminals reached. Close a terminal first."
+  },
+  "worktree": {
+    "create": "Worktree",
+    "createNew": "New Worktree",
+    "existing": "Existing Worktrees",
+    "createTitle": "Create Terminal Worktree",
+    "createDescription": "Create an isolated workspace for this terminal. All work will happen in the worktree directory.",
+    "name": "Worktree Name",
+    "namePlaceholder": "my-feature",
+    "nameRequired": "Worktree name is required",
+    "nameInvalid": "Name must start and end with a letter or number",
+    "nameHelp": "Lowercase letters, numbers, dashes, and underscores only",
+    "associateTask": "Link to Task",
+    "selectTask": "Select a task...",
+    "noTask": "No task (standalone worktree)",
+    "createBranch": "Create Git Branch",
+    "branchHelp": "Creates branch: {{branch}}",
+    "baseBranch": "Base Branch",
+    "selectBaseBranch": "Select base branch...",
+    "useProjectDefault": "Use project default ({{branch}})",
+    "baseBranchHelp": "The branch to create the worktree from",
+    "openInIDE": "Open in IDE",
+    "maxReached": "Maximum of 12 terminal worktrees reached",
+    "alreadyExists": "A worktree with this name already exists",
+    "deleteTitle": "Delete Worktree?",
+    "deleteDescription": "This will permanently delete the worktree and its branch. Any uncommitted changes will be lost."
+  }
+}

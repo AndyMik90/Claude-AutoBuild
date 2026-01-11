@@ -242,7 +242,9 @@ class PRReviewEngine:
                     msg_type = type(msg).__name__
                     if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                         for block in msg.content:
-                            if hasattr(block, "text"):
+                            # Must check block type - only TextBlock has .text attribute
+                            block_type = type(block).__name__
+                            if block_type == "TextBlock" and hasattr(block, "text"):
                                 result_text += block.text
 
             if review_pass == ReviewPass.QUICK_SCAN:
@@ -277,19 +279,22 @@ class PRReviewEngine:
         Returns:
             Tuple of (findings, structural_issues, ai_triages, quick_scan_summary)
         """
-        # Use orchestrating agent if enabled
-        if self.config.use_orchestrator_review:
-            print("[AI] Using orchestrating PR review agent (Opus 4.5)...", flush=True)
+        # Use parallel orchestrator with SDK subagents if enabled
+        if self.config.use_parallel_orchestrator:
+            print(
+                "[AI] Using parallel orchestrator PR review (SDK subagents)...",
+                flush=True,
+            )
             self._report_progress(
                 "orchestrating",
                 10,
-                "Starting orchestrating review...",
+                "Starting parallel orchestrator review...",
                 pr_number=context.pr_number,
             )
 
-            from .orchestrator_reviewer import OrchestratorReviewer
+            from .parallel_orchestrator_reviewer import ParallelOrchestratorReviewer
 
-            orchestrator = OrchestratorReviewer(
+            orchestrator = ParallelOrchestratorReviewer(
                 project_dir=self.project_dir,
                 github_dir=self.github_dir,
                 config=self.config,
@@ -299,22 +304,16 @@ class PRReviewEngine:
             result = await orchestrator.review(context)
 
             print(
-                f"[PR Review Engine] Orchestrator returned {len(result.findings)} findings",
+                f"[PR Review Engine] Parallel orchestrator returned {len(result.findings)} findings",
                 flush=True,
             )
 
-            # Convert PRReviewResult to expected format
-            # Orchestrator doesn't use structural_issues or ai_triages
             quick_scan_summary = {
                 "verdict": result.verdict.value if result.verdict else "unknown",
                 "findings_count": len(result.findings),
-                "strategy": "orchestrating_agent",
+                "strategy": "parallel_orchestrator",
             }
 
-            print(
-                f"[PR Review Engine] Returning tuple with {len(result.findings)} findings",
-                flush=True,
-            )
             return (result.findings, [], [], quick_scan_summary)
 
         # Fall back to multi-pass review
@@ -476,7 +475,7 @@ class PRReviewEngine:
             / "pr_structural.md"
         )
         if prompt_file.exists():
-            prompt = prompt_file.read_text()
+            prompt = prompt_file.read_text(encoding="utf-8")
         else:
             prompt = self.prompt_manager.get_review_pass_prompt(ReviewPass.STRUCTURAL)
 
@@ -505,7 +504,9 @@ class PRReviewEngine:
                     msg_type = type(msg).__name__
                     if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                         for block in msg.content:
-                            if hasattr(block, "text"):
+                            # Must check block type - only TextBlock has .text attribute
+                            block_type = type(block).__name__
+                            if block_type == "TextBlock" and hasattr(block, "text"):
                                 result_text += block.text
         except Exception as e:
             print(f"[AI] Structural pass error: {e}", flush=True)
@@ -527,7 +528,7 @@ class PRReviewEngine:
             / "pr_ai_triage.md"
         )
         if prompt_file.exists():
-            prompt = prompt_file.read_text()
+            prompt = prompt_file.read_text(encoding="utf-8")
         else:
             prompt = self.prompt_manager.get_review_pass_prompt(
                 ReviewPass.AI_COMMENT_TRIAGE
@@ -561,7 +562,9 @@ class PRReviewEngine:
                     msg_type = type(msg).__name__
                     if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                         for block in msg.content:
-                            if hasattr(block, "text"):
+                            # Must check block type - only TextBlock has .text attribute
+                            block_type = type(block).__name__
+                            if block_type == "TextBlock" and hasattr(block, "text"):
                                 result_text += block.text
         except Exception as e:
             print(f"[AI] AI triage pass error: {e}", flush=True)

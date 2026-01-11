@@ -17,8 +17,26 @@ export interface ToolDetectionResult {
     | 'user-config'
     | 'venv'
     | 'homebrew'
+    | 'nvm'
     | 'system-path'
     | 'bundled'
     | 'fallback';
   message: string;
+}
+
+/**
+ * Claude Code CLI version information
+ * Used for version checking and update prompts
+ */
+export interface ClaudeCodeVersionInfo {
+  /** Currently installed version, null if not installed */
+  installed: string | null;
+  /** Latest version available from npm registry */
+  latest: string;
+  /** True if installed version is older than latest */
+  isOutdated: boolean;
+  /** Path to Claude CLI binary if found */
+  path?: string;
+  /** Full detection result with source information */
+  detectionResult: ToolDetectionResult;
 }

@@ -17,8 +17,21 @@ import {
   Sparkles,
   Monitor,
   Globe,
-  LayoutTemplate
+  LayoutTemplate,
+  Code,
+  Bug,
+  Server
 } from 'lucide-react';
+
+// GitLab icon component (lucide-react doesn't have one)
+function GitLabIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" role="img" aria-labelledby="gitlab-icon-title">
+      <title id="gitlab-icon-title">GitLab</title>
+      <path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z"/>
+    </svg>
+  );
+}
 import {
   FullScreenDialog,
   FullScreenDialogContent,
@@ -39,6 +52,9 @@ import { GeneralSettings } from './GeneralSettings';
 import { TemplatesSettings } from './TemplatesSettings';
 import { IntegrationSettings } from './IntegrationSettings';
 import { AdvancedSettings } from './AdvancedSettings';
+import { DevToolsSettings } from './DevToolsSettings';
+import { DebugSettings } from './DebugSettings';
+import { ProfileList } from './ProfileList';
 import { ProjectSelector } from './ProjectSelector';
 import { ProjectSettingsContent, ProjectSettingsSection } from './ProjectSettingsContent';
 import { useProjectStore } from '../../stores/project-store';
@@ -53,7 +69,7 @@ interface AppSettingsDialogProps {
 }
 
 // App-level settings sections
-export type AppSection = 'appearance' | 'display' | 'language' | 'agent' | 'paths' | 'templates' | 'integrations' | 'updates' | 'notifications';
+export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'templates' | 'integrations' | 'api-profiles' | 'updates' | 'notifications' | 'debug';
 
 interface NavItemConfig<T extends string> {
   id: T;
@@ -64,19 +80,22 @@ const appNavItemsConfig: NavItemConfig<AppSection>[] = [
   { id: 'appearance', icon: Palette },
   { id: 'display', icon: Monitor },
   { id: 'language', icon: Globe },
+  { id: 'devtools', icon: Code },
   { id: 'agent', icon: Bot },
   { id: 'paths', icon: FolderOpen },
   { id: 'templates', icon: LayoutTemplate },
   { id: 'integrations', icon: Key },
+  { id: 'api-profiles', icon: Server },
   { id: 'updates', icon: Package },
-  { id: 'notifications', icon: Bell }
+  { id: 'notifications', icon: Bell },
+  { id: 'debug', icon: Bug }
 ];
 
 const projectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
   { id: 'general', icon: Settings2 },
-  { id: 'claude', icon: Key },
   { id: 'linear', icon: Zap },
   { id: 'github', icon: Github },
+  { id: 'gitlab', icon: GitLabIcon },
   { id: 'memory', icon: Database }
 ];
 
@@ -170,6 +189,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         return <DisplaySettings settings={settings} onSettingsChange={setSettings} />;
       case 'language':
         return <LanguageSettings settings={settings} onSettingsChange={setSettings} />;
+      case 'devtools':
+        return <DevToolsSettings settings={settings} onSettingsChange={setSettings} />;
       case 'agent':
         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="agent" />;
       case 'paths':
@@ -178,10 +199,14 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         return <TemplatesSettings />;
       case 'integrations':
         return <IntegrationSettings settings={settings} onSettingsChange={setSettings} isOpen={open} />;
+      case 'api-profiles':
+        return <ProfileList />;
       case 'updates':
         return <AdvancedSettings settings={settings} onSettingsChange={setSettings} section="updates" version={version} />;
       case 'notifications':
         return <AdvancedSettings settings={settings} onSettingsChange={setSettings} section="notifications" version={version} />;
+      case 'debug':
+        return <DebugSettings />;
       default:
         return null;
     }

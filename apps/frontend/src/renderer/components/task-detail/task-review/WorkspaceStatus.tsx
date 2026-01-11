@@ -4,25 +4,25 @@ import {
   Plus,
   Minus,
   Eye,
-  ExternalLink,
   GitMerge,
+  GitPullRequest,
   FolderX,
   Loader2,
   RotateCcw,
   AlertTriangle,
   CheckCircle,
   GitCommit,
+  Code,
   Terminal
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
 import { cn } from '../../../lib/utils';
-import type { Task, WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo } from '../../../../shared/types';
-import { useTerminalHandler } from '../hooks/useTerminalHandler';
-import { TerminalDropdown } from './TerminalDropdown';
+import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal } from '../../../../shared/types';
+import { useSettingsStore } from '../../../stores/settings-store';
 
 interface WorkspaceStatusProps {
-  task: Task;
   worktreeStatus: WorktreeStatus;
   workspaceError: string | null;
   stageOnly: boolean;
@@ -30,12 +30,14 @@ interface WorkspaceStatusProps {
   isLoadingPreview: boolean;
   isMerging: boolean;
   isDiscarding: boolean;
+  isCreatingPR?: boolean;
   onShowDiffDialog: (show: boolean) => void;
   onShowDiscardDialog: (show: boolean) => void;
   onShowConflictDialog: (show: boolean) => void;
   onLoadMergePreview: () => void;
   onStageOnlyChange: (value: boolean) => void;
   onMerge: () => void;
+  onShowPRDialog?: (show: boolean) => void;
   onClose?: () => void;
   onSwitchToTerminals?: () => void;
   onOpenInbuiltTerminal?: (id: string, cwd: string) => void;
@@ -44,8 +46,41 @@ interface WorkspaceStatusProps {
 /**
  * Displays the workspace status including change summary, merge preview, and action buttons
  */
+// IDE display names for button labels (short names for buttons)
+const IDE_LABELS: Partial<Record<SupportedIDE, string>> = {
+  vscode: 'VS Code',
+  cursor: 'Cursor',
+  windsurf: 'Windsurf',
+  zed: 'Zed',
+  sublime: 'Sublime',
+  webstorm: 'WebStorm',
+  intellij: 'IntelliJ',
+  pycharm: 'PyCharm',
+  xcode: 'Xcode',
+  vim: 'Vim',
+  neovim: 'Neovim',
+  emacs: 'Emacs',
+  custom: 'IDE'
+};
+
+// Terminal display names for button labels (short names for buttons)
+const TERMINAL_LABELS: Partial<Record<SupportedTerminal, string>> = {
+  system: 'Terminal',
+  terminal: 'Terminal',
+  iterm2: 'iTerm',
+  warp: 'Warp',
+  ghostty: 'Ghostty',
+  alacritty: 'Alacritty',
+  kitty: 'Kitty',
+  wezterm: 'WezTerm',
+  hyper: 'Hyper',
+  windowsterminal: 'Terminal',
+  gnometerminal: 'Terminal',
+  konsole: 'Konsole',
+  custom: 'Terminal'
+};
+
 export function WorkspaceStatus({
-  task,
   worktreeStatus,
   workspaceError,
   stageOnly,
@@ -53,17 +88,49 @@ export function WorkspaceStatus({
   isLoadingPreview,
   isMerging,
   isDiscarding,
+  isCreatingPR,
   onShowDiffDialog,
   onShowDiscardDialog,
   onShowConflictDialog,
   onLoadMergePreview,
   onStageOnlyChange,
   onMerge,
+  onShowPRDialog,
   onClose,
   onSwitchToTerminals,
   onOpenInbuiltTerminal
 }: WorkspaceStatusProps) {
-  const { openTerminal, openExternalTerminal, error: terminalError, isOpening } = useTerminalHandler();
+  const { t } = useTranslation(['taskReview', 'common']);
+  const { settings } = useSettingsStore();
+  const preferredIDE = settings.preferredIDE || 'vscode';
+  const preferredTerminal = settings.preferredTerminal || 'system';
+
+  const handleOpenInIDE = async () => {
+    if (!worktreeStatus.worktreePath) return;
+    try {
+      await window.electronAPI.worktreeOpenInIDE(
+        worktreeStatus.worktreePath,
+        preferredIDE,
+        settings.customIDEPath
+      );
+    } catch (err) {
+      console.error('Failed to open in IDE:', err);
+    }
+  };
+
+  const handleOpenInTerminal = async () => {
+    if (!worktreeStatus.worktreePath) return;
+    try {
+      await window.electronAPI.worktreeOpenInTerminal(
+        worktreeStatus.worktreePath,
+        preferredTerminal,
+        settings.customTerminalPath
+      );
+    } catch (err) {
+      console.error('Failed to open in terminal:', err);
+    }
+  };
+
   const hasGitConflicts = mergePreview?.gitConflicts?.hasConflicts;
   const hasUncommittedChanges = mergePreview?.uncommittedChanges?.hasChanges;
   const uncommittedCount = mergePreview?.uncommittedChanges?.count || 0;
@@ -94,29 +161,15 @@ export function WorkspaceStatus({
             <GitBranch className="h-4 w-4 text-purple-400" />
             Build Ready for Review
           </h3>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onShowDiffDialog(true)}
-              className="h-7 px-2 text-xs"
-            >
-              <Eye className="h-3.5 w-3.5 mr-1" />
-              View
-            </Button>
-            {worktreeStatus.worktreePath && (
-              <TerminalDropdown
-                onOpenInbuilt={() => {
-                  if (onOpenInbuiltTerminal) {
-                    onOpenInbuiltTerminal(`open-${task.id}`, worktreeStatus.worktreePath!);
-                  }
-                }}
-                onOpenExternal={() => openExternalTerminal(worktreeStatus.worktreePath!)}
-                disabled={isOpening}
-                className="h-7 px-2"
-              />
-            )}
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onShowDiffDialog(true)}
+            className="h-7 px-2 text-xs"
+          >
+            <Eye className="h-3.5 w-3.5 mr-1" />
+            View
+          </Button>
         </div>
 
         {/* Compact stats row */}
@@ -139,12 +192,12 @@ export function WorkspaceStatus({
           </span>
         </div>
 
-        {/* Branch info */}
+        {/* Branch info: spec branch → user's current branch (merge target) */}
         {worktreeStatus.branch && (
           <div className="mt-2 text-xs text-muted-foreground">
             <code className="bg-background/80 px-1.5 py-0.5 rounded text-[11px]">{worktreeStatus.branch}</code>
             <span className="mx-1.5">→</span>
-            <code className="bg-background/80 px-1.5 py-0.5 rounded text-[11px]">{worktreeStatus.baseBranch || 'main'}</code>
+            <code className="bg-background/80 px-1.5 py-0.5 rounded text-[11px]">{worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main'}</code>
           </div>
         )}
 
@@ -155,10 +208,27 @@ export function WorkspaceStatus({
           </div>
         )}
 
-        {/* Terminal error display */}
-        {terminalError && (
-          <div className="mt-2 text-sm text-red-600">
-            {terminalError}
+        {/* Open in IDE/Terminal buttons */}
+        {worktreeStatus.worktreePath && (
+          <div className="flex gap-2 mt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenInIDE}
+              className="h-7 px-2 text-xs"
+            >
+              <Code className="h-3.5 w-3.5 mr-1" />
+              Open in {IDE_LABELS[preferredIDE]}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenInTerminal}
+              className="h-7 px-2 text-xs"
+            >
+              <Terminal className="h-3.5 w-3.5 mr-1" />
+              Open in {TERMINAL_LABELS[preferredTerminal]}
+            </Button>
           </div>
         )}
       </div>
@@ -182,24 +252,8 @@ export function WorkspaceStatus({
                 {uncommittedCount} uncommitted {uncommittedCount === 1 ? 'change' : 'changes'} in main project
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Commit or stash them before staging to avoid conflicts.
+                Commit or stash them in your terminal before staging to avoid conflicts.
               </p>
-              <TerminalDropdown
-                onOpenInbuilt={() => {
-                  const mainProjectPath = worktreeStatus.worktreePath?.replace('.worktrees/' + task.specId, '') || '';
-                  if (mainProjectPath && onOpenInbuiltTerminal) {
-                    onOpenInbuiltTerminal(`stash-${task.id}`, mainProjectPath);
-                  }
-                }}
-                onOpenExternal={() => {
-                  const mainProjectPath = worktreeStatus.worktreePath?.replace('.worktrees/' + task.specId, '') || '';
-                  if (mainProjectPath) {
-                    openExternalTerminal(mainProjectPath);
-                  }
-                }}
-                disabled={isOpening}
-                className="text-xs h-6 mt-2"
-              />
             </div>
           </div>
         )}
@@ -320,46 +374,99 @@ export function WorkspaceStatus({
 
       {/* Actions Footer */}
       <div className="px-4 py-3 bg-muted/20 border-t border-border space-y-3">
-        {/* Stage Only Option */}
-        <label className="inline-flex items-center gap-2.5 text-sm cursor-pointer select-none px-3 py-2 rounded-lg border border-border bg-background/50 hover:bg-background/80 transition-colors">
-          <Checkbox
-            checked={stageOnly}
-            onCheckedChange={(checked) => onStageOnlyChange(checked === true)}
-            className="border-muted-foreground/50 data-[state=checked]:border-primary"
-          />
-          <span className={cn(
-            "transition-colors",
-            stageOnly ? "text-foreground" : "text-muted-foreground"
-          )}>Stage only (review in IDE before committing)</span>
-        </label>
+        {/* Stage Only Option - only show after conflicts have been checked */}
+        {mergePreview && (
+          <label className="inline-flex items-center gap-2.5 text-sm cursor-pointer select-none px-3 py-2 rounded-lg border border-border bg-background/50 hover:bg-background/80 transition-colors">
+            <Checkbox
+              checked={stageOnly}
+              onCheckedChange={(checked) => onStageOnlyChange(checked === true)}
+              className="border-muted-foreground/50 data-[state=checked]:border-primary"
+            />
+            <span className={cn(
+              "transition-colors",
+              stageOnly ? "text-foreground" : "text-muted-foreground"
+            )}>Stage only (review in IDE before committing)</span>
+          </label>
+        )}
 
         {/* Primary Actions */}
         <div className="flex gap-2">
-          <Button
-            variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
-            onClick={onMerge}
-            disabled={isMerging || isDiscarding}
-            className="flex-1"
-          >
-            {isMerging ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {hasGitConflicts || isBranchBehind || hasPathMappedMerges ? 'Resolving...' : stageOnly ? 'Staging...' : 'Merging...'}
-              </>
-            ) : (
-              <>
-                <GitMerge className="mr-2 h-4 w-4" />
-                {hasGitConflicts || isBranchBehind || hasPathMappedMerges
-                  ? (stageOnly ? 'Stage with AI Merge' : 'Merge with AI')
-                  : (stageOnly ? 'Stage Changes' : 'Merge to Main')}
-              </>
-            )}
-          </Button>
+          {/* State 1: No merge preview yet - show "Check for Conflicts" */}
+          {!mergePreview && !isLoadingPreview && (
+            <Button
+              variant="default"
+              onClick={onLoadMergePreview}
+              disabled={isMerging || isDiscarding}
+              className="flex-1"
+            >
+              <GitMerge className="mr-2 h-4 w-4" />
+              Check for Conflicts
+            </Button>
+          )}
+
+          {/* State 2: Loading merge preview */}
+          {isLoadingPreview && (
+            <Button
+              variant="default"
+              disabled
+              className="flex-1"
+            >
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Checking for conflicts...
+            </Button>
+          )}
+
+          {/* State 3: Merge preview loaded - show appropriate merge/stage button */}
+          {mergePreview && !isLoadingPreview && (
+            <Button
+              variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
+              onClick={onMerge}
+              disabled={isMerging || isDiscarding}
+              className="flex-1"
+            >
+              {isMerging ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {hasGitConflicts || isBranchBehind || hasPathMappedMerges ? 'Resolving...' : stageOnly ? 'Staging...' : 'Merging...'}
+                </>
+              ) : (
+                <>
+                  <GitMerge className="mr-2 h-4 w-4" />
+                  {hasGitConflicts || isBranchBehind || hasPathMappedMerges
+                    ? (stageOnly ? 'Stage with AI Merge' : 'Merge with AI')
+                    : (stageOnly ? 'Stage to Main' : 'Merge to Main')}
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* Create PR Button */}
+          {onShowPRDialog && (
+            <Button
+              variant="info"
+              onClick={() => onShowPRDialog(true)}
+              disabled={isMerging || isDiscarding || isCreatingPR}
+              className="flex-1"
+            >
+              {isCreatingPR ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('taskReview:pr.actions.creating')}
+                </>
+              ) : (
+                <>
+                  <GitPullRequest className="mr-2 h-4 w-4" />
+                  {t('common:buttons.createPR')}
+                </>
+              )}
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="icon"
             onClick={() => onShowDiscardDialog(true)}
-            disabled={isMerging || isDiscarding}
+            disabled={isMerging || isDiscarding || isCreatingPR}
             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
             title="Discard build"
           >

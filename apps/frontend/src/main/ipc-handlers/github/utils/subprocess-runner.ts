@@ -16,6 +16,36 @@ import { parsePythonCommand } from '../../../python-detector';
 const execAsync = promisify(exec);
 
 /**
+ * Create a fallback environment for Python subprocesses when no env is provided.
+ * This is used for backwards compatibility when callers don't use getRunnerEnv().
+ *
+ * Includes:
+ * - Platform-specific vars needed for shell commands and CLI tools
+ * - CLAUDE_ and ANTHROPIC_ prefixed vars for authentication
+ */
+function createFallbackRunnerEnv(): Record<string, string> {
+  // Include platform-specific vars needed for shell commands and CLI tools
+  // Windows: SYSTEMROOT, COMSPEC, PATHEXT, WINDIR for shell; USERPROFILE, APPDATA, LOCALAPPDATA for gh CLI auth
+  const safeEnvVars = ['PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'TMP', 'TEMP', 'DEBUG', 'SYSTEMROOT', 'COMSPEC', 'PATHEXT', 'WINDIR', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'HOMEDRIVE', 'HOMEPATH'];
+  const fallbackEnv: Record<string, string> = {};
+
+  for (const key of safeEnvVars) {
+    if (process.env[key]) {
+      fallbackEnv[key] = process.env[key]!;
+    }
+  }
+
+  // Also include any CLAUDE_ or ANTHROPIC_ prefixed vars needed for auth
+  for (const [key, value] of Object.entries(process.env)) {
+    if ((key.startsWith('CLAUDE_') || key.startsWith('ANTHROPIC_')) && value) {
+      fallbackEnv[key] = value;
+    }
+  }
+
+  return fallbackEnv;
+}
+
+/**
  * Options for running a Python subprocess
  */
 export interface SubprocessOptions {
@@ -28,6 +58,8 @@ export interface SubprocessOptions {
   onComplete?: (stdout: string, stderr: string) => unknown;
   onError?: (error: string) => void;
   progressPattern?: RegExp;
+  /** Additional environment variables to pass to the subprocess */
+  env?: Record<string, string>;
 }
 
 /**
@@ -52,32 +84,30 @@ export interface SubprocessResult<T = unknown> {
 export function runPythonSubprocess<T = unknown>(
   options: SubprocessOptions
 ): { process: ChildProcess; promise: Promise<SubprocessResult<T>> } {
-  // Don't set PYTHONPATH - let runner.py manage its own import paths
-  // Setting PYTHONPATH can interfere with runner.py's sys.path manipulation
-  // Filter environment variables to only include necessary ones (prevent leaking secrets)
+  // Use the environment provided by the caller (from getRunnerEnv()).
+  // getRunnerEnv() provides:
+  // - pythonEnvManager.getPythonEnv() which includes PYTHONPATH for bundled packages (fixes #139)
+  // - API profile environment (ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN)
+  // - OAuth mode clearing vars
+  // - Claude OAuth token (CLAUDE_CODE_OAUTH_TOKEN)
+  //
+  // If no env is provided, fall back to filtered process.env for backwards compatibility.
   // Note: DEBUG is included for PR review debugging (shows LLM thinking blocks).
-  // This is safe because: (1) user must explicitly enable via npm run dev:debug,
-  // (2) it only enables our internal debug logging, not third-party framework debugging,
-  // (3) no sensitive values are logged - only LLM reasoning and response text.
-  const safeEnvVars = ['PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'TMP', 'TEMP', 'DEBUG'];
-  const filteredEnv: Record<string, string> = {};
-  for (const key of safeEnvVars) {
-    if (process.env[key]) {
-      filteredEnv[key] = process.env[key]!;
-    }
-  }
-  // Also include any CLAUDE_ or ANTHROPIC_ prefixed vars needed for auth
-  for (const [key, value] of Object.entries(process.env)) {
-    if ((key.startsWith('CLAUDE_') || key.startsWith('ANTHROPIC_')) && value) {
-      filteredEnv[key] = value;
-    }
+  let subprocessEnv: Record<string, string>;
+
+  if (options.env) {
+    // Caller provided a complete environment (from getRunnerEnv()), use it directly
+    subprocessEnv = { ...options.env };
+  } else {
+    // Fallback: build a filtered environment for backwards compatibility
+    subprocessEnv = createFallbackRunnerEnv();
   }
 
   // Parse Python command to handle paths with spaces (e.g., ~/Library/Application Support/...)
   const [pythonCommand, pythonBaseArgs] = parsePythonCommand(options.pythonPath);
   const child = spawn(pythonCommand, [...pythonBaseArgs, ...options.args], {
     cwd: options.cwd,
-    env: filteredEnv,
+    env: subprocessEnv,
   });
 
   const promise = new Promise<SubprocessResult<T>>((resolve) => {
@@ -183,9 +213,12 @@ export function runPythonSubprocess<T = unknown>(
 
 /**
  * Get the Python path for a project's backend
+ * Cross-platform: uses Scripts/python.exe on Windows, bin/python on Unix
  */
 export function getPythonPath(backendPath: string): string {
-  return path.join(backendPath, '.venv', 'bin', 'python');
+  return process.platform === 'win32'
+    ? path.join(backendPath, '.venv', 'Scripts', 'python.exe')
+    : path.join(backendPath, '.venv', 'bin', 'python');
 }
 
 /**
@@ -313,13 +346,19 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
     return result;
   }
 
-  // 2. Check gh CLI installation
+  // 2. Check gh CLI installation (cross-platform)
   try {
-    await execAsync('which gh');
+    const whichCommand = process.platform === 'win32' ? 'where gh' : 'which gh';
+    await execAsync(whichCommand);
     result.ghCliInstalled = true;
   } catch {
     result.ghCliInstalled = false;
-    result.error = 'GitHub CLI (gh) is not installed. Install it with:\n  macOS: brew install gh\n  Linux: See https://cli.github.com/';
+    const installInstructions = process.platform === 'win32'
+      ? 'winget install --id GitHub.cli'
+      : process.platform === 'darwin'
+        ? 'brew install gh'
+        : 'See https://cli.github.com/';
+    result.error = `GitHub CLI (gh) is not installed. Install it with:\n  ${installInstructions}`;
     return result;
   }
 
@@ -340,8 +379,8 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
     result.ghAuthenticated = true;
   }
 
-  // 4. Check Python virtual environment
-  const venvPath = path.join(backendPath, '.venv', 'bin', 'python');
+  // 4. Check Python virtual environment (cross-platform)
+  const venvPath = getPythonPath(backendPath);
   result.pythonEnvValid = fs.existsSync(venvPath);
 
   if (!result.pythonEnvValid) {

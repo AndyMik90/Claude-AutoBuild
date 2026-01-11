@@ -8,11 +8,12 @@ Functions for setting up and initializing workspaces.
 
 import json
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
+from core.git_executable import run_git
 from merge import FileTimelineTracker
+from security.constants import ALLOWLIST_FILENAME, PROFILE_FILENAME
 from ui import (
     Icons,
     MenuOption,
@@ -143,6 +144,43 @@ def choose_workspace(
         return WorkspaceMode.ISOLATED
 
 
+def copy_env_files_to_worktree(project_dir: Path, worktree_path: Path) -> list[str]:
+    """
+    Copy .env files from project root to worktree (without overwriting).
+
+    This ensures the worktree has access to environment variables needed
+    to run the project (e.g., API keys, database URLs).
+
+    Args:
+        project_dir: The main project directory
+        worktree_path: Path to the worktree
+
+    Returns:
+        List of copied file names
+    """
+    copied = []
+    # Common .env file patterns - copy if they exist
+    env_patterns = [
+        ".env",
+        ".env.local",
+        ".env.development",
+        ".env.development.local",
+        ".env.test",
+        ".env.test.local",
+    ]
+
+    for pattern in env_patterns:
+        env_file = project_dir / pattern
+        if env_file.is_file():
+            target = worktree_path / pattern
+            if not target.exists():
+                shutil.copy2(env_file, target)
+                copied.append(pattern)
+                debug(MODULE, f"Copied {pattern} to worktree")
+
+    return copied
+
+
 def copy_spec_to_worktree(
     source_spec_dir: Path,
     worktree_path: Path,
@@ -222,6 +260,50 @@ def setup_workspace(
 
     # Get or create worktree for THIS SPECIFIC SPEC
     worktree_info = manager.get_or_create_worktree(spec_name)
+
+    # Copy .env files to worktree so user can run the project
+    copied_env_files = copy_env_files_to_worktree(project_dir, worktree_info.path)
+    if copied_env_files:
+        print_status(
+            f"Environment files copied: {', '.join(copied_env_files)}", "success"
+        )
+
+    # Copy security configuration files if they exist
+    # Note: Unlike env files, security files always overwrite to ensure
+    # the worktree uses the same security rules as the main project.
+    # This prevents security bypasses through stale worktree configs.
+    security_files = [
+        ALLOWLIST_FILENAME,
+        PROFILE_FILENAME,
+    ]
+    security_files_copied = []
+
+    for filename in security_files:
+        source_file = project_dir / filename
+        if source_file.is_file():
+            target_file = worktree_info.path / filename
+            try:
+                shutil.copy2(source_file, target_file)
+                security_files_copied.append(filename)
+            except (OSError, PermissionError) as e:
+                debug_warning(MODULE, f"Failed to copy {filename}: {e}")
+                print_status(
+                    f"Warning: Could not copy {filename} to worktree", "warning"
+                )
+
+    if security_files_copied:
+        print_status(
+            f"Security config copied: {', '.join(security_files_copied)}", "success"
+        )
+
+    # Ensure .auto-claude/ is in the worktree's .gitignore
+    # This is critical because the worktree inherits .gitignore from the base branch,
+    # which may not have .auto-claude/ if that change wasn't committed/pushed.
+    # Without this, spec files would be committed to the worktree's branch.
+    from init import ensure_gitignore_entry
+
+    if ensure_gitignore_entry(worktree_info.path, ".auto-claude/"):
+        debug(MODULE, "Added .auto-claude/ to worktree's .gitignore")
 
     # Copy spec files to worktree if provided
     localized_spec_dir = None
@@ -324,11 +406,9 @@ def initialize_timeline_tracking(
                         files_to_modify.extend(subtask.get("files", []))
 
         # Get the current branch point commit
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
+        result = run_git(
+            ["rev-parse", "HEAD"],
             cwd=project_dir,
-            capture_output=True,
-            text=True,
         )
         branch_point = result.stdout.strip() if result.returncode == 0 else None
 

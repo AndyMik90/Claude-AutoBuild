@@ -35,12 +35,40 @@ LANGUAGE_COMMANDS: dict[str, set[str]] = {
         "tsx",
     },
     "rust": {
+        # Core toolchain
         "cargo",
         "rustc",
         "rustup",
         "rustfmt",
-        "clippy",
         "rust-analyzer",
+        # Cargo subcommand binaries
+        "cargo-clippy",
+        "cargo-fmt",
+        "cargo-miri",
+        # Common dev tools
+        "cargo-watch",
+        "cargo-nextest",
+        "cargo-llvm-cov",
+        "cargo-tarpaulin",
+        # Dependency management
+        "cargo-audit",
+        "cargo-deny",
+        "cargo-outdated",
+        "cargo-edit",
+        "cargo-update",
+        # Build & release
+        "cargo-release",
+        "cargo-dist",
+        "cargo-make",
+        "cargo-xtask",
+        # Cross-compilation & WASM
+        "cross",
+        "wasm-pack",
+        "wasm-bindgen",
+        "trunk",
+        # Documentation & publishing
+        "cargo-doc",
+        "mdbook",
     },
     "go": {
         "go",
@@ -143,6 +171,18 @@ LANGUAGE_COMMANDS: dict[str, set[str]] = {
     },
     "zig": {
         "zig",
+    },
+    "dart": {
+        # Core Dart CLI (modern unified tool)
+        "dart",
+        "pub",
+        # Flutter CLI (included in Dart language for SDK detection)
+        "flutter",
+        # Legacy commands (deprecated but may exist in older projects)
+        "dart2js",
+        "dartanalyzer",
+        "dartdoc",
+        "dartfmt",
     },
 }
 

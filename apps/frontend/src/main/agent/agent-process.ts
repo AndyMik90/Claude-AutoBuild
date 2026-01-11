@@ -6,11 +6,74 @@ import { EventEmitter } from 'events';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { ProcessType, ExecutionProgressData } from './types';
+import type { CompletablePhase } from '../../shared/constants/phase-protocol';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailure } from '../rate-limit-detector';
+import { getAPIProfileEnv } from '../services/profile';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { parsePythonCommand, validatePythonPath } from '../python-detector';
-import { getConfiguredPythonPath } from '../python-env-manager';
+import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
+import { buildMemoryEnvVars } from '../memory-env-builder';
+import { readSettingsFile } from '../settings-utils';
+import type { AppSettings } from '../../shared/types/settings';
+import { getOAuthModeClearVars } from './env-utils';
+import { getAugmentedEnv } from '../env-utils';
+import { getToolInfo } from '../cli-tool-manager';
+
+
+function deriveGitBashPath(gitExePath: string): string | null {
+  if (process.platform !== 'win32') {
+    return null;
+  }
+
+  try {
+    const gitDir = path.dirname(gitExePath);  // e.g., D:\...\Git\mingw64\bin
+    const gitDirName = path.basename(gitDir).toLowerCase();
+
+    // Find Git installation root
+    let gitRoot: string;
+
+    if (gitDirName === 'cmd') {
+      // .../Git/cmd/git.exe -> .../Git
+      gitRoot = path.dirname(gitDir);
+    } else if (gitDirName === 'bin') {
+      // Could be .../Git/bin/git.exe OR .../Git/mingw64/bin/git.exe
+      const parent = path.dirname(gitDir);
+      const parentName = path.basename(parent).toLowerCase();
+      if (parentName === 'mingw64' || parentName === 'mingw32') {
+        // .../Git/mingw64/bin/git.exe -> .../Git
+        gitRoot = path.dirname(parent);
+      } else {
+        // .../Git/bin/git.exe -> .../Git
+        gitRoot = parent;
+      }
+    } else {
+      // Unknown structure - try to find 'bin' sibling
+      gitRoot = path.dirname(gitDir);
+    }
+
+    // Bash.exe is in Git/bin/bash.exe
+    const bashPath = path.join(gitRoot, 'bin', 'bash.exe');
+
+    if (existsSync(bashPath)) {
+      console.log('[AgentProcess] Derived git-bash path:', bashPath);
+      return bashPath;
+    }
+
+    // Fallback: check one level up if gitRoot didn't work
+    const altBashPath = path.join(path.dirname(gitRoot), 'bin', 'bash.exe');
+    if (existsSync(altBashPath)) {
+      console.log('[AgentProcess] Found git-bash at alternate path:', altBashPath);
+      return altBashPath;
+    }
+
+    console.warn('[AgentProcess] Could not find bash.exe from git path:', gitExePath);
+    return null;
+  } catch (error) {
+    console.error('[AgentProcess] Error deriving git-bash path:', error);
+    return null;
+  }
+}
 
 /**
  * Process spawning and lifecycle management
@@ -50,8 +113,31 @@ export class AgentProcessManager {
     extraEnv: Record<string, string>
   ): NodeJS.ProcessEnv {
     const profileEnv = getProfileEnv();
+    // Use getAugmentedEnv() to ensure common tool paths (dotnet, homebrew, etc.)
+    // are available even when app is launched from Finder/Dock
+    const augmentedEnv = getAugmentedEnv();
+
+    // On Windows, detect and pass git-bash path for Claude Code CLI
+    // Electron can detect git via where.exe, but Python subprocess may not have the same PATH
+    const gitBashEnv: Record<string, string> = {};
+    if (process.platform === 'win32' && !process.env.CLAUDE_CODE_GIT_BASH_PATH) {
+      try {
+        const gitInfo = getToolInfo('git');
+        if (gitInfo.found && gitInfo.path) {
+          const bashPath = deriveGitBashPath(gitInfo.path);
+          if (bashPath) {
+            gitBashEnv['CLAUDE_CODE_GIT_BASH_PATH'] = bashPath;
+            console.log('[AgentProcess] Setting CLAUDE_CODE_GIT_BASH_PATH:', bashPath);
+          }
+        }
+      } catch (error) {
+        console.warn('[AgentProcess] Failed to detect git-bash path:', error);
+      }
+    }
+
     return {
-      ...process.env,
+      ...augmentedEnv,
+      ...gitBashEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
@@ -192,6 +278,8 @@ export class AgentProcessManager {
 
     // Auto-detect from app location (configured path was invalid or not set)
     const possiblePaths = [
+      // Packaged app: backend is in extraResources (process.resourcesPath/backend)
+      ...(app.isPackaged ? [path.join(process.resourcesPath, 'backend')] : []),
       // Dev mode: from dist/main -> ../../backend (apps/frontend/out/main -> apps/backend)
       path.resolve(__dirname, '..', '..', '..', 'backend'),
       // Alternative: from app root -> apps/backend
@@ -224,21 +312,21 @@ export class AgentProcessManager {
         const graphitiUrl = project.settings.graphitiMcpUrl || 'http://localhost:8000/mcp/';
         env['GRAPHITI_MCP_URL'] = graphitiUrl;
       }
+
+      // CLAUDE.md integration (enabled by default)
+      if (project.settings.useClaudeMd !== false) {
+        env['USE_CLAUDE_MD'] = 'true';
+      }
     }
 
     return env;
   }
 
   /**
-   * Load environment variables from auto-claude .env file
+   * Parse environment variables from a .env file content.
+   * Filters out empty values to prevent overriding valid tokens from profiles.
    */
-  loadAutoBuildEnv(): Record<string, string> {
-    const autoBuildSource = this.getAutoBuildSourcePath();
-    if (!autoBuildSource) {
-      return {};
-    }
-
-    const envPath = path.join(autoBuildSource, '.env');
+  private parseEnvFile(envPath: string): Record<string, string> {
     if (!existsSync(envPath)) {
       return {};
     }
@@ -262,11 +350,14 @@ export class AgentProcessManager {
 
           // Remove quotes if present
           if ((value.startsWith('"') && value.endsWith('"')) ||
-              (value.startsWith("'") && value.endsWith("'"))) {
+            (value.startsWith("'") && value.endsWith("'"))) {
             value = value.slice(1, -1);
           }
 
-          envVars[key] = value;
+          // Skip empty values to prevent overriding valid values from other sources
+          if (value) {
+            envVars[key] = value;
+          }
         }
       }
 
@@ -276,22 +367,78 @@ export class AgentProcessManager {
     }
   }
 
-  spawnProcess(
+  /**
+   * Load environment variables from project's .auto-claude/.env file
+   * This contains frontend-configured settings like memory/Graphiti configuration
+   */
+  private loadProjectEnv(projectPath: string): Record<string, string> {
+    // Find project by path to get autoBuildPath
+    const projects = projectStore.getProjects();
+    const project = projects.find((p) => p.path === projectPath);
+
+    if (!project?.autoBuildPath) {
+      return {};
+    }
+
+    const envPath = path.join(projectPath, project.autoBuildPath, '.env');
+    return this.parseEnvFile(envPath);
+  }
+
+  /**
+   * Load environment variables from auto-claude .env file
+   */
+  loadAutoBuildEnv(): Record<string, string> {
+    const autoBuildSource = this.getAutoBuildSourcePath();
+    if (!autoBuildSource) {
+      return {};
+    }
+
+    const envPath = path.join(autoBuildSource, '.env');
+    return this.parseEnvFile(envPath);
+  }
+
+  /**
+   * Spawn a Python process for task execution
+   */
+  async spawnProcess(
     taskId: string,
     cwd: string,
     args: string[],
     extraEnv: Record<string, string> = {},
     processType: ProcessType = 'task-execution'
-  ): void {
+  ): Promise<void> {
     const isSpecRunner = processType === 'spec-creation';
     this.killProcess(taskId);
 
     const spawnId = this.state.generateSpawnId();
     const env = this.setupProcessEnvironment(extraEnv);
 
-    // Parse Python command to handle space-separated commands like "py -3"
+    // Get Python environment (PYTHONPATH for bundled packages, etc.)
+    const pythonEnv = pythonEnvManager.getPythonEnv();
+
+    // Get active API profile environment variables
+    let apiProfileEnv: Record<string, string> = {};
+    try {
+      apiProfileEnv = await getAPIProfileEnv();
+    } catch (error) {
+      console.error('[Agent Process] Failed to get API profile env:', error);
+      // Continue with empty profile env (falls back to OAuth mode)
+    }
+
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
+
+    // Parse Python commandto handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
-    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], { cwd, env });
+    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+      cwd,
+      env: {
+        ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
+        ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
+        ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
+        ...apiProfileEnv // Include active API profile config (highest priority for ANTHROPIC_* vars)
+      }
+    });
 
     this.state.addProcess(taskId, {
       taskId,
@@ -308,13 +455,17 @@ export class AgentProcessManager {
     let stdoutBuffer = '';
     let stderrBuffer = '';
     let sequenceNumber = 0;
+    // FIX (ACS-203): Track completed phases to prevent phase overlaps
+    // When a phase completes, it's added to this array before transitioning to the next phase
+    let completedPhases: CompletablePhase[] = [];
 
     this.emitter.emit('execution-progress', taskId, {
       phase: currentPhase,
       phaseProgress: 0,
       overallProgress: this.events.calculateOverallProgress(currentPhase, 0),
       message: isSpecRunner ? 'Starting spec creation...' : 'Starting build process...',
-      sequenceNumber: ++sequenceNumber
+      sequenceNumber: ++sequenceNumber,
+      completedPhases: [...completedPhases]
     });
 
     const isDebug = ['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '');
@@ -340,6 +491,21 @@ export class AgentProcessManager {
           console.log(`[PhaseDebug:${taskId}] Phase update: ${currentPhase} -> ${phaseUpdate.phase} (changed: ${phaseChanged})`);
         }
 
+        // FIX (ACS-203): Manage completedPhases when phases transition
+        // When leaving a non-terminal phase (not complete/failed), add it to completedPhases
+        if (phaseChanged && currentPhase !== 'idle' && currentPhase !== phaseUpdate.phase) {
+          // Type guard to narrow currentPhase to CompletablePhase
+          const isCompletablePhase = (phase: ExecutionProgressData['phase']): phase is CompletablePhase => {
+            return ['planning', 'coding', 'qa_review', 'qa_fixing'].includes(phase);
+          };
+          if (isCompletablePhase(currentPhase) && !completedPhases.includes(currentPhase)) {
+            completedPhases.push(currentPhase);
+            if (isDebug) {
+              console.log(`[PhaseDebug:${taskId}] Marked phase as completed:`, { phase: currentPhase, completedPhases });
+            }
+          }
+        }
+
         currentPhase = phaseUpdate.phase;
 
         if (phaseUpdate.currentSubtask) {
@@ -358,7 +524,7 @@ export class AgentProcessManager {
         const overallProgress = this.events.calculateOverallProgress(currentPhase, phaseProgress);
 
         if (isDebug) {
-          console.log(`[PhaseDebug:${taskId}] Emitting execution-progress:`, { phase: currentPhase, phaseProgress, overallProgress });
+          console.log(`[PhaseDebug:${taskId}] Emitting execution-progress:`, { phase: currentPhase, phaseProgress, overallProgress, completedPhases });
         }
 
         this.emitter.emit('execution-progress', taskId, {
@@ -367,7 +533,8 @@ export class AgentProcessManager {
           overallProgress,
           currentSubtask,
           message: lastMessage,
-          sequenceNumber: ++sequenceNumber
+          sequenceNumber: ++sequenceNumber,
+          completedPhases: [...completedPhases]
         });
       }
     };
@@ -439,7 +606,8 @@ export class AgentProcessManager {
           phaseProgress: 0,
           overallProgress: this.events.calculateOverallProgress(currentPhase, phaseProgress),
           message: `Process exited with code ${code}`,
-          sequenceNumber: ++sequenceNumber
+          sequenceNumber: ++sequenceNumber,
+          completedPhases: [...completedPhases]
         });
       }
 
@@ -456,7 +624,8 @@ export class AgentProcessManager {
         phaseProgress: 0,
         overallProgress: 0,
         message: `Error: ${err.message}`,
-        sequenceNumber: ++sequenceNumber
+        sequenceNumber: ++sequenceNumber,
+        completedPhases: [...completedPhases]
       });
 
       this.emitter.emit('error', taskId, err.message);
@@ -507,10 +676,26 @@ export class AgentProcessManager {
 
   /**
    * Get combined environment variables for a project
+   *
+   * Priority (later sources override earlier):
+   * 1. App-wide memory settings from settings.json (NEW - enables memory from onboarding)
+   * 2. Backend source .env (apps/backend/.env) - CLI defaults
+   * 3. Project's .auto-claude/.env - Frontend-configured settings (memory, integrations)
+   * 4. Project settings (graphitiMcpUrl, useClaudeMd) - Runtime overrides
    */
   getCombinedEnv(projectPath: string): Record<string, string> {
+    // Load app-wide memory settings from settings.json
+    // This bridges onboarding config to backend agents
+    const appSettings = (readSettingsFile() || {}) as Partial<AppSettings>;
+    const memoryEnv = buildMemoryEnvVars(appSettings as AppSettings);
+
+    // Existing env sources
     const autoBuildEnv = this.loadAutoBuildEnv();
-    const projectEnv = this.getProjectEnvVars(projectPath);
-    return { ...autoBuildEnv, ...projectEnv };
+    const projectFileEnv = this.loadProjectEnv(projectPath);
+    const projectSettingsEnv = this.getProjectEnvVars(projectPath);
+
+    // Priority: app-wide memory -> backend .env -> project .env -> project settings
+    // Later sources override earlier ones
+    return { ...memoryEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
   }
 }

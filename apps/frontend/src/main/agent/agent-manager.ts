@@ -30,6 +30,7 @@ export class AgentManager extends EventEmitter {
     taskDescription?: string;
     specDir?: string;
     metadata?: SpecCreationMetadata;
+    baseBranch?: string;
     swapCount: number;
   }> = new Map();
 
@@ -86,13 +87,14 @@ export class AgentManager extends EventEmitter {
   /**
    * Start spec creation process
    */
-  startSpecCreation(
+  async startSpecCreation(
     taskId: string,
     projectPath: string,
     taskDescription: string,
     specDir?: string,
-    metadata?: SpecCreationMetadata
-  ): void {
+    metadata?: SpecCreationMetadata,
+    baseBranch?: string
+  ): Promise<void> {
     // Pre-flight auth check: Verify active profile has valid authentication
     const profileManager = getClaudeProfileManager();
     if (!profileManager.hasValidAuth()) {
@@ -125,6 +127,11 @@ export class AgentManager extends EventEmitter {
       args.push('--spec-dir', specDir);
     }
 
+    // Pass base branch if specified (ensures worktrees are created from the correct branch)
+    if (baseBranch) {
+      args.push('--base-branch', baseBranch);
+    }
+
     // Check if user requires review before coding
     if (!metadata?.requireReviewBeforeCoding) {
       // Auto-approve: When user starts a task from the UI without requiring review
@@ -145,22 +152,27 @@ export class AgentManager extends EventEmitter {
       }
     }
 
+    // Workspace mode: --direct skips worktree isolation (default is isolated for safety)
+    if (metadata?.useWorktree === false) {
+      args.push('--direct');
+    }
+
     // Store context for potential restart
-    this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata);
+    this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
 
     // Note: This is spec-creation but it chains to task-execution via run.py
-    this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
   }
 
   /**
    * Start task execution (run.py)
    */
-  startTaskExecution(
+  async startTaskExecution(
     taskId: string,
     projectPath: string,
     specId: string,
     options: TaskExecutionOptions = {}
-  ): void {
+  ): Promise<void> {
     // Pre-flight auth check: Verify active profile has valid authentication
     const profileManager = getClaudeProfileManager();
     if (!profileManager.hasValidAuth()) {
@@ -193,6 +205,11 @@ export class AgentManager extends EventEmitter {
     // Force: When user starts a task from the UI, that IS their approval
     args.push('--force');
 
+    // Workspace mode: --direct skips worktree isolation (default is isolated for safety)
+    if (options.useWorktree === false) {
+      args.push('--direct');
+    }
+
     // Pass base branch if specified (ensures worktrees are created from the correct branch)
     if (options.baseBranch) {
       args.push('--base-branch', options.baseBranch);
@@ -206,17 +223,17 @@ export class AgentManager extends EventEmitter {
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, specId, options, false);
 
-    this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
   }
 
   /**
    * Start QA process
    */
-  startQAProcess(
+  async startQAProcess(
     taskId: string,
     projectPath: string,
     specId: string
-  ): void {
+  ): Promise<void> {
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();
 
     if (!autoBuildSource) {
@@ -236,7 +253,7 @@ export class AgentManager extends EventEmitter {
 
     const args = [runPath, '--spec', specId, '--project-dir', projectPath, '--qa'];
 
-    this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'qa-process');
+    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'qa-process');
   }
 
   /**
@@ -332,7 +349,8 @@ export class AgentManager extends EventEmitter {
     isSpecCreation?: boolean,
     taskDescription?: string,
     specDir?: string,
-    metadata?: SpecCreationMetadata
+    metadata?: SpecCreationMetadata,
+    baseBranch?: string
   ): void {
     // Preserve swapCount if context already exists (for restarts)
     const existingContext = this.taskExecutionContext.get(taskId);
@@ -346,6 +364,7 @@ export class AgentManager extends EventEmitter {
       taskDescription,
       specDir,
       metadata,
+      baseBranch,
       swapCount // Preserve existing count instead of resetting
     });
   }
@@ -407,7 +426,8 @@ export class AgentManager extends EventEmitter {
           context.projectPath,
           context.taskDescription!,
           context.specDir,
-          context.metadata
+          context.metadata,
+          context.baseBranch
         );
       } else {
         console.log('[AgentManager] Restarting as task execution');

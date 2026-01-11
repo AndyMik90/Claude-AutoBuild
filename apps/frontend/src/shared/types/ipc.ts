@@ -3,6 +3,7 @@
  */
 
 import type { IPCResult } from './common';
+import type { SupportedIDE, SupportedTerminal } from './settings';
 import type {
   Project,
   ProjectSettings,
@@ -19,7 +20,10 @@ import type {
   InfrastructureStatus,
   GraphitiValidationResult,
   GraphitiConnectionTestResult,
-  GitStatus
+  GitStatus,
+  CustomMcpServer,
+  McpHealthCheckResult,
+  McpTestConnectionResult
 } from './project';
 import type {
   Task,
@@ -32,6 +36,8 @@ import type {
   WorktreeMergeResult,
   WorktreeDiscardResult,
   WorktreeListResult,
+  WorktreeCreatePROptions,
+  WorktreeCreatePRResult,
   TaskRecoveryResult,
   TaskRecoveryOptions,
   TaskMetadata,
@@ -46,7 +52,10 @@ import type {
   SessionDateRestoreResult,
   RateLimitInfo,
   SDKRateLimitInfo,
-  RetryWithProfileRequest
+  RetryWithProfileRequest,
+  CreateTerminalWorktreeRequest,
+  TerminalWorktreeConfig,
+  TerminalWorktreeResult,
 } from './terminal';
 import type {
   ClaudeProfileSettings,
@@ -55,7 +64,7 @@ import type {
   ClaudeAuthResult,
   ClaudeUsageSnapshot
 } from './agent';
-import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult, AutoBuildSourceUpdateCheck, AutoBuildSourceUpdateProgress } from './settings';
+import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult } from './settings';
 import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent } from './app-update';
 import type {
   ChangelogTask,
@@ -105,8 +114,21 @@ import type {
   GitHubSyncStatus,
   GitHubImportResult,
   GitHubInvestigationResult,
-  GitHubInvestigationStatus
+  GitHubInvestigationStatus,
+  GitLabProject,
+  GitLabIssue,
+  GitLabMergeRequest,
+  GitLabNote,
+  GitLabGroup,
+  GitLabSyncStatus,
+  GitLabImportResult,
+  GitLabInvestigationResult,
+  GitLabInvestigationStatus,
+  GitLabMRReviewResult,
+  GitLabMRReviewProgress,
+  GitLabNewCommitsCheck
 } from './integrations';
+import type { APIProfile, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from './profile';
 
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
@@ -137,7 +159,7 @@ export interface ElectronAPI {
   startTask: (taskId: string, options?: TaskStartOptions) => void;
   stopTask: (taskId: string) => void;
   submitReview: (taskId: string, approved: boolean, feedback?: string) => Promise<IPCResult>;
-  updateTaskStatus: (taskId: string, status: TaskStatus) => Promise<IPCResult>;
+  updateTaskStatus: (taskId: string, status: TaskStatus, options?: { forceCleanup?: boolean }) => Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }>;
   recoverStuckTask: (taskId: string, options?: TaskRecoveryOptions) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
 
@@ -147,8 +169,13 @@ export interface ElectronAPI {
   getWorktreeDiff: (taskId: string) => Promise<IPCResult<WorktreeDiff>>;
   mergeWorktree: (taskId: string, options?: { noCommit?: boolean }) => Promise<IPCResult<WorktreeMergeResult>>;
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<WorktreeMergeResult>>;
-  discardWorktree: (taskId: string) => Promise<IPCResult<WorktreeDiscardResult>>;
+  createWorktreePR: (taskId: string, options?: WorktreeCreatePROptions) => Promise<IPCResult<WorktreeCreatePRResult>>;
+  discardWorktree: (taskId: string, skipStatusChange?: boolean) => Promise<IPCResult<WorktreeDiscardResult>>;
+  clearStagedState: (taskId: string) => Promise<IPCResult<{ cleared: boolean }>>;
   listWorktrees: (projectId: string) => Promise<IPCResult<WorktreeListResult>>;
+  worktreeOpenInIDE: (worktreePath: string, ide: SupportedIDE, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
+  worktreeOpenInTerminal: (worktreePath: string, terminal: SupportedTerminal, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
+  worktreeDetectTools: () => Promise<IPCResult<{ ides: Array<{ id: string; name: string; path: string; installed: boolean }>; terminals: Array<{ id: string; name: string; path: string; installed: boolean }> }>>;
 
   // Task archive operations
   archiveTasks: (projectId: string, taskIds: string[], version?: string) => Promise<IPCResult<boolean>>;
@@ -168,17 +195,25 @@ export interface ElectronAPI {
   resizeTerminal: (id: string, cols: number, rows: number) => void;
   invokeClaudeInTerminal: (id: string, cwd?: string) => void;
   generateTerminalName: (command: string, cwd?: string) => Promise<IPCResult<string>>;
+  setTerminalTitle: (id: string, title: string) => void;
+  setTerminalWorktreeConfig: (id: string, config: TerminalWorktreeConfig | undefined) => void;
 
   // Terminal session management (persistence/restore)
   getTerminalSessions: (projectPath: string) => Promise<IPCResult<TerminalSession[]>>;
   restoreTerminalSession: (session: TerminalSession, cols?: number, rows?: number) => Promise<IPCResult<TerminalRestoreResult>>;
   clearTerminalSessions: (projectPath: string) => Promise<IPCResult>;
   resumeClaudeInTerminal: (id: string, sessionId?: string) => void;
+  activateDeferredClaudeResume: (id: string) => void;
   getTerminalSessionDates: (projectPath?: string) => Promise<IPCResult<SessionDateInfo[]>>;
   getTerminalSessionsForDate: (date: string, projectPath: string) => Promise<IPCResult<TerminalSession[]>>;
   restoreTerminalSessionsFromDate: (date: string, projectPath: string, cols?: number, rows?: number) => Promise<IPCResult<SessionDateRestoreResult>>;
   saveTerminalBuffer: (terminalId: string, serialized: string) => Promise<void>;
   checkTerminalPtyAlive: (terminalId: string) => Promise<IPCResult<{ alive: boolean }>>;
+
+  // Terminal worktree operations (isolated development)
+  createTerminalWorktree: (request: CreateTerminalWorktreeRequest) => Promise<TerminalWorktreeResult>;
+  listTerminalWorktrees: (projectPath: string) => Promise<IPCResult<TerminalWorktreeConfig[]>>;
+  removeTerminalWorktree: (projectPath: string, name: string, deleteBranch?: boolean) => Promise<IPCResult>;
 
   // Terminal event listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
@@ -195,6 +230,16 @@ export interface ElectronAPI {
     message?: string;
     detectedAt: string
   }) => void) => () => void;
+  /** Listen for auth terminal creation - allows UI to display the OAuth terminal */
+  onTerminalAuthCreated: (callback: (info: {
+    terminalId: string;
+    profileId: string;
+    profileName: string
+  }) => void) => () => void;
+  /** Listen for Claude busy state changes (for visual indicator: red=busy, green=idle) */
+  onTerminalClaudeBusy: (callback: (id: string, isBusy: boolean) => void) => () => void;
+  /** Listen for pending Claude resume notifications (for deferred resume on tab activation) */
+  onTerminalPendingResume: (callback: (id: string, sessionId?: string) => void) => () => void;
 
   // Claude profile management (multi-account support)
   getClaudeProfiles: () => Promise<IPCResult<ClaudeProfileSettings>>;
@@ -237,6 +282,12 @@ export interface ElectronAPI {
   // App settings
   getSettings: () => Promise<IPCResult<AppSettings>>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<IPCResult>;
+
+  // Sentry error reporting
+  notifySentryStateChanged: (enabled: boolean) => void;
+  getSentryDsn: () => Promise<string>;
+  getSentryConfig: () => Promise<{ dsn: string; tracesSampleRate: number; profilesSampleRate: number }>;
+
   getCliToolsInfo: () => Promise<IPCResult<{
     python: import('./cli').ToolDetectionResult;
     git: import('./cli').ToolDetectionResult;
@@ -266,6 +317,17 @@ export interface ElectronAPI {
   deleteSecretAccount: (groupId: string, accountId: string) => Promise<IPCResult<import('./secrets').SecretGroup>>;
   decryptSecretAccount: (groupId: string, accountId: string) => Promise<IPCResult<Record<string, string>>>;
   decryptSecretAccountKey: (groupId: string, accountId: string, keyId: string) => Promise<IPCResult<string>>;
+
+  // API Profile management (custom Anthropic-compatible endpoints)
+  getAPIProfiles: () => Promise<IPCResult<ProfilesFile>>;
+  saveAPIProfile: (profile: Omit<APIProfile, 'id' | 'createdAt' | 'updatedAt'>) => Promise<IPCResult<APIProfile>>;
+  updateAPIProfile: (profile: APIProfile) => Promise<IPCResult<APIProfile>>;
+  deleteAPIProfile: (profileId: string) => Promise<IPCResult>;
+  setActiveAPIProfile: (profileId: string | null) => Promise<IPCResult>;
+  // Note: AbortSignal is handled in preload via separate cancel IPC channels, not passed through IPC
+  testConnection: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<IPCResult<TestConnectionResult>>;
+  discoverModels: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<IPCResult<DiscoverModelsResult>>;
+
 
   // Dialog operations
   selectDirectory: () => Promise<string | null>;
@@ -397,6 +459,103 @@ export interface ElectronAPI {
     callback: (projectId: string, error: string) => void
   ) => () => void;
 
+  // GitLab integration operations
+  getGitLabProjects: (projectId: string) => Promise<IPCResult<GitLabProject[]>>;
+  getGitLabIssues: (projectId: string, state?: 'opened' | 'closed' | 'all') => Promise<IPCResult<GitLabIssue[]>>;
+  getGitLabIssue: (projectId: string, issueIid: number) => Promise<IPCResult<GitLabIssue>>;
+  getGitLabIssueNotes: (projectId: string, issueIid: number) => Promise<IPCResult<GitLabNote[]>>;
+  checkGitLabConnection: (projectId: string) => Promise<IPCResult<GitLabSyncStatus>>;
+  investigateGitLabIssue: (projectId: string, issueIid: number, selectedNoteIds?: number[]) => void;
+  importGitLabIssues: (projectId: string, issueIids: number[]) => Promise<IPCResult<GitLabImportResult>>;
+  createGitLabRelease: (
+    projectId: string,
+    tagName: string,
+    releaseNotes: string,
+    options?: { ref?: string }
+  ) => Promise<IPCResult<{ url: string }>>;
+
+  // GitLab Merge Request operations
+  getGitLabMergeRequests: (projectId: string, state?: 'opened' | 'closed' | 'merged' | 'all') => Promise<IPCResult<GitLabMergeRequest[]>>;
+  getGitLabMergeRequest: (projectId: string, mrIid: number) => Promise<IPCResult<GitLabMergeRequest>>;
+  createGitLabMergeRequest: (
+    projectId: string,
+    options: {
+      title: string;
+      description?: string;
+      sourceBranch: string;
+      targetBranch: string;
+      labels?: string[];
+      assigneeIds?: number[];
+      removeSourceBranch?: boolean;
+      squash?: boolean;
+    }
+  ) => Promise<IPCResult<GitLabMergeRequest>>;
+  updateGitLabMergeRequest: (
+    projectId: string,
+    mrIid: number,
+    updates: { title?: string; description?: string; labels?: string[]; state_event?: 'close' | 'reopen' }
+  ) => Promise<IPCResult<GitLabMergeRequest>>;
+
+  // GitLab MR Review operations (AI-powered)
+  getGitLabMRReview: (projectId: string, mrIid: number) => Promise<GitLabMRReviewResult | null>;
+  runGitLabMRReview: (projectId: string, mrIid: number) => void;
+  runGitLabMRFollowupReview: (projectId: string, mrIid: number) => void;
+  postGitLabMRReview: (projectId: string, mrIid: number, selectedFindingIds?: string[]) => Promise<boolean>;
+  postGitLabMRNote: (projectId: string, mrIid: number, body: string) => Promise<boolean>;
+  mergeGitLabMR: (projectId: string, mrIid: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
+  assignGitLabMR: (projectId: string, mrIid: number, userIds: number[]) => Promise<boolean>;
+  approveGitLabMR: (projectId: string, mrIid: number) => Promise<boolean>;
+  cancelGitLabMRReview: (projectId: string, mrIid: number) => Promise<boolean>;
+  checkGitLabMRNewCommits: (projectId: string, mrIid: number) => Promise<GitLabNewCommitsCheck>;
+
+  // GitLab MR Review event listeners
+  onGitLabMRReviewProgress: (
+    callback: (projectId: string, progress: GitLabMRReviewProgress) => void
+  ) => () => void;
+  onGitLabMRReviewComplete: (
+    callback: (projectId: string, result: GitLabMRReviewResult) => void
+  ) => () => void;
+  onGitLabMRReviewError: (
+    callback: (projectId: string, data: { mrIid: number; error: string }) => void
+  ) => () => void;
+
+  // GitLab OAuth operations (glab CLI)
+  checkGitLabCli: () => Promise<IPCResult<{ installed: boolean; version?: string }>>;
+  installGitLabCli: () => Promise<IPCResult<{ command: string }>>;
+  checkGitLabAuth: (hostname?: string) => Promise<IPCResult<{ authenticated: boolean; username?: string }>>;
+  startGitLabAuth: (hostname?: string) => Promise<IPCResult<{
+    success: boolean;
+    message?: string;
+    browserOpened?: boolean;
+    fallbackUrl?: string;
+  }>>;
+  getGitLabToken: (hostname?: string) => Promise<IPCResult<{ token: string }>>;
+  getGitLabUser: (hostname?: string) => Promise<IPCResult<{ username: string; name?: string }>>;
+  listGitLabUserProjects: (hostname?: string) => Promise<IPCResult<{ projects: Array<{ pathWithNamespace: string; description: string | null; visibility: string }> }>>;
+  detectGitLabProject: (projectPath: string) => Promise<IPCResult<{ project: string; instanceUrl: string } | null>>;
+  getGitLabBranches: (projectPath: string, token: string, instanceUrl?: string) => Promise<IPCResult<string[]>>;
+  createGitLabProject: (
+    projectName: string,
+    options: { description?: string; visibility?: 'private' | 'internal' | 'public'; projectPath: string; namespaceId?: number; hostname?: string }
+  ) => Promise<IPCResult<{ pathWithNamespace: string; webUrl: string }>>;
+  addGitLabRemote: (
+    projectPath: string,
+    projectPathWithNamespace: string,
+    instanceUrl?: string
+  ) => Promise<IPCResult<{ remoteUrl: string }>>;
+  listGitLabGroups: (hostname?: string) => Promise<IPCResult<{ groups: GitLabGroup[] }>>;
+
+  // GitLab event listeners
+  onGitLabInvestigationProgress: (
+    callback: (projectId: string, status: GitLabInvestigationStatus) => void
+  ) => () => void;
+  onGitLabInvestigationComplete: (
+    callback: (projectId: string, result: GitLabInvestigationResult) => void
+  ) => () => void;
+  onGitLabInvestigationError: (
+    callback: (projectId: string, error: string) => void
+  ) => () => void;
+
   // Release operations
   getReleaseableVersions: (projectId: string) => Promise<IPCResult<ReleaseableVersion[]>>;
   runReleasePreflightCheck: (projectId: string, version: string) => Promise<IPCResult<ReleasePreflightStatus>>;
@@ -449,19 +608,10 @@ export interface ElectronAPI {
     callback: (projectId: string, ideationType: string) => void
   ) => () => void;
 
-  // Auto Claude source update operations
-  checkAutoBuildSourceUpdate: () => Promise<IPCResult<AutoBuildSourceUpdateCheck>>;
-  downloadAutoBuildSourceUpdate: () => void;
-  getAutoBuildSourceVersion: () => Promise<IPCResult<string>>;
-
-  // Auto Claude source update event listeners
-  onAutoBuildSourceUpdateProgress: (
-    callback: (progress: AutoBuildSourceUpdateProgress) => void
-  ) => () => void;
-
   // Electron app update operations
   checkAppUpdate: () => Promise<IPCResult<AppUpdateInfo | null>>;
   downloadAppUpdate: () => Promise<IPCResult>;
+  downloadStableUpdate: () => Promise<IPCResult>;
   installAppUpdate: () => void;
 
   // Electron app update event listeners
@@ -473,6 +623,9 @@ export interface ElectronAPI {
   ) => () => void;
   onAppUpdateProgress: (
     callback: (progress: AppUpdateProgress) => void
+  ) => () => void;
+  onAppUpdateStableDowngrade: (
+    callback: (info: AppUpdateInfo) => void
   ) => () => void;
 
   // Shell operations
@@ -571,6 +724,7 @@ export interface ElectronAPI {
 
   // File explorer operations
   listDirectory: (dirPath: string) => Promise<IPCResult<FileNode[]>>;
+  readFile: (filePath: string) => Promise<IPCResult<string>>;
 
   // Git operations
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
@@ -587,6 +741,12 @@ export interface ElectronAPI {
     version?: string;
     message?: string;
   }>>;
+  checkOllamaInstalled: () => Promise<IPCResult<{
+    installed: boolean;
+    path?: string;
+    version?: string;
+  }>>;
+  installOllama: () => Promise<IPCResult<{ command: string }>>;
   listOllamaModels: (baseUrl?: string) => Promise<IPCResult<{
     models: Array<{
       name: string;
@@ -628,6 +788,31 @@ export interface ElectronAPI {
 
   // GitHub API (nested for organized access)
   github: import('../../preload/api/modules/github-api').GitHubAPI;
+
+  // Claude Code CLI operations
+  checkClaudeCodeVersion: () => Promise<IPCResult<import('./cli').ClaudeCodeVersionInfo>>;
+  installClaudeCode: () => Promise<IPCResult<{ command: string }>>;
+
+  // Debug operations
+  getDebugInfo: () => Promise<{
+    systemInfo: Record<string, string>;
+    recentErrors: string[];
+    logsPath: string;
+    debugReport: string;
+  }>;
+  openLogsFolder: () => Promise<{ success: boolean; error?: string }>;
+  copyDebugInfo: () => Promise<{ success: boolean; error?: string }>;
+  getRecentErrors: (maxCount?: number) => Promise<string[]>;
+  listLogFiles: () => Promise<Array<{
+    name: string;
+    path: string;
+    size: number;
+    modified: string;
+  }>>;
+
+  // MCP Server health check operations
+  checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
+  testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
 }
 
 declare global {

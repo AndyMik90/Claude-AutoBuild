@@ -35,9 +35,14 @@ export const IPC_CHANNELS = {
   TASK_WORKTREE_MERGE: 'task:worktreeMerge',
   TASK_WORKTREE_MERGE_PREVIEW: 'task:worktreeMergePreview',  // Preview merge conflicts before merging
   TASK_WORKTREE_DISCARD: 'task:worktreeDiscard',
+  TASK_WORKTREE_CREATE_PR: 'task:worktreeCreatePR',
+  TASK_WORKTREE_OPEN_IN_IDE: 'task:worktreeOpenInIDE',
+  TASK_WORKTREE_OPEN_IN_TERMINAL: 'task:worktreeOpenInTerminal',
+  TASK_WORKTREE_DETECT_TOOLS: 'task:worktreeDetectTools',  // Detect installed IDEs/terminals
   TASK_LIST_WORKTREES: 'task:listWorktrees',
   TASK_ARCHIVE: 'task:archive',
   TASK_UNARCHIVE: 'task:unarchive',
+  TASK_CLEAR_STAGED_STATE: 'task:clearStagedState',
 
   // Task events (main -> renderer)
   TASK_PROGRESS: 'task:progress',
@@ -60,24 +65,35 @@ export const IPC_CHANNELS = {
   TERMINAL_RESIZE: 'terminal:resize',
   TERMINAL_INVOKE_CLAUDE: 'terminal:invokeClaude',
   TERMINAL_GENERATE_NAME: 'terminal:generateName',
+  TERMINAL_SET_TITLE: 'terminal:setTitle',  // Renderer -> Main: user renamed terminal
+  TERMINAL_SET_WORKTREE_CONFIG: 'terminal:setWorktreeConfig',  // Renderer -> Main: worktree association changed
 
   // Terminal session management
   TERMINAL_GET_SESSIONS: 'terminal:getSessions',
   TERMINAL_RESTORE_SESSION: 'terminal:restoreSession',
   TERMINAL_CLEAR_SESSIONS: 'terminal:clearSessions',
   TERMINAL_RESUME_CLAUDE: 'terminal:resumeClaude',
+  TERMINAL_ACTIVATE_DEFERRED_RESUME: 'terminal:activateDeferredResume',  // Trigger deferred Claude resume when terminal becomes active
   TERMINAL_GET_SESSION_DATES: 'terminal:getSessionDates',
   TERMINAL_GET_SESSIONS_FOR_DATE: 'terminal:getSessionsForDate',
   TERMINAL_RESTORE_FROM_DATE: 'terminal:restoreFromDate',
   TERMINAL_CHECK_PTY_ALIVE: 'terminal:checkPtyAlive',
+
+  // Terminal worktree operations (isolated development in worktrees)
+  TERMINAL_WORKTREE_CREATE: 'terminal:worktreeCreate',
+  TERMINAL_WORKTREE_REMOVE: 'terminal:worktreeRemove',
+  TERMINAL_WORKTREE_LIST: 'terminal:worktreeList',
 
   // Terminal events (main -> renderer)
   TERMINAL_OUTPUT: 'terminal:output',
   TERMINAL_EXIT: 'terminal:exit',
   TERMINAL_TITLE_CHANGE: 'terminal:titleChange',
   TERMINAL_CLAUDE_SESSION: 'terminal:claudeSession',  // Claude session ID captured
+  TERMINAL_PENDING_RESUME: 'terminal:pendingResume',  // Terminal has pending Claude resume (for deferred activation)
   TERMINAL_RATE_LIMIT: 'terminal:rateLimit',  // Claude Code rate limit detected
   TERMINAL_OAUTH_TOKEN: 'terminal:oauthToken',  // OAuth token captured from setup-token output
+  TERMINAL_AUTH_CREATED: 'terminal:authCreated',  // Auth terminal created for OAuth flow
+  TERMINAL_CLAUDE_BUSY: 'terminal:claudeBusy',  // Claude Code busy state (for visual indicator)
 
   // Claude profile management (multi-account support)
   CLAUDE_PROFILES_GET: 'claude:profilesGet',
@@ -130,6 +146,17 @@ export const IPC_CHANNELS = {
   SECRETS_DELETE_ACCOUNT: 'secrets:deleteAccount',
   SECRETS_DECRYPT_ACCOUNT: 'secrets:decryptAccount',
   SECRETS_DECRYPT_ACCOUNT_KEY: 'secrets:decryptAccountKey',
+
+  // API Profile management (custom Anthropic-compatible endpoints)
+  PROFILES_GET: 'profiles:get',
+  PROFILES_SAVE: 'profiles:save',
+  PROFILES_UPDATE: 'profiles:update',
+  PROFILES_DELETE: 'profiles:delete',
+  PROFILES_SET_ACTIVE: 'profiles:setActive',
+  PROFILES_TEST_CONNECTION: 'profiles:test-connection',
+  PROFILES_TEST_CONNECTION_CANCEL: 'profiles:test-connection-cancel',
+  PROFILES_DISCOVER_MODELS: 'profiles:discover-models',
+  PROFILES_DISCOVER_MODELS_CANCEL: 'profiles:discover-models-cancel',
 
   // Dialogs
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',
@@ -233,6 +260,97 @@ export const IPC_CHANNELS = {
   GITHUB_INVESTIGATION_COMPLETE: 'github:investigationComplete',
   GITHUB_INVESTIGATION_ERROR: 'github:investigationError',
 
+// GitLab integration
+  GITLAB_GET_PROJECTS: 'gitlab:getProjects',
+  GITLAB_GET_ISSUES: 'gitlab:getIssues',
+  GITLAB_GET_ISSUE: 'gitlab:getIssue',
+  GITLAB_GET_ISSUE_NOTES: 'gitlab:getIssueNotes',
+  GITLAB_CHECK_CONNECTION: 'gitlab:checkConnection',
+  GITLAB_INVESTIGATE_ISSUE: 'gitlab:investigateIssue',
+  GITLAB_IMPORT_ISSUES: 'gitlab:importIssues',
+  GITLAB_CREATE_RELEASE: 'gitlab:createRelease',
+
+  // GitLab Merge Requests (equivalent to GitHub PRs)
+  GITLAB_GET_MERGE_REQUESTS: 'gitlab:getMergeRequests',
+  GITLAB_GET_MERGE_REQUEST: 'gitlab:getMergeRequest',
+  GITLAB_CREATE_MERGE_REQUEST: 'gitlab:createMergeRequest',
+  GITLAB_UPDATE_MERGE_REQUEST: 'gitlab:updateMergeRequest',
+
+  // GitLab OAuth (glab CLI authentication)
+  GITLAB_CHECK_CLI: 'gitlab:checkCli',
+  GITLAB_INSTALL_CLI: 'gitlab:installCli',
+  GITLAB_CHECK_AUTH: 'gitlab:checkAuth',
+  GITLAB_START_AUTH: 'gitlab:startAuth',
+  GITLAB_GET_TOKEN: 'gitlab:getToken',
+  GITLAB_GET_USER: 'gitlab:getUser',
+  GITLAB_LIST_USER_PROJECTS: 'gitlab:listUserProjects',
+  GITLAB_DETECT_PROJECT: 'gitlab:detectProject',
+  GITLAB_GET_BRANCHES: 'gitlab:getBranches',
+  GITLAB_CREATE_PROJECT: 'gitlab:createProject',
+  GITLAB_ADD_REMOTE: 'gitlab:addRemote',
+  GITLAB_LIST_GROUPS: 'gitlab:listGroups',
+
+  // GitLab events (main -> renderer)
+  GITLAB_INVESTIGATION_PROGRESS: 'gitlab:investigationProgress',
+  GITLAB_INVESTIGATION_COMPLETE: 'gitlab:investigationComplete',
+  GITLAB_INVESTIGATION_ERROR: 'gitlab:investigationError',
+
+  // GitLab MR Review operations
+  GITLAB_MR_GET_DIFF: 'gitlab:mr:getDiff',
+  GITLAB_MR_REVIEW: 'gitlab:mr:review',
+  GITLAB_MR_REVIEW_CANCEL: 'gitlab:mr:reviewCancel',
+  GITLAB_MR_GET_REVIEW: 'gitlab:mr:getReview',
+  GITLAB_MR_FOLLOWUP_REVIEW: 'gitlab:mr:followupReview',
+  GITLAB_MR_POST_REVIEW: 'gitlab:mr:postReview',
+  GITLAB_MR_POST_NOTE: 'gitlab:mr:postNote',
+  GITLAB_MR_MERGE: 'gitlab:mr:merge',
+  GITLAB_MR_ASSIGN: 'gitlab:mr:assign',
+  GITLAB_MR_APPROVE: 'gitlab:mr:approve',
+  GITLAB_MR_CHECK_NEW_COMMITS: 'gitlab:mr:checkNewCommits',
+
+  // GitLab MR Review events (main -> renderer)
+  GITLAB_MR_REVIEW_PROGRESS: 'gitlab:mr:reviewProgress',
+  GITLAB_MR_REVIEW_COMPLETE: 'gitlab:mr:reviewComplete',
+  GITLAB_MR_REVIEW_ERROR: 'gitlab:mr:reviewError',
+
+  // GitLab Auto-Fix operations
+  GITLAB_AUTOFIX_START: 'gitlab:autofix:start',
+  GITLAB_AUTOFIX_STOP: 'gitlab:autofix:stop',
+  GITLAB_AUTOFIX_GET_QUEUE: 'gitlab:autofix:getQueue',
+  GITLAB_AUTOFIX_CHECK_LABELS: 'gitlab:autofix:checkLabels',
+  GITLAB_AUTOFIX_CHECK_NEW: 'gitlab:autofix:checkNew',
+  GITLAB_AUTOFIX_GET_CONFIG: 'gitlab:autofix:getConfig',
+  GITLAB_AUTOFIX_SAVE_CONFIG: 'gitlab:autofix:saveConfig',
+  GITLAB_AUTOFIX_BATCH: 'gitlab:autofix:batch',
+  GITLAB_AUTOFIX_GET_BATCHES: 'gitlab:autofix:getBatches',
+
+  // GitLab Auto-Fix events (main -> renderer)
+  GITLAB_AUTOFIX_PROGRESS: 'gitlab:autofix:progress',
+  GITLAB_AUTOFIX_COMPLETE: 'gitlab:autofix:complete',
+  GITLAB_AUTOFIX_ERROR: 'gitlab:autofix:error',
+  GITLAB_AUTOFIX_BATCH_PROGRESS: 'gitlab:autofix:batchProgress',
+  GITLAB_AUTOFIX_BATCH_COMPLETE: 'gitlab:autofix:batchComplete',
+  GITLAB_AUTOFIX_BATCH_ERROR: 'gitlab:autofix:batchError',
+
+  // GitLab Issue Analysis Preview (proactive batch workflow)
+  GITLAB_AUTOFIX_ANALYZE_PREVIEW: 'gitlab:autofix:analyzePreview',
+  GITLAB_AUTOFIX_ANALYZE_PREVIEW_PROGRESS: 'gitlab:autofix:analyzePreviewProgress',
+  GITLAB_AUTOFIX_ANALYZE_PREVIEW_COMPLETE: 'gitlab:autofix:analyzePreviewComplete',
+  GITLAB_AUTOFIX_ANALYZE_PREVIEW_ERROR: 'gitlab:autofix:analyzePreviewError',
+  GITLAB_AUTOFIX_APPROVE_BATCHES: 'gitlab:autofix:approveBatches',
+
+  // GitLab Issue Triage operations
+  GITLAB_TRIAGE_RUN: 'gitlab:triage:run',
+  GITLAB_TRIAGE_GET_RESULTS: 'gitlab:triage:getResults',
+  GITLAB_TRIAGE_APPLY_LABELS: 'gitlab:triage:applyLabels',
+  GITLAB_TRIAGE_GET_CONFIG: 'gitlab:triage:getConfig',
+  GITLAB_TRIAGE_SAVE_CONFIG: 'gitlab:triage:saveConfig',
+
+  // GitLab Issue Triage events (main -> renderer)
+  GITLAB_TRIAGE_PROGRESS: 'gitlab:triage:progress',
+  GITLAB_TRIAGE_COMPLETE: 'gitlab:triage:complete',
+  GITLAB_TRIAGE_ERROR: 'gitlab:triage:error',
+
   // GitHub Auto-Fix operations
   GITHUB_AUTOFIX_START: 'github:autofix:start',
   GITHUB_AUTOFIX_STOP: 'github:autofix:stop',
@@ -266,6 +384,7 @@ export const IPC_CHANNELS = {
   GITHUB_PR_REVIEW: 'github:pr:review',
   GITHUB_PR_REVIEW_CANCEL: 'github:pr:reviewCancel',
   GITHUB_PR_GET_REVIEW: 'github:pr:getReview',
+  GITHUB_PR_GET_REVIEWS_BATCH: 'github:pr:getReviewsBatch',  // Batch load reviews for multiple PRs
   GITHUB_PR_POST_REVIEW: 'github:pr:postReview',
   GITHUB_PR_DELETE_REVIEW: 'github:pr:deleteReview',
   GITHUB_PR_MERGE: 'github:pr:merge',
@@ -274,11 +393,23 @@ export const IPC_CHANNELS = {
   GITHUB_PR_FIX: 'github:pr:fix',
   GITHUB_PR_FOLLOWUP_REVIEW: 'github:pr:followupReview',
   GITHUB_PR_CHECK_NEW_COMMITS: 'github:pr:checkNewCommits',
+  GITHUB_PR_CHECK_MERGE_READINESS: 'github:pr:checkMergeReadiness',
 
   // GitHub PR Review events (main -> renderer)
   GITHUB_PR_REVIEW_PROGRESS: 'github:pr:reviewProgress',
   GITHUB_PR_REVIEW_COMPLETE: 'github:pr:reviewComplete',
   GITHUB_PR_REVIEW_ERROR: 'github:pr:reviewError',
+
+  // GitHub PR Logs (for viewing AI review logs)
+  GITHUB_PR_GET_LOGS: 'github:pr:getLogs',
+
+  // GitHub PR Memory operations (saves review insights to memory layer)
+  GITHUB_PR_MEMORY_GET: 'github:pr:memory:get',        // Get PR review memories
+  GITHUB_PR_MEMORY_SEARCH: 'github:pr:memory:search',  // Search PR review memories
+
+  // GitHub Workflow Approval (for fork PRs)
+  GITHUB_WORKFLOWS_AWAITING_APPROVAL: 'github:workflows:awaitingApproval',
+  GITHUB_WORKFLOW_APPROVE: 'github:workflow:approve',
 
   // GitHub Issue Triage operations
   GITHUB_TRIAGE_RUN: 'github:triage:run',
@@ -303,16 +434,12 @@ export const IPC_CHANNELS = {
 
   // Ollama model detection and management
   OLLAMA_CHECK_STATUS: 'ollama:checkStatus',
+  OLLAMA_CHECK_INSTALLED: 'ollama:checkInstalled',
+  OLLAMA_INSTALL: 'ollama:install',
   OLLAMA_LIST_MODELS: 'ollama:listModels',
   OLLAMA_LIST_EMBEDDING_MODELS: 'ollama:listEmbeddingModels',
   OLLAMA_PULL_MODEL: 'ollama:pullModel',
   OLLAMA_PULL_PROGRESS: 'ollama:pullProgress',
-
-  // Auto Claude source updates
-  AUTOBUILD_SOURCE_CHECK: 'autobuild:source:check',
-  AUTOBUILD_SOURCE_DOWNLOAD: 'autobuild:source:download',
-  AUTOBUILD_SOURCE_VERSION: 'autobuild:source:version',
-  AUTOBUILD_SOURCE_PROGRESS: 'autobuild:source:progress',
 
   // Auto Claude source environment configuration
   AUTOBUILD_SOURCE_ENV_GET: 'autobuild:source:env:get',
@@ -359,6 +486,7 @@ export const IPC_CHANNELS = {
 
   // File explorer operations
   FILE_EXPLORER_LIST: 'fileExplorer:list',
+  FILE_EXPLORER_READ: 'fileExplorer:read',
 
   // Git operations
   GIT_GET_BRANCHES: 'git:getBranches',
@@ -371,6 +499,7 @@ export const IPC_CHANNELS = {
   // App auto-update operations
   APP_UPDATE_CHECK: 'app-update:check',
   APP_UPDATE_DOWNLOAD: 'app-update:download',
+  APP_UPDATE_DOWNLOAD_STABLE: 'app-update:download-stable',  // Download stable version (for downgrade from beta)
   APP_UPDATE_INSTALL: 'app-update:install',
   APP_UPDATE_GET_VERSION: 'app-update:get-version',
 
@@ -379,6 +508,7 @@ export const IPC_CHANNELS = {
   APP_UPDATE_DOWNLOADED: 'app-update:downloaded',
   APP_UPDATE_PROGRESS: 'app-update:progress',
   APP_UPDATE_ERROR: 'app-update:error',
+  APP_UPDATE_STABLE_DOWNGRADE: 'app-update:stable-downgrade',  // Stable version available for downgrade from beta
 
   // Release operations
   RELEASE_SUGGEST_VERSION: 'release:suggestVersion',
@@ -387,5 +517,25 @@ export const IPC_CHANNELS = {
   RELEASE_GET_VERSIONS: 'release:getVersions',
 
   // Release events (main -> renderer)
-  RELEASE_PROGRESS: 'release:progress'
+  RELEASE_PROGRESS: 'release:progress',
+
+  // Debug operations
+  DEBUG_GET_INFO: 'debug:getInfo',
+  DEBUG_OPEN_LOGS_FOLDER: 'debug:openLogsFolder',
+  DEBUG_COPY_DEBUG_INFO: 'debug:copyDebugInfo',
+  DEBUG_GET_RECENT_ERRORS: 'debug:getRecentErrors',
+  DEBUG_LIST_LOG_FILES: 'debug:listLogFiles',
+
+  // Claude Code CLI operations
+  CLAUDE_CODE_CHECK_VERSION: 'claudeCode:checkVersion',
+  CLAUDE_CODE_INSTALL: 'claudeCode:install',
+
+  // MCP Server health checks
+  MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
+  MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
+
+  // Sentry error reporting
+  SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
+  GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
+  GET_SENTRY_CONFIG: 'sentry:get-config'         // Get full Sentry config (DSN + sample rates)
 } as const;

@@ -4,6 +4,7 @@ Thank you for your interest in contributing to Auto Claude! This document provid
 
 ## Table of Contents
 
+- [Contributor License Agreement (CLA)](#contributor-license-agreement-cla)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
 - [Development Setup](#development-setup)
@@ -27,6 +28,25 @@ Thank you for your interest in contributing to Auto Claude! This document provid
 - [Pull Request Process](#pull-request-process)
 - [Issue Reporting](#issue-reporting)
 - [Architecture Overview](#architecture-overview)
+
+## Contributor License Agreement (CLA)
+
+All contributors must sign our Contributor License Agreement (CLA) before contributions can be accepted.
+
+### Why We Require a CLA
+
+Auto Claude is currently licensed under AGPL-3.0. The CLA ensures the project has proper licensing flexibility should we introduce additional licensing options (such as commercial/enterprise licenses) in the future.
+
+You retain full copyright ownership of your contributions.
+
+### How to Sign
+
+1. Open a Pull Request
+2. The CLA bot will automatically comment with instructions
+3. Comment on the PR with: `I have read the CLA Document and I hereby sign the CLA`
+4. Done - you only need to sign once, and it applies to all future contributions
+
+Read the full CLA here: [CLA.md](CLA.md)
 
 ## Prerequisites
 
@@ -56,24 +76,54 @@ brew install python@3.12
 sudo apt install python3.12 python3.12-venv
 ```
 
+**Linux (Fedora):**
+```bash
+sudo dnf install python3.12
+```
+
+### Installing Node.js 24+
+
+**Windows:**
+```bash
+winget install OpenJS.NodeJS.LTS
+```
+
+**macOS:**
+```bash
+brew install node@24
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+**Linux (Fedora):**
+```bash
+sudo dnf install nodejs npm
+```
+
 ### Installing CMake
 
 **Windows:**
-
 ```bash
 winget install Kitware.CMake
 ```
 
 **macOS:**
-
 ```bash
 brew install cmake
 ```
 
 **Linux (Ubuntu/Debian):**
-
 ```bash
 sudo apt install cmake
+```
+
+**Linux (Fedora):**
+```bash
+sudo dnf install cmake
 ```
 
 ## Quick Start

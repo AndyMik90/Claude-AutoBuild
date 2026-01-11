@@ -24,12 +24,17 @@ import { registerContextHandlers } from './context-handlers';
 import { registerEnvHandlers } from './env-handlers';
 import { registerLinearHandlers } from './linear-handlers';
 import { registerGithubHandlers } from './github-handlers';
-import { registerAutobuildSourceHandlers } from './autobuild-source-handlers';
+import { registerGitlabHandlers } from './gitlab-handlers';
 import { registerIdeationHandlers } from './ideation-handlers';
 import { registerChangelogHandlers } from './changelog-handlers';
 import { registerInsightsHandlers } from './insights-handlers';
 import { registerMemoryHandlers } from './memory-handlers';
 import { registerAppUpdateHandlers } from './app-update-handlers';
+import { registerDebugHandlers } from './debug-handlers';
+import { registerClaudeCodeHandlers } from './claude-code-handlers';
+import { registerMcpHandlers } from './mcp-handlers';
+import { registerProfileHandlers } from './profile-handlers';
+import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { notificationService } from '../notification-service';
 
 /**
@@ -57,6 +62,9 @@ export function setupIpcHandlers(
 
   // Terminal and Claude profile handlers
   registerTerminalHandlers(terminalManager, getMainWindow);
+
+  // Terminal worktree handlers (isolated development in worktrees)
+  registerTerminalWorktreeIpcHandlers();
 
   // Agent event handlers (event forwarding from agent manager to renderer)
   registerAgenteventsHandlers(agentManager, getMainWindow);
@@ -88,8 +96,8 @@ export function setupIpcHandlers(
   // GitHub integration handlers
   registerGithubHandlers(agentManager, getMainWindow);
 
-  // Auto-build source update handlers
-  registerAutobuildSourceHandlers(getMainWindow);
+  // GitLab integration handlers
+  registerGitlabHandlers(agentManager, getMainWindow);
 
   // Ideation handlers
   registerIdeationHandlers(agentManager, getMainWindow);
@@ -106,6 +114,18 @@ export function setupIpcHandlers(
   // App auto-update handlers
   registerAppUpdateHandlers();
 
+  // Debug handlers (logs, debug info, etc.)
+  registerDebugHandlers();
+
+  // Claude Code CLI handlers (version checking, installation)
+  registerClaudeCodeHandlers();
+
+  // MCP server health check handlers
+  registerMcpHandlers();
+
+  // API Profile handlers (custom Anthropic-compatible endpoints)
+  registerProfileHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -114,6 +134,7 @@ export {
   registerProjectHandlers,
   registerTaskHandlers,
   registerTerminalHandlers,
+  registerTerminalWorktreeIpcHandlers,
   registerAgenteventsHandlers,
   registerSettingsHandlers,
   registerTemplateHandlers,
@@ -124,10 +145,14 @@ export {
   registerEnvHandlers,
   registerLinearHandlers,
   registerGithubHandlers,
-  registerAutobuildSourceHandlers,
+  registerGitlabHandlers,
   registerIdeationHandlers,
   registerChangelogHandlers,
   registerInsightsHandlers,
   registerMemoryHandlers,
-  registerAppUpdateHandlers
+  registerAppUpdateHandlers,
+  registerDebugHandlers,
+  registerClaudeCodeHandlers,
+  registerMcpHandlers,
+  registerProfileHandlers
 };

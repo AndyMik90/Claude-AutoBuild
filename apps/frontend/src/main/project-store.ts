@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
+import { getTaskWorktreeDir } from './worktree-paths';
 
 interface TabState {
   openProjectIds: string[];
@@ -18,12 +19,19 @@ interface StoreData {
   tabState?: TabState;
 }
 
+interface TasksCacheEntry {
+  tasks: Task[];
+  timestamp: number;
+}
+
 /**
  * Persistent storage for projects and settings
  */
 export class ProjectStore {
   private storePath: string;
   private data: StoreData;
+  private tasksCache: Map<string, TasksCacheEntry> = new Map();
+  private readonly CACHE_TTL_MS = 3000; // 3 seconds TTL for task cache
 
   constructor() {
     // Store in app's userData directory
@@ -235,30 +243,49 @@ export class ProjectStore {
 
   /**
    * Get tasks for a project by scanning specs directory
+   * Implements caching with 3-second TTL to prevent excessive worktree scanning
    */
   getTasks(projectId: string): Task[] {
-    console.warn('[ProjectStore] getTasks called with projectId:', projectId);
+    // Check cache first
+    const cached = this.tasksCache.get(projectId);
+    const now = Date.now();
+
+    if (cached && (now - cached.timestamp) < this.CACHE_TTL_MS) {
+      console.debug('[ProjectStore] Returning cached tasks for project:', projectId, '(age:', now - cached.timestamp, 'ms)');
+      return cached.tasks;
+    }
+
+    console.warn('[ProjectStore] getTasks called - will load from disk', {
+      projectId,
+      reason: cached ? 'cache expired' : 'cache miss',
+      cacheAge: cached ? now - cached.timestamp : 'N/A'
+    });
     const project = this.getProject(projectId);
     if (!project) {
       console.warn('[ProjectStore] Project not found for id:', projectId);
       return [];
     }
-    console.warn('[ProjectStore] Found project:', project.name, 'autoBuildPath:', project.autoBuildPath);
+    console.warn('[ProjectStore] Found project:', project.name, 'autoBuildPath:', project.autoBuildPath, 'path:', project.path);
 
     const allTasks: Task[] = [];
     const specsBaseDir = getSpecsDir(project.autoBuildPath);
 
-    // 1. Scan main project specs directory
+    // 1. Scan main project specs directory (source of truth for task existence)
     const mainSpecsDir = path.join(project.path, specsBaseDir);
+    const mainSpecIds = new Set<string>();
     console.warn('[ProjectStore] Main specsDir:', mainSpecsDir, 'exists:', existsSync(mainSpecsDir));
     if (existsSync(mainSpecsDir)) {
       const mainTasks = this.loadTasksFromSpecsDir(mainSpecsDir, project.path, 'main', projectId, specsBaseDir);
       allTasks.push(...mainTasks);
+      // Track which specs exist in main project
+      mainTasks.forEach(t => mainSpecIds.add(t.specId));
       console.warn('[ProjectStore] Loaded', mainTasks.length, 'tasks from main project');
     }
 
     // 2. Scan worktree specs directories
-    const worktreesDir = path.join(project.path, '.worktrees');
+    // NOTE FOR MAINTAINERS: Worktree tasks are only included if the spec also exists in main.
+    // This prevents deleted tasks from "coming back" when the worktree isn't cleaned up.
+    const worktreesDir = getTaskWorktreeDir(project.path);
     if (existsSync(worktreesDir)) {
       try {
         const worktrees = readdirSync(worktreesDir, { withFileTypes: true });
@@ -274,8 +301,11 @@ export class ProjectStore {
               projectId,
               specsBaseDir
             );
-            allTasks.push(...worktreeTasks);
-            console.warn('[ProjectStore] Loaded', worktreeTasks.length, 'tasks from worktree:', worktree.name);
+            // Only include worktree tasks if the spec exists in main project
+            const validWorktreeTasks = worktreeTasks.filter(t => mainSpecIds.has(t.specId));
+            allTasks.push(...validWorktreeTasks);
+            const skipped = worktreeTasks.length - validWorktreeTasks.length;
+            console.debug('[ProjectStore] Loaded', validWorktreeTasks.length, 'tasks from worktree:', worktree.name, skipped > 0 ? `(skipped ${skipped} orphaned)` : '');
           }
         }
       } catch (error) {
@@ -293,8 +323,34 @@ export class ProjectStore {
     }
 
     const tasks = Array.from(taskMap.values());
-    console.warn('[ProjectStore] Returning', tasks.length, 'unique tasks (after deduplication)');
+    console.warn('[ProjectStore] Scan complete - found', tasks.length, 'unique tasks', {
+      mainTasks: allTasks.filter(t => t.location === 'main').length,
+      worktreeTasks: allTasks.filter(t => t.location === 'worktree').length,
+      deduplicated: allTasks.length - tasks.length
+    });
+
+    // Update cache
+    this.tasksCache.set(projectId, { tasks, timestamp: now });
+
     return tasks;
+  }
+
+  /**
+   * Invalidate the tasks cache for a specific project
+   * Call this when tasks are modified (created, deleted, status changed, etc.)
+   */
+  invalidateTasksCache(projectId: string): void {
+    this.tasksCache.delete(projectId);
+    console.debug('[ProjectStore] Invalidated tasks cache for project:', projectId);
+  }
+
+  /**
+   * Clear all tasks cache entries
+   * Useful for global refresh scenarios
+   */
+  clearTasksCache(): void {
+    this.tasksCache.clear();
+    console.debug('[ProjectStore] Cleared all tasks cache');
   }
 
   /**
@@ -329,17 +385,49 @@ export class ProjectStore {
         // Try to read implementation plan
         let plan: ImplementationPlan | null = null;
         if (existsSync(planPath)) {
+          console.warn(`[ProjectStore] Loading implementation_plan.json for spec: ${dir.name} from ${location}`);
           try {
             const content = readFileSync(planPath, 'utf-8');
             plan = JSON.parse(content);
-          } catch {
-            // Ignore parse errors
+            console.warn(`[ProjectStore] Loaded plan for ${dir.name}:`, {
+              hasDescription: !!plan?.description,
+              hasFeature: !!plan?.feature,
+              status: plan?.status,
+              phaseCount: plan?.phases?.length || 0,
+              subtaskCount: plan?.phases?.flatMap(p => p.subtasks || []).length || 0
+            });
+          } catch (err) {
+            console.error(`[ProjectStore] Failed to parse implementation_plan.json for ${dir.name}:`, err);
+          }
+        } else {
+          console.warn(`[ProjectStore] No implementation_plan.json found for spec: ${dir.name} at ${planPath}`);
+        }
+
+        // PRIORITY 1: Read description from implementation_plan.json (user's original)
+        let description = '';
+        if (plan?.description) {
+          description = plan.description;
+        }
+
+        // PRIORITY 2: Fallback to requirements.json
+        if (!description) {
+          const requirementsPath = path.join(specPath, AUTO_BUILD_PATHS.REQUIREMENTS);
+          if (existsSync(requirementsPath)) {
+            try {
+              const reqContent = readFileSync(requirementsPath, 'utf-8');
+              const requirements = JSON.parse(reqContent);
+              if (requirements.task_description) {
+                // Use the full task description for the modal view
+                description = requirements.task_description;
+              }
+            } catch {
+              // Ignore parse errors
+            }
           }
         }
 
-        // Try to read spec file for description
-        let description = '';
-        if (existsSync(specFilePath)) {
+        // PRIORITY 3: Final fallback to spec.md Overview (AI-synthesized content)
+        if (!description && existsSync(specFilePath)) {
           try {
             const content = readFileSync(specFilePath, 'utf-8');
             // Extract full Overview section until next heading or end of file
@@ -351,47 +439,6 @@ export class ProjectStore {
             }
           } catch {
             // Ignore read errors
-          }
-        }
-
-        // Fallback: read description from implementation_plan.json if not found in spec.md
-        if (!description && plan?.description) {
-          description = plan.description;
-        }
-
-        // Fallback: read description from requirements.json if still not found
-        if (!description) {
-          const requirementsPath = path.join(specPath, AUTO_BUILD_PATHS.REQUIREMENTS);
-          if (existsSync(requirementsPath)) {
-            try {
-              const reqContent = readFileSync(requirementsPath, 'utf-8');
-              const requirements = JSON.parse(reqContent);
-              if (requirements.task_description) {
-                // Extract a clean summary from task_description (first line or first ~200 chars)
-                const taskDesc = requirements.task_description;
-                const firstLine = taskDesc.split('\n')[0].trim();
-                // If the first line is a title like "Investigate GitHub Issue #36", use the next meaningful line
-                if (firstLine.toLowerCase().startsWith('investigate') && taskDesc.includes('\n\n')) {
-                  const sections = taskDesc.split('\n\n');
-                  // Find the first paragraph that's not a title
-                  for (const section of sections) {
-                    const trimmed = section.trim();
-                    // Skip headers and short lines
-                    if (trimmed.startsWith('#') || trimmed.length < 20) continue;
-                    // Skip the "Please analyze" instruction at the end
-                    if (trimmed.startsWith('Please analyze')) continue;
-                    description = trimmed.substring(0, 200).split('\n')[0];
-                    break;
-                  }
-                }
-                // If still no description, use a shortened version of task_description
-                if (!description) {
-                  description = firstLine.substring(0, 150);
-                }
-              }
-            } catch {
-              // Ignore parse errors
-            }
           }
         }
 
@@ -535,6 +582,7 @@ export class ProjectStore {
         'done': 'done',
         'human_review': 'human_review',
         'ai_review': 'ai_review',
+        'pr_created': 'pr_created', // PR has been created for this task
         'backlog': 'backlog'
       };
       const storedStatus = statusMap[plan.status];
@@ -542,6 +590,11 @@ export class ProjectStore {
       // If user explicitly marked as 'done', always respect that
       if (storedStatus === 'done') {
         return { status: 'done' };
+      }
+
+      // If task has a PR created, always respect that status
+      if (storedStatus === 'pr_created') {
+        return { status: 'pr_created' };
       }
 
       // For other stored statuses, validate against calculated status
@@ -554,11 +607,16 @@ export class ProjectStore {
         // planStatus: "review" indicates spec creation is complete and awaiting user approval
         const isPlanReviewStage = (plan as unknown as { planStatus?: string })?.planStatus === 'review';
 
+        // Determine if there is remaining work to do
+        // True if: no subtasks exist yet (planning in progress) OR some subtasks are incomplete
+        // This prevents 'in_progress' from overriding 'human_review' when all work is done
+        const hasRemainingWork = allSubtasks.length === 0 || allSubtasks.some((s) => s.status !== 'completed');
+
         const isStoredStatusValid =
           (storedStatus === calculatedStatus) || // Matches calculated
-          (storedStatus === 'human_review' && calculatedStatus === 'ai_review') || // Human review is more advanced than ai_review
+          (storedStatus === 'human_review' && (calculatedStatus === 'ai_review' || calculatedStatus === 'in_progress')) || // Human review is more advanced than ai_review or in_progress (fixes status loop bug)
           (storedStatus === 'human_review' && isPlanReviewStage) || // Plan review stage (awaiting spec approval)
-          (isActiveProcessStatus && storedStatus === 'in_progress'); // Planning/coding phases should show as in_progress
+          (isActiveProcessStatus && storedStatus === 'in_progress' && hasRemainingWork); // Planning/coding phases should show as in_progress ONLY when there's remaining work
 
         if (isStoredStatusValid) {
           // Preserve reviewReason for human_review status
@@ -634,7 +692,7 @@ export class ProjectStore {
     }
 
     // 2. Check worktrees
-    const worktreesDir = path.join(projectPath, '.worktrees');
+    const worktreesDir = getTaskWorktreeDir(projectPath);
     if (existsSync(worktreesDir)) {
       try {
         const worktrees = readdirSync(worktreesDir, { withFileTypes: true });
@@ -712,6 +770,9 @@ export class ProjectStore {
       }
     }
 
+    // Invalidate cache since task metadata changed
+    this.invalidateTasksCache(projectId);
+
     return !hasErrors;
   }
 
@@ -767,6 +828,9 @@ export class ProjectStore {
         }
       }
     }
+
+    // Invalidate cache since task metadata changed
+    this.invalidateTasksCache(projectId);
 
     return !hasErrors;
   }

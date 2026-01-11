@@ -1,3 +1,4 @@
+import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import type { Task, ExecutionPhase } from '../../../shared/types';
 import type { TerminalStatus } from '../../stores/terminal-store';
 import { Circle, Search, Code2, Wrench, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -11,6 +12,27 @@ export interface TerminalProps {
   onActivate: () => void;
   tasks?: Task[];
   onNewTaskClick?: () => void;
+  terminalCount?: number;
+  /** Drag handle listeners from useSortable for terminal reordering */
+  dragHandleListeners?: SyntheticListenerMap;
+  /** Whether this terminal is currently being dragged */
+  isDragging?: boolean;
+  /** Whether the terminal is expanded to full view */
+  isExpanded?: boolean;
+  /** Callback to toggle expanded state */
+  onToggleExpand?: () => void;
+}
+
+/**
+ * Get the responsive max-width class for terminal title based on terminal count.
+ * More terminals = narrower title to fit all elements.
+ */
+export function getTitleMaxWidthClass(terminalCount: number): string {
+  if (terminalCount <= 2) return 'max-w-72'; // 288px - large
+  if (terminalCount <= 4) return 'max-w-56'; // 224px - medium
+  if (terminalCount <= 6) return 'max-w-48'; // 192px - default
+  if (terminalCount <= 9) return 'max-w-40'; // 160px - compact
+  return 'max-w-36'; // 144px - compact for 10-12 terminals
 }
 
 export const STATUS_COLORS: Record<TerminalStatus, string> = {

@@ -2,6 +2,7 @@ import { execSync, execFileSync } from 'child_process';
 import { existsSync, accessSync, constants } from 'fs';
 import path from 'path';
 import { app } from 'electron';
+import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 
 /**
  * Get the path to the bundled Python executable.
@@ -34,23 +35,12 @@ export function getBundledPythonPath(): string | null {
 
 /**
  * Find the first existing Homebrew Python installation.
- * Checks common Homebrew paths for Python 3.
+ * Delegates to shared utility function.
  *
  * @returns The path to Homebrew Python, or null if not found
  */
 function findHomebrewPython(): string | null {
-  const homebrewPaths = [
-    '/opt/homebrew/bin/python3',  // Apple Silicon (M1/M2/M3)
-    '/usr/local/bin/python3'      // Intel Mac
-  ];
-
-  for (const pythonPath of homebrewPaths) {
-    if (existsSync(pythonPath)) {
-      return pythonPath;
-    }
-  }
-
-  return null;
+  return findHomebrewPythonUtil(validatePythonVersion, '[Python]');
 }
 
 /**
@@ -308,6 +298,7 @@ const ALLOWED_PATH_PATTERNS: RegExp[] = [
 /**
  * Known safe Python commands (not full paths).
  * These are resolved by the shell/OS and are safe.
+ * Note: Update this list when new Python versions are released.
  */
 const SAFE_PYTHON_COMMANDS = new Set([
   'python',
@@ -316,6 +307,7 @@ const SAFE_PYTHON_COMMANDS = new Set([
   'python3.11',
   'python3.12',
   'python3.13',
+  'python3.14',
   'py',
   'py -3',
 ]);
