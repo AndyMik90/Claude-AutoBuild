@@ -254,11 +254,20 @@ def generate_planner_prompt(spec_dir: Path, project_dir: Path | None = None) -> 
         Planner prompt string
     """
     # Load the full planner prompt from file.
-    # prompts/ is a sibling directory of prompts_pkg/, so go up one level first.
-    prompts_dir = Path(__file__).parent.parent / "prompts"
-    planner_file = prompts_dir / "planner.md"
+    candidate_dirs = [
+        Path(__file__).parent.parent / "prompts",  # current layout
+        Path(__file__).parent / "prompts",  # legacy fallback (if any)
+    ]
+    planner_file = next(
+        (
+            (candidate_dir / "planner.md")
+            for candidate_dir in candidate_dirs
+            if (candidate_dir / "planner.md").exists()
+        ),
+        None,
+    )
 
-    if planner_file.exists():
+    if planner_file:
         prompt = planner_file.read_text(encoding="utf-8")
     else:
         prompt = (

@@ -415,24 +415,31 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
         return None
 
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
 
         phases = plan.get("phases", [])
 
         # Build a map of phase completion
-        phase_complete = {}
+        phase_complete: dict[str, bool] = {}
         for phase in phases:
-            phase_id = phase.get("id") or phase.get("phase")
+            phase_id_raw = phase.get("id") or phase.get("phase")
+            phase_id_key = str(phase_id_raw) if phase_id_raw is not None else "unknown"
             subtasks = phase.get("subtasks", phase.get("chunks", []))
-            phase_complete[phase_id] = all(
+            phase_complete[phase_id_key] = all(
                 s.get("status") == "completed" for s in subtasks
             )
 
         # Find next available subtask
         for phase in phases:
             phase_id = phase.get("id") or phase.get("phase")
-            depends_on = phase.get("depends_on", [])
+            depends_on_raw = phase.get("depends_on", [])
+            if isinstance(depends_on_raw, list):
+                depends_on = [str(d) for d in depends_on_raw if d is not None]
+            elif depends_on_raw is None:
+                depends_on = []
+            else:
+                depends_on = [str(depends_on_raw)]
 
             # Check if dependencies are satisfied
             deps_satisfied = all(phase_complete.get(dep, False) for dep in depends_on)
@@ -447,9 +454,13 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
                     if "id" not in subtask_out and "subtask_id" in subtask_out:
                         subtask_out["id"] = str(subtask_out.get("subtask_id"))
                     if (
-                        "description" not in subtask_out
-                        or not subtask_out.get("description")
-                    ) and "title" in subtask_out:
+                        (
+                            "description" not in subtask_out
+                            or not subtask_out.get("description")
+                        )
+                        and "title" in subtask_out
+                        and subtask_out.get("title")
+                    ):
                         subtask_out["description"] = subtask_out.get("title")
                     subtask_out["status"] = "pending"
                     return {

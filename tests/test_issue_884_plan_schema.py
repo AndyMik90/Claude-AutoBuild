@@ -11,7 +11,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from core.progress import get_next_subtask
 from prompt_generator import generate_planner_prompt
 from spec.validate_pkg import SpecValidator, auto_fix_plan
@@ -23,8 +22,12 @@ def _write_plan(path: Path, data: dict) -> None:
 
 def test_generate_planner_prompt_loads_repo_planner_md(spec_dir: Path):
     prompt = generate_planner_prompt(spec_dir, project_dir=spec_dir.parent)
-    # A unique marker that should only exist in the real prompt file
-    assert "PHASE 3: CREATE implementation_plan.json" in prompt
+    planner_md = (
+        (Path(__file__).parent.parent / "apps" / "backend" / "prompts" / "planner.md")
+        .read_text(encoding="utf-8")
+        .strip()
+    )
+    assert planner_md in prompt
 
 
 def test_get_next_subtask_accepts_not_started_and_alias_fields(spec_dir: Path):
@@ -82,6 +85,35 @@ def test_get_next_subtask_populates_description_from_title_when_empty(spec_dir: 
     assert next_task.get("status") == "pending"
 
 
+def test_get_next_subtask_handles_depends_on_with_mixed_id_types(spec_dir: Path):
+    plan = {
+        "feature": "Test feature",
+        "workflow_type": "feature",
+        "phases": [
+            {
+                "phase": 1,
+                "name": "Phase 1",
+                "subtasks": [
+                    {"id": "1.1", "description": "Done", "status": "completed"},
+                ],
+            },
+            {
+                "phase": 2,
+                "name": "Phase 2",
+                "depends_on": ["1"],
+                "subtasks": [
+                    {"id": "2.1", "description": "Next", "status": "pending"},
+                ],
+            },
+        ],
+    }
+    _write_plan(spec_dir / "implementation_plan.json", plan)
+
+    next_task = get_next_subtask(spec_dir)
+    assert next_task is not None
+    assert next_task.get("id") == "2.1"
+
+
 def test_auto_fix_plan_normalizes_nonstandard_schema_and_validates(spec_dir: Path):
     plan = {
         "spec_id": "002-add-upstream-connection-test",
@@ -122,6 +154,73 @@ def test_auto_fix_plan_normalizes_nonstandard_schema_and_validates(spec_dir: Pat
 
     result = SpecValidator(spec_dir).validate_implementation_plan()
     assert result.valid is True
+
+
+@pytest.mark.asyncio
+async def test_planner_session_does_not_trigger_post_session_processing_on_retry(
+    temp_git_repo: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """
+    Regression: planner retries shouldn't trigger coder-only post-session processing.
+
+    Even if a (malformed) implementation plan already contains something that would
+    normally be detected as a pending subtask, planner sessions must not execute the
+    coding post-processing pipeline.
+    """
+    from agents.coder import run_autonomous_agent
+    from task_logger import LogPhase
+
+    spec_dir = temp_git_repo / ".auto-claude" / "specs" / "001-test"
+    spec_dir.mkdir(parents=True, exist_ok=True)
+
+    class DummyClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_create_client(*_args, **_kwargs):
+        return DummyClient()
+
+    async def fake_get_graphiti_context(*_args, **_kwargs):
+        return None
+
+    def fake_get_next_subtask(_spec_dir: Path):
+        # This would have caused post-session processing to run during planning
+        # prior to the regression fix.
+        return {"id": "1.1", "description": "Should not be processed in planning"}
+
+    async def fake_post_session_processing(*_args, **_kwargs):
+        raise AssertionError("post_session_processing must not run during planning")
+
+    async def fake_run_agent_session(
+        _client,
+        _message: str,
+        _spec_dir: Path,
+        _verbose: bool = False,
+        phase: LogPhase = LogPhase.CODING,
+    ) -> tuple[str, str]:
+        assert phase == LogPhase.PLANNING
+        return "error", "planner failed"
+
+    monkeypatch.setattr("agents.coder.create_client", fake_create_client)
+    monkeypatch.setattr("agents.coder.get_graphiti_context", fake_get_graphiti_context)
+    monkeypatch.setattr("agents.coder.get_next_subtask", fake_get_next_subtask)
+    monkeypatch.setattr(
+        "agents.coder.post_session_processing", fake_post_session_processing
+    )
+    monkeypatch.setattr("agents.coder.run_agent_session", fake_run_agent_session)
+    monkeypatch.setattr("agents.coder.AUTO_CONTINUE_DELAY_SECONDS", 0)
+    monkeypatch.setattr("agents.coder.load_subtask_context", lambda *_a, **_k: {})
+
+    await run_autonomous_agent(
+        project_dir=temp_git_repo,
+        spec_dir=spec_dir,
+        model="test-model",
+        max_iterations=1,
+        verbose=False,
+    )
 
 
 @pytest.mark.asyncio
@@ -188,14 +287,18 @@ async def test_worktree_planning_to_coding_sync_updates_source_phase_status(
             return "continue", "planned"
 
         # First coding session should see planning already completed in source spec logs
-        logs = json.loads((source_spec_dir / "task_logs.json").read_text(encoding="utf-8"))
+        logs = json.loads(
+            (source_spec_dir / "task_logs.json").read_text(encoding="utf-8")
+        )
         assert logs["phases"]["planning"]["status"] == "completed"
         assert logs["phases"]["coding"]["status"] == "active"
         return "complete", "done"
 
     monkeypatch.setattr("agents.coder.create_client", fake_create_client)
     monkeypatch.setattr("agents.coder.get_graphiti_context", fake_get_graphiti_context)
-    monkeypatch.setattr("agents.coder.post_session_processing", fake_post_session_processing)
+    monkeypatch.setattr(
+        "agents.coder.post_session_processing", fake_post_session_processing
+    )
     monkeypatch.setattr("agents.coder.run_agent_session", fake_run_agent_session)
     monkeypatch.setattr("agents.coder.AUTO_CONTINUE_DELAY_SECONDS", 0)
     monkeypatch.setattr("agents.coder.load_subtask_context", lambda *_a, **_k: {})

@@ -242,8 +242,8 @@ async def run_autonomous_agent(
             print("To continue, run the script again without --max-iterations")
             break
 
-        # Get the next subtask to work on
-        next_subtask = get_next_subtask(spec_dir)
+        # Get the next subtask to work on (planner sessions shouldn't bind to a subtask)
+        next_subtask = None if first_run else get_next_subtask(spec_dir)
         subtask_id = next_subtask.get("id") if next_subtask else None
         phase_name = next_subtask.get("phase_name") if next_subtask else None
 
@@ -432,7 +432,8 @@ async def run_autonomous_agent(
                 status = "continue"
 
         # === POST-SESSION PROCESSING (100% reliable) ===
-        if subtask_id and not first_run:
+        # Only run post-session processing for coding sessions.
+        if subtask_id and current_log_phase == LogPhase.CODING:
             linear_is_enabled = (
                 linear_task is not None and linear_task.task_id is not None
             )
