@@ -16,6 +16,8 @@ interface ProjectTabBarProps {
   className?: string;
   // Control props for active tab
   onSettingsClick?: () => void;
+  onCleanProjectClick?: () => void;
+  onRemoveProjectClick?: () => void;
 }
 
 export function ProjectTabBar({
@@ -25,7 +27,9 @@ export function ProjectTabBar({
   onProjectClose,
   onAddProject,
   className,
-  onSettingsClick
+  onSettingsClick,
+  onCleanProjectClick,
+  onRemoveProjectClick
 }: ProjectTabBarProps) {
   const { t } = useTranslation('common');
 
@@ -106,6 +110,8 @@ export function ProjectTabBar({
               }}
               // Pass control props only for active tab
               onSettingsClick={isActiveTab ? onSettingsClick : undefined}
+              onCleanProjectClick={isActiveTab ? onCleanProjectClick : undefined}
+              onRemoveProjectClick={isActiveTab ? onRemoveProjectClick : undefined}
             />
           );
         })}

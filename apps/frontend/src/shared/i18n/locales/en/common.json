@@ -1,6 +1,8 @@
 {
   "projectTab": {
     "settings": "Project settings",
+    "cleanProject": "Clean project",
+    "removeProject": "Remove from Auto-Claude",
     "showArchived": "Show archived",
     "hideArchived": "Hide archived",
     "showArchivedTasks": "Show archived tasks",
@@ -8,6 +10,41 @@
     "closeTab": "Close tab",
     "closeTabAriaLabel": "Close tab (removes project from app)",
     "addProjectAriaLabel": "Add project"
+  },
+  "cleanProject": {
+    "title": "Clean Project Data",
+    "description": "Remove all Auto-Claude data from this project. The Auto-Claude installation will remain intact.",
+    "previewTitle": "Preview: What Will Be Cleaned",
+    "noDataToClean": "No Auto-Claude data found in this project.",
+    "confirmTitle": "Confirm Cleanup",
+    "confirmArchive": "Archive data before cleaning? Data will be preserved in .auto-claude/archive/",
+    "confirmDelete": "Permanently delete? Data CANNOT be recovered!",
+    "typeToConfirm": "Type 'clean' to confirm:",
+    "cleaning": "Cleaning...",
+    "success": "Project cleaned successfully",
+    "error": "Failed to clean project",
+    "totalSize": "Total space to be freed:",
+    "archiveLocation": "Archive location:",
+    "items": {
+      "autoClaudeDir": ".auto-claude/ directory",
+      "worktreesDir": ".worktrees/ directory",
+      "securityLogs": "Security logs",
+      "securityJson": "Security profile",
+      "statusFile": "Status file",
+      "settingsFile": "Settings file",
+      "securityKey": "Security key"
+    },
+    "mode": {
+      "archive": "Archive & Clean",
+      "archiveDesc": "Moves data to archive (recoverable)",
+      "delete": "Permanent Delete",
+      "deleteDesc": "Deletes data permanently (cannot be recovered)"
+    },
+    "results": {
+      "archived": "Archived {{count}} items ({{size}})",
+      "deleted": "Deleted {{count}} items ({{size}})",
+      "duration": "Completed in {{seconds}} seconds"
+    }
   },
   "accessibility": {
     "deleteFeatureAriaLabel": "Delete feature",
@@ -101,7 +138,6 @@
   "errors": {
     "generic": "An error occurred",
     "unknownError": "An unknown error occurred",
-    "operationFailed": "Operation failed",
     "networkError": "Network error",
     "notFound": "Not found",
     "unauthorized": "Unauthorized"

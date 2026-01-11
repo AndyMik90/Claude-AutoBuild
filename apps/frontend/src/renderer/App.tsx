@@ -31,6 +31,7 @@ import { KanbanBoard } from './components/KanbanBoard';
 import { TaskDetailModal } from './components/task-detail/TaskDetailModal';
 import { TaskCreationWizard } from './components/TaskCreationWizard';
 import { AppSettingsDialog, type AppSection } from './components/settings/AppSettings';
+import { CleanProjectDialog } from './components/CleanProjectDialog';
 import type { ProjectSettingsSection } from './components/settings/ProjectSettingsContent';
 import { TerminalGrid } from './components/TerminalGrid';
 import { Roadmap } from './components/Roadmap';
@@ -74,6 +75,8 @@ interface ProjectTabBarWithContextProps {
   onProjectClose: (projectId: string) => void;
   onAddProject: () => void;
   onSettingsClick: () => void;
+  onCleanProjectClick: () => void;
+  onRemoveProjectClick: () => void;
 }
 
 function ProjectTabBarWithContext({
@@ -82,7 +85,9 @@ function ProjectTabBarWithContext({
   onProjectSelect,
   onProjectClose,
   onAddProject,
-  onSettingsClick
+  onSettingsClick,
+  onCleanProjectClick,
+  onRemoveProjectClick
 }: ProjectTabBarWithContextProps) {
   return (
     <ProjectTabBar
@@ -92,6 +97,8 @@ function ProjectTabBarWithContext({
       onProjectClose={onProjectClose}
       onAddProject={onAddProject}
       onSettingsClick={onSettingsClick}
+      onCleanProjectClick={onCleanProjectClick}
+      onRemoveProjectClick={onRemoveProjectClick}
     />
   );
 }
@@ -126,6 +133,7 @@ export function App() {
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<AppSection | undefined>(undefined);
   const [settingsInitialProjectSection, setSettingsInitialProjectSection] = useState<ProjectSettingsSection | undefined>(undefined);
+  const [isCleanProjectDialogOpen, setIsCleanProjectDialogOpen] = useState(false);
   const [activeView, setActiveView] = useState<SidebarView>('kanban');
   const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
   const [isRefreshingTasks, setIsRefreshingTasks] = useState(false);
@@ -591,6 +599,13 @@ export function App() {
     }
   };
 
+  const handleRemoveProject = () => {
+    // Remove the currently active project
+    if (activeProjectId) {
+      handleProjectTabClose(activeProjectId);
+    }
+  };
+
   const handleConfirmRemoveProject = () => {
     if (projectToRemove) {
       try {
@@ -784,6 +799,8 @@ export function App() {
                   onProjectClose={handleProjectTabClose}
                   onAddProject={handleAddProject}
                   onSettingsClick={() => setIsSettingsDialogOpen(true)}
+                  onCleanProjectClick={() => setIsCleanProjectDialogOpen(true)}
+                  onRemoveProjectClick={handleRemoveProject}
                 />
               </SortableContext>
 
@@ -932,6 +949,13 @@ export function App() {
             // Open onboarding wizard
             setIsOnboardingWizardOpen(true);
           }}
+        />
+
+        {/* Clean Project Dialog */}
+        <CleanProjectDialog
+          open={isCleanProjectDialogOpen}
+          projectPath={selectedProject?.path || null}
+          onOpenChange={setIsCleanProjectDialogOpen}
         />
 
         {/* Add Project Modal */}

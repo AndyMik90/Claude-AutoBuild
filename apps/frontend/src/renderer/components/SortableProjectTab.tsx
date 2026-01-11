@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTranslation } from 'react-i18next';
-import { Settings2 } from 'lucide-react';
+import { Settings2, Trash2, XCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import type { Project } from '../../shared/types';
@@ -15,6 +15,8 @@ interface SortableProjectTabProps {
   onClose: (e: React.MouseEvent) => void;
   // Optional control props for active tab
   onSettingsClick?: () => void;
+  onCleanProjectClick?: () => void;
+  onRemoveProjectClick?: () => void;
 }
 
 // Detect if running on macOS for keyboard shortcut display
@@ -28,7 +30,9 @@ export function SortableProjectTab({
   tabIndex,
   onSelect,
   onClose,
-  onSettingsClick
+  onSettingsClick,
+  onCleanProjectClick,
+  onRemoveProjectClick
 }: SortableProjectTabProps) {
   const { t } = useTranslation('common');
   // Build tooltip with keyboard shortcut hint (only for tabs 1-9)
@@ -112,7 +116,7 @@ export function SortableProjectTab({
         </TooltipContent>
       </Tooltip>
 
-      {/* Active tab controls - settings and archive, always accessible */}
+      {/* Active tab controls - settings, clean, and archive, always accessible */}
       {isActive && (
         <div className="flex items-center gap-0.5 mr-0.5 sm:mr-1 flex-shrink-0">
           {/* Settings icon - responsive sizing */}
@@ -142,6 +146,45 @@ export function SortableProjectTab({
               </TooltipContent>
             </Tooltip>
           )}
+
+          {/* Smart Cleanup/Remove button - changes based on project status */}
+          {(onCleanProjectClick || onRemoveProjectClick) && (() => {
+            // Project is "broken" if autoBuildPath is not set (not initialized)
+            const isBroken = !project.autoBuildPath;
+            const icon = isBroken ? XCircle : Trash2;
+            const label = isBroken ? t('projectTab.removeProject') : t('projectTab.cleanProject');
+            const onClick = isBroken ? onRemoveProjectClick : onCleanProjectClick;
+            const IconComponent = icon;
+
+            if (!onClick) return null;
+
+            return (
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      'h-5 w-5 sm:h-6 sm:w-6 p-0 rounded',
+                      'flex items-center justify-center',
+                      'text-muted-foreground hover:text-destructive',
+                      'hover:bg-destructive/10 transition-colors',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1'
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onClick();
+                    }}
+                    aria-label={label}
+                  >
+                    <IconComponent className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <span>{label}</span>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })()}
         </div>
       )}
 

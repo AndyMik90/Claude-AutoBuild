@@ -1,6 +1,8 @@
 {
   "projectTab": {
     "settings": "Paramètres du projet",
+    "cleanProject": "Nettoyer le projet",
+    "removeProject": "Retirer d'Auto-Claude",
     "showArchived": "Afficher archivés",
     "hideArchived": "Masquer archivés",
     "showArchivedTasks": "Afficher les tâches archivées",
@@ -8,6 +10,41 @@
     "closeTab": "Fermer l'onglet",
     "closeTabAriaLabel": "Fermer l'onglet (retire le projet de l'application)",
     "addProjectAriaLabel": "Ajouter un projet"
+  },
+  "cleanProject": {
+    "title": "Nettoyer les données du projet",
+    "description": "Supprimer toutes les données Auto-Claude de ce projet. L'installation Auto-Claude restera intacte.",
+    "previewTitle": "Aperçu : Ce qui sera nettoyé",
+    "noDataToClean": "Aucune donnée Auto-Claude trouvée dans ce projet.",
+    "confirmTitle": "Confirmer le nettoyage",
+    "confirmArchive": "Archiver les données avant le nettoyage ? Les données seront préservées dans .auto-claude/archive/",
+    "confirmDelete": "Supprimer définitivement ? Les données NE PEUVENT PAS être récupérées !",
+    "typeToConfirm": "Tapez 'clean' pour confirmer :",
+    "cleaning": "Nettoyage en cours...",
+    "success": "Projet nettoyé avec succès",
+    "error": "Échec du nettoyage du projet",
+    "totalSize": "Espace total à libérer :",
+    "archiveLocation": "Emplacement de l'archive :",
+    "items": {
+      "autoClaudeDir": "Répertoire .auto-claude/",
+      "worktreesDir": "Répertoire .worktrees/",
+      "securityLogs": "Journaux de sécurité",
+      "securityJson": "Profil de sécurité",
+      "statusFile": "Fichier d'état",
+      "settingsFile": "Fichier de paramètres",
+      "securityKey": "Clé de sécurité"
+    },
+    "mode": {
+      "archive": "Archiver et nettoyer",
+      "archiveDesc": "Déplace les données vers l'archive (récupérable)",
+      "delete": "Suppression définitive",
+      "deleteDesc": "Supprime les données définitivement (ne peut pas être récupéré)"
+    },
+    "results": {
+      "archived": "{{count}} éléments archivés ({{size}})",
+      "deleted": "{{count}} éléments supprimés ({{size}})",
+      "duration": "Terminé en {{seconds}} secondes"
+    }
   },
   "accessibility": {
     "deleteFeatureAriaLabel": "Supprimer la fonctionnalité",
@@ -101,7 +138,6 @@
   "errors": {
     "generic": "Une erreur s'est produite",
     "unknownError": "Une erreur inconnue s'est produite",
-    "operationFailed": "Opération échouée",
     "networkError": "Erreur réseau",
     "notFound": "Non trouvé",
     "unauthorized": "Non autorisé"

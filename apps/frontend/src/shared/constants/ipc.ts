@@ -12,6 +12,10 @@ export const IPC_CHANNELS = {
   PROJECT_INITIALIZE: 'project:initialize',
   PROJECT_CHECK_VERSION: 'project:checkVersion',
 
+  // Project cleanup operations
+  CLEANUP_PREVIEW: 'cleanup:preview',
+  CLEANUP_EXECUTE: 'cleanup:execute',
+
   // Tab state operations (persisted in main process)
   TAB_STATE_GET: 'tabState:get',
   TAB_STATE_SAVE: 'tabState:save',
@@ -42,7 +46,6 @@ export const IPC_CHANNELS = {
   TASK_LIST_WORKTREES: 'task:listWorktrees',
   TASK_ARCHIVE: 'task:archive',
   TASK_UNARCHIVE: 'task:unarchive',
-  TASK_CLEAR_STAGED_STATE: 'task:clearStagedState',
 
   // Task events (main -> renderer)
   TASK_PROGRESS: 'task:progress',

@@ -32,6 +32,7 @@ import { registerDebugHandlers } from './debug-handlers';
 import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
+import { registerCleanupHandlers } from './cleanup-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { notificationService } from '../notification-service';
 
@@ -54,6 +55,9 @@ export function setupIpcHandlers(
 
   // Project handlers (including Python environment setup)
   registerProjectHandlers(pythonEnvManager, agentManager, getMainWindow);
+
+  // Project cleanup handlers
+  registerCleanupHandlers(pythonEnvManager);
 
   // Task handlers
   registerTaskHandlers(agentManager, pythonEnvManager, getMainWindow);
@@ -144,5 +148,6 @@ export {
   registerDebugHandlers,
   registerClaudeCodeHandlers,
   registerMcpHandlers,
-  registerProfileHandlers
+  registerProfileHandlers,
+  registerCleanupHandlers
 };

@@ -91,7 +91,25 @@ export interface ProjectAPI {
      percentage: number;
    }) => void) => () => void;
 
-   // Git Operations
+   // Cleanup Operations
+  cleanupPreview: (projectPath: string) => Promise<IPCResult<{
+    items: Array<{
+      name: string;
+      size: number;
+      type: 'file' | 'directory';
+      specCount?: number;
+      worktreeCount?: number;
+    }>;
+    totalSize: number;
+    archiveLocation: string;
+  }>>;
+  cleanupExecute: (projectPath: string, preserveArchive: boolean) => Promise<IPCResult<{
+    count: number;
+    size: number;
+    duration: number;
+  }>>;
+
+  // Git Operations
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
   getCurrentGitBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
@@ -260,6 +278,13 @@ export const createProjectAPI = (): ProjectAPI => ({
     ipcRenderer.on(IPC_CHANNELS.OLLAMA_PULL_PROGRESS, listener);
     return () => ipcRenderer.off(IPC_CHANNELS.OLLAMA_PULL_PROGRESS, listener);
   },
+
+  // Cleanup Operations
+  cleanupPreview: (projectPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLEANUP_PREVIEW, projectPath),
+
+  cleanupExecute: (projectPath: string, preserveArchive: boolean) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLEANUP_EXECUTE, projectPath, preserveArchive),
 
   // Git Operations
   getGitBranches: (projectPath: string): Promise<IPCResult<string[]>> =>
