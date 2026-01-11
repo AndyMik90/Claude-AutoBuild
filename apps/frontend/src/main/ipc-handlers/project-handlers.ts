@@ -530,13 +530,20 @@ export function registerProjectHandlers(
 
         // Clone the repository
         try {
-          execSync(`git clone "${repoUrl}" "${clonePath}"`, {
+          execFileSync(getToolPath('git'), ['clone', repoUrl, clonePath], {
             stdio: 'pipe',
             encoding: 'utf-8'
           });
-        } catch (gitError: any) {
-          // Parse git error message
-          const errorMessage = gitError.stderr || gitError.message || 'Git clone failed';
+        } catch (gitError: unknown) {
+          // Parse git error message with proper type narrowing
+          let errorMessage = 'Git clone failed';
+          if (gitError && typeof gitError === 'object') {
+            if ('stderr' in gitError && typeof gitError.stderr === 'string') {
+              errorMessage = gitError.stderr;
+            } else if ('message' in gitError && typeof gitError.message === 'string') {
+              errorMessage = gitError.message;
+            }
+          }
           return { success: false, error: errorMessage };
         }
 
