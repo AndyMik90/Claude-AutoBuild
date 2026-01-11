@@ -459,6 +459,11 @@
         "label": "Icône/Image (Optionnel)",
         "chooseImage": "Choisir une image",
         "helper": "Sélectionner un fichier image à utiliser comme icône du modèle"
+      },
+      "buildCommand": {
+        "label": "Commande de construction (Optionnel)",
+        "placeholder": "npm install && npm run build",
+        "helper": "Commande à exécuter après la création d'un projet à partir de ce modèle (s'exécute en arrière-plan)"
       }
     },
     "actions": {

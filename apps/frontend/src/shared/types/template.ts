@@ -7,6 +7,7 @@ export interface Template {
   name: string;
   folderPath: string;
   imagePath?: string;
+  buildCommand?: string; // Optional command to run after creating project from template
   version: number; // Optimistic locking version for concurrent update detection
   createdAt: number;
   updatedAt: number;

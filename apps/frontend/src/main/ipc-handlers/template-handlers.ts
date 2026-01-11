@@ -1,5 +1,6 @@
 import { ipcMain, app } from 'electron';
 import { existsSync, writeFileSync, readFileSync, mkdirSync, cpSync, realpathSync } from 'fs';
+import { exec } from 'child_process';
 import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { Template, TemplateStore, IPCResult } from '../../shared/types';
@@ -60,6 +61,33 @@ const validateDestinationPath = (destinationPath: string): string => {
   } catch (error) {
     throw new Error(`Invalid destination path: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
+};
+
+/**
+ * Execute build command in the background for a newly created project
+ * Runs asynchronously and logs output/errors
+ */
+const executeBuildCommand = (buildCommand: string, targetPath: string): void => {
+  console.log(`[TEMPLATE] Executing build command in background: ${buildCommand}`);
+  console.log(`[TEMPLATE] Working directory: ${targetPath}`);
+
+  exec(buildCommand, { cwd: targetPath }, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`[TEMPLATE] Build command failed:`, error);
+      console.error(`[TEMPLATE] stderr:`, stderr);
+      return;
+    }
+
+    if (stdout) {
+      console.log(`[TEMPLATE] Build command stdout:`, stdout);
+    }
+
+    if (stderr) {
+      console.warn(`[TEMPLATE] Build command stderr:`, stderr);
+    }
+
+    console.log(`[TEMPLATE] Build command completed successfully`);
+  });
 };
 
 const getTemplatesPath = (): string => {
@@ -171,6 +199,16 @@ export function registerTemplateHandlers(): void {
           }
         }
 
+        // Security: Validate buildCommand if provided
+        if (template.buildCommand !== undefined) {
+          if (typeof template.buildCommand !== 'string') {
+            return { success: false, error: 'Template build command must be a string' };
+          }
+          if (template.buildCommand.length > 2048) {
+            return { success: false, error: 'Template build command must not exceed 2048 characters' };
+          }
+        }
+
         const store = readTemplatesFile();
         const now = Date.now();
         const newTemplate: Template = {
@@ -271,6 +309,13 @@ export function registerTemplateHandlers(): void {
           }
         }
 
+        // Security: Validate buildCommand if provided
+        if (updates.buildCommand !== undefined) {
+          if (typeof updates.buildCommand !== 'string' || updates.buildCommand.length > 2048) {
+            return { success: false, error: 'Template build command must not exceed 2048 characters' };
+          }
+        }
+
         const store = readTemplatesFile();
         const template = store.templates.find(t => t.id === templateId);
 
@@ -342,6 +387,12 @@ export function registerTemplateHandlers(): void {
         try {
           // Copy the template folder contents into the newly created directory
           cpSync(template.folderPath, targetPath, { recursive: true });
+
+          // Execute build command in the background if configured
+          if (template.buildCommand && template.buildCommand.trim()) {
+            executeBuildCommand(template.buildCommand.trim(), targetPath);
+          }
+
           return { success: true, data: { path: targetPath } };
         } catch (copyErr: any) {
           // If copy fails, try to clean up the created directory
@@ -398,6 +449,12 @@ export function registerTemplateHandlers(): void {
         try {
           // Copy the template folder contents into the newly created directory
           cpSync(template.folderPath, targetPath, { recursive: true });
+
+          // Execute build command in the background if configured
+          if (template.buildCommand && template.buildCommand.trim()) {
+            executeBuildCommand(template.buildCommand.trim(), targetPath);
+          }
+
           return { success: true, data: { path: targetPath } };
         } catch (copyErr: any) {
           // If copy fails, try to clean up the created directory
@@ -566,6 +623,11 @@ export function registerTemplateHandlers(): void {
               const newContent = replaceTemplateParameters(targetFilePath, replacements);
               writeFileSync(targetFilePath, newContent, 'utf-8');
             }
+          }
+
+          // Execute build command in the background if configured
+          if (template.buildCommand && template.buildCommand.trim()) {
+            executeBuildCommand(template.buildCommand.trim(), targetPath);
           }
 
           return { success: true, data: { path: targetPath } };

@@ -26,6 +26,7 @@ export function AddTemplateDialog({ open, onOpenChange, template, onSaved }: Add
   const [name, setName] = useState('');
   const [folderPath, setFolderPath] = useState('');
   const [imagePath, setImagePath] = useState<string>('');
+  const [buildCommand, setBuildCommand] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string>('');
 
@@ -37,11 +38,13 @@ export function AddTemplateDialog({ open, onOpenChange, template, onSaved }: Add
         setName(template.name);
         setFolderPath(template.folderPath);
         setImagePath(template.imagePath || '');
+        setBuildCommand(template.buildCommand || '');
       } else {
         // Creating new template
         setName('');
         setFolderPath('');
         setImagePath('');
+        setBuildCommand('');
       }
       setError('');
     }
@@ -101,7 +104,8 @@ export function AddTemplateDialog({ open, onOpenChange, template, onSaved }: Add
           {
             name: name.trim(),
             folderPath: folderPath.trim(),
-            imagePath: imagePath.trim() || undefined
+            imagePath: imagePath.trim() || undefined,
+            buildCommand: buildCommand.trim() || undefined
           },
           template.version // Optimistic locking: pass current version
         );
@@ -116,7 +120,8 @@ export function AddTemplateDialog({ open, onOpenChange, template, onSaved }: Add
         const result = await window.electronAPI.saveTemplate({
           name: name.trim(),
           folderPath: folderPath.trim(),
-          imagePath: imagePath.trim() || undefined
+          imagePath: imagePath.trim() || undefined,
+          buildCommand: buildCommand.trim() || undefined
         });
 
         if (!result.success) {
@@ -195,6 +200,20 @@ export function AddTemplateDialog({ open, onOpenChange, template, onSaved }: Add
             )}
             <p className="text-xs text-muted-foreground">
               {t('templates.form.image.helper')}
+            </p>
+          </div>
+
+          {/* Build Command (Optional) */}
+          <div className="space-y-2">
+            <Label htmlFor="template-build-command">{t('templates.form.buildCommand.label')}</Label>
+            <Input
+              id="template-build-command"
+              placeholder={t('templates.form.buildCommand.placeholder')}
+              value={buildCommand}
+              onChange={(e) => setBuildCommand(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('templates.form.buildCommand.helper')}
             </p>
           </div>
 

@@ -459,6 +459,11 @@
         "label": "Icon/Image (Optional)",
         "chooseImage": "Choose Image",
         "helper": "Select an image file to use as the template icon"
+      },
+      "buildCommand": {
+        "label": "Build Command (Optional)",
+        "placeholder": "npm install && npm run build",
+        "helper": "Command to run after creating a project from this template (runs in the background)"
       }
     },
     "actions": {
