@@ -17,6 +17,7 @@ import { registerTerminalHandlers } from './terminal-handlers';
 import { registerAgenteventsHandlers } from './agent-events-handlers';
 import { registerSettingsHandlers } from './settings-handlers';
 import { registerTemplateHandlers } from './template-handlers';
+import { registerTemplateEditorHandlers } from './template-editor-handlers';
 import { registerSecretsHandlers } from './secrets-handlers';
 import { registerFileHandlers } from './file-handlers';
 import { registerRoadmapHandlers } from './roadmap-handlers';
@@ -74,6 +75,9 @@ export function setupIpcHandlers(
 
   // Template handlers
   registerTemplateHandlers();
+
+  // Template editor handlers (AI-powered template editing)
+  registerTemplateEditorHandlers(getMainWindow);
 
   // Secrets handlers (encrypted storage)
   registerSecretsHandlers();
@@ -138,6 +142,7 @@ export {
   registerAgenteventsHandlers,
   registerSettingsHandlers,
   registerTemplateHandlers,
+  registerTemplateEditorHandlers,
   registerSecretsHandlers,
   registerFileHandlers,
   registerRoadmapHandlers,

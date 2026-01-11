@@ -537,5 +537,15 @@ export const IPC_CHANNELS = {
   // Sentry error reporting
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
-  GET_SENTRY_CONFIG: 'sentry:get-config'         // Get full Sentry config (DSN + sample rates)
+  GET_SENTRY_CONFIG: 'sentry:get-config',        // Get full Sentry config (DSN + sample rates)
+
+  // Template Editor (AI-powered template editing)
+  TEMPLATE_EDITOR_INITIALIZE: 'template-editor:initialize',
+  TEMPLATE_EDITOR_CHECK_INITIALIZED: 'template-editor:check-initialized',
+  TEMPLATE_EDITOR_SEND_MESSAGE: 'template-editor:send-message',
+  TEMPLATE_EDITOR_CLEAR_HISTORY: 'template-editor:clear-history',
+  // Template Editor events (main -> renderer)
+  TEMPLATE_EDITOR_STATUS: 'template-editor:status',
+  TEMPLATE_EDITOR_STREAM_CHUNK: 'template-editor:stream-chunk',
+  TEMPLATE_EDITOR_ERROR: 'template-editor:error'
 } as const;
