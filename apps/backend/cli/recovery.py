@@ -71,9 +71,20 @@ def backup_corrupted_file(filepath: Path) -> bool:
     Returns:
         True if backed up successfully, False otherwise
     """
+    import time
+
     try:
         # Create backup before deleting
-        backup_path = filepath.with_suffix(f"{filepath.suffix}.corrupted")
+        base_backup_path = filepath.with_suffix(f"{filepath.suffix}.corrupted")
+        backup_path = base_backup_path
+
+        # Handle existing backup files by appending a timestamp
+        if backup_path.exists():
+            timestamp = int(time.time())
+            backup_path = filepath.with_suffix(
+                f"{filepath.suffix}.corrupted.{timestamp}"
+            )
+
         filepath.rename(backup_path)
         print(f"  [BACKUP] Moved corrupted file to: {backup_path}")
         return True
@@ -151,7 +162,7 @@ def main() -> None:
             spec_dir = (specs_dir / args.spec_id).resolve()
             specs_dir_resolved = specs_dir.resolve()
             # Validate path doesn't escape specs directory
-            if not str(spec_dir).startswith(str(specs_dir_resolved)):
+            if not spec_dir.is_relative_to(specs_dir_resolved):
                 print("[ERROR] Invalid spec ID: path traversal detected")
                 sys.exit(1)
 
@@ -173,9 +184,9 @@ def main() -> None:
                 print("[OK] No corrupted files to delete")
                 sys.exit(0)
 
-            print(f"\n[INFO] Deleting {len(corrupted)} corrupted file(s):\n")
+            print(f"\n[INFO] Backing up {len(corrupted)} corrupted file(s):\n")
             for filepath, _ in corrupted:
-                print(f"  [DELETE] {filepath.relative_to(specs_dir.parent)}")
+                print(f"  [BACKUP] {filepath.relative_to(specs_dir.parent)}")
                 backup_corrupted_file(filepath)
 
         else:

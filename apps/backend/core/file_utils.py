@@ -17,13 +17,16 @@ Usage:
 import json
 import os
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 
 @contextmanager
-def atomic_write(filepath: str | Path, mode: str = "w", encoding: str = "utf-8"):
+def atomic_write(
+    filepath: str | Path, mode: str = "w", encoding: str = "utf-8"
+) -> Iterator[IO[str]]:
     """
     Atomic file write using temp file and rename.
 

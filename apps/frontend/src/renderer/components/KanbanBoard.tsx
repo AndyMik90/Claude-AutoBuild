@@ -212,7 +212,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
       case 'done':
         return 'column-done';
       case 'error':
-        return 'border-t-destructive';
+        return 'column-error';
       default:
         return 'border-t-muted-foreground/30';
     }
