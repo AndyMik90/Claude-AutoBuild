@@ -46,7 +46,7 @@ TOOL_UPDATE_QA_STATUS = "mcp__auto-claude__update_qa_status"
 # Context7 MCP tools for documentation lookup (always enabled)
 CONTEXT7_TOOLS = [
     "mcp__context7__resolve-library-id",
-    "mcp__context7__get-library-docs",
+    "mcp__context7__query-docs",  # Fixed: was get-library-docs (issue #856)
 ]
 
 # Linear MCP tools for project management (when LINEAR_API_KEY is set)
@@ -110,6 +110,20 @@ ELECTRON_TOOLS = [
     "mcp__electron__read_electron_logs",  # Read console logs from Electron app
 ]
 
+# Playwright tools for E2E testing and browser automation (built-in, always available)
+# Native Python implementation using playwright library - no MCP server needed.
+# Used for systematic E2E testing, visual verification, and console monitoring.
+# These tools are only available to QA agents (qa_reviewer, qa_fixer), not Coder/Planner.
+PLAYWRIGHT_TOOLS = [
+    "playwright_navigate",  # Navigate to a URL
+    "playwright_screenshot",  # Take screenshot (full page or selector)
+    "playwright_click",  # Click an element
+    "playwright_fill",  # Fill a form field
+    "playwright_assert",  # Assert element state (text, visibility, count)
+    "playwright_get_console",  # Get console logs (errors, warnings, info)
+    "playwright_create_test",  # Generate E2E test file
+]
+
 # =============================================================================
 # Configuration
 # =============================================================================
@@ -124,6 +138,20 @@ def is_electron_mcp_enabled() -> bool:
     via Chrome DevTools Protocol on the configured debug port.
     """
     return os.environ.get("ELECTRON_MCP_ENABLED", "").lower() == "true"
+
+
+def is_playwright_enabled() -> bool:
+    """
+    Check if Playwright browser automation is enabled.
+
+    Playwright is enabled by default for web projects (no env var needed).
+    Can be explicitly disabled by setting PLAYWRIGHT_ENABLED=false.
+
+    Returns:
+        True if Playwright should be available to QA agents
+    """
+    enabled_str = os.environ.get("PLAYWRIGHT_ENABLED", "true").lower()
+    return enabled_str in ("true", "1", "yes")
 
 
 # =============================================================================
@@ -434,14 +462,16 @@ def get_required_mcp_servers(
         if str(linear_mcp_enabled).lower() != "false":
             servers.append("linear")
 
-    # Handle dynamic "browser" → electron/puppeteer based on project type and config
+    # Handle dynamic "browser" → electron/puppeteer/playwright based on project type and config
     if "browser" in servers:
         servers = [s for s in servers if s != "browser"]
+        browser_tool_added = False
+
         if project_capabilities:
             is_electron = project_capabilities.get("is_electron", False)
             is_web_frontend = project_capabilities.get("is_web_frontend", False)
 
-            # Check per-project overrides (default false for both)
+            # Check per-project overrides (default false for both MCP servers)
             electron_enabled = mcp_config.get("ELECTRON_MCP_ENABLED", "false")
             puppeteer_enabled = mcp_config.get("PUPPETEER_MCP_ENABLED", "false")
 
@@ -450,10 +480,17 @@ def get_required_mcp_servers(
                 str(electron_enabled).lower() == "true" or is_electron_mcp_enabled()
             ):
                 servers.append("electron")
+                browser_tool_added = True
             # Puppeteer: enabled by project config (no global env var)
             elif is_web_frontend and not is_electron:
                 if str(puppeteer_enabled).lower() == "true":
                     servers.append("puppeteer")
+                    browser_tool_added = True
+
+        # Playwright: Use as default browser automation if no other browser tool enabled
+        # Playwright is built-in (native Python), always available, requires no MCP server
+        if not browser_tool_added and is_playwright_enabled():
+            servers.append("playwright")
 
     # Filter graphiti if not enabled
     if "graphiti" in servers:

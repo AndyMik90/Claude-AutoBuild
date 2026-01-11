@@ -126,6 +126,7 @@ from agents.tools_pkg import (
     ELECTRON_TOOLS,
     GRAPHITI_MCP_TOOLS,
     LINEAR_TOOLS,
+    PLAYWRIGHT_TOOLS,
     PUPPETEER_TOOLS,
     create_auto_claude_mcp_server,
     get_allowed_tools,
@@ -539,6 +540,8 @@ def create_client(
         browser_tools_permissions = ELECTRON_TOOLS
     elif "puppeteer" in required_servers:
         browser_tools_permissions = PUPPETEER_TOOLS
+    elif "playwright" in required_servers:
+        browser_tools_permissions = PLAYWRIGHT_TOOLS
 
     # Create comprehensive security settings
     # Note: Using both relative paths ("./**") and absolute paths to handle
@@ -666,6 +669,8 @@ def create_client(
         )
     if "puppeteer" in required_servers:
         mcp_servers_list.append("puppeteer (browser automation)")
+    if "playwright" in required_servers:
+        mcp_servers_list.append("playwright (browser automation, native)")
     if "linear" in required_servers:
         mcp_servers_list.append("linear (project management)")
     if graphiti_mcp_enabled:
@@ -731,6 +736,14 @@ def create_client(
         auto_claude_mcp_server = create_auto_claude_mcp_server(spec_dir, project_dir)
         if auto_claude_mcp_server:
             mcp_servers["auto-claude"] = auto_claude_mcp_server
+
+    # Add Playwright SDK MCP server if required (built-in, not external process)
+    if "playwright" in required_servers:
+        from integrations.playwright import get_playwright_mcp_server
+
+        playwright_server = get_playwright_mcp_server()
+        mcp_servers["playwright"] = playwright_server
+        logger.info("Playwright SDK MCP server added (native Python, not external process)")
 
     # Add custom MCP servers from project config
     custom_servers = mcp_config.get("CUSTOM_MCP_SERVERS", [])

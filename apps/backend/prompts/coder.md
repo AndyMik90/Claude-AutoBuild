@@ -632,6 +632,182 @@ In your response, include:
 
 ---
 
+## STEP 6.5: CREATE E2E TESTS (Frontend Features)
+
+**For frontend features**, create Playwright E2E tests before verification.
+
+### When to Create E2E Tests
+
+Create Playwright tests for:
+- New user flows (login, signup, checkout, etc.)
+- Interactive UI components (forms, modals, wizards)
+- Critical user journeys (happy paths)
+- Features with significant UI logic
+
+### E2E Test Structure
+
+```typescript
+// tests/e2e/[feature-name].spec.ts
+import { test, expect } from '@playwright/test';
+
+test('user can [do action]', async ({ page }) => {
+  // 1. Navigate to page
+  await page.goto('/feature-page');
+
+  // 2. Interact with UI
+  await page.fill('input[name="field"]', 'value');
+  await page.click('button[type="submit"]');
+
+  // 3. Assert expected outcome
+  await expect(page).toHaveURL('/expected-url');
+  await expect(page.locator('h1')).toContainText('Expected Text');
+
+  // 4. Verify no console errors
+  const errors = [];
+  page.on('console', msg => {
+    if (msg.type() === 'error') errors.push(msg.text());
+  });
+  expect(errors).toHaveLength(0);
+});
+
+test('edge case: [scenario]', async ({ page }) => {
+  // Test error handling, edge cases
+});
+```
+
+### Test Organization
+
+Follow project conventions:
+- **Location**: Check existing tests (usually `tests/e2e/` or `e2e/`)
+- **Naming**: `[feature].spec.ts` or `[feature].test.ts`
+- **Structure**: One file per feature or user flow
+- **Grouping**: Use `test.describe()` for related tests
+
+### Key Patterns to Follow
+
+```typescript
+// Page Object Pattern (if used in project)
+class LoginPage {
+  constructor(private page: Page) {}
+
+  async login(email: string, password: string) {
+    await this.page.fill('[name="email"]', email);
+    await this.page.fill('[name="password"]', password);
+    await this.page.click('button[type="submit"]');
+  }
+
+  async assertLoggedIn() {
+    await expect(this.page).toHaveURL('/dashboard');
+  }
+}
+
+// Fixtures (if used)
+test.use({ viewport: { width: 1280, height: 720 } });
+
+// Parallel execution (if supported)
+test.describe.configure({ mode: 'parallel' });
+```
+
+### What to Test
+
+**Happy Path:**
+- User completes flow successfully
+- Expected UI elements appear
+- Data is saved/updated correctly
+- Navigation works as expected
+
+**Edge Cases:**
+- Invalid input validation
+- Error message display
+- Network failure handling
+- Empty states
+
+**Visual Verification:**
+- Screenshots for visual regression
+- Component appearance
+- Responsive layouts
+
+### Example: Complete Test File
+
+```typescript
+// tests/e2e/user-profile.spec.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('User Profile', () => {
+  test.beforeEach(async ({ page }) => {
+    // Setup: Login user
+    await page.goto('/login');
+    await page.fill('[name="email"]', 'test@example.com');
+    await page.fill('[name="password"]', 'password123');
+    await page.click('button[type="submit"]');
+    await expect(page).toHaveURL('/dashboard');
+  });
+
+  test('user can view profile', async ({ page }) => {
+    await page.goto('/profile');
+
+    await expect(page.locator('h1')).toContainText('My Profile');
+    await expect(page.locator('[data-testid="user-name"]')).toBeVisible();
+    await expect(page.locator('[data-testid="user-email"]')).toBeVisible();
+  });
+
+  test('user can edit profile', async ({ page }) => {
+    await page.goto('/profile');
+
+    await page.click('button:text("Edit Profile")');
+    await page.fill('[name="name"]', 'New Name');
+    await page.click('button:text("Save")');
+
+    await expect(page.locator('.success-message')).toContainText('Profile updated');
+    await expect(page.locator('[data-testid="user-name"]')).toContainText('New Name');
+  });
+
+  test('validation: empty name shows error', async ({ page }) => {
+    await page.goto('/profile');
+
+    await page.click('button:text("Edit Profile")');
+    await page.fill('[name="name"]', '');
+    await page.click('button:text("Save")');
+
+    await expect(page.locator('.error-message')).toContainText('Name is required');
+  });
+
+  test('no console errors on profile page', async ({ page }) => {
+    const errors = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') errors.push(msg.text());
+    });
+
+    await page.goto('/profile');
+    await page.waitForLoadState('networkidle');
+
+    expect(errors).toHaveLength(0);
+  });
+});
+```
+
+### After Creating Tests
+
+Run the tests to verify they pass:
+
+```bash
+# Run all E2E tests
+npx playwright test
+
+# Run specific test file
+npx playwright test tests/e2e/user-profile.spec.ts
+
+# Run in headed mode (see browser)
+npx playwright test --headed
+
+# Debug mode
+npx playwright test --debug
+```
+
+**If tests fail**, fix the implementation before marking subtask as complete.
+
+---
+
 ## STEP 7: VERIFY THE SUBTASK
 
 Every subtask has a `verification` field. Run it.

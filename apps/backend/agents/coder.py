@@ -353,6 +353,30 @@ async def run_autonomous_agent(
             plan = load_implementation_plan(spec_dir)
             phase = find_phase_for_subtask(plan, subtask_id) if plan else {}
 
+            # === CODE DISCOVERY (OPUS 4.5 + ULTRATHINK) ===
+            # Run deep code exploration before implementation for complex subtasks
+            from .code_discoverer import run_code_discovery, should_run_discovery
+
+            discovery_context = None
+            if should_run_discovery(next_subtask, spec_dir):
+                print_status("Running Code Discovery Agent (Opus 4.5)...", "info")
+                try:
+                    discovery_context = await run_code_discovery(
+                        project_dir=project_dir,
+                        spec_dir=spec_dir,
+                        subtask=next_subtask,
+                        phase=phase,
+                    )
+                    if discovery_context:
+                        print_status("Code discovery completed successfully", "success")
+                    else:
+                        print_status(
+                            "Code discovery incomplete, continuing without it", "warning"
+                        )
+                except Exception as e:
+                    logger.warning(f"Code discovery failed: {e}, continuing without it")
+                    print_status(f"Code discovery error: {e}", "warning")
+
             # Generate focused, minimal prompt for this subtask
             prompt = generate_subtask_prompt(
                 spec_dir=spec_dir,
@@ -367,6 +391,21 @@ async def run_autonomous_agent(
             context = load_subtask_context(spec_dir, project_dir, next_subtask)
             if context.get("patterns") or context.get("files_to_modify"):
                 prompt += "\n\n" + format_context_for_prompt(context)
+
+            # Append discovery context if available
+            if discovery_context:
+                prompt += "\n\n## CODE DISCOVERY INSIGHTS\n\n"
+                prompt += "The Code Discovery Agent (Opus 4.5) has analyzed this codebase area. "
+                prompt += "Follow these insights closely to avoid bugs:\n\n"
+                prompt += "```json\n"
+                prompt += json.dumps(discovery_context, indent=2)
+                prompt += "\n```\n\n"
+                prompt += "**CRITICAL**: Pay special attention to:\n"
+                if discovery_context.get("gotchas_and_risks"):
+                    for category, items in discovery_context["gotchas_and_risks"].items():
+                        prompt += f"\n**{category.replace('_', ' ').title()}**:\n"
+                        for item in items[:3]:  # Top 3 per category
+                            prompt += f"- {item}\n"
 
             # Retrieve and append Graphiti memory context (if enabled)
             graphiti_context = await get_graphiti_context(
