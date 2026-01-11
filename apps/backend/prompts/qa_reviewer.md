@@ -110,56 +110,147 @@ INTEGRATION TESTS:
 
 ### 3.3: End-to-End Tests
 
-If E2E tests exist:
+**IMPORTANT**: You have access to Playwright tools for creating and running E2E tests.
+
+#### Create E2E Tests (if none exist)
+
+For frontend features, create Playwright tests for critical user flows:
+
+```typescript
+// Tool: playwright_create_test
+// Creates a new Playwright test file
+
+{
+  "flow_name": "user-login",
+  "description": "Test user login flow with valid credentials",
+  "steps": [
+    {
+      "action": "navigate",
+      "url": "http://localhost:3000/login"
+    },
+    {
+      "action": "fill",
+      "selector": "input[name='email']",
+      "value": "test@example.com"
+    },
+    {
+      "action": "fill",
+      "selector": "input[name='password']",
+      "value": "password123"
+    },
+    {
+      "action": "click",
+      "selector": "button[type='submit']"
+    },
+    {
+      "action": "assert",
+      "selector": "h1",
+      "value": "Dashboard"
+    }
+  ],
+  "output_path": "tests/e2e/login.spec.ts"
+}
+```
+
+#### Run Existing E2E Tests
 
 ```bash
-# Run E2E test suite (Playwright, Cypress, etc.)
-# [Execute based on project conventions]
+# Run E2E test suite
+npx playwright test
+
+# Or use discovered test command from project_index.json
 ```
 
 **Document results:**
 ```
 E2E TESTS:
-- [flow-name]: PASS/FAIL
+- [flow-name]: PASS/FAIL (with error details if failed)
 - [flow-name]: PASS/FAIL
 ```
 
 ---
 
-## PHASE 4: BROWSER VERIFICATION (If Frontend)
+## PHASE 4: BROWSER VERIFICATION (With Playwright Tools)
 
-For each page/component in the QA Acceptance Criteria:
+**You have Playwright tools available** - use them to systematically verify the UI.
 
 ### 4.1: Navigate and Screenshot
 
-```
-# Use browser automation tools
-1. Navigate to URL
-2. Take screenshot
-3. Check for console errors
-4. Verify visual elements
-5. Test interactions
-```
+Use Playwright tools to navigate and capture screenshots:
 
-### 4.2: Console Error Check
+```typescript
+// 1. Navigate to the page
+playwright_navigate({ url: "http://localhost:3000/dashboard" })
 
-**CRITICAL**: Check for JavaScript errors in the browser console.
-
-```
-# Check browser console for:
-- Errors (red)
-- Warnings (yellow)
-- Failed network requests
+// 2. Take a screenshot for visual verification
+playwright_screenshot({
+  path: "qa-screenshots/dashboard.png",
+  fullPage: true
+})
 ```
 
-### 4.3: Document Findings
+### 4.2: Console Error Check (CRITICAL)
+
+Use Playwright to check for JavaScript errors:
+
+```typescript
+// Get console errors from the browser
+playwright_get_console({ filter: "error" })
+```
+
+**CRITICAL FAILURES**:
+- Any console errors = TEST FAILS
+- Network request failures (4xx, 5xx) = TEST FAILS
+- Uncaught exceptions = TEST FAILS
+
+### 4.3: Verify UI Elements and Interactions
+
+Test critical UI elements and user interactions:
+
+```typescript
+// Verify element exists and is visible
+playwright_assert({
+  selector: "h1.page-title",
+  text: "Dashboard",
+  visible: true
+})
+
+// Test button click
+playwright_click({ selector: "button.create-item" })
+
+// Verify result
+playwright_assert({
+  selector: ".success-message",
+  text: "Item created successfully"
+})
+```
+
+### 4.4: Take Visual Regression Snapshots
+
+For visual regression testing:
+
+```typescript
+// Capture baseline screenshot of key components
+playwright_screenshot({
+  path: "qa-screenshots/components/header.png",
+  selector: "header.main-header"
+})
+
+playwright_screenshot({
+  path: "qa-screenshots/components/sidebar.png",
+  selector: "aside.sidebar"
+})
+```
+
+### 4.5: Document Findings
 
 ```
 BROWSER VERIFICATION:
 - [Page/Component]: PASS/FAIL
-  - Console errors: [list or "None"]
-  - Visual check: PASS/FAIL
-  - Interactions: PASS/FAIL
+  - Console errors: [list errors or "None found"]
+  - Visual check: PASS/FAIL (screenshot: path/to/screenshot.png)
+  - Element assertions: X/Y passed
+  - Interactions: PASS/FAIL (describe what was tested)
 ```
 
 ---
