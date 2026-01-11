@@ -7,6 +7,7 @@ The planner may generate a non-standard implementation_plan.json schema
 execution to get stuck because no "pending" subtasks are detected.
 """
 
+import importlib
 import json
 from pathlib import Path
 
@@ -22,11 +23,23 @@ def _write_plan(path: Path, data: dict) -> None:
 
 def test_generate_planner_prompt_loads_repo_planner_md(spec_dir: Path):
     prompt = generate_planner_prompt(spec_dir, project_dir=spec_dir.parent)
-    planner_md = (
-        (Path(__file__).parent.parent / "apps" / "backend" / "prompts" / "planner.md")
-        .read_text(encoding="utf-8")
-        .strip()
+    prompt_generator = importlib.import_module(generate_planner_prompt.__module__)
+    assert prompt_generator.__file__ is not None
+
+    candidate_dirs = [
+        Path(prompt_generator.__file__).parent.parent / "prompts",  # current layout
+        Path(prompt_generator.__file__).parent / "prompts",  # legacy fallback (if any)
+    ]
+    planner_file = next(
+        (
+            (candidate_dir / "planner.md")
+            for candidate_dir in candidate_dirs
+            if (candidate_dir / "planner.md").exists()
+        ),
+        None,
     )
+    assert planner_file is not None
+    planner_md = planner_file.read_text(encoding="utf-8").strip()
     assert planner_md in prompt
 
 
