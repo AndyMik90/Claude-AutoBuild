@@ -199,7 +199,7 @@ class TestBugFixACS215:
 
         # Setup: Mix of valid and invalid data
         valid_insight = _create_valid_session_insight(session_number=1)
-        mock_client.graphiti_search.return_value = [
+        mock_client.graphiti.search.return_value = [
             _create_mock_result(content=valid_insight, score=0.9),  # Valid dict
             _create_mock_result(content=bad_object, score=0.5),  # Invalid non-dict
             _create_mock_result(content="random string", score=0.3),  # Invalid string
@@ -231,7 +231,7 @@ class TestBugFixACS215:
 
         # Setup: Return fake object
         valid_insight = _create_valid_session_insight(session_number=3)
-        mock_client.graphiti_search.return_value = [
+        mock_client.graphiti.search.return_value = [
             _create_mock_result(content=valid_insight, score=0.9),
             _create_mock_result(content=fake_object, score=0.6),
         ]
@@ -268,7 +268,7 @@ class TestBugFixACS215:
             _create_mock_result(content=insights[2], score=0.7),
         ]
 
-        mock_client.graphiti_search.return_value = results
+        mock_client.graphiti.search.return_value = results
 
         # Execute - sorting with .get() should work
         result = await graphiti_search.get_session_history(limit=5)
@@ -297,7 +297,7 @@ class TestBugFixACS215:
             def __str__(self):
                 return f"{EPISODE_TYPE_TASK_OUTCOME} invalid"
 
-        mock_client.graphiti_search.return_value = [
+        mock_client.graphiti.search.return_value = [
             _create_mock_result(content=valid_outcome, score=0.9),
             _create_mock_result(content=NonDictTaskOutcome(), score=0.5),
         ]
@@ -335,7 +335,7 @@ class TestBugFixACS215:
                 return f"{EPISODE_TYPE_GOTCHA} invalid"
 
         # Mock pattern results with non-dict
-        mock_client.graphiti_search = AsyncMock(
+        mock_client.graphiti.search = AsyncMock(
             side_effect=[
                 [  # Pattern search results
                     _create_mock_result(content=valid_pattern, score=0.9),
@@ -373,7 +373,7 @@ class TestEdgeCases:
         self, graphiti_search, mock_client
     ):
         """Test handling of None content."""
-        mock_client.graphiti_search.return_value = [
+        mock_client.graphiti.search.return_value = [
             _create_mock_result(content=None, score=0.5),
         ]
 
@@ -389,7 +389,7 @@ class TestEdgeCases:
         # Malformed JSON that includes the session_insight marker
         # so it triggers the json.loads path
         invalid_json = f'{{"type": "{EPISODE_TYPE_SESSION_INSIGHT}", invalid json}}'
-        mock_client.graphiti_search.return_value = [
+        mock_client.graphiti.search.return_value = [
             _create_mock_result(content=invalid_json, score=0.5),
         ]
 
@@ -403,7 +403,7 @@ class TestEdgeCases:
         self, graphiti_search, mock_client
     ):
         """Test handling of list content (not a dict)."""
-        mock_client.graphiti_search.return_value = [
+        mock_client.graphiti.search.return_value = [
             _create_mock_result(
                 content=[
                     EPISODE_TYPE_SESSION_INSIGHT,
@@ -431,7 +431,7 @@ class TestEdgeCases:
             session_number=2, spec_id="other_spec_456"
         )
 
-        mock_client.graphiti_search.return_value = [
+        mock_client.graphiti.search.return_value = [
             _create_mock_result(content=insight_1, score=0.9),
             _create_mock_result(content=insight_2, score=0.8),
         ]
@@ -457,7 +457,7 @@ class TestEdgeCases:
             session_number=2, spec_id="other_spec_456"
         )
 
-        mock_client.graphiti_search.return_value = [
+        mock_client.graphiti.search.return_value = [
             _create_mock_result(content=insight_1, score=0.9),
             _create_mock_result(content=insight_2, score=0.8),
         ]
