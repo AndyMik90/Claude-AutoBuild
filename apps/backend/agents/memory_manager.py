@@ -396,8 +396,10 @@ async def save_session_memory(
             if memory is not None:
                 try:
                     await memory.close()
-                except Exception:
-                    pass  # Close failures should not override the main result
+                except Exception as e:
+                    logger.debug(
+                        "Failed to close Graphiti memory connection", exc_info=e
+                    )
     else:
         if is_debug_enabled():
             debug("memory", "Graphiti not enabled, skipping to FALLBACK")
