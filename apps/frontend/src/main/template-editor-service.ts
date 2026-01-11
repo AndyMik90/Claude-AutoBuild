@@ -54,7 +54,7 @@ Always confirm which files you're modifying and explain the changes.`;
 
 interface TemplateEditorMessage {
   role: 'user' | 'assistant';
-  content: string;
+  content: string | Anthropic.ContentBlock[];
 }
 
 export class TemplateEditorService extends EventEmitter {
@@ -148,8 +148,11 @@ export class TemplateEditorService extends EventEmitter {
   private writeFile(templatePath: string, relativeFilePath: string, content: string): void {
     const filePath = path.join(templatePath, relativeFilePath);
     try {
+      console.log(`[TemplateEditor] Writing file: ${filePath}`);
       writeFileSync(filePath, content, 'utf-8');
+      console.log(`[TemplateEditor] Successfully wrote file: ${filePath}`);
     } catch (error) {
+      console.error(`[TemplateEditor] Failed to write file ${relativeFilePath}:`, error);
       throw new Error(`Failed to write file ${relativeFilePath}: ${error}`);
     }
   }
@@ -228,8 +231,8 @@ export class TemplateEditorService extends EventEmitter {
       while (continueLoop && iteration < maxIterations) {
         iteration++;
 
-        const toolResults: Anthropic.MessageParam[] = [];
-        let assistantContent: Anthropic.ContentBlock[] = [];
+        let hasToolUse = false;
+        const toolResultBlocks: Anthropic.ToolResultBlockParam[] = [];
 
         // Create message with tool use
         const response = await this.anthropic.messages.create({
@@ -243,14 +246,19 @@ export class TemplateEditorService extends EventEmitter {
           tools
         });
 
-        // Process response content
-        assistantContent = response.content;
+        // Add assistant message to history
+        history.push({
+          role: 'assistant',
+          content: response.content
+        });
 
-        // Stream text content to UI
+        // Process response content
         for (const block of response.content) {
           if (block.type === 'text') {
             this.emit('stream-chunk', templateId, { type: 'text', text: block.text });
           } else if (block.type === 'tool_use') {
+            hasToolUse = true;
+
             // Execute tool and emit progress
             const result = await this.executeTool(
               templatePath,
@@ -265,27 +273,21 @@ export class TemplateEditorService extends EventEmitter {
               result
             });
 
-            // Add tool result to continue conversation
-            toolResults.push({
-              role: 'user',
-              content: [{
-                type: 'tool_result',
-                tool_use_id: block.id,
-                content: result
-              }]
+            // Collect tool result for next iteration
+            toolResultBlocks.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: result
             });
           }
         }
 
-        // Add assistant message to history
-        history.push({
-          role: 'assistant',
-          content: JSON.stringify(assistantContent)
-        });
-
-        // If there were tool uses, continue the loop with results
-        if (toolResults.length > 0) {
-          history.push(...toolResults);
+        // If there were tool uses, add results and continue the loop
+        if (hasToolUse) {
+          history.push({
+            role: 'user',
+            content: toolResultBlocks
+          });
           this.conversationHistory.set(templateId, history);
           // Continue loop to get Claude's response to the tool results
         } else {
@@ -310,20 +312,24 @@ export class TemplateEditorService extends EventEmitter {
     toolName: string,
     input: any
   ): Promise<string> {
+    console.log(`[TemplateEditor] Executing tool: ${toolName}`, input);
     try {
       switch (toolName) {
         case 'list_files': {
           const files = this.listFiles(templatePath);
+          console.log(`[TemplateEditor] list_files found ${files.length} files`);
           return JSON.stringify({ files }, null, 2);
         }
 
         case 'read_file': {
           const content = this.readFile(templatePath, input.file_path);
+          console.log(`[TemplateEditor] read_file: ${input.file_path} (${content.length} chars)`);
           return content;
         }
 
         case 'write_file': {
           this.writeFile(templatePath, input.file_path, input.content);
+          console.log(`[TemplateEditor] write_file: ${input.file_path} (${input.content.length} chars)`);
           return `Successfully wrote ${input.file_path}`;
         }
 
@@ -331,6 +337,7 @@ export class TemplateEditorService extends EventEmitter {
           throw new Error(`Unknown tool: ${toolName}`);
       }
     } catch (error) {
+      console.error(`[TemplateEditor] Tool execution error:`, error);
       return `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
   }
