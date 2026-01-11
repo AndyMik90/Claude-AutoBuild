@@ -114,6 +114,40 @@ def test_get_next_subtask_handles_depends_on_with_mixed_id_types(spec_dir: Path)
     assert next_task.get("id") == "2.1"
 
 
+def test_get_next_subtask_phase_fields_override_malformed_subtask_phase_fields(
+    spec_dir: Path,
+):
+    plan = {
+        "feature": "Test feature",
+        "workflow_type": "feature",
+        "phases": [
+            {
+                "id": "phase-1",
+                "name": "Phase 1",
+                "phase": 1,
+                "subtasks": [
+                    {
+                        "id": "1.1",
+                        "description": "Do thing",
+                        "status": "pending",
+                        "phase_id": "bad-phase",
+                        "phase_name": "Bad Phase",
+                        "phase_num": 999,
+                    }
+                ],
+            }
+        ],
+    }
+    _write_plan(spec_dir / "implementation_plan.json", plan)
+
+    next_task = get_next_subtask(spec_dir)
+    assert next_task is not None
+    assert next_task.get("id") == "1.1"
+    assert next_task.get("phase_id") == "phase-1"
+    assert next_task.get("phase_name") == "Phase 1"
+    assert next_task.get("phase_num") == 1
+
+
 def test_auto_fix_plan_normalizes_nonstandard_schema_and_validates(spec_dir: Path):
     plan = {
         "spec_id": "002-add-upstream-connection-test",
