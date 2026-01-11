@@ -46,6 +46,11 @@
       "archived": "Archived {{count}} items ({{size}})",
       "deleted": "Deleted {{count}} items ({{size}})",
       "duration": "Completed in {{seconds}} seconds"
+    },
+    "errors": {
+      "loadPreviewFailed": "Failed to load cleanup preview",
+      "cleanupFailed": "Failed to clean project",
+      "unknown": "Unknown error"
     }
   },
   "accessibility": {

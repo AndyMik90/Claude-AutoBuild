@@ -74,15 +74,15 @@ export function CleanProjectDialog({
       if (response.success && response.preview) {
         setPreview(response.preview);
       } else {
-        setError(response.error || 'Failed to load cleanup preview');
+        setError(response.error || t('common:cleanProject.errors.loadPreviewFailed'));
       }
     } catch (err) {
       console.error('Error loading cleanup preview:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : t('common:cleanProject.errors.unknown'));
     } finally {
       setLoading(false);
     }
-  }, [projectPath]);
+  }, [projectPath, t]);
 
   // Load preview when dialog opens
   useEffect(() => {
@@ -128,17 +128,17 @@ export function CleanProjectDialog({
         });
         setStep('result');
       } else {
-        setError(response.error || 'Failed to clean project');
+        setError(response.error || t('common:cleanProject.errors.cleanupFailed'));
         setStep('preview');
       }
     } catch (err) {
       console.error('Error executing cleanup:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : t('common:cleanProject.errors.unknown'));
       setStep('preview');
     } finally {
       setLoading(false);
     }
-  }, [projectPath, preview, selectedMode]);
+  }, [projectPath, preview, selectedMode, t]);
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B';

@@ -46,6 +46,11 @@
       "archived": "{{count}} éléments archivés ({{size}})",
       "deleted": "{{count}} éléments supprimés ({{size}})",
       "duration": "Terminé en {{seconds}} secondes"
+    },
+    "errors": {
+      "loadPreviewFailed": "Échec du chargement de l'aperçu de nettoyage",
+      "cleanupFailed": "Échec du nettoyage du projet",
+      "unknown": "Erreur inconnue"
     }
   },
   "accessibility": {
