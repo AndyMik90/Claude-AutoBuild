@@ -59,15 +59,14 @@ function parseParameterString(paramStr: string): Omit<TemplateParameter, 'key' |
         // Only unescape for quoted values
         value = value.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
         console.log('[PARSER] After unescape:', JSON.stringify(value));
-      }
-
-      // Strip any remaining quotes from the value (both straight and smart quotes using Unicode)
-      if (value) {
+      } else if (value) {
+        // For unquoted values, strip any stray quotes
         // Remove straight quotes: ' "
         // Remove smart quotes: " " ' ' (Unicode \u201C \u201D \u2018 \u2019)
         value = value.replace(/['""\u201C\u201D''\u2018\u2019]/g, '');
+        console.log('[PARSER] After quote strip (unquoted):', JSON.stringify(value));
       }
-      console.log('[PARSER] After quote strip:', JSON.stringify(value));
+
       pairs[key] = value;
     }
 
