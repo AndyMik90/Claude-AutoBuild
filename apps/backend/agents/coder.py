@@ -329,7 +329,9 @@ async def run_autonomous_agent(
                         success=True,
                         message="Implementation plan created",
                     )
-                    task_logger.start_phase(LogPhase.CODING, "Starting implementation...")
+                    task_logger.start_phase(
+                        LogPhase.CODING, "Starting implementation..."
+                    )
                 # In worktree mode, the UI prefers planning logs from the main spec dir.
                 # Ensure the planning->coding transition is immediately reflected there.
                 if sync_spec_to_source(spec_dir, source_spec_dir):
@@ -423,8 +425,7 @@ async def run_autonomous_agent(
                     "- Top-level: `feature`, `workflow_type`, `phases`\n"
                     "- Each phase: `id` (or `phase`) and `name`, and `subtasks`\n"
                     "- Each subtask: `id`, `description`, `status` (use `pending` for not started)\n\n"
-                    "Validation errors:\n"
-                    + "\n".join(f"- {e}" for e in errors)
+                    "Validation errors:\n" + "\n".join(f"- {e}" for e in errors)
                 )
                 # Stay in planning mode for the next iteration
                 first_run = True
