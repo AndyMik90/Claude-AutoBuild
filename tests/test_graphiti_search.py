@@ -6,7 +6,6 @@ Tests the isinstance(dict) validation that prevents AttributeError when
 Graphiti returns non-dict objects for session insights.
 """
 
-import asyncio
 import json
 import sys
 from pathlib import Path
