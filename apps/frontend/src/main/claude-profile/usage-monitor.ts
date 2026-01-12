@@ -258,9 +258,9 @@ export class UsageMonitor extends EventEmitter {
           ? 'weekly'
           : 'session'
       };
-    } catch (error) {
+    } catch (error: any) {
       // Re-throw auth failures to be handled by checkUsageAndSwap
-      if ((error as any).statusCode === 401 || (error as any).statusCode === 403) {
+      if (error?.statusCode === 401 || error?.statusCode === 403) {
         throw error;
       }
       

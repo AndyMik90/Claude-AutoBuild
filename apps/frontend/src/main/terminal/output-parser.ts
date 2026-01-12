@@ -14,19 +14,10 @@ const CLAUDE_SESSION_PATTERNS = [
 ];
 
 /**
- * Regex patterns to detect Claude Code rate limit messages
- * Matches various formats:
- * - "Limit reached · resets Dec 17 at 6am (Europe/Oslo)"
- * - "You're out of extra usage · resets 6pm (America/New_York)"
+ * Regex pattern to detect Claude Code rate limit messages
+ * Matches: "Limit reached · resets Dec 17 at 6am (Europe/Oslo)"
  */
-const RATE_LIMIT_PATTERNS = [
-  /Limit reached\s*[·•]\s*resets\s+(.+?)$/m,
-  /out of (?:extra )?usage\s*[·•]\s*resets\s+(.+?)$/im,
-  /You're out of\s+(?:extra\s+)?usage\s*[·•]\s*resets\s+(.+?)$/im,
-];
-
-// Keep legacy pattern for backwards compatibility
-const RATE_LIMIT_PATTERN = RATE_LIMIT_PATTERNS[0];
+const RATE_LIMIT_PATTERN = /Limit reached\s*[·•]\s*resets\s+(.+?)$/m;
 
 /**
  * Regex pattern to capture OAuth token from `claude setup-token` output
@@ -53,16 +44,10 @@ export function extractClaudeSessionId(data: string): string | null {
 
 /**
  * Extract rate limit reset time from output
- * Checks all rate limit patterns for various message formats
  */
 export function extractRateLimitReset(data: string): string | null {
-  for (const pattern of RATE_LIMIT_PATTERNS) {
-    const match = data.match(pattern);
-    if (match) {
-      return match[1].trim();
-    }
-  }
-  return null;
+  const match = data.match(RATE_LIMIT_PATTERN);
+  return match ? match[1].trim() : null;
 }
 
 /**
@@ -83,10 +68,9 @@ export function extractEmail(data: string): string | null {
 
 /**
  * Check if output contains a rate limit message
- * Checks all rate limit patterns for various message formats
  */
 export function hasRateLimitMessage(data: string): boolean {
-  return RATE_LIMIT_PATTERNS.some(pattern => pattern.test(data));
+  return RATE_LIMIT_PATTERN.test(data);
 }
 
 /**

@@ -386,37 +386,37 @@ app.whenReady().then(() => {
       }
     });
 
-    if (mainWindow) {
-      // Log debug mode status
-      const isDebugMode = process.env.DEBUG === 'true';
-      if (isDebugMode) {
-        console.warn('[main] ========================================');
-        console.warn('[main] DEBUG MODE ENABLED (DEBUG=true)');
-        console.warn('[main] ========================================');
-      }
-
-      // Initialize app auto-updater (only in production, or when DEBUG_UPDATER is set)
-      const forceUpdater = process.env.DEBUG_UPDATER === 'true';
-      if (app.isPackaged || forceUpdater) {
-        // Load settings to get beta updates preference
-        const settings = loadSettingsSync();
-        const betaUpdates = settings.betaUpdates ?? false;
-
-        initializeAppUpdater(mainWindow, betaUpdates);
-        console.warn('[main] App auto-updater initialized');
-        console.warn(`[main] Beta updates: ${betaUpdates ? 'enabled' : 'disabled'}`);
-        if (forceUpdater && !app.isPackaged) {
-          console.warn('[main] Updater forced in dev mode via DEBUG_UPDATER=true');
-          console.warn('[main] Note: Updates won\'t actually work in dev mode');
-        }
-      } else {
-        console.warn('[main] ========================================');
-        console.warn('[main] App auto-updater DISABLED (development mode)');
-        console.warn('[main] To test updater logging, set DEBUG_UPDATER=true');
-        console.warn('[main] Note: Actual updates only work in packaged builds');
-        console.warn('[main] ========================================');
-      }
+  if (mainWindow) {
+    // Log debug mode status
+    const isDebugMode = process.env.DEBUG === 'true';
+    if (isDebugMode) {
+      console.warn('[main] ========================================');
+      console.warn('[main] DEBUG MODE ENABLED (DEBUG=true)');
+      console.warn('[main] ========================================');
     }
+
+    // Initialize app auto-updater (only in production, or when DEBUG_UPDATER is set)
+    const forceUpdater = process.env.DEBUG_UPDATER === 'true';
+    if (app.isPackaged || forceUpdater) {
+      // Load settings to get beta updates preference
+      const settings = loadSettingsSync();
+      const betaUpdates = settings.betaUpdates ?? false;
+
+      initializeAppUpdater(mainWindow, betaUpdates);
+      console.warn('[main] App auto-updater initialized');
+      console.warn(`[main] Beta updates: ${betaUpdates ? 'enabled' : 'disabled'}`);
+      if (forceUpdater && !app.isPackaged) {
+        console.warn('[main] Updater forced in dev mode via DEBUG_UPDATER=true');
+        console.warn('[main] Note: Updates won\'t actually work in dev mode');
+      }
+    } else {
+      console.warn('[main] ========================================');
+      console.warn('[main] App auto-updater DISABLED (development mode)');
+      console.warn('[main] To test updater logging, set DEBUG_UPDATER=true');
+      console.warn('[main] Note: Actual updates only work in packaged builds');
+      console.warn('[main] ========================================');
+    }
+  }
 
   // macOS: re-create window when dock icon is clicked
   app.on('activate', () => {

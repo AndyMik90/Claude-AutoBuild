@@ -35,12 +35,15 @@ export function getBestAvailableProfile(
   // 2. Lower weekly usage (more important than session)
   // 3. Lower session usage
   // 4. More recently authenticated
+  const isDebug = process.env.DEBUG === 'true';
 
-  console.log('[ProfileScorer] Evaluating', candidates.length, 'candidate profiles (excluding:', excludeProfileId, ')');
+  if (isDebug) {
+    console.log('[ProfileScorer] Evaluating', candidates.length, 'candidate profiles (excluding:', excludeProfileId, ')');
+  }
 
   const scoredProfiles: ScoredProfile[] = candidates.map(profile => {
     let score = 100;  // Base score
-    console.log('[ProfileScorer] Scoring profile:', profile.name, '(', profile.id, ')');
+    if (isDebug) console.log('[ProfileScorer] Scoring profile:', profile.name, '(', profile.id, ')');
 
     // Check rate limit status
     const rateLimitStatus = isProfileRateLimited(profile);

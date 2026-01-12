@@ -195,9 +195,7 @@ export class AgentProcessManager {
     });
 
     if (!autoSwitchSettings.enabled || !autoSwitchSettings.autoSwitchOnRateLimit) {
-      console.log('[AgentProcess] ⚠️ AUTO-SWITCH IS DISABLED in settings!');
-      console.log('[AgentProcess] To enable: Settings → Integrations → Enable "Auto-switch on rate limit"');
-      console.log('[AgentProcess] Current settings: enabled=', autoSwitchSettings.enabled, 'autoSwitchOnRateLimit=', autoSwitchSettings.autoSwitchOnRateLimit);
+      console.log('[AgentProcess] Auto-switch disabled - showing manual modal');
       return false;
     }
 
@@ -472,34 +470,8 @@ export class AgentProcessManager {
 
     const isDebug = ['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '');
 
-    // Track if we've already handled a rate limit for this task to avoid duplicate handling
-    let rateLimitHandled = false;
-
     const processLog = (line: string) => {
       allOutput = (allOutput + line).slice(-10000);
-
-      // Real-time rate limit detection - check each line as it comes in
-      if (!rateLimitHandled) {
-        const rateLimitDetection = detectRateLimit(line);
-        if (rateLimitDetection.isRateLimited) {
-          console.log('[AgentProcess] Real-time rate limit detected in output:', {
-            line: line.substring(0, 200),
-            resetTime: rateLimitDetection.resetTime,
-            suggestedProfile: rateLimitDetection.suggestedProfile
-          });
-          rateLimitHandled = true;
-
-          // Try auto-swap
-          const wasHandled = this.handleRateLimitWithAutoSwap(taskId, rateLimitDetection, processType);
-          if (!wasHandled) {
-            // Emit rate limit event for UI to show modal
-            const source = processType === 'spec-creation' ? 'roadmap' : 'task';
-            const rateLimitInfo = createSDKRateLimitInfo(source, rateLimitDetection, { taskId });
-            console.log('[AgentProcess] Emitting sdk-rate-limit event (real-time):', rateLimitInfo);
-            this.emitter.emit('sdk-rate-limit', rateLimitInfo);
-          }
-        }
-      }
 
       const hasMarker = line.includes('__EXEC_PHASE__');
       if (isDebug && hasMarker) {
