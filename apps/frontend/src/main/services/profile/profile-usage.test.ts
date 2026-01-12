@@ -271,15 +271,6 @@ describe('profile-usage service', () => {
 
   describe('fetchUsageForProfile', () => {
     it('should route to Z.ai fetch for zai provider', async () => {
-      const mockSnapshot: ClaudeUsageSnapshot = {
-        sessionPercent: 75,
-        weeklyPercent: 50,
-        profileId: 'profile-1',
-        profileName: 'Z.ai Profile',
-        fetchedAt: new Date(),
-        provider: 'zai'
-      };
-
       (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({

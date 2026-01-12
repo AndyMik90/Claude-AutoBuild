@@ -469,6 +469,9 @@ export class UsageMonitor extends EventEmitter {
       const date = new Date(isoTimestamp);
       const now = new Date();
       const diffMs = date.getTime() - now.getTime();
+
+      if (diffMs <= 0) return 'Resetting soon';
+
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
       const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 

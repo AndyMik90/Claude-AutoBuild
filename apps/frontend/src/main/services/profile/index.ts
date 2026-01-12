@@ -36,8 +36,7 @@ export {
   detectProvider,
   fetchZaiUsage,
   fetchAnthropicOAuthUsage,
-  fetchUsageForProfile,
-  formatMonthlyResetTime
+  fetchUsageForProfile
 } from './profile-usage';
 
 export type { UsageProvider } from './profile-usage';

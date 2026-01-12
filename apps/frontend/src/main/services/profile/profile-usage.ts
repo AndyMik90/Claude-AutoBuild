@@ -65,7 +65,7 @@ interface AnthropicUsageResponse {
  */
 export function detectProvider(baseUrl: string): UsageProvider {
   try {
-    const url = new URL(baseUrl);
+    const url = new URL(baseUrl.trim());
     const hostname = url.hostname.toLowerCase();
 
     // Check for Z.ai domains (api.z.ai or z.ai)
@@ -116,7 +116,7 @@ export async function fetchZaiUsage(
     const data = (await response.json()) as ZaiQuotaResponse;
 
     // Calculate token usage percentage
-    const tokenPercent = data.token_usage
+    const tokenPercent = data.token_usage && data.token_usage.limit > 0
       ? Math.round((data.token_usage.used / data.token_usage.limit) * 100)
       : 0;
 
@@ -279,14 +279,4 @@ function formatResetTimeFromTimestamp(timestamp?: number): string | undefined {
   const diffDays = Math.floor(diffHours / 24);
   const remainingHours = diffHours % 24;
   return `${diffDays}d ${remainingHours}h`;
-}
-
-/**
- * Format monthly reset time (for Z.ai monthly tool usage)
- */
-export function formatMonthlyResetTime(): string {
-  const now = new Date();
-  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${monthNames[nextMonth.getMonth()]} 1`;
 }
