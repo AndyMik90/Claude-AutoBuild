@@ -59,27 +59,6 @@ interface DroppableColumnProps {
   onToggleArchived?: () => void;
 }
 
-// Worktree cleanup dialog state - defined at module scope for referential stability
-type WorktreeCleanupDialogState = {
-  open: boolean;
-  taskId: string | null;
-  taskTitle: string;
-  worktreePath?: string;
-  isProcessing: boolean;
-  error?: string;
-  canSkipCleanup?: boolean;
-};
-
-const INITIAL_WORKTREE_DIALOG_STATE: WorktreeCleanupDialogState = {
-  open: false,
-  taskId: null,
-  taskTitle: '',
-  worktreePath: undefined,
-  isProcessing: false,
-  error: undefined,
-  canSkipCleanup: false
-};
-
 /**
  * Compare two tasks arrays for meaningful changes.
  * Returns true if tasks are equivalent (should skip re-render).
@@ -368,6 +347,27 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const { showArchived, toggleShowArchived } = useViewState();
 
+  // Worktree cleanup dialog state
+  type WorktreeCleanupDialogState = {
+    open: boolean;
+    taskId: string | null;
+    taskTitle: string;
+    worktreePath?: string;
+    isProcessing: boolean;
+    error?: string;
+    canSkipCleanup?: boolean;
+  };
+
+  const INITIAL_WORKTREE_DIALOG_STATE: WorktreeCleanupDialogState = {
+    open: false,
+    taskId: null,
+    taskTitle: '',
+    worktreePath: undefined,
+    isProcessing: false,
+    error: undefined,
+    canSkipCleanup: false
+  };
+
   const [worktreeCleanupDialog, setWorktreeCleanupDialog] = useState<WorktreeCleanupDialogState>(INITIAL_WORKTREE_DIALOG_STATE);
 
   // Calculate archived count for Done column button
@@ -545,8 +545,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       setWorktreeCleanupDialog(prev => ({
         ...prev,
         isProcessing: false,
-        error: result.error || t('dialogs:worktreeCleanup.errorDescription'),
-        canSkipCleanup: result.canSkipCleanup || false
+        error: result.error || t('dialogs:worktreeCleanup.errorDescription')
       }));
     }
   };

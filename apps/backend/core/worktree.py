@@ -31,12 +31,6 @@ from debug import debug_warning
 
 T = TypeVar("T")
 
-# Base/default branch names that should be filtered out when listing worktrees.
-# Used to detect orphaned worktrees after GitHub merge operations.
-# Comparison should be case-insensitive (use .lower()).
-# NOTE: Keep in sync with BASE_BRANCHES in apps/frontend/src/shared/constants/git.ts
-BASE_BRANCHES: frozenset[str] = frozenset({"main", "master", "develop", "head"})
-
 
 def _is_retryable_network_error(stderr: str) -> bool:
     """Check if an error is a retryable network/connection issue."""
@@ -697,14 +691,17 @@ class WorktreeManager:
         """List all spec worktrees (includes legacy .worktrees/ location)."""
         worktrees = []
         seen_specs = set()
+        # Skip worktrees on base branches (orphaned after GitHub merge)
+        # But allow any feature branch pattern (auto-claude/*, feature/*, etc.)
+        # Use case-insensitive comparison for robustness
+        base_branches = {"main", "master", "develop", "head"}
 
         # Check new location first
         if self.worktrees_dir.exists():
             for item in self.worktrees_dir.iterdir():
                 if item.is_dir():
                     info = self.get_worktree_info(item.name)
-                    # Skip worktrees on base branches (orphaned after GitHub merge)
-                    if info and info.branch.lower() not in BASE_BRANCHES:
+                    if info and info.branch.lower() not in base_branches:
                         worktrees.append(info)
                         seen_specs.add(item.name)
 
@@ -714,7 +711,7 @@ class WorktreeManager:
             for item in legacy_dir.iterdir():
                 if item.is_dir() and item.name not in seen_specs:
                     info = self.get_worktree_info(item.name)
-                    if info and info.branch.lower() not in BASE_BRANCHES:
+                    if info and info.branch.lower() not in base_branches:
                         worktrees.append(info)
 
         return worktrees
