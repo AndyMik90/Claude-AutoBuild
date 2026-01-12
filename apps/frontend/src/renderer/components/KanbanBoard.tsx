@@ -59,6 +59,27 @@ interface DroppableColumnProps {
   onToggleArchived?: () => void;
 }
 
+// Worktree cleanup dialog state - defined at module scope for referential stability
+type WorktreeCleanupDialogState = {
+  open: boolean;
+  taskId: string | null;
+  taskTitle: string;
+  worktreePath?: string;
+  isProcessing: boolean;
+  error?: string;
+  canSkipCleanup?: boolean;
+};
+
+const INITIAL_WORKTREE_DIALOG_STATE: WorktreeCleanupDialogState = {
+  open: false,
+  taskId: null,
+  taskTitle: '',
+  worktreePath: undefined,
+  isProcessing: false,
+  error: undefined,
+  canSkipCleanup: false
+};
+
 /**
  * Compare two tasks arrays for meaningful changes.
  * Returns true if tasks are equivalent (should skip re-render).
@@ -347,24 +368,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const { showArchived, toggleShowArchived } = useViewState();
 
-  // Worktree cleanup dialog state
-  const [worktreeCleanupDialog, setWorktreeCleanupDialog] = useState<{
-    open: boolean;
-    taskId: string | null;
-    taskTitle: string;
-    worktreePath?: string;
-    isProcessing: boolean;
-    error?: string;
-    canSkipCleanup?: boolean;
-  }>({
-    open: false,
-    taskId: null,
-    taskTitle: '',
-    worktreePath: undefined,
-    isProcessing: false,
-    error: undefined,
-    canSkipCleanup: false
-  });
+  const [worktreeCleanupDialog, setWorktreeCleanupDialog] = useState<WorktreeCleanupDialogState>(INITIAL_WORKTREE_DIALOG_STATE);
 
   // Calculate archived count for Done column button
   const archivedCount = useMemo(() =>
@@ -487,7 +491,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           taskTitle: task?.title || t('tasks:untitled'),
           worktreePath: result.worktreePath,
           isProcessing: false,
-          error: undefined
+          error: undefined,
+          canSkipCleanup: false
         });
       } else {
         // Show error toast for other failures
@@ -511,15 +516,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const result = await forceCompleteTask(worktreeCleanupDialog.taskId);
 
     if (result.success) {
-      setWorktreeCleanupDialog({
-        open: false,
-        taskId: null,
-        taskTitle: '',
-        worktreePath: undefined,
-        isProcessing: false,
-        error: undefined,
-        canSkipCleanup: false
-      });
+      setWorktreeCleanupDialog(INITIAL_WORKTREE_DIALOG_STATE);
     } else {
       // Keep dialog open with error state for retry - show actual error if available
       // Check if the error allows skipping cleanup (e.g., files in use)
@@ -543,15 +540,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const result = await skipCleanupCompleteTask(worktreeCleanupDialog.taskId);
 
     if (result.success) {
-      setWorktreeCleanupDialog({
-        open: false,
-        taskId: null,
-        taskTitle: '',
-        worktreePath: undefined,
-        isProcessing: false,
-        error: undefined,
-        canSkipCleanup: false
-      });
+      setWorktreeCleanupDialog(INITIAL_WORKTREE_DIALOG_STATE);
     } else {
       setWorktreeCleanupDialog(prev => ({
         ...prev,
