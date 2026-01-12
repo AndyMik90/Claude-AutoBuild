@@ -11,11 +11,27 @@ import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-
 import { getAPIProfileEnv } from '../services/profile';
 import { getOAuthModeClearVars } from './env-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
+import { stripAnsiCodes } from '../../shared/utils/ansi-sanitizer';
 import { parsePythonCommand } from '../python-detector';
 import { pythonEnvManager } from '../python-env-manager';
 import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ipc-handlers/ideation/transformers';
 import { transformRoadmapFromSnakeCase } from '../ipc-handlers/roadmap/transformers';
 import type { RawIdea } from '../ipc-handlers/ideation/types';
+
+/** Maximum length for status messages displayed in progress UI */
+const STATUS_MESSAGE_MAX_LENGTH = 200;
+
+/**
+ * Formats a raw log line for display as a status message.
+ * Strips ANSI escape codes, extracts the first line, and truncates to max length.
+ *
+ * @param log - Raw log output from backend process
+ * @returns Formatted status message safe for UI display
+ */
+function formatStatusMessage(log: string): string {
+  if (!log) return '';
+  return stripAnsiCodes(log.trim()).split('\n')[0].substring(0, STATUS_MESSAGE_MAX_LENGTH);
+}
 
 /**
  * Queue management for ideation and roadmap generation
@@ -36,6 +52,40 @@ export class AgentQueueManager {
     this.events = events;
     this.processManager = processManager;
     this.emitter = emitter;
+  }
+
+  /**
+   * Ensure Python environment is ready before spawning processes.
+   * Prevents the race condition where generation starts before dependencies are installed,
+   * which would cause it to fall back to system Python and fail with ModuleNotFoundError.
+   *
+   * @param projectId - The project ID for error event emission
+   * @param eventType - The error event type to emit on failure
+   * @returns true if environment is ready, false if initialization failed (error already emitted)
+   */
+  private async ensurePythonEnvReady(
+    projectId: string,
+    eventType: 'ideation-error' | 'roadmap-error'
+  ): Promise<boolean> {
+    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+
+    if (!pythonEnvManager.isEnvReady()) {
+      debugLog('[Agent Queue] Python environment not ready, waiting for initialization...');
+      if (autoBuildSource) {
+        const status = await pythonEnvManager.initialize(autoBuildSource);
+        if (!status.ready) {
+          debugError('[Agent Queue] Python environment initialization failed:', status.error);
+          this.emitter.emit(eventType, projectId, `Python environment not ready: ${status.error || 'initialization failed'}`);
+          return false;
+        }
+        debugLog('[Agent Queue] Python environment now ready');
+      } else {
+        debugError('[Agent Queue] Cannot initialize Python - auto-build source not found');
+        this.emitter.emit(eventType, projectId, 'Python environment not ready: auto-build source not found');
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
@@ -195,6 +245,15 @@ export class AgentQueueManager {
   ): Promise<void> {
     debugLog('[Agent Queue] Spawning ideation process:', { projectId, projectPath });
 
+    // Run from auto-claude source directory so imports work correctly
+    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+    const cwd = autoBuildSource || process.cwd();
+
+    // Ensure Python environment is ready before spawning
+    if (!await this.ensurePythonEnvReady(projectId, 'ideation-error')) {
+      return;
+    }
+
     // Kill existing process for this project if any
     const wasKilled = this.processManager.killProcess(projectId);
     if (wasKilled) {
@@ -205,9 +264,6 @@ export class AgentQueueManager {
     const spawnId = this.state.generateSpawnId();
     debugLog('[Agent Queue] Generated spawn ID:', spawnId);
 
-    // Run from auto-claude source directory so imports work correctly
-    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
-    const cwd = autoBuildSource || process.cwd();
 
     // Get combined environment variables
     const combinedEnv = this.processManager.getCombinedEnv(projectPath);
@@ -383,7 +439,7 @@ export class AgentQueueManager {
       progressPercent = progressUpdate.progress;
 
       // Emit progress update with a clean message for the status bar
-      const statusMessage = log.trim().split('\n')[0].substring(0, 200);
+      const statusMessage = formatStatusMessage(log);
       this.emitter.emit('ideation-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
@@ -402,7 +458,7 @@ export class AgentQueueManager {
       this.emitter.emit('ideation-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: log.trim().split('\n')[0].substring(0, 200)
+        message: formatStatusMessage(log)
       });
     });
 
@@ -516,6 +572,15 @@ export class AgentQueueManager {
   ): Promise<void> {
     debugLog('[Agent Queue] Spawning roadmap process:', { projectId, projectPath });
 
+    // Run from auto-claude source directory so imports work correctly
+    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+    const cwd = autoBuildSource || process.cwd();
+
+    // Ensure Python environment is ready before spawning
+    if (!await this.ensurePythonEnvReady(projectId, 'roadmap-error')) {
+      return;
+    }
+
     // Kill existing process for this project if any
     const wasKilled = this.processManager.killProcess(projectId);
     if (wasKilled) {
@@ -526,9 +591,6 @@ export class AgentQueueManager {
     const spawnId = this.state.generateSpawnId();
     debugLog('[Agent Queue] Generated roadmap spawn ID:', spawnId);
 
-    // Run from auto-claude source directory so imports work correctly
-    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
-    const cwd = autoBuildSource || process.cwd();
 
     // Get combined environment variables
     const combinedEnv = this.processManager.getCombinedEnv(projectPath);
@@ -639,7 +701,7 @@ export class AgentQueueManager {
       this.emitter.emit('roadmap-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: log.trim().substring(0, 200) // Truncate long messages
+        message: formatStatusMessage(log)
       });
     });
 
@@ -653,7 +715,7 @@ export class AgentQueueManager {
       this.emitter.emit('roadmap-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: log.trim().substring(0, 200)
+        message: formatStatusMessage(log)
       });
     });
 

@@ -16,7 +16,7 @@
 ### Stable Release
 
 <!-- STABLE_VERSION_BADGE -->
-[![Stable](https://img.shields.io/badge/stable-2.7.2-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.2)
+[![Stable](https://img.shields.io/badge/stable-2.7.3-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.3)
 <!-- STABLE_VERSION_BADGE_END -->
 
 <!-- STABLE_DOWNLOADS -->

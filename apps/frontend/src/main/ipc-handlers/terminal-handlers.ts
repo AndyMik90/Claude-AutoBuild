@@ -9,7 +9,7 @@ import { projectStore } from '../project-store';
 import { terminalNameGenerator } from '../terminal-name-generator';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { escapeShellArg, escapeShellArgWindows } from '../../shared/utils/shell-escape';
-import { getClaudeCliInvocation } from '../claude-cli-utils';
+import { getClaudeCliInvocationAsync } from '../claude-cli-utils';
 
 
 /**
@@ -54,7 +54,10 @@ export function registerTerminalHandlers(
   ipcMain.on(
     IPC_CHANNELS.TERMINAL_INVOKE_CLAUDE,
     (_, id: string, cwd?: string) => {
-      terminalManager.invokeClaude(id, cwd);
+      // Use async version to avoid blocking main process during CLI detection
+      terminalManager.invokeClaudeAsync(id, cwd).catch((error) => {
+        debugError('[terminal-handlers] Failed to invoke Claude:', error);
+      });
     }
   );
 
@@ -309,12 +312,17 @@ export function registerTerminalHandlers(
   ipcMain.handle(
     IPC_CHANNELS.CLAUDE_PROFILE_INITIALIZE,
     async (_, profileId: string): Promise<IPCResult> => {
+      debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Handler called for profileId:', profileId);
       try {
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Getting profile manager...');
         const profileManager = getClaudeProfileManager();
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Getting profile...');
         const profile = profileManager.getProfile(profileId);
         if (!profile) {
+          debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Profile not found!');
           return { success: false, error: 'Profile not found' };
         }
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Profile found:', profile.name);
 
         // Ensure the config directory exists for non-default profiles
         if (!profile.isDefault && profile.configDir) {
@@ -330,6 +338,7 @@ export function registerTerminalHandlers(
         const terminalId = `claude-login-${profileId}-${Date.now()}`;
         const homeDir = process.env.HOME || process.env.USERPROFILE || '/tmp';
 
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Creating terminal:', terminalId);
         debugLog('[IPC] Initializing Claude profile:', {
           profileId,
           profileName: profile.name,
@@ -338,7 +347,9 @@ export function registerTerminalHandlers(
         });
 
         // Create a new terminal for the login process
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Calling terminalManager.create...');
         const createResult = await terminalManager.create({ id: terminalId, cwd: homeDir });
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Terminal created:', createResult.success);
 
         // If terminal creation failed, return the error
         if (!createResult.success) {
@@ -349,17 +360,18 @@ export function registerTerminalHandlers(
         }
 
         // Wait a moment for the terminal to initialize
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Waiting 500ms for terminal init...');
         await new Promise(resolve => setTimeout(resolve, 500));
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Wait complete');
 
         // Build the login command with the profile's config dir
-        // Use platform-specific syntax and escaping for environment variables
+        // Use full path to claude CLI - no need to modify PATH since we have the absolute path
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Getting Claude CLI invocation...');
         let loginCommand: string;
-        const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
-        const pathPrefix = claudeEnv.PATH
-          ? (process.platform === 'win32'
-              ? `set "PATH=${escapeShellArgWindows(claudeEnv.PATH)}" && `
-              : `export PATH=${escapeShellArg(claudeEnv.PATH)} && `)
-          : '';
+        const { command: claudeCmd } = await getClaudeCliInvocationAsync();
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Got Claude CLI:', claudeCmd);
+
+        // Use the full path directly - escaping only needed for paths with spaces
         const shellClaudeCmd = process.platform === 'win32'
           ? `"${escapeShellArgWindows(claudeCmd)}"`
           : escapeShellArg(claudeCmd);
@@ -369,24 +381,30 @@ export function registerTerminalHandlers(
             // SECURITY: Use Windows-specific escaping for cmd.exe
             const escapedConfigDir = escapeShellArgWindows(profile.configDir);
             // Windows cmd.exe syntax: set "VAR=value" with %VAR% for expansion
-            loginCommand = `${pathPrefix}set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && ${shellClaudeCmd} setup-token`;
+            loginCommand = `set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && ${shellClaudeCmd} setup-token`;
           } else {
             // SECURITY: Use POSIX escaping for bash/zsh
             const escapedConfigDir = escapeShellArg(profile.configDir);
             // Unix/Mac bash/zsh syntax: export VAR=value with $VAR for expansion
-            loginCommand = `${pathPrefix}export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && ${shellClaudeCmd} setup-token`;
+            loginCommand = `export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && ${shellClaudeCmd} setup-token`;
           }
         } else {
-          loginCommand = `${pathPrefix}${shellClaudeCmd} setup-token`;
+          // Simple command for default profile - just run setup-token
+          loginCommand = `${shellClaudeCmd} setup-token`;
         }
 
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Built login command, length:', loginCommand.length);
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Login command:', loginCommand);
         debugLog('[IPC] Sending login command to terminal:', loginCommand);
 
         // Write the login command to the terminal
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Writing command to terminal...');
         terminalManager.write(terminalId, `${loginCommand}\r`);
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Command written successfully');
 
         // Notify the renderer that an auth terminal was created
         // This allows the UI to display the terminal so users can see the OAuth flow
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Notifying renderer of auth terminal...');
         const mainWindow = getMainWindow();
         if (mainWindow) {
           mainWindow.webContents.send(IPC_CHANNELS.TERMINAL_AUTH_CREATED, {
@@ -396,6 +414,7 @@ export function registerTerminalHandlers(
           });
         }
 
+        debugLog('[IPC:CLAUDE_PROFILE_INITIALIZE] Returning success!');
         return {
           success: true,
           data: {
@@ -404,7 +423,7 @@ export function registerTerminalHandlers(
           }
         };
       } catch (error) {
-        debugError('[IPC] Failed to initialize Claude profile:', error);
+        debugError('[IPC:CLAUDE_PROFILE_INITIALIZE] EXCEPTION:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to initialize Claude profile'
@@ -635,7 +654,21 @@ export function registerTerminalHandlers(
   ipcMain.on(
     IPC_CHANNELS.TERMINAL_RESUME_CLAUDE,
     (_, id: string, sessionId?: string) => {
-      terminalManager.resumeClaude(id, sessionId);
+      // Use async version to avoid blocking main process during CLI detection
+      terminalManager.resumeClaudeAsync(id, sessionId).catch((error) => {
+        debugError('[terminal-handlers] Failed to resume Claude:', error);
+      });
+    }
+  );
+
+  // Activate deferred Claude resume when terminal becomes active
+  // This is triggered by the renderer when a terminal with pendingClaudeResume becomes the active tab
+  ipcMain.on(
+    IPC_CHANNELS.TERMINAL_ACTIVATE_DEFERRED_RESUME,
+    (_, id: string) => {
+      terminalManager.activateDeferredResume(id).catch((error) => {
+        debugError('[terminal-handlers] Failed to activate deferred Claude resume:', error);
+      });
     }
   );
 

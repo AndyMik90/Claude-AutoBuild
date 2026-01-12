@@ -625,4 +625,726 @@ describe('Task Store', () => {
       });
     });
   });
+
+  describe('updateTaskFromPlan - validation and subtask creation edge cases', () => {
+    beforeEach(() => {
+      // Spy on console methods to test validation logging and prevent crashes
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    describe('plan validation', () => {
+      it('should reject plan with missing phases array', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const invalidPlan = { feature: 'Test' } as any;
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', invalidPlan);
+
+        // Task should not be updated when plan is invalid
+        expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(0);
+        expect(console.warn).toHaveBeenCalledWith(
+          expect.stringContaining('Invalid plan: missing or invalid phases array')
+        );
+      });
+
+      it('should reject plan with null phases', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const invalidPlan = {
+          feature: 'Test',
+          phases: null
+        } as any;
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', invalidPlan);
+
+        expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(0);
+        expect(console.warn).toHaveBeenCalledWith(
+          expect.stringContaining('Invalid plan: missing or invalid phases array')
+        );
+      });
+
+      it('should reject plan with phase missing subtasks array', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const invalidPlan = {
+          feature: 'Test',
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation'
+              // Missing subtasks
+            }
+          ]
+        } as any;
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', invalidPlan);
+
+        expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(0);
+        expect(console.warn).toHaveBeenCalledWith(
+          expect.stringContaining('Invalid phase 0: missing or invalid subtasks array')
+        );
+      });
+
+      it('should reject plan with phase having subtasks not as array', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const invalidPlan = {
+          feature: 'Test',
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: 'not-an-array'
+            }
+          ]
+        } as any;
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', invalidPlan);
+
+        expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(0);
+        expect(console.warn).toHaveBeenCalledWith(
+          expect.stringContaining('Invalid phase 0: missing or invalid subtasks array')
+        );
+      });
+
+      it('should reject plan with subtask not being an object', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const invalidPlan = {
+          feature: 'Test',
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: ['not-an-object', 'also-not-an-object']
+            }
+          ]
+        } as any;
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', invalidPlan);
+
+        expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(0);
+        expect(console.warn).toHaveBeenCalledWith(
+          expect.stringContaining('Invalid subtask at phase 0, index 0: not an object')
+        );
+      });
+
+      it('should reject plan with subtask missing description', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const invalidPlan = {
+          feature: 'Test',
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'subtask-1', status: 'pending' } // Missing description
+              ]
+            }
+          ]
+        } as any;
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', invalidPlan);
+
+        expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(0);
+        expect(console.warn).toHaveBeenCalledWith(
+          expect.stringContaining('Invalid subtask at phase 0, index 0: missing or empty description')
+        );
+      });
+
+      it('should reject plan with subtask having empty description', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const invalidPlan = {
+          feature: 'Test',
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'subtask-1', description: '', status: 'pending' }
+              ]
+            }
+          ]
+        } as any;
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', invalidPlan);
+
+        expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(0);
+        expect(console.warn).toHaveBeenCalledWith(
+          expect.stringContaining('Invalid subtask at phase 0, index 0: missing or empty description')
+        );
+      });
+
+      it('should reject plan with subtask having whitespace-only description', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const invalidPlan = {
+          feature: 'Test',
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'subtask-1', description: '   ', status: 'pending' }
+              ]
+            }
+          ]
+        } as any;
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', invalidPlan);
+
+        expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(0);
+        expect(console.warn).toHaveBeenCalledWith(
+          expect.stringContaining('Invalid subtask at phase 0, index 0: missing or empty description')
+        );
+      });
+
+      it('should accept valid plan with all required fields', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const validPlan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'subtask-1', description: 'Valid subtask', status: 'pending' }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', validPlan);
+
+        expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(1);
+        expect(useTaskStore.getState().tasks[0].subtasks[0].description).toBe('Valid subtask');
+      });
+    });
+
+    describe('subtask creation edge cases', () => {
+      it('should generate id for subtask missing id', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { description: 'Subtask without id', status: 'pending' } as any
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        const subtask = useTaskStore.getState().tasks[0].subtasks[0];
+        expect(subtask.id).toBeDefined();
+        // Accept either UUID format (crypto.randomUUID) or fallback format (subtask-timestamp-random)
+        expect(subtask.id).toMatch(/^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|subtask-\d+-[a-z0-9]+)$/);
+      });
+
+      it('should use description as title for subtasks', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'subtask-1', description: 'Test Description', status: 'pending' }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        const subtask = useTaskStore.getState().tasks[0].subtasks[0];
+        expect(subtask.title).toBe('Test Description');
+        expect(subtask.description).toBe('Test Description');
+      });
+
+      it('should accept all valid subtask statuses', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'subtask-1', description: 'Pending subtask', status: 'pending' },
+                { id: 'subtask-2', description: 'In progress subtask', status: 'in_progress' },
+                { id: 'subtask-3', description: 'Completed subtask', status: 'completed' },
+                { id: 'subtask-4', description: 'Failed subtask', status: 'failed' }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        const subtasks = useTaskStore.getState().tasks[0].subtasks;
+        expect(subtasks[0].status).toBe('pending');
+        expect(subtasks[1].status).toBe('in_progress');
+        expect(subtasks[2].status).toBe('completed');
+        expect(subtasks[3].status).toBe('failed');
+      });
+
+      it('should default status to pending when status is missing', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'subtask-1', description: 'Test subtask' } as any
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        const subtask = useTaskStore.getState().tasks[0].subtasks[0];
+        expect(subtask.status).toBe('pending');
+      });
+
+      it('should initialize subtask with empty files array', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'subtask-1', description: 'Test subtask', status: 'pending' }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        const subtask = useTaskStore.getState().tasks[0].subtasks[0];
+        expect(subtask.files).toEqual([]);
+      });
+
+      it('should preserve verification field from plan subtask', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                {
+                  id: 'subtask-1',
+                  description: 'Test subtask',
+                  status: 'pending',
+                  verification: { type: 'command', run: 'npm test' }
+                }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        const subtask = useTaskStore.getState().tasks[0].subtasks[0];
+        expect(subtask.verification).toEqual({ type: 'command', run: 'npm test' });
+      });
+
+      it('should handle subtask with verification undefined', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                {
+                  id: 'subtask-1',
+                  description: 'Test subtask',
+                  status: 'pending'
+                  // verification is undefined
+                }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        const subtask = useTaskStore.getState().tasks[0].subtasks[0];
+        expect(subtask.verification).toBeUndefined();
+      });
+
+      it('should flatten subtasks from all phases in correct order', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'p1-s1', description: 'Phase 1 Subtask 1', status: 'pending' },
+                { id: 'p1-s2', description: 'Phase 1 Subtask 2', status: 'pending' }
+              ]
+            },
+            {
+              phase: 2,
+              name: 'Phase 2',
+              type: 'testing',
+              subtasks: [
+                { id: 'p2-s1', description: 'Phase 2 Subtask 1', status: 'pending' },
+                { id: 'p2-s2', description: 'Phase 2 Subtask 2', status: 'pending' }
+              ]
+            },
+            {
+              phase: 3,
+              name: 'Phase 3',
+              type: 'cleanup',
+              subtasks: [
+                { id: 'p3-s1', description: 'Phase 3 Subtask 1', status: 'pending' }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        const subtasks = useTaskStore.getState().tasks[0].subtasks;
+        expect(subtasks).toHaveLength(5);
+        expect(subtasks[0].id).toBe('p1-s1');
+        expect(subtasks[1].id).toBe('p1-s2');
+        expect(subtasks[2].id).toBe('p2-s1');
+        expect(subtasks[3].id).toBe('p2-s2');
+        expect(subtasks[4].id).toBe('p3-s1');
+      });
+
+      it('should handle phase with empty subtasks array', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'subtask-1', description: 'Valid subtask', status: 'pending' }
+              ]
+            },
+            {
+              phase: 2,
+              name: 'Phase 2',
+              type: 'testing',
+              subtasks: [] // Empty array
+            },
+            {
+              phase: 3,
+              name: 'Phase 3',
+              type: 'cleanup',
+              subtasks: [
+                { id: 'subtask-2', description: 'Another valid subtask', status: 'pending' }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        const subtasks = useTaskStore.getState().tasks[0].subtasks;
+        expect(subtasks).toHaveLength(2);
+        expect(subtasks[0].id).toBe('subtask-1');
+        expect(subtasks[1].id).toBe('subtask-2');
+      });
+    });
+
+    // FIX (PR Review): Test coverage for terminal phase status preservation
+    describe('terminal phase status preservation', () => {
+      it('should NOT update status when task is in terminal phase (complete)', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({
+            id: 'task-1',
+            status: 'human_review',
+            executionProgress: { phase: 'complete', phaseProgress: 100, overallProgress: 100 }
+          })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'c1', description: 'Subtask 1', status: 'completed' },
+                { id: 'c2', description: 'Subtask 2', status: 'completed' }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        // Status should remain human_review, not be recalculated to ai_review
+        expect(useTaskStore.getState().tasks[0].status).toBe('human_review');
+      });
+
+      it('should NOT update status when task is in terminal phase (failed)', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({
+            id: 'task-1',
+            status: 'human_review',
+            executionProgress: { phase: 'failed', phaseProgress: 50, overallProgress: 30 }
+          })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'c1', description: 'Subtask 1', status: 'completed' },
+                { id: 'c2', description: 'Subtask 2', status: 'failed' }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        // Status should remain human_review, not be recalculated
+        expect(useTaskStore.getState().tasks[0].status).toBe('human_review');
+      });
+    });
+
+    // FIX (PR Review): Test coverage for explicit human_review from plan file
+    describe('explicit human_review from plan file', () => {
+      it('should skip status recalculation when plan explicitly sets human_review', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({
+            id: 'task-1',
+            status: 'backlog',
+            executionProgress: undefined
+          })]
+        });
+
+        // Plan explicitly sets status to human_review
+        const plan = {
+          ...createTestPlan({
+            phases: [
+              {
+                phase: 1,
+                name: 'Phase 1',
+                type: 'implementation',
+                subtasks: [
+                  { id: 'c1', description: 'Subtask 1', status: 'completed' },
+                  { id: 'c2', description: 'Subtask 2', status: 'completed' }
+                ]
+              }
+            ]
+          }),
+          status: 'human_review' as const
+        };
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        // Status should remain unchanged (backlog) because when plan explicitly
+        // sets human_review, status recalculation is skipped entirely
+        expect(useTaskStore.getState().tasks[0].status).toBe('backlog');
+      });
+
+      it('should NOT preserve status when plan does not explicitly set human_review', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({
+            id: 'task-1',
+            status: 'backlog',
+            executionProgress: undefined
+          })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'c1', description: 'Subtask 1', status: 'completed' },
+                { id: 'c2', description: 'Subtask 2', status: 'completed' }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        // Status should be recalculated to ai_review since no explicit human_review
+        expect(useTaskStore.getState().tasks[0].status).toBe('ai_review');
+      });
+    });
+
+    // FIX (PR Review): Test coverage for terminal status downgrade prevention
+    describe('terminal status downgrade prevention', () => {
+      it('should NOT downgrade from pr_created to ai_review', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({
+            id: 'task-1',
+            status: 'pr_created',
+            executionProgress: undefined
+          })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'c1', description: 'Subtask 1', status: 'completed' },
+                { id: 'c2', description: 'Subtask 2', status: 'completed' }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        // Status should remain pr_created, not downgrade to ai_review
+        expect(useTaskStore.getState().tasks[0].status).toBe('pr_created');
+      });
+
+      it('should NOT downgrade from done to ai_review', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({
+            id: 'task-1',
+            status: 'done',
+            executionProgress: undefined
+          })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'c1', description: 'Subtask 1', status: 'completed' },
+                { id: 'c2', description: 'Subtask 2', status: 'completed' }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        // Status should remain done, not downgrade to ai_review
+        expect(useTaskStore.getState().tasks[0].status).toBe('done');
+      });
+
+      it('should NOT downgrade from human_review to ai_review', () => {
+        useTaskStore.setState({
+          tasks: [createTestTask({
+            id: 'task-1',
+            status: 'human_review',
+            executionProgress: undefined
+          })]
+        });
+
+        const plan = createTestPlan({
+          phases: [
+            {
+              phase: 1,
+              name: 'Phase 1',
+              type: 'implementation',
+              subtasks: [
+                { id: 'c1', description: 'Subtask 1', status: 'completed' },
+                { id: 'c2', description: 'Subtask 2', status: 'completed' }
+              ]
+            }
+          ]
+        });
+
+        useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+        // Status should remain human_review, not downgrade to ai_review
+        expect(useTaskStore.getState().tasks[0].status).toBe('human_review');
+      });
+    });
+  });
 });

@@ -12,6 +12,8 @@ interface PRReviewState {
   prNumber: number;
   projectId: string;
   isReviewing: boolean;
+  /** Timestamp when the review was started (ISO 8601 string) */
+  startedAt: string | null;
   progress: PRReviewProgress | null;
   result: PRReviewResult | null;
   /** Previous review result - preserved during follow-up review for continuity */
@@ -55,6 +57,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber,
           projectId,
           isReviewing: true,
+          startedAt: new Date().toISOString(),
           progress: null,
           result: null,
           previousResult: null,
@@ -84,6 +87,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber,
           projectId,
           isReviewing: true,
+          startedAt: new Date().toISOString(),
           progress: null,
           result: null,
           previousResult: existing?.result ?? null,  // Preserve for follow-up continuity
@@ -104,6 +108,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber: progress.prNumber,
           projectId,
           isReviewing: true,
+          startedAt: existing?.startedAt ?? null,
           progress,
           result: existing?.result ?? null,
           previousResult: existing?.previousResult ?? null,
@@ -124,6 +129,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber: result.prNumber,
           projectId,
           isReviewing: false,
+          startedAt: existing?.startedAt ?? null,
           progress: null,
           result,
           previousResult: existing?.previousResult ?? null,
@@ -146,6 +152,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber,
           projectId,
           isReviewing: false,
+          startedAt: existing?.startedAt ?? null,
           progress: null,
           result: existing?.result ?? null,
           previousResult: existing?.previousResult ?? null,
@@ -168,6 +175,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
             prNumber,
             projectId,
             isReviewing: false,
+            startedAt: null,
             progress: null,
             result: null,
             previousResult: null,

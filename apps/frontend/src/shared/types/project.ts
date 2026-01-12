@@ -246,12 +246,12 @@ export interface GraphitiMemoryState {
   error_log: Array<{ timestamp: string; error: string }>;
 }
 
-export type MemoryType = 
-  | 'session_insight' 
-  | 'codebase_discovery' 
-  | 'codebase_map' 
-  | 'pattern' 
-  | 'gotcha' 
+export type MemoryType =
+  | 'session_insight'
+  | 'codebase_discovery'
+  | 'codebase_map'
+  | 'pattern'
+  | 'gotcha'
   | 'task_outcome'
   | 'pr_review'
   | 'pr_finding'
