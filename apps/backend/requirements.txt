@@ -1,6 +1,7 @@
 # Auto-Build Framework Dependencies
 claude-agent-sdk>=0.1.16
 python-dotenv>=1.0.0
+requests>=2.28.0  # For OAuth token refresh
 
 # TOML parsing fallback for Python < 3.11
 tomli>=2.0.0; python_version < "3.11"

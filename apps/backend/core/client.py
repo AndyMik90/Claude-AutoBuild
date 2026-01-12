@@ -482,7 +482,9 @@ def create_client(
        (see security.py for ALLOWED_COMMANDS)
     4. Tool filtering - Each agent type only sees relevant tools (prevents misuse)
     """
-    oauth_token = require_auth_token()
+    # Get auth token with verbose output for user feedback during refresh
+    # Token refresh logic is centralized in get_auth_token() to avoid duplication
+    oauth_token = require_auth_token(verbose=True)
     # Ensure SDK can access it via its expected env var
     os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
 
