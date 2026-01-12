@@ -198,6 +198,209 @@ class TestWorktreeCommitAndMerge:
         # Verify file is in main branch
         assert (temp_git_repo / "worker-file.txt").exists()
 
+    def test_merge_worktree_already_up_to_date(self, temp_git_repo: Path):
+        """merge_worktree succeeds when branch is already up to date (ACS-226)."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create a worktree with changes
+        worker_info = manager.create_worktree("worker-spec")
+        (worker_info.path / "worker-file.txt").write_text("worker content")
+        add_result = subprocess.run(["git", "add", "."], cwd=worker_info.path, capture_output=True)
+        assert add_result.returncode == 0, f"git add failed: {add_result.stderr}"
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", "Worker commit"],
+            cwd=worker_info.path, capture_output=True
+        )
+        assert commit_result.returncode == 0, f"git commit failed: {commit_result.stderr}"
+
+        # First merge succeeds
+        result = manager.merge_worktree("worker-spec", delete_after=False)
+        assert result is True
+
+        # Second merge should also succeed (already up to date)
+        result = manager.merge_worktree("worker-spec", delete_after=False)
+        assert result is True
+
+    def test_merge_worktree_already_up_to_date_with_no_commit(self, temp_git_repo: Path):
+        """merge_worktree with no_commit=True succeeds when already up to date (ACS-226)."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create a worktree with changes
+        worker_info = manager.create_worktree("worker-spec")
+        (worker_info.path / "worker-file.txt").write_text("worker content")
+        add_result = subprocess.run(["git", "add", "."], cwd=worker_info.path, capture_output=True)
+        assert add_result.returncode == 0, f"git add failed: {add_result.stderr}"
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", "Worker commit"],
+            cwd=worker_info.path, capture_output=True
+        )
+        assert commit_result.returncode == 0, f"git commit failed: {commit_result.stderr}"
+
+        # First merge with no_commit succeeds
+        result = manager.merge_worktree("worker-spec", no_commit=True, delete_after=False)
+        assert result is True
+
+        # Commit the staged changes
+        merge_commit_result = subprocess.run(
+            ["git", "commit", "-m", "Merge commit"],
+            cwd=temp_git_repo, capture_output=True
+        )
+        assert merge_commit_result.returncode == 0, f"git commit failed: {merge_commit_result.stderr}"
+
+        # Second merge should also succeed (already up to date)
+        result = manager.merge_worktree("worker-spec", no_commit=True, delete_after=False)
+        assert result is True
+
+    def test_merge_worktree_already_up_to_date_with_delete_after(self, temp_git_repo: Path):
+        """merge_worktree with delete_after=True succeeds when already up to date (ACS-226)."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create a worktree with changes
+        worker_info = manager.create_worktree("worker-spec")
+        branch_name = worker_info.branch
+        (worker_info.path / "worker-file.txt").write_text("worker content")
+        add_result = subprocess.run(["git", "add", "."], cwd=worker_info.path, capture_output=True)
+        assert add_result.returncode == 0, f"git add failed: {add_result.stderr}"
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", "Worker commit"],
+            cwd=worker_info.path, capture_output=True
+        )
+        assert commit_result.returncode == 0, f"git commit failed: {commit_result.stderr}"
+
+        # First merge succeeds
+        result = manager.merge_worktree("worker-spec", delete_after=False)
+        assert result is True
+
+        # Second merge with delete_after=True should also succeed and clean up
+        result = manager.merge_worktree("worker-spec", delete_after=True)
+        assert result is True
+
+        # Verify worktree was deleted
+        assert not worker_info.path.exists()
+
+        # Verify branch was deleted
+        branch_list_result = subprocess.run(
+            ["git", "branch", "--list", branch_name],
+            cwd=temp_git_repo, capture_output=True, text=True
+        )
+        assert branch_name not in branch_list_result.stdout, f"Branch {branch_name} should be deleted"
+
+    def test_merge_worktree_conflict_detection(self, temp_git_repo: Path):
+        """merge_worktree correctly detects and handles merge conflicts."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create initial file on base branch
+        (temp_git_repo / "shared.txt").write_text("base content")
+        add_result = subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
+        assert add_result.returncode == 0, f"git add failed: {add_result.stderr}"
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", "Add shared file"],
+            cwd=temp_git_repo, capture_output=True
+        )
+        assert commit_result.returncode == 0, f"git commit failed: {commit_result.stderr}"
+
+        # Create worktree with conflicting change
+        worker_info = manager.create_worktree("worker-spec")
+        (worker_info.path / "shared.txt").write_text("worker content")
+        add_result = subprocess.run(["git", "add", "."], cwd=worker_info.path, capture_output=True)
+        assert add_result.returncode == 0, f"git add failed: {add_result.stderr}"
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", "Worker change"],
+            cwd=worker_info.path, capture_output=True
+        )
+        assert commit_result.returncode == 0, f"git commit failed: {commit_result.stderr}"
+
+        # Make conflicting change on base branch
+        (temp_git_repo / "shared.txt").write_text("base change")
+        add_result = subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
+        assert add_result.returncode == 0, f"git add failed: {add_result.stderr}"
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", "Base change"],
+            cwd=temp_git_repo, capture_output=True
+        )
+        assert commit_result.returncode == 0, f"git commit failed: {commit_result.stderr}"
+
+        # Merge should detect conflict and fail
+        result = manager.merge_worktree("worker-spec", delete_after=False)
+        assert result is False
+
+        # Verify merge was aborted (no merge state exists)
+        # Check that MERGE_HEAD does not exist
+        merge_head_result = subprocess.run(
+            ["git", "rev-parse", "--verify", "MERGE_HEAD"],
+            cwd=temp_git_repo, capture_output=True
+        )
+        assert merge_head_result.returncode != 0, "MERGE_HEAD should not exist after abort"
+
+        # Verify git status shows no unmerged/conflict status codes
+        git_status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=temp_git_repo, capture_output=True, text=True
+        )
+        # Should have no output (clean working directory)
+        assert git_status.returncode == 0
+        assert not git_status.stdout.strip(), f"Expected clean status, got: {git_status.stdout}"
+
+    def test_merge_worktree_conflict_with_no_commit(self, temp_git_repo: Path):
+        """merge_worktree with no_commit=True handles conflicts correctly."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create initial file on base branch
+        (temp_git_repo / "shared.txt").write_text("base content")
+        add_result = subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
+        assert add_result.returncode == 0, f"git add failed: {add_result.stderr}"
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", "Add shared file"],
+            cwd=temp_git_repo, capture_output=True
+        )
+        assert commit_result.returncode == 0, f"git commit failed: {commit_result.stderr}"
+
+        # Create worktree with conflicting change
+        worker_info = manager.create_worktree("worker-spec")
+        (worker_info.path / "shared.txt").write_text("worker content")
+        add_result = subprocess.run(["git", "add", "."], cwd=worker_info.path, capture_output=True)
+        assert add_result.returncode == 0, f"git add failed: {add_result.stderr}"
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", "Worker change"],
+            cwd=worker_info.path, capture_output=True
+        )
+        assert commit_result.returncode == 0, f"git commit failed: {commit_result.stderr}"
+
+        # Make conflicting change on base branch
+        (temp_git_repo / "shared.txt").write_text("base change")
+        add_result = subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
+        assert add_result.returncode == 0, f"git add failed: {add_result.stderr}"
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", "Base change"],
+            cwd=temp_git_repo, capture_output=True
+        )
+        assert commit_result.returncode == 0, f"git commit failed: {commit_result.stderr}"
+
+        # Merge with no_commit should detect conflict and fail
+        result = manager.merge_worktree("worker-spec", no_commit=True, delete_after=False)
+        assert result is False
+
+        # Verify merge was aborted (no merge state exists)
+        # Check that MERGE_HEAD does not exist
+        merge_head_result = subprocess.run(
+            ["git", "rev-parse", "--verify", "MERGE_HEAD"],
+            cwd=temp_git_repo, capture_output=True
+        )
+        assert merge_head_result.returncode != 0, "MERGE_HEAD should not exist after abort"
+
+        # Verify git status shows no staged/unstaged changes
+        git_status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=temp_git_repo, capture_output=True, text=True
+        )
+        assert git_status.returncode == 0
+        assert not git_status.stdout.strip(), f"Expected clean status, got: {git_status.stdout}"
+
 
 class TestChangeTracking:
     """Tests for tracking changes in worktrees."""
