@@ -18,6 +18,17 @@ interface ProjectState {
   activeProjectId: string | null; // Currently active tab
   tabOrder: string[]; // Order of tabs for drag and drop
 
+  // Window management state
+  detachedProjects: Array<{
+    projectId: string;
+    windowId: string;
+  }>;
+  windowContext: {
+    type: 'main' | 'project';
+    projectId?: string;
+    windowId?: string;
+  } | null;
+
   // Actions
   setProjects: (projects: Project[]) => void;
   addProject: (project: Project) => void;
@@ -33,6 +44,12 @@ interface ProjectState {
   setActiveProject: (projectId: string | null) => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   restoreTabState: () => void;
+
+  // Window management actions
+  detachProject: (projectId: string, position?: { x: number; y: number }) => Promise<void>;
+  reattachProject: (projectId: string) => Promise<void>;
+  initWindowContext: () => Promise<void>;
+  isProjectDetached: (projectId: string) => boolean;
 
   // Selectors
   getSelectedProject: () => Project | undefined;
@@ -52,6 +69,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   activeProjectId: null,
   tabOrder: [],
 
+  // Window management state
+  detachedProjects: [],
+  windowContext: null,
+
   setProjects: (projects) => set({ projects }),
 
   addProject: (project) =>
@@ -66,9 +87,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       if (isSelectedProject) {
         localStorage.removeItem(LAST_SELECTED_PROJECT_KEY);
       }
+
+      // Close detached window if exists
+      const detached = state.detachedProjects.find(d => d.projectId === projectId);
+      if (detached) {
+        window.electronAPI.window.closeProjectWindow(projectId).catch(err => {
+          console.error('[ProjectStore] Failed to close detached window:', err);
+        });
+      }
+
       return {
         projects: state.projects.filter((p) => p.id !== projectId),
-        selectedProjectId: isSelectedProject ? null : state.selectedProjectId
+        selectedProjectId: isSelectedProject ? null : state.selectedProjectId,
+        detachedProjects: state.detachedProjects.filter(d => d.projectId !== projectId)
       };
     }),
 
@@ -202,6 +233,73 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       .filter(p => state.openProjectIds.includes(p.id) && !state.tabOrder.includes(p.id));
 
     return [...orderedProjects, ...remainingProjects];
+  },
+
+  // Window management actions
+  detachProject: async (projectId, position) => {
+    console.log('[ProjectStore] Detaching project:', projectId);
+    try {
+      const result = await window.electronAPI.window.detachProject(projectId, position);
+
+      set((state) => ({
+        detachedProjects: [
+          ...state.detachedProjects,
+          { projectId, windowId: result.windowId }
+        ],
+        // Remove from main window tabs
+        openProjectIds: state.openProjectIds.filter(id => id !== projectId),
+        tabOrder: state.tabOrder.filter(id => id !== projectId),
+        // Set new active tab if this was active
+        activeProjectId: state.activeProjectId === projectId
+          ? state.openProjectIds.find(id => id !== projectId) || null
+          : state.activeProjectId
+      }));
+
+      // Save state
+      saveTabStateToMain();
+    } catch (error) {
+      console.error('[ProjectStore] Failed to detach project:', error);
+    }
+  },
+
+  reattachProject: async (projectId) => {
+    console.log('[ProjectStore] Reattaching project:', projectId);
+    try {
+      await window.electronAPI.window.reattachProject(projectId);
+
+      set((state) => ({
+        // Remove from detached
+        detachedProjects: state.detachedProjects.filter(d => d.projectId !== projectId),
+        // Add back to main window tabs
+        openProjectIds: [...state.openProjectIds, projectId],
+        tabOrder: [...state.tabOrder, projectId],
+        activeProjectId: projectId // Make it active
+      }));
+
+      // Save state
+      saveTabStateToMain();
+    } catch (error) {
+      console.error('[ProjectStore] Failed to reattach project:', error);
+    }
+  },
+
+  initWindowContext: async () => {
+    try {
+      const context = await window.electronAPI.window.getContext();
+      console.log('[ProjectStore] Window context:', context);
+      set({ windowContext: context });
+
+      // If this is a project window, make sure the project is set as active
+      if (context.type === 'project' && context.projectId) {
+        set({ activeProjectId: context.projectId });
+      }
+    } catch (error) {
+      console.error('[ProjectStore] Failed to get window context:', error);
+    }
+  },
+
+  isProjectDetached: (projectId) => {
+    return get().detachedProjects.some(d => d.projectId === projectId);
   }
 }));
 
@@ -220,7 +318,8 @@ function saveTabStateToMain(): void {
     const tabState = {
       openProjectIds: store.openProjectIds,
       activeProjectId: store.activeProjectId,
-      tabOrder: store.tabOrder
+      tabOrder: store.tabOrder,
+      detachedProjects: store.detachedProjects
     };
     console.log('[ProjectStore] Saving tab state to main process:', tabState);
     try {
@@ -452,4 +551,33 @@ export async function initializeProject(
     store.setError(error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
+}
+
+/**
+ * Setup IPC event listeners for window events
+ * Call this once during app initialization
+ */
+export function setupWindowEventListeners(): void {
+  // Listen for project detached events
+  window.electronAPI.window.onProjectDetached((projectId, windowId) => {
+    console.log('[ProjectStore] Project detached event:', projectId, windowId);
+    const store = useProjectStore.getState();
+
+    // Update detached list if not already present
+    if (!store.detachedProjects.some(d => d.projectId === projectId)) {
+      useProjectStore.setState(state => ({
+        detachedProjects: [...state.detachedProjects, { projectId, windowId }]
+      }));
+    }
+  });
+
+  // Listen for project reattached events
+  window.electronAPI.window.onProjectReattached((projectId) => {
+    console.log('[ProjectStore] Project reattached event:', projectId);
+    useProjectStore.setState(state => ({
+      detachedProjects: state.detachedProjects.filter(d => d.projectId !== projectId)
+    }));
+  });
+
+  console.log('[ProjectStore] Window event listeners setup complete');
 }

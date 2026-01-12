@@ -50,7 +50,8 @@ import { OnboardingWizard } from './components/onboarding';
 import { AppUpdateNotification } from './components/AppUpdateNotification';
 import { ProactiveSwapListener } from './components/ProactiveSwapListener';
 import { GitHubSetupModal } from './components/GitHubSetupModal';
-import { useProjectStore, loadProjects, addProject, initializeProject, removeProject } from './stores/project-store';
+import { useProjectStore, loadProjects, addProject, initializeProject, removeProject, setupWindowEventListeners } from './stores/project-store';
+import { useCrossWindowDrag } from './hooks/useCrossWindowDrag';
 import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings, loadProfiles } from './stores/settings-store';
 import { useClaudeProfileStore } from './stores/claude-profile-store';
@@ -108,6 +109,10 @@ export function App() {
   const openProjectTab = useProjectStore((state) => state.openProjectTab);
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
   const reorderTabs = useProjectStore((state) => state.reorderTabs);
+  const windowContext = useProjectStore((state) => state.windowContext);
+  const initWindowContext = useProjectStore((state) => state.initWindowContext);
+  const detachProject = useProjectStore((state) => state.detachProject);
+  const reattachProject = useProjectStore((state) => state.reattachProject);
   const tasks = useTaskStore((state) => state.tasks);
   const settings = useSettingsStore((state) => state.settings);
   const settingsLoading = useSettingsStore((state) => state.isLoading);
@@ -159,6 +164,13 @@ export function App() {
   // Track dragging state for overlay
   const [activeDragProject, setActiveDragProject] = useState<Project | null>(null);
 
+  // Cross-window drag detection
+  const dragState = useCrossWindowDrag(
+    detachProject,
+    reattachProject,
+    windowContext?.type || 'main'
+  );
+
   // Get tabs and selected project
   const projectTabs = getProjectTabs();
   const selectedProject = projects.find((p) => p.id === (activeProjectId || selectedProjectId));
@@ -172,6 +184,10 @@ export function App() {
     initializeGitHubListeners();
     // Initialize global download progress listener for Ollama model downloads
     const cleanupDownloadListener = initDownloadProgressListener();
+    // Setup window event listeners for multi-window support
+    setupWindowEventListeners();
+    // Initialize window context (main vs project window)
+    initWindowContext();
 
     return () => {
       cleanupDownloadListener();
@@ -718,11 +734,29 @@ export function App() {
               {/* Drag overlay - shows what's being dragged */}
               <DragOverlay>
                 {activeDragProject && (
-                  <div className="flex items-center gap-2 bg-card border border-border rounded-md px-4 py-2.5 shadow-lg max-w-[200px]">
-                    <div className="w-1 h-4 bg-muted-foreground rounded-full" />
-                    <span className="truncate font-medium text-sm">
-                      {activeDragProject.name}
-                    </span>
+                  <div className={`flex flex-col items-center gap-2 ${
+                    dragState.isDetachThresholdCrossed ? 'detach-mode' : ''
+                  } ${dragState.isOverMainWindow ? 'reattach-mode' : ''}`}>
+                    <div className="flex items-center gap-2 bg-card border border-border rounded-md px-4 py-2.5 shadow-lg max-w-[200px]">
+                      <div className="w-1 h-4 bg-muted-foreground rounded-full" />
+                      <span className="truncate font-medium text-sm">
+                        {activeDragProject.name}
+                      </span>
+                    </div>
+
+                    {/* Visual indicator for detach */}
+                    {dragState.isDetachThresholdCrossed && (
+                      <div className="absolute -bottom-8 bg-primary text-primary-foreground px-3 py-1 rounded-md text-sm font-medium whitespace-nowrap shadow-lg">
+                        ↓ Release to open in new window
+                      </div>
+                    )}
+
+                    {/* Visual indicator for reattach */}
+                    {dragState.isOverMainWindow && (
+                      <div className="absolute -bottom-8 bg-primary text-primary-foreground px-3 py-1 rounded-md text-sm font-medium whitespace-nowrap shadow-lg">
+                        ↑ Release to move back
+                      </div>
+                    )}
                   </div>
                 )}
               </DragOverlay>
