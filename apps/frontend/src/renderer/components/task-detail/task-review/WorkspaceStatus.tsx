@@ -346,7 +346,7 @@ export function WorkspaceStatus({
         {/* Git Conflicts Details */}
         {hasGitConflicts && mergePreview?.gitConflicts && (
           <div className="text-xs text-muted-foreground pl-6">
-            Main branch has {mergePreview.gitConflicts.commitsBehind} new commit{mergePreview.gitConflicts.commitsBehind !== 1 ? 's' : ''}.
+            {mergePreview.gitConflicts.baseBranch} branch has {mergePreview.gitConflicts.commitsBehind} new commit{mergePreview.gitConflicts.commitsBehind !== 1 ? 's' : ''}.
             {mergePreview.gitConflicts.conflictingFiles.length > 0 && (
               <span className="text-warning">
                 {' '}{mergePreview.gitConflicts.conflictingFiles.length} file{mergePreview.gitConflicts.conflictingFiles.length !== 1 ? 's' : ''} need merging.
@@ -358,7 +358,7 @@ export function WorkspaceStatus({
         {/* Branch Behind Details (no explicit conflicts but needs AI merge due to path mappings) */}
         {!hasGitConflicts && isBranchBehind && mergePreview?.gitConflicts && (
           <div className="text-xs text-muted-foreground pl-6">
-            Target branch has {commitsBehind} new commit{commitsBehind !== 1 ? 's' : ''} since this build started.
+            {mergePreview.gitConflicts.baseBranch} branch has {commitsBehind} new commit{commitsBehind !== 1 ? 's' : ''} since this build started.
             {hasPathMappedMerges ? (
               <span className="text-warning">
                 {' '}{pathMappedAIMergeCount} file{pathMappedAIMergeCount !== 1 ? 's' : ''} need AI merge due to {totalRenames} file rename{totalRenames !== 1 ? 's' : ''}.

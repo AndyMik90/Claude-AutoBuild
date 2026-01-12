@@ -72,7 +72,7 @@ export function MergePreviewSummary({
         <div className="mb-3 p-2 bg-warning/10 rounded text-xs border border-warning/30">
           <p className="font-medium text-warning mb-1">Branch has diverged - AI will resolve</p>
           <p className="text-muted-foreground mb-2">
-            The main branch has {mergePreview.gitConflicts.commitsBehind} new commit{mergePreview.gitConflicts.commitsBehind !== 1 ? 's' : ''} since this worktree was created.
+            The {mergePreview.gitConflicts.baseBranch} branch has {mergePreview.gitConflicts.commitsBehind} new commit{mergePreview.gitConflicts.commitsBehind !== 1 ? 's' : ''} since this worktree was created.
             {mergePreview.gitConflicts.conflictingFiles.length} file{mergePreview.gitConflicts.conflictingFiles.length !== 1 ? 's' : ''} will need intelligent merging:
           </p>
           <ul className="list-disc list-inside text-muted-foreground">
