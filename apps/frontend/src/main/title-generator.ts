@@ -3,9 +3,15 @@ import { existsSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
 import { app } from 'electron';
 import { EventEmitter } from 'events';
+import Anthropic from '@anthropic-ai/sdk';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
 import { parsePythonCommand, getValidatedPythonPath } from './python-detector';
 import { getConfiguredPythonPath } from './python-env-manager';
+import { loadProfilesFile } from './services/profile/profile-manager';
+import { MODEL_ID_MAP } from '../shared/constants/models';
+
+/** Default Haiku model ID from centralized model map */
+const DEFAULT_HAIKU_MODEL = MODEL_ID_MAP.haiku;
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -115,11 +121,179 @@ export class TitleGenerator extends EventEmitter {
   }
 
   /**
-   * Generate a task title from a description using Claude AI
+   * Get the active API profile configuration for direct API calls.
+   * Returns null if no API profile is active (OAuth mode).
+   * 
+   * @returns Promise resolving to the profile configuration with apiKey, baseUrl, and haikuModel,
+   *          or null if no API profile is active
+   */
+  private async getActiveAPIProfile(): Promise<{
+    apiKey: string;
+    baseUrl: string;
+    haikuModel: string;
+  } | null> {
+    try {
+      const file = await loadProfilesFile();
+
+      // If no active profile (null/empty), return null (OAuth mode)
+      if (!file.activeProfileId || file.activeProfileId === '') {
+        return null;
+      }
+
+      // Find active profile by activeProfileId
+      const profile = file.profiles.find((p) => p.id === file.activeProfileId);
+
+      // If profile not found, return null
+      if (!profile || !profile.apiKey) {
+        return null;
+      }
+
+      return {
+        apiKey: profile.apiKey,
+        baseUrl: profile.baseUrl || 'https://api.anthropic.com',
+        haikuModel: profile.models?.haiku || DEFAULT_HAIKU_MODEL
+      };
+    } catch (error) {
+      debug('Failed to load API profile:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Generate title using the Anthropic SDK directly (for API profile mode).
+   * This is faster and doesn't require Python subprocess.
+   * 
+   * @param description - The task description to generate a title from
+   * @param apiKey - The Anthropic API key for authentication
+   * @param baseUrl - The base URL for the Anthropic API
+   * @param model - The model ID to use for generation (e.g., 'claude-haiku-4-5-20251001')
+   * @returns Promise resolving to the generated title or null on failure
+   */
+  private async generateTitleWithSDK(
+    description: string,
+    apiKey: string,
+    baseUrl: string,
+    model: string
+  ): Promise<string | null> {
+    try {
+      debug('Generating title with Anthropic SDK', { baseUrl, model });
+
+      const client = new Anthropic({
+        apiKey,
+        baseURL: baseUrl,
+        timeout: 30000, // 30 second timeout
+        maxRetries: 1
+      });
+
+      const prompt = this.createTitlePrompt(description);
+
+      const response = await client.messages.create({
+        model,
+        max_tokens: 100,
+        system: 'You generate short, concise task titles (3-7 words). Output ONLY the title, nothing else. No quotes, no explanation, no preamble.',
+        messages: [{ role: 'user', content: prompt }]
+      });
+
+      // Extract text from response
+      const textContent = response.content.find((block) => block.type === 'text');
+      if (textContent && textContent.type === 'text' && textContent.text) {
+        const title = this.cleanTitle(textContent.text.trim());
+        debug('Generated title with SDK:', title);
+        return title;
+      }
+
+      debug('No text content in SDK response');
+      return null;
+    } catch (error) {
+      // Extract error details for logging
+      const err = error as { name?: string; status?: number; message?: string };
+      const errorType = err?.name || 'UnknownError';
+      const status = err?.status;
+      const message = err?.message || String(error);
+
+      // Check for rate limit conditions using detectRateLimit for consistency with OAuth path
+      const rateLimitDetection = detectRateLimit(message);
+      const isRateLimit = rateLimitDetection.isRateLimited || 
+        status === 429 || 
+        /rate\s*limit/i.test(message) || 
+        /too\s*many\s*requests/i.test(message);
+
+      // Log with appropriate detail (indicate truncation if message is long)
+      const truncatedMessage = message.length > 200 
+        ? message.substring(0, 197) + '...' 
+        : message;
+      
+      console.warn('[TitleGenerator] SDK title generation failed', {
+        errorType,
+        status,
+        message: truncatedMessage,
+        isRateLimited: isRateLimit
+      });
+
+      // Emit rate limit event if detected (consistent with OAuth path behavior)
+      if (isRateLimit && rateLimitDetection.isRateLimited) {
+        const rateLimitInfo = createSDKRateLimitInfo('title-generator', rateLimitDetection);
+        this.emit('sdk-rate-limit', rateLimitInfo);
+      }
+
+      return null;
+    }
+  }
+
+  /**
+   * Generate a task title from a description using Claude AI.
+   * 
+   * Authentication priority:
+   * 1. Active API profile (uses Anthropic SDK directly with profile's haiku model,
+   *    or the default from MODEL_ID_MAP if no haiku model configured)
+   * 2. ANTHROPIC_API_KEY environment variable (uses Anthropic SDK directly with
+   *    ANTHROPIC_DEFAULT_HAIKU_MODEL or the default from MODEL_ID_MAP)
+   * 3. OAuth token (uses Claude Agent SDK via Python subprocess)
+   * 
    * @param description - The task description to generate a title from
    * @returns Promise resolving to the generated title or null on failure
    */
   async generateTitle(description: string): Promise<string | null> {
+    debug('Generating title for description:', description.substring(0, 100) + '...');
+
+    // Priority 1: Try active API profile first
+    const apiProfile = await this.getActiveAPIProfile();
+    if (apiProfile) {
+      debug('Using active API profile for title generation');
+      const title = await this.generateTitleWithSDK(
+        description,
+        apiProfile.apiKey,
+        apiProfile.baseUrl,
+        apiProfile.haikuModel
+      );
+      if (title) {
+        return title;
+      }
+      debug('API profile generation failed, falling back...');
+    }
+
+    // Priority 2: Try ANTHROPIC_API_KEY environment variable
+    const envApiKey = process.env.ANTHROPIC_API_KEY;
+    if (envApiKey) {
+      debug('Using ANTHROPIC_API_KEY environment variable for title generation');
+      const baseUrl = process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
+      const model = process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || DEFAULT_HAIKU_MODEL;
+      const title = await this.generateTitleWithSDK(description, envApiKey, baseUrl, model);
+      if (title) {
+        return title;
+      }
+      debug('Environment API key generation failed, falling back...');
+    }
+
+    // Priority 3: Fall back to OAuth-based Python subprocess
+    return this.generateTitleWithOAuth(description);
+  }
+
+  /**
+   * Generate title using OAuth token via Python subprocess (original implementation).
+   * This uses the Claude Agent SDK which requires OAuth authentication.
+   */
+  private async generateTitleWithOAuth(description: string): Promise<string | null> {
     const autoBuildSource = this.getAutoBuildSourcePath();
 
     if (!autoBuildSource) {
@@ -129,8 +303,6 @@ export class TitleGenerator extends EventEmitter {
 
     const prompt = this.createTitlePrompt(description);
     const script = this.createGenerationScript(prompt);
-
-    debug('Generating title for description:', description.substring(0, 100) + '...');
 
     const autoBuildEnv = this.loadAutoBuildEnv();
     debug('Environment loaded', {
