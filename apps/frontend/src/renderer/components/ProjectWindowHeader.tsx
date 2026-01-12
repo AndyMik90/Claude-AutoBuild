@@ -28,7 +28,10 @@ export function ProjectWindowHeader({ projectId }: ProjectWindowHeaderProps) {
   if (!project) return null;
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 pt-12 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div
+      className="flex items-center justify-between px-4 py-2 pt-12 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+    >
       {/* Project info */}
       <div className="flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-primary"></div>
@@ -38,23 +41,25 @@ export function ProjectWindowHeader({ projectId }: ProjectWindowHeaderProps) {
         </span>
       </div>
 
-      {/* Move to main button */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleMoveToMain}
-            className="gap-2"
-          >
-            <ArrowLeftToLine className="w-4 h-4" />
-            {t('common:projectWindow.moveToMain')}
-          </Button>
-        </TooltipTrigger>
+      {/* Move to main button - no-drag so it's clickable */}
+      <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMoveToMain}
+              className="gap-2"
+            >
+              <ArrowLeftToLine className="w-4 h-4" />
+              {t('common:projectWindow.moveToMain')}
+            </Button>
+          </TooltipTrigger>
         <TooltipContent>
           {t('common:projectWindow.moveToMainTooltip')} (⌘M)
         </TooltipContent>
       </Tooltip>
+      </div>
     </div>
   );
 }
