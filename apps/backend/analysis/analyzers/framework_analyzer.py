@@ -207,6 +207,32 @@ class FrameworkAnalyzer(BaseAnalyzer):
         elif "@emotion/react" in deps_lower:
             self.analysis["styling"] = "Emotion"
 
+        # UI Component Libraries / Design Systems
+        ui_libraries = []
+        if any(k.startswith("@radix-ui/") for k in deps_lower):
+            # Check if it's shadcn/ui (uses Radix + has components directory)
+            if self._exists("components.json") or self._exists("src/components/ui"):
+                ui_libraries.append("shadcn/ui")
+            else:
+                ui_libraries.append("Radix UI")
+        if "@mui/material" in deps_lower or "@mui/core" in deps_lower:
+            ui_libraries.append("Material UI")
+        if "antd" in deps_lower or "ant-design" in deps_lower:
+            ui_libraries.append("Ant Design")
+        if "@chakra-ui/react" in deps_lower:
+            ui_libraries.append("Chakra UI")
+        if "@mantine/core" in deps_lower:
+            ui_libraries.append("Mantine")
+        if "react-bootstrap" in deps_lower:
+            ui_libraries.append("React Bootstrap")
+        if "@headlessui/react" in deps_lower:
+            ui_libraries.append("Headless UI")
+        if "@nextui-org/react" in deps_lower:
+            ui_libraries.append("NextUI")
+
+        if ui_libraries:
+            self.analysis["ui_library"] = ", ".join(ui_libraries)
+
         # State management
         if "zustand" in deps_lower:
             self.analysis["state_management"] = "Zustand"

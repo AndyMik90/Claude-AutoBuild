@@ -94,6 +94,43 @@ Before creating the implementation plan, explicitly document:
 
 **If you skip this phase, your plan will be wrong.**
 
+### 0.4: Identify UI Framework (Frontend Tasks Only)
+
+**CRITICAL FOR FRONTEND FEATURES**: If your task involves building UI components or frontend features, you MUST identify the project's UI framework and component library BEFORE planning.
+
+The project's UI framework info is automatically provided in `service_contexts` for frontend services. Check:
+
+```bash
+cat project_index.json | jq '.services[] | select(.type == "frontend") | {framework, styling, ui_library}'
+```
+
+**Key fields to look for:**
+- `styling`: CSS framework (e.g., "Tailwind CSS", "styled-components", "Emotion")
+- `ui_library`: Component library (e.g., "shadcn/ui", "Material UI", "Chakra UI", "Ant Design")
+- `ui_framework_instructions`: Custom instructions for using UI components
+- `component_path`: Import path prefix (e.g., "@/components/ui")
+
+**Planning Guidelines:**
+1. **Always use existing UI components** from the detected library - never create custom buttons, inputs, modals if they exist in the component library
+2. **Follow the component import patterns** - use the correct component_path prefix
+3. **Match the styling approach** - if Tailwind CSS is used, use Tailwind classes; if styled-components, use styled components
+4. **Study existing components** - before planning new UI, read 2-3 existing component files to understand the project's patterns
+
+**Example pattern discovery:**
+```bash
+# If shadcn/ui is detected, find existing component usage
+grep -r "from.*@/components/ui" --include="*.tsx" --include="*.ts" . | head -20
+
+# Study how buttons are used
+cat src/components/SomeFeature.tsx | grep -A 5 -B 5 "Button"
+```
+
+**In your subtasks:**
+- ✅ GOOD: "Create TaskCard component using Button from @/components/ui/button and Card from @/components/ui/card"
+- ❌ BAD: "Create TaskCard component with custom button and card styling"
+
+**If UI framework is NOT detected** (rare), you may create custom components, but document this clearly in the plan.
+
 ---
 
 ## PHASE 1: READ AND CREATE CONTEXT FILES

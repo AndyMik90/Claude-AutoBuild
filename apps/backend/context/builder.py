@@ -225,6 +225,8 @@ class ContextBuilder:
         service_info: dict,
     ) -> dict:
         """Get or generate context for a service."""
+        import os
+
         # Check for SERVICE_CONTEXT.md
         context_file = service_path / "SERVICE_CONTEXT.md"
         if context_file.exists():
@@ -234,7 +236,7 @@ class ContextBuilder:
             }
 
         # Generate basic context from service info
-        return {
+        context = {
             "source": "generated",
             "language": service_info.get("language"),
             "framework": service_info.get("framework"),
@@ -242,3 +244,26 @@ class ContextBuilder:
             "entry_point": service_info.get("entry_point"),
             "key_directories": service_info.get("key_directories", {}),
         }
+
+        # Add UI framework info for frontend services
+        if service_info.get("type") == "frontend":
+            # Get styling framework (auto-detected or from ENV override)
+            styling = os.environ.get("UI_FRAMEWORK_STYLING") or service_info.get("styling")
+            if styling:
+                context["styling"] = styling
+
+            # Get UI component library (auto-detected or from ENV override)
+            ui_library = os.environ.get("UI_FRAMEWORK_LIBRARY") or service_info.get("ui_library")
+            if ui_library:
+                context["ui_library"] = ui_library
+
+            # Get custom UI framework instructions from ENV
+            ui_instructions = os.environ.get("UI_FRAMEWORK_INSTRUCTIONS")
+            if ui_instructions:
+                context["ui_framework_instructions"] = ui_instructions
+
+            # Get component path prefix (from ENV or default)
+            component_path = os.environ.get("UI_FRAMEWORK_COMPONENT_PATH", "@/components")
+            context["component_path"] = component_path
+
+        return context

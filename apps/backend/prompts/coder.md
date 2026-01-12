@@ -316,6 +316,63 @@ Understand:
 cat [service-path]/SERVICE_CONTEXT.md 2>/dev/null || echo "No service context"
 ```
 
+### 5.35: Check UI Framework (Frontend Tasks Only)
+
+**CRITICAL FOR FRONTEND SUBTASKS**: If you're implementing UI components or frontend features, check the UI framework configuration BEFORE writing code.
+
+The project's UI framework info is available in `context.json` under `service_contexts.[service-name]`:
+
+```bash
+# Check UI framework for frontend service
+cat context.json | jq '.service_contexts.frontend | {styling, ui_library, component_path, ui_framework_instructions}'
+```
+
+**Key information:**
+- `styling`: CSS framework (e.g., "Tailwind CSS", "styled-components")
+- `ui_library`: Component library (e.g., "shadcn/ui", "Material UI", "Chakra UI")
+- `component_path`: Import path prefix (e.g., "@/components/ui")
+- `ui_framework_instructions`: Custom project-specific UI guidelines
+
+**Implementation Rules:**
+1. **Always import components from the detected library** - Never create custom buttons, inputs, dialogs, cards if they exist in the UI library
+2. **Use the correct import path** - Follow `component_path` prefix (e.g., `@/components/ui/button`)
+3. **Match the styling approach** - Use Tailwind classes if Tailwind is detected, styled-components if that's the framework
+4. **Follow component patterns** - Read existing UI code to see how components are composed
+
+**Example:**
+```typescript
+// ✅ GOOD - Using shadcn/ui components with Tailwind
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+
+export function TaskCard() {
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Task Title</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Button variant="default">Action</Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ❌ BAD - Creating custom button with inline styles
+export function TaskCard() {
+  return (
+    <div style={{ border: "1px solid gray" }}>
+      <button style={{ background: "blue" }}>Action</button>
+    </div>
+  );
+}
+```
+
+**Before implementing any UI:**
+1. Check if the component exists in the UI library
+2. Read 1-2 existing component files to understand composition patterns
+3. Use Context7 to look up component documentation if needed
+
 ### 5.4: Look Up External Library Documentation (Use Context7)
 
 **If your subtask involves external libraries or APIs**, use Context7 to get accurate documentation BEFORE implementing.
