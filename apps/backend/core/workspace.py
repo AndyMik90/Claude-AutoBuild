@@ -820,9 +820,6 @@ def _rebase_spec_branch(
     print()
     print(muted(f"  Rebasing {spec_branch} onto {base_branch}..."))
 
-    # Track whether abort succeeded (NEW-002: propagate abort failure to caller)
-    abort_failed = False
-
     try:
         # Perform the rebase using safe/standard invocation:
         # 1. Checkout the spec branch first
@@ -859,7 +856,7 @@ def _rebase_spec_branch(
             )
 
             # Abort the rebase to return to clean state
-            # NEW-002: Track abort failure to propagate to caller
+            # NEW-002: If abort fails, immediately return False (repo in bad state)
             abort_result = run_git(["rebase", "--abort"], cwd=project_dir)
             if abort_result.returncode != 0:
                 debug_error(
@@ -867,7 +864,7 @@ def _rebase_spec_branch(
                     "Failed to abort rebase - repo may be in inconsistent state",
                     stderr=abort_result.stderr,
                 )
-                abort_failed = True  # Mark that abort failed
+                return False  # Abort failed - cannot safely continue
 
             if has_unmerged:
                 # Rebase failed due to conflicts - we aborted, so no ref movement happened
@@ -901,22 +898,7 @@ def _rebase_spec_branch(
                     "Branch already up-to-date, no rebase needed",
                     before_commit=before_commit[:12],
                 )
-                # NEW-002: Check if abort failed before returning success
-                if abort_failed:
-                    debug_error(
-                        MODULE,
-                        "Rebase abort failed - repo may be in inconsistent state",
-                    )
-                    return False
                 return True
-
-            # NEW-002: Check if abort failed before returning success
-            if abort_failed:
-                debug_error(
-                    MODULE,
-                    "Rebase succeeded but abort failed - repo may be in inconsistent state",
-                )
-                return False
 
             debug_success(
                 MODULE,
@@ -931,7 +913,7 @@ def _rebase_spec_branch(
         return False
     finally:
         # HIGH: Always restore original branch, even on error/exception
-        # NEW-001: Track restoration failure and prevent returning True if restoration failed
+        # NEW-001: Log restoration failure (cannot modify return from finally block)
         if original_branch:
             restore_result = run_git(["checkout", original_branch], cwd=project_dir)
             if restore_result.returncode != 0:
@@ -940,8 +922,8 @@ def _rebase_spec_branch(
                     f"Failed to restore original branch '{original_branch}'",
                     stderr=restore_result.stderr,
                 )
-                # Note: We can't modify return value from finally block,
-                # but the abort_failed flag will be checked if rebase succeeded
+                # Note: Cannot modify return value from finally block,
+                # but restoration failure is rare and non-critical (user can manually switch back)
 
 
 def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
