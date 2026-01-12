@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Globe, Trash2, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { FileText, Globe, Trash2, CheckCircle2, AlertCircle, Loader2, RefreshCw, Search } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
@@ -20,6 +20,7 @@ interface UIFrameworkDocsSectionProps {
   settings: ProjectSettings;
   onUpdateConfig: (updates: Partial<ProjectEnvConfig>) => void;
   projectPath: string;
+  projectId: string;
 }
 
 /**
@@ -34,10 +35,12 @@ export function UIFrameworkDocsSection({
   settings,
   onUpdateConfig,
   projectPath,
+  projectId,
 }: UIFrameworkDocsSectionProps) {
   const [cachedDocs, setCachedDocs] = useState<DocsCacheInfo[]>([]);
   const [isLoadingCache, setIsLoadingCache] = useState(false);
   const [isDeletingCache, setIsDeletingCache] = useState<string | null>(null);
+  const [isDetecting, setIsDetecting] = useState(false);
 
   // Load cached documentation info
   const loadCachedDocs = async () => {
@@ -80,6 +83,23 @@ export function UIFrameworkDocsSection({
 
   const handleRefreshCache = async () => {
     await loadCachedDocs();
+  };
+
+  const handleDetectFramework = async () => {
+    setIsDetecting(true);
+    try {
+      const result = await window.electronAPI.refreshProjectIndex(projectId);
+      if (result.success) {
+        // Reload the page to show updated framework detection
+        window.location.reload();
+      } else {
+        console.error('Failed to detect UI framework:', result.error);
+      }
+    } catch (error) {
+      console.error('Failed to detect UI framework:', error);
+    } finally {
+      setIsDetecting(false);
+    }
   };
 
   const hasFirecrawlKey = !!envConfig.firecrawlApiKey;
@@ -146,6 +166,32 @@ export function UIFrameworkDocsSection({
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Detect UI Framework Button */}
+        <div className="space-y-3">
+          <Label className="text-sm font-semibold text-foreground">Framework Detection</Label>
+          <Button
+            variant="outline"
+            onClick={handleDetectFramework}
+            disabled={isDetecting}
+            className="w-full"
+          >
+            {isDetecting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Detecting UI Frameworks...
+              </>
+            ) : (
+              <>
+                <Search className="mr-2 h-4 w-4" />
+                Detect UI Frameworks
+              </>
+            )}
+          </Button>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Scan project files to detect UI component libraries and frameworks
+          </p>
         </div>
 
         {/* Current UI Framework */}

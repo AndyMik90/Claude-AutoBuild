@@ -215,6 +215,7 @@ export function SectionRouter({
               settings={settings}
               onUpdateConfig={updateEnvConfig}
               projectPath={project.path}
+              projectId={project.id}
             />
           </InitializationGuard>
         </SettingsSection>

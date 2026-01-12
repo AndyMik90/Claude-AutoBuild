@@ -51,7 +51,7 @@ const FullScreenDialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         className={cn(
-          'absolute right-4 top-4 rounded-lg p-2',
+          'absolute right-4 top-6 rounded-lg p-2',
           'text-muted-foreground hover:text-foreground',
           'hover:bg-accent transition-colors',
           'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background',
@@ -73,6 +73,7 @@ const FullScreenDialogHeader = ({
   <div
     className={cn(
       'flex flex-col space-y-1.5 p-6 pb-4 border-b border-border',
+      'bg-gradient-to-r from-primary/20 via-primary/10 to-transparent',
       className
     )}
     {...props}

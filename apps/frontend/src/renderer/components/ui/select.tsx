@@ -17,7 +17,7 @@ const SelectTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       'flex h-10 w-full items-center justify-between rounded-lg',
-      'border border-border bg-card px-3 py-2 text-sm',
+      'border border-border px-3 py-2 text-sm',
       'text-foreground placeholder:text-muted-foreground',
       'focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary',
       'disabled:cursor-not-allowed disabled:opacity-50',
@@ -25,6 +25,7 @@ const SelectTrigger = React.forwardRef<
       '[&>span]:line-clamp-1',
       className
     )}
+    style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}
     {...props}
   >
     {children}

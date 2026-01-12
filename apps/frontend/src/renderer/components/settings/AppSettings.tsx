@@ -249,7 +249,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
             </div>
 
             {/* Tab Switcher */}
-            <div className="flex gap-2 bg-muted/30 p-1 rounded-lg">
+            <div className="flex gap-2 bg-muted/30 p-1 rounded-lg mr-12">
               <button
                 onClick={() => setActiveTopLevel('app')}
                 className={cn(
