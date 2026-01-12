@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useDndMonitor, DragEndEvent, DragMoveEvent } from '@dnd-kit/core';
+import { useProjectStore } from '../stores/project-store';
 
 /**
  * State for cross-window drag detection
@@ -30,6 +31,9 @@ export function useCrossWindowDrag(
     isOverMainWindow: false,
     dragDistance: { x: 0, y: 0 }
   });
+
+  // Get open tabs count from store
+  const openProjectIds = useProjectStore(state => state.openProjectIds);
 
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
   const accumulatedDistance = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -161,13 +165,13 @@ export function useCrossWindowDrag(
 
       // Main window: detach if threshold crossed AND not the last tab
       if (windowType === 'main' && dragState.isDetachThresholdCrossed) {
-        // Get the current open tabs count from the window
-        const tabsContainer = document.querySelector('[role="tablist"]');
-        const tabCount = tabsContainer?.querySelectorAll('[role="tab"]').length || 0;
+        // Get the current open tabs count from store
+        const tabCount = openProjectIds.length;
 
         console.log('[useCrossWindowDrag] Detach attempt', {
           projectId,
           tabCount,
+          openProjectIds,
           thresholdCrossed: dragState.isDetachThresholdCrossed
         });
 
