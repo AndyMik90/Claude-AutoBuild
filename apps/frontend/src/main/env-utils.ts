@@ -546,3 +546,22 @@ export function getSpawnCommand(command: string): string {
   }
   return trimmed;
 }
+
+/**
+ * Get augmented environment with non-interactive Git settings
+ * Prevents Git Credential Manager and other interactive prompts
+ *
+ * Use this for all git/gh CLI operations that should not prompt the user
+ *
+ * @returns Environment object with PATH augmentation and non-interactive flags
+ * @example
+ * execFileSync('git', ['fetch'], { env: getNonInteractiveGitEnv() })
+ * execFileSync('gh', ['--version'], { env: getNonInteractiveGitEnv() })
+ */
+export function getNonInteractiveGitEnv(): NodeJS.ProcessEnv {
+  return {
+    ...getAugmentedEnv(),
+    GIT_TERMINAL_PROMPT: '0',
+    GCM_INTERACTIVE: 'never'
+  };
+}
