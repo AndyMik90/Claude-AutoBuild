@@ -189,6 +189,16 @@ playwright_screenshot({
 })
 ```
 
+**CRITICAL**: After taking a screenshot, **YOU WILL SEE THE IMAGE** in the tool response.
+**ANALYZE THE VISUAL CONTENT** and verify:
+- Does the UI match the acceptance criteria?
+- Are all required elements visible?
+- Is the layout correct?
+- Are there any visual bugs (broken styling, overlapping elements, etc.)?
+- Do colors, fonts, and spacing match the design?
+
+If the screenshot shows issues, **DOCUMENT THEM IN YOUR QA REPORT** and mark as FAIL.
+
 ### 4.2: Console Error Check (CRITICAL)
 
 Use Playwright to check for JavaScript errors:

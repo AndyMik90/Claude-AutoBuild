@@ -7,6 +7,7 @@ Manages browser lifecycle, executes automation commands, and captures results.
 """
 
 import asyncio
+import base64
 import json
 import logging
 from pathlib import Path
@@ -179,7 +180,7 @@ async def execute_screenshot(
         full_page: Capture full scrollable page
 
     Returns:
-        Result dict with screenshot path
+        Result dict with screenshot path and base64-encoded image for Claude to verify
     """
     try:
         page = await get_page()
@@ -206,11 +207,19 @@ async def execute_screenshot(
             await page.screenshot(path=str(screenshot_path), full_page=full_page)
             logger.info(f"Page screenshot saved: {path} (full_page={full_page})")
 
+        # Read screenshot and encode as base64 for Claude to verify
+        with open(screenshot_path, "rb") as f:
+            screenshot_bytes = f.read()
+            screenshot_base64 = base64.b64encode(screenshot_bytes).decode("utf-8")
+
         return {
             "success": True,
             "path": str(screenshot_path.absolute()),
             "selector": selector,
             "full_page": full_page,
+            # Include base64-encoded image so Claude can see and verify the screenshot
+            "image_base64": screenshot_base64,
+            "media_type": "image/png",
         }
 
     except Exception as e:
