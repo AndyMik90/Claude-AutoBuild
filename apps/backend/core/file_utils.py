@@ -81,7 +81,10 @@ def atomic_write(
         except Exception as cleanup_err:
             # Best-effort cleanup, ignore errors to not mask original exception
             # Log cleanup failure for debugging (orphaned temp files may accumulate)
-            logging.warning(f"Failed to cleanup temp file {tmp_path}: {cleanup_err}")
+            logging.warning(
+                f"Failed to cleanup temp file {tmp_path}: {cleanup_err}",
+                exc_info=True,
+            )
         raise
     else:
         # Atomic replace - only runs if no exception was raised
