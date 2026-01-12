@@ -18,6 +18,21 @@ import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ip
 import { transformRoadmapFromSnakeCase } from '../ipc-handlers/roadmap/transformers';
 import type { RawIdea } from '../ipc-handlers/ideation/types';
 
+/** Maximum length for status messages displayed in progress UI */
+const STATUS_MESSAGE_MAX_LENGTH = 200;
+
+/**
+ * Formats a raw log line for display as a status message.
+ * Strips ANSI escape codes, extracts the first line, and truncates to max length.
+ *
+ * @param log - Raw log output from backend process
+ * @returns Formatted status message safe for UI display
+ */
+function formatStatusMessage(log: string): string {
+  if (!log) return '';
+  return stripAnsiCodes(log.trim()).split('\n')[0].substring(0, STATUS_MESSAGE_MAX_LENGTH);
+}
+
 /**
  * Queue management for ideation and roadmap generation
  */
@@ -424,7 +439,7 @@ export class AgentQueueManager {
       progressPercent = progressUpdate.progress;
 
       // Emit progress update with a clean message for the status bar
-      const statusMessage = stripAnsiCodes(log.trim()).split('\n')[0].substring(0, 200);
+      const statusMessage = formatStatusMessage(log);
       this.emitter.emit('ideation-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
@@ -443,7 +458,7 @@ export class AgentQueueManager {
       this.emitter.emit('ideation-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: stripAnsiCodes(log.trim()).split('\n')[0].substring(0, 200)
+        message: formatStatusMessage(log)
       });
     });
 
@@ -686,7 +701,7 @@ export class AgentQueueManager {
       this.emitter.emit('roadmap-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: stripAnsiCodes(log.trim()).split('\n')[0].substring(0, 200) // Extract first line, then truncate
+        message: formatStatusMessage(log)
       });
     });
 
@@ -700,7 +715,7 @@ export class AgentQueueManager {
       this.emitter.emit('roadmap-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: stripAnsiCodes(log.trim()).split('\n')[0].substring(0, 200)
+        message: formatStatusMessage(log)
       });
     });
 
