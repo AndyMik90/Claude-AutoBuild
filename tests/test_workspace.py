@@ -719,7 +719,7 @@ class TestRebaseSpecBranch:
         assert "Main commit" in log, "Spec branch should have main commit after rebase"
 
     def test_rebase_spec_branch_with_conflicts_aborts_cleanly(self, temp_git_repo: Path):
-        """_rebase_spec_branch handles conflicts by aborting and returning True (ACS-224)."""
+        """_rebase_spec_branch handles conflicts by aborting and returning False (ACS-224)."""
         from core.workspace import _rebase_spec_branch
 
         # Create a spec branch
@@ -756,12 +756,19 @@ class TestRebaseSpecBranch:
         # Rebase should handle conflict by aborting
         result = _rebase_spec_branch(temp_git_repo, "test-spec", "main")
 
-        # Should return True (conflicts are expected, AI will handle them)
-        assert result is True, "Rebase with conflicts should return True (AI will resolve)"
+        # Should return False (rebase was aborted due to conflicts, no ref movement)
+        assert result is False, "Rebase with conflicts should return False after abort"
 
         # Verify we're not in a rebase state (was aborted)
-        rebase_dir = temp_git_repo / ".git" / "rebase-merge"
-        assert not rebase_dir.exists(), "Should not be in rebase state after abort"
+        # Check both possible rebase state directories across git versions
+        rebase_merge_dir = temp_git_repo / ".git" / "rebase-merge"
+        rebase_apply_dir = temp_git_repo / ".git" / "rebase-apply"
+        assert not rebase_merge_dir.exists(), (
+            "Should not be in rebase-merge state after abort"
+        )
+        assert not rebase_apply_dir.exists(), (
+            "Should not be in rebase-apply state after abort"
+        )
 
     def test_rebase_spec_branch_invalid_branch(self, temp_git_repo: Path):
         """_rebase_spec_branch handles invalid branch gracefully (ACS-224)."""
