@@ -19,9 +19,126 @@ import os
 import re
 import shutil
 import subprocess
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import TypedDict, TypeVar
+
+from core.git_executable import get_git_executable, run_git
+from debug import debug_warning
+
+T = TypeVar("T")
+
+
+def _is_retryable_network_error(stderr: str) -> bool:
+    """Check if an error is a retryable network/connection issue."""
+    stderr_lower = stderr.lower()
+    return any(
+        term in stderr_lower
+        for term in ["connection", "network", "timeout", "reset", "refused"]
+    )
+
+
+def _is_retryable_http_error(stderr: str) -> bool:
+    """
+    Check if an HTTP error is retryable (5xx errors, timeouts).
+    Excludes auth errors (401, 403) and client errors (404, 422).
+    """
+    stderr_lower = stderr.lower()
+    # Check for HTTP 5xx errors (server errors are retryable)
+    if re.search(r"http[s]?\s*5\d{2}", stderr_lower):
+        return True
+    # Check for HTTP timeout patterns
+    if "http" in stderr_lower and "timeout" in stderr_lower:
+        return True
+    return False
+
+
+def _with_retry(
+    operation: Callable[[], tuple[bool, T | None, str]],
+    max_retries: int = 3,
+    is_retryable: Callable[[str], bool] | None = None,
+    on_retry: Callable[[int, str], None] | None = None,
+) -> tuple[T | None, str]:
+    """
+    Execute an operation with retry logic.
+
+    Args:
+        operation: Function that returns a tuple of (success: bool, result: T | None, error: str).
+                   On success (success=True), result contains the value and error is empty.
+                   On failure (success=False), result is None and error contains the message.
+        max_retries: Maximum number of retry attempts
+        is_retryable: Function to check if error is retryable based on error message
+        on_retry: Optional callback called before each retry with (attempt, error)
+
+    Returns:
+        Tuple of (result, last_error) where result is T on success, None on failure
+    """
+    last_error = ""
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            success, result, error = operation()
+            if success:
+                return result, ""
+
+            last_error = error
+
+            # Check if error is retryable
+            if is_retryable and attempt < max_retries and is_retryable(error):
+                if on_retry:
+                    on_retry(attempt, error)
+                backoff = 2 ** (attempt - 1)
+                time.sleep(backoff)
+                continue
+
+            break
+
+        except subprocess.TimeoutExpired:
+            last_error = "Operation timed out"
+            if attempt < max_retries:
+                if on_retry:
+                    on_retry(attempt, last_error)
+                backoff = 2 ** (attempt - 1)
+                time.sleep(backoff)
+                continue
+            break
+
+    return None, last_error
+
+
+class PushBranchResult(TypedDict, total=False):
+    """Result of pushing a branch to remote."""
+
+    success: bool
+    branch: str
+    remote: str
+    error: str
+
+
+class PullRequestResult(TypedDict, total=False):
+    """Result of creating a pull request."""
+
+    success: bool
+    pr_url: str | None  # None when PR was created but URL couldn't be extracted
+    already_exists: bool
+    error: str
+    message: str
+
+
+class PushAndCreatePRResult(TypedDict, total=False):
+    """Result of push_and_create_pr operation."""
+
+    success: bool
+    pushed: bool
+    remote: str
+    branch: str
+    pr_url: str | None  # None when PR was created but URL couldn't be extracted
+    already_exists: bool
+    error: str
+    message: str
 
 
 class WorktreeError(Exception):
@@ -55,6 +172,11 @@ class WorktreeManager:
     a corresponding branch auto-claude/{spec-name}.
     """
 
+    # Timeout constants for subprocess operations
+    GIT_PUSH_TIMEOUT = 120  # 2 minutes for git push (network operations)
+    GH_CLI_TIMEOUT = 60  # 1 minute for gh CLI commands
+    GH_QUERY_TIMEOUT = 30  # 30 seconds for gh CLI queries
+
     def __init__(self, project_dir: Path, base_branch: str | None = None):
         self.project_dir = project_dir
         self.base_branch = base_branch or self._detect_base_branch()
@@ -77,13 +199,9 @@ class WorktreeManager:
         env_branch = os.getenv("DEFAULT_BRANCH")
         if env_branch:
             # Verify the branch exists
-            result = subprocess.run(
-                ["git", "rev-parse", "--verify", env_branch],
+            result = run_git(
+                ["rev-parse", "--verify", env_branch],
                 cwd=self.project_dir,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
             )
             if result.returncode == 0:
                 return env_branch
@@ -94,13 +212,9 @@ class WorktreeManager:
 
         # 2. Auto-detect main/master
         for branch in ["main", "master"]:
-            result = subprocess.run(
-                ["git", "rev-parse", "--verify", branch],
+            result = run_git(
+                ["rev-parse", "--verify", branch],
                 cwd=self.project_dir,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
             )
             if result.returncode == 0:
                 return branch
@@ -114,13 +228,9 @@ class WorktreeManager:
 
     def _get_current_branch(self) -> str:
         """Get the current git branch."""
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        result = run_git(
+            ["rev-parse", "--abbrev-ref", "HEAD"],
             cwd=self.project_dir,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
         )
         if result.returncode != 0:
             raise WorktreeError(f"Failed to get current branch: {result.stderr}")
@@ -140,24 +250,7 @@ class WorktreeManager:
             CompletedProcess with command results. On timeout, returns a
             CompletedProcess with returncode=-1 and timeout error in stderr.
         """
-        try:
-            return subprocess.run(
-                ["git"] + args,
-                cwd=cwd or self.project_dir,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout,
-            )
-        except subprocess.TimeoutExpired:
-            # Return a failed result on timeout instead of raising
-            return subprocess.CompletedProcess(
-                args=["git"] + args,
-                returncode=-1,
-                stdout="",
-                stderr=f"Command timed out after {timeout} seconds",
-            )
+        return run_git(args, cwd=cwd or self.project_dir, timeout=timeout)
 
     def _unstage_gitignored_files(self) -> None:
         """
@@ -180,14 +273,10 @@ class WorktreeManager:
 
         # 1. Check which staged files are gitignored
         # git check-ignore returns the files that ARE ignored
-        result = subprocess.run(
-            ["git", "check-ignore", "--stdin"],
+        result = run_git(
+            ["check-ignore", "--stdin"],
             cwd=self.project_dir,
-            input="\n".join(staged_files),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
+            input_data="\n".join(staged_files),
         )
 
         if result.stdout.strip():
@@ -202,8 +291,10 @@ class WorktreeManager:
             file = file.strip()
             if not file:
                 continue
+            # Normalize path separators for cross-platform (Windows backslash support)
+            normalized = file.replace("\\", "/")
             for pattern in auto_claude_patterns:
-                if file.startswith(pattern) or f"/{pattern}" in file:
+                if normalized.startswith(pattern) or f"/{pattern}" in normalized:
                     files_to_unstage.add(file)
                     break
 
@@ -223,7 +314,7 @@ class WorktreeManager:
 
     def get_worktree_path(self, spec_name: str) -> Path:
         """Get the worktree path for a spec (checks new and legacy locations)."""
-        # New path first
+        # New path first (.auto-claude/worktrees/tasks/)
         new_path = self.worktrees_dir / spec_name
         if new_path.exists():
             return new_path
@@ -523,11 +614,27 @@ class WorktreeManager:
         else:
             print(f"Merging {info.branch} into {self.base_branch}...")
 
-        # Switch to base branch in main project
-        result = self._run_git(["checkout", self.base_branch])
-        if result.returncode != 0:
-            print(f"Error: Could not checkout base branch: {result.stderr}")
-            return False
+        # Switch to base branch in main project, but skip if already on it
+        # This avoids triggering git hooks unnecessarily
+        current_branch = self._get_current_branch()
+        if current_branch != self.base_branch:
+            result = self._run_git(["checkout", self.base_branch])
+            if result.returncode != 0:
+                # Check if this is a hook failure vs actual checkout failure
+                # Hook failures still change the branch but return non-zero
+                new_branch = self._get_current_branch()
+                if new_branch == self.base_branch:
+                    # Branch did change - likely a hook failure, continue with merge
+                    stderr_msg = result.stderr[:100] if result.stderr else "<no stderr>"
+                    debug_warning(
+                        "worktree",
+                        f"Checkout succeeded but hook returned non-zero: {stderr_msg}",
+                    )
+                else:
+                    # Actual checkout failure
+                    stderr_msg = result.stderr[:100] if result.stderr else "<no stderr>"
+                    print(f"Error: Could not checkout base branch: {stderr_msg}")
+                    return False
 
         # Merge the spec branch
         merge_args = ["merge", "--no-ff", info.branch]
@@ -712,6 +819,363 @@ class WorktreeManager:
                 cwd = worktree_path
         result = self._run_git(["status", "--porcelain"], cwd=cwd)
         return bool(result.stdout.strip())
+
+    # ==================== PR Creation Methods ====================
+
+    def push_branch(self, spec_name: str, force: bool = False) -> PushBranchResult:
+        """
+        Push a spec's branch to the remote origin with retry logic.
+
+        Args:
+            spec_name: The spec folder name
+            force: Whether to force push (use with caution)
+
+        Returns:
+            PushBranchResult with keys:
+                - success: bool
+                - branch: str (branch name)
+                - remote: str (if successful)
+                - error: str (if failed)
+        """
+        info = self.get_worktree_info(spec_name)
+        if not info:
+            return PushBranchResult(
+                success=False,
+                error=f"No worktree found for spec: {spec_name}",
+            )
+
+        # Push the branch to origin
+        push_args = ["push", "-u", "origin", info.branch]
+        if force:
+            push_args.insert(1, "--force")
+
+        def do_push() -> tuple[bool, PushBranchResult | None, str]:
+            """Execute push operation for retry wrapper."""
+            try:
+                git_executable = get_git_executable()
+                result = subprocess.run(
+                    [git_executable] + push_args,
+                    cwd=info.path,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=self.GIT_PUSH_TIMEOUT,
+                )
+
+                if result.returncode == 0:
+                    return (
+                        True,
+                        PushBranchResult(
+                            success=True,
+                            branch=info.branch,
+                            remote="origin",
+                        ),
+                        "",
+                    )
+                return (False, None, result.stderr)
+            except FileNotFoundError:
+                return (False, None, "git executable not found")
+
+        max_retries = 3
+        result, last_error = _with_retry(
+            operation=do_push,
+            max_retries=max_retries,
+            is_retryable=_is_retryable_network_error,
+        )
+
+        if result:
+            return result
+
+        # Handle timeout error message
+        if last_error == "Operation timed out":
+            return PushBranchResult(
+                success=False,
+                branch=info.branch,
+                error=f"Push timed out after {max_retries} attempts.",
+            )
+
+        return PushBranchResult(
+            success=False,
+            branch=info.branch,
+            error=f"Failed to push branch: {last_error}",
+        )
+
+    def create_pull_request(
+        self,
+        spec_name: str,
+        target_branch: str | None = None,
+        title: str | None = None,
+        draft: bool = False,
+    ) -> PullRequestResult:
+        """
+        Create a GitHub pull request for a spec's branch using gh CLI with retry logic.
+
+        Args:
+            spec_name: The spec folder name
+            target_branch: Target branch for PR (defaults to base_branch)
+            title: PR title (defaults to spec name)
+            draft: Whether to create as draft PR
+
+        Returns:
+            PullRequestResult with keys:
+                - success: bool
+                - pr_url: str (if created)
+                - already_exists: bool (if PR already exists)
+                - error: str (if failed)
+        """
+        info = self.get_worktree_info(spec_name)
+        if not info:
+            return PullRequestResult(
+                success=False,
+                error=f"No worktree found for spec: {spec_name}",
+            )
+
+        target = target_branch or self.base_branch
+        pr_title = title or f"auto-claude: {spec_name}"
+
+        # Get PR body from spec.md if available
+        pr_body = self._extract_spec_summary(spec_name)
+
+        # Build gh pr create command
+        gh_args = [
+            "gh",
+            "pr",
+            "create",
+            "--base",
+            target,
+            "--head",
+            info.branch,
+            "--title",
+            pr_title,
+            "--body",
+            pr_body,
+        ]
+        if draft:
+            gh_args.append("--draft")
+
+        def is_pr_retryable(stderr: str) -> bool:
+            """Check if PR creation error is retryable (network or HTTP 5xx)."""
+            return _is_retryable_network_error(stderr) or _is_retryable_http_error(
+                stderr
+            )
+
+        def do_create_pr() -> tuple[bool, PullRequestResult | None, str]:
+            """Execute PR creation for retry wrapper."""
+            try:
+                result = subprocess.run(
+                    gh_args,
+                    cwd=info.path,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=self.GH_CLI_TIMEOUT,
+                )
+
+                # Check for "already exists" case (success, no retry needed)
+                if result.returncode != 0 and "already exists" in result.stderr.lower():
+                    existing_url = self._get_existing_pr_url(spec_name, target)
+                    result_dict = PullRequestResult(
+                        success=True,
+                        pr_url=existing_url,
+                        already_exists=True,
+                    )
+                    if existing_url is None:
+                        result_dict["message"] = (
+                            "PR already exists but URL could not be retrieved"
+                        )
+                    return (True, result_dict, "")
+
+                if result.returncode == 0:
+                    # Extract PR URL from output
+                    pr_url: str | None = result.stdout.strip()
+                    if not pr_url.startswith("http"):
+                        # Try to find URL in output
+                        # Use general pattern to support GitHub Enterprise instances
+                        # Matches any HTTPS URL with /pull/<number> path
+                        match = re.search(r"https://[^\s]+/pull/\d+", result.stdout)
+                        if match:
+                            pr_url = match.group(0)
+                        else:
+                            # Invalid output - no valid URL found
+                            pr_url = None
+
+                    return (
+                        True,
+                        PullRequestResult(
+                            success=True,
+                            pr_url=pr_url,
+                            already_exists=False,
+                        ),
+                        "",
+                    )
+
+                return (False, None, result.stderr)
+
+            except FileNotFoundError:
+                # gh CLI not installed - not retryable, raise to exit retry loop
+                raise
+
+        max_retries = 3
+        try:
+            result, last_error = _with_retry(
+                operation=do_create_pr,
+                max_retries=max_retries,
+                is_retryable=is_pr_retryable,
+            )
+
+            if result:
+                return result
+
+            # Handle timeout error message
+            if last_error == "Operation timed out":
+                return PullRequestResult(
+                    success=False,
+                    error=f"PR creation timed out after {max_retries} attempts.",
+                )
+
+            return PullRequestResult(
+                success=False,
+                error=f"Failed to create PR: {last_error}",
+            )
+
+        except FileNotFoundError:
+            # gh CLI not installed
+            return PullRequestResult(
+                success=False,
+                error="gh CLI not found. Install from https://cli.github.com/",
+            )
+
+    def _extract_spec_summary(self, spec_name: str) -> str:
+        """Extract a summary from spec.md for PR body."""
+        worktree_path = self.get_worktree_path(spec_name)
+        spec_path = worktree_path / ".auto-claude" / "specs" / spec_name / "spec.md"
+
+        if not spec_path.exists():
+            # Try project spec path
+            spec_path = (
+                self.project_dir / ".auto-claude" / "specs" / spec_name / "spec.md"
+            )
+
+        if not spec_path.exists():
+            return "Auto-generated PR from Auto-Claude build."
+
+        try:
+            content = spec_path.read_text(encoding="utf-8")
+            # Extract first few paragraphs (skip title, get overview)
+            lines = content.split("\n")
+            summary_lines = []
+            in_content = False
+
+            for line in lines:
+                # Skip title headers
+                if line.startswith("# "):
+                    continue
+                # Start capturing after first content line
+                if line.strip() and not line.startswith("#"):
+                    in_content = True
+                if in_content:
+                    if line.startswith("## ") and summary_lines:
+                        break  # Stop at next section
+                    summary_lines.append(line)
+                    if len(summary_lines) >= 10:  # Limit to ~10 lines
+                        break
+
+            summary = "\n".join(summary_lines).strip()
+            if summary:
+                return summary
+        except (OSError, UnicodeDecodeError) as e:
+            # Silently fall back to default - file read errors shouldn't block PR creation
+            debug_warning(
+                "worktree", f"Could not extract spec summary for PR body: {e}"
+            )
+
+        return "Auto-generated PR from Auto-Claude build."
+
+    def _get_existing_pr_url(self, spec_name: str, target_branch: str) -> str | None:
+        """Get the URL of an existing PR for this branch."""
+        info = self.get_worktree_info(spec_name)
+        if not info:
+            return None
+
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "view", info.branch, "--json", "url", "--jq", ".url"],
+                cwd=info.path,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=self.GH_QUERY_TIMEOUT,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except (
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+            subprocess.SubprocessError,
+        ) as e:
+            # Silently ignore errors when fetching existing PR URL - this is a best-effort
+            # lookup that may fail due to network issues, missing gh CLI, or auth problems.
+            # Returning None allows the caller to handle missing URLs gracefully.
+            debug_warning("worktree", f"Could not get existing PR URL: {e}")
+
+        return None
+
+    def push_and_create_pr(
+        self,
+        spec_name: str,
+        target_branch: str | None = None,
+        title: str | None = None,
+        draft: bool = False,
+        force_push: bool = False,
+    ) -> PushAndCreatePRResult:
+        """
+        Push branch and create a pull request in one operation.
+
+        Args:
+            spec_name: The spec folder name
+            target_branch: Target branch for PR (defaults to base_branch)
+            title: PR title (defaults to spec name)
+            draft: Whether to create as draft PR
+            force_push: Whether to force push the branch
+
+        Returns:
+            PushAndCreatePRResult with keys:
+                - success: bool
+                - pr_url: str (if created)
+                - pushed: bool (if push succeeded)
+                - already_exists: bool (if PR already exists)
+                - error: str (if failed)
+        """
+        # Step 1: Push the branch
+        push_result = self.push_branch(spec_name, force=force_push)
+        if not push_result.get("success"):
+            return PushAndCreatePRResult(
+                success=False,
+                pushed=False,
+                error=push_result.get("error", "Push failed"),
+            )
+
+        # Step 2: Create the PR
+        pr_result = self.create_pull_request(
+            spec_name=spec_name,
+            target_branch=target_branch,
+            title=title,
+            draft=draft,
+        )
+
+        # Combine results
+        return PushAndCreatePRResult(
+            success=pr_result.get("success", False),
+            pushed=True,
+            remote=push_result.get("remote"),
+            branch=push_result.get("branch"),
+            pr_url=pr_result.get("pr_url"),
+            already_exists=pr_result.get("already_exists", False),
+            error=pr_result.get("error"),
+        )
 
     # ==================== Worktree Cleanup Methods ====================
 

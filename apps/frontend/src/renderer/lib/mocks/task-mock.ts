@@ -60,7 +60,7 @@ export const taskMock = {
   unarchiveTasks: async () => ({ success: true, data: true }),
 
   // Task status operations
-  updateTaskStatus: async () => ({ success: true }),
+  updateTaskStatus: async (_taskId: string, _status: string, _options?: { forceCleanup?: boolean }) => ({ success: true }),
 
   recoverStuckTask: async (taskId: string, options?: TaskRecoveryOptions) => ({
     success: true,

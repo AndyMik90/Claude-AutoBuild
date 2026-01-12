@@ -5,6 +5,7 @@ import {
   Minus,
   Eye,
   GitMerge,
+  GitPullRequest,
   FolderX,
   Loader2,
   RotateCcw,
@@ -14,6 +15,7 @@ import {
   Code,
   Terminal
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
 import { cn } from '../../../lib/utils';
@@ -28,12 +30,14 @@ interface WorkspaceStatusProps {
   isLoadingPreview: boolean;
   isMerging: boolean;
   isDiscarding: boolean;
+  isCreatingPR?: boolean;
   onShowDiffDialog: (show: boolean) => void;
   onShowDiscardDialog: (show: boolean) => void;
   onShowConflictDialog: (show: boolean) => void;
   onLoadMergePreview: () => void;
   onStageOnlyChange: (value: boolean) => void;
   onMerge: () => void;
+  onShowPRDialog?: (show: boolean) => void;
   onClose?: () => void;
   onSwitchToTerminals?: () => void;
   onOpenInbuiltTerminal?: (id: string, cwd: string) => void;
@@ -84,16 +88,19 @@ export function WorkspaceStatus({
   isLoadingPreview,
   isMerging,
   isDiscarding,
+  isCreatingPR,
   onShowDiffDialog,
   onShowDiscardDialog,
   onShowConflictDialog,
   onLoadMergePreview,
   onStageOnlyChange,
   onMerge,
+  onShowPRDialog,
   onClose,
   onSwitchToTerminals,
   onOpenInbuiltTerminal
 }: WorkspaceStatusProps) {
+  const { t } = useTranslation(['taskReview', 'common']);
   const { settings } = useSettingsStore();
   const preferredIDE = settings.preferredIDE || 'vscode';
   const preferredTerminal = settings.preferredTerminal || 'system';
@@ -185,12 +192,12 @@ export function WorkspaceStatus({
           </span>
         </div>
 
-        {/* Branch info */}
+        {/* Branch info: spec branch → user's current branch (merge target) */}
         {worktreeStatus.branch && (
           <div className="mt-2 text-xs text-muted-foreground">
             <code className="bg-background/80 px-1.5 py-0.5 rounded text-[11px]">{worktreeStatus.branch}</code>
             <span className="mx-1.5">→</span>
-            <code className="bg-background/80 px-1.5 py-0.5 rounded text-[11px]">{worktreeStatus.baseBranch || 'main'}</code>
+            <code className="bg-background/80 px-1.5 py-0.5 rounded text-[11px]">{worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main'}</code>
           </div>
         )}
 
@@ -433,11 +440,33 @@ export function WorkspaceStatus({
             </Button>
           )}
 
+          {/* Create PR Button */}
+          {onShowPRDialog && (
+            <Button
+              variant="info"
+              onClick={() => onShowPRDialog(true)}
+              disabled={isMerging || isDiscarding || isCreatingPR}
+              className="flex-1"
+            >
+              {isCreatingPR ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('taskReview:pr.actions.creating')}
+                </>
+              ) : (
+                <>
+                  <GitPullRequest className="mr-2 h-4 w-4" />
+                  {t('common:buttons.createPR')}
+                </>
+              )}
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="icon"
             onClick={() => onShowDiscardDialog(true)}
-            disabled={isMerging || isDiscarding}
+            disabled={isMerging || isDiscarding || isCreatingPR}
             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
             title="Discard build"
           >

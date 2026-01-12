@@ -15,7 +15,47 @@ if str(_PARENT_DIR) not in sys.path:
     sys.path.insert(0, str(_PARENT_DIR))
 
 from core.auth import get_auth_token, get_auth_token_source
-from dotenv import load_dotenv
+from core.dependency_validator import validate_platform_dependencies
+
+
+def import_dotenv():
+    """
+    Import and return load_dotenv with helpful error message if not installed.
+
+    This centralized function ensures consistent error messaging across all
+    runner scripts when python-dotenv is not available.
+
+    Returns:
+        The load_dotenv function
+
+    Raises:
+        SystemExit: If dotenv cannot be imported, with helpful installation instructions.
+    """
+    try:
+        from dotenv import load_dotenv as _load_dotenv
+
+        return _load_dotenv
+    except ImportError:
+        sys.exit(
+            "Error: Required Python package 'python-dotenv' is not installed.\n"
+            "\n"
+            "This usually means you're not using the virtual environment.\n"
+            "\n"
+            "To fix this:\n"
+            "1. From the 'apps/backend/' directory, activate the venv:\n"
+            "   source .venv/bin/activate  # Linux/macOS\n"
+            "   .venv\\Scripts\\activate   # Windows\n"
+            "\n"
+            "2. Or install dependencies directly:\n"
+            "   pip install python-dotenv\n"
+            "   pip install -r requirements.txt\n"
+            "\n"
+            f"Current Python: {sys.executable}\n"
+        )
+
+
+# Load .env with helpful error if dependencies not installed
+load_dotenv = import_dotenv()
 from graphiti_config import get_graphiti_status
 from linear_integration import LinearManager
 from linear_updater import is_linear_enabled
@@ -115,6 +155,9 @@ def validate_environment(spec_dir: Path) -> bool:
     Returns:
         True if valid, False otherwise (with error messages printed)
     """
+    # Validate platform-specific dependencies first (exits if missing)
+    validate_platform_dependencies()
+
     valid = True
 
     # Check for OAuth token (API keys are not supported)

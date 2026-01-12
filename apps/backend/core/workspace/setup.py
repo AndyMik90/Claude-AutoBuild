@@ -8,10 +8,10 @@ Functions for setting up and initializing workspaces.
 
 import json
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
+from core.git_executable import run_git
 from merge import FileTimelineTracker
 from security.constants import ALLOWLIST_FILENAME, PROFILE_FILENAME
 from ui import (
@@ -406,11 +406,9 @@ def initialize_timeline_tracking(
                         files_to_modify.extend(subtask.get("files", []))
 
         # Get the current branch point commit
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
+        result = run_git(
+            ["rev-parse", "HEAD"],
             cwd=project_dir,
-            capture_output=True,
-            text=True,
         )
         branch_point = result.stdout.strip() if result.returncode == 0 else None
 

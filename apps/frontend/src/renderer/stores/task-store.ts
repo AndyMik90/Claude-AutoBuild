@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import type { Task, TaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft } from '../../shared/types';
+import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft } from '../../shared/types';
+import { debugLog } from '../../shared/utils/debug-logger';
+import { isTerminalPhase } from '../../shared/constants/phase-protocol';
 
 interface TaskState {
   tasks: Task[];
@@ -55,6 +57,44 @@ function updateTaskAtIndex(tasks: Task[], index: number, updater: (task: Task) =
   return newTasks;
 }
 
+/**
+ * Validates implementation plan data structure before processing.
+ * Returns true if valid, false if invalid/incomplete.
+ */
+function validatePlanData(plan: ImplementationPlan): boolean {
+  // Validate plan has phases array
+  if (!plan.phases || !Array.isArray(plan.phases)) {
+    console.warn('[validatePlanData] Invalid plan: missing or invalid phases array');
+    return false;
+  }
+
+  // Validate each phase has subtasks array
+  for (let i = 0; i < plan.phases.length; i++) {
+    const phase = plan.phases[i];
+    if (!phase || !phase.subtasks || !Array.isArray(phase.subtasks)) {
+      console.warn(`[validatePlanData] Invalid phase ${i}: missing or invalid subtasks array`);
+      return false;
+    }
+
+    // Validate each subtask has at minimum a description
+    for (let j = 0; j < phase.subtasks.length; j++) {
+      const subtask = phase.subtasks[j];
+      if (!subtask || typeof subtask !== 'object') {
+        console.warn(`[validatePlanData] Invalid subtask at phase ${i}, index ${j}: not an object`);
+        return false;
+      }
+
+      // Description is critical - we can't show a subtask without it
+      if (!subtask.description || typeof subtask.description !== 'string' || subtask.description.trim() === '') {
+        console.warn(`[validatePlanData] Invalid subtask at phase ${i}, index ${j}: missing or empty description`);
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
   selectedTaskId: null,
@@ -105,21 +145,64 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   updateTaskFromPlan: (taskId, plan) =>
     set((state) => {
+      // FIX (PR Review): Gate debug logging to prevent production console clutter
+      debugLog('[updateTaskFromPlan] called with plan:', {
+        taskId,
+        feature: plan.feature,
+        phases: plan.phases?.length || 0,
+        totalSubtasks: plan.phases?.reduce((acc, p) => acc + (p.subtasks?.length || 0), 0) || 0
+        // Note: planData removed to avoid verbose output in logs
+      });
+
       const index = findTaskIndex(state.tasks, taskId);
-      if (index === -1) return state;
+      if (index === -1) {
+        console.log('[updateTaskFromPlan] Task not found:', taskId);
+        return state;
+      }
+
+      // Validate plan data before processing
+      if (!validatePlanData(plan)) {
+        console.error('[updateTaskFromPlan] Invalid plan data, skipping update:', {
+          taskId,
+          plan
+        });
+        return state;
+      }
 
       return {
         tasks: updateTaskAtIndex(state.tasks, index, (t) => {
           const subtasks: Subtask[] = plan.phases.flatMap((phase) =>
-            phase.subtasks.map((subtask) => ({
-              id: subtask.id,
-              title: subtask.description,
-              description: subtask.description,
-              status: subtask.status,
-              files: [],
-              verification: subtask.verification as Subtask['verification']
-            }))
+            phase.subtasks.map((subtask) => {
+              // Ensure all required fields have valid values to prevent UI issues
+              // Use crypto.randomUUID() for stronger randomness when available
+              const id = subtask.id || (typeof crypto !== 'undefined' && crypto.randomUUID
+                ? crypto.randomUUID()
+                : `subtask-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+              // Defensive fallback: validatePlanData() ensures description exists, but kept for safety
+              const description = subtask.description || 'No description available';
+              const title = description; // Title and description are the same for subtasks
+              const status = (subtask.status as SubtaskStatus) || 'pending';
+
+              return {
+                id,
+                title,
+                description,
+                status,
+                files: [],
+                verification: subtask.verification as Subtask['verification']
+              };
+            })
           );
+
+          debugLog('[updateTaskFromPlan] Created subtasks:', {
+            taskId,
+            subtaskCount: subtasks.length,
+            subtasks: subtasks.map(s => ({
+              id: s.id,
+              title: s.title,
+              status: s.status
+            }))
+          });
 
           const allCompleted = subtasks.every((s) => s.status === 'completed');
           const anyFailed = subtasks.some((s) => s.status === 'failed');
@@ -133,9 +216,58 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           const activePhases: ExecutionPhase[] = ['planning', 'coding', 'qa_review', 'qa_fixing'];
           const isInActivePhase = t.executionProgress?.phase && activePhases.includes(t.executionProgress.phase);
 
-          if (!isInActivePhase) {
-            if (allCompleted) {
-              status = 'ai_review';
+          // FIX (Flip-Flop Bug): Terminal phases should NOT trigger status recalculation
+          // When phase is 'complete' or 'failed', the task has finished and status should be stable
+          const isInTerminalPhase = t.executionProgress?.phase && isTerminalPhase(t.executionProgress.phase);
+
+          // FIX (Flip-Flop Bug): Respect explicit human_review status from plan file
+          // When the plan explicitly says 'human_review', don't override it with calculated status
+          // Note: ImplementationPlan type already defines status?: TaskStatus
+          const planStatus = plan.status;
+          const isExplicitHumanReview = planStatus === 'human_review';
+
+          // FIX (ACS-203): Add defensive check for terminal status transitions
+          // Before allowing transition to 'done', 'human_review', or 'ai_review', verify:
+          // 1. Subtasks array is properly populated (not empty)
+          // 2. All subtasks are actually completed (for 'done' and 'ai_review' statuses)
+          const hasSubtasks = subtasks.length > 0;
+          const terminalStatuses: TaskStatus[] = ['human_review', 'pr_created', 'done'];
+
+          // If task is currently in a terminal status, validate subtasks before allowing downgrade
+          // This prevents flip-flop when plan file is written with incomplete data
+          const shouldBlockTerminalTransition = (newStatus: TaskStatus): boolean => {
+            // Block if: moving to terminal status but subtasks indicate incomplete work
+            if (terminalStatuses.includes(newStatus) || newStatus === 'ai_review') {
+              // For ai_review, all subtasks must be completed
+              if (newStatus === 'ai_review' && (!allCompleted || !hasSubtasks)) {
+                return true;
+              }
+              // For done and pr_created, all subtasks must be completed
+              if ((newStatus === 'done' || newStatus === 'pr_created') && (!allCompleted || !hasSubtasks)) {
+                return true;
+              }
+              // For human_review with 'completed' reason, all subtasks must be done
+              // But allow 'errors' or 'qa_rejected' reasons even with incomplete subtasks
+              if (newStatus === 'human_review' && anyFailed) {
+                return false; // Allow human_review for failed subtasks
+              }
+            }
+            return false;
+          };
+
+          // Only recalculate status if:
+          // 1. NOT in an active execution phase (planning, coding, qa_review, qa_fixing)
+          // 2. NOT in a terminal phase (complete, failed) - status should be stable
+          // 3. Plan doesn't explicitly say human_review
+          // 4. Would not create an invalid terminal transition (ACS-203)
+          if (!isInActivePhase && !isInTerminalPhase && !isExplicitHumanReview) {
+            if (allCompleted && hasSubtasks) {
+              // FIX (Flip-Flop Bug): Don't downgrade from terminal statuses to ai_review
+              // Once a task reaches human_review, pr_created, or done, it should stay there
+              // unless explicitly changed (these are finalized workflow states)
+              if (!terminalStatuses.includes(t.status)) {
+                status = 'ai_review';
+              }
             } else if (anyFailed) {
               status = 'human_review';
               reviewReason = 'errors';
@@ -143,6 +275,40 @@ export const useTaskStore = create<TaskState>((set, get) => ({
               status = 'in_progress';
             }
           }
+
+          // FIX (ACS-203): Final validation - prevent invalid terminal status transitions
+          // This catches cases where the logic above would set a terminal status
+          // but the subtask state doesn't support it (e.g., empty subtasks array)
+          if (shouldBlockTerminalTransition(status)) {
+            // Capture attempted status before reassignment for accurate logging
+            const attemptedStatus = status;
+            // Keep current status instead of transitioning to invalid terminal state
+            status = t.status;
+            debugLog('[updateTaskFromPlan] Blocked invalid terminal transition:', {
+              taskId,
+              attemptedStatus,
+              currentStatus: t.status,
+              hasSubtasks,
+              allCompleted,
+              anyFailed,
+              subtaskCount: subtasks.length
+            });
+          }
+
+          debugLog('[updateTaskFromPlan] Status computation:', {
+            taskId,
+            currentStatus: t.status,
+            newStatus: status,
+            isInActivePhase,
+            isInTerminalPhase,
+            isExplicitHumanReview,
+            planStatus,
+            currentPhase: t.executionProgress?.phase,
+            allCompleted,
+            anyFailed,
+            anyInProgress,
+            anyCompleted
+          });
 
           return {
             ...t,
@@ -173,6 +339,15 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           const incomingSeq = progress.sequenceNumber ?? 0;
           const currentSeq = existingProgress.sequenceNumber ?? 0;
           if (incomingSeq > 0 && currentSeq > 0 && incomingSeq < currentSeq) {
+            // FIX (ACS-55): Log when updates are dropped due to sequence numbers
+            // This helps debug phase transition issues
+            console.warn('[updateExecutionProgress] Dropping out-of-order update:', {
+              taskId,
+              incomingSeq,
+              currentSeq,
+              incomingPhase: progress.phase,
+              currentPhase: existingProgress.phase
+            });
             return t; // Skip out-of-order update
           }
 
@@ -325,29 +500,61 @@ export async function submitReview(
 }
 
 /**
+ * Result type for persistTaskStatus with worktree info
+ */
+export interface PersistStatusResult {
+  success: boolean;
+  worktreeExists?: boolean;
+  worktreePath?: string;
+  error?: string;
+}
+
+/**
  * Update task status and persist to file
+ * Returns additional info if a worktree exists and needs cleanup confirmation
  */
 export async function persistTaskStatus(
   taskId: string,
-  status: TaskStatus
-): Promise<boolean> {
+  status: TaskStatus,
+  options?: { forceCleanup?: boolean }
+): Promise<PersistStatusResult> {
   const store = useTaskStore.getState();
 
   try {
-    // Update local state first for immediate feedback
-    store.updateTaskStatus(taskId, status);
+    // Persist to file first (don't optimistically update for 'done' status)
+    const result = await window.electronAPI.updateTaskStatus(taskId, status, options);
 
-    // Persist to file
-    const result = await window.electronAPI.updateTaskStatus(taskId, status);
     if (!result.success) {
+      // Check if this is a worktree exists case
+      if (result.worktreeExists) {
+        console.log('[persistTaskStatus] Worktree exists, confirmation needed');
+        return {
+          success: false,
+          worktreeExists: true,
+          worktreePath: result.worktreePath,
+          error: result.error
+        };
+      }
       console.error('Failed to persist task status:', result.error);
-      return false;
+      return { success: false, error: result.error };
     }
-    return true;
+
+    // Only update local state after backend confirms success
+    store.updateTaskStatus(taskId, status);
+    return { success: true };
   } catch (error) {
     console.error('Error persisting task status:', error);
-    return false;
+    return { success: false, error: String(error) };
   }
+}
+
+/**
+ * Force complete a task by cleaning up its worktree
+ * Used when user confirms they want to delete the worktree and mark as done
+ * Returns full result including error details for better UX
+ */
+export async function forceCompleteTask(taskId: string): Promise<PersistStatusResult> {
+  return persistTaskStatus(taskId, 'done', { forceCleanup: true });
 }
 
 /**

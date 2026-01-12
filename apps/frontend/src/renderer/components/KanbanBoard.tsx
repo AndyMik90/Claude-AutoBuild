@@ -27,8 +27,16 @@ import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, archiveTasks } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks } from '../stores/task-store';
+import { useToast } from '../hooks/use-toast';
+import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import type { Task, TaskStatus } from '../../shared/types';
+
+// Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
+const VALID_DROP_COLUMNS = new Set<string>(TASK_STATUS_COLUMNS);
+function isValidDropColumn(id: string): id is typeof TASK_STATUS_COLUMNS[number] {
+  return VALID_DROP_COLUMNS.has(id);
+}
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -261,6 +269,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
                   )}
                   onClick={onToggleArchived}
                   aria-pressed={showArchived}
+                  aria-label={t('common:accessibility.toggleShowArchivedAriaLabel')}
                 >
                   <Archive className="h-4 w-4" />
                   <span className="absolute -top-1 -right-1 text-[10px] font-medium bg-muted rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
@@ -324,10 +333,28 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
 }, droppableColumnPropsAreEqual);
 
 export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing }: KanbanBoardProps) {
-  const { t } = useTranslation('tasks');
+  const { t } = useTranslation(['tasks', 'dialogs', 'common']);
+  const { toast } = useToast();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const { showArchived, toggleShowArchived } = useViewState();
+
+  // Worktree cleanup dialog state
+  const [worktreeCleanupDialog, setWorktreeCleanupDialog] = useState<{
+    open: boolean;
+    taskId: string | null;
+    taskTitle: string;
+    worktreePath?: string;
+    isProcessing: boolean;
+    error?: string;
+  }>({
+    open: false,
+    taskId: null,
+    taskTitle: '',
+    worktreePath: undefined,
+    isProcessing: false,
+    error: undefined
+  });
 
   // Calculate archived count for Done column button
   const archivedCount = useMemo(() =>
@@ -355,7 +382,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   );
 
   const tasksByStatus = useMemo(() => {
-    const grouped: Record<TaskStatus, Task[]> = {
+    // Note: pr_created tasks are shown in the 'done' column since they're essentially complete
+    const grouped: Record<typeof TASK_STATUS_COLUMNS[number], Task[]> = {
       backlog: [],
       in_progress: [],
       ai_review: [],
@@ -364,14 +392,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     };
 
     filteredTasks.forEach((task) => {
-      if (grouped[task.status]) {
-        grouped[task.status].push(task);
+      // Map pr_created tasks to the done column
+      const targetColumn = task.status === 'pr_created' ? 'done' : task.status;
+      if (grouped[targetColumn]) {
+        grouped[targetColumn].push(task);
       }
     });
 
     // Sort tasks within each column by createdAt (newest first)
     Object.keys(grouped).forEach((status) => {
-      grouped[status as TaskStatus].sort((a, b) => {
+      grouped[status as typeof TASK_STATUS_COLUMNS[number]].sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
         return dateB - dateA; // Descending order (newest first)
@@ -417,7 +447,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const overId = over.id as string;
 
     // Check if over a column
-    if (TASK_STATUS_COLUMNS.includes(overId as TaskStatus)) {
+    if (isValidDropColumn(overId)) {
       setOverColumnId(overId);
       return;
     }
@@ -426,6 +456,65 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const overTask = tasks.find((t) => t.id === overId);
     if (overTask) {
       setOverColumnId(overTask.status);
+    }
+  };
+
+  /**
+   * Handle status change with worktree cleanup dialog support
+   * Consolidated handler that accepts an optional task object for the dialog title
+   */
+  const handleStatusChange = async (taskId: string, newStatus: TaskStatus, providedTask?: Task) => {
+    const task = providedTask || tasks.find(t => t.id === taskId);
+    const result = await persistTaskStatus(taskId, newStatus);
+
+    if (!result.success) {
+      if (result.worktreeExists) {
+        // Show the worktree cleanup dialog
+        setWorktreeCleanupDialog({
+          open: true,
+          taskId: taskId,
+          taskTitle: task?.title || t('tasks:untitled'),
+          worktreePath: result.worktreePath,
+          isProcessing: false,
+          error: undefined
+        });
+      } else {
+        // Show error toast for other failures
+        toast({
+          title: t('common:errors.operationFailed'),
+          description: result.error || t('common:errors.unknownError'),
+          variant: 'destructive'
+        });
+      }
+    }
+  };
+
+  /**
+   * Handle worktree cleanup confirmation
+   */
+  const handleWorktreeCleanupConfirm = async () => {
+    if (!worktreeCleanupDialog.taskId) return;
+
+    setWorktreeCleanupDialog(prev => ({ ...prev, isProcessing: true, error: undefined }));
+
+    const result = await forceCompleteTask(worktreeCleanupDialog.taskId);
+
+    if (result.success) {
+      setWorktreeCleanupDialog({
+        open: false,
+        taskId: null,
+        taskTitle: '',
+        worktreePath: undefined,
+        isProcessing: false,
+        error: undefined
+      });
+    } else {
+      // Keep dialog open with error state for retry - show actual error if available
+      setWorktreeCleanupDialog(prev => ({
+        ...prev,
+        isProcessing: false,
+        error: result.error || t('dialogs:worktreeCleanup.errorDescription')
+      }));
     }
   };
 
@@ -440,13 +529,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const overId = over.id as string;
 
     // Check if dropped on a column
-    if (TASK_STATUS_COLUMNS.includes(overId as TaskStatus)) {
-      const newStatus = overId as TaskStatus;
+    if (isValidDropColumn(overId)) {
+      const newStatus = overId;
       const task = tasks.find((t) => t.id === activeTaskId);
 
       if (task && task.status !== newStatus) {
         // Persist status change to file and update local state
-        persistTaskStatus(activeTaskId, newStatus);
+        handleStatusChange(activeTaskId, newStatus, task).catch((err) =>
+          console.error('[KanbanBoard] Status change failed:', err)
+        );
       }
       return;
     }
@@ -457,7 +548,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const task = tasks.find((t) => t.id === activeTaskId);
       if (task && task.status !== overTask.status) {
         // Persist status change to file and update local state
-        persistTaskStatus(activeTaskId, overTask.status);
+        handleStatusChange(activeTaskId, overTask.status, task).catch((err) =>
+          console.error('[KanbanBoard] Status change failed:', err)
+        );
       }
     }
   };
@@ -494,7 +587,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               status={status}
               tasks={tasksByStatus[status]}
               onTaskClick={onTaskClick}
-              onStatusChange={persistTaskStatus}
+              onStatusChange={handleStatusChange}
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
@@ -514,6 +607,21 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Worktree cleanup confirmation dialog */}
+      <WorktreeCleanupDialog
+        open={worktreeCleanupDialog.open}
+        taskTitle={worktreeCleanupDialog.taskTitle}
+        worktreePath={worktreeCleanupDialog.worktreePath}
+        isProcessing={worktreeCleanupDialog.isProcessing}
+        error={worktreeCleanupDialog.error}
+        onOpenChange={(open) => {
+          if (!open && !worktreeCleanupDialog.isProcessing) {
+            setWorktreeCleanupDialog(prev => ({ ...prev, open: false, error: undefined }));
+          }
+        }}
+        onConfirm={handleWorktreeCleanupConfirm}
+      />
     </div>
   );
 }
