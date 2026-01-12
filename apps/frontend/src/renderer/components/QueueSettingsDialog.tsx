@@ -89,6 +89,8 @@ export function QueueSettingsDialog({
 
   // Track previous open state to only reset when dialog transitions from closed to open
   const prevOpenRef = useRef(false);
+  // Track mount state to prevent state updates after unmount
+  const isMountedRef = useRef(true);
 
   // Reset form only when dialog transitions from closed to open
   useEffect(() => {
@@ -100,6 +102,14 @@ export function QueueSettingsDialog({
     prevOpenRef.current = open;
   }, [open, currentConfig.enabled, currentConfig.maxConcurrent]);
 
+  // Set up mounted state
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const handleSave = async () => {
     const config: QueueConfig = { enabled, maxConcurrent };
     setIsSaving(true);
@@ -109,16 +119,24 @@ export function QueueSettingsDialog({
       const success = await saveQueueConfig(projectId, config);
 
       if (success) {
-        onOpenChange(false);
-        onSaved?.();
+        if (isMountedRef.current) {
+          onOpenChange(false);
+          onSaved?.();
+        }
       } else {
-        setSaveError(t('tasks:queue.settings.saveFailed'));
+        if (isMountedRef.current) {
+          setSaveError(t('tasks:queue.settings.saveFailed'));
+        }
       }
     } catch (error) {
-      setSaveError(t('tasks:queue.settings.saveFailed'));
+      if (isMountedRef.current) {
+        setSaveError(t('tasks:queue.settings.saveFailed'));
+      }
       console.error('[QueueSettingsDialog] Unexpected error saving queue config:', error);
     } finally {
-      setIsSaving(false);
+      if (isMountedRef.current) {
+        setIsSaving(false);
+      }
     }
   };
 
