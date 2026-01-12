@@ -118,7 +118,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   };
 
   const handleReject = async () => {
-    if (!state.feedback.trim()) {
+    // Allow submission if either feedback text OR images are provided
+    if (!state.feedback.trim() && state.feedbackImages.length === 0) {
       return;
     }
     state.setIsSubmitting(true);

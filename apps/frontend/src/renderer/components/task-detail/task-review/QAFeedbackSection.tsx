@@ -130,7 +130,7 @@ export function QAFeedbackSection({
       <Button
         variant="warning"
         onClick={onReject}
-        disabled={isSubmitting || !feedback.trim()}
+        disabled={isSubmitting || (!feedback.trim() && images.length === 0)}
         className="w-full"
       >
         {isSubmitting ? (

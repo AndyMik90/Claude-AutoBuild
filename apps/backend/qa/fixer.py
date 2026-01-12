@@ -64,7 +64,21 @@ def load_qa_feedback_screenshots(spec_dir: Path) -> list[dict]:
 
     image_blocks = []
     for rel_path in screenshot_paths:
-        image_path = spec_dir / rel_path
+        # SECURITY: Validate path to prevent directory traversal
+        try:
+            image_path = spec_dir / rel_path
+            # Ensure the resolved path is within spec_dir
+            resolved_path = image_path.resolve()
+            if not str(resolved_path).startswith(str(spec_dir.resolve())):
+                debug_error(
+                    "qa_fixer",
+                    f"Path traversal attempt blocked: {rel_path}",
+                )
+                continue
+        except Exception as e:
+            debug_error("qa_fixer", f"Invalid path: {rel_path}: {e}")
+            continue
+
         if image_path.exists():
             try:
                 with open(image_path, "rb") as f:

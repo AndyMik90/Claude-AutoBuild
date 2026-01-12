@@ -88,9 +88,10 @@ def get_qa_iteration_count(spec_dir: Path) -> int:
 
 def collect_qa_screenshots(spec_dir: Path, max_age_seconds: int = 600) -> list[str]:
     """
-    Collect screenshot files generated during the QA session.
+    Collect screenshot files generated during the QA session BY THE AGENT.
 
-    Looks for .png files in spec_dir that were created recently.
+    SECURITY: Excludes user-provided feedback screenshots from qa-feedback-screenshots/.
+    Only collects screenshots created by Playwright or other automated QA tools.
 
     Args:
         spec_dir: Spec directory where screenshots are saved
@@ -106,11 +107,15 @@ def collect_qa_screenshots(spec_dir: Path, max_age_seconds: int = 600) -> list[s
     if spec_dir.exists():
         for file_path in spec_dir.glob("**/*.png"):
             if file_path.is_file():
+                # SECURITY: Exclude user-provided feedback screenshots
+                rel_path = file_path.relative_to(spec_dir)
+                if str(rel_path).startswith("qa-feedback-screenshots/"):
+                    continue
+
                 # Check file age
                 file_age = current_time - file_path.stat().st_mtime
                 if file_age <= max_age_seconds:
                     # Store path relative to spec_dir
-                    rel_path = file_path.relative_to(spec_dir)
                     screenshots.append(str(rel_path))
 
     return sorted(screenshots)

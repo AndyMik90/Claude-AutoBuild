@@ -419,15 +419,32 @@ export function registerTaskExecutionHandlers(
 
             for (const image of images) {
               if (image.data) {
-                const imagePath = path.join(screenshotsDir, image.filename);
+                // SECURITY: Sanitize filename to prevent path traversal
+                const safeFilename = path.basename(image.filename);
+
+                // SECURITY: Validate filename contains only safe characters
+                if (!/^[a-zA-Z0-9_\-\.]+$/.test(safeFilename)) {
+                  console.error('[TASK_REVIEW] Invalid filename rejected:', safeFilename);
+                  continue;
+                }
+
+                // SECURITY: Limit image size to 10MB
                 const imageBuffer = Buffer.from(image.data, 'base64');
+                const maxSize = 10 * 1024 * 1024; // 10MB
+                if (imageBuffer.length > maxSize) {
+                  console.error('[TASK_REVIEW] Image too large (>10MB):', safeFilename);
+                  continue;
+                }
+
+                const imagePath = path.join(screenshotsDir, safeFilename);
                 writeFileSync(imagePath, imageBuffer);
-                savedImagePaths.push(`qa-feedback-screenshots/${image.filename}`);
-                console.log('[TASK_REVIEW] Saved feedback screenshot:', imagePath);
+                savedImagePaths.push(`qa-feedback-screenshots/${safeFilename}`);
+                console.log('[TASK_REVIEW] Saved feedback screenshot:', imagePath, `(${imageBuffer.length} bytes)`);
               }
             }
           } catch (error) {
             console.error('[TASK_REVIEW] Failed to save feedback screenshots:', error);
+            // Don't fail the entire review if screenshot save fails
           }
         }
 
