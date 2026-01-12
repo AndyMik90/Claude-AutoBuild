@@ -6,8 +6,9 @@
  * Provides a unified interface for GitHub, GitLab, and future providers.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { ProviderType, ProviderRepository } from './types';
+import type { ProjectEnvConfig } from '../../../shared/types';
 import {
   getProviderOAuthHandlers,
   getProviderRepositoryFetcher,
@@ -17,8 +18,8 @@ import {
 
 export interface UseProviderIntegrationProps {
   provider: ProviderType;
-  envConfig: any;
-  updateEnvConfig: (updates: any) => void;
+  envConfig: ProjectEnvConfig | null;
+  updateEnvConfig: (updates: Partial<ProjectEnvConfig>) => void;
   projectPath?: string;
 }
 
@@ -30,7 +31,7 @@ export function useProviderIntegration({
 }: UseProviderIntegrationProps) {
   // Provider configuration - memoized to prevent infinite re-renders
   const providerConfig = useMemo(
-    () => envConfigToProviderConfig(provider, envConfig),
+    () => envConfigToProviderConfig(provider, envConfig || {}),
     [provider, envConfig]
   );
 
@@ -56,6 +57,9 @@ export function useProviderIntegration({
   const [branches, setBranches] = useState<string[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [branchesError, setBranchesError] = useState<string | null>(null);
+
+  // Track whether initial CLI check has been performed
+  const hasCheckedCliRef = useRef(false);
 
   // Get provider-specific handlers - memoized to prevent infinite re-renders
   const oauthHandlers = useMemo(() => getProviderOAuthHandlers(provider), [provider]);
@@ -90,8 +94,18 @@ export function useProviderIntegration({
     const result = await oauthHandlers.startAuth(instanceUrl);
 
     if (result.success) {
-      // Poll for auth completion
+      // Poll for auth completion with max retries
+      const MAX_RETRIES = 60; // 60 retries * 2s = 2 minutes max wait time
+      let retryCount = 0;
+
       const checkAuth = async () => {
+        if (retryCount >= MAX_RETRIES) {
+          console.error(`[useProviderIntegration] OAuth polling timed out after ${MAX_RETRIES} attempts`);
+          setAuthMode('manual'); // Revert to manual mode on timeout
+          return;
+        }
+
+        retryCount++;
         const authResult = await oauthHandlers.checkAuth(instanceUrl);
         if (authResult.authenticated) {
           setAuthMode('oauth-success');
@@ -248,7 +262,9 @@ export function useProviderIntegration({
   useEffect(() => {
     // CRITICAL: Only check CLI if the provider is enabled
     // This prevents Git Credential Manager popups when navigating to other provider settings
-    if (providerConfig.enabled) {
+    // Use ref to prevent duplicate checks on mount
+    if (providerConfig.enabled && !hasCheckedCliRef.current) {
+      hasCheckedCliRef.current = true;
       checkCli();
     }
   }, [provider, providerConfig.enabled, checkCli]);

@@ -247,9 +247,10 @@ describe('GitLab Utils', () => {
     });
 
     it('should use shell:true on Windows platform', async () => {
-      const originalPlatform = process.platform;
+      const originalDescriptor = Object.getOwnPropertyDescriptor(process, 'platform');
       Object.defineProperty(process, 'platform', {
         value: 'win32',
+        configurable: true,
       });
 
       const mockSpawn = vi.mocked(spawn);
@@ -265,10 +266,10 @@ describe('GitLab Utils', () => {
         })
       );
 
-      // Restore platform
-      Object.defineProperty(process, 'platform', {
-        value: originalPlatform,
-      });
+      // Restore original descriptor
+      if (originalDescriptor) {
+        Object.defineProperty(process, 'platform', originalDescriptor);
+      }
     });
   });
 });

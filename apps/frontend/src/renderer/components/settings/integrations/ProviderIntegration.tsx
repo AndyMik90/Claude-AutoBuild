@@ -77,7 +77,7 @@ export function ProviderIntegration({
     selectBranch,
   } = useProviderIntegration({
     provider,
-    envConfig: envConfig || {},
+    envConfig,
     updateEnvConfig,
     projectPath,
   });

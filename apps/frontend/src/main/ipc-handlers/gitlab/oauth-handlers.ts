@@ -161,8 +161,8 @@ export function registerInstallGlabCli(): void {
           // macOS: Use Homebrew
           command = 'brew install glab';
         } else if (platform === 'win32') {
-          // Windows: Use winget
-          command = 'winget install --id GLab.GLab';
+          // Windows: Use winget (official package ID is lowercase)
+          command = 'winget install --id glab.glab';
         } else {
           // Linux: Try snap first, then homebrew
           command = 'sudo snap install glab || brew install glab';
