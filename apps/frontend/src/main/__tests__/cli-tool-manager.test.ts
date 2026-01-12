@@ -126,7 +126,12 @@ vi.mock('../env-utils', () => ({
     ...baseOptions,
     shell: /\.(cmd|bat)$/i.test(command) && process.platform === 'win32'
   })),
-  existsAsync: vi.fn(() => Promise.resolve(false))
+  existsAsync: vi.fn(() => Promise.resolve(false)),
+  // Registry PATH helpers - return null to avoid actual registry reads in tests
+  getWindowsRegistryPath: vi.fn(() => null),
+  getWindowsRegistryPathAsync: vi.fn(() => Promise.resolve(null)),
+  parseRegOutput: vi.fn(() => null),
+  expandWindowsEnvVars: vi.fn((path: string) => path)
 }));
 
 // Mock homebrew-python utility
