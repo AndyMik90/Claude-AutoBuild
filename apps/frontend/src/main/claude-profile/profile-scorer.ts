@@ -38,16 +38,16 @@ export function getBestAvailableProfile(
   const isDebug = process.env.DEBUG === 'true';
 
   if (isDebug) {
-    console.log('[ProfileScorer] Evaluating', candidates.length, 'candidate profiles (excluding:', excludeProfileId, ')');
+    console.warn('[ProfileScorer] Evaluating', candidates.length, 'candidate profiles (excluding:', excludeProfileId, ')');
   }
 
   const scoredProfiles: ScoredProfile[] = candidates.map(profile => {
     let score = 100;  // Base score
-    if (isDebug) console.log('[ProfileScorer] Scoring profile:', profile.name, '(', profile.id, ')');
+    if (isDebug) console.warn('[ProfileScorer] Scoring profile:', profile.name, '(', profile.id, ')');
 
     // Check rate limit status
     const rateLimitStatus = isProfileRateLimited(profile);
-    console.log('[ProfileScorer]   Rate limit status:', rateLimitStatus);
+    if (isDebug) console.warn('[ProfileScorer]   Rate limit status:', rateLimitStatus);
     if (rateLimitStatus.limited) {
       // Severely penalize rate-limited profiles
       if (rateLimitStatus.type === 'weekly') {
@@ -81,13 +81,13 @@ export function getBestAvailableProfile(
 
     // Check if authenticated
     const isAuth = isProfileAuthenticated(profile);
-    console.log('[ProfileScorer]   isProfileAuthenticated:', isAuth, 'hasOAuthToken:', !!profile.oauthToken, 'hasConfigDir:', !!profile.configDir);
+    if (isDebug) console.warn('[ProfileScorer]   isProfileAuthenticated:', isAuth, 'hasOAuthToken:', !!profile.oauthToken, 'hasConfigDir:', !!profile.configDir);
     if (!isAuth) {
       score -= 500;  // Severely penalize unauthenticated profiles
-      console.log('[ProfileScorer]   Applied -500 penalty for no auth');
+      if (isDebug) console.warn('[ProfileScorer]   Applied -500 penalty for no auth');
     }
 
-    console.log('[ProfileScorer]   Final score:', score);
+    if (isDebug) console.warn('[ProfileScorer]   Final score:', score);
     return { profile, score };
   });
 
