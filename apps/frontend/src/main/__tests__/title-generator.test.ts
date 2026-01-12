@@ -62,6 +62,25 @@ vi.mock('child_process', () => ({
   spawn: vi.fn()
 }));
 
+/**
+ * Type helper interface for accessing private TitleGenerator methods in tests.
+ * This provides type-safe access to private methods for testing purposes.
+ */
+interface TitleGeneratorTestMethods {
+  getActiveAPIProfile(): Promise<{ apiKey: string; baseUrl: string; haikuModel: string } | null>;
+  cleanTitle(title: string): string;
+  createTitlePrompt(desc: string): string;
+}
+
+/**
+ * Helper function to get typed access to private TitleGenerator methods.
+ * @param generator The TitleGenerator instance
+ * @returns The generator with access to private test methods
+ */
+function getTestMethods(generator: InstanceType<typeof import('../title-generator').TitleGenerator>): TitleGeneratorTestMethods {
+  return generator as unknown as TitleGeneratorTestMethods;
+}
+
 describe('TitleGenerator', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -91,8 +110,7 @@ describe('TitleGenerator', () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      // Access the private method via prototype
-      const result = await (generator as unknown as { getActiveAPIProfile: () => Promise<unknown> }).getActiveAPIProfile();
+      const result = await getTestMethods(generator).getActiveAPIProfile();
       expect(result).toBeNull();
     });
 
@@ -106,7 +124,7 @@ describe('TitleGenerator', () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      const result = await (generator as unknown as { getActiveAPIProfile: () => Promise<unknown> }).getActiveAPIProfile();
+      const result = await getTestMethods(generator).getActiveAPIProfile();
       expect(result).toBeNull();
     });
 
@@ -122,7 +140,7 @@ describe('TitleGenerator', () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      const result = await (generator as unknown as { getActiveAPIProfile: () => Promise<unknown> }).getActiveAPIProfile();
+      const result = await getTestMethods(generator).getActiveAPIProfile();
       expect(result).toBeNull();
     });
 
@@ -138,7 +156,7 @@ describe('TitleGenerator', () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      const result = await (generator as unknown as { getActiveAPIProfile: () => Promise<unknown> }).getActiveAPIProfile();
+      const result = await getTestMethods(generator).getActiveAPIProfile();
       expect(result).toBeNull();
     });
 
@@ -160,7 +178,7 @@ describe('TitleGenerator', () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      const result = await (generator as unknown as { getActiveAPIProfile: () => Promise<{ apiKey: string; baseUrl: string; haikuModel: string } | null> }).getActiveAPIProfile();
+      const result = await getTestMethods(generator).getActiveAPIProfile();
       
       expect(result).not.toBeNull();
       expect(result?.apiKey).toBe('test-api-key');
@@ -186,7 +204,7 @@ describe('TitleGenerator', () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      const result = await (generator as unknown as { getActiveAPIProfile: () => Promise<{ apiKey: string; baseUrl: string; haikuModel: string } | null> }).getActiveAPIProfile();
+      const result = await getTestMethods(generator).getActiveAPIProfile();
       
       expect(result).not.toBeNull();
       expect(result?.baseUrl).toBe('https://api.anthropic.com');
@@ -210,7 +228,7 @@ describe('TitleGenerator', () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      const result = await (generator as unknown as { getActiveAPIProfile: () => Promise<{ apiKey: string; baseUrl: string; haikuModel: string } | null> }).getActiveAPIProfile();
+      const result = await getTestMethods(generator).getActiveAPIProfile();
       
       expect(result).not.toBeNull();
       // Should use default haiku model from MODEL_ID_MAP
@@ -223,7 +241,7 @@ describe('TitleGenerator', () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      const result = await (generator as unknown as { getActiveAPIProfile: () => Promise<unknown> }).getActiveAPIProfile();
+      const result = await getTestMethods(generator).getActiveAPIProfile();
       expect(result).toBeNull();
     });
   });
@@ -233,39 +251,31 @@ describe('TitleGenerator', () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      const cleanTitle = (generator as unknown as { cleanTitle: (title: string) => string }).cleanTitle;
-      
-      expect(cleanTitle.call(generator, '"Hello World"')).toBe('Hello World');
-      expect(cleanTitle.call(generator, "'Hello World'")).toBe('Hello World');
+      expect(getTestMethods(generator).cleanTitle('"Hello World"')).toBe('Hello World');
+      expect(getTestMethods(generator).cleanTitle("'Hello World'")).toBe('Hello World');
     });
 
     it('should remove title prefixes', async () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      const cleanTitle = (generator as unknown as { cleanTitle: (title: string) => string }).cleanTitle;
-      
-      expect(cleanTitle.call(generator, 'Title: Add Feature')).toBe('Add Feature');
-      expect(cleanTitle.call(generator, 'Task: Fix Bug')).toBe('Fix Bug');
+      expect(getTestMethods(generator).cleanTitle('Title: Add Feature')).toBe('Add Feature');
+      expect(getTestMethods(generator).cleanTitle('Task: Fix Bug')).toBe('Fix Bug');
     });
 
     it('should capitalize first letter', async () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      const cleanTitle = (generator as unknown as { cleanTitle: (title: string) => string }).cleanTitle;
-      
-      expect(cleanTitle.call(generator, 'add feature')).toBe('Add feature');
+      expect(getTestMethods(generator).cleanTitle('add feature')).toBe('Add feature');
     });
 
     it('should truncate long titles', async () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      const cleanTitle = (generator as unknown as { cleanTitle: (title: string) => string }).cleanTitle;
-      
       const longTitle = 'A'.repeat(150);
-      const result = cleanTitle.call(generator, longTitle);
+      const result = getTestMethods(generator).cleanTitle(longTitle);
       
       expect(result.length).toBe(100);
       expect(result.endsWith('...')).toBe(true);
@@ -277,9 +287,7 @@ describe('TitleGenerator', () => {
       const { TitleGenerator } = await import('../title-generator');
       const generator = new TitleGenerator();
 
-      const createPrompt = (generator as unknown as { createTitlePrompt: (desc: string) => string }).createTitlePrompt;
-      
-      const prompt = createPrompt.call(generator, 'Add user authentication');
+      const prompt = getTestMethods(generator).createTitlePrompt('Add user authentication');
       
       expect(prompt).toContain('Add user authentication');
       expect(prompt).toContain('3-7 words');
