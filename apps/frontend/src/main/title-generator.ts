@@ -20,7 +20,7 @@ const DEFAULT_ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
  * Interface for active API profile configuration.
  * Used for direct SDK calls with profile credentials.
  */
-interface ActiveAPIProfile {
+export interface ActiveAPIProfile {
   /** The API key for authentication */
   apiKey: string;
   /** The base URL for the Anthropic API */
