@@ -8,6 +8,10 @@ import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-l
 import { parsePythonCommand, getValidatedPythonPath } from './python-detector';
 import { getConfiguredPythonPath } from './python-env-manager';
 import { loadProfilesFile } from './services/profile/profile-manager';
+import { MODEL_ID_MAP } from '../shared/constants/models';
+
+/** Default Haiku model ID from centralized model map */
+const DEFAULT_HAIKU_MODEL = MODEL_ID_MAP.haiku;
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -119,6 +123,9 @@ export class TitleGenerator extends EventEmitter {
   /**
    * Get the active API profile configuration for direct API calls.
    * Returns null if no API profile is active (OAuth mode).
+   * 
+   * @returns Promise resolving to the profile configuration with apiKey, baseUrl, and haikuModel,
+   *          or null if no API profile is active
    */
   private async getActiveAPIProfile(): Promise<{
     apiKey: string;
@@ -144,7 +151,7 @@ export class TitleGenerator extends EventEmitter {
       return {
         apiKey: profile.apiKey,
         baseUrl: profile.baseUrl || 'https://api.anthropic.com',
-        haikuModel: profile.models?.haiku || 'claude-haiku-4-5-20250514'
+        haikuModel: profile.models?.haiku || DEFAULT_HAIKU_MODEL
       };
     } catch (error) {
       debug('Failed to load API profile:', error);
@@ -155,6 +162,12 @@ export class TitleGenerator extends EventEmitter {
   /**
    * Generate title using the Anthropic SDK directly (for API profile mode).
    * This is faster and doesn't require Python subprocess.
+   * 
+   * @param description - The task description to generate a title from
+   * @param apiKey - The Anthropic API key for authentication
+   * @param baseUrl - The base URL for the Anthropic API
+   * @param model - The model ID to use for generation (e.g., 'claude-haiku-4-5-20251001')
+   * @returns Promise resolving to the generated title or null on failure
    */
   private async generateTitleWithSDK(
     description: string,
@@ -192,7 +205,32 @@ export class TitleGenerator extends EventEmitter {
       debug('No text content in SDK response');
       return null;
     } catch (error) {
-      debug('SDK title generation failed:', error);
+      // Extract error details for logging
+      const err = error as { name?: string; status?: number; message?: string };
+      const errorType = err?.name || 'UnknownError';
+      const status = err?.status;
+      const message = err?.message || String(error);
+
+      // Check for rate limit conditions
+      const isRateLimit = status === 429 || /rate\s*limit/i.test(message) || /too\s*many\s*requests/i.test(message);
+
+      // Log with appropriate detail
+      console.warn('[TitleGenerator] SDK title generation failed', {
+        errorType,
+        status,
+        message: message.substring(0, 200),
+        isRateLimited: isRateLimit
+      });
+
+      // Emit rate limit event if detected (consistent with OAuth path behavior)
+      if (isRateLimit) {
+        const rateLimitDetection = detectRateLimit(message);
+        if (rateLimitDetection.isRateLimited) {
+          const rateLimitInfo = createSDKRateLimitInfo('title-generator', rateLimitDetection);
+          this.emit('sdk-rate-limit', rateLimitInfo);
+        }
+      }
+
       return null;
     }
   }
@@ -202,9 +240,9 @@ export class TitleGenerator extends EventEmitter {
    * 
    * Authentication priority:
    * 1. Active API profile (uses Anthropic SDK directly with profile's haiku model,
-   *    or 'claude-haiku-4-5-20250514' if no haiku model configured)
+   *    or the default from MODEL_ID_MAP if no haiku model configured)
    * 2. ANTHROPIC_API_KEY environment variable (uses Anthropic SDK directly with
-   *    ANTHROPIC_DEFAULT_HAIKU_MODEL or 'claude-haiku-4-5-20250514' default)
+   *    ANTHROPIC_DEFAULT_HAIKU_MODEL or the default from MODEL_ID_MAP)
    * 3. OAuth token (uses Claude Agent SDK via Python subprocess)
    * 
    * @param description - The task description to generate a title from
@@ -234,7 +272,7 @@ export class TitleGenerator extends EventEmitter {
     if (envApiKey) {
       debug('Using ANTHROPIC_API_KEY environment variable for title generation');
       const baseUrl = process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
-      const model = process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || 'claude-haiku-4-5-20250514';
+      const model = process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || DEFAULT_HAIKU_MODEL;
       const title = await this.generateTitleWithSDK(description, envApiKey, baseUrl, model);
       if (title) {
         return title;
