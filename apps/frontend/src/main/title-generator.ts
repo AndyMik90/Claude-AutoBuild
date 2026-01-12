@@ -201,8 +201,10 @@ export class TitleGenerator extends EventEmitter {
    * Generate a task title from a description using Claude AI.
    * 
    * Authentication priority:
-   * 1. Active API profile (uses Anthropic SDK directly with profile's haiku model)
-   * 2. ANTHROPIC_API_KEY environment variable (uses Anthropic SDK directly)
+   * 1. Active API profile (uses Anthropic SDK directly with profile's haiku model,
+   *    or 'claude-haiku-4-5-20250514' if no haiku model configured)
+   * 2. ANTHROPIC_API_KEY environment variable (uses Anthropic SDK directly with
+   *    ANTHROPIC_DEFAULT_HAIKU_MODEL or 'claude-haiku-4-5-20250514' default)
    * 3. OAuth token (uses Claude Agent SDK via Python subprocess)
    * 
    * @param description - The task description to generate a title from
