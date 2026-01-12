@@ -1009,25 +1009,28 @@ def handle_create_pr_command(
     target_branch: str | None = None,
     title: str | None = None,
     draft: bool = False,
+    provider_setting: str | None = None,
 ) -> CreatePRResult:
     """
-    Handle the --create-pr command: push branch and create a GitHub PR.
+    Handle the --create-pr command: push branch and create a PR/MR.
 
     Args:
         project_dir: Path to the project directory
         spec_name: Name of the spec (e.g., "001-feature-name")
-        target_branch: Target branch for PR (defaults to base branch)
-        title: Custom PR title (defaults to spec name)
-        draft: Whether to create as draft PR
+        target_branch: Target branch for PR/MR (defaults to base branch)
+        title: Custom PR/MR title (defaults to spec name)
+        draft: Whether to create as draft PR/MR
+        provider_setting: Git provider ("auto", "github", "gitlab", or None)
 
     Returns:
         CreatePRResult with success status, pr_url, and any errors
     """
     from core.worktree import WorktreeManager
+    from core.git_provider import GitProvider, get_provider_config
 
     print_banner()
     print("\n" + "=" * 70)
-    print("  CREATE PULL REQUEST")
+    print("  CREATE PULL REQUEST / MERGE REQUEST")
     print("=" * 70)
 
     # Check if worktree exists
@@ -1045,13 +1048,19 @@ def handle_create_pr_command(
     # Create worktree manager
     manager = WorktreeManager(project_dir, base_branch=target_branch)
 
-    print(f"\n{icon(Icons.BRANCH)} Pushing branch and creating PR...")
+    # Determine provider for messages
+    provider = get_provider_config(project_dir, provider_setting)
+    pr_or_mr = "PR" if provider == GitProvider.GITHUB else "MR"
+    platform = "GitHub" if provider == GitProvider.GITHUB else "GitLab"
+
+    print(f"\n{icon(Icons.BRANCH)} Pushing branch and creating {pr_or_mr}...")
+    print(f"   Provider: {platform}")
     print(f"   Spec: {spec_name}")
     print(f"   Target: {target_branch or manager.base_branch}")
     if title:
         print(f"   Title: {title}")
     if draft:
-        print("   Mode: Draft PR")
+        print(f"   Mode: Draft {pr_or_mr}")
 
     # Push and create PR with exception handling for clean JSON output
     try:
@@ -1060,15 +1069,16 @@ def handle_create_pr_command(
             target_branch=target_branch,
             title=title,
             draft=draft,
+            provider_setting=provider_setting,
         )
     except Exception as e:
-        debug_error(MODULE, f"Exception during PR creation: {e}")
+        debug_error(MODULE, f"Exception during {pr_or_mr} creation: {e}")
         error_result: CreatePRResult = {
             "success": False,
             "error": str(e),
-            "message": "Failed to create PR",
+            "message": f"Failed to create {pr_or_mr}",
         }
-        print(f"\n{icon(Icons.ERROR)} Failed to create PR: {e}")
+        print(f"\n{icon(Icons.ERROR)} Failed to create {pr_or_mr}: {e}")
         print(json.dumps(error_result))
         return error_result
 
@@ -1089,17 +1099,17 @@ def handle_create_pr_command(
         already_exists = result.get("already_exists", False)
 
         if already_exists:
-            print(f"\n{icon(Icons.SUCCESS)} PR already exists!")
+            print(f"\n{icon(Icons.SUCCESS)} {pr_or_mr} already exists!")
         else:
-            print(f"\n{icon(Icons.SUCCESS)} PR created successfully!")
+            print(f"\n{icon(Icons.SUCCESS)} {pr_or_mr} created successfully!")
 
         if pr_url:
             print(f"\n{icon(Icons.LINK)} {pr_url}")
         else:
-            print(f"\n{icon(Icons.INFO)} Check GitHub for the PR URL")
+            print(f"\n{icon(Icons.INFO)} Check {platform} for the {pr_or_mr} URL")
 
         print("\nNext steps:")
-        print("  1. Review the PR on GitHub")
+        print(f"  1. Review the {pr_or_mr} on {platform}")
         print("  2. Request reviews from your team")
         print("  3. Merge when approved")
 
@@ -1108,7 +1118,7 @@ def handle_create_pr_command(
         return result
     else:
         error = result.get("error", "Unknown error")
-        print(f"\n{icon(Icons.ERROR)} Failed to create PR: {error}")
+        print(f"\n{icon(Icons.ERROR)} Failed to create {pr_or_mr}: {error}")
         # Output JSON for frontend parsing
         print(json.dumps(result))
         return result

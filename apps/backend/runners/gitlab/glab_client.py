@@ -244,6 +244,50 @@ class GitLabClient:
             data={"assignee_ids": user_ids},
         )
 
+    def create_mr(
+        self,
+        source_branch: str,
+        target_branch: str,
+        title: str,
+        description: str = "",
+        labels: list[str] | None = None,
+        remove_source_branch: bool = False,
+        squash: bool = False,
+    ) -> dict[str, Any]:
+        """
+        Create a merge request.
+
+        Args:
+            source_branch: Source branch name
+            target_branch: Target branch name
+            title: MR title
+            description: MR description (optional)
+            labels: Labels to apply (optional)
+            remove_source_branch: Delete source branch after merge
+            squash: Squash commits on merge
+
+        Returns:
+            GitLab API response with MR details including web_url
+        """
+        endpoint = f"/projects/{encode_project_path(self.config.project)}/merge_requests"
+
+        data: dict[str, Any] = {
+            "source_branch": source_branch,
+            "target_branch": target_branch,
+            "title": title,
+        }
+
+        if description:
+            data["description"] = description
+        if labels:
+            data["labels"] = ",".join(labels)
+        if remove_source_branch:
+            data["remove_source_branch"] = True
+        if squash:
+            data["squash"] = True
+
+        return self._fetch(endpoint, method="POST", data=data)
+
 
 def load_gitlab_config(project_dir: Path) -> GitLabConfig | None:
     """Load GitLab config from project's .auto-claude/gitlab/config.json."""

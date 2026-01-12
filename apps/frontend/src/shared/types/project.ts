@@ -26,6 +26,8 @@ export interface ProjectSettings {
   mainBranch?: string;
   /** Include CLAUDE.md instructions in agent system prompt (default: true) */
   useClaudeMd?: boolean;
+  /** Git provider for PR/MR creation: 'auto' (detect from remote), 'github', or 'gitlab' (default: 'auto') */
+  gitProvider?: 'auto' | 'github' | 'gitlab';
 }
 
 export interface NotificationSettings {
