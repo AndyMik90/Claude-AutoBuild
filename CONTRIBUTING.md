@@ -101,7 +101,7 @@ sudo apt install -y nodejs
 
 **Linux (Fedora):**
 ```bash
-sudo dnf install nodejs npm
+sudo dnf install nodejs24 nodejs24-npm
 ```
 
 ### Installing CMake
