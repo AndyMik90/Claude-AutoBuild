@@ -81,26 +81,31 @@ export function QueueSettingsDialog({
 
   // Local state for form (synced with currentConfig when dialog opens)
   const [enabled, setEnabled] = useState(currentConfig.enabled);
-  const [maxConcurrent, setMaxConcurrent] = useState(currentConfig.maxConcurrent);
+  const [maxConcurrent, setMaxConcurrent] = useState(currentConfig.maxConcurrent || DEFAULT_CONCURRENT);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Reset form when dialog opens or currentConfig changes
+  // Reset form when dialog opens - use stable primitives to avoid unnecessary resets
   useEffect(() => {
     if (open) {
       setEnabled(currentConfig.enabled);
       setMaxConcurrent(currentConfig.maxConcurrent);
+      setSaveError(null);
     }
-  }, [open, currentConfig]);
+  }, [open, currentConfig.enabled, currentConfig.maxConcurrent]);
 
   const handleSave = async () => {
     const config: QueueConfig = { enabled, maxConcurrent };
     setIsSaving(true);
+    setSaveError(null);
 
     const success = await saveQueueConfig(projectId, config);
 
     if (success) {
       onOpenChange(false);
       onSaved?.();
+    } else {
+      setSaveError(t('tasks:queue.settings.saveFailed'));
     }
 
     setIsSaving(false);
@@ -126,6 +131,12 @@ export function QueueSettingsDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Error message */}
+          {saveError && (
+            <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3">
+              <p className="text-xs text-destructive">{saveError}</p>
+            </div>
+          )}
           {/* Enable Queue Toggle */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
@@ -183,7 +194,7 @@ export function QueueSettingsDialog({
                 <div className="space-y-3 pt-1">
                   {/* Preset buttons */}
                   <div className="grid grid-cols-3 gap-2">
-                    {[1, 2, 3].map((value) => (
+                    {([1, 2, 3] as const).map((value) => (
                       <button
                         key={value}
                         type="button"

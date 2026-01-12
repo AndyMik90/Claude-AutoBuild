@@ -212,3 +212,13 @@ export const ALLOWED_IMAGE_TYPES_DISPLAY = 'PNG, JPEG, GIF, WebP, SVG';
 
 // Attachments directory name within spec folder
 export const ATTACHMENTS_DIR = 'attachments';
+
+// ============================================
+// Task Queue Constants
+// ============================================
+
+/** Minimum number of concurrent tasks allowed in queue */
+export const QUEUE_MIN_CONCURRENT = 1;
+
+/** Maximum number of concurrent tasks allowed in queue */
+export const QUEUE_MAX_CONCURRENT = 3;

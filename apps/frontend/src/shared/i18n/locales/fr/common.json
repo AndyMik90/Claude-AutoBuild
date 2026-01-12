@@ -72,6 +72,8 @@
     "start": "Démarrer",
     "stop": "Arrêter",
     "refresh": "Actualiser",
+    "refreshing": "Actualisation...",
+    "refreshTasks": "Actualiser les tâches",
     "merge": "Fusionner",
     "discard": "Abandonner",
     "switch": "Changer",

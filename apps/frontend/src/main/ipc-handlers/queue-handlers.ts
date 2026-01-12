@@ -9,13 +9,14 @@
 import { ipcMain } from 'electron';
 import { TaskQueueManager } from '../task-queue-manager';
 import { projectStore } from '../project-store';
+import { QUEUE_MIN_CONCURRENT, QUEUE_MAX_CONCURRENT } from '../../shared/constants/task';
 import type { QueueConfig, QueueStatus } from '../../shared/types';
 
 /**
  * Register queue-related IPC handlers
  */
 export function registerQueueHandlers(taskQueueManager: TaskQueueManager): void {
-  console.warn('[IPC] Registering queue handlers...');
+  console.log('[IPC] Registering queue handlers...');
   /**
    * Get queue configuration for a project
    */
@@ -25,7 +26,7 @@ export function registerQueueHandlers(taskQueueManager: TaskQueueManager): void 
       if (!project?.settings.queueConfig) {
         return {
           success: true,
-          data: { enabled: false, maxConcurrent: 1 }
+          data: { enabled: false, maxConcurrent: QUEUE_MIN_CONCURRENT }
         };
       }
       return {
@@ -53,11 +54,11 @@ export function registerQueueHandlers(taskQueueManager: TaskQueueManager): void 
         };
       }
 
-      // Validate maxConcurrent is between 1 and 3
-      if (config.maxConcurrent < 1 || config.maxConcurrent > 3) {
+      // Validate maxConcurrent is between MIN and MAX
+      if (config.maxConcurrent < QUEUE_MIN_CONCURRENT || config.maxConcurrent > QUEUE_MAX_CONCURRENT) {
         return {
           success: false,
-          error: 'maxConcurrent must be between 1 and 3'
+          error: `maxConcurrent must be between ${QUEUE_MIN_CONCURRENT} and ${QUEUE_MAX_CONCURRENT}`
         };
       }
 
@@ -101,5 +102,5 @@ export function registerQueueHandlers(taskQueueManager: TaskQueueManager): void 
     }
   });
 
-  console.warn('[IPC] Queue handlers registered successfully');
+  console.log('[IPC] Queue handlers registered successfully');
 }

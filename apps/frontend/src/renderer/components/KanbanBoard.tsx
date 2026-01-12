@@ -25,7 +25,7 @@ import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Badge } from './ui/badge';
 import { QueueSettingsDialog } from './QueueSettingsDialog';
-import { useQueueStore, loadQueueConfig, getQueueStatus } from '../stores/queue-store';
+import { loadQueueConfig, fetchQueueStatus } from '../stores/queue-store';
 import type { QueueConfig } from '../../shared/types';
 import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
@@ -428,6 +428,18 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [queueConfig, setQueueConfig] = useState<QueueConfig>({ enabled: false, maxConcurrent: 1 });
   const [queueRunningCount, setQueueRunningCount] = useState(0);
 
+  // Helper to refresh queue state (config and running count)
+  const refreshQueueState = async (pid: string) => {
+    const config = await loadQueueConfig(pid);
+    if (config) {
+      setQueueConfig(config);
+    }
+    const status = await fetchQueueStatus(pid);
+    if (status) {
+      setQueueRunningCount(status.runningCount);
+    }
+  };
+
   // Calculate archived count for Done column button
   const archivedCount = useMemo(() =>
     tasks.filter(t => t.metadata?.archivedAt).length,
@@ -440,19 +452,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Load queue config and status when projectId changes
   useEffect(() => {
     if (!projectId) return;
-
-    const loadQueueData = async () => {
-      const config = await loadQueueConfig(projectId);
-      if (config) {
-        setQueueConfig(config);
-      }
-      const status = await getQueueStatus(projectId);
-      if (status) {
-        setQueueRunningCount(status.runningCount);
-      }
-    };
-
-    loadQueueData();
+    refreshQueueState(projectId);
   }, [projectId]);
 
   // Filter tasks based on archive status
@@ -661,7 +661,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             className="gap-2 text-muted-foreground hover:text-foreground"
           >
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh Tasks'}
+            {isRefreshing ? t('common:buttons.refreshing') : t('common:buttons.refreshTasks')}
           </Button>
         </div>
       )}
@@ -728,25 +728,17 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           onOpenChange={(open) => {
             setQueueDialogOpen(open);
             // Reload config when dialog closes to get latest values
-            if (!open) {
-              loadQueueConfig(projectId).then((config) => {
-                if (config) setQueueConfig(config);
-              });
-              getQueueStatus(projectId).then((status) => {
-                if (status) setQueueRunningCount(status.runningCount);
-              });
+            if (!open && projectId) {
+              refreshQueueState(projectId);
             }
           }}
           currentConfig={queueConfig}
           runningCount={queueRunningCount}
           onSaved={() => {
             // Reload config and status after saving
-            loadQueueConfig(projectId).then((config) => {
-              if (config) setQueueConfig(config);
-            });
-            getQueueStatus(projectId).then((status) => {
-              if (status) setQueueRunningCount(status.runningCount);
-            });
+            if (projectId) {
+              refreshQueueState(projectId);
+            }
           }}
         />
       )}

@@ -18,9 +18,10 @@
  */
 
 import { EventEmitter } from 'events';
-import type { Task, TaskStatus, QueueStatus, TaskPriority } from '../shared/types';
+import type { Task, TaskStatus, QueueStatus, QueueConfig, TaskPriority, Project } from '../shared/types';
 import { projectStore } from './project-store';
 import { debugLog, debugError } from '../shared/utils/debug-logger';
+import { QUEUE_MIN_CONCURRENT } from '../shared/constants/task';
 import type { AgentManager } from './agent/agent-manager';
 
 /**
@@ -47,13 +48,26 @@ const PRIORITY_WEIGHT: Record<TaskPriority | '', number> = {
 export class TaskQueueManager {
   private agentManager: AgentManager;
   private emitter: EventEmitter;
+  /** Per-project promise chain for serializing queue operations */
+  private processingQueue = new Map<string, Promise<void>>();
+  /** Bound handler for cleanup */
+  private boundHandleTaskExit: (taskId: string, exitCode: number | null) => Promise<void>;
 
   constructor(agentManager: AgentManager, emitter: EventEmitter) {
     this.agentManager = agentManager;
     this.emitter = emitter;
 
+    // Store bound handler for cleanup
+    this.boundHandleTaskExit = this.handleTaskExit.bind(this);
     // Listen for task exit events to trigger queue check
-    this.emitter.on('exit', this.handleTaskExit.bind(this));
+    this.emitter.on('exit', this.boundHandleTaskExit);
+  }
+
+  /**
+   * Stop the queue manager and remove event listeners
+   */
+  stop(): void {
+    this.emitter.off('exit', this.boundHandleTaskExit);
   }
 
   /**
@@ -67,14 +81,14 @@ export class TaskQueueManager {
   /**
    * Get queue configuration for a project
    */
-  getQueueConfig(projectId: string): { enabled: boolean; maxConcurrent: number } {
+  getQueueConfig(projectId: string): QueueConfig {
     const project = projectStore.getProject(projectId);
     if (!project?.settings.queueConfig) {
-      return { enabled: false, maxConcurrent: 1 };
+      return { enabled: false, maxConcurrent: QUEUE_MIN_CONCURRENT as 1 | 2 | 3 };
     }
     return {
       enabled: project.settings.queueConfig.enabled || false,
-      maxConcurrent: project.settings.queueConfig.maxConcurrent || 1
+      maxConcurrent: (project.settings.queueConfig.maxConcurrent || QUEUE_MIN_CONCURRENT) as 1 | 2 | 3
     };
   }
 
@@ -111,6 +125,7 @@ export class TaskQueueManager {
 
   /**
    * Handle task exit event - trigger queue check
+   * Uses per-project promise chaining to prevent race conditions
    */
   private async handleTaskExit(taskId: string, exitCode: number | null): Promise<void> {
     debugLog('[TaskQueueManager] Task exit:', { taskId, exitCode });
@@ -122,28 +137,48 @@ export class TaskQueueManager {
       return;
     }
 
-    // Check if queue is enabled for this project
-    const config = this.getQueueConfig(project.id);
-    if (!config.enabled) {
-      debugLog('[TaskQueueManager] Queue not enabled for project:', project.id);
-      return;
-    }
+    // Get or create the processing promise chain for this project
+    const projectId = project.id;
+    const existingChain = this.processingQueue.get(projectId) || Promise.resolve();
 
-    // Wait a bit for status updates to propagate
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Chain this operation onto the existing one
+    const processingPromise = existingChain.then(async () => {
+      // Check if queue is enabled for this project
+      const config = this.getQueueConfig(projectId);
+      if (!config.enabled) {
+        debugLog('[TaskQueueManager] Queue not enabled for project:', projectId);
+        return;
+      }
 
-    // Check if we can start more tasks
-    if (this.canStartMoreTasks(project.id)) {
-      debugLog('[TaskQueueManager] Queue can start more tasks, triggering next task');
-      await this.triggerNextTask(project.id);
-    } else {
-      debugLog('[TaskQueueManager] Queue cannot start more tasks',
-        this.getQueueStatus(project.id)
-      );
-    }
+      // Wait a bit for status updates to propagate
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Emit queue status update
-    this.emitQueueStatusUpdate(project.id);
+      // Check if we can start more tasks
+      if (this.canStartMoreTasks(projectId)) {
+        debugLog('[TaskQueueManager] Queue can start more tasks, triggering next task');
+        await this.triggerNextTask(projectId);
+      } else {
+        debugLog('[TaskQueueManager] Queue cannot start more tasks',
+          this.getQueueStatus(projectId)
+        );
+      }
+
+      // Emit queue status update
+      this.emitQueueStatusUpdate(projectId);
+    });
+
+    // Update the chain (removes the completed promise to prevent memory leak)
+    processingPromise.then(() => {
+      // Only remove if it's still the current chain
+      if (this.processingQueue.get(projectId) === processingPromise) {
+        this.processingQueue.delete(projectId);
+      }
+    });
+
+    this.processingQueue.set(projectId, processingPromise);
+
+    // Wait for this operation to complete
+    await processingPromise;
   }
 
   /**
@@ -253,10 +288,10 @@ export class TaskQueueManager {
    * Helper to find task and project by taskId
    * (copied from task/shared.ts to avoid circular dependencies)
    */
-  private findTaskAndProject(taskId: string): { task: Task | undefined; project: any | undefined } {
+  private findTaskAndProject(taskId: string): { task: Task | undefined; project: Project | undefined } {
     const projects = projectStore.getProjects();
     let task: Task | undefined;
-    let project: any | undefined;
+    let project: Project | undefined;
 
     for (const p of projects) {
       const tasks = projectStore.getTasks(p.id);

@@ -3,7 +3,7 @@
  * Tests Zustand store for queue state management
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { useQueueStore, DEFAULT_QUEUE_CONFIG, saveQueueConfig, loadQueueConfig, getQueueStatus } from '../stores/queue-store';
+import { useQueueStore, DEFAULT_QUEUE_CONFIG, saveQueueConfig, loadQueueConfig, fetchQueueStatus } from '../stores/queue-store';
 import type { QueueConfig, QueueStatus } from '../../shared/types';
 
 // Helper to create test queue config
@@ -135,7 +135,7 @@ describe('Queue Store', () => {
     });
   });
 
-  describe('getQueueStatus', () => {
+  describe('fetchQueueStatus', () => {
     it('should return undefined for non-existent project', () => {
       const status = useQueueStore.getState().getQueueStatus('non-existent');
 
@@ -278,6 +278,8 @@ describe('Queue Store', () => {
   });
 
   describe('saveQueueConfig', () => {
+    const originalWindow = global.window;
+
     beforeEach(() => {
       // Mock window.electronAPI
       global.window = {
@@ -285,6 +287,11 @@ describe('Queue Store', () => {
           setQueueConfig: vi.fn()
         }
       } as any;
+    });
+
+    afterEach(() => {
+      // Restore original window
+      global.window = originalWindow;
     });
 
     it('should call IPC with correct params', async () => {
@@ -337,6 +344,8 @@ describe('Queue Store', () => {
   });
 
   describe('loadQueueConfig', () => {
+    const originalWindow = global.window;
+
     beforeEach(() => {
       // Mock window.electronAPI
       global.window = {
@@ -344,6 +353,11 @@ describe('Queue Store', () => {
           getQueueConfig: vi.fn()
         }
       } as any;
+    });
+
+    afterEach(() => {
+      // Restore original window
+      global.window = originalWindow;
     });
 
     it('should call IPC with correct params', async () => {
@@ -406,7 +420,9 @@ describe('Queue Store', () => {
     });
   });
 
-  describe('getQueueStatus', () => {
+  describe('fetchQueueStatus', () => {
+    const originalWindow = global.window;
+
     beforeEach(() => {
       // Mock window.electronAPI
       global.window = {
@@ -414,6 +430,11 @@ describe('Queue Store', () => {
           getQueueStatus: vi.fn()
         }
       } as any;
+    });
+
+    afterEach(() => {
+      // Restore original window
+      global.window = originalWindow;
     });
 
     it('should call IPC with correct params', async () => {
@@ -429,7 +450,7 @@ describe('Queue Store', () => {
         data: status
       });
 
-      const result = await getQueueStatus(projectId);
+      const result = await fetchQueueStatus(projectId);
 
       expect(mockGetQueueStatus).toHaveBeenCalledWith(projectId);
       expect(result).toEqual(status);
@@ -448,7 +469,7 @@ describe('Queue Store', () => {
         data: status
       });
 
-      await getQueueStatus(projectId);
+      await fetchQueueStatus(projectId);
 
       expect(useQueueStore.getState().statuses[projectId]).toEqual(status);
     });
@@ -460,7 +481,7 @@ describe('Queue Store', () => {
         error: 'Not found'
       });
 
-      const result = await getQueueStatus(projectId);
+      const result = await fetchQueueStatus(projectId);
 
       expect(result).toBeNull();
     });
@@ -471,7 +492,7 @@ describe('Queue Store', () => {
         success: true
       });
 
-      const result = await getQueueStatus(projectId);
+      const result = await fetchQueueStatus(projectId);
 
       expect(result).toBeNull();
     });
@@ -480,7 +501,7 @@ describe('Queue Store', () => {
       const projectId = 'project-1';
       vi.mocked(window.electronAPI.getQueueStatus).mockRejectedValue(new Error('Network error'));
 
-      const result = await getQueueStatus(projectId);
+      const result = await fetchQueueStatus(projectId);
 
       expect(result).toBeNull();
     });

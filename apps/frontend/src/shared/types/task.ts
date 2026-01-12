@@ -14,7 +14,7 @@ export interface QueueConfig {
   /** Whether the queue is enabled for the project */
   enabled: boolean;
   /** Maximum number of concurrent tasks allowed (1-3) */
-  maxConcurrent: number;
+  maxConcurrent: 1 | 2 | 3;
 }
 
 /**

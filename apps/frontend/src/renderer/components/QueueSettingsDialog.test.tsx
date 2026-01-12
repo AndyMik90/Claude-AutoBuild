@@ -7,7 +7,7 @@
  * Tests the queue settings dialog for enabling/disabling queue
  * and configuring max concurrent tasks.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import '../../shared/i18n';
@@ -27,10 +27,6 @@ describe('QueueSettingsDialog', () => {
   const projectId = 'test-project-1';
 
   beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
     vi.clearAllMocks();
   });
 
@@ -422,7 +418,7 @@ describe('QueueSettingsDialog', () => {
 
     it('should show loading state while saving', async () => {
       // Make saveQueueConfig return a promise that doesn't resolve immediately
-      let resolveSave: (value: boolean) => void;
+      let resolveSave: (value: boolean) => void = () => {};
       vi.mocked(saveQueueConfig).mockImplementation(() => {
         return new Promise((resolve) => {
           resolveSave = resolve;

@@ -72,6 +72,8 @@
     "start": "Start",
     "stop": "Stop",
     "refresh": "Refresh",
+    "refreshing": "Refreshing...",
+    "refreshTasks": "Refresh Tasks",
     "merge": "Merge",
     "discard": "Discard",
     "switch": "Switch",

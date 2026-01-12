@@ -150,9 +150,9 @@ export async function saveQueueConfig(projectId: string, config: QueueConfig): P
 }
 
 /**
- * Get current queue status for a project
+ * Fetch current queue status for a project via IPC
  */
-export async function getQueueStatus(projectId: string): Promise<QueueStatus | null> {
+export async function fetchQueueStatus(projectId: string): Promise<QueueStatus | null> {
   try {
     const result = await window.electronAPI.getQueueStatus(projectId);
     if (result.success && result.data) {
