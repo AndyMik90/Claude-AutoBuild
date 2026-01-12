@@ -19,6 +19,7 @@
     "confirmTitle": "Confirm Cleanup",
     "confirmArchive": "Archive data before cleaning? Data will be preserved in .auto-claude/archive/",
     "confirmDelete": "Permanently delete? Data CANNOT be recovered!",
+    "confirmWord": "clean",
     "typeToConfirm": "Type 'clean' to confirm:",
     "cleaning": "Cleaning...",
     "success": "Project cleaned successfully",

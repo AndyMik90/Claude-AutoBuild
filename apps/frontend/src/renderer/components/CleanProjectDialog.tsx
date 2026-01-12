@@ -94,7 +94,7 @@ export function CleanProjectDialog({
   // Reset state when dialog closes
   useEffect(() => {
     if (!open) {
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         setStep('preview');
         setPreview(null);
         setSelectedMode('archive');
@@ -102,6 +102,8 @@ export function CleanProjectDialog({
         setResult(null);
         setError(null);
       }, 200);
+
+      return () => clearTimeout(timeoutId);
     }
   }, [open]);
 
@@ -173,7 +175,8 @@ export function CleanProjectDialog({
   };
 
   const handleConfirmClick = () => {
-    if (confirmText.toLowerCase() === 'clean') {
+    const confirmWord = t('common:cleanProject.confirmWord').toLowerCase();
+    if (confirmText.toLowerCase() === confirmWord) {
       executeCleanup();
     }
   };
@@ -347,7 +350,7 @@ export function CleanProjectDialog({
           id="confirm-text"
           value={confirmText}
           onChange={(e) => setConfirmText(e.target.value)}
-          placeholder="clean"
+          placeholder={t('common:cleanProject.confirmWord')}
           autoComplete="off"
           autoFocus
         />
@@ -402,7 +405,8 @@ export function CleanProjectDialog({
       return preview && preview.items.length > 0;
     }
     if (step === 'confirm') {
-      return confirmText.toLowerCase() === 'clean';
+      const confirmWord = t('common:cleanProject.confirmWord').toLowerCase();
+      return confirmText.toLowerCase() === confirmWord;
     }
     return false;
   };

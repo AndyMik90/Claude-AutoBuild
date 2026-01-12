@@ -258,6 +258,7 @@ async function runCleanupCommand(
 
     let output = '';
     let errorOutput = '';
+    let resolved = false;
 
     const cleanupProcess = spawn(pythonPath, args, {
       cwd: backendPath,
@@ -270,12 +271,15 @@ async function runCleanupCommand(
     // Set timeout to prevent indefinite hangs
     const timeoutMs = dryRun ? PREVIEW_TIMEOUT_MS : CLEANUP_TIMEOUT_MS;
     const timeoutId = setTimeout(() => {
-      cleanupProcess.kill('SIGTERM');
-      resolve({
-        output: '',
-        error: `Cleanup process timed out after ${timeoutMs / 1000} seconds`,
-        exitCode: 1,
-      });
+      if (!resolved) {
+        resolved = true;
+        cleanupProcess.kill('SIGTERM');
+        resolve({
+          output: '',
+          error: `Cleanup process timed out after ${timeoutMs / 1000} seconds`,
+          exitCode: 1,
+        });
+      }
     }, timeoutMs);
 
     cleanupProcess.stdout.on('data', (data) => {
@@ -288,20 +292,26 @@ async function runCleanupCommand(
 
     cleanupProcess.on('close', (code) => {
       clearTimeout(timeoutId);
-      resolve({
-        output,
-        error: errorOutput,
-        exitCode: code || 0,
-      });
+      if (!resolved) {
+        resolved = true;
+        resolve({
+          output,
+          error: errorOutput,
+          exitCode: code || 0,
+        });
+      }
     });
 
     cleanupProcess.on('error', (err) => {
       clearTimeout(timeoutId);
-      resolve({
-        output: '',
-        error: err.message,
-        exitCode: 1,
-      });
+      if (!resolved) {
+        resolved = true;
+        resolve({
+          output: '',
+          error: err.message,
+          exitCode: 1,
+        });
+      }
     });
 
     // Note: We use --yes flag in args instead of stdin confirmation to avoid race conditions
