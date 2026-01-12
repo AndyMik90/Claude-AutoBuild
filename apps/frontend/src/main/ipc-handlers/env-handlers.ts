@@ -580,8 +580,10 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       try {
         // Read existing content if file exists
         let existingContent: string | undefined;
+        let existingVars: Record<string, string> = {};
         if (existsSync(envPath)) {
           existingContent = readFileSync(envPath, 'utf-8');
+          existingVars = parseEnvFile(existingContent);
         }
 
         // Generate new content
@@ -592,9 +594,13 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
 
         // Auto-authenticate glab CLI if GitLab token was updated
         if (config.gitlabToken) {
-          const instanceUrl = config.gitlabInstanceUrl || 'https://gitlab.com';
+          // Prefer config value, fallback to existing GITLAB_INSTANCE_URL, then default
+          const instanceUrl =
+            config.gitlabInstanceUrl ||
+            existingVars[GITLAB_ENV_KEYS.INSTANCE_URL] ||
+            'https://gitlab.com';
           console.log('[env-handlers] Auto-authenticating glab CLI with saved token');
-          const authSuccess = authenticateGlabCli(config.gitlabToken, instanceUrl);
+          const authSuccess = await authenticateGlabCli(config.gitlabToken, instanceUrl);
           if (authSuccess) {
             console.log('[env-handlers] ✓ glab CLI authenticated successfully');
           } else {

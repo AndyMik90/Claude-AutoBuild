@@ -3,10 +3,12 @@
  * Tests authentication, sanitization, and URL parsing
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { execFileSync } from 'child_process';
+import { spawn, execFileSync } from 'child_process';
+import { EventEmitter } from 'events';
 
 // Mock child_process
 vi.mock('child_process', () => ({
+  spawn: vi.fn(),
   execFileSync: vi.fn(),
   execSync: vi.fn(),
 }));
@@ -20,6 +22,32 @@ vi.mock('../../../env-utils', () => ({
 // Note: We need to import after mocking to get the mocked versions
 import { authenticateGlabCli } from '../utils';
 
+/**
+ * Helper to create a mock child process for spawn
+ */
+function createMockChildProcess(exitCode: number = 0, shouldError: boolean = false) {
+  const mockChild = new EventEmitter() as any;
+
+  // Add stdin, stdout, stderr streams
+  mockChild.stdin = {
+    write: vi.fn(),
+    end: vi.fn(),
+  };
+  mockChild.stdout = new EventEmitter();
+  mockChild.stderr = new EventEmitter();
+
+  // Simulate process completion after a tick
+  process.nextTick(() => {
+    if (shouldError) {
+      mockChild.emit('error', new Error('spawn glab ENOENT'));
+    } else {
+      mockChild.emit('close', exitCode);
+    }
+  });
+
+  return mockChild;
+}
+
 describe('GitLab Utils', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -30,203 +58,184 @@ describe('GitLab Utils', () => {
   });
 
   describe('authenticateGlabCli', () => {
-    it('should authenticate successfully with valid token and default URL', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
-      mockExecFileSync.mockReturnValue(Buffer.from(''));
+    it('should authenticate successfully with valid token and default URL', async () => {
+      const mockSpawn = vi.mocked(spawn);
+      mockSpawn.mockReturnValue(createMockChildProcess(0));
 
-      const result = authenticateGlabCli('glpat-test123token', 'https://gitlab.com');
+      const result = await authenticateGlabCli('glpat-test123token', 'https://gitlab.com');
 
       expect(result).toBe(true);
-      expect(mockExecFileSync).toHaveBeenCalledWith(
+      expect(mockSpawn).toHaveBeenCalledWith(
         'glab',
         ['auth', 'login', '--stdin', '--hostname', 'gitlab.com'],
         expect.objectContaining({
-          input: 'glpat-test123token\n',
-          encoding: 'utf-8',
-          stdio: 'pipe',
+          env: expect.objectContaining({ PATH: '/mock/path' }),
+          stdio: ['pipe', 'pipe', 'pipe'],
         })
       );
     });
 
-    it('should authenticate with self-hosted GitLab instance', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
-      mockExecFileSync.mockReturnValue(Buffer.from(''));
+    it('should authenticate with self-hosted GitLab instance', async () => {
+      const mockSpawn = vi.mocked(spawn);
+      mockSpawn.mockReturnValue(createMockChildProcess(0));
 
-      const result = authenticateGlabCli('glpat-test123token', 'https://gitlab.mycompany.com');
+      const result = await authenticateGlabCli('glpat-test123token', 'https://gitlab.mycompany.com');
 
       expect(result).toBe(true);
-      expect(mockExecFileSync).toHaveBeenCalledWith(
+      expect(mockSpawn).toHaveBeenCalledWith(
         'glab',
         ['auth', 'login', '--stdin', '--hostname', 'gitlab.mycompany.com'],
-        expect.objectContaining({
-          input: 'glpat-test123token\n',
-        })
+        expect.any(Object)
       );
     });
 
-    it('should use default URL when none provided', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
-      mockExecFileSync.mockReturnValue(Buffer.from(''));
+    it('should use default URL when none provided', async () => {
+      const mockSpawn = vi.mocked(spawn);
+      mockSpawn.mockReturnValue(createMockChildProcess(0));
 
-      const result = authenticateGlabCli('glpat-test123token');
+      const result = await authenticateGlabCli('glpat-test123token');
 
       expect(result).toBe(true);
-      expect(mockExecFileSync).toHaveBeenCalledWith(
+      expect(mockSpawn).toHaveBeenCalledWith(
         'glab',
         ['auth', 'login', '--stdin', '--hostname', 'gitlab.com'],
         expect.any(Object)
       );
     });
 
-    it('should return false for empty token', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
+    it('should return false for empty token', async () => {
+      const mockSpawn = vi.mocked(spawn);
 
-      const result = authenticateGlabCli('');
-
-      expect(result).toBe(false);
-      expect(mockExecFileSync).not.toHaveBeenCalled();
-    });
-
-    it('should return false for whitespace-only token', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
-
-      const result = authenticateGlabCli('   \n\t  ');
+      const result = await authenticateGlabCli('');
 
       expect(result).toBe(false);
-      expect(mockExecFileSync).not.toHaveBeenCalled();
+      expect(mockSpawn).not.toHaveBeenCalled();
     });
 
-    it('should sanitize token by removing control characters', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
-      mockExecFileSync.mockReturnValue(Buffer.from(''));
+    it('should return false for whitespace-only token', async () => {
+      const mockSpawn = vi.mocked(spawn);
+
+      const result = await authenticateGlabCli('   \n\t  ');
+
+      expect(result).toBe(false);
+      expect(mockSpawn).not.toHaveBeenCalled();
+    });
+
+    it('should sanitize token by removing control characters', async () => {
+      const mockSpawn = vi.mocked(spawn);
+      const mockChild = createMockChildProcess(0);
+      mockSpawn.mockReturnValue(mockChild);
 
       // Token with control characters (should be stripped)
       const dirtyToken = 'glpat-test\x00\x01\x1Ftoken';
       const cleanToken = 'glpat-testtoken';
 
-      const result = authenticateGlabCli(dirtyToken);
+      const result = await authenticateGlabCli(dirtyToken);
 
       expect(result).toBe(true);
-      expect(mockExecFileSync).toHaveBeenCalledWith(
-        'glab',
-        expect.any(Array),
-        expect.objectContaining({
-          input: `${cleanToken}\n`,
-        })
-      );
+      expect(mockChild.stdin.write).toHaveBeenCalledWith(`${cleanToken}\n`);
     });
 
-    it('should return false for invalid instance URL', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
+    it('should return false for invalid instance URL', async () => {
+      const mockSpawn = vi.mocked(spawn);
 
-      const result = authenticateGlabCli('glpat-test123token', 'not-a-valid-url');
+      const result = await authenticateGlabCli('glpat-test123token', 'not-a-valid-url');
 
       expect(result).toBe(false);
-      expect(mockExecFileSync).not.toHaveBeenCalled();
+      expect(mockSpawn).not.toHaveBeenCalled();
     });
 
-    it('should return false when glab CLI execution fails', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
-      mockExecFileSync.mockImplementation(() => {
-        throw new Error('glab command not found');
-      });
+    it('should return false when glab CLI execution fails', async () => {
+      const mockSpawn = vi.mocked(spawn);
+      mockSpawn.mockReturnValue(createMockChildProcess(0, true)); // shouldError = true
 
-      const result = authenticateGlabCli('glpat-test123token');
+      const result = await authenticateGlabCli('glpat-test123token');
 
       expect(result).toBe(false);
     });
 
-    it('should handle authentication failure gracefully', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
-      mockExecFileSync.mockImplementation(() => {
-        const error = new Error('authentication failed') as NodeJS.ErrnoException;
-        error.code = 'ENOENT';
-        throw error;
-      });
+    it('should handle authentication failure gracefully', async () => {
+      const mockSpawn = vi.mocked(spawn);
+      mockSpawn.mockReturnValue(createMockChildProcess(1)); // exit code 1 = failure
 
-      const result = authenticateGlabCli('glpat-test123token');
+      const result = await authenticateGlabCli('glpat-test123token');
 
       expect(result).toBe(false);
     });
 
-    it('should truncate extremely long tokens', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
-      mockExecFileSync.mockReturnValue(Buffer.from(''));
+    it('should truncate extremely long tokens', async () => {
+      const mockSpawn = vi.mocked(spawn);
+      const mockChild = createMockChildProcess(0);
+      mockSpawn.mockReturnValue(mockChild);
 
       // Create a token longer than 512 characters
       const longToken = 'glpat-' + 'a'.repeat(520);
       const expectedToken = longToken.substring(0, 512);
 
-      const result = authenticateGlabCli(longToken);
+      const result = await authenticateGlabCli(longToken);
 
       expect(result).toBe(true);
-      expect(mockExecFileSync).toHaveBeenCalledWith(
-        'glab',
-        expect.any(Array),
-        expect.objectContaining({
-          input: `${expectedToken}\n`,
-        })
-      );
+      expect(mockChild.stdin.write).toHaveBeenCalledWith(`${expectedToken}\n`);
     });
 
-    it('should handle URLs with trailing slashes', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
-      mockExecFileSync.mockReturnValue(Buffer.from(''));
+    it('should handle URLs with trailing slashes', async () => {
+      const mockSpawn = vi.mocked(spawn);
+      mockSpawn.mockReturnValue(createMockChildProcess(0));
 
-      const result = authenticateGlabCli('glpat-test123token', 'https://gitlab.com/');
+      const result = await authenticateGlabCli('glpat-test123token', 'https://gitlab.com/');
 
       expect(result).toBe(true);
-      expect(mockExecFileSync).toHaveBeenCalledWith(
+      expect(mockSpawn).toHaveBeenCalledWith(
         'glab',
         ['auth', 'login', '--stdin', '--hostname', 'gitlab.com'],
         expect.any(Object)
       );
     });
 
-    it('should handle URLs with paths', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
-      mockExecFileSync.mockReturnValue(Buffer.from(''));
+    it('should handle URLs with paths', async () => {
+      const mockSpawn = vi.mocked(spawn);
+      mockSpawn.mockReturnValue(createMockChildProcess(0));
 
-      const result = authenticateGlabCli('glpat-test123token', 'https://gitlab.com/api/v4');
+      const result = await authenticateGlabCli('glpat-test123token', 'https://gitlab.com/api/v4');
 
       expect(result).toBe(true);
-      expect(mockExecFileSync).toHaveBeenCalledWith(
+      expect(mockSpawn).toHaveBeenCalledWith(
         'glab',
         ['auth', 'login', '--stdin', '--hostname', 'gitlab.com'],
         expect.any(Object)
       );
     });
 
-    it('should reject URLs with credentials', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
+    it('should reject URLs with credentials', async () => {
+      const mockSpawn = vi.mocked(spawn);
 
-      const result = authenticateGlabCli('glpat-test123token', 'https://user:pass@gitlab.com');
+      const result = await authenticateGlabCli('glpat-test123token', 'https://user:pass@gitlab.com');
 
       expect(result).toBe(false);
-      expect(mockExecFileSync).not.toHaveBeenCalled();
+      expect(mockSpawn).not.toHaveBeenCalled();
     });
 
-    it('should accept HTTP URLs (for local development)', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
-      mockExecFileSync.mockReturnValue(Buffer.from(''));
+    it('should accept HTTP URLs (for local development)', async () => {
+      const mockSpawn = vi.mocked(spawn);
+      mockSpawn.mockReturnValue(createMockChildProcess(0));
 
-      const result = authenticateGlabCli('glpat-test123token', 'http://localhost:8080');
+      const result = await authenticateGlabCli('glpat-test123token', 'http://localhost:8080');
 
       expect(result).toBe(true);
-      expect(mockExecFileSync).toHaveBeenCalledWith(
+      expect(mockSpawn).toHaveBeenCalledWith(
         'glab',
         ['auth', 'login', '--stdin', '--hostname', 'localhost'],
         expect.any(Object)
       );
     });
 
-    it('should use augmented environment from getAugmentedEnv', () => {
-      const mockExecFileSync = vi.mocked(execFileSync);
-      mockExecFileSync.mockReturnValue(Buffer.from(''));
+    it('should use augmented environment from getAugmentedEnv', async () => {
+      const mockSpawn = vi.mocked(spawn);
+      mockSpawn.mockReturnValue(createMockChildProcess(0));
 
-      authenticateGlabCli('glpat-test123token');
+      await authenticateGlabCli('glpat-test123token');
 
-      expect(mockExecFileSync).toHaveBeenCalledWith(
+      expect(mockSpawn).toHaveBeenCalledWith(
         'glab',
         expect.any(Array),
         expect.objectContaining({
@@ -235,6 +244,31 @@ describe('GitLab Utils', () => {
           }),
         })
       );
+    });
+
+    it('should use shell:true on Windows platform', async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', {
+        value: 'win32',
+      });
+
+      const mockSpawn = vi.mocked(spawn);
+      mockSpawn.mockReturnValue(createMockChildProcess(0));
+
+      await authenticateGlabCli('glpat-test123token');
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'glab',
+        expect.any(Array),
+        expect.objectContaining({
+          shell: true,
+        })
+      );
+
+      // Restore platform
+      Object.defineProperty(process, 'platform', {
+        value: originalPlatform,
+      });
     });
   });
 });

@@ -104,7 +104,6 @@ export function registerCheckGlabCli(): void {
             stdio: 'pipe',
             env: getAugmentedEnv()
           });
-          console.log('[GitLab OAuth] Raw version output (using "version"):', versionOutput);
 
           // Extract version from output like "glab version 1.80.4" or "1.80.4"
           const versionMatch = versionOutput.match(/(\d+\.\d+\.\d+)/);
@@ -119,7 +118,6 @@ export function registerCheckGlabCli(): void {
               stdio: 'pipe',
               env: getAugmentedEnv()
             });
-            console.log('[GitLab OAuth] Raw version output (using "--version"):', versionOutput);
 
             const versionMatch = versionOutput.match(/(\d+\.\d+\.\d+)/);
             if (versionMatch) {

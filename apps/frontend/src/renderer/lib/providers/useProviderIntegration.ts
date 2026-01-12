@@ -61,29 +61,6 @@ export function useProviderIntegration({
   const oauthHandlers = useMemo(() => getProviderOAuthHandlers(provider), [provider]);
   const repositoryFetcher = useMemo(() => getProviderRepositoryFetcher(provider), [provider]);
 
-  // Check CLI installation on mount (only if provider is enabled)
-  useEffect(() => {
-    // CRITICAL: Only check CLI if the provider is enabled
-    // This prevents Git Credential Manager popups when navigating to other provider settings
-    if (providerConfig.enabled) {
-      checkCli();
-    }
-  }, [provider, providerConfig.enabled]);
-
-  // Fetch repositories when entering oauth-success mode
-  useEffect(() => {
-    if (authMode === 'oauth-success') {
-      fetchRepositories();
-    }
-  }, [authMode]);
-
-  // Fetch branches when provider is enabled and project path is available
-  useEffect(() => {
-    if (providerConfig.enabled && projectPath) {
-      fetchBranches();
-    }
-  }, [providerConfig.enabled, projectPath]);
-
   // Define checkAuthStatus before using it in effects
   const checkAuthStatus = useCallback(async () => {
     try {
@@ -266,6 +243,29 @@ export function useProviderIntegration({
     },
     [provider, providerConfig, updateEnvConfig]
   );
+
+  // Check CLI installation on mount (only if provider is enabled)
+  useEffect(() => {
+    // CRITICAL: Only check CLI if the provider is enabled
+    // This prevents Git Credential Manager popups when navigating to other provider settings
+    if (providerConfig.enabled) {
+      checkCli();
+    }
+  }, [provider, providerConfig.enabled, checkCli]);
+
+  // Fetch repositories when entering oauth-success mode
+  useEffect(() => {
+    if (authMode === 'oauth-success') {
+      fetchRepositories();
+    }
+  }, [authMode, fetchRepositories]);
+
+  // Fetch branches when provider is enabled and project path is available
+  useEffect(() => {
+    if (providerConfig.enabled && projectPath) {
+      fetchBranches();
+    }
+  }, [providerConfig.enabled, projectPath, fetchBranches]);
 
   return {
     // Configuration
