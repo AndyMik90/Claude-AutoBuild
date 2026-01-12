@@ -11,6 +11,16 @@
 import type { ClaudeUsageSnapshot } from '../../../shared/types/agent';
 
 // ============================================
+// Constants
+// ============================================
+
+/**
+ * Sentinel value for "resetting soon" state
+ * Frontend should map this to a localized string via i18n
+ */
+export const RESETTING_SOON = '__RESETTING_SOON__' as const;
+
+// ============================================
 // Provider Detection
 // ============================================
 
@@ -76,7 +86,9 @@ export function detectProvider(baseUrl: string): UsageProvider {
  * Endpoint: https://api.z.ai/api/monitor/usage/quota/limit
  */
 export async function fetchZaiUsage(
-  apiKey: string
+  apiKey: string,
+  profileId: string,
+  profileName: string
 ): Promise<ClaudeUsageSnapshot | null> {
   try {
     const response = await fetch('https://api.z.ai/api/monitor/usage/quota/limit', {
@@ -101,13 +113,14 @@ export async function fetchZaiUsage(
 
     // Calculate tool usage percentage (web search + reader)
     const webSearchUsed = data.monthly_tool_usage?.web_search?.used ?? 0;
-    const webSearchLimit = data.monthly_tool_usage?.web_search?.limit ?? 1;
+    const webSearchLimit = data.monthly_tool_usage?.web_search?.limit ?? 0;
     const readerUsed = data.monthly_tool_usage?.reader?.used ?? 0;
-    const readerLimit = data.monthly_tool_usage?.reader?.limit ?? 1;
+    const readerLimit = data.monthly_tool_usage?.reader?.limit ?? 0;
 
-    const toolPercent = Math.round(
-      ((webSearchUsed + readerUsed) / (webSearchLimit + readerLimit)) * 100
-    );
+    const denom = webSearchLimit + readerLimit;
+    const toolPercent = denom === 0
+      ? 0
+      : Math.round(((webSearchUsed + readerUsed) / denom) * 100);
 
     // Parse reset time
     const resetTimestamp = data.reset_time
@@ -125,8 +138,8 @@ export async function fetchZaiUsage(
       weeklyResetTime: resetTime, // Z.ai uses monthly reset for both
       sessionResetTimestamp: resetTimestamp,
       weeklyResetTimestamp: resetTimestamp,
-      profileId: 'api-profile',
-      profileName: 'Z.ai',
+      profileId,
+      profileName,
       fetchedAt: new Date(),
       limitType: tokenPercent > toolPercent ? 'session' : 'weekly',
       provider: 'zai'
@@ -216,7 +229,7 @@ export async function fetchUsageForProfile(
 ): Promise<ClaudeUsageSnapshot | null> {
   switch (provider) {
     case 'zai':
-      return fetchZaiUsage(credentials);
+      return fetchZaiUsage(credentials, profileId, profileName);
 
     case 'anthropic-oauth':
       return fetchAnthropicOAuthUsage(credentials, profileId, profileName);
@@ -237,6 +250,7 @@ export async function fetchUsageForProfile(
 
 /**
  * Format reset time from Unix timestamp to human-readable string
+ * Returns RESETTING_SOON sentinel when diffMs <= 0
  */
 function formatResetTimeFromTimestamp(timestamp?: number): string | undefined {
   if (!timestamp) return undefined;
@@ -244,7 +258,7 @@ function formatResetTimeFromTimestamp(timestamp?: number): string | undefined {
   const now = Date.now();
   const diffMs = timestamp - now;
 
-  if (diffMs <= 0) return 'Resetting soon...';
+  if (diffMs <= 0) return RESETTING_SOON;
 
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));

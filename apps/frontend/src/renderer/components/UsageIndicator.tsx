@@ -16,6 +16,7 @@ import {
   TooltipTrigger,
 } from './ui/tooltip';
 import type { ClaudeUsageSnapshot } from '../../shared/types/agent';
+import { RESETTING_SOON } from '../../main/services/profile/profile-usage';
 
 export function UsageIndicator() {
   const { t } = useTranslation('navigation');
@@ -41,6 +42,15 @@ export function UsageIndicator() {
     }
     return `${diffHours}h ${diffMins}m`;
   }, []);
+
+  // Format reset time for display, handling sentinel value
+  const formatResetTime = useCallback((resetTime?: string): string => {
+    if (!resetTime) return '';
+    if (resetTime === RESETTING_SOON) {
+      return t('usageIndicator.resettingSoon');
+    }
+    return resetTime;
+  }, [t]);
 
   // Update countdown every second when usage is high
   useEffect(() => {
@@ -115,6 +125,7 @@ export function UsageIndicator() {
       <Tooltip>
         <TooltipTrigger asChild>
           <button
+            type="button"
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all hover:opacity-80 ${colorClasses}`}
             aria-label={t('usageIndicator.ariaLabel')}
           >
@@ -143,7 +154,7 @@ export function UsageIndicator() {
               </div>
               {usage.sessionResetTime && (
                 <div className="text-[10px] text-muted-foreground">
-                  {t('usageIndicator.resets')}: {usage.sessionResetTime}
+                  {t('usageIndicator.resets')}: {formatResetTime(usage.sessionResetTime)}
                 </div>
               )}
               {/* Progress bar */}
@@ -170,14 +181,14 @@ export function UsageIndicator() {
               </div>
               {usage.weeklyResetTime && (
                 <div className="text-[10px] text-muted-foreground">
-                  {t('usageIndicator.resets')}: {usage.weeklyResetTime}
+                  {t('usageIndicator.resets')}: {formatResetTime(usage.weeklyResetTime)}
                 </div>
               )}
               {/* Progress bar */}
               <div className="mt-1.5 h-1.5 bg-muted rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all ${
-                    usage.weeklyPercent >= 99 ? 'bg-red-500' :
+                    usage.weeklyPercent >= 95 ? 'bg-red-500' :
                     usage.weeklyPercent >= 91 ? 'bg-orange-500' :
                     usage.weeklyPercent >= 71 ? 'bg-yellow-500' :
                     'bg-green-500'

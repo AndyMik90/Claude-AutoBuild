@@ -37,6 +37,7 @@
     "tokenUsage": "Utilisation des jetons",
     "monthlyToolUsage": "Utilisation mensuelle des outils",
     "resets": "Réinitialisation",
+    "resettingSoon": "Réinitialisation bientôt...",
     "activeAccount": "Compte actif"
   },
   "claudeCode": {

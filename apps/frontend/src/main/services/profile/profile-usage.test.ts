@@ -10,6 +10,7 @@ import {
   fetchAnthropicOAuthUsage,
   fetchUsageForProfile
 } from './profile-usage';
+import { RESETTING_SOON } from './profile-usage';
 import type { ClaudeUsageSnapshot } from '../../../shared/types/agent';
 
 // Mock global fetch
@@ -17,7 +18,6 @@ global.fetch = vi.fn();
 
 describe('profile-usage service', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     vi.resetAllMocks();
   });
 
@@ -85,13 +85,13 @@ describe('profile-usage service', () => {
         json: async () => mockResponse
       });
 
-      const result = await fetchZaiUsage('test-api-key');
+      const result = await fetchZaiUsage('test-api-key', 'test-profile', 'Test Profile');
 
       expect(result).not.toBeNull();
       expect(result?.provider).toBe('zai');
       expect(result?.sessionPercent).toBe(75); // 75000/100000
       expect(result?.weeklyPercent).toBe(43); // (45+20)/(100+50) = 65/150 ≈ 43%
-      expect(result?.profileName).toBe('Z.ai');
+      expect(result?.profileName).toBe('Test Profile');
     });
 
     it('should handle missing token_usage gracefully', async () => {
@@ -106,7 +106,7 @@ describe('profile-usage service', () => {
         json: async () => mockResponse
       });
 
-      const result = await fetchZaiUsage('test-api-key');
+      const result = await fetchZaiUsage('test-api-key', 'test-profile', 'Test Profile');
 
       expect(result?.sessionPercent).toBe(0);
     });
@@ -124,7 +124,7 @@ describe('profile-usage service', () => {
         json: async () => mockResponse
       });
 
-      const result = await fetchZaiUsage('test-api-key');
+      const result = await fetchZaiUsage('test-api-key', 'test-profile', 'Test Profile');
 
       expect(result?.weeklyPercent).toBe(0);
     });
@@ -136,7 +136,7 @@ describe('profile-usage service', () => {
         statusText: 'Unauthorized'
       });
 
-      const result = await fetchZaiUsage('invalid-key');
+      const result = await fetchZaiUsage('invalid-key', 'test-profile', 'Test Profile');
 
       expect(result).toBeNull();
     });
@@ -144,7 +144,7 @@ describe('profile-usage service', () => {
     it('should return null on network error', async () => {
       (global.fetch as any).mockRejectedValue(new Error('Network error'));
 
-      const result = await fetchZaiUsage('test-api-key');
+      const result = await fetchZaiUsage('test-api-key', 'test-profile', 'Test Profile');
 
       expect(result).toBeNull();
     });
@@ -160,7 +160,7 @@ describe('profile-usage service', () => {
         json: async () => mockResponse
       });
 
-      const result = await fetchZaiUsage('test-api-key');
+      const result = await fetchZaiUsage('test-api-key', 'test-profile', 'Test Profile');
 
       // Check timestamp is set and is a reasonable number (within a day of expected time)
       expect(result?.sessionResetTimestamp).toBeDefined();
@@ -339,7 +339,7 @@ describe('profile-usage service', () => {
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const result = await fetchZaiUsage('key');
+      const result = await fetchZaiUsage('key', 'test-profile', 'Test Profile');
 
       expect(result).toBeNull();
       expect(consoleSpy).toHaveBeenCalledWith('[profile-usage] Z.ai fetch failed:', expect.any(Error));
@@ -357,7 +357,7 @@ describe('profile-usage service', () => {
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const result = await fetchZaiUsage('key');
+      const result = await fetchZaiUsage('key', 'test-profile', 'Test Profile');
 
       expect(result).toBeNull();
       expect(consoleSpy).toHaveBeenCalled();

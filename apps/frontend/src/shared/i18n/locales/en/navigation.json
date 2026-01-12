@@ -37,6 +37,7 @@
     "tokenUsage": "Token Usage",
     "monthlyToolUsage": "Monthly Tool Usage",
     "resets": "Resets",
+    "resettingSoon": "Resetting soon...",
     "activeAccount": "Active Account"
   },
   "claudeCode": {

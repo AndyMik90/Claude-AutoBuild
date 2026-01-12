@@ -394,6 +394,7 @@ export class UsageMonitor extends EventEmitter {
       return new Promise((resolve) => {
         let stdout = '';
         let stderr = '';
+        let timedOut = false;
 
         const proc = spawn(getSpawnCommand(claudeCmd), ['/usage'], getSpawnOptions(claudeCmd, {
           env: {
@@ -410,7 +411,17 @@ export class UsageMonitor extends EventEmitter {
           stderr += data.toString();
         });
 
+        const timeoutId = setTimeout(() => {
+          timedOut = true;
+          proc.kill();
+          console.warn('[UsageMonitor] CLI /usage command timed out');
+          resolve(null);
+        }, 10000);
+
         proc.on('close', (code) => {
+          clearTimeout(timeoutId);
+          if (timedOut) return;
+
           if (code === 0 && stdout) {
             try {
               const usageData = parseUsageOutput(stdout);
@@ -441,13 +452,6 @@ export class UsageMonitor extends EventEmitter {
             resolve(null);
           }
         });
-
-        // Timeout after 10 seconds
-        setTimeout(() => {
-          proc.kill();
-          console.warn('[UsageMonitor] CLI /usage command timed out');
-          resolve(null);
-        }, 10000);
       });
     } catch (error) {
       console.error('[UsageMonitor] CLI fetch failed:', error);

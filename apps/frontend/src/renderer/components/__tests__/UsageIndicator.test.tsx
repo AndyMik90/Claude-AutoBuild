@@ -21,13 +21,14 @@ function I18nWrapper({ children }: { children: React.ReactNode }) {
 
 // Mock window.electronAPI
 const mockOnUsageUpdated = vi.fn();
+const mockUnsubscribe = vi.fn();
 const mockRequestUsageUpdate = vi.fn();
 
 Object.defineProperty(window, 'electronAPI', {
   value: {
     onUsageUpdated: vi.fn((callback) => {
       mockOnUsageUpdated.mockImplementation(callback);
-      return vi.fn(); // unsubscribe function
+      return mockUnsubscribe; // unsubscribe function
     }),
     requestUsageUpdate: mockRequestUsageUpdate
   },
@@ -112,7 +113,7 @@ describe('UsageIndicator', () => {
       // Wait for async render
       await waitFor(() => {
         expect(container.firstChild).not.toBeNull();
-      }, { timeout: 10000 });
+      });
     });
   });
 
@@ -127,7 +128,7 @@ describe('UsageIndicator', () => {
         const badge = container.querySelector('button');
         expect(badge).toHaveClass('text-green-500');
         expect(badge).toHaveClass('bg-green-500/10');
-      }, { timeout: 10000 });
+      });
     });
 
     it('should show yellow color when usage is 71-90%', async () => {
@@ -140,7 +141,7 @@ describe('UsageIndicator', () => {
         const badge = container.querySelector('button');
         expect(badge).toHaveClass('text-yellow-500');
         expect(badge).toHaveClass('bg-yellow-500/10');
-      }, { timeout: 10000 });
+      });
     });
 
     it('should show orange color when usage is 91-94%', async () => {
@@ -153,7 +154,7 @@ describe('UsageIndicator', () => {
         const badge = container.querySelector('button');
         expect(badge).toHaveClass('text-orange-500');
         expect(badge).toHaveClass('bg-orange-500/10');
-      }, { timeout: 10000 });
+      });
     });
 
     it('should show red color when usage >= 95%', async () => {
@@ -166,7 +167,7 @@ describe('UsageIndicator', () => {
         const badge = container.querySelector('button');
         expect(badge).toHaveClass('text-red-500');
         expect(badge).toHaveClass('bg-red-500/10');
-      }, { timeout: 10000 });
+      });
     });
 
     it('should use the higher usage percentage for color determination', async () => {
@@ -178,7 +179,7 @@ describe('UsageIndicator', () => {
       await waitFor(() => {
         const badge = container.querySelector('button');
         expect(badge).toHaveClass('text-red-500');
-      }, { timeout: 10000 });
+      });
     });
   });
 
@@ -191,7 +192,7 @@ describe('UsageIndicator', () => {
 
       await waitFor(() => {
         expect(screen.getByText('72%')).toBeInTheDocument();
-      }, { timeout: 10000 });
+      });
     });
 
     it('should show weekly percent when higher', async () => {
@@ -202,7 +203,7 @@ describe('UsageIndicator', () => {
 
       await waitFor(() => {
         expect(screen.getByText('85%')).toBeInTheDocument();
-      }, { timeout: 10000 });
+      });
     });
   });
 
@@ -226,7 +227,7 @@ describe('UsageIndicator', () => {
         expect(badge?.textContent).toContain('99%');
         // Countdown should appear (format will vary slightly)
         expect(badge?.textContent).toMatch(/\d+[hd]\s*\d+[hm]/);
-      }, { timeout: 10000 });
+      });
     });
 
     it('should not show countdown when usage < 99%', async () => {
@@ -239,9 +240,9 @@ describe('UsageIndicator', () => {
         const badge = container.querySelector('button') as HTMLElement;
         expect(badge?.textContent).toContain('95%');
         // Should only have percentage, no countdown
-        const parts = badge?.textContent.split(' ').filter(Boolean) || [];
+        const parts = badge?.textContent?.split(' ').filter(Boolean) || [];
         expect(parts.length).toBe(1);
-      }, { timeout: 10000 });
+      });
     });
   });
 
@@ -254,7 +255,7 @@ describe('UsageIndicator', () => {
 
       await waitFor(() => {
         expect(screen.getByText('72%')).toBeInTheDocument();
-      }, { timeout: 10000 });
+      });
     });
 
     it('should show weekly usage percentage in tooltip', async () => {
@@ -265,7 +266,7 @@ describe('UsageIndicator', () => {
 
       await waitFor(() => {
         expect(screen.getByText('45%')).toBeInTheDocument();
-      }, { timeout: 10000 });
+      });
     });
   });
 
@@ -281,7 +282,7 @@ describe('UsageIndicator', () => {
       await waitFor(() => {
         const badge = screen.getByRole('button', { name: /claude usage status/i });
         expect(badge).toBeInTheDocument();
-      }, { timeout: 10000 });
+      });
     });
   });
 
@@ -289,15 +290,13 @@ describe('UsageIndicator', () => {
     it('should clean up usage listener on unmount', () => {
       const { unmount } = renderWithI18n(<UsageIndicator />);
 
-      // Get the unsubscribe function from the mock
-      const onUsageUpdatedMock = window.electronAPI.onUsageUpdated as ReturnType<typeof vi.fn>;
-      const unsubscribe = onUsageUpdatedMock.mock.results[0]?.value;
-      expect(typeof unsubscribe).toBe('function');
+      // Initially, unsubscribe has not been called (it's just returned)
+      expect(mockUnsubscribe).not.toHaveBeenCalled();
 
       unmount();
 
-      // Unmount should not throw
-      expect(() => unsubscribe()).not.toThrow();
+      // After unmount, useEffect cleanup should have called unsubscribe
+      expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
     });
   });
 });
