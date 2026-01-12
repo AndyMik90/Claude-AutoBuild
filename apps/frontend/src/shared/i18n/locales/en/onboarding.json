@@ -197,7 +197,8 @@
     },
     "version": {
       "current": "Current Version",
-      "latest": "Latest Version"
+      "latest": "Latest Version",
+      "path": "Path"
     },
     "install": {
       "button": "Install Claude Code",
@@ -205,6 +206,14 @@
       "inProgress": "Installing...",
       "success": "Installation command sent to terminal. Please complete the installation there.",
       "instructions": "The installer will open in your terminal. Follow the prompts to complete installation."
+    },
+    "error": {
+      "apiNotAvailable": "Version check API not available",
+      "versionCheckFailed": "Failed to check version",
+      "unknown": "Unknown error",
+      "installApiNotAvailable": "Install API not available",
+      "installFailed": "Failed to start installation",
+      "statusCheckFailed": "Error checking status"
     },
     "learnMore": "Learn more about Claude Code"
   },

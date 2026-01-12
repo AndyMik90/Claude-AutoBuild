@@ -246,6 +246,23 @@
     "confirmMessage": "Are you sure you want to delete \"{{title}}\"?",
     "warning": "This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project."
   },
+  "edit": {
+    "title": "Edit Task",
+    "description": "Update task details including title, description, classification, images, and settings. Changes will be saved to the spec files.",
+    "titleLabel": "Task Title",
+    "titleHelp": "A short, descriptive title will be generated automatically if left empty.",
+    "imageAddedSuccess": "Image added successfully!",
+    "saveChanges": "Save Changes",
+    "saving": "Saving...",
+    "error": {
+      "maxImages": "Maximum of {{max}} images allowed",
+      "invalidImageType": "Invalid image type. Allowed: {{allowed}}",
+      "failedToProcessPasted": "Failed to process pasted image",
+      "failedToProcessDropped": "Failed to process dropped image",
+      "descriptionRequired": "Description is required",
+      "failedToUpdate": "Failed to update task. Please try again."
+    }
+  },
   "execution": {
     "phases": {
       "complete": "Complete"

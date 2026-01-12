@@ -165,6 +165,9 @@
     "upgradeTitle": "Upgrade for more usage",
     "upgradeDescription": "Upgrade your Claude subscription for higher usage limits.",
     "upgradeSubscription": "Upgrade Subscription",
+    "terminalOpened": "A terminal has been opened to authenticate \"{{profileName}}\".\n\nSteps to complete:\n1. Check the \"Agent Terminals\" section in the sidebar\n2. Complete the OAuth login in your browser\n3. The token will be saved automatically\n\nOnce done, return here and the account will be available.",
+    "authFailed": "Failed to start authentication: {{error}}",
+    "addProfileFailed": "Failed to add profile. Please try again.",
     "sources": {
       "changelog": "Changelog",
       "task": "Task",

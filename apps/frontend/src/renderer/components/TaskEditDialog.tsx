@@ -230,7 +230,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     // Check if we can add more images
     const remainingSlots = MAX_IMAGES_PER_TASK - images.length;
     if (remainingSlots <= 0) {
-      setError(`Maximum of ${MAX_IMAGES_PER_TASK} images allowed`);
+      setError(t('tasks.edit.error.maxImages', { max: MAX_IMAGES_PER_TASK }, `Maximum of ${MAX_IMAGES_PER_TASK} images allowed`));
       return;
     }
 
@@ -246,7 +246,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
 
       // Validate image type
       if (!isValidImageMimeType(file.type)) {
-        setError(`Invalid image type. Allowed: ${ALLOWED_IMAGE_TYPES_DISPLAY}`);
+        setError(t('tasks.edit.error.invalidImageType', { allowed: ALLOWED_IMAGE_TYPES_DISPLAY }, `Invalid image type. Allowed: ${ALLOWED_IMAGE_TYPES_DISPLAY}`));
         continue;
       }
 
@@ -271,7 +271,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
           thumbnail
         });
       } catch {
-        setError('Failed to process pasted image');
+        setError(t('tasks.edit.error.failedToProcessPasted', 'Failed to process pasted image'));
       }
     }
 
@@ -331,7 +331,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       // Check if we can add more images
       const remainingSlots = MAX_IMAGES_PER_TASK - images.length;
       if (remainingSlots <= 0) {
-        setError(`Maximum of ${MAX_IMAGES_PER_TASK} images allowed`);
+        setError(t('tasks.edit.error.maxImages', { max: MAX_IMAGES_PER_TASK }, `Maximum of ${MAX_IMAGES_PER_TASK} images allowed`));
         return;
       }
 
@@ -344,7 +344,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       for (const file of imageFiles.slice(0, remainingSlots)) {
         // Validate image type
         if (!isValidImageMimeType(file.type)) {
-          setError(`Invalid image type. Allowed: ${ALLOWED_IMAGE_TYPES_DISPLAY}`);
+          setError(t('tasks.edit.error.invalidImageType', { allowed: ALLOWED_IMAGE_TYPES_DISPLAY }, `Invalid image type. Allowed: ${ALLOWED_IMAGE_TYPES_DISPLAY}`));
           continue;
         }
 
@@ -368,7 +368,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
             thumbnail
           });
         } catch {
-          setError('Failed to process dropped image');
+          setError(t('tasks.edit.error.failedToProcessDropped', 'Failed to process dropped image'));
         }
       }
 
@@ -387,7 +387,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const handleSave = async () => {
     // Validate input - only description is required
     if (!description.trim()) {
-      setError('Description is required');
+      setError(t('tasks.edit.error.descriptionRequired', 'Description is required'));
       return;
     }
 
@@ -444,7 +444,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       onOpenChange(false);
       onSaved?.();
     } else {
-      setError('Failed to update task. Please try again.');
+      setError(t('tasks.edit.error.failedToUpdate', 'Failed to update task. Please try again.'));
     }
 
     setIsSaving(false);
@@ -463,9 +463,9 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-foreground">Edit Task</DialogTitle>
+          <DialogTitle className="text-foreground">{t('tasks.edit.title', 'Edit Task')}</DialogTitle>
           <DialogDescription>
-            Update task details including title, description, classification, images, and settings. Changes will be saved to the spec files.
+            {t('tasks.edit.description', 'Update task details including title, description, classification, images, and settings. Changes will be saved to the spec files.')}
           </DialogDescription>
         </DialogHeader>
 
@@ -501,7 +501,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
           {/* Title (Optional - Auto-generated if empty) */}
           <div className="space-y-2">
             <Label htmlFor="edit-title" className="text-sm font-medium text-foreground">
-              Task Title <span className="text-muted-foreground font-normal">(optional)</span>
+              {t('tasks.edit.titleLabel', 'Task Title')} <span className="text-muted-foreground font-normal">({t('common:optional', 'optional')})</span>
             </Label>
             <Input
               id="edit-title"
@@ -511,7 +511,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
               disabled={isSaving}
             />
             <p className="text-xs text-muted-foreground">
-              A short, descriptive title will be generated automatically if left empty.
+              {t('tasks.edit.titleHelp', 'A short, descriptive title will be generated automatically if left empty.')}
             </p>
           </div>
 
@@ -538,7 +538,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
           {pasteSuccess && (
             <div className="flex items-center gap-2 text-sm text-success animate-in fade-in slide-in-from-top-1 duration-200">
               <ImageIcon className="h-4 w-4" />
-              Image added successfully!
+              {t('tasks.edit.imageAddedSuccess', 'Image added successfully!')}
             </div>
           )}
 
@@ -749,10 +749,10 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                {t('tasks.edit.saving', 'Saving...')}
               </>
             ) : (
-              'Save Changes'
+              t('tasks.edit.saveChanges', 'Save Changes')
             )}
           </Button>
         </DialogFooter>

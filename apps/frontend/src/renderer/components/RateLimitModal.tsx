@@ -118,20 +118,22 @@ export function RateLimitModal() {
 
           // Alert the user about the terminal
           alert(
-            `A terminal has been opened to authenticate "${profileName}".\n\n` +
-            `Steps to complete:\n` +
-            `1. Check the "Agent Terminals" section in the sidebar\n` +
-            `2. Complete the OAuth login in your browser\n` +
-            `3. The token will be saved automatically\n\n` +
-            `Once done, return here and the account will be available.`
+            t('rateLimit.terminalOpened', { profileName },
+              `A terminal has been opened to authenticate "${profileName}".\n\n` +
+              `Steps to complete:\n` +
+              `1. Check the "Agent Terminals" section in the sidebar\n` +
+              `2. Complete the OAuth login in your browser\n` +
+              `3. The token will be saved automatically\n\n` +
+              `Once done, return here and the account will be available.`
+            )
           );
         } else {
-          alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
+          alert(t('rateLimit.authFailed', { error: initResult.error || 'Please try again.' }, `Failed to start authentication: ${initResult.error || 'Please try again.'}`));
         }
       }
     } catch (err) {
       console.error('Failed to add profile:', err);
-      alert('Failed to add profile. Please try again.');
+      alert(t('rateLimit.addProfileFailed', 'Failed to add profile. Please try again.'));
     } finally {
       setIsAddingProfile(false);
     }
@@ -252,7 +254,7 @@ export function RateLimitModal() {
                             <span className="truncate flex items-center gap-2">
                               {profile.name}
                               {profile.id === rateLimitInfo?.suggestedProfileId && (
-                                <Star className="h-3 w-3 text-yellow-500" aria-label="Recommended" />
+                                <Star className="h-3 w-3 text-yellow-500" aria-label={t('rateLimit.recommended')} />
                               )}
                             </span>
                             {selectedProfileId === profile.id && (
@@ -264,7 +266,7 @@ export function RateLimitModal() {
                         <DropdownMenuItem
                           onClick={() => {
                             // Focus the add account input
-                            const input = document.querySelector('input[placeholder*="Account name"]') as HTMLInputElement;
+                            const input = document.querySelector('input[placeholder*="' + t('rateLimit.accountNamePlaceholder') + '"]') as HTMLInputElement;
                             if (input) input.focus();
                           }}
                           className="flex items-center gap-2 text-muted-foreground"

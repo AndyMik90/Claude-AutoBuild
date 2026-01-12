@@ -243,5 +243,22 @@
     "title": "删除任务",
     "confirmMessage": "您确定要删除 \"{{title}}\" 吗？",
     "warning": "此操作无法撤销。所有任务文件，包括规范、实施计划和任何生成的代码将从项目中永久删除。"
+  },
+  "edit": {
+    "title": "编辑任务",
+    "description": "更新任务详细信息，包括标题、描述、分类、图片和设置。更改将保存到规范文件中。",
+    "titleLabel": "任务标题",
+    "titleHelp": "如果留空，将自动生成一个简短、描述性的标题。",
+    "imageAddedSuccess": "图片添加成功！",
+    "saveChanges": "保存更改",
+    "saving": "保存中...",
+    "error": {
+      "maxImages": "最多允许 {{max}} 张图片",
+      "invalidImageType": "无效的图片类型。允许的类型：{{allowed}}",
+      "failedToProcessPasted": "处理粘贴的图片失败",
+      "failedToProcessDropped": "处理拖放的图片失败",
+      "descriptionRequired": "描述必填",
+      "failedToUpdate": "任务更新失败，请重试。"
+    }
   }
 }

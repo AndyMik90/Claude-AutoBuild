@@ -165,6 +165,9 @@
     "upgradeTitle": "升级以获得更多使用量",
     "upgradeDescription": "升级您的 Claude 订阅以获得更高的使用限制。",
     "upgradeSubscription": "升级订阅",
+    "terminalOpened": "已打开终端以认证 \"{{profileName}}\"。\n\n完成步骤：\n1. 检查侧边栏中的 \"代理终端\" 部分\n2. 在浏览器中完成 OAuth 登录\n3. 令牌将自动保存\n\n完成后，返回此处，账户将可用。",
+    "authFailed": "启动认证失败：{{error}}",
+    "addProfileFailed": "添加配置文件失败，请重试。",
     "sources": {
       "changelog": "更新日志",
       "task": "任务",

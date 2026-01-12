@@ -183,7 +183,8 @@
     },
     "version": {
       "current": "当前版本",
-      "latest": "最新版本"
+      "latest": "最新版本",
+      "path": "路径"
     },
     "install": {
       "button": "安装 Claude Code",
@@ -191,6 +192,14 @@
       "inProgress": "安装中...",
       "success": "安装命令已发送到终端。请在那里完成安装。",
       "instructions": "安装程序将在您的终端中打开。按照提示完成安装。"
+    },
+    "error": {
+      "apiNotAvailable": "版本检查 API 不可用",
+      "versionCheckFailed": "版本检查失败",
+      "unknown": "未知错误",
+      "installApiNotAvailable": "安装 API 不可用",
+      "installFailed": "安装启动失败",
+      "statusCheckFailed": "状态检查失败"
     },
     "learnMore": "了解 Claude Code"
   },

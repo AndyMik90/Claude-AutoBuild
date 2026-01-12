@@ -49,5 +49,13 @@
   "conflicts": "冲突",
   "additions": "增加",
   "deletions": "删除",
-  "created": "创建于"
+  "created": "创建于",
+  "error": {
+    "failedToLoad": "加载任务工作树失败",
+    "loadFailed": "加载工作树失败",
+    "taskNotFound": "未找到此工作树的任务",
+    "mergeFailed": "合并失败",
+    "failedToDelete": "删除工作树失败",
+    "failedToDeleteTerminal": "删除终端工作树失败"
+  }
 }

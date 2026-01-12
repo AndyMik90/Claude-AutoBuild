@@ -37,7 +37,7 @@ export function ClaudeCodeStep({ onNext, onBack, onSkip }: ClaudeCodeStepProps) 
       if (!window.electronAPI?.checkClaudeCodeVersion) {
         console.warn('[ClaudeCodeStep] Version check API not available');
         setStatus('error');
-        setError('Version check API not available');
+        setError(t('claudeCode.error.apiNotAvailable', 'Version check API not available'));
         return;
       }
 
@@ -55,12 +55,12 @@ export function ClaudeCodeStep({ onNext, onBack, onSkip }: ClaudeCodeStepProps) 
         }
       } else {
         setStatus('error');
-        setError(result.error || 'Failed to check version');
+        setError(result.error || t('claudeCode.error.versionCheckFailed', 'Failed to check version'));
       }
     } catch (err) {
       console.error('Failed to check Claude Code version:', err);
       setStatus('error');
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : t('claudeCode.error.unknown', 'Unknown error'));
     }
   }, []);
 
@@ -75,7 +75,7 @@ export function ClaudeCodeStep({ onNext, onBack, onSkip }: ClaudeCodeStepProps) 
 
     try {
       if (!window.electronAPI?.installClaudeCode) {
-        setError('Install API not available');
+        setError(t('claudeCode.error.installApiNotAvailable', 'Install API not available'));
         return;
       }
 
@@ -88,10 +88,10 @@ export function ClaudeCodeStep({ onNext, onBack, onSkip }: ClaudeCodeStepProps) 
           checkVersion();
         }, 5000);
       } else {
-        setError(result.error || 'Failed to start installation');
+        setError(result.error || t('claudeCode.error.installFailed', 'Failed to start installation'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : t('claudeCode.error.unknown', 'Unknown error'));
     } finally {
       setIsInstalling(false);
     }
@@ -125,7 +125,7 @@ export function ClaudeCodeStep({ onNext, onBack, onSkip }: ClaudeCodeStepProps) 
       case 'not-found':
         return t('claudeCode.status.notFound', 'Not Installed');
       case 'error':
-        return error || 'Error checking status';
+        return error || t('claudeCode.error.statusCheckFailed', 'Error checking status');
     }
   };
 
@@ -205,7 +205,7 @@ export function ClaudeCodeStep({ onNext, onBack, onSkip }: ClaudeCodeStepProps) 
                         )}
                         {versionInfo.path && (
                           <p className="truncate max-w-md" title={versionInfo.path}>
-                            Path: <span className="font-mono">{versionInfo.path}</span>
+                            {t('claudeCode.version.path', 'Path')}: <span className="font-mono">{versionInfo.path}</span>
                           </p>
                         )}
                       </div>
