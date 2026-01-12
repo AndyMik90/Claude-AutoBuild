@@ -23,6 +23,7 @@ import { registerEnvHandlers } from './env-handlers';
 import { registerLinearHandlers } from './linear-handlers';
 import { registerGithubHandlers } from './github-handlers';
 import { registerGitlabHandlers } from './gitlab-handlers';
+import { registerForgejoHandlers } from './forgejo-handlers';
 import { registerIdeationHandlers } from './ideation-handlers';
 import { registerChangelogHandlers } from './changelog-handlers';
 import { registerInsightsHandlers } from './insights-handlers';
@@ -91,6 +92,9 @@ export function setupIpcHandlers(
   // GitLab integration handlers
   registerGitlabHandlers(agentManager, getMainWindow);
 
+  // Forgejo integration handlers (self-hosted git instances)
+  registerForgejoHandlers(agentManager, getMainWindow);
+
   // Ideation handlers
   registerIdeationHandlers(agentManager, getMainWindow);
 
@@ -136,6 +140,7 @@ export {
   registerLinearHandlers,
   registerGithubHandlers,
   registerGitlabHandlers,
+  registerForgejoHandlers,
   registerIdeationHandlers,
   registerChangelogHandlers,
   registerInsightsHandlers,

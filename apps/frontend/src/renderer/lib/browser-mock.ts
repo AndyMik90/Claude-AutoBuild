@@ -229,6 +229,41 @@ const browserMockAPI: ElectronAPI = {
     onAnalyzePreviewError: () => () => {}
   },
 
+  // Forgejo API (self-hosted Forgejo/Gitea)
+  forgejo: {
+    getForgejoInstances: async () => ({ success: true, data: [] }),
+    addForgejoInstance: async () => ({ success: false, error: 'Not available in browser mock' }),
+    removeForgejoInstance: async () => ({ success: false, error: 'Not available in browser mock' }),
+    updateForgejoInstance: async () => ({ success: false, error: 'Not available in browser mock' }),
+    testForgejoConnection: async () => ({ success: true, data: { connected: false, error: 'Not available in browser mock' } }),
+    getForgejoRepositories: async () => ({ success: true, data: [] }),
+    checkForgejoConnection: async () => ({ success: true, data: { connected: false, error: 'Not available in browser mock' } }),
+    getForgejoSyncStatus: async () => ({ success: true, data: { connected: false, error: 'Not available in browser mock' } }),
+    getForgejoIssues: async () => ({ success: true, data: [] }),
+    getForgejoIssue: async () => ({ success: false, error: 'Not available in browser mock' }),
+    getForgejoIssueComments: async () => ({ success: true, data: [] }),
+    createForgejoIssue: async () => ({ success: false, error: 'Not available in browser mock' }),
+    closeForgejoIssue: async () => ({ success: false, error: 'Not available in browser mock' }),
+    addForgejoComment: async () => ({ success: false, error: 'Not available in browser mock' }),
+    investigateForgejoIssue: () => {},
+    importForgejoIssues: async () => ({ success: true, data: { success: true, imported: 0, failed: 0, issues: [] } }),
+    getForgejoPRs: async () => ({ success: true, data: [] }),
+    getForgejoPR: async () => ({ success: false, error: 'Not available in browser mock' }),
+    getForgejoPRDiff: async () => ({ success: false, error: 'Not available in browser mock' }),
+    mergeForgejoPR: async () => ({ success: false, error: 'Not available in browser mock' }),
+    closeForgejoPR: async () => ({ success: false, error: 'Not available in browser mock' }),
+    postForgejoPRReview: async () => ({ success: false, error: 'Not available in browser mock' }),
+    runForgejoPRReview: () => {},
+    cancelForgejoPRReview: async () => ({ success: false, error: 'Not available in browser mock' }),
+    getForgejoPRReview: async () => ({ success: true, data: null }),
+    onForgejoInvestigationProgress: () => () => {},
+    onForgejoInvestigationComplete: () => () => {},
+    onForgejoInvestigationError: () => () => {},
+    onForgejoPRReviewProgress: () => () => {},
+    onForgejoPRReviewComplete: () => () => {},
+    onForgejoPRReviewError: () => () => {}
+  },
+
   // Claude Code Operations
   checkClaudeCodeVersion: async () => ({
     success: true,

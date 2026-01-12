@@ -1,11 +1,12 @@
 import { useTranslation } from 'react-i18next';
-import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionInfo, ProjectEnvConfig, LinearSyncStatus, GitHubSyncStatus, GitLabSyncStatus } from '../../../../shared/types';
+import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionInfo, ProjectEnvConfig, LinearSyncStatus, GitHubSyncStatus, GitLabSyncStatus, ForgejoSyncStatus } from '../../../../shared/types';
 import { SettingsSection } from '../SettingsSection';
 import { GeneralSettings } from '../../project-settings/GeneralSettings';
 import { SecuritySettings } from '../../project-settings/SecuritySettings';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
 import { GitLabIntegration } from '../integrations/GitLabIntegration';
+import { ForgejoIntegration } from '../integrations/ForgejoIntegration';
 import { InitializationGuard } from '../common/InitializationGuard';
 import type { ProjectSettingsSection } from '../ProjectSettingsContent';
 
@@ -33,6 +34,10 @@ interface SectionRouterProps {
   setShowGitLabToken: React.Dispatch<React.SetStateAction<boolean>>;
   gitLabConnectionStatus: GitLabSyncStatus | null;
   isCheckingGitLab: boolean;
+  showForgejoToken: boolean;
+  setShowForgejoToken: React.Dispatch<React.SetStateAction<boolean>>;
+  forgejoConnectionStatus: ForgejoSyncStatus | null;
+  isCheckingForgejo: boolean;
   linearConnectionStatus: LinearSyncStatus | null;
   isCheckingLinear: boolean;
   handleInitialize: () => Promise<void>;
@@ -67,6 +72,10 @@ export function SectionRouter({
   setShowGitLabToken,
   gitLabConnectionStatus,
   isCheckingGitLab,
+  showForgejoToken,
+  setShowForgejoToken,
+  forgejoConnectionStatus,
+  isCheckingForgejo,
   linearConnectionStatus,
   isCheckingLinear,
   handleInitialize,
@@ -161,6 +170,32 @@ export function SectionRouter({
               setShowGitLabToken={setShowGitLabToken}
               gitLabConnectionStatus={gitLabConnectionStatus}
               isCheckingGitLab={isCheckingGitLab}
+              projectPath={project.path}
+              settings={settings}
+              setSettings={setSettings}
+            />
+          </InitializationGuard>
+        </SettingsSection>
+      );
+
+    case 'forgejo':
+      return (
+        <SettingsSection
+          title={t('projectSections.forgejo.integrationTitle')}
+          description={t('projectSections.forgejo.integrationDescription')}
+        >
+          <InitializationGuard
+            initialized={!!project.autoBuildPath}
+            title={t('projectSections.forgejo.integrationTitle')}
+            description={t('projectSections.forgejo.syncDescription')}
+          >
+            <ForgejoIntegration
+              envConfig={envConfig}
+              updateEnvConfig={updateEnvConfig}
+              showForgejoToken={showForgejoToken}
+              setShowForgejoToken={setShowForgejoToken}
+              forgejoConnectionStatus={forgejoConnectionStatus}
+              isCheckingForgejo={isCheckingForgejo}
               projectPath={project.path}
               settings={settings}
               setSettings={setSettings}
