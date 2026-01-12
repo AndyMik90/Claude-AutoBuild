@@ -102,6 +102,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
     claude: ToolDetectionResult;
   } | null>(null);
   const [isLoadingTools, setIsLoadingTools] = useState(false);
+  const [isPythonValidating, setIsPythonValidating] = useState(false);
 
   // Fetch CLI tools detection info when component mounts (paths section only)
   useEffect(() => {
@@ -249,11 +250,21 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
 
   // paths section
   return (
-    <SettingsSection
-      title={t('general.paths')}
-      description={t('general.pathsDescription')}
-    >
-      <div className="space-y-6">
+    <div className="relative">
+      {/* Loading Overlay - Show during Python validation */}
+      {isPythonValidating && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+          <p className="text-lg font-medium text-foreground">Validating Python environment...</p>
+          <p className="text-sm text-muted-foreground mt-2">This may take a few seconds</p>
+        </div>
+      )}
+
+      <SettingsSection
+        title={t('general.paths')}
+        description={t('general.pathsDescription')}
+      >
+        <div className="space-y-6">
         <div className="space-y-3">
           <Label htmlFor="pythonPath" className="text-sm font-medium text-foreground">{t('general.pythonPath')}</Label>
           <p className="text-sm text-muted-foreground">{t('general.pythonPathDescription')}</p>
@@ -355,6 +366,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
             <PythonPackageValidator
               pythonPath={settings.pythonPath}
               activationScript={settings.pythonActivationScript}
+              onValidationStateChange={setIsPythonValidating}
             />
           </div>
         )}
@@ -426,5 +438,6 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
         </div>
       </div>
     </SettingsSection>
+    </div>
   );
 }

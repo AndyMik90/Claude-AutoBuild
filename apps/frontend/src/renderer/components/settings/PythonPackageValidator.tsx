@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
-import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 
 interface Props {
   pythonPath: string;
   activationScript?: string;
+  onValidationStateChange?: (isValidating: boolean) => void;
 }
 
-export function PythonPackageValidator({ pythonPath, activationScript }: Props) {
+export function PythonPackageValidator({ pythonPath, activationScript, onValidationStateChange }: Props) {
   const { t } = useTranslation('settings');
+
+  // Package validation state
   const [status, setStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [missingPackages, setMissingPackages] = useState<string[]>([]);
   const [installLocation, setInstallLocation] = useState<string>('');
@@ -18,8 +21,40 @@ export function PythonPackageValidator({ pythonPath, activationScript }: Props) 
   const [installProgress, setInstallProgress] = useState('');
   const [error, setError] = useState<string>('');
 
+  // Environment validation state
+  const [envStatus, setEnvStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const [envValidation, setEnvValidation] = useState<{
+    valid: boolean;
+    pythonPath: string | null;
+    version: string | null;
+    error: string | null;
+    status: 'valid' | 'missing' | 'wrong_version' | 'error';
+  } | null>(null);
+  const [reinstalling, setReinstalling] = useState(false);
+  const [reinstallProgress, setReinstallProgress] = useState<{ step: string; completed: number; total: number } | null>(null);
+
+  // Track last validated paths to avoid re-validating unnecessarily
+  const lastValidatedRef = useRef<{ pythonPath: string; activationScript: string | undefined }>({ pythonPath: '', activationScript: undefined });
+
   useEffect(() => {
-    checkPackages();
+    // Skip validation if paths haven't changed
+    if (lastValidatedRef.current.pythonPath === pythonPath &&
+        lastValidatedRef.current.activationScript === activationScript) {
+      return;
+    }
+
+    // Defer validation to allow UI to render first (prevents blocking)
+    const timeoutId = setTimeout(() => {
+      lastValidatedRef.current = { pythonPath, activationScript };
+
+      if (activationScript) {
+        validateEnvironment();
+      } else {
+        checkPackages();
+      }
+    }, 100); // 100ms delay to let UI render
+
+    return () => clearTimeout(timeoutId);
   }, [pythonPath, activationScript]);
 
   const checkPackages = async () => {
@@ -83,13 +118,169 @@ export function PythonPackageValidator({ pythonPath, activationScript }: Props) 
     }
   };
 
+  const validateEnvironment = async () => {
+    if (!activationScript) {
+      checkPackages();
+      return;
+    }
+
+    setEnvStatus('checking');
+    setError('');
+
+    try {
+      const result = await window.electronAPI.validatePythonEnvironment({
+        activationScript
+      });
+
+      if (result.success && result.data) {
+        setEnvValidation(result.data);
+        setEnvStatus(result.data.valid ? 'valid' : 'invalid');
+
+        // If environment is valid, proceed to check packages
+        if (result.data.valid) {
+          await checkPackages();
+        }
+      } else {
+        setEnvStatus('invalid');
+        setError(result.error || 'Failed to validate Python environment');
+      }
+    } catch (error) {
+      console.error('Error validating Python environment:', error);
+      setEnvStatus('invalid');
+      setError('Failed to validate Python environment: ' + String(error));
+    }
+  };
+
+  const handleReinstallEnvironment = async () => {
+    if (!activationScript) {
+      setError('No activation script configured');
+      return;
+    }
+
+    if (!confirm('⚠️ WARNING: This will DELETE the existing Python environment and reinstall Python 3.12.\n\nAll installed packages will be removed.\n\nContinue?')) {
+      return;
+    }
+
+    setReinstalling(true);
+    setError('');
+    setReinstallProgress({ step: 'Starting...', completed: 0, total: 3 });
+
+    const unsubscribe = window.electronAPI.onPythonReinstallProgress((progress) => {
+      setReinstallProgress(progress);
+    });
+
+    const result = await window.electronAPI.reinstallPythonEnvironment({
+      activationScript,
+      pythonVersion: '3.12'
+    });
+
+    unsubscribe();
+    setReinstalling(false);
+    setReinstallProgress(null);
+
+    if (result.success && result.data?.success) {
+      setError('');
+      setEnvStatus('valid');
+      setEnvValidation({
+        valid: true,
+        pythonPath: result.data.environmentPath,
+        version: result.data.pythonVersion,
+        error: null,
+        status: 'valid'
+      });
+      // Re-validate environment and packages after reinstall
+      await validateEnvironment();
+    } else {
+      setError(result.data?.error || result.error || 'Environment reinstall failed');
+      setEnvStatus('invalid');
+    }
+  };
+
+  // Check if initial validation is in progress
+  const isInitialValidation = (envStatus === 'checking' && !envValidation) ||
+                                (status === 'checking' && !missingPackages.length && !installLocation);
+
+  // Notify parent component of validation state changes
+  useEffect(() => {
+    onValidationStateChange?.(isInitialValidation);
+  }, [isInitialValidation, onValidationStateChange]);
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 relative">
+      {/* Loading Overlay - Show during initial validation */}
+      {isInitialValidation && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-lg">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+          <p className="text-sm font-medium text-foreground">Validating Python environment...</p>
+          <p className="text-xs text-muted-foreground mt-1">This may take a few seconds</p>
+        </div>
+      )}
+
       {/* Error Display */}
       {error && (
         <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
           <p className="text-sm font-medium text-destructive mb-1">Error</p>
           <p className="text-xs text-destructive/80">{error}</p>
+        </div>
+      )}
+
+      {/* Python Environment Section (only show if checking or invalid) */}
+      {activationScript && envStatus !== 'idle' && envStatus !== 'valid' && (
+        <div className="space-y-3 p-4 border border-border rounded-md bg-muted/30">
+          {/* Environment Status Display */}
+          {envStatus === 'checking' && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Validating Python environment...</span>
+            </div>
+          )}
+
+          {envStatus === 'invalid' && envValidation && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm text-destructive">
+                {envValidation.status === 'missing' && <XCircle className="h-4 w-4" />}
+                {envValidation.status === 'wrong_version' && <AlertTriangle className="h-4 w-4" />}
+                {envValidation.status === 'error' && <XCircle className="h-4 w-4" />}
+                <span>
+                  {envValidation.status === 'missing' && 'Python not found'}
+                  {envValidation.status === 'wrong_version' && `Wrong version: ${envValidation.version}`}
+                  {envValidation.status === 'error' && 'Validation error'}
+                </span>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                {envValidation.status === 'missing' &&
+                  'Python 3.12+ is required but not found. Click below to install it.'}
+                {envValidation.status === 'wrong_version' &&
+                  'Python 3.12+ is required. Click below to reinstall with the correct version.'}
+                {envValidation.status === 'error' &&
+                  envValidation.error}
+              </p>
+
+              <Button
+                onClick={handleReinstallEnvironment}
+                disabled={reinstalling}
+                size="sm"
+                variant="destructive"
+              >
+                {reinstalling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Reinstall Python Environment
+              </Button>
+
+              {/* Reinstall Progress */}
+              {reinstallProgress && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>{reinstallProgress.step}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Step {reinstallProgress.completed} of {reinstallProgress.total}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

@@ -43,6 +43,23 @@ export interface SettingsAPI {
   onPythonValidationProgress: (callback: (progress: { current: number; total: number; packageName: string }) => void) => () => void;
   installPythonRequirements: (params: { pythonPath: string; activationScript?: string }) => Promise<IPCResult>;
   onPythonInstallProgress: (callback: (progress: string) => void) => () => void;
+
+  // Python environment validation and reinstall
+  validatePythonEnvironment: (params: { activationScript: string }) => Promise<IPCResult<{
+    valid: boolean;
+    pythonPath: string | null;
+    version: string | null;
+    error: string | null;
+    status: 'valid' | 'missing' | 'wrong_version' | 'error';
+  }>>;
+  reinstallPythonEnvironment: (params: { activationScript: string; pythonVersion?: string }) => Promise<IPCResult<{
+    success: boolean;
+    environmentPath: string | null;
+    pythonVersion: string | null;
+    error: string | null;
+    stepsCompleted: string[];
+  }>>;
+  onPythonReinstallProgress: (callback: (progress: { step: string; completed: number; total: number }) => void) => () => void;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -108,5 +125,30 @@ export const createSettingsAPI = (): SettingsAPI => ({
     const listener = (_: any, progress: string) => callback(progress);
     ipcRenderer.on(IPC_CHANNELS.PYTHON_INSTALL_PROGRESS, listener);
     return () => ipcRenderer.off(IPC_CHANNELS.PYTHON_INSTALL_PROGRESS, listener);
+  },
+
+  // Python environment validation and reinstall
+  validatePythonEnvironment: (params): Promise<IPCResult<{
+    valid: boolean;
+    pythonPath: string | null;
+    version: string | null;
+    error: string | null;
+    status: 'valid' | 'missing' | 'wrong_version' | 'error';
+  }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PYTHON_VALIDATE_ENVIRONMENT, params),
+
+  reinstallPythonEnvironment: (params): Promise<IPCResult<{
+    success: boolean;
+    environmentPath: string | null;
+    pythonVersion: string | null;
+    error: string | null;
+    stepsCompleted: string[];
+  }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PYTHON_REINSTALL_ENVIRONMENT, params),
+
+  onPythonReinstallProgress: (callback): (() => void) => {
+    const listener = (_: any, progress: { step: string; completed: number; total: number }) => callback(progress);
+    ipcRenderer.on(IPC_CHANNELS.PYTHON_REINSTALL_PROGRESS, listener);
+    return () => ipcRenderer.off(IPC_CHANNELS.PYTHON_REINSTALL_PROGRESS, listener);
   }
 });

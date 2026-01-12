@@ -129,6 +129,9 @@ export const IPC_CHANNELS = {
   PYTHON_VALIDATION_PROGRESS: 'python:validationProgress',
   PYTHON_INSTALL_REQUIREMENTS: 'python:installRequirements',
   PYTHON_INSTALL_PROGRESS: 'python:installProgress',
+  PYTHON_VALIDATE_ENVIRONMENT: 'python:validateEnvironment',
+  PYTHON_REINSTALL_ENVIRONMENT: 'python:reinstallEnvironment',
+  PYTHON_REINSTALL_PROGRESS: 'python:reinstallProgress',
 
   // API Profile management (custom Anthropic-compatible endpoints)
   PROFILES_GET: 'profiles:get',
