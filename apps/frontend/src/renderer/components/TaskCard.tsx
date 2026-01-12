@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, Image as ImageIcon } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -75,6 +75,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
     prevTask.metadata?.archivedAt === nextTask.metadata?.archivedAt &&
     prevTask.metadata?.prUrl === nextTask.metadata?.prUrl &&
+    prevTask.qaReport?.screenshots?.length === nextTask.qaReport?.screenshots?.length &&
     // Check if any subtask statuses changed (compare all subtasks)
     prevTask.subtasks.every((s, i) => s.status === nextTask.subtasks[i]?.status)
   );
@@ -320,6 +321,15 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
       onClick={onClick}
     >
       <CardContent className="p-4">
+        {/* Task ID Badge - prominent numeric identifier */}
+        <Badge
+          variant="outline"
+          className="mb-2 text-xs px-2 py-0.5 font-mono font-semibold bg-primary/10 text-primary border-primary/30"
+          title={task.id}
+        >
+          #{task.id.split('-')[0]}
+        </Badge>
+
         {/* Title - full width, no wrapper */}
         <h3
           className="font-semibold text-sm text-foreground line-clamp-2 leading-snug"
@@ -459,6 +469,16 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
                 className={cn('text-[10px] px-1.5 py-0', TASK_IMPACT_COLORS[task.metadata.securitySeverity])}
               >
                 {task.metadata.securitySeverity} {t('metadata.severity')}
+              </Badge>
+            )}
+            {/* QA Screenshots badge - show count if screenshots exist */}
+            {task.qaReport?.screenshots && task.qaReport.screenshots.length > 0 && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-primary/10 text-primary border-primary/30"
+              >
+                <ImageIcon className="h-2.5 w-2.5" />
+                {task.qaReport.screenshots.length}
               </Badge>
             )}
           </div>
