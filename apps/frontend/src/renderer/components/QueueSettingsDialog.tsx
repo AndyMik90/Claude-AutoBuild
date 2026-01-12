@@ -6,7 +6,7 @@
  *
  * Features:
  * - Toggle switch to enable/disable queue
- * - Slider for max concurrent tasks (1-3)
+ * - Preset buttons for max concurrent tasks (1-3)
  * - Live status display (running / max)
  * - Saves settings via IPC to project config
  *
@@ -15,7 +15,6 @@
  * - Switch from ui/switch
  * - Button from ui/button
  * - Label from ui/label
- * - Slider pattern from DisplaySettings
  *
  * @example
  * ```tsx
@@ -30,7 +29,7 @@
  * ```
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, List, Loader2 } from 'lucide-react';
 import {
@@ -65,11 +64,8 @@ interface QueueSettingsDialogProps {
   onSaved?: () => void;
 }
 
-/** Generate preset values from min to max concurrent */
-const CONCURRENT_PRESETS: readonly (1 | 2 | 3)[] = Array.from(
-  { length: QUEUE_MAX_CONCURRENT - QUEUE_MIN_CONCURRENT + 1 },
-  (_, i) => QUEUE_MIN_CONCURRENT + i
-).filter((n): n is 1 | 2 | 3 => n >= 1 && n <= 3);
+/** Preset values for max concurrent tasks */
+const CONCURRENT_PRESETS: readonly (1 | 2 | 3)[] = [1, 2, 3] as const;
 
 export function QueueSettingsDialog({
   projectId,
@@ -83,17 +79,21 @@ export function QueueSettingsDialog({
 
   // Local state for form (synced with currentConfig when dialog opens)
   const [enabled, setEnabled] = useState(currentConfig.enabled);
-  const [maxConcurrent, setMaxConcurrent] = useState(currentConfig.maxConcurrent || QUEUE_MIN_CONCURRENT);
+  const [maxConcurrent, setMaxConcurrent] = useState(currentConfig.maxConcurrent);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Reset form when dialog opens - use stable primitives to avoid unnecessary resets
+  // Track previous open state to only reset when dialog transitions from closed to open
+  const prevOpenRef = useRef(false);
+
+  // Reset form only when dialog transitions from closed to open
   useEffect(() => {
-    if (open) {
+    if (open && !prevOpenRef.current) {
       setEnabled(currentConfig.enabled);
-      setMaxConcurrent(currentConfig.maxConcurrent || QUEUE_MIN_CONCURRENT);
+      setMaxConcurrent(currentConfig.maxConcurrent);
       setSaveError(null);
     }
+    prevOpenRef.current = open;
   }, [open, currentConfig.enabled, currentConfig.maxConcurrent]);
 
   const handleSave = async () => {
@@ -110,9 +110,6 @@ export function QueueSettingsDialog({
       } else {
         setSaveError(t('tasks:queue.settings.saveFailed'));
       }
-    } catch (error) {
-      setSaveError(t('tasks:queue.settings.saveFailed'));
-      console.error('[QueueSettingsDialog] Failed to save queue config:', error);
     } finally {
       setIsSaving(false);
     }
@@ -140,7 +137,7 @@ export function QueueSettingsDialog({
         <div className="space-y-6 py-4">
           {/* Error message */}
           {saveError && (
-            <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3">
+            <div role="alert" aria-live="assertive" className="rounded-md bg-destructive/10 border border-destructive/20 p-3">
               <p className="text-xs text-destructive">{saveError}</p>
             </div>
           )}
@@ -181,7 +178,7 @@ export function QueueSettingsDialog({
                 </Badge>
               </div>
 
-              {/* Max Concurrent Slider */}
+              {/* Max Concurrent Preset Buttons */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium text-foreground">
@@ -197,9 +194,8 @@ export function QueueSettingsDialog({
                   {t('tasks:queue.settings.maxConcurrentDescription')}
                 </p>
 
-                {/* Slider with preset buttons */}
+                {/* Preset buttons for max concurrent tasks */}
                 <div className="space-y-3 pt-1">
-                  {/* Preset buttons */}
                   <div className="grid grid-cols-3 gap-2">
                     {CONCURRENT_PRESETS.map((value) => (
                       <button
@@ -225,7 +221,7 @@ export function QueueSettingsDialog({
                     ))}
                   </div>
 
-                  {/* Scale markers */}
+                  {/* Min/max labels for presets */}
                   <div className="flex justify-between text-xs text-muted-foreground px-2">
                     <span>{QUEUE_MIN_CONCURRENT}</span>
                     <span>{QUEUE_MAX_CONCURRENT}</span>
@@ -235,7 +231,7 @@ export function QueueSettingsDialog({
 
               {/* Warning if current running exceeds new max */}
               {wouldExceedLimit && (
-                <div className="rounded-md bg-warning/10 border border-warning/20 p-3">
+                <div role="alert" aria-live="polite" className="rounded-md bg-warning/10 border border-warning/20 p-3">
                   <p className="text-xs text-warning">
                     {t('tasks:queue.settings.exceedsWarning', {
                       running: runningCount,
