@@ -40,7 +40,9 @@
   "tooltips": {
     "archiveTask": "Archive task",
     "archiveAllDone": "Archive all done tasks",
-    "viewPR": "Open pull request in browser"
+    "viewPR": "Open pull request in browser",
+    "deleteTask": "Delete task",
+    "deleteAllInColumn": "Delete all tasks in column"
   },
   "creation": {
     "title": "Create New Task",

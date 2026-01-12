@@ -40,7 +40,9 @@
   "tooltips": {
     "archiveTask": "Archiver la tâche",
     "archiveAllDone": "Archiver toutes les tâches terminées",
-    "viewPR": "Ouvrir la pull request dans le navigateur"
+    "viewPR": "Ouvrir la pull request dans le navigateur",
+    "deleteTask": "Supprimer la tâche",
+    "deleteAllInColumn": "Supprimer toutes les tâches de la colonne"
   },
   "creation": {
     "title": "Créer une nouvelle tâche",

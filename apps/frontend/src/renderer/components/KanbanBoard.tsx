@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from 'react';
+import { useState, useMemo, memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, Trash2 } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -27,7 +27,7 @@ import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, archiveTasks } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTask } from '../stores/task-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import type { Task, TaskStatus } from '../../shared/types';
@@ -54,6 +54,7 @@ interface DroppableColumnProps {
   isOver: boolean;
   onAddClick?: () => void;
   onArchiveAll?: () => void;
+  onDeleteAll?: () => void;
   archivedCount?: number;
   showArchived?: boolean;
   onToggleArchived?: () => void;
@@ -97,6 +98,7 @@ function droppableColumnPropsAreEqual(
   if (prevProps.onStatusChange !== nextProps.onStatusChange) return false;
   if (prevProps.onAddClick !== nextProps.onAddClick) return false;
   if (prevProps.onArchiveAll !== nextProps.onArchiveAll) return false;
+  if (prevProps.onDeleteAll !== nextProps.onDeleteAll) return false;
   if (prevProps.archivedCount !== nextProps.archivedCount) return false;
   if (prevProps.showArchived !== nextProps.showArchived) return false;
   if (prevProps.onToggleArchived !== nextProps.onToggleArchived) return false;
@@ -153,7 +155,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, onDeleteAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -254,6 +256,24 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
             >
               <Archive className="h-4 w-4" />
             </Button>
+          )}
+          {onDeleteAll && tasks.length > 0 && status !== 'in_progress' && (
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  onClick={onDeleteAll}
+                  aria-label={t('tooltips.deleteAllInColumn')}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t('tooltips.deleteAllInColumn')}
+              </TooltipContent>
+            </Tooltip>
           )}
           {status === 'done' && archivedCount !== undefined && archivedCount > 0 && onToggleArchived && (
             <Tooltip delayDuration={200}>
@@ -412,7 +432,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   }, [filteredTasks]);
 
   const handleArchiveAll = async () => {
-    // Get projectId from the first task (all tasks should have the same projectId)
     const projectId = tasks[0]?.projectId;
     if (!projectId) {
       console.error('[KanbanBoard] No projectId found');
@@ -427,6 +446,20 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       console.error('[KanbanBoard] Failed to archive tasks:', result.error);
     }
   };
+
+  const handleDeleteAllInColumn = useCallback(async (status: typeof TASK_STATUS_COLUMNS[number]) => {
+    const tasksToDelete = tasksByStatus[status];
+    if (tasksToDelete.length === 0) return;
+
+    const results = await Promise.all(
+      tasksToDelete.map((task: Task) => deleteTask(task.id))
+    );
+
+    const failures = results.filter((r: { success: boolean }) => !r.success);
+    if (failures.length > 0) {
+      console.error('[KanbanBoard] Failed to delete some tasks:', failures);
+    }
+  }, [tasksByStatus]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -591,6 +624,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
+              onDeleteAll={status !== 'in_progress' ? () => handleDeleteAllInColumn(status) : undefined}
               archivedCount={status === 'done' ? archivedCount : undefined}
               showArchived={status === 'done' ? showArchived : undefined}
               onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
