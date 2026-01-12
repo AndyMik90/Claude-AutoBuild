@@ -237,13 +237,43 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
     }}>
       <FullScreenDialogContent>
         <FullScreenDialogHeader>
-          <FullScreenDialogTitle className="flex items-center gap-3">
-            <Settings className="h-6 w-6" />
-            {t('title')}
-          </FullScreenDialogTitle>
-          <FullScreenDialogDescription>
-            {t('tabs.app')} & {t('tabs.project')}
-          </FullScreenDialogDescription>
+          <div className="flex items-center justify-between w-full">
+            <div>
+              <FullScreenDialogTitle className="flex items-center gap-3">
+                <Settings className="h-6 w-6" />
+                {t('title')}
+              </FullScreenDialogTitle>
+              <FullScreenDialogDescription>
+                {t('tabs.app')} & {t('tabs.project')}
+              </FullScreenDialogDescription>
+            </div>
+
+            {/* Tab Switcher */}
+            <div className="flex gap-2 bg-muted/30 p-1 rounded-lg">
+              <button
+                onClick={() => setActiveTopLevel('app')}
+                className={cn(
+                  'px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200',
+                  activeTopLevel === 'app'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {t('tabs.app')}
+              </button>
+              <button
+                onClick={() => setActiveTopLevel('project')}
+                className={cn(
+                  'px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200',
+                  activeTopLevel === 'project'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {t('tabs.project')}
+              </button>
+            </div>
+          </div>
         </FullScreenDialogHeader>
 
         <FullScreenDialogBody>
@@ -251,23 +281,17 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
             {/* Navigation sidebar */}
             <nav className="w-80 border-r border-border bg-muted/30 p-4">
               <ScrollArea className="h-full">
-                <div className="space-y-6">
-                  {/* APPLICATION Section */}
-                  <div>
-                    <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t('tabs.app')}
-                    </h3>
-                    <div className="space-y-1">
+                <div className="space-y-2">
+                  {/* App Settings Navigation */}
+                  {activeTopLevel === 'app' && (
+                    <>
                       {appNavItemsConfig.map((item) => {
                         const Icon = item.icon;
-                        const isActive = activeTopLevel === 'app' && appSection === item.id;
+                        const isActive = appSection === item.id;
                         return (
                           <button
                             key={item.id}
-                            onClick={() => {
-                              setActiveTopLevel('app');
-                              setAppSection(item.id);
-                            }}
+                            onClick={() => setAppSection(item.id)}
                             className={cn(
                               'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-200',
                               'hover:bg-gradient-to-r hover:from-nav-gradient-from hover:to-nav-gradient-to',
@@ -302,35 +326,28 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                           </div>
                         </button>
                       )}
-                    </div>
-                  </div>
+                    </>
+                  )}
 
-                  {/* PROJECT Section */}
-                  <div>
-                    <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t('tabs.project')}
-                    </h3>
+                  {/* Project Settings Navigation */}
+                  {activeTopLevel === 'project' && (
+                    <>
+                      {/* Project Selector */}
+                      <div className="px-1 mb-3">
+                        <ProjectSelector
+                          selectedProjectId={selectedProjectId}
+                          onProjectChange={handleProjectChange}
+                        />
+                      </div>
 
-                    {/* Project Selector */}
-                    <div className="px-1 mb-3">
-                      <ProjectSelector
-                        selectedProjectId={selectedProjectId}
-                        onProjectChange={handleProjectChange}
-                      />
-                    </div>
-
-                    {/* Project Nav Items */}
-                    <div className="space-y-1">
+                      {/* Project Nav Items */}
                       {projectNavItemsConfig.map((item) => {
                         const Icon = item.icon;
-                        const isActive = activeTopLevel === 'project' && projectSection === item.id;
+                        const isActive = projectSection === item.id;
                         return (
                           <button
                             key={item.id}
-                            onClick={() => {
-                              setActiveTopLevel('project');
-                              setProjectSection(item.id);
-                            }}
+                            onClick={() => setProjectSection(item.id)}
                             disabled={projectNavDisabled}
                             className={cn(
                               'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-200',
@@ -347,8 +364,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                           </button>
                         );
                       })}
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Version at bottom */}
