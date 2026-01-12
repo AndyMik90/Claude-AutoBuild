@@ -44,14 +44,14 @@ import { registerQueueHandlers } from './queue-handlers';
  * @param terminalManager - The terminal manager instance
  * @param getMainWindow - Function to get the main BrowserWindow
  * @param pythonEnvManager - The Python environment manager instance
- * @param taskQueueManager - The task queue manager instance
+ * @param taskQueueManager - The task queue manager instance (optional)
  */
 export function setupIpcHandlers(
   agentManager: AgentManager,
   terminalManager: TerminalManager,
   getMainWindow: () => BrowserWindow | null,
   pythonEnvManager: PythonEnvManager,
-  taskQueueManager: TaskQueueManager | null
+  taskQueueManager: TaskQueueManager | null = null
 ): void {
   // Initialize notification service
   notificationService.initialize(getMainWindow);

@@ -47,6 +47,7 @@ import { Switch } from './ui/switch';
 import { Badge } from './ui/badge';
 import { saveQueueConfig } from '../stores/queue-store';
 import type { QueueConfig } from '../../shared/types';
+import { QUEUE_MIN_CONCURRENT, QUEUE_MAX_CONCURRENT } from '../../shared/constants/task';
 import { cn } from '../lib/utils';
 
 interface QueueSettingsDialogProps {
@@ -64,10 +65,11 @@ interface QueueSettingsDialogProps {
   onSaved?: () => void;
 }
 
-// Constants for max concurrent slider
-const MIN_CONCURRENT = 1;
-const MAX_CONCURRENT = 3;
-const DEFAULT_CONCURRENT = 1;
+/** Generate preset values from min to max concurrent */
+const CONCURRENT_PRESETS: readonly (1 | 2 | 3)[] = Array.from(
+  { length: QUEUE_MAX_CONCURRENT - QUEUE_MIN_CONCURRENT + 1 },
+  (_, i) => QUEUE_MIN_CONCURRENT + i
+).filter((n): n is 1 | 2 | 3 => n >= 1 && n <= 3);
 
 export function QueueSettingsDialog({
   projectId,
@@ -81,7 +83,7 @@ export function QueueSettingsDialog({
 
   // Local state for form (synced with currentConfig when dialog opens)
   const [enabled, setEnabled] = useState(currentConfig.enabled);
-  const [maxConcurrent, setMaxConcurrent] = useState(currentConfig.maxConcurrent || DEFAULT_CONCURRENT);
+  const [maxConcurrent, setMaxConcurrent] = useState(currentConfig.maxConcurrent || QUEUE_MIN_CONCURRENT);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -89,7 +91,7 @@ export function QueueSettingsDialog({
   useEffect(() => {
     if (open) {
       setEnabled(currentConfig.enabled);
-      setMaxConcurrent(currentConfig.maxConcurrent || DEFAULT_CONCURRENT);
+      setMaxConcurrent(currentConfig.maxConcurrent || QUEUE_MIN_CONCURRENT);
       setSaveError(null);
     }
   }, [open, currentConfig.enabled, currentConfig.maxConcurrent]);
@@ -115,7 +117,7 @@ export function QueueSettingsDialog({
 
   // Calculate if there would be issues with the new settings
   const wouldExceedLimit = enabled && runningCount > maxConcurrent;
-  const isFormValid = maxConcurrent >= MIN_CONCURRENT && maxConcurrent <= MAX_CONCURRENT;
+  const isFormValid = maxConcurrent >= QUEUE_MIN_CONCURRENT && maxConcurrent <= QUEUE_MAX_CONCURRENT;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -195,8 +197,8 @@ export function QueueSettingsDialog({
                 {/* Slider with preset buttons */}
                 <div className="space-y-3 pt-1">
                   {/* Preset buttons */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {([1, 2, 3] as const).map((value) => (
+                  <div className={`grid grid-cols-${CONCURRENT_PRESETS.length} gap-2`}>
+                    {CONCURRENT_PRESETS.map((value) => (
                       <button
                         key={value}
                         type="button"
@@ -222,8 +224,8 @@ export function QueueSettingsDialog({
 
                   {/* Scale markers */}
                   <div className="flex justify-between text-xs text-muted-foreground px-2">
-                    <span>{MIN_CONCURRENT}</span>
-                    <span>{MAX_CONCURRENT}</span>
+                    <span>{QUEUE_MIN_CONCURRENT}</span>
+                    <span>{QUEUE_MAX_CONCURRENT}</span>
                   </div>
                 </div>
               </div>

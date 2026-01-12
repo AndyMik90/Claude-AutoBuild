@@ -15,6 +15,7 @@ import type {
   TaskStatus,
   Project,
   ImplementationPlan,
+  QueueStatus,
 } from "../../shared/types";
 import { AgentManager } from "../agent";
 import type { ProcessType, ExecutionProgressData } from "../agent";
@@ -359,10 +360,7 @@ export function registerAgenteventsHandlers(
   // Queue Events → Renderer
   // ============================================
 
-  agentManager.on('queue-status-update', (projectId: string, status: { enabled: boolean; maxConcurrent: number; runningCount: number; backlogCount: number }) => {
-    const mainWindow = getMainWindow();
-    if (mainWindow) {
-      mainWindow.webContents.send(IPC_CHANNELS.QUEUE_STATUS_UPDATE, projectId, status);
-    }
+  agentManager.on('queue-status-update', (projectId: string, status: QueueStatus) => {
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.QUEUE_STATUS_UPDATE, projectId, status);
   });
 }

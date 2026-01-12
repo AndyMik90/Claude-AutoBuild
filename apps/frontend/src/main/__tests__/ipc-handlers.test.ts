@@ -243,8 +243,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       const result = await ipcMain.invokeHandler("project:add", {}, "/nonexistent/path");
@@ -261,8 +260,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       const result = await ipcMain.invokeHandler("project:add", {}, TEST_PROJECT_PATH);
@@ -280,8 +278,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       // Add project twice
@@ -301,8 +298,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       const result = await ipcMain.invokeHandler("project:list", {});
@@ -319,8 +315,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       // Add a project
@@ -341,8 +336,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       const result = await ipcMain.invokeHandler("project:remove", {}, "nonexistent-id");
@@ -356,8 +350,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       // Add a project first
@@ -383,8 +376,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       const result = await ipcMain.invokeHandler("project:updateSettings", {}, "nonexistent-id", {
@@ -403,8 +395,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       // Add a project first
@@ -428,8 +419,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       // Add a project first
@@ -450,8 +440,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       // Create .auto-claude directory first (before adding project so it gets detected)
@@ -500,8 +489,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       const result = await ipcMain.invokeHandler(
@@ -524,8 +512,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       // Create .auto-claude directory first (before adding project so it gets detected)
@@ -557,8 +544,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       const result = await ipcMain.invokeHandler("settings:get", {});
@@ -576,8 +562,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       const result = await ipcMain.invokeHandler(
@@ -601,8 +586,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       await ipcMain.invokeHandler("settings:save", {}, { pythonPath: "/usr/bin/python3" });
@@ -618,8 +602,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       const result = await ipcMain.invokeHandler("app:version", {});
@@ -635,8 +618,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       mockAgentManager.emit("log", "task-1", "Test log message");
@@ -655,8 +637,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       mockAgentManager.emit("error", "task-1", "Test error message");
@@ -675,8 +656,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         mockAgentManager as never,
         mockTerminalManager as never,
         () => mockMainWindow as never,
-        mockPythonEnvManager as never,
-        null
+        mockPythonEnvManager as never
       );
 
       // Add project first

@@ -302,8 +302,7 @@ describe('QueueSettingsDialog', () => {
         />
       );
 
-      const buttons = screen.getAllByText('1');
-      const button1 = buttons.find(el => el.tagName === 'BUTTON' || el.closest('button')) || buttons[0];
+      const button1 = screen.getByRole('button', { name: /^1/ });
       fireEvent.click(button1);
 
       await waitFor(() => {
@@ -323,8 +322,7 @@ describe('QueueSettingsDialog', () => {
         />
       );
 
-      const buttons = screen.getAllByText('3');
-      const button3 = buttons.find(el => el.tagName === 'BUTTON' || el.closest('button')) || buttons[0];
+      const button3 = screen.getByRole('button', { name: /^3/ });
       fireEvent.click(button3);
 
       await waitFor(() => {
@@ -354,8 +352,7 @@ describe('QueueSettingsDialog', () => {
       fireEvent.click(toggle);
 
       // Change max concurrent to 2
-      const buttons = screen.getAllByText('2');
-      const button2 = buttons.find(el => el.tagName === 'BUTTON' || el.closest('button')) || buttons[0];
+      const button2 = screen.getByRole('button', { name: /^2/ });
       fireEvent.click(button2);
 
       // Click save
@@ -469,8 +466,6 @@ describe('QueueSettingsDialog', () => {
     });
 
     it('should not save changes when cancel is clicked', () => {
-      const mockSaveQueueConfig = vi.mocked(saveQueueConfig).mockResolvedValue(true);
-
       render(
         <QueueSettingsDialog
           projectId={projectId}
@@ -489,7 +484,7 @@ describe('QueueSettingsDialog', () => {
       const cancelButton = screen.getByRole('button', { name: /cancel/i });
       fireEvent.click(cancelButton);
 
-      expect(mockSaveQueueConfig).not.toHaveBeenCalled();
+      expect(saveQueueConfig).not.toHaveBeenCalled();
     });
   });
 
