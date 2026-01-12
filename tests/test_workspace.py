@@ -983,7 +983,6 @@ class TestRebaseErrorHandling:
     def test_check_git_conflicts_handles_corrupted_repo(self, temp_git_repo: Path):
         """_check_git_conflicts handles corrupted repo metadata gracefully (ACS-224)."""
         import shutil
-        import tempfile
 
         from core.workspace import _check_git_conflicts
 
