@@ -11,6 +11,9 @@
     "commits": "{{count}} commit",
     "commits_plural": "{{count}} commits"
   },
+  "stageOnly": {
+    "label": "Stage only (review in IDE before committing)"
+  },
   "pr": {
     "title": "Create Pull Request",
     "description": "Push branch and create a pull request for \"{{taskTitle}}\"",

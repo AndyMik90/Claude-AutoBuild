@@ -739,6 +739,7 @@ class WorktreeManager:
             "oops",
             "revert",
             "undo",
+            "amend",
         ]
         has_wip = any(
             any(pattern in commit.lower() for pattern in wip_patterns)

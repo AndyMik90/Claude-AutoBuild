@@ -420,8 +420,9 @@ export function WorkspaceStatus({
             </div>
 
             {/* Stage Only Option */}
-            <label className="inline-flex items-center gap-2.5 text-sm cursor-pointer select-none px-3 py-2 rounded-lg border border-border bg-background/50 hover:bg-background/80 transition-colors">
+            <label htmlFor="stage-only-checkbox" className="inline-flex items-center gap-2.5 text-sm cursor-pointer select-none px-3 py-2 rounded-lg border border-border bg-background/50 hover:bg-background/80 transition-colors">
               <Checkbox
+                id="stage-only-checkbox"
                 checked={stageOnly}
                 onCheckedChange={(checked) => onStageOnlyChange(checked === true)}
                 className="border-muted-foreground/50 data-[state=checked]:border-primary"
@@ -429,7 +430,7 @@ export function WorkspaceStatus({
               <span className={cn(
                 "transition-colors",
                 stageOnly ? "text-foreground" : "text-muted-foreground"
-              )}>Stage only (review in IDE before committing)</span>
+              )}>{t('taskReview:stageOnly.label')}</span>
             </label>
           </div>
         )}

@@ -2602,9 +2602,9 @@ export function registerWorktreeHandlers(
           };
         }
 
-        // Get base branch for comparison
-        const projectMainBranch = project.settings?.mainBranch;
-        const baseBranch = projectMainBranch || 'main';
+        // Get base branch using proper fallback chain:
+        // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
+        const baseBranch = getEffectiveBaseBranch(project.path, task.specId, project.settings?.mainBranch);
 
         // Get commits in worktree that aren't in base branch
         let commits: string[] = [];
@@ -2633,7 +2633,7 @@ export function registerWorktreeHandlers(
         const commitCount = commits.length;
 
         // Detect WIP/fixup commits
-        const wipPatterns = ['wip', 'fixup', 'squash', 'temp', 'xxx', 'todo', 'fix typo', 'oops'];
+        const wipPatterns = ['wip', 'fixup', 'squash', 'temp', 'xxx', 'todo', 'fix typo', 'oops', 'revert', 'undo', 'amend'];
         const hasWipCommits = commits.some(commit =>
           wipPatterns.some(pattern => commit.toLowerCase().includes(pattern))
         );
