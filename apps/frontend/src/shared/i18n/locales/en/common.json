@@ -1,4 +1,12 @@
 {
+  "window": {
+    "controls": {
+      "minimize": "Minimize",
+      "maximize": "Maximize",
+      "restore": "Restore",
+      "close": "Close"
+    }
+  },
   "projectTab": {
     "settings": "Project settings",
     "showArchived": "Show archived",

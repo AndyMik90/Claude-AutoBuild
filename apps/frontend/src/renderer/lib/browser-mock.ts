@@ -22,7 +22,9 @@ import {
 } from "./mocks";
 
 // Check if we're in a browser (not Electron)
-const isElectron =
+// Check if we're in a browser (not Electron)
+// Lazy check to avoid side effects during module import
+const isElectron = () =>
   typeof window !== "undefined" && window.electronAPI !== undefined;
 
 /**
@@ -34,10 +36,17 @@ const browserMockAPI: ElectronAPI = {
   minimizeWindow: () => console.log("[Browser Mock] minimizeWindow called"),
   maximizeWindow: () => console.log("[Browser Mock] maximizeWindow called"),
   closeWindow: () => console.log("[Browser Mock] closeWindow called"),
-  onWindowMaximizedChange:
-    (_callback: (isMaximized: boolean) => void) => () => {},
-  onWindowFullscreenChange:
-    (_callback: (isFullscreen: boolean) => void) => () => {},
+  onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => {
+    callback(false); // Initial state
+    return () => {};
+  },
+  onWindowFullscreenChange: (callback: (isFullscreen: boolean) => void) => {
+    // Basic fullscreen detection for mock
+    callback(
+      typeof document !== "undefined" && document.fullscreenElement !== null
+    );
+    return () => {};
+  },
 
   // Project Operations
   ...projectMock,
@@ -368,7 +377,7 @@ const browserMockAPI: ElectronAPI = {
  * Initialize browser mock if not running in Electron
  */
 export function initBrowserMock(): void {
-  if (!isElectron) {
+  if (typeof window !== "undefined" && !isElectron()) {
     console.warn(
       "%c[Browser Mock] Initializing mock electronAPI for browser preview",
       "color: #f0ad4e; font-weight: bold;"
@@ -378,5 +387,5 @@ export function initBrowserMock(): void {
   }
 }
 
-// Auto-initialize
-initBrowserMock();
+// Auto-invocation removed to prevent side effects during import
+// Consumers must explicitly call initBrowserMock() if they want the mock

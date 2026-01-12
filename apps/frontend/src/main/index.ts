@@ -44,6 +44,7 @@ import { setupErrorLogging } from "./app-logger";
 import { initSentryMain } from "./sentry";
 import { preWarmToolCache } from "./cli-tool-manager";
 import { initializeClaudeProfileManager } from "./claude-profile-manager";
+import { setupWindowListeners } from "./ipc-handlers/window-handlers";
 import type { AppSettings } from "../shared/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -226,23 +227,24 @@ function createWindow(): void {
     mainWindow?.show();
   });
 
-  // Forward window state events to renderer
-  mainWindow.on("maximize", () => {
-    mainWindow?.webContents.send("window:maximized", true);
-  });
-  mainWindow.on("unmaximize", () => {
-    mainWindow?.webContents.send("window:maximized", false);
-  });
-  mainWindow.on("enter-full-screen", () => {
-    mainWindow?.webContents.send("window:fullscreen", true);
-  });
-  mainWindow.on("leave-full-screen", () => {
-    mainWindow?.webContents.send("window:fullscreen", false);
-  });
+  // Forward window state events to renderer via centralized handler
+  setupWindowListeners(mainWindow);
 
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    try {
+      const url = new URL(details.url);
+      const allowedProtocols = ["https:", "http:", "mailto:"];
+      if (allowedProtocols.includes(url.protocol)) {
+        shell.openExternal(details.url);
+      } else {
+        console.warn(
+          `[main] Blocked opening external URL with disallowed protocol: ${details.url}`
+        );
+      }
+    } catch (e) {
+      console.warn(`[main] Failed to parse external URL: ${details.url}`, e);
+    }
     return { action: "deny" };
   });
 
@@ -406,10 +408,6 @@ app.whenReady().then(() => {
     }
 
     if (settings.pythonPath || validAutoBuildPath) {
-      console.warn("[main] Configuring AgentManager with settings:", {
-        pythonPath: settings.pythonPath,
-        autoBuildPath: validAutoBuildPath,
-      });
       agentManager.configure(settings.pythonPath, validAutoBuildPath);
     }
   } catch (error: unknown) {

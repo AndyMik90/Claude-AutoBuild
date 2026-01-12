@@ -13,7 +13,7 @@ import { DebugAPI, createDebugAPI } from "./modules/debug-api";
 import { ClaudeCodeAPI, createClaudeCodeAPI } from "./modules/claude-code-api";
 import { McpAPI, createMcpAPI } from "./modules/mcp-api";
 import { ProfileAPI, createProfileAPI } from "./profile-api";
-import { ipcRenderer } from "electron";
+import { ipcRenderer, type IpcRendererEvent } from "electron";
 
 export interface ElectronAPI
   extends ProjectAPI,
@@ -64,14 +64,14 @@ export const createElectronAPI = (): ElectronAPI => ({
   closeWindow: () => ipcRenderer.send("window:close"),
 
   onWindowMaximizedChange: (callback) => {
-    const subscription = (_: any, isMaximized: boolean) =>
+    const subscription = (_: IpcRendererEvent, isMaximized: boolean) =>
       callback(isMaximized);
     ipcRenderer.on("window:maximized", subscription);
     return () => ipcRenderer.off("window:maximized", subscription);
   },
 
   onWindowFullscreenChange: (callback) => {
-    const subscription = (_: any, isFullscreen: boolean) =>
+    const subscription = (_: IpcRendererEvent, isFullscreen: boolean) =>
       callback(isFullscreen);
     ipcRenderer.on("window:fullscreen", subscription);
     return () => ipcRenderer.off("window:fullscreen", subscription);

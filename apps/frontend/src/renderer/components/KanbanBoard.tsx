@@ -140,37 +140,37 @@ const getEmptyStateContent = (
     case "backlog":
       return {
         icon: <Inbox className="h-6 w-6 text-muted-foreground/50" />,
-        message: t("kanban.emptyBacklog"),
-        subtext: t("kanban.emptyBacklogHint"),
+        message: t("tasks:kanban.emptyBacklog"),
+        subtext: t("tasks:kanban.emptyBacklogHint"),
       };
     case "in_progress":
       return {
         icon: <Loader2 className="h-6 w-6 text-muted-foreground/50" />,
-        message: t("kanban.emptyInProgress"),
-        subtext: t("kanban.emptyInProgressHint"),
+        message: t("tasks:kanban.emptyInProgress"),
+        subtext: t("tasks:kanban.emptyInProgressHint"),
       };
     case "ai_review":
       return {
         icon: <Eye className="h-6 w-6 text-muted-foreground/50" />,
-        message: t("kanban.emptyAiReview"),
-        subtext: t("kanban.emptyAiReviewHint"),
+        message: t("tasks:kanban.emptyAiReview"),
+        subtext: t("tasks:kanban.emptyAiReviewHint"),
       };
     case "human_review":
       return {
         icon: <Eye className="h-6 w-6 text-muted-foreground/50" />,
-        message: t("kanban.emptyHumanReview"),
-        subtext: t("kanban.emptyHumanReviewHint"),
+        message: t("tasks:kanban.emptyHumanReview"),
+        subtext: t("tasks:kanban.emptyHumanReviewHint"),
       };
     case "done":
       return {
         icon: <CheckCircle2 className="h-6 w-6 text-muted-foreground/50" />,
-        message: t("kanban.emptyDone"),
-        subtext: t("kanban.emptyDoneHint"),
+        message: t("tasks:kanban.emptyDone"),
+        subtext: t("tasks:kanban.emptyDoneHint"),
       };
     default:
       return {
         icon: <Inbox className="h-6 w-6 text-muted-foreground/50" />,
-        message: t("kanban.emptyDefault"),
+        message: t("tasks:kanban.emptyDefault"),
       };
   }
 };
@@ -272,7 +272,7 @@ const DroppableColumn = memo(function DroppableColumn({
               size="icon"
               className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
               onClick={onAddClick}
-              aria-label={t("kanban.addTaskAriaLabel")}
+              aria-label={t("tasks:kanban.addTaskAriaLabel")}
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -348,7 +348,7 @@ const DroppableColumn = memo(function DroppableColumn({
                         <Plus className="h-4 w-4 text-primary" />
                       </div>
                       <span className="text-sm font-medium text-primary">
-                        {t("kanban.dropHere")}
+                        {t("tasks:kanban.dropHere")}
                       </span>
                     </>
                   ) : (
@@ -629,7 +629,9 @@ export function KanbanBoard({
             <RefreshCw
               className={cn("h-4 w-4", isRefreshing && "animate-spin")}
             />
-            {isRefreshing ? "Refreshing..." : "Refresh Tasks"}
+            {isRefreshing
+              ? t("tasks:kanban.refreshing")
+              : t("tasks:kanban.refreshTasks")}
           </Button>
         </div>
       )}

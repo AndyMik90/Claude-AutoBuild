@@ -7,8 +7,8 @@ import { InsightsConfig } from "../insights/config";
 
 vi.mock("electron", () => ({
   app: {
-    getAppPath: () => "/app",
-    getPath: () => "/tmp",
+    getAppPath: vi.fn(() => "/app"),
+    getPath: vi.fn(() => "/tmp"),
     isPackaged: false,
   },
 }));

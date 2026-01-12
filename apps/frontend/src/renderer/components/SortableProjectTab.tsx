@@ -72,14 +72,15 @@ export function SortableProjectTab({
     >
       <Tooltip delayDuration={200}>
         <TooltipTrigger asChild>
-          <div
+          <button
+            type="button"
             className={cn(
               "flex-1 flex items-center gap-1 sm:gap-2",
               // Responsive padding: tighter on mobile, normal on desktop
               "px-2 sm:px-3 md:px-4 py-2 sm:py-2.5",
               "text-xs sm:text-sm",
               "min-w-0 truncate hover:bg-muted/50 transition-colors",
-              "border-b-2 border-transparent cursor-pointer",
+              "border-b-2 border-transparent cursor-pointer bg-transparent appearance-none text-left",
               isActive && [
                 "bg-background border-b-primary text-foreground",
                 "hover:bg-background",
@@ -107,7 +108,7 @@ export function SortableProjectTab({
               )}
             />
             <span className="truncate font-medium">{project.name}</span>
-          </div>
+          </button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="flex items-center gap-2">
           <span>{project.name}</span>

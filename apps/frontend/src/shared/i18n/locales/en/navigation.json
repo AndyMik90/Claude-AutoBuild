@@ -18,6 +18,9 @@
     "worktrees": "Worktrees",
     "agentTools": "MCP Overview"
   },
+  "app": {
+    "title": "Auto Claude"
+  },
   "actions": {
     "settings": "Settings",
     "help": "Help & Feedback",

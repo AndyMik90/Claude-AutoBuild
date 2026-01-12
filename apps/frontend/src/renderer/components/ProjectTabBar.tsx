@@ -37,14 +37,17 @@ export function ProjectTabBar({
 
   useEffect(() => {
     // Listen for window state changes
-    const cleanupMaximized =
-      window.electronAPI.onWindowMaximizedChange(setIsMaximized);
-    const cleanupFullscreen =
-      window.electronAPI.onWindowFullscreenChange(setIsFullscreen);
-    return () => {
-      cleanupMaximized();
-      cleanupFullscreen();
-    };
+    if (window.electronAPI?.onWindowMaximizedChange) {
+      const cleanupMaximized =
+        window.electronAPI.onWindowMaximizedChange(setIsMaximized);
+      const cleanupFullscreen =
+        window.electronAPI.onWindowFullscreenChange(setIsFullscreen);
+      return () => {
+        cleanupMaximized();
+        cleanupFullscreen();
+      };
+    }
+    return () => {};
   }, []);
 
   // Keyboard shortcuts for tab navigation
@@ -165,6 +168,7 @@ export function ProjectTabBar({
             size="icon"
             className="h-8 w-8 hover:bg-muted"
             onClick={() => window.electronAPI.minimizeWindow()}
+            aria-label={t("window.controls.minimize")}
           >
             <Minus className="h-4 w-4" />
           </Button>
@@ -173,6 +177,11 @@ export function ProjectTabBar({
             size="icon"
             className="h-8 w-8 hover:bg-muted"
             onClick={() => window.electronAPI.maximizeWindow()}
+            aria-label={
+              isMaximized
+                ? t("window.controls.restore")
+                : t("window.controls.maximize")
+            }
           >
             {isMaximized ? (
               <Copy className="h-3 w-3 rotate-180" /> // Use Copy icon rotated to simulate restore/overlapping squares
@@ -185,6 +194,7 @@ export function ProjectTabBar({
             size="icon"
             className="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground transition-colors"
             onClick={() => window.electronAPI.closeWindow()}
+            aria-label={t("window.controls.close")}
           >
             <X className="h-4 w-4" />
           </Button>

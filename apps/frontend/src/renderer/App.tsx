@@ -215,7 +215,7 @@ export function App() {
 
   // Restore tab state and open tabs for loaded projects
   useEffect(() => {
-    console.log("[App] Tab restore useEffect triggered:", {
+    debugLog("[App] Tab restore useEffect triggered:", {
       projectsCount: projects.length,
       openProjectIds,
       activeProjectId,
@@ -231,14 +231,14 @@ export function App() {
         // No tabs persisted at all, open the first available project
         const projectToOpen =
           activeProjectId || selectedProjectId || projects[0].id;
-        console.log("[App] No tabs persisted, opening project:", projectToOpen);
+        debugLog("[App] No tabs persisted, opening project:", projectToOpen);
         // Verify the project exists before opening
         if (projects.some((p) => p.id === projectToOpen)) {
           openProjectTab(projectToOpen);
           setActiveProject(projectToOpen);
         } else {
           // Fallback to first project if stored IDs are invalid
-          console.log(
+          debugLog(
             "[App] Project not found, falling back to first project:",
             projects[0].id
           );
@@ -247,27 +247,21 @@ export function App() {
         }
         return;
       }
-      console.log("[App] Tabs already persisted, checking active project");
+      debugLog("[App] Tabs already persisted, checking active project");
       // If there's an active project but no tabs open for it, open a tab
       // Note: Use openProjectIds instead of projectTabs to avoid re-render loop
       // (projectTabs creates a new array on every render)
       if (activeProjectId && !openProjectIds.includes(activeProjectId)) {
-        console.log(
-          "[App] Active project has no tab, opening:",
-          activeProjectId
-        );
+        debugLog("[App] Active project has no tab, opening:", activeProjectId);
         openProjectTab(activeProjectId);
       }
       // If there's a selected project but no active project, make it active
       else if (selectedProjectId && !activeProjectId) {
-        console.log(
-          "[App] No active project, using selected:",
-          selectedProjectId
-        );
+        debugLog("[App] No active project, using selected:", selectedProjectId);
         setActiveProject(selectedProjectId);
         openProjectTab(selectedProjectId);
       } else {
-        console.log("[App] Tab state is valid, no action needed");
+        debugLog("[App] Tab state is valid, no action needed");
       }
     }
   }, [
@@ -765,9 +759,7 @@ export function App() {
       } else {
         // Initialization failed - show error but keep dialog open
         console.log("[InitDialog] Initialization failed, showing error");
-        const errorMessage =
-          result?.error ||
-          "Failed to initialize Auto Claude. Please try again.";
+        const errorMessage = result?.error || t("init.autoClaudeFailed");
         setInitError(errorMessage);
         setIsInitializing(false);
       }
@@ -777,8 +769,7 @@ export function App() {
         "[InitDialog] Unexpected error during initialization:",
         error
       );
-      const errorMessage =
-        error instanceof Error ? error.message : "An unexpected error occurred";
+      const errorMessage = t("init.unexpectedError");
       setInitError(errorMessage);
       setIsInitializing(false);
     }

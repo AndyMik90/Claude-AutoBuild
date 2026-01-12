@@ -391,12 +391,14 @@ export function Sidebar({
       <div className="flex h-full w-64 flex-col bg-sidebar border-r border-border">
         {/* Header with drag area */}
         <div className="electron-drag flex h-12 items-center px-4 shrink-0 border-b border-border bg-sidebar/95 backdrop-blur">
-          <span
-            className="electron-no-drag text-sm font-bold text-primary tracking-tight cursor-default"
+          <button
+            type="button"
+            className="electron-no-drag text-sm font-bold text-primary tracking-tight cursor-default hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-sm"
             onDoubleClick={() => window.electronAPI.maximizeWindow()}
+            aria-label={t("common:window.controls.maximize")}
           >
-            Auto Claude
-          </span>
+            {t("navigation:app.title")}
+          </button>
         </div>
 
         {/* Navigation */}
@@ -405,7 +407,7 @@ export function Sidebar({
             {/* Project Section */}
             <div>
               <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {t("sections.project")}
+                {t("navigation:sections.project")}
               </h3>
               <nav className="space-y-1">
                 {visibleNavItems.map(renderNavItem)}
@@ -435,11 +437,11 @@ export function Sidebar({
                   onClick={onSettingsClick}
                 >
                   <Settings className="h-4 w-4" />
-                  {t("actions.settings")}
+                  {t("navigation:actions.settings")}
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                {t("tooltips.settings")}
+                {t("navigation:tooltips.settings")}
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -450,7 +452,8 @@ export function Sidebar({
                   onClick={() =>
                     window.open(
                       "https://github.com/AndyMik90/Auto-Claude/issues",
-                      "_blank"
+                      "_blank",
+                      "noopener,noreferrer"
                     )
                   }
                   aria-label={t("tooltips.help")}
@@ -469,11 +472,11 @@ export function Sidebar({
             disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
           >
             <Plus className="mr-2 h-4 w-4" />
-            {t("actions.newTask")}
+            {t("navigation:actions.newTask")}
           </Button>
           {selectedProject && !selectedProject.autoBuildPath && (
             <p className="mt-2 text-xs text-muted-foreground text-center">
-              {t("messages.initializeToCreateTasks")}
+              {t("navigation:messages.initializeToCreateTasks")}
             </p>
           )}
         </div>

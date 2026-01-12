@@ -60,6 +60,8 @@
     "pr_created": "PR Created"
   },
   "kanban": {
+    "refreshing": "Refreshing...",
+    "refreshTasks": "Refresh Tasks",
     "emptyBacklog": "No tasks planned",
     "emptyBacklogHint": "Add a task to get started",
     "emptyInProgress": "Nothing running",
