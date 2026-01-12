@@ -36,14 +36,39 @@ def _create_sdk_tool(schema: dict):
         result = await execute_playwright_tool(tool_name, args)
 
         # Convert result to MCP response format
-        return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": str(result) if not isinstance(result, str) else result,
+        content_blocks = []
+
+        # Check if result contains a screenshot image (base64)
+        if isinstance(result, dict) and "image_base64" in result and result.get("success"):
+            # Add text summary first
+            summary = {
+                "success": result.get("success"),
+                "path": result.get("path"),
+                "selector": result.get("selector"),
+                "full_page": result.get("full_page"),
+            }
+            content_blocks.append({
+                "type": "text",
+                "text": f"Screenshot saved successfully:\n{str(summary)}\n\nVerify the screenshot below:"
+            })
+
+            # Add image content block so Claude can see the screenshot
+            content_blocks.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": result.get("media_type", "image/png"),
+                    "data": result["image_base64"],
                 }
-            ]
-        }
+            })
+        else:
+            # Regular text response for other tools
+            content_blocks.append({
+                "type": "text",
+                "text": str(result) if not isinstance(result, str) else result,
+            })
+
+        return {"content": content_blocks}
 
     return handler
 

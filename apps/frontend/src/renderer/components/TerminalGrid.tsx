@@ -363,7 +363,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
     >
       <div className="flex h-full flex-col">
         {/* Toolbar */}
-        <div className="flex h-10 items-center justify-between border-b border-border bg-card/30 px-3">
+        <div className="flex items-center justify-between border-b border-border bg-card/30 p-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-muted-foreground">
               {terminals.length} / 12 terminals

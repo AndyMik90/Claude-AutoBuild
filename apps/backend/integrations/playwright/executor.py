@@ -7,6 +7,7 @@ Manages browser lifecycle, executes automation commands, and captures results.
 """
 
 import asyncio
+import base64
 import json
 import logging
 from pathlib import Path
@@ -30,18 +31,26 @@ async def get_browser():
 
     if _browser is None:
         try:
+            import os
+
             from playwright.async_api import async_playwright
+
+            # Read headless setting from environment (default: False = headed/visible)
+            # Set PLAYWRIGHT_HEADLESS=true in .env to run headless (no browser window)
+            headless_str = os.environ.get("PLAYWRIGHT_HEADLESS", "false").lower()
+            headless = headless_str in ("true", "1", "yes")
 
             playwright = await async_playwright().start()
             _browser = await playwright.chromium.launch(
-                headless=True,  # Run headless by default
+                headless=headless,
                 args=[
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
                     "--disable-dev-shm-usage",
                 ],
             )
-            logger.info("Playwright browser launched (headless)")
+            mode = "headless" if headless else "headed"
+            logger.info(f"Playwright browser launched ({mode})")
         except ImportError:
             raise RuntimeError(
                 "Playwright not installed. Run: pip install playwright && playwright install chromium"
@@ -174,18 +183,25 @@ async def execute_screenshot(
     Take a screenshot of the page or element.
 
     Args:
-        path: File path to save screenshot
+        path: File path to save screenshot (relative to SPEC_DIR or absolute)
         selector: Optional CSS selector for element screenshot
         full_page: Capture full scrollable page
 
     Returns:
-        Result dict with screenshot path
+        Result dict with screenshot path and base64-encoded image for Claude to verify
     """
     try:
         page = await get_page()
 
-        # Ensure directory exists
+        # If path is relative and SPEC_DIR is set, make it absolute relative to spec
         screenshot_path = Path(path)
+        if not screenshot_path.is_absolute():
+            spec_dir = os.environ.get("SPEC_DIR")
+            if spec_dir:
+                screenshot_path = Path(spec_dir) / screenshot_path
+                logger.info(f"Using SPEC_DIR for relative screenshot path: {screenshot_path}")
+
+        # Ensure directory exists
         screenshot_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Taking screenshot: {path}")
@@ -206,11 +222,19 @@ async def execute_screenshot(
             await page.screenshot(path=str(screenshot_path), full_page=full_page)
             logger.info(f"Page screenshot saved: {path} (full_page={full_page})")
 
+        # Read screenshot and encode as base64 for Claude to verify
+        with open(screenshot_path, "rb") as f:
+            screenshot_bytes = f.read()
+            screenshot_base64 = base64.b64encode(screenshot_bytes).decode("utf-8")
+
         return {
             "success": True,
             "path": str(screenshot_path.absolute()),
             "selector": selector,
             "full_page": full_page,
+            # Include base64-encoded image so Claude can see and verify the screenshot
+            "image_base64": screenshot_base64,
+            "media_type": "image/png",
         }
 
     except Exception as e:

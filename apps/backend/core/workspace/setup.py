@@ -75,6 +75,42 @@ def choose_workspace(
     if force_direct:
         return WorkspaceMode.DIRECT
 
+    # Check task_metadata.json for task-specific workspace mode (takes precedence)
+    # useWorktree: true = ISOLATED, false = DIRECT
+    metadata_path = spec_dir / "task_metadata.json"
+    if metadata_path.exists():
+        try:
+            import json
+            with open(metadata_path, encoding="utf-8") as f:
+                metadata = json.load(f)
+                use_worktree = metadata.get("useWorktree")
+                if use_worktree is False:
+                    # Explicitly set to false = DIRECT mode
+                    return WorkspaceMode.DIRECT
+                elif use_worktree is True:
+                    # Explicitly set to true = ISOLATED mode
+                    return WorkspaceMode.ISOLATED
+                # If not set, continue to other checks
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Check project .env for user's workspace mode preference
+    project_env_file = project_dir / ".auto-claude" / ".env"
+    if project_env_file.exists():
+        try:
+            from dotenv import dotenv_values
+            env_values = dotenv_values(project_env_file)
+            workspace_mode = env_values.get("WORKSPACE_MODE", "").lower()
+
+            if workspace_mode == "isolated":
+                return WorkspaceMode.ISOLATED
+            elif workspace_mode == "direct":
+                return WorkspaceMode.DIRECT
+            # If not set or invalid, continue with default logic
+        except Exception:
+            # If reading .env fails, continue with default logic
+            pass
+
     # Non-interactive mode: default to isolated for safety
     if auto_continue:
         print("Auto-continue: Using isolated workspace for safety.")
@@ -245,7 +281,48 @@ def setup_workspace(
         - localized_spec_dir: Path to spec files INSIDE the worktree (accessible to AI)
     """
     if mode == WorkspaceMode.DIRECT:
-        # Work directly in project - spec_dir stays as-is
+        # Work directly in project but CREATE A BRANCH for isolation
+        branch_name = f"auto-claude/{spec_name}"
+
+        print()
+        print_status(f"Setting up branch: {branch_name}", "progress")
+
+        # Check current branch
+        current_branch_result = run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=project_dir)
+        current_branch = current_branch_result.stdout.strip() if current_branch_result.returncode == 0 else ""
+
+        if current_branch != branch_name:
+            # Fetch latest from remote to ensure we have up-to-date code
+            fetch_result = run_git(["fetch", "origin", base_branch], cwd=project_dir)
+            if fetch_result.returncode != 0:
+                debug_warning(MODULE, f"Could not fetch {base_branch} from origin: {fetch_result.stderr}")
+                print(f"Warning: Could not fetch {base_branch} from origin")
+
+            # Determine start point (prefer remote over local)
+            remote_ref = f"origin/{base_branch}"
+            check_remote = run_git(["rev-parse", "--verify", remote_ref], cwd=project_dir)
+            start_point = remote_ref if check_remote.returncode == 0 else base_branch
+
+            # Check if branch already exists
+            branch_exists = run_git(["rev-parse", "--verify", branch_name], cwd=project_dir)
+
+            if branch_exists.returncode == 0:
+                # Branch exists - just checkout
+                print_status(f"Switching to existing branch: {branch_name}", "info")
+                checkout_result = run_git(["checkout", branch_name], cwd=project_dir)
+                if checkout_result.returncode != 0:
+                    raise Exception(f"Failed to checkout branch {branch_name}: {checkout_result.stderr}")
+            else:
+                # Create new branch from start_point
+                print_status(f"Creating new branch: {branch_name} from {start_point}", "info")
+                checkout_result = run_git(["checkout", "-b", branch_name, start_point], cwd=project_dir)
+                if checkout_result.returncode != 0:
+                    raise Exception(f"Failed to create branch {branch_name}: {checkout_result.stderr}")
+
+            print_status(f"Working on branch: {branch_name}", "success")
+        else:
+            print_status(f"Already on branch: {branch_name}", "success")
+
         return project_dir, None, source_spec_dir
 
     # Create isolated workspace using per-spec worktree

@@ -118,13 +118,15 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   };
 
   const handleReject = async () => {
-    if (!state.feedback.trim()) {
+    // Allow submission if either feedback text OR images are provided
+    if (!state.feedback.trim() && state.feedbackImages.length === 0) {
       return;
     }
     state.setIsSubmitting(true);
-    await submitReview(task.id, false, state.feedback);
+    await submitReview(task.id, false, state.feedback, state.feedbackImages);
     state.setIsSubmitting(false);
     state.setFeedback('');
+    state.setFeedbackImages([]);
   };
 
   const handleDelete = async () => {
@@ -498,6 +500,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                           <TaskReview
                             task={task}
                             feedback={state.feedback}
+                            feedbackImages={state.feedbackImages}
                             isSubmitting={state.isSubmitting}
                             worktreeStatus={state.worktreeStatus}
                             worktreeDiff={state.worktreeDiff}
@@ -515,6 +518,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             isLoadingPreview={state.isLoadingPreview}
                             showConflictDialog={state.showConflictDialog}
                             onFeedbackChange={state.setFeedback}
+                            onFeedbackImagesChange={state.setFeedbackImages}
                             onReject={handleReject}
                             onMerge={handleMerge}
                             onDiscard={handleDiscard}

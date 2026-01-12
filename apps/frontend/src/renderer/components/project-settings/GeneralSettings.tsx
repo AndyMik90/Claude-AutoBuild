@@ -193,6 +193,24 @@ export function GeneralSettings({
                         : 'Changes will be made directly to your project. Faster but less isolated.'}
                     </p>
                   </div>
+
+                  {/* Playwright Headless Mode */}
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="space-y-0.5">
+                      <Label className="font-normal text-foreground">
+                        Playwright Headless Mode
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Run Playwright browser automation without visible browser window during QA validation
+                      </p>
+                    </div>
+                    <Switch
+                      checked={envConfig.playwrightHeadless ?? true}
+                      onCheckedChange={(checked) =>
+                        updateEnvConfig({ playwrightHeadless: checked })
+                      }
+                    />
+                  </div>
                 </div>
               </section>
 

@@ -138,6 +138,13 @@ export function registerEnvHandlers(
     if (config.defaultBranch !== undefined) {
       existingVars['DEFAULT_BRANCH'] = config.defaultBranch;
     }
+    if (config.workspaceMode !== undefined) {
+      existingVars['WORKSPACE_MODE'] = config.workspaceMode;
+    }
+    // Playwright Settings
+    if (config.playwrightHeadless !== undefined) {
+      existingVars['PLAYWRIGHT_HEADLESS'] = config.playwrightHeadless ? 'true' : 'false';
+    }
     if (config.graphitiEnabled !== undefined) {
       existingVars['GRAPHITI_ENABLED'] = config.graphitiEnabled ? 'true' : 'false';
     }
@@ -194,6 +201,9 @@ export function registerEnvHandlers(
       }
       if (config.mcpServers.puppeteerEnabled !== undefined) {
         existingVars['PUPPETEER_MCP_ENABLED'] = config.mcpServers.puppeteerEnabled ? 'true' : 'false';
+      }
+      if (config.mcpServers.playwrightEnabled !== undefined) {
+        existingVars['PLAYWRIGHT_MCP_ENABLED'] = config.mcpServers.playwrightEnabled ? 'true' : 'false';
       }
       // Note: graphitiEnabled is already handled via GRAPHITI_ENABLED above
     }
@@ -284,6 +294,10 @@ ${existingVars['LINEAR_MCP_ENABLED'] !== undefined ? `LINEAR_MCP_ENABLED=${exist
 ${existingVars['ELECTRON_MCP_ENABLED'] !== undefined ? `ELECTRON_MCP_ENABLED=${existingVars['ELECTRON_MCP_ENABLED']}` : '# ELECTRON_MCP_ENABLED=false'}
 # Puppeteer browser automation - QA agents only (default: disabled)
 ${existingVars['PUPPETEER_MCP_ENABLED'] !== undefined ? `PUPPETEER_MCP_ENABLED=${existingVars['PUPPETEER_MCP_ENABLED']}` : '# PUPPETEER_MCP_ENABLED=false'}
+# Playwright browser automation - QA agents (default: enabled)
+${existingVars['PLAYWRIGHT_MCP_ENABLED'] !== undefined ? `PLAYWRIGHT_MCP_ENABLED=${existingVars['PLAYWRIGHT_MCP_ENABLED']}` : '# PLAYWRIGHT_MCP_ENABLED=true'}
+# Playwright headless mode - run Playwright without visible browser (default: enabled)
+${existingVars['PLAYWRIGHT_HEADLESS'] !== undefined ? `PLAYWRIGHT_HEADLESS=${existingVars['PLAYWRIGHT_HEADLESS']}` : '# PLAYWRIGHT_HEADLESS=true'}
 
 # =============================================================================
 # PER-AGENT MCP OVERRIDES
@@ -451,6 +465,12 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       if (vars['DEFAULT_BRANCH']) {
         config.defaultBranch = vars['DEFAULT_BRANCH'];
       }
+      if (vars['WORKSPACE_MODE']) {
+        const mode = vars['WORKSPACE_MODE'].toLowerCase();
+        if (mode === 'isolated' || mode === 'direct') {
+          config.workspaceMode = mode;
+        }
+      }
 
       if (vars['GRAPHITI_ENABLED']?.toLowerCase() === 'true') {
         config.graphitiEnabled = true;
@@ -505,14 +525,18 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         };
       }
 
+      // Playwright Settings (default: true/headless)
+      config.playwrightHeadless = vars['PLAYWRIGHT_HEADLESS']?.toLowerCase() !== 'false';
+
       // MCP Server Configuration (per-project overrides)
-      // Default: context7=true, linear=true (if API key set), electron/puppeteer=false
+      // Default: context7=true, linear=true (if API key set), electron/puppeteer=false, playwright=true
       config.mcpServers = {
         context7Enabled: vars['CONTEXT7_ENABLED']?.toLowerCase() !== 'false', // default true
         graphitiEnabled: config.graphitiEnabled, // follows GRAPHITI_ENABLED
         linearMcpEnabled: vars['LINEAR_MCP_ENABLED']?.toLowerCase() !== 'false', // default true
         electronEnabled: vars['ELECTRON_MCP_ENABLED']?.toLowerCase() === 'true', // default false
         puppeteerEnabled: vars['PUPPETEER_MCP_ENABLED']?.toLowerCase() === 'true', // default false
+        playwrightEnabled: vars['PLAYWRIGHT_MCP_ENABLED']?.toLowerCase() !== 'false', // default true
       };
 
       // Parse per-agent MCP overrides (AGENT_MCP_<agent>_ADD/REMOVE)

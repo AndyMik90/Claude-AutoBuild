@@ -111,17 +111,17 @@ ELECTRON_TOOLS = [
 ]
 
 # Playwright tools for E2E testing and browser automation (built-in, always available)
-# Native Python implementation using playwright library - no MCP server needed.
+# Playwright SDK MCP server tools (built-in, native Python implementation)
 # Used for systematic E2E testing, visual verification, and console monitoring.
 # These tools are only available to QA agents (qa_reviewer, qa_fixer), not Coder/Planner.
 PLAYWRIGHT_TOOLS = [
-    "playwright_navigate",  # Navigate to a URL
-    "playwright_screenshot",  # Take screenshot (full page or selector)
-    "playwright_click",  # Click an element
-    "playwright_fill",  # Fill a form field
-    "playwright_assert",  # Assert element state (text, visibility, count)
-    "playwright_get_console",  # Get console logs (errors, warnings, info)
-    "playwright_create_test",  # Generate E2E test file
+    "mcp__playwright__playwright_navigate",  # Navigate to a URL
+    "mcp__playwright__playwright_screenshot",  # Take screenshot (full page or selector)
+    "mcp__playwright__playwright_click",  # Click an element
+    "mcp__playwright__playwright_fill",  # Fill a form field
+    "mcp__playwright__playwright_assert",  # Assert element state (text, visibility, count)
+    "mcp__playwright__playwright_get_console",  # Get console logs (errors, warnings, info)
+    "mcp__playwright__playwright_create_test",  # Generate E2E test file
 ]
 
 # =============================================================================
@@ -219,7 +219,7 @@ AGENT_CONFIGS = {
     "planner": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
-        "mcp_servers_optional": ["linear"],  # Only if project setting enabled
+        "mcp_servers_optional": ["linear", "browser"],  # browser auto-enabled for frontend projects
         "auto_claude_tools": [
             TOOL_GET_BUILD_PROGRESS,
             TOOL_GET_SESSION_CONTEXT,
@@ -230,7 +230,9 @@ AGENT_CONFIGS = {
     "coder": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
-        "mcp_servers_optional": ["linear"],
+        "mcp_servers_optional": ["linear"],  # Removed "browser" - use npx playwright CLI instead
+        # Note: Playwright MCP tools removed for coder agent due to server bugs.
+        # Coder should use `npx playwright` CLI commands with relative paths instead.
         "auto_claude_tools": [
             TOOL_UPDATE_SUBTASK_STATUS,
             TOOL_GET_BUILD_PROGRESS,
@@ -463,6 +465,31 @@ def get_required_mcp_servers(
         if str(linear_mcp_enabled).lower() != "false":
             servers.append("linear")
 
+    # Auto-enable browser tools for optional agents (planner, coder) if project has frontend
+    # This provides smart browser tool autodiscovery based on project type
+    if "browser" in optional:
+        should_enable_browser = False
+
+        # Check if explicitly enabled/disabled in config (takes precedence)
+        playwright_config = mcp_config.get("PLAYWRIGHT_MCP_ENABLED")
+        if playwright_config is not None:
+            # Explicit setting in .env - respect it
+            if str(playwright_config).lower() == "true":
+                should_enable_browser = True
+        else:
+            # No explicit setting - autodiscover based on project type
+            if project_capabilities:
+                has_frontend = (
+                    project_capabilities.get("is_web_frontend", False)
+                    or project_capabilities.get("is_electron", False)
+                )
+                # Auto-enable for frontend projects
+                if has_frontend:
+                    should_enable_browser = True
+
+        if should_enable_browser:
+            servers.append("browser")
+
     # Handle dynamic "browser" → electron/puppeteer/playwright based on project type and config
     if "browser" in servers:
         servers = [s for s in servers if s != "browser"]
@@ -492,7 +519,7 @@ def get_required_mcp_servers(
         # Playwright is built-in (native Python), always available via SDK MCP
         # Can be explicitly enabled via project config or global env var
         if not browser_tool_added:
-            playwright_from_config = mcp_config.get("PLAYWRIGHT_MCP_ENABLED", "false")
+            playwright_from_config = mcp_config.get("PLAYWRIGHT_MCP_ENABLED", "true")
             if str(playwright_from_config).lower() == "true" or is_playwright_enabled():
                 servers.append("playwright")
 

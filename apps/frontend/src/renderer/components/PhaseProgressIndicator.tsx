@@ -84,9 +84,35 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
   const shouldAnimate = isVisible && isRunning && !isStuck;
 
   // Calculate subtask-based progress (for coding phase)
+  // IMPORTANT: If the task returned to an earlier phase (e.g., from human_review back to ai_review),
+  // we should show reduced progress to indicate rework is needed.
   const completedSubtasks = subtasks.filter((c) => c.status === 'completed').length;
   const totalSubtasks = subtasks.length;
-  const subtaskProgress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
+
+  // Detect if we're in a "rework" scenario (went back to an earlier phase)
+  // If current phase is earlier than where we were based on completed subtasks
+  const phaseOrder = ['idle', 'planning', 'coding', 'qa_review', 'qa_fixing', 'complete', 'failed'];
+  const currentPhaseIndex = phaseOrder.indexOf(phase);
+
+  // If we have many completed subtasks but are in early phase, we've gone backwards
+  const isReworking = totalSubtasks > 0 &&
+                     completedSubtasks > 0 &&
+                     (phase === 'planning' || phase === 'coding' || phase === 'qa_review') &&
+                     completedSubtasks === totalSubtasks; // All were complete but now back to work
+
+  // Adjust progress based on current phase when reworking
+  let subtaskProgress = 0;
+  if (totalSubtasks > 0) {
+    if (isReworking) {
+      // Show phase-appropriate progress instead of 100%
+      if (phase === 'planning') subtaskProgress = 10;
+      else if (phase === 'coding') subtaskProgress = 40;
+      else if (phase === 'qa_review' || phase === 'qa_fixing') subtaskProgress = 75;
+      else subtaskProgress = Math.round((completedSubtasks / totalSubtasks) * 100);
+    } else {
+      subtaskProgress = Math.round((completedSubtasks / totalSubtasks) * 100);
+    }
+  }
 
   // Get log entry counts for activity indication
   const planningEntries = phaseLogs?.phases?.planning?.entries?.length || 0;
@@ -207,7 +233,8 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
 
       {/* Subtask indicators (only show when subtasks exist) */}
       {totalSubtasks > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
+        <div className="space-y-1.5 mt-2">
+          <div className="flex flex-wrap gap-1.5">
           {subtasks.slice(0, 10).map((subtask, index) => {
             const isInProgress = subtask.status === 'in_progress';
             const shouldPulse = isInProgress && isVisible;
@@ -251,6 +278,27 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
               +{totalSubtasks - 10}
             </span>
           )}
+          </div>
+
+          {/* Legend for subtask colors */}
+          <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <div className="h-1.5 w-1.5 rounded-full bg-success" />
+              <span>{t('execution.subtaskStatus.completed')}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-1.5 w-1.5 rounded-full bg-info" />
+              <span>{t('execution.subtaskStatus.inProgress')}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-1.5 w-1.5 rounded-full bg-destructive" />
+              <span>{t('execution.subtaskStatus.failed')}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
+              <span>{t('execution.subtaskStatus.pending')}</span>
+            </div>
+          </div>
         </div>
       )}
 

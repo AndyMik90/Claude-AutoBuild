@@ -122,12 +122,6 @@ def invalidate_project_cache(project_dir: Path | None = None) -> None:
 
 
 from agents.tools_pkg import (
-    CONTEXT7_TOOLS,
-    ELECTRON_TOOLS,
-    GRAPHITI_MCP_TOOLS,
-    LINEAR_TOOLS,
-    PLAYWRIGHT_TOOLS,
-    PUPPETEER_TOOLS,
     create_auto_claude_mcp_server,
     get_allowed_tools,
     get_required_mcp_servers,
@@ -331,6 +325,8 @@ def load_project_mcp_config(project_dir: Path) -> dict:
         "LINEAR_MCP_ENABLED",
         "ELECTRON_MCP_ENABLED",
         "PUPPETEER_MCP_ENABLED",
+        "PLAYWRIGHT_HEADLESS",
+        "PLAYWRIGHT_MCP_ENABLED",
     }
 
     try:
@@ -534,14 +530,8 @@ def create_client(
     # Check if Graphiti MCP is enabled (already filtered by get_required_mcp_servers)
     graphiti_mcp_enabled = "graphiti" in required_servers
 
-    # Determine browser tools for permissions (already in allowed_tools_list)
-    browser_tools_permissions = []
-    if "electron" in required_servers:
-        browser_tools_permissions = ELECTRON_TOOLS
-    elif "puppeteer" in required_servers:
-        browser_tools_permissions = PUPPETEER_TOOLS
-    elif "playwright" in required_servers:
-        browser_tools_permissions = PLAYWRIGHT_TOOLS
+    # Note: Browser tool permissions (Electron/Puppeteer/Playwright) are now handled
+    # automatically via wildcard MCP permissions (mcp__<server>__*) below
 
     # Create comprehensive security settings
     # Note: Using both relative paths ("./**") and absolute paths to handle
@@ -612,6 +602,22 @@ def create_client(
                 f"Read({spec_path_str}/**)",
                 f"Write({spec_path_str}/**)",
                 f"Edit({spec_path_str}/**)",
+                # Explicit permissions for spec/QA files (belt-and-suspenders approach)
+                # These supplement the wildcard permissions above for SDK compatibility
+                f"Write({spec_path_str}/qa_report.md)",
+                f"Edit({spec_path_str}/qa_report.md)",
+                f"Write({spec_path_str}/QA_FIX_REQUEST.md)",
+                f"Edit({spec_path_str}/QA_FIX_REQUEST.md)",
+                f"Write({spec_path_str}/QA_ESCALATION.md)",
+                f"Write({spec_path_str}/MANUAL_TEST_PLAN.md)",
+                f"Write({spec_path_str}/implementation_plan.json)",
+                f"Edit({spec_path_str}/implementation_plan.json)",
+                f"Write({spec_path_str}/build-progress.txt)",
+                f"Edit({spec_path_str}/build-progress.txt)",
+                f"Write({spec_path_str}/test_discovery.json)",
+                # Allow QA feedback screenshot directory
+                f"Read({spec_path_str}/qa-feedback-screenshots/**)",
+                f"Write({spec_path_str}/qa-feedback-screenshots/**)",
                 # Allow original project's .auto-claude/ and .worktrees/ directories
                 # when running in a worktree (fixes issue #385 - permission errors)
                 *original_project_permissions,
@@ -622,23 +628,15 @@ def create_client(
                 "WebFetch(*)",
                 "WebSearch(*)",
                 # Allow MCP tools based on required servers
-                # Format: tool_name(*) allows all arguments
+                # Use wildcard permissions for automatic tool discovery
+                # This allows all tools from a server without manual tool name mapping
                 *(
-                    [f"{tool}(*)" for tool in CONTEXT7_TOOLS]
-                    if "context7" in required_servers
-                    else []
+                    [
+                        f"mcp__{server}__*(*)"
+                        for server in required_servers
+                        if server != "auto-claude"  # auto-claude tools handled separately
+                    ]
                 ),
-                *(
-                    [f"{tool}(*)" for tool in LINEAR_TOOLS]
-                    if "linear" in required_servers
-                    else []
-                ),
-                *(
-                    [f"{tool}(*)" for tool in GRAPHITI_MCP_TOOLS]
-                    if graphiti_mcp_enabled
-                    else []
-                ),
-                *[f"{tool}(*)" for tool in browser_tools_permissions],
             ],
         },
     }
@@ -653,6 +651,15 @@ def create_client(
     print(f"   - Filesystem restricted to: {project_dir.resolve()}")
     if original_project_permissions:
         print("   - Worktree permissions: granted for original project directories")
+
+    # Debug: Log security permissions for troubleshooting worktree write issues
+    logger.info(f"Security permissions debug for agent_type={agent_type}:")
+    logger.info(f"  project_dir: {project_path_str}")
+    logger.info(f"  spec_dir: {spec_path_str}")
+    logger.info(f"  Worktree permissions: {len(original_project_permissions)} items")
+    if original_project_permissions:
+        logger.info(f"    Sample: {original_project_permissions[0]}")
+
     print("   - Bash commands restricted to allowlist")
     if max_thinking_tokens:
         print(f"   - Extended thinking: {max_thinking_tokens:,} tokens")

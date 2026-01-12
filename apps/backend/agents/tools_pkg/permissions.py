@@ -29,6 +29,25 @@ from .models import (
 from .registry import is_tools_available
 
 
+# =============================================================================
+# MCP Server Tool Registry
+# =============================================================================
+# Maps MCP server names to their tool lists for automatic discovery.
+# When adding a new MCP server, just add it here instead of modifying
+# _get_mcp_tools_for_servers() with if/elif chains.
+#
+# Note: auto-claude tools are handled separately via config["auto_claude_tools"]
+# and only added when the MCP server is actually available (see get_allowed_tools).
+SERVER_TOOL_REGISTRY = {
+    "context7": CONTEXT7_TOOLS,
+    "linear": LINEAR_TOOLS,
+    "graphiti": GRAPHITI_MCP_TOOLS,
+    "electron": ELECTRON_TOOLS,
+    "puppeteer": PUPPETEER_TOOLS,
+    "playwright": PLAYWRIGHT_TOOLS,
+}
+
+
 def get_allowed_tools(
     agent_type: str,
     project_capabilities: dict | None = None,
@@ -86,7 +105,8 @@ def _get_mcp_tools_for_servers(servers: list[str]) -> list[str]:
     """
     Get the list of MCP tools for a list of required servers.
 
-    Maps server names to their corresponding tool lists.
+    Uses SERVER_TOOL_REGISTRY for automatic tool discovery.
+    When adding a new MCP server, just add it to the registry dict above.
 
     Args:
         servers: List of MCP server names (e.g., ['context7', 'linear', 'electron'])
@@ -97,20 +117,11 @@ def _get_mcp_tools_for_servers(servers: list[str]) -> list[str]:
     tools = []
 
     for server in servers:
-        if server == "context7":
-            tools.extend(CONTEXT7_TOOLS)
-        elif server == "linear":
-            tools.extend(LINEAR_TOOLS)
-        elif server == "graphiti":
-            tools.extend(GRAPHITI_MCP_TOOLS)
-        elif server == "electron":
-            tools.extend(ELECTRON_TOOLS)
-        elif server == "puppeteer":
-            tools.extend(PUPPETEER_TOOLS)
-        elif server == "playwright":
-            # Playwright built-in tools (native Python, not MCP)
-            tools.extend(PLAYWRIGHT_TOOLS)
-        # auto-claude tools are already added via config["auto_claude_tools"]
+        # Lookup server in registry for automatic tool discovery
+        if server in SERVER_TOOL_REGISTRY:
+            tools.extend(SERVER_TOOL_REGISTRY[server])
+        # Note: auto-claude tools are added separately via config["auto_claude_tools"]
+        # in get_allowed_tools() when the MCP server is actually available
 
     return tools
 

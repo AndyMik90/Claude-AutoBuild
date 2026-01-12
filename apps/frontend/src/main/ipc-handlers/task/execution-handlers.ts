@@ -1,8 +1,8 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
-import type { IPCResult, TaskStartOptions, TaskStatus } from '../../../shared/types';
+import type { IPCResult, TaskStartOptions, TaskStatus, ImageAttachment } from '../../../shared/types';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync, mkdirSync } from 'fs';
 import { spawnSync, execFileSync } from 'child_process';
 import { getToolPath } from '../../cli-tool-manager';
 import { AgentManager } from '../../agent';
@@ -318,7 +318,8 @@ export function registerTaskExecutionHandlers(
       _,
       taskId: string,
       approved: boolean,
-      feedback?: string
+      feedback?: string,
+      images?: ImageAttachment[]
     ): Promise<IPCResult> => {
       // Find task and project
       const { task, project } = findTaskAndProject(taskId);
@@ -407,11 +408,61 @@ export function registerTaskExecutionHandlers(
         console.warn('[TASK_REVIEW] Writing QA fix request to:', fixRequestPath);
         console.warn('[TASK_REVIEW] hasWorktree:', hasWorktree, 'worktreePath:', worktreePath);
 
+        // Save user-provided screenshot images
+        const savedImagePaths: string[] = [];
+        if (images && images.length > 0) {
+          const screenshotsDir = path.join(targetSpecDir, 'qa-feedback-screenshots');
+          try {
+            if (!existsSync(screenshotsDir)) {
+              mkdirSync(screenshotsDir, { recursive: true });
+            }
+
+            for (const image of images) {
+              if (image.data) {
+                // SECURITY: Sanitize filename to prevent path traversal
+                const safeFilename = path.basename(image.filename);
+
+                // SECURITY: Validate filename contains only safe characters
+                if (!/^[a-zA-Z0-9_\-\.]+$/.test(safeFilename)) {
+                  console.error('[TASK_REVIEW] Invalid filename rejected:', safeFilename);
+                  continue;
+                }
+
+                // SECURITY: Limit image size to 10MB
+                const imageBuffer = Buffer.from(image.data, 'base64');
+                const maxSize = 10 * 1024 * 1024; // 10MB
+                if (imageBuffer.length > maxSize) {
+                  console.error('[TASK_REVIEW] Image too large (>10MB):', safeFilename);
+                  continue;
+                }
+
+                const imagePath = path.join(screenshotsDir, safeFilename);
+                writeFileSync(imagePath, imageBuffer);
+                savedImagePaths.push(`qa-feedback-screenshots/${safeFilename}`);
+                console.log('[TASK_REVIEW] Saved feedback screenshot:', imagePath, `(${imageBuffer.length} bytes)`);
+              }
+            }
+          } catch (error) {
+            console.error('[TASK_REVIEW] Failed to save feedback screenshots:', error);
+            // Don't fail the entire review if screenshot save fails
+          }
+        }
+
+        // Generate QA fix request content with screenshot references
+        let fixRequestContent = `# QA Fix Request\n\nStatus: REJECTED\n\n## Feedback\n\n${feedback || 'No feedback provided'}\n`;
+
+        if (savedImagePaths.length > 0) {
+          fixRequestContent += `\n## Screenshots\n\nThe user provided ${savedImagePaths.length} screenshot(s) showing the issues:\n\n`;
+          for (const imagePath of savedImagePaths) {
+            fixRequestContent += `- \`${imagePath}\`\n`;
+          }
+          fixRequestContent += `\n**IMPORTANT**: These screenshots are provided by the user to show visual problems. Read and analyze each screenshot carefully to understand the issues before making fixes.\n`;
+        }
+
+        fixRequestContent += `\nCreated at: ${new Date().toISOString()}\n`;
+
         try {
-          writeFileSync(
-            fixRequestPath,
-            `# QA Fix Request\n\nStatus: REJECTED\n\n## Feedback\n\n${feedback || 'No feedback provided'}\n\nCreated at: ${new Date().toISOString()}\n`
-          );
+          writeFileSync(fixRequestPath, fixRequestContent);
         } catch (error) {
           console.error('[TASK_REVIEW] Failed to write QA fix request:', error);
           return { success: false, error: 'Failed to write QA fix request file' };

@@ -96,6 +96,9 @@ async def run_autonomous_agent(
     # This is needed because os.getcwd() may return the wrong directory in worktree mode
     os.environ[PROJECT_DIR_ENV_VAR] = str(project_dir.resolve())
 
+    # Set SPEC_DIR for agents to construct absolute paths (e.g., Playwright screenshots)
+    os.environ["SPEC_DIR"] = str(spec_dir.resolve())
+
     # Initialize recovery manager (handles memory persistence)
     recovery_manager = RecoveryManager(spec_dir, project_dir)
 

@@ -471,6 +471,8 @@ export const IPC_CHANNELS = {
   GIT_DETECT_MAIN_BRANCH: 'git:detectMainBranch',
   GIT_CHECK_STATUS: 'git:checkStatus',
   GIT_INITIALIZE: 'git:initialize',
+  GIT_CHECKOUT_BRANCH: 'git:checkoutBranch',
+  GIT_MERGE_BRANCH: 'git:mergeBranch',
 
   // App auto-update operations
   APP_UPDATE_CHECK: 'app-update:check',

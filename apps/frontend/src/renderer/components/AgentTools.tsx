@@ -672,6 +672,12 @@ export function AgentTools() {
   const [envConfig, setEnvConfig] = useState<ProjectEnvConfig | null>(null);
   const [, setIsLoading] = useState(false);
 
+  // Save state for MCP configuration
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
   // Custom MCP server dialog state
   const [showCustomMcpDialog, setShowCustomMcpDialog] = useState(false);
   const [editingCustomServer, setEditingCustomServer] = useState<CustomMcpServer | null>(null);
@@ -684,6 +690,11 @@ export function AgentTools() {
   useEffect(() => {
     if (selectedProjectId && selectedProject?.autoBuildPath) {
       setIsLoading(true);
+      // Reset save state when switching projects
+      setHasUnsavedChanges(false);
+      setSaveError(null);
+      setSaveSuccess(false);
+
       window.electronAPI.getProjectEnv(selectedProjectId)
         .then((result) => {
           if (result.success && result.data) {
@@ -703,30 +714,56 @@ export function AgentTools() {
     }
   }, [selectedProjectId, selectedProject?.autoBuildPath]);
 
-  // Update MCP server toggle
-  const updateMcpServer = useCallback(async (
+  // Update MCP server toggle (local state only - doesn't save yet)
+  const updateMcpServer = useCallback((
     key: keyof NonNullable<ProjectEnvConfig['mcpServers']>,
     value: boolean
   ) => {
-    if (!selectedProjectId || !envConfig) return;
+    if (!envConfig) return;
 
     const newMcpServers = {
       ...envConfig.mcpServers,
       [key]: value,
     };
 
-    // Optimistic update
+    // Update local state
     setEnvConfig((prev) => prev ? { ...prev, mcpServers: newMcpServers } : null);
 
-    // Save to backend
+    // Mark as having unsaved changes
+    setHasUnsavedChanges(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+  }, [envConfig]);
+
+  // Save MCP configuration to backend
+  const saveMcpConfig = useCallback(async () => {
+    if (!selectedProjectId || !envConfig) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
     try {
-      await window.electronAPI.updateProjectEnv(selectedProjectId, {
-        mcpServers: newMcpServers,
+      console.log('[AgentTools] Saving MCP config:', envConfig.mcpServers);
+      const result = await window.electronAPI.updateProjectEnv(selectedProjectId, {
+        mcpServers: envConfig.mcpServers,
       });
+
+      console.log('[AgentTools] Save result:', result);
+
+      if (result.success) {
+        setHasUnsavedChanges(false);
+        setSaveSuccess(true);
+        // Clear success message after 3 seconds
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        setSaveError(result.error || 'Failed to save configuration');
+      }
     } catch (error) {
-      // Revert on error
-      console.error('Failed to update MCP config:', error);
-      setEnvConfig((prev) => prev ? { ...prev, mcpServers: envConfig.mcpServers } : null);
+      console.error('[AgentTools] Error saving MCP config:', error);
+      setSaveError(error instanceof Error ? error.message : 'Failed to save configuration');
+    } finally {
+      setIsSaving(false);
     }
   }, [selectedProjectId, envConfig]);
 
@@ -1059,7 +1096,7 @@ export function AgentTools() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="border-b border-border p-6">
+      <div className="border-b border-border p-4">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-muted">
             <Server className="h-5 w-5 text-muted-foreground" />
@@ -1116,10 +1153,47 @@ export function AgentTools() {
           {envConfig && (
             <div className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-medium text-foreground">{t('settings:mcp.configuration')}</h2>
-                <span className="text-xs text-muted-foreground">
-                  {t('settings:mcp.configurationHint')}
-                </span>
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-sm font-medium text-foreground">{t('settings:mcp.configuration')}</h2>
+                  <span className="text-xs text-muted-foreground">
+                    {t('settings:mcp.configurationHint')}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {hasUnsavedChanges && (
+                    <span className="text-xs text-warning flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Unsaved changes
+                    </span>
+                  )}
+                  {saveSuccess && (
+                    <span className="text-xs text-success flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Saved!
+                    </span>
+                  )}
+                  {saveError && (
+                    <span className="text-xs text-destructive flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      {saveError}
+                    </span>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={saveMcpConfig}
+                    disabled={!hasUnsavedChanges || isSaving}
+                    className="h-7"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save'
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-4">

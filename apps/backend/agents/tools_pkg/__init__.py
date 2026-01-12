@@ -57,7 +57,11 @@ from .models import (
     is_electron_mcp_enabled,
     is_playwright_enabled,
 )
-from .permissions import get_all_agent_types, get_allowed_tools
+from .permissions import (
+    SERVER_TOOL_REGISTRY,
+    get_all_agent_types,
+    get_allowed_tools,
+)
 from .registry import create_auto_claude_mcp_server, is_tools_available
 
 __all__ = [
@@ -82,6 +86,8 @@ __all__ = [
     "ELECTRON_TOOLS",
     "PLAYWRIGHT_TOOLS",
     "PUPPETEER_TOOLS",
+    # Server-to-tool mapping registry
+    "SERVER_TOOL_REGISTRY",
     # Auto-Claude tool name constants
     "TOOL_UPDATE_SUBTASK_STATUS",
     "TOOL_GET_BUILD_PROGRESS",

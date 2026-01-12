@@ -9,6 +9,8 @@ Memory Integration:
 - Saves fix outcomes and learnings after session
 """
 
+import base64
+import re
 from pathlib import Path
 
 # Memory integration for cross-session learning
@@ -39,6 +41,87 @@ def load_qa_fixer_prompt() -> str:
     if not prompt_file.exists():
         raise FileNotFoundError(f"QA fixer prompt not found: {prompt_file}")
     return prompt_file.read_text()
+
+
+def load_qa_feedback_screenshots(spec_dir: Path) -> tuple[str, list[dict]]:
+    """
+    Load user feedback screenshots from QA_FIX_REQUEST.md.
+
+    Returns:
+        Tuple of (feedback_text, image_content_blocks)
+    """
+    fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
+    if not fix_request_file.exists():
+        return "", []
+
+    content = fix_request_file.read_text()
+
+    # Extract feedback text (between "## Feedback" and "## Screenshots" or end)
+    feedback_match = re.search(
+        r"## Feedback\s*\n\n(.*?)(?:\n## |$)", content, re.DOTALL
+    )
+    feedback_text = feedback_match.group(1).strip() if feedback_match else ""
+
+    # Find screenshot paths in the markdown (format: - `qa-feedback-screenshots/filename.png`)
+    screenshot_pattern = r"`(qa-feedback-screenshots/[^`]+)`"
+    screenshot_paths = re.findall(screenshot_pattern, content)
+
+    if not screenshot_paths:
+        return feedback_text, []
+
+    image_blocks = []
+    for rel_path in screenshot_paths:
+        # SECURITY: Validate path to prevent directory traversal
+        try:
+            image_path = spec_dir / rel_path
+            # Ensure the resolved path is within spec_dir
+            resolved_path = image_path.resolve()
+            if not str(resolved_path).startswith(str(spec_dir.resolve())):
+                debug_error(
+                    "qa_fixer",
+                    f"Path traversal attempt blocked: {rel_path}",
+                )
+                continue
+        except Exception as e:
+            debug_error("qa_fixer", f"Invalid path: {rel_path}: {e}")
+            continue
+
+        if image_path.exists():
+            try:
+                with open(image_path, "rb") as f:
+                    image_data = f.read()
+                    image_base64 = base64.b64encode(image_data).decode("utf-8")
+
+                    # Determine media type from extension
+                    ext = image_path.suffix.lower()
+                    media_type_map = {
+                        ".png": "image/png",
+                        ".jpg": "image/jpeg",
+                        ".jpeg": "image/jpeg",
+                        ".gif": "image/gif",
+                        ".webp": "image/webp",
+                    }
+                    media_type = media_type_map.get(ext, "image/png")
+
+                    image_blocks.append(
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": image_base64,
+                            },
+                        }
+                    )
+                    debug(
+                        "qa_fixer",
+                        f"Loaded feedback screenshot: {rel_path}",
+                        size=len(image_data),
+                    )
+            except Exception as e:
+                debug_error("qa_fixer", f"Failed to load screenshot {rel_path}: {e}")
+
+    return feedback_text, image_blocks
 
 
 # =============================================================================
@@ -123,10 +206,29 @@ async def run_qa_fixer_session(
     prompt += f"\n**IMPORTANT**: All spec files are located in: `{spec_dir}/`\n"
     prompt += f"The fix request file is at: `{spec_dir}/QA_FIX_REQUEST.md`\n"
 
+    # Load user feedback screenshots if they exist
+    feedback_text, screenshot_blocks = load_qa_feedback_screenshots(spec_dir)
+
     try:
         debug("qa_fixer", "Sending query to Claude SDK...")
-        await client.query(prompt)
-        debug_success("qa_fixer", "Query sent successfully")
+
+        # If screenshots exist, send as multimodal content blocks with feedback context
+        if screenshot_blocks:
+            prompt += "\n\n---\n\n## User Feedback\n\n"
+            prompt += f"**User's text feedback:**\n{feedback_text or 'No text feedback provided'}\n\n"
+            prompt += f"**User provided {len(screenshot_blocks)} screenshot(s) showing the issues:**\n\n"
+            prompt += "**IMPORTANT:** The screenshots below show the actual visual problems the user is reporting. Analyze each screenshot carefully to understand what needs to be fixed before making changes.\n\n"
+
+            content_blocks = [{"type": "text", "text": prompt}] + screenshot_blocks
+            await client.query(content_blocks)
+            debug_success(
+                "qa_fixer",
+                f"Query sent with feedback text and {len(screenshot_blocks)} screenshot(s)",
+            )
+        else:
+            # No screenshots, send text-only prompt
+            await client.query(prompt)
+            debug_success("qa_fixer", "Query sent successfully")
 
         response_text = ""
         debug("qa_fixer", "Starting to receive response stream...")

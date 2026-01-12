@@ -348,9 +348,13 @@ export interface ProjectEnvConfig {
     electronEnabled?: boolean;
     /** Puppeteer browser automation (QA only) - default: false */
     puppeteerEnabled?: boolean;
-    /** Playwright browser automation (QA only) - default: false */
+    /** Playwright browser automation (QA only) - default: true */
     playwrightEnabled?: boolean;
   };
+
+  // Playwright Settings
+  /** Run Playwright in headless mode (default: true) */
+  playwrightHeadless?: boolean;
 
   // Per-agent MCP overrides (add/remove MCPs from specific agents)
   agentMcpOverrides?: AgentMcpOverrides;

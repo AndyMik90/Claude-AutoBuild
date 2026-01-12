@@ -20,6 +20,48 @@ Your job is to catch ALL of these before sign-off.
 
 ---
 
+## 🚨 CRITICAL: PLAYWRIGHT PATH RULES 🚨
+
+**When using Playwright for browser verification:**
+
+You can use `npx playwright` commands with proper path requirements:
+
+**✅ RECOMMENDED - Use absolute paths with $SPEC_DIR:**
+```bash
+# Create directory first
+mkdir -p $SPEC_DIR/qa-screenshots
+
+# Take screenshot with absolute path
+npx playwright screenshot https://google.com $SPEC_DIR/qa-screenshots/google.png
+npx playwright pdf https://google.com $SPEC_DIR/qa-screenshots/report.pdf
+```
+
+**✅ ALSO OK - Relative paths (but less reliable):**
+```bash
+mkdir -p ./qa-screenshots
+npx playwright screenshot https://google.com ./qa-screenshots/google.png
+```
+
+**❌ BLOCKED - Paths to /tmp:**
+```bash
+npx playwright screenshot https://google.com /tmp/screenshot.png  # BLOCKED
+npx playwright pdf https://google.com /tmp/report.pdf  # BLOCKED
+```
+
+**Why absolute paths with $SPEC_DIR are better:**
+- `$SPEC_DIR` environment variable points to the spec directory (e.g., `.auto-claude/specs/008-task-name/`)
+- Files are saved in the correct location regardless of working directory
+- Prevents files from leaking to project root or being lost
+- More reliable than relative paths which depend on current directory
+
+**Alternative - Playwright MCP tools (if npx fails):**
+If `npx playwright` has issues, you can use MCP tools as fallback:
+- `playwright_navigate` - Load pages in a real browser
+- `playwright_screenshot` - Capture visual state
+- `playwright_click` - Interact with UI elements
+
+---
+
 ## PHASE 0: LOAD CONTEXT (MANDATORY)
 
 ```bash
@@ -184,10 +226,26 @@ playwright_navigate({ url: "http://localhost:3000/dashboard" })
 
 // 2. Take a screenshot for visual verification
 playwright_screenshot({
-  path: "qa-screenshots/dashboard.png",
+  path: "qa-screenshots/dashboard.png",  // MUST BE RELATIVE PATH
   fullPage: true
 })
 ```
+
+**🚨 SCREENSHOT PATH RULES:**
+- **ALWAYS use RELATIVE paths** (e.g., `"qa-screenshots/dashboard.png"`)
+- **NEVER use absolute paths** (e.g., `/tmp/...` or `/Users/...`)
+- Relative paths are automatically saved in the spec directory for persistence
+- Absolute paths in /tmp will be lost after system cleanup
+
+**CRITICAL**: After taking a screenshot, **YOU WILL SEE THE IMAGE** in the tool response.
+**ANALYZE THE VISUAL CONTENT** and verify:
+- Does the UI match the acceptance criteria?
+- Are all required elements visible?
+- Is the layout correct?
+- Are there any visual bugs (broken styling, overlapping elements, etc.)?
+- Do colors, fonts, and spacing match the design?
+
+If the screenshot shows issues, **DOCUMENT THEM IN YOUR QA REPORT** and mark as FAIL.
 
 ### 4.2: Console Error Check (CRITICAL)
 
@@ -506,10 +564,34 @@ Update `implementation_plan.json` to record QA sign-off:
       "integration": "[X/Y]",
       "e2e": "[X/Y]"
     },
-    "verified_by": "qa_agent"
+    "verified_by": "qa_agent",
+    "screenshots": [
+      {
+        "path": "qa-screenshots/homepage.png",
+        "verdict": "✅ Homepage loads correctly",
+        "description": "All UI elements are visible and properly positioned. Navigation menu, hero section, and footer are rendering correctly. No console errors."
+      },
+      {
+        "path": "qa-screenshots/login-form.png",
+        "verdict": "✅ Login form functional",
+        "description": "Form validation works as expected. Error messages display correctly for invalid inputs. Submit button is properly enabled/disabled based on form state."
+      }
+    ]
   }
 }
 ```
+
+**IMPORTANT - Screenshot Format:**
+Each screenshot should be an object with:
+- `path`: Relative path from spec directory (e.g., "qa-screenshots/feature.png")
+- `verdict`: Short assessment with ✅/❌ prefix (e.g., "✅ Feature works correctly")
+- `description`: Detailed explanation of what you verified and why it passes/fails
+
+**Why include verdict and description:**
+- Helps developers understand QA reasoning without reading full report
+- Provides visual context alongside screenshots
+- Documents what was verified in each screenshot
+- Makes it easy to identify issues at a glance
 
 Save the QA report:
 ```bash
@@ -576,10 +658,19 @@ Update `implementation_plan.json`:
         "fix_required": "[Description]"
       }
     ],
-    "fix_request_file": "QA_FIX_REQUEST.md"
+    "fix_request_file": "QA_FIX_REQUEST.md",
+    "screenshots": [
+      {
+        "path": "qa-screenshots/login-error.png",
+        "verdict": "❌ Login button not working",
+        "description": "Clicking the login button has no effect. Console shows 'Cannot read property submit of undefined'. Form submission is broken."
+      }
+    ]
   }
 }
 ```
+
+**Note:** Include screenshots even when rejecting to provide visual evidence of issues.
 
 ---
 

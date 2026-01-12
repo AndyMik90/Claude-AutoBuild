@@ -10,7 +10,7 @@ import os
 import time as time_module
 from pathlib import Path
 
-from core.client import create_client
+from core.client import create_client, load_project_mcp_config
 from debug import debug, debug_error, debug_section, debug_success, debug_warning
 from linear_updater import (
     LinearTaskState,
@@ -143,6 +143,15 @@ async def run_qa_validation_loop(
         qa_model = get_phase_model(spec_dir, "qa", model)
         fixer_thinking_budget = get_phase_thinking_budget(spec_dir, "qa")
 
+        # Set SPEC_DIR environment variable for Playwright screenshot path resolution
+        os.environ["SPEC_DIR"] = str(spec_dir.resolve())
+
+        # Load project MCP config and set PLAYWRIGHT_HEADLESS if specified
+        # This allows UI changes to .env to take effect immediately
+        mcp_config = load_project_mcp_config(project_dir)
+        if "PLAYWRIGHT_HEADLESS" in mcp_config:
+            os.environ["PLAYWRIGHT_HEADLESS"] = mcp_config["PLAYWRIGHT_HEADLESS"]
+
         fix_client = create_client(
             project_dir,
             spec_dir,
@@ -226,6 +235,16 @@ async def run_qa_validation_loop(
             model=qa_model,
             thinking_budget=qa_thinking_budget,
         )
+
+        # Set SPEC_DIR environment variable for Playwright screenshot path resolution
+        os.environ["SPEC_DIR"] = str(spec_dir.resolve())
+
+        # Load project MCP config and set PLAYWRIGHT_HEADLESS if specified
+        # This allows UI changes to .env to take effect immediately
+        mcp_config = load_project_mcp_config(project_dir)
+        if "PLAYWRIGHT_HEADLESS" in mcp_config:
+            os.environ["PLAYWRIGHT_HEADLESS"] = mcp_config["PLAYWRIGHT_HEADLESS"]
+
         client = create_client(
             project_dir,
             spec_dir,
@@ -269,6 +288,14 @@ async def run_qa_validation_loop(
                 duration=f"{iteration_duration:.1f}s",
             )
             record_iteration(spec_dir, qa_iteration, "approved", [], iteration_duration)
+
+            # Update plan status to human_review after QA approval
+            plan = load_implementation_plan(spec_dir)
+            if plan:
+                plan["status"] = "human_review"
+                plan["planStatus"] = "review"
+                save_implementation_plan(spec_dir, plan)
+                debug("qa_loop", "Updated plan status to human_review")
 
             print("\n" + "=" * 70)
             print("  ✅ QA APPROVED")

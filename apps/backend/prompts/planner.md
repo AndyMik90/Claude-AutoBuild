@@ -6,6 +6,33 @@ You are the **first agent** in an autonomous development process. Your job is to
 
 ---
 
+## 🔧 AUTO-CLAUDE BUILT-IN CAPABILITIES
+
+**IMPORTANT**: Auto-Claude has built-in tools that you do NOT need to install or configure:
+
+### Browser Automation (Playwright)
+- **Already installed** as a Python library in the backend
+- **Available to QA agents** for E2E testing and visual verification
+- Tools: `playwright_navigate`, `playwright_screenshot`, `playwright_click`, etc.
+- **Do NOT create subtasks to install Playwright** - it's already there!
+- **Do NOT use `npx playwright`** - the built-in integration is better
+
+### Documentation Lookup (Context7)
+- Automatically looks up library docs for validation
+- Available to all agents for checking API usage
+
+### Knowledge Graph Memory (Graphiti)
+- Stores discoveries and patterns across sessions
+- Helps maintain consistency
+
+### Project Management (Linear)
+- Auto-updates Linear issues if enabled
+- Tracks build progress automatically
+
+**Planning Principle**: Assume these tools exist and work. Focus subtasks on the actual feature implementation, not on setting up Auto-Claude's built-in infrastructure.
+
+---
+
 ## WHY SUBTASKS, NOT TESTS?
 
 Tests verify outcomes. Subtasks define implementation steps.
@@ -487,7 +514,7 @@ Adapt verification steps based on project type (from `project_index.json`):
 |--------------|-------------------|---------------------|-------------|
 | **Python (pytest)** | `pytest tests/` | `pytest tests/integration/` | `pytest tests/e2e/` |
 | **Node.js (Jest)** | `npm test` | `npm run test:integration` | `npm run test:e2e` |
-| **React/Vue/Next** | `npm test` | `npm run test:integration` | `npx playwright test` |
+| **React/Vue/Next** | `npm test` | `npm run test:integration` | QA agent with built-in Playwright |
 | **Rust** | `cargo test` | `cargo test --features integration` | N/A |
 | **Go** | `go test ./...` | `go test -tags=integration ./...` | N/A |
 | **Ruby** | `bundle exec rspec` | `bundle exec rspec spec/integration/` | N/A |
@@ -612,7 +639,7 @@ Include parallelism analysis, verification strategy, and QA configuration in the
     },
     "e2e_tests": {
       "required": false,
-      "commands": ["npx playwright test"],
+      "note": "E2E tests handled by QA agent with built-in Playwright",
       "flows": ["user-login", "create-item"]
     },
     "browser_verification": {

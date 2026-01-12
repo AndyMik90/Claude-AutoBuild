@@ -1,13 +1,16 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* Google Fonts - Outfit */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
 /* Auto-Build UI Design System - Oscura Midnight Theme */
 /* A modern, professional design system with deep dark mode and warm yellow accents */
 
 /* Define custom theme colors for Tailwind CSS v4 */
 @theme {
   /* Font families */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
 
   /* Colors - using CSS variables for theme switching */
@@ -165,62 +168,63 @@
   --radius: 12px;
 }
 
-/* Dark Mode - Oscura Midnight (Default/Primary theme per design system) */
+/* Dark Mode - Spotify Theme */
 .dark {
-  /* Near-black backgrounds - OLED optimized */
-  --background: #0B0B0F;
-  --foreground: #E6E6E6;
+  /* Spotify dark backgrounds */
+  --background: #121212;
+  --foreground: #FFFFFF;
 
-  /* Card surfaces - subtle elevation */
-  --card: #121216;
-  --card-foreground: #E6E6E6;
+  /* Card surfaces - slightly lighter than background */
+  --card: #181818;
+  --card-foreground: #FFFFFF;
 
-  /* Accent - Saturated yellow for vibrant contrast */
-  --primary: #D6D876;
-  --primary-foreground: #0B0B0F;
+  /* Primary - Warm orange accent */
+  --primary: #FF9F5A;
+  --primary-foreground: #000000;
 
-  --secondary: #1A1A1F;
-  --secondary-foreground: #E6E6E6;
+  --secondary: #282828;
+  --secondary-foreground: #FFFFFF;
 
-  --muted: #1A1A1F;
-  --muted-foreground: #868F97;
+  --muted: #282828;
+  --muted-foreground: #B3B3B3;
 
-  --accent: #2A2A1F;
-  --accent-foreground: #D6D876;
+  --accent: #FF9F5A;
+  --accent-foreground: #000000;
 
-  --destructive: #FF5C5C;
-  --destructive-foreground: #0B0B0F;
+  --destructive: #E22134;
+  --destructive-foreground: #FFFFFF;
 
-  /* Subtle dark borders for card definition */
-  --border: #232323;
-  --input: #232323;
-  --ring: #D6D876;
+  /* Subtle borders */
+  --border: #282828;
+  --input: #282828;
+  --ring: #FF9F5A;
 
-  --sidebar: #0E0E12;
-  --sidebar-foreground: #E6E6E6;
+  /* Sidebar - pure black like Spotify */
+  --sidebar: #000000;
+  --sidebar-foreground: #B3B3B3;
 
-  --popover: #1A1A1F;
-  --popover-foreground: #E6E6E6;
+  --popover: #282828;
+  --popover-foreground: #FFFFFF;
 
-  /* Semantic colors - muted for dark mode */
-  --success: #4EBE96;
-  --success-foreground: #0B0B0F;
-  --success-light: #1A2924;
-  --warning: #D2D714;
-  --warning-foreground: #0B0B0F;
-  --warning-light: #262618;
-  --info: #479FFA;
-  --info-foreground: #0B0B0F;
-  --info-light: #1A2230;
-  --error: #FF5C5C;
-  --error-light: #2A1A1A;
+  /* Semantic colors - orange palette */
+  --success: #4CAF50;
+  --success-foreground: #FFFFFF;
+  --success-light: #1B2F1C;
+  --warning: #FFA500;
+  --warning-foreground: #000000;
+  --warning-light: #2F2A1A;
+  --info: #3D91F5;
+  --info-foreground: #FFFFFF;
+  --info-light: #1A2433;
+  --error: #E22134;
+  --error-light: #2F1A1C;
 
-  /* Shadows - deeper for dark mode, but cards use borders primarily */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.6);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.7);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.8);
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.8);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.8);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.9);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.9);
-  --shadow-focus: 0 0 0 2px rgba(214, 216, 118, 0.2);
+  --shadow-focus: 0 0 0 2px rgba(255, 159, 90, 0.5);
 }
 
 /* ============================================
@@ -1708,3 +1712,14 @@ body {
 [data-ui-scale="190"] { font-size: 30.4px; }
 [data-ui-scale="195"] { font-size: 31.2px; }
 [data-ui-scale="200"] { font-size: 32px; }
+
+/* Global font - Outfit for entire application */
+html,
+body {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Ensure all elements inherit the font */
+* {
+  font-family: inherit;
+}

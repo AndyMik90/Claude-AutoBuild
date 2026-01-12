@@ -1,6 +1,7 @@
-import { AlertCircle, GitMerge, Loader2, Check, RotateCcw } from 'lucide-react';
+import { AlertCircle, GitMerge, Loader2, Check, RotateCcw, GitBranch } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../../ui/button';
+import { Badge } from '../../ui/badge';
 import { persistTaskStatus } from '../../../stores/task-store';
 import type { Task } from '../../../../shared/types';
 
@@ -48,15 +49,43 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
     }
   };
 
+  // Different messaging for read-only vs regular tasks
+  const isReadOnly = task?.isReadOnly || false;
+
   return (
-    <div className="rounded-xl border border-border bg-secondary/30 p-4">
+    <div className={`rounded-xl border p-4 ${
+      isReadOnly
+        ? 'border-blue-500/30 bg-blue-500/10'
+        : 'border-border bg-secondary/30'
+    }`}>
       <h3 className="font-medium text-sm text-foreground mb-2 flex items-center gap-2">
-        <AlertCircle className="h-4 w-4 text-muted-foreground" />
-        No Workspace Found
+        <AlertCircle className={`h-4 w-4 ${isReadOnly ? 'text-blue-500' : 'text-muted-foreground'}`} />
+        {isReadOnly ? 'Read-Only Task' : 'No Workspace Found'}
       </h3>
       <p className="text-sm text-muted-foreground mb-3">
-        No isolated workspace was found for this task. The changes may have been made directly in your project.
+        {isReadOnly
+          ? 'This task was executed in read-only mode without modifying your project files. It ran directly in your project directory for verification or analysis purposes.'
+          : 'No isolated workspace was found for this task. The changes may have been made directly in your project.'}
       </p>
+
+      {/* Branch Information - show if task has an associated branch */}
+      {task?.branch && (
+        <div className="mb-3 p-3 rounded-lg bg-primary/10 border border-primary/30">
+          <div className="flex items-center gap-2 mb-2">
+            <GitBranch className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium text-primary">Git Branch (DIRECT Mode)</span>
+          </div>
+          <Badge
+            variant="outline"
+            className="font-mono bg-background/50 text-primary border-primary/30"
+          >
+            {task.branch}
+          </Badge>
+          <p className="text-xs text-muted-foreground mt-2">
+            Changes were made directly on this branch without using an isolated worktree.
+          </p>
+        </div>
+      )}
 
       {/* Allow marking as done */}
       {task && task.status === 'human_review' && (

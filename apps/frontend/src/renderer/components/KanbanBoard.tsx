@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, ArrowUpDown, LayoutGrid } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -46,6 +46,8 @@ interface KanbanBoardProps {
   isRefreshing?: boolean;
 }
 
+type SortOrder = 'asc' | 'desc';
+
 interface DroppableColumnProps {
   status: TaskStatus;
   tasks: Task[];
@@ -57,6 +59,8 @@ interface DroppableColumnProps {
   archivedCount?: number;
   showArchived?: boolean;
   onToggleArchived?: () => void;
+  sortOrder: SortOrder;
+  onSortChange: () => void;
 }
 
 /**
@@ -100,6 +104,8 @@ function droppableColumnPropsAreEqual(
   if (prevProps.archivedCount !== nextProps.archivedCount) return false;
   if (prevProps.showArchived !== nextProps.showArchived) return false;
   if (prevProps.onToggleArchived !== nextProps.onToggleArchived) return false;
+  if (prevProps.sortOrder !== nextProps.sortOrder) return false;
+  if (prevProps.onSortChange !== nextProps.onSortChange) return false;
 
   // Deep compare tasks
   const tasksEqual = tasksAreEquivalent(prevProps.tasks, nextProps.tasks);
@@ -153,7 +159,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived, sortOrder, onSortChange }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -216,7 +222,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
     <div
       ref={setNodeRef}
       className={cn(
-        'flex min-w-72 max-w-[30rem] flex-1 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+        'flex min-w-72 max-w-[30rem] flex-1 flex-col rounded-md border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
         getColumnBorderColor(),
         'border-t-2',
         isOver && 'drop-zone-highlight'
@@ -233,6 +239,23 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
           </span>
         </div>
         <div className="flex items-center gap-1">
+          {/* Sort button - always visible */}
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 hover:bg-muted-foreground/10 hover:text-muted-foreground transition-colors"
+                onClick={onSortChange}
+                aria-label={sortOrder === 'asc' ? 'Sort newest first' : 'Sort oldest first'}
+              >
+                <ArrowUpDown className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {sortOrder === 'asc' ? 'Oldest first' : 'Newest first'}
+            </TooltipContent>
+          </Tooltip>
           {status === 'backlog' && onAddClick && (
             <Button
               variant="ghost"
@@ -339,6 +362,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const { showArchived, toggleShowArchived } = useViewState();
 
+  // Sort order state for each column
+  const [columnSortOrders, setColumnSortOrders] = useState<Record<TaskStatus, SortOrder>>({
+    backlog: 'asc',
+    in_progress: 'asc',
+    ai_review: 'asc',
+    human_review: 'asc',
+    done: 'asc',
+    pr_created: 'asc'
+  });
+
   // Worktree cleanup dialog state
   const [worktreeCleanupDialog, setWorktreeCleanupDialog] = useState<{
     open: boolean;
@@ -399,17 +432,28 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       }
     });
 
-    // Sort tasks within each column by createdAt (newest first)
+    // Sort tasks within each column based on column-specific sort order
     Object.keys(grouped).forEach((status) => {
-      grouped[status as typeof TASK_STATUS_COLUMNS[number]].sort((a, b) => {
+      const columnStatus = status as typeof TASK_STATUS_COLUMNS[number];
+      const sortOrder = columnSortOrders[columnStatus];
+
+      grouped[columnStatus].sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
-        return dateB - dateA; // Descending order (newest first)
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       });
     });
 
     return grouped;
-  }, [filteredTasks]);
+  }, [filteredTasks, columnSortOrders]);
+
+  // Toggle sort order for a specific column
+  const handleSortChange = (status: TaskStatus) => {
+    setColumnSortOrders(prev => ({
+      ...prev,
+      [status]: prev[status] === 'asc' ? 'desc' : 'asc'
+    }));
+  };
 
   const handleArchiveAll = async () => {
     // Get projectId from the first task (all tasks should have the same projectId)
@@ -557,21 +601,27 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   return (
     <div className="flex h-full flex-col">
-      {/* Kanban header with refresh button */}
-      {onRefresh && (
-        <div className="flex items-center justify-end px-6 pt-4 pb-2">
+      {/* Header */}
+      <div className="border-b border-border p-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <LayoutGrid className="h-6 w-6 text-primary" />
+          <div>
+            <h2 className="text-lg font-semibold">Kanban Board</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Manage and track your Auto Claude tasks</p>
+          </div>
+        </div>
+        {onRefresh && (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="gap-2 text-muted-foreground hover:text-foreground"
           >
-            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh Tasks'}
+            <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
+            Refresh
           </Button>
-        </div>
-      )}
+        )}
+      </div>
       {/* Kanban columns */}
       <DndContext
         sensors={sensors}
@@ -594,6 +644,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               archivedCount={status === 'done' ? archivedCount : undefined}
               showArchived={status === 'done' ? showArchived : undefined}
               onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
+              sortOrder={columnSortOrders[status]}
+              onSortChange={() => handleSortChange(status)}
             />
           ))}
         </div>

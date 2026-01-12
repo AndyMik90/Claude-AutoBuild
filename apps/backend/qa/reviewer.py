@@ -319,6 +319,11 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
 
         # Check the QA result from implementation_plan.json
         status = get_qa_signoff_status(spec_dir)
+
+        # Collect and save screenshots from QA session
+        from .criteria import save_qa_screenshots_to_plan
+        save_qa_screenshots_to_plan(spec_dir)
+
         debug(
             "qa_reviewer",
             "QA session completed",

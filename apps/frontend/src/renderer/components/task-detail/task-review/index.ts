@@ -9,6 +9,7 @@ export { StagedSuccessMessage } from './StagedSuccessMessage';
 export { WorkspaceStatus } from './WorkspaceStatus';
 export { MergePreviewSummary } from './MergePreviewSummary';
 export { QAFeedbackSection } from './QAFeedbackSection';
+export { QAReportSection } from './QAReportSection';
 export { DiscardDialog } from './DiscardDialog';
 export { DiffViewDialog } from './DiffViewDialog';
 export { ConflictDetailsDialog } from './ConflictDetailsDialog';

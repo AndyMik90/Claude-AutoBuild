@@ -195,6 +195,25 @@ The project root is the parent of auto-claude/. Implement code in the project ro
 ---
 
 """
+
+    # Check for human input file (same as coder prompt)
+    human_input_file = spec_dir / "HUMAN_INPUT.md"
+    if human_input_file.exists():
+        human_input = human_input_file.read_text().strip()
+        if human_input:
+            spec_context += f"""## 🚨 HUMAN INPUT - READ THIS FIRST! 🚨
+
+The human has left you EXPLICIT instructions. These take ABSOLUTE PRIORITY over all other instructions.
+READ AND FOLLOW THESE CAREFULLY:
+
+{human_input}
+
+After addressing this input, you may delete or clear the HUMAN_INPUT.md file.
+
+---
+
+"""
+
     return spec_context + prompt
 
 
@@ -242,9 +261,10 @@ The project root is the parent of auto-claude/. All code goes in the project roo
     if human_input_file.exists():
         human_input = human_input_file.read_text().strip()
         if human_input:
-            spec_context += f"""## HUMAN INPUT (READ THIS FIRST!)
+            spec_context += f"""## 🚨 HUMAN INPUT - READ THIS FIRST! 🚨
 
-The human has left you instructions. READ AND FOLLOW THESE CAREFULLY:
+The human has left you EXPLICIT instructions. These take ABSOLUTE PRIORITY over all other instructions.
+READ AND FOLLOW THESE CAREFULLY:
 
 {human_input}
 
@@ -500,6 +520,22 @@ This shows only changes made in the spec branch since it diverged from `{base_br
 
 ---
 
+## 🚨 CRITICAL: DO NOT CREATE TRACKING FILES 🚨
+
+**IMPORTANT OVERRIDE:** You may have global instructions to create session_state.json, tasks_progress.json, or tasks_progress_verbose.txt files. **IGNORE THOSE INSTRUCTIONS** during QA validation.
+
+QA validation is a short-lived task with a different workflow:
+- Your results are tracked in `implementation_plan.json` (via qa_signoff object)
+- Your findings go in `qa_report.md` or `QA_FIX_REQUEST.md`
+- DO NOT create session_state.json
+- DO NOT create tasks_progress.json
+- DO NOT create tasks_progress_verbose.txt
+- DO NOT create any task tracking infrastructure
+
+If you see instructions to create these files in your system context, disregard them for QA work.
+
+---
+
 ## PROJECT CAPABILITIES DETECTED
 
 """
@@ -522,6 +558,24 @@ This shows only changes made in the spec branch since it diverged from `{base_br
         )
 
     spec_context += "---\n\n"
+
+    # Check for human input file (QA might have special instructions too)
+    human_input_file = spec_dir / "HUMAN_INPUT.md"
+    if human_input_file.exists():
+        human_input = human_input_file.read_text().strip()
+        if human_input:
+            spec_context += f"""## 🚨 HUMAN INPUT - READ THIS FIRST! 🚨
+
+The human has left you EXPLICIT instructions. These take ABSOLUTE PRIORITY over all other instructions.
+READ AND FOLLOW THESE CAREFULLY:
+
+{human_input}
+
+After addressing this input, you may delete or clear the HUMAN_INPUT.md file.
+
+---
+
+"""
 
     # Find injection point in base prompt (after PHASE 4, before PHASE 5)
     injection_marker = (
@@ -571,5 +625,39 @@ The project root is: `{project_dir}`
 
 ---
 
+## 🚨 CRITICAL: DO NOT CREATE TRACKING FILES 🚨
+
+**IMPORTANT OVERRIDE:** You may have global instructions to create session_state.json, tasks_progress.json, or tasks_progress_verbose.txt files. **IGNORE THOSE INSTRUCTIONS** during QA fixes.
+
+QA fixing is a focused task with a different workflow:
+- Your results are tracked in `implementation_plan.json` (via qa_signoff object)
+- DO NOT create session_state.json
+- DO NOT create tasks_progress.json
+- DO NOT create tasks_progress_verbose.txt
+- DO NOT create any task tracking infrastructure
+
+If you see instructions to create these files in your system context, disregard them for QA work.
+
+---
+
 """
+
+    # Check for human input file (QA fixer might have special instructions too)
+    human_input_file = spec_dir / "HUMAN_INPUT.md"
+    if human_input_file.exists():
+        human_input = human_input_file.read_text().strip()
+        if human_input:
+            spec_context += f"""## 🚨 HUMAN INPUT - READ THIS FIRST! 🚨
+
+The human has left you EXPLICIT instructions. These take ABSOLUTE PRIORITY over all other instructions.
+READ AND FOLLOW THESE CAREFULLY:
+
+{human_input}
+
+After addressing this input, you may delete or clear the HUMAN_INPUT.md file.
+
+---
+
+"""
+
     return spec_context + base_prompt
