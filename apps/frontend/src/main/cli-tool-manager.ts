@@ -373,10 +373,65 @@ export function getWindowsRegistryPath(): string | null {
 }
 
 /**
+ * Async version of getWindowsRegistryPath.
+ *
+ * Reads the Windows PATH from the Registry using non-blocking async operations.
+ * This should be used in async contexts to avoid blocking the event loop.
+ *
+ * @returns Promise resolving to combined PATH string or null if unable to read
+ */
+export async function getWindowsRegistryPathAsync(): Promise<string | null> {
+  if (process.platform !== 'win32') {
+    return null;
+  }
+
+  try {
+    const paths: string[] = [];
+
+    // Read System PATH (HKEY_LOCAL_MACHINE)
+    try {
+      const { stdout: systemOutput } = await execAsync(
+        'reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" /v Path',
+        { encoding: 'utf-8', timeout: 5000, windowsHide: true }
+      );
+      const systemPath = parseRegOutput(systemOutput);
+      if (systemPath) {
+        paths.push(expandWindowsEnvVars(systemPath));
+      }
+    } catch {
+      // System PATH read failed, continue with user PATH
+    }
+
+    // Read User PATH (HKEY_CURRENT_USER)
+    try {
+      const { stdout: userOutput } = await execAsync(
+        'reg query "HKCU\\Environment" /v Path',
+        { encoding: 'utf-8', timeout: 5000, windowsHide: true }
+      );
+      const userPath = parseRegOutput(userOutput);
+      if (userPath) {
+        paths.push(expandWindowsEnvVars(userPath));
+      }
+    } catch {
+      // User PATH read failed
+    }
+
+    if (paths.length === 0) {
+      return null;
+    }
+
+    return paths.join(';');
+  } catch (error) {
+    console.warn('[Windows Registry] Failed to read PATH:', error);
+    return null;
+  }
+}
+
+/**
  * Find Claude CLI in the Windows Registry PATH.
  *
- * Reads the TRUE Windows PATH from Registry and searches for claude.exe,
- * claude.cmd, or claude.bat in each directory.
+ * Reads the TRUE Windows PATH from Registry and searches for Claude executables
+ * with standard Windows extensions (.exe, .cmd, .bat) in each directory.
  *
  * @returns Full path to Claude CLI or null if not found
  */
@@ -391,7 +446,8 @@ export function findClaudeInRegistryPath(): string | null {
   }
 
   const pathDirs = registryPath.split(';').filter(Boolean);
-  const extensions = ['.exe', '.cmd', '.bat', ''];
+  // Standard Windows executable extensions - checked in order of priority
+  const extensions = ['.exe', '.cmd', '.bat'];
 
   for (const dir of pathDirs) {
     for (const ext of extensions) {
@@ -413,6 +469,9 @@ export function findClaudeInRegistryPath(): string | null {
 /**
  * Async version of findClaudeInRegistryPath.
  *
+ * Uses non-blocking async operations for both registry reading and file checks.
+ * This prevents blocking the event loop during CLI detection.
+ *
  * @returns Promise resolving to full path to Claude CLI or null if not found
  */
 export async function findClaudeInRegistryPathAsync(): Promise<string | null> {
@@ -420,13 +479,15 @@ export async function findClaudeInRegistryPathAsync(): Promise<string | null> {
     return null;
   }
 
-  const registryPath = getWindowsRegistryPath();
+  // Use async registry reading to avoid blocking event loop
+  const registryPath = await getWindowsRegistryPathAsync();
   if (!registryPath) {
     return null;
   }
 
   const pathDirs = registryPath.split(';').filter(Boolean);
-  const extensions = ['.exe', '.cmd', '.bat', ''];
+  // Standard Windows executable extensions - checked in order of priority
+  const extensions = ['.exe', '.cmd', '.bat'];
 
   for (const dir of pathDirs) {
     for (const ext of extensions) {
@@ -450,6 +511,7 @@ export async function findClaudeInRegistryPathAsync(): Promise<string | null> {
  *
  * nvm-windows stores Node versions in %APPDATA%\nvm\vX.X.X\
  * This function returns all potential Claude paths from nvm-windows installations.
+ * Uses sortNvmVersionDirs for proper semver validation and sorting.
  *
  * @param homeDir - User's home directory
  * @returns Array of potential Claude paths from nvm-windows
@@ -466,19 +528,9 @@ export function getNvmWindowsPaths(homeDir: string): string[] {
   try {
     if (existsSync(nvmDir)) {
       const entries = readdirSync(nvmDir, { withFileTypes: true });
-      const versionDirs = entries
-        .filter(e => e.isDirectory() && e.name.startsWith('v'))
-        .map(e => e.name)
-        .sort((a, b) => {
-          // Sort by version descending (newest first)
-          const vA = a.slice(1).split('.').map(Number);
-          const vB = b.slice(1).split('.').map(Number);
-          for (let i = 0; i < 3; i++) {
-            const diff = (vB[i] ?? 0) - (vA[i] ?? 0);
-            if (diff !== 0) return diff;
-          }
-          return 0;
-        });
+      // Reuse sortNvmVersionDirs for proper semver validation and sorting
+      // This filters out invalid directories (e.g., 'vbackup', 'vold') and sorts newest first
+      const versionDirs = sortNvmVersionDirs(entries);
 
       for (const version of versionDirs) {
         // nvm-windows puts npm global bins directly in the version folder
