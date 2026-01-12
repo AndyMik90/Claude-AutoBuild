@@ -26,7 +26,17 @@ import path from 'path';
 import os from 'os';
 import { promisify } from 'util';
 import { app } from 'electron';
-import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell, existsAsync, getSpawnCommand } from './env-utils';
+import {
+  findExecutable,
+  findExecutableAsync,
+  getAugmentedEnv,
+  getAugmentedEnvAsync,
+  shouldUseShell,
+  existsAsync,
+  getSpawnCommand,
+  getWindowsRegistryPath,
+  getWindowsRegistryPathAsync,
+} from './env-utils';
 import type { ToolDetectionResult } from '../shared/types';
 
 const execFileAsync = promisify(execFile);
@@ -151,18 +161,34 @@ export function getClaudeDetectionPaths(homeDir: string): ClaudeDetectionPaths {
     '/usr/local/bin/claude',    // Intel Mac
   ];
 
-  const platformPaths = process.platform === 'win32'
-    ? [
-        path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
-        path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
-        path.join(homeDir, '.local', 'bin', 'claude.exe'),
-        'C:\\Program Files\\Claude\\claude.exe',
-        'C:\\Program Files (x86)\\Claude\\claude.exe',
-      ]
-    : [
-        path.join(homeDir, '.local', 'bin', 'claude'),
-        path.join(homeDir, 'bin', 'claude'),
-      ];
+  // Windows paths include multiple installation methods and package managers
+  const windowsPaths = [
+    // Official installer location
+    path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
+    // npm global install
+    path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+    path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.exe'),
+    // Local bin
+    path.join(homeDir, '.local', 'bin', 'claude.exe'),
+    path.join(homeDir, '.local', 'bin', 'claude.cmd'),
+    // Scoop package manager
+    path.join(homeDir, 'scoop', 'shims', 'claude.exe'),
+    path.join(homeDir, 'scoop', 'shims', 'claude.cmd'),
+    // Chocolatey package manager
+    'C:\\ProgramData\\chocolatey\\bin\\claude.exe',
+    'C:\\ProgramData\\chocolatey\\bin\\claude.cmd',
+    // Program Files
+    'C:\\Program Files\\Claude\\claude.exe',
+    'C:\\Program Files (x86)\\Claude\\claude.exe',
+    // nvm-windows paths (added dynamically by getNvmWindowsPaths)
+  ];
+
+  const unixPaths = [
+    path.join(homeDir, '.local', 'bin', 'claude'),
+    path.join(homeDir, 'bin', 'claude'),
+  ];
+
+  const platformPaths = process.platform === 'win32' ? windowsPaths : unixPaths;
 
   const nvmVersionsDir = path.join(homeDir, '.nvm', 'versions', 'node');
 
@@ -246,6 +272,132 @@ export function buildClaudeDetectionResult(
     source,
     message: `${messagePrefix}: ${claudePath}`,
   };
+}
+
+// ============================================================================
+// WINDOWS REGISTRY PATH CLAUDE DETECTION
+// ============================================================================
+// These functions use the Registry PATH helpers from env-utils.ts to find
+// Claude CLI on Windows when GUI apps don't inherit the shell's PATH.
+
+/**
+ * Find Claude CLI in the Windows Registry PATH.
+ *
+ * Reads the TRUE Windows PATH from Registry and searches for Claude executables
+ * with standard Windows extensions (.exe, .cmd, .bat) in each directory.
+ *
+ * @returns Full path to Claude CLI or null if not found
+ */
+export function findClaudeInRegistryPath(): string | null {
+  if (process.platform !== 'win32') {
+    return null;
+  }
+
+  const registryPath = getWindowsRegistryPath();
+  if (!registryPath) {
+    return null;
+  }
+
+  const pathDirs = registryPath.split(';').filter(Boolean);
+  // Standard Windows executable extensions - checked in order of priority
+  const extensions = ['.exe', '.cmd', '.bat'];
+
+  for (const dir of pathDirs) {
+    for (const ext of extensions) {
+      const candidatePath = path.join(dir, `claude${ext}`);
+      try {
+        if (existsSync(candidatePath)) {
+          console.log(`[Claude CLI] Found via Registry PATH: ${candidatePath}`);
+          return candidatePath;
+        }
+      } catch {
+        // Skip inaccessible paths
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Async version of findClaudeInRegistryPath.
+ *
+ * Uses non-blocking async operations for both registry reading and file checks.
+ * This prevents blocking the event loop during CLI detection.
+ *
+ * @returns Promise resolving to full path to Claude CLI or null if not found
+ */
+export async function findClaudeInRegistryPathAsync(): Promise<string | null> {
+  if (process.platform !== 'win32') {
+    return null;
+  }
+
+  // Use async registry reading to avoid blocking event loop
+  const registryPath = await getWindowsRegistryPathAsync();
+  if (!registryPath) {
+    return null;
+  }
+
+  const pathDirs = registryPath.split(';').filter(Boolean);
+  // Standard Windows executable extensions - checked in order of priority
+  const extensions = ['.exe', '.cmd', '.bat'];
+
+  for (const dir of pathDirs) {
+    for (const ext of extensions) {
+      const candidatePath = path.join(dir, `claude${ext}`);
+      try {
+        if (await existsAsync(candidatePath)) {
+          console.log(`[Claude CLI] Found via Registry PATH: ${candidatePath}`);
+          return candidatePath;
+        }
+      } catch {
+        // Skip inaccessible paths
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get nvm-windows installation paths.
+ *
+ * nvm-windows stores Node versions in %APPDATA%\nvm\vX.X.X\
+ * This function returns all potential Claude paths from nvm-windows installations.
+ * Uses sortNvmVersionDirs for proper semver validation and sorting.
+ *
+ * @param homeDir - User's home directory
+ * @returns Array of potential Claude paths from nvm-windows
+ */
+export function getNvmWindowsPaths(homeDir: string): string[] {
+  if (process.platform !== 'win32') {
+    return [];
+  }
+
+  const paths: string[] = [];
+  const appData = process.env.APPDATA || path.join(homeDir, 'AppData', 'Roaming');
+  const nvmDir = path.join(appData, 'nvm');
+
+  try {
+    if (existsSync(nvmDir)) {
+      const entries = readdirSync(nvmDir, { withFileTypes: true });
+      // Reuse sortNvmVersionDirs for proper semver validation and sorting
+      // This filters out invalid directories (e.g., 'vbackup', 'vold') and sorts newest first
+      const versionDirs = sortNvmVersionDirs(entries);
+
+      for (const version of versionDirs) {
+        // nvm-windows puts npm global bins directly in the version folder
+        paths.push(path.join(nvmDir, version, 'claude.cmd'));
+        paths.push(path.join(nvmDir, version, 'claude.exe'));
+        // Also check node_modules/.bin which is common for local installs
+        paths.push(path.join(nvmDir, version, 'node_modules', '.bin', 'claude.cmd'));
+      }
+    }
+  } catch {
+    // nvm directory doesn't exist or isn't readable
+  }
+
+  return paths;
 }
 
 /**
@@ -687,12 +839,14 @@ class CLIToolManager {
    * Detect Claude CLI with multi-level priority
    *
    * Priority order:
-   * 1. User configuration (if valid for current platform)
-   * 2. Homebrew claude (macOS)
-   * 3. System PATH
-   * 4. Windows where.exe (Windows only - finds executables via PATH + Registry)
-   * 5. NVM paths (Unix only - checks Node.js version managers)
-   * 6. Platform-specific standard locations
+   * 1. Windows Registry PATH (Windows only - TRUE system PATH for GUI apps)
+   * 2. User configuration (if valid for current platform, used as fallback)
+   * 3. Homebrew claude (macOS)
+   * 4. System PATH (augmented)
+   * 5. Windows where.exe (Windows only)
+   * 6. nvm-windows paths (Windows only)
+   * 7. NVM paths (Unix only - checks Node.js version managers)
+   * 8. Platform-specific standard locations
    *
    * @returns Detection result for Claude CLI
    */
@@ -700,7 +854,20 @@ class CLIToolManager {
     const homeDir = os.homedir();
     const paths = getClaudeDetectionPaths(homeDir);
 
-    // 1. User configuration
+    // 1. Windows Registry PATH (Windows only)
+    // This reads the TRUE Windows PATH from Registry, which GUI apps don't inherit
+    if (process.platform === 'win32') {
+      const registryClaudePath = findClaudeInRegistryPath();
+      if (registryClaudePath) {
+        const validation = this.validateClaude(registryClaudePath);
+        const result = buildClaudeDetectionResult(
+          registryClaudePath, validation, 'system-path', 'Using Claude CLI from Windows PATH'
+        );
+        if (result) return result;
+      }
+    }
+
+    // 2. User configuration (fallback for broken auto-detection)
     if (this.userConfig.claudePath) {
       if (isWrongPlatformPath(this.userConfig.claudePath)) {
         console.warn(
@@ -720,7 +887,7 @@ class CLIToolManager {
       }
     }
 
-    // 2. Homebrew (macOS)
+    // 3. Homebrew (macOS)
     if (process.platform === 'darwin') {
       for (const claudePath of paths.homebrewPaths) {
         if (existsSync(claudePath)) {
@@ -731,7 +898,7 @@ class CLIToolManager {
       }
     }
 
-    // 3. System PATH (augmented)
+    // 4. System PATH (augmented)
     const systemClaudePath = findExecutable('claude');
     if (systemClaudePath) {
       const validation = this.validateClaude(systemClaudePath);
@@ -739,7 +906,7 @@ class CLIToolManager {
       if (result) return result;
     }
 
-    // 4. Windows where.exe detection (Windows only - most reliable for custom installs)
+    // 5. Windows where.exe detection (Windows only)
     if (process.platform === 'win32') {
       const whereClaudePath = findWindowsExecutableViaWhere('claude', '[Claude CLI]');
       if (whereClaudePath) {
@@ -749,7 +916,19 @@ class CLIToolManager {
       }
     }
 
-    // 5. NVM paths (Unix only) - check before platform paths for better Node.js integration
+    // 6. nvm-windows paths (Windows only)
+    if (process.platform === 'win32') {
+      const nvmWindowsPaths = getNvmWindowsPaths(homeDir);
+      for (const nvmPath of nvmWindowsPaths) {
+        if (existsSync(nvmPath)) {
+          const validation = this.validateClaude(nvmPath);
+          const result = buildClaudeDetectionResult(nvmPath, validation, 'nvm', 'Using nvm-windows Claude CLI');
+          if (result) return result;
+        }
+      }
+    }
+
+    // 7. NVM paths (Unix only) - check before platform paths for better Node.js integration
     if (process.platform !== 'win32') {
       try {
         if (existsSync(paths.nvmVersionsDir)) {
@@ -770,7 +949,7 @@ class CLIToolManager {
       }
     }
 
-    // 6. Platform-specific standard locations
+    // 8. Platform-specific standard locations
     for (const claudePath of paths.platformPaths) {
       if (existsSync(claudePath)) {
         const validation = this.validateClaude(claudePath);
@@ -779,7 +958,7 @@ class CLIToolManager {
       }
     }
 
-    // 7. Not found
+    // 9. Not found
     return {
       found: false,
       source: 'fallback',
@@ -1202,12 +1381,14 @@ class CLIToolManager {
    * Detect Claude CLI asynchronously (non-blocking)
    *
    * Priority order:
-   * 1. User configuration (if valid for current platform)
-   * 2. Homebrew claude (macOS)
-   * 3. System PATH
-   * 4. Windows where.exe (Windows only - finds executables via PATH + Registry)
-   * 5. NVM paths (Unix only - checks Node.js version managers)
-   * 6. Platform-specific standard locations
+   * 1. Windows Registry PATH (Windows only - TRUE system PATH for GUI apps)
+   * 2. User configuration (if valid for current platform, used as fallback)
+   * 3. Homebrew claude (macOS)
+   * 4. System PATH (augmented)
+   * 5. Windows where.exe (Windows only)
+   * 6. nvm-windows paths (Windows only)
+   * 7. NVM paths (Unix only - checks Node.js version managers)
+   * 8. Platform-specific standard locations
    *
    * @returns Promise resolving to detection result
    */
@@ -1215,7 +1396,20 @@ class CLIToolManager {
     const homeDir = os.homedir();
     const paths = getClaudeDetectionPaths(homeDir);
 
-    // 1. User configuration
+    // 1. Windows Registry PATH (Windows only)
+    // This reads the TRUE Windows PATH from Registry, which GUI apps don't inherit
+    if (process.platform === 'win32') {
+      const registryClaudePath = await findClaudeInRegistryPathAsync();
+      if (registryClaudePath) {
+        const validation = await this.validateClaudeAsync(registryClaudePath);
+        const result = buildClaudeDetectionResult(
+          registryClaudePath, validation, 'system-path', 'Using Claude CLI from Windows PATH'
+        );
+        if (result) return result;
+      }
+    }
+
+    // 2. User configuration (fallback for broken auto-detection)
     if (this.userConfig.claudePath) {
       if (isWrongPlatformPath(this.userConfig.claudePath)) {
         console.warn(
@@ -1235,7 +1429,7 @@ class CLIToolManager {
       }
     }
 
-    // 2. Homebrew (macOS)
+    // 3. Homebrew (macOS)
     if (process.platform === 'darwin') {
       for (const claudePath of paths.homebrewPaths) {
         if (await existsAsync(claudePath)) {
@@ -1246,7 +1440,7 @@ class CLIToolManager {
       }
     }
 
-    // 3. System PATH (augmented) - using async findExecutable
+    // 4. System PATH (augmented) - using async findExecutable
     const systemClaudePath = await findExecutableAsync('claude');
     if (systemClaudePath) {
       const validation = await this.validateClaudeAsync(systemClaudePath);
@@ -1254,7 +1448,7 @@ class CLIToolManager {
       if (result) return result;
     }
 
-    // 4. Windows where.exe detection (async, non-blocking)
+    // 5. Windows where.exe detection (async, non-blocking)
     if (process.platform === 'win32') {
       const whereClaudePath = await findWindowsExecutableViaWhereAsync('claude', '[Claude CLI]');
       if (whereClaudePath) {
@@ -1264,7 +1458,19 @@ class CLIToolManager {
       }
     }
 
-    // 5. NVM paths (Unix only) - check before platform paths for better Node.js integration
+    // 6. nvm-windows paths (Windows only)
+    if (process.platform === 'win32') {
+      const nvmWindowsPaths = getNvmWindowsPaths(homeDir);
+      for (const nvmPath of nvmWindowsPaths) {
+        if (await existsAsync(nvmPath)) {
+          const validation = await this.validateClaudeAsync(nvmPath);
+          const result = buildClaudeDetectionResult(nvmPath, validation, 'nvm', 'Using nvm-windows Claude CLI');
+          if (result) return result;
+        }
+      }
+    }
+
+    // 7. NVM paths (Unix only) - check before platform paths for better Node.js integration
     if (process.platform !== 'win32') {
       try {
         if (await existsAsync(paths.nvmVersionsDir)) {
@@ -1285,7 +1491,7 @@ class CLIToolManager {
       }
     }
 
-    // 6. Platform-specific standard locations
+    // 8. Platform-specific standard locations
     for (const claudePath of paths.platformPaths) {
       if (await existsAsync(claudePath)) {
         const validation = await this.validateClaudeAsync(claudePath);
@@ -1294,7 +1500,7 @@ class CLIToolManager {
       }
     }
 
-    // 7. Not found
+    // 9. Not found
     return {
       found: false,
       source: 'fallback',

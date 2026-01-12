@@ -58,10 +58,28 @@ vi.mock('child_process', () => {
     return childProcess as any;
   });
 
+  const mockExec = vi.fn((cmd: any, options: any, callback: any) => {
+    // Return a minimal ChildProcess-like object
+    const childProcess = {
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi.fn()
+    };
+
+    // If callback is provided, call it asynchronously
+    if (typeof callback === 'function') {
+      setImmediate(() => callback(null, '', ''));
+    }
+
+    return childProcess as any;
+  });
+
   return {
     spawn: spawnMock,
     execFileSync: vi.fn(),
-    execFile: mockExecFile
+    execFile: mockExecFile,
+    execSync: vi.fn(),
+    exec: mockExec
   };
 });
 
