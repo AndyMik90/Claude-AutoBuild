@@ -72,6 +72,7 @@ export function ProviderIntegration({
     installCli,
     switchToManual,
     switchToOAuth,
+    fetchBranches,
     selectRepository,
     selectBranch,
   } = useProviderIntegration({
@@ -417,7 +418,7 @@ export function ProviderIntegration({
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    /* fetchBranches() */
+                    fetchBranches();
                   }}
                   disabled={isLoadingBranches}
                   className="h-7 gap-1.5"
