@@ -11,6 +11,11 @@ interface TabState {
   openProjectIds: string[];
   activeProjectId: string | null;
   tabOrder: string[];
+  detachedProjects?: Array<{
+    projectId: string;
+    windowId: string;
+    bounds?: Electron.Rectangle;
+  }>;
 }
 
 interface StoreData {

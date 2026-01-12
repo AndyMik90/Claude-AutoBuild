@@ -369,11 +369,20 @@ export function App() {
           console.error('Failed to add project:', error);
         }
       }
+
+      // Cmd/Ctrl+M: Move to main window (only in project windows)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'm' && windowContext?.type === 'project') {
+        e.preventDefault();
+        const projectId = windowContext.projectId;
+        if (projectId) {
+          reattachProject(projectId);
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeView, openProjectTab]);
+  }, [activeView, openProjectTab, windowContext, reattachProject]);
 
   // Load tasks when project changes
   useEffect(() => {

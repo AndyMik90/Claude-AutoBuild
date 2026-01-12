@@ -7,6 +7,10 @@
     "hideArchivedTasks": "Hide archived tasks",
     "closeTab": "Close tab"
   },
+  "projectWindow": {
+    "moveToMain": "Move to Main Window",
+    "moveToMainTooltip": "Move this project back to the main window"
+  },
   "buttons": {
     "save": "Save",
     "cancel": "Cancel",

@@ -123,8 +123,18 @@ export function useCrossWindowDrag(
 
       const activatorEvent = event.activatorEvent as PointerEvent;
 
-      // Main window: detach if threshold crossed
+      // Main window: detach if threshold crossed AND not the last tab
       if (windowType === 'main' && dragState.isDetachThresholdCrossed) {
+        // Get the current open tabs count from the window
+        const tabsContainer = document.querySelector('[role="tablist"]');
+        const tabCount = tabsContainer?.querySelectorAll('[role="tab"]').length || 0;
+
+        if (tabCount <= 1) {
+          console.warn('[useCrossWindowDrag] Cannot detach the last project tab');
+          resetDragState();
+          return;
+        }
+
         // Calculate position for new window
         const position = 'screenX' in activatorEvent && 'screenY' in activatorEvent
           ? {

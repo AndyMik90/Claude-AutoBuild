@@ -1489,6 +1489,32 @@ body {
   background-color: rgba(214, 216, 118, 0.08) !important;
 }
 
+/* Window detach mode - dragging down to create new window */
+.detach-mode .drag-overlay-card {
+  transform: rotate(0deg) scale(1.05);
+  box-shadow: 0 25px 50px rgba(214, 216, 118, 0.4);
+  border: 2px solid var(--primary);
+}
+
+/* Window reattach mode - dragging over main window */
+.reattach-mode .drag-overlay-card {
+  transform: rotate(0deg) scale(0.95);
+  box-shadow: 0 15px 30px rgba(214, 216, 118, 0.3);
+  border: 2px dashed var(--primary);
+  animation: pulse-border 1s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% {
+    border-color: var(--primary);
+    box-shadow: 0 15px 30px rgba(214, 216, 118, 0.3);
+  }
+  50% {
+    border-color: rgba(214, 216, 118, 0.5);
+    box-shadow: 0 15px 40px rgba(214, 216, 118, 0.5);
+  }
+}
+
 /* Column count badge styling */
 .column-count-badge {
   display: inline-flex;

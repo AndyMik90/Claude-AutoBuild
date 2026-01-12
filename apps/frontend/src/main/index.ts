@@ -282,6 +282,30 @@ app.whenReady().then(() => {
   // Create window
   createWindow();
 
+  // Restore detached project windows from persisted state
+  if (windowManager && mainWindow) {
+    try {
+      const fs = require('fs-extra');
+      const configPath = join(app.getPath('userData'), 'store', 'projects.json');
+
+      if (fs.existsSync(configPath)) {
+        const content = fs.readFileSync(configPath, 'utf-8');
+        const data = JSON.parse(content);
+        const tabState = data.tabState;
+
+        if (tabState && tabState.detachedProjects && tabState.detachedProjects.length > 0) {
+          // Wait a bit for main window to be ready before creating project windows
+          setTimeout(async () => {
+            await windowManager.recreateDetachedWindows(tabState);
+            console.log('[main] Restored detached project windows');
+          }, 500);
+        }
+      }
+    } catch (error) {
+      console.error('[main] Failed to restore detached windows:', error);
+    }
+  }
+
   // Initialize usage monitoring after window is created
   if (mainWindow) {
     // Setup event forwarding from usage monitor to renderer

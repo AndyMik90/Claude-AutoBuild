@@ -7,6 +7,10 @@
     "hideArchivedTasks": "Masquer les tâches archivées",
     "closeTab": "Fermer l'onglet"
   },
+  "projectWindow": {
+    "moveToMain": "Déplacer vers la fenêtre principale",
+    "moveToMainTooltip": "Déplacer ce projet vers la fenêtre principale"
+  },
   "buttons": {
     "save": "Enregistrer",
     "cancel": "Annuler",
