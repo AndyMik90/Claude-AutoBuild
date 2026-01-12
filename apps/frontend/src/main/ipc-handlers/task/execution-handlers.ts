@@ -52,6 +52,170 @@ function getWorktreeBranch(worktreePath: string): string | null {
   }
 }
 
+/** Result type for worktree cleanup operations */
+interface WorktreeCleanupResult {
+  success: boolean;
+  canSkipCleanup?: boolean;
+  worktreePath?: string;
+  error?: string;
+}
+
+/**
+ * Remove a worktree directory using git worktree remove with retry logic.
+ * Falls back to direct directory deletion if git command fails.
+ */
+async function removeWorktreeWithRetry(
+  projectPath: string,
+  worktreePath: string,
+  maxRetries = 3
+): Promise<WorktreeCleanupResult> {
+  let removed = false;
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries && !removed; attempt++) {
+    try {
+      execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        timeout: 30000
+      });
+      removed = true;
+      console.warn(`[removeWorktreeWithRetry] Worktree removed: ${worktreePath}`);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < maxRetries) {
+        console.warn(`[removeWorktreeWithRetry] Retry ${attempt}/${maxRetries} - waiting before retry...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+  }
+
+  if (!removed && lastError) {
+    const errorMessage = lastError.message || String(lastError);
+    // Check for "not a working tree" error - directory exists but isn't registered with git
+    if (errorMessage.includes('not a working tree') || errorMessage.includes('is not a valid working tree')) {
+      console.warn(`[removeWorktreeWithRetry] Directory exists but isn't a git worktree - deleting directly`);
+      try {
+        rmSync(worktreePath, { recursive: true, force: true });
+        removed = true;
+        console.warn(`[removeWorktreeWithRetry] Directory deleted: ${worktreePath}`);
+        pruneWorktrees(projectPath);
+      } catch (rmError) {
+        return {
+          success: false,
+          canSkipCleanup: true,
+          worktreePath,
+          error: `Cannot delete worktree directory: ${rmError instanceof Error ? rmError.message : String(rmError)}`
+        };
+      }
+    }
+    if (!removed) {
+      return {
+        success: false,
+        canSkipCleanup: true,
+        worktreePath,
+        error: `Cannot delete worktree: ${errorMessage}`
+      };
+    }
+  }
+
+  return { success: true };
+}
+
+/**
+ * Prune stale worktree references (best-effort, ignores errors).
+ */
+function pruneWorktrees(projectPath: string): void {
+  try {
+    execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      timeout: 30000
+    });
+  } catch {
+    // Ignore prune errors
+  }
+}
+
+/**
+ * Delete a git branch (best-effort, logs warning on failure).
+ */
+function deleteBranch(projectPath: string, branch: string): void {
+  try {
+    execFileSync(getToolPath('git'), ['branch', '-D', branch], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      timeout: 30000
+    });
+    console.warn(`[deleteBranch] Branch deleted: ${branch}`);
+  } catch {
+    console.warn(`[deleteBranch] Could not delete branch ${branch} (may not exist or be checked out elsewhere)`);
+  }
+}
+
+/**
+ * Clean up an orphaned worktree (no valid auto-claude/* branch).
+ * This handles the edge case where a PR was merged via GitHub web UI.
+ */
+function cleanupOrphanedWorktree(
+  projectPath: string,
+  worktreePath: string,
+  expectedBranch: string
+): void {
+  try {
+    // Try git worktree remove first, fall back to direct deletion
+    try {
+      execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        timeout: 30000
+      });
+      console.warn(`[cleanupOrphanedWorktree] Orphaned worktree removed: ${worktreePath}`);
+    } catch (gitRemoveError) {
+      console.warn(`[cleanupOrphanedWorktree] 'git worktree remove' failed, falling back to directory deletion. Error:`, gitRemoveError);
+      rmSync(worktreePath, { recursive: true, force: true });
+      console.warn(`[cleanupOrphanedWorktree] Orphaned worktree directory deleted: ${worktreePath}`);
+    }
+
+    // Try to delete the expected branch (may already be deleted on remote)
+    deleteBranch(projectPath, expectedBranch);
+    pruneWorktrees(projectPath);
+    console.warn(`[cleanupOrphanedWorktree] Orphaned worktree cleanup completed`);
+  } catch (cleanupError) {
+    console.error(`[cleanupOrphanedWorktree] Failed to cleanup orphaned worktree:`, cleanupError);
+    // Don't throw - orphaned worktree cleanup failure shouldn't block marking as done
+  }
+}
+
+/**
+ * Clean up a valid worktree with user-confirmed force cleanup.
+ * Uses retry logic for Windows file locks.
+ */
+async function cleanupValidWorktree(
+  projectPath: string,
+  worktreePath: string,
+  branch: string
+): Promise<WorktreeCleanupResult> {
+  try {
+    const result = await removeWorktreeWithRetry(projectPath, worktreePath);
+    if (!result.success) {
+      return result;
+    }
+
+    // Delete the branch
+    deleteBranch(projectPath, branch);
+    console.warn(`[cleanupValidWorktree] Worktree cleanup completed successfully`);
+    return { success: true };
+  } catch (cleanupError) {
+    return {
+      success: false,
+      canSkipCleanup: true,
+      worktreePath,
+      error: `Failed to cleanup worktree: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}\n\nYou can skip cleanup and mark the task as done. The worktree will remain for manual deletion.`
+    };
+  }
+}
+
 function atomicWriteFileSync(filePath: string, content: string): void {
   const tempPath = `${filePath}.${process.pid}.tmp`;
   try {
@@ -596,157 +760,23 @@ export function registerTaskExecutionHandlers(
 
         if (hasWorktree) {
           // Check if the worktree is in a valid git state with an auto-claude/* branch
-          // This handles the edge case where a PR was merged via GitHub web UI
-          // and the local worktree directory still exists but is orphaned
           const worktreeBranch = getWorktreeBranch(worktreePath);
           const isValidWorktree = worktreeBranch !== null;
 
           if (!isValidWorktree) {
             // Orphaned worktree (e.g., after GitHub PR merge) - clean up automatically
-            console.warn(`[TASK_UPDATE_STATUS] Orphaned worktree detected for task ${taskId} (no valid auto-claude/* branch). Auto-cleaning...`);
-            try {
-              // Try to remove via git worktree command first
-              try {
-                execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
-                  cwd: project.path,
-                  encoding: 'utf-8',
-                  timeout: 30000
-                });
-                console.warn(`[TASK_UPDATE_STATUS] Orphaned worktree removed: ${worktreePath}`);
-              } catch (gitRemoveError) {
-                // If git worktree remove fails, the directory might not be a valid worktree
-                // Just remove the directory manually
-                console.warn(`[TASK_UPDATE_STATUS] 'git worktree remove' failed, falling back to directory deletion. Error:`, gitRemoveError);
-                rmSync(worktreePath, { recursive: true, force: true });
-                console.warn(`[TASK_UPDATE_STATUS] Orphaned worktree directory deleted: ${worktreePath}`);
-              }
-
-              // Try to delete the expected branch (may already be deleted on remote)
-              const expectedBranch = `auto-claude/${task.specId}`;
-              try {
-                execFileSync(getToolPath('git'), ['branch', '-D', expectedBranch], {
-                  cwd: project.path,
-                  encoding: 'utf-8',
-                  timeout: 30000
-                });
-                console.warn(`[TASK_UPDATE_STATUS] Branch deleted: ${expectedBranch}`);
-              } catch {
-                // Branch may not exist locally (already merged via GitHub)
-                console.warn(`[TASK_UPDATE_STATUS] Branch ${expectedBranch} not found locally (may have been merged via GitHub)`);
-              }
-
-              // Prune worktrees to clean up any stale references
-              try {
-                execFileSync(getToolPath('git'), ['worktree', 'prune'], {
-                  cwd: project.path,
-                  encoding: 'utf-8',
-                  timeout: 30000
-                });
-              } catch {
-                // Ignore prune errors
-              }
-
-              console.warn(`[TASK_UPDATE_STATUS] Orphaned worktree cleanup completed`);
-            } catch (cleanupError) {
-              console.error(`[TASK_UPDATE_STATUS] Failed to cleanup orphaned worktree:`, cleanupError);
-              // Don't block marking as done - the worktree was orphaned anyway
-            }
+            console.warn(`[TASK_UPDATE_STATUS] Orphaned worktree detected for task ${taskId}. Auto-cleaning...`);
+            const expectedBranch = `auto-claude/${task.specId}`;
+            cleanupOrphanedWorktree(project.path, worktreePath, expectedBranch);
           } else if (options?.forceCleanup) {
-            // Valid worktree exists and user confirmed cleanup - delete worktree and branch
+            // Valid worktree exists and user confirmed cleanup
             console.warn(`[TASK_UPDATE_STATUS] Cleaning up worktree for task ${taskId} (user confirmed)`);
-            try {
-              // Remove the worktree with retry logic for Windows file locks
-              let removed = false;
-              let lastError: Error | null = null;
-              const maxRetries = 3;
-
-              for (let attempt = 1; attempt <= maxRetries && !removed; attempt++) {
-                try {
-                  execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
-                    cwd: project.path,
-                    encoding: 'utf-8',
-                    timeout: 30000
-                  });
-                  removed = true;
-                  console.warn(`[TASK_UPDATE_STATUS] Worktree removed: ${worktreePath}`);
-                } catch (err) {
-                  lastError = err instanceof Error ? err : new Error(String(err));
-                  if (attempt < maxRetries) {
-                    console.warn(`[TASK_UPDATE_STATUS] Retry ${attempt}/${maxRetries} - waiting before retry...`);
-                    // Wait a bit before retrying (file locks may release)
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                  }
-                }
-              }
-
-              if (!removed && lastError) {
-                const errorMessage = lastError.message || String(lastError);
-                // Check for "not a working tree" error - directory exists but isn't registered with git
-                // This can happen if worktree was partially created or corrupted
-                if (errorMessage.includes('not a working tree') || errorMessage.includes('is not a valid working tree')) {
-                  console.warn(`[TASK_UPDATE_STATUS] Directory exists but isn't a git worktree - deleting directly`);
-                  try {
-                    rmSync(worktreePath, { recursive: true, force: true });
-                    removed = true;
-                    console.warn(`[TASK_UPDATE_STATUS] Directory deleted: ${worktreePath}`);
-                    // Prune any stale worktree references
-                    try {
-                      execFileSync(getToolPath('git'), ['worktree', 'prune'], {
-                        cwd: project.path,
-                        encoding: 'utf-8',
-                        timeout: 30000
-                      });
-                    } catch {
-                      // Ignore prune errors
-                    }
-                  } catch (rmError) {
-                    // Directory deletion failed - allow skip
-                    return {
-                      success: false,
-                      canSkipCleanup: true,
-                      worktreePath: worktreePath,
-                      error: `Cannot delete worktree directory: ${rmError instanceof Error ? rmError.message : String(rmError)}`
-                    };
-                  }
-                }
-                if (!removed) {
-                  // Any other cleanup error - allow skip
-                  return {
-                    success: false,
-                    canSkipCleanup: true,
-                    worktreePath: worktreePath,
-                    error: `Cannot delete worktree: ${errorMessage}`
-                  };
-                }
-              }
-
-              // Delete the branch (ignore errors if branch doesn't exist)
-              // Defensive null check - worktreeBranch should be non-null here since isValidWorktree is true
-              if (worktreeBranch) {
-                try {
-                  execFileSync(getToolPath('git'), ['branch', '-D', worktreeBranch], {
-                    cwd: project.path,
-                    encoding: 'utf-8',
-                    timeout: 30000
-                  });
-                  console.warn(`[TASK_UPDATE_STATUS] Branch deleted: ${worktreeBranch}`);
-                } catch (branchDeleteError) {
-                  console.warn(`[TASK_UPDATE_STATUS] Could not delete branch ${worktreeBranch} (may not exist or be checked out elsewhere)`);
-                }
-              }
-
-              console.warn(`[TASK_UPDATE_STATUS] Worktree cleanup completed successfully`);
-            } catch (cleanupError) {
-              console.error(`[TASK_UPDATE_STATUS] Failed to cleanup worktree:`, cleanupError);
-              return {
-                success: false,
-                canSkipCleanup: true,
-                worktreePath: worktreePath,
-                error: `Failed to cleanup worktree: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}\n\nYou can skip cleanup and mark the task as done. The worktree will remain for manual deletion.`
-              };
+            const cleanupResult = await cleanupValidWorktree(project.path, worktreePath, worktreeBranch);
+            if (!cleanupResult.success) {
+              return cleanupResult;
             }
           } else {
-            // Valid worktree exists but no forceCleanup - return special response for UI to show confirmation
+            // Valid worktree exists but no forceCleanup - return special response for UI
             console.warn(`[TASK_UPDATE_STATUS] Worktree exists for task ${taskId}. Requesting user confirmation.`);
             return {
               success: false,
