@@ -103,6 +103,39 @@ function getTokenFromGlabCli(instanceUrl?: string): string | null {
   }
 }
 
+/**
+ * Authenticate glab CLI with a token
+ * This allows Auto Claude to automatically configure glab when users save their GitLab token
+ * @returns true if authentication succeeded, false otherwise
+ */
+export function authenticateGlabCli(token: string, instanceUrl?: string): boolean {
+  try {
+    const safeToken = sanitizeToken(token);
+    if (!safeToken) return false;
+
+    const normalized = parseInstanceUrl(instanceUrl || DEFAULT_GITLAB_URL);
+    if (!normalized) return false;
+
+    const hostname = new URL(normalized).hostname;
+
+    // Use --stdin to pass token securely
+    const args = ['auth', 'login', '--stdin', '--hostname', hostname];
+
+    // Use execFileSync with input option for secure token passing
+    execFileSync('glab', args, {
+      input: safeToken + '\n',
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      env: getAugmentedEnv()
+    });
+
+    return true;
+  } catch (error) {
+    console.error('[GitLab] Failed to authenticate glab CLI:', error);
+    return false;
+  }
+}
+
 // GitLab environment variable keys (must match env-handlers.ts)
 const GITLAB_ENV_KEYS = {
   ENABLED: 'GITLAB_ENABLED',
@@ -357,7 +390,7 @@ export function detectGitLabProjectFromRemote(projectPath: string): { project: s
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: 'pipe',
-      env: getAugmentedEnv()
+      env: { ...getAugmentedEnv(), GIT_TERMINAL_PROMPT: '0' }
     }).trim();
 
     if (!remoteUrl) return null;

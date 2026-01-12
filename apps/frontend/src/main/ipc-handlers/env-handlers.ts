@@ -11,6 +11,7 @@ import { parseEnvFile } from './utils';
 import { getClaudeCliInvocation, getClaudeCliInvocationAsync } from '../claude-cli-utils';
 import { debugError } from '../../shared/utils/debug-logger';
 import { getSpawnOptions, getSpawnCommand } from '../env-utils';
+import { authenticateGlabCli } from './gitlab/utils';
 
 // GitLab environment variable keys
 const GITLAB_ENV_KEYS = {
@@ -109,6 +110,9 @@ export function registerEnvHandlers(
       existingVars['LINEAR_REALTIME_SYNC'] = config.linearRealtimeSync ? 'true' : 'false';
     }
     // GitHub Integration
+    if (config.githubEnabled !== undefined) {
+      existingVars['GITHUB_ENABLED'] = config.githubEnabled ? 'true' : 'false';
+    }
     if (config.githubToken !== undefined) {
       existingVars['GITHUB_TOKEN'] = config.githubToken;
     }
@@ -248,6 +252,7 @@ ${existingVars['LINEAR_REALTIME_SYNC'] !== undefined ? `LINEAR_REALTIME_SYNC=${e
 # =============================================================================
 # GITHUB INTEGRATION (OPTIONAL)
 # =============================================================================
+${existingVars['GITHUB_ENABLED'] !== undefined ? `GITHUB_ENABLED=${existingVars['GITHUB_ENABLED']}` : '# GITHUB_ENABLED=true'}
 ${existingVars['GITHUB_TOKEN'] ? `GITHUB_TOKEN=${existingVars['GITHUB_TOKEN']}` : '# GITHUB_TOKEN='}
 ${existingVars['GITHUB_REPO'] ? `GITHUB_REPO=${existingVars['GITHUB_REPO']}` : '# GITHUB_REPO=owner/repo'}
 ${existingVars['GITHUB_AUTO_SYNC'] !== undefined ? `GITHUB_AUTO_SYNC=${existingVars['GITHUB_AUTO_SYNC']}` : '# GITHUB_AUTO_SYNC=false'}
@@ -421,7 +426,6 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
 
       // GitHub config
       if (vars['GITHUB_TOKEN']) {
-        config.githubEnabled = true;
         config.githubToken = vars['GITHUB_TOKEN'];
       }
       if (vars['GITHUB_REPO']) {
@@ -430,12 +434,17 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       if (vars['GITHUB_AUTO_SYNC']?.toLowerCase() === 'true') {
         config.githubAutoSync = true;
       }
+      // Check GITHUB_ENABLED independently (even if no token)
+      if (vars['GITHUB_ENABLED'] !== undefined) {
+        config.githubEnabled = vars['GITHUB_ENABLED']?.toLowerCase() === 'true';
+      } else if (vars['GITHUB_TOKEN']) {
+        // Default: enable if token exists
+        config.githubEnabled = true;
+      }
 
       // GitLab config
       if (vars[GITLAB_ENV_KEYS.TOKEN]) {
         config.gitlabToken = vars[GITLAB_ENV_KEYS.TOKEN];
-        // Enable by default if token exists and GITLAB_ENABLED is not explicitly false
-        config.gitlabEnabled = vars[GITLAB_ENV_KEYS.ENABLED]?.toLowerCase() !== 'false';
       }
       if (vars[GITLAB_ENV_KEYS.INSTANCE_URL]) {
         config.gitlabInstanceUrl = vars[GITLAB_ENV_KEYS.INSTANCE_URL];
@@ -445,6 +454,13 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       }
       if (vars[GITLAB_ENV_KEYS.AUTO_SYNC]?.toLowerCase() === 'true') {
         config.gitlabAutoSync = true;
+      }
+      // Check GITLAB_ENABLED independently (even if no token)
+      if (vars[GITLAB_ENV_KEYS.ENABLED] !== undefined) {
+        config.gitlabEnabled = vars[GITLAB_ENV_KEYS.ENABLED]?.toLowerCase() === 'true';
+      } else if (vars[GITLAB_ENV_KEYS.TOKEN]) {
+        // Default: enable if token exists
+        config.gitlabEnabled = true;
       }
 
       // Git/Worktree config
@@ -573,6 +589,18 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
 
         // Write to file
         writeFileSync(envPath, newContent);
+
+        // Auto-authenticate glab CLI if GitLab token was updated
+        if (config.gitlabToken) {
+          const instanceUrl = config.gitlabInstanceUrl || 'https://gitlab.com';
+          console.log('[env-handlers] Auto-authenticating glab CLI with saved token');
+          const authSuccess = authenticateGlabCli(config.gitlabToken, instanceUrl);
+          if (authSuccess) {
+            console.log('[env-handlers] ✓ glab CLI authenticated successfully');
+          } else {
+            console.warn('[env-handlers] ⚠ Failed to authenticate glab CLI automatically');
+          }
+        }
 
         return { success: true };
       } catch (error) {
