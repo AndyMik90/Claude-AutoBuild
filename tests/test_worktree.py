@@ -10,15 +10,17 @@ Tests the worktree.py module functionality including:
 - Merge operations
 - Change tracking
 - Worktree cleanup and age detection
+- Cross-language constant validation
 """
 
+import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-from worktree import WorktreeManager
+from worktree import WorktreeManager, BASE_BRANCHES
 
 
 class TestWorktreeManagerInitialization:
@@ -709,3 +711,47 @@ class TestWorktreeCleanup:
         warning = manager.get_worktree_count_warning(critical_threshold=20)
         assert warning is not None
         assert "CRITICAL" in warning
+
+
+class TestCrossLanguageConstantValidation:
+    """Tests to ensure Python and TypeScript constants stay in sync."""
+
+    def test_base_branches_matches_typescript(self):
+        """Validate Python BASE_BRANCHES matches TypeScript BASE_BRANCHES constant.
+
+        This test ensures the cross-language constant synchronization documented in
+        apps/backend/core/worktree.py and apps/frontend/src/shared/constants/git.ts
+        is maintained.
+        """
+        # Path to the TypeScript constant file
+        ts_file = Path(__file__).parent.parent / "apps" / "frontend" / "src" / "shared" / "constants" / "git.ts"
+
+        assert ts_file.exists(), f"TypeScript constants file not found: {ts_file}"
+
+        # Read and parse TypeScript file
+        ts_content = ts_file.read_text()
+
+        # Extract BASE_BRANCHES array from TypeScript using regex
+        # Matches: export const BASE_BRANCHES = ['main', 'master', 'develop', 'head'] as const;
+        match = re.search(
+            r"export\s+const\s+BASE_BRANCHES\s*=\s*\[(.*?)\]\s*as\s+const",
+            ts_content,
+            re.DOTALL
+        )
+
+        assert match, "Could not find BASE_BRANCHES constant in TypeScript file"
+
+        # Parse the array contents (extract quoted strings)
+        array_content = match.group(1)
+        ts_branches = set(re.findall(r"['\"](\w+)['\"]", array_content))
+
+        # Compare with Python constant (case-insensitive since both use .toLowerCase()/.lower())
+        py_branches = set(BASE_BRANCHES)
+
+        assert ts_branches == py_branches, (
+            f"BASE_BRANCHES mismatch between Python and TypeScript!\n"
+            f"Python: {sorted(py_branches)}\n"
+            f"TypeScript: {sorted(ts_branches)}\n"
+            f"Missing in Python: {sorted(ts_branches - py_branches)}\n"
+            f"Missing in TypeScript: {sorted(py_branches - ts_branches)}"
+        )

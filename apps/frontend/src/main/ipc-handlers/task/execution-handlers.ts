@@ -123,7 +123,7 @@ async function removeWorktreeWithRetry(
 }
 
 /**
- * Prune stale worktree references (best-effort, ignores errors).
+ * Prune stale worktree references (best-effort, logs errors for debugging).
  */
 function pruneWorktrees(projectPath: string): void {
   try {
@@ -132,8 +132,8 @@ function pruneWorktrees(projectPath: string): void {
       encoding: 'utf-8',
       timeout: 30000
     });
-  } catch {
-    // Ignore prune errors
+  } catch (e) {
+    console.debug('[pruneWorktrees] Prune failed (non-blocking):', e);
   }
 }
 
