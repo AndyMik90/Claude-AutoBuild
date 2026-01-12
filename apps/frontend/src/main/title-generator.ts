@@ -13,6 +13,22 @@ import { MODEL_ID_MAP } from '../shared/constants/models';
 /** Default Haiku model ID from centralized model map */
 const DEFAULT_HAIKU_MODEL = MODEL_ID_MAP.haiku;
 
+/** Default Anthropic API base URL */
+const DEFAULT_ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
+
+/**
+ * Interface for active API profile configuration.
+ * Used for direct SDK calls with profile credentials.
+ */
+interface ActiveAPIProfile {
+  /** The API key for authentication */
+  apiKey: string;
+  /** The base URL for the Anthropic API */
+  baseUrl: string;
+  /** The Haiku model ID to use for title generation */
+  haikuModel: string;
+}
+
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
  */
@@ -127,11 +143,7 @@ export class TitleGenerator extends EventEmitter {
    * @returns Promise resolving to the profile configuration with apiKey, baseUrl, and haikuModel,
    *          or null if no API profile is active
    */
-  private async getActiveAPIProfile(): Promise<{
-    apiKey: string;
-    baseUrl: string;
-    haikuModel: string;
-  } | null> {
+  private async getActiveAPIProfile(): Promise<ActiveAPIProfile | null> {
     try {
       const file = await loadProfilesFile();
 
@@ -150,7 +162,7 @@ export class TitleGenerator extends EventEmitter {
 
       return {
         apiKey: profile.apiKey,
-        baseUrl: profile.baseUrl || 'https://api.anthropic.com',
+        baseUrl: profile.baseUrl || DEFAULT_ANTHROPIC_BASE_URL,
         haikuModel: profile.models?.haiku || DEFAULT_HAIKU_MODEL
       };
     } catch (error) {
@@ -212,11 +224,9 @@ export class TitleGenerator extends EventEmitter {
       const message = err?.message || String(error);
 
       // Check for rate limit conditions using detectRateLimit for consistency with OAuth path
+      // detectRateLimit already checks for 'rate limit' and 'too many requests' patterns
       const rateLimitDetection = detectRateLimit(message);
-      const isRateLimit = rateLimitDetection.isRateLimited || 
-        status === 429 || 
-        /rate\s*limit/i.test(message) || 
-        /too\s*many\s*requests/i.test(message);
+      const isRateLimit = rateLimitDetection.isRateLimited || status === 429;
 
       // Log with appropriate detail (indicate truncation if message is long)
       const truncatedMessage = message.length > 200 
@@ -231,7 +241,8 @@ export class TitleGenerator extends EventEmitter {
       });
 
       // Emit rate limit event if detected (consistent with OAuth path behavior)
-      if (isRateLimit && rateLimitDetection.isRateLimited) {
+      // Emit for all rate-limit scenarios including HTTP 429 status code
+      if (isRateLimit) {
         const rateLimitInfo = createSDKRateLimitInfo('title-generator', rateLimitDetection);
         this.emit('sdk-rate-limit', rateLimitInfo);
       }
@@ -276,7 +287,7 @@ export class TitleGenerator extends EventEmitter {
     const envApiKey = process.env.ANTHROPIC_API_KEY;
     if (envApiKey) {
       debug('Using ANTHROPIC_API_KEY environment variable for title generation');
-      const baseUrl = process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
+      const baseUrl = process.env.ANTHROPIC_BASE_URL || DEFAULT_ANTHROPIC_BASE_URL;
       const model = process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || DEFAULT_HAIKU_MODEL;
       const title = await this.generateTitleWithSDK(description, envApiKey, baseUrl, model);
       if (title) {
