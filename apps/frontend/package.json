@@ -160,10 +160,6 @@
     ],
     "extraResources": [
       {
-        "from": "node_modules/@lydell/node-pty",
-        "to": "node_modules/@lydell/node-pty"
-      },
-      {
         "from": "resources/icon.ico",
         "to": "icon.ico"
       },

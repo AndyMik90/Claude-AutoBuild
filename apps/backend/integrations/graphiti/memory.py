@@ -50,7 +50,7 @@ from .queries_pkg.schema import (
 def get_graphiti_memory(
     spec_dir: Path,
     project_dir: Path,
-    group_id_mode: str = GroupIdMode.SPEC,
+    group_id_mode: str = GroupIdMode.PROJECT,
 ) -> GraphitiMemory:
     """
     Get a GraphitiMemory instance for the given spec.
@@ -60,10 +60,14 @@ def get_graphiti_memory(
     Args:
         spec_dir: Spec directory
         project_dir: Project root directory
-        group_id_mode: "spec" for isolated memory, "project" for shared
+        group_id_mode: "spec" for isolated memory, "project" for shared (default)
 
     Returns:
         GraphitiMemory instance
+
+    Note:
+        Default changed from SPEC to PROJECT to enable cross-spec learning across
+        the entire project. Use GroupIdMode.SPEC explicitly for isolated per-spec memory.
     """
     return GraphitiMemory(spec_dir, project_dir, group_id_mode)
 

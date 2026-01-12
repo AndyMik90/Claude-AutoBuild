@@ -2,7 +2,7 @@ import type { BrowserWindow } from 'electron';
 import path from 'path';
 import { existsSync } from 'fs';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
-import { wouldPhaseRegress, isTerminalPhase, isValidExecutionPhase, type ExecutionPhase } from '../../shared/constants/phase-protocol';
+import { wouldPhaseRegress, isTerminalPhase, isValidExecutionPhase, isValidPhaseTransition, type ExecutionPhase } from '../../shared/constants/phase-protocol';
 import type {
   SDKRateLimitInfo,
   Task,
@@ -25,6 +25,7 @@ import { findTaskAndProject } from './task/shared';
  * Validates status transitions to prevent invalid state changes.
  * FIX (ACS-55, ACS-71): Adds guardrails against bad status transitions.
  * FIX (PR Review): Uses comprehensive wouldPhaseRegress() utility instead of hardcoded checks.
+ * FIX (ACS-203): Adds phase completion validation to prevent phase overlaps.
  *
  * @param task - The current task (may be undefined if not found)
  * @param newStatus - The proposed new status
@@ -50,6 +51,8 @@ function validateStatusTransition(
   // This handles all phase regressions (qa_review→coding, complete→coding, etc.)
   // not just the specific coding→planning case
   const currentPhase = task.executionProgress?.phase;
+  const completedPhases = task.executionProgress?.completedPhases || [];
+
   if (currentPhase && isValidExecutionPhase(currentPhase) && isValidExecutionPhase(phase)) {
     // Block transitions from terminal phases (complete/failed)
     if (isTerminalPhase(currentPhase)) {
@@ -61,6 +64,20 @@ function validateStatusTransition(
     // Note: Cast phase to ExecutionPhase since isValidExecutionPhase() type guard doesn't narrow through function calls
     if (wouldPhaseRegress(currentPhase, phase as ExecutionPhase)) {
       console.warn(`[validateStatusTransition] Blocking phase regression: ${currentPhase} -> ${phase} for task ${task.id}`);
+      return false;
+    }
+
+    // FIX (ACS-203): Validate phase transitions based on completed phases
+    // This prevents multiple phases from being active simultaneously
+    // e.g., coding starting while planning is still marked as active
+    const newPhase = phase as ExecutionPhase;
+    if (!isValidPhaseTransition(currentPhase, newPhase, completedPhases)) {
+      console.warn(`[validateStatusTransition] Blocking invalid phase transition: ${currentPhase} -> ${newPhase} for task ${task.id}`, {
+        currentPhase,
+        newPhase,
+        completedPhases,
+        reason: 'Prerequisite phases not completed'
+      });
       return false;
     }
   }

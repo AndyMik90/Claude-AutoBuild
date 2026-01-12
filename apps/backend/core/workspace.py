@@ -277,6 +277,13 @@ def merge_existing_build(
                             no_commit, stats, spec_name=spec_name, keep_worktree=True
                         )
                         return True
+                    else:
+                        # Standard git merge failed - report error and don't continue
+                        print()
+                        print_status(
+                            "Merge failed. Please check the errors above.", "error"
+                        )
+                        return False
             elif smart_result.get("git_conflicts"):
                 # Had git conflicts that AI couldn't fully resolve
                 resolved = smart_result.get("resolved", [])
@@ -1425,18 +1432,41 @@ import os
 _merge_logger = logging.getLogger(__name__)
 
 # System prompt for AI file merging
-AI_MERGE_SYSTEM_PROMPT = """You are an expert code merge assistant. Your task is to perform a 3-way merge of code files.
+AI_MERGE_SYSTEM_PROMPT = """You are an expert code merge assistant specializing in intelligent 3-way merges. Your task is to merge code changes from two branches while preserving all meaningful changes.
 
-RULES:
-1. Preserve all functional changes from both versions (ours and theirs)
-2. Maintain code style consistency
-3. Resolve conflicts by understanding the semantic purpose of each change
-4. When changes are independent (different functions/sections), include both
-5. When changes overlap, combine them logically or prefer the more complete version
-6. Preserve all imports from both versions
-7. Output ONLY the merged code - no explanations, no markdown, no code fences
+CONTEXT:
+- "OURS" = current main branch (target for merge)
+- "THEIRS" = task worktree branch (changes being merged in)
+- "BASE" = common ancestor before changes
 
-IMPORTANT: Output the raw merged file content only. Do not wrap in code blocks."""
+MERGE STRATEGY:
+1. **Preserve all functional changes** - Include all features, bug fixes, and improvements from both versions
+2. **Combine independent changes** - If changes are in different functions/sections, include both
+3. **Resolve overlapping changes intelligently**:
+   - Prefer the more complete/updated implementation
+   - Combine logic if both versions add value
+   - When in doubt, favor the version that better addresses the task's intent
+4. **Maintain syntactic correctness** - Ensure the merged code is valid and compiles/runs
+5. **Preserve imports and dependencies** from both versions
+
+HANDLING COMMON PATTERNS:
+- New functions/classes: Include all from both versions
+- Modified functions: Merge changes logically, prefer more complete version
+- Imports: Union of all imports from both versions
+- Comments/Documentation: Include relevant documentation from both
+- Configuration: Merge settings, with conflict resolution favoring task-specific values
+
+CRITICAL RULES:
+- Output ONLY the merged code - no explanations, no prose, no markdown fences
+- If you cannot determine the correct merge, make a reasonable decision based on best practices
+- Never output error messages like "I need more context" - always provide a best-effort merge
+- Ensure the output is complete and syntactically valid code"""
+
+# Model constants for AI merge two-tier strategy (ACS-194)
+MERGE_FAST_MODEL = "claude-haiku-4-5-20251001"  # Fast model for simple merges
+MERGE_CAPABLE_MODEL = "claude-sonnet-4-5-20250929"  # Capable model for complex merges
+MERGE_FAST_THINKING = 1024  # Lower thinking for fast/simple merges
+MERGE_COMPLEX_THINKING = 16000  # Higher thinking for complex merges
 
 
 def _infer_language_from_path(file_path: str) -> str:
@@ -1525,7 +1555,7 @@ def _build_merge_prompt(
         if len(base_content) > 10000:
             base_content = base_content[:10000] + "\n... (truncated)"
         base_section = f"""
-BASE (common ancestor):
+BASE (common ancestor before changes):
 ```{language}
 {base_content}
 ```
@@ -1537,20 +1567,22 @@ BASE (common ancestor):
     if len(worktree_content) > 15000:
         worktree_content = worktree_content[:15000] + "\n... (truncated)"
 
-    prompt = f"""Perform a 3-way merge for file: {file_path}
-Task being merged: {spec_name}
+    prompt = f"""FILE: {file_path}
+TASK: {spec_name}
+
+This is a 3-way code merge. You must combine changes from both versions.
 {base_section}
-OURS (current main branch):
+OURS (current main branch - target for merge):
 ```{language}
 {main_content}
 ```
 
-THEIRS (changes from task worktree):
+THEIRS (task worktree branch - changes being merged):
 ```{language}
 {worktree_content}
 ```
 
-Merge these versions, preserving all meaningful changes from both. Output only the merged file content, no explanations."""
+OUTPUT THE MERGED CODE ONLY. No explanations, no markdown fences."""
 
     return prompt
 
@@ -1566,6 +1598,112 @@ def _strip_code_fences(content: str) -> str:
         else:
             return "\n".join(lines[1:])
     return content
+
+
+async def _attempt_ai_merge(
+    task: "ParallelMergeTask",
+    prompt: str,
+    model: str = MERGE_FAST_MODEL,
+    max_thinking_tokens: int = MERGE_FAST_THINKING,
+) -> tuple[bool, str | None, str]:
+    """
+    Attempt an AI merge with a specific model.
+
+    Args:
+        task: The merge task with file contents
+        prompt: The merge prompt
+        model: Model to use for merge
+        max_thinking_tokens: Max thinking tokens for the model
+
+    Returns:
+        Tuple of (success, merged_content, error_message)
+    """
+    try:
+        from core.simple_client import create_simple_client
+    except ImportError:
+        return False, None, "core.simple_client not available"
+
+    client = create_simple_client(
+        agent_type="merge_resolver",
+        model=model,
+        system_prompt=AI_MERGE_SYSTEM_PROMPT,
+        max_thinking_tokens=max_thinking_tokens,
+    )
+
+    response_text = ""
+    async with client:
+        await client.query(prompt)
+
+        async for msg in client.receive_response():
+            msg_type = type(msg).__name__
+            if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+                for block in msg.content:
+                    block_type = type(block).__name__
+                    if block_type == "TextBlock" and hasattr(block, "text"):
+                        response_text += block.text
+
+    if response_text:
+        merged_content = _strip_code_fences(response_text.strip())
+
+        # Check if AI returned natural language instead of code (case-insensitive)
+        # More robust detection: (1) Check if patterns are at START of line, (2) Check for
+        # absence of code patterns like imports, function definitions, braces, etc.
+        natural_language_patterns = [
+            "i need to",
+            "let me",
+            "i cannot",
+            "i'm unable",
+            "the file appears",
+            "i don't have",
+            "unfortunately",
+            "i apologize",
+        ]
+
+        first_line = merged_content.split("\n")[0] if merged_content else ""
+        first_line_stripped = first_line.lstrip()
+        first_line_lower = first_line_stripped.lower()
+
+        # Check if first line STARTS with natural language pattern (not just contains it)
+        starts_with_prose = any(
+            first_line_lower.startswith(pattern)
+            for pattern in natural_language_patterns
+        )
+
+        # Also check for absence of common code patterns to reduce false positives
+        has_code_patterns = any(
+            pattern in merged_content[:500]  # Check first 500 chars for code patterns
+            for pattern in [
+                "import ",  # Python/JS/TypeScript imports
+                "from ",  # Python imports
+                "def ",  # Python functions
+                "function ",  # JavaScript functions
+                "const ",  # JavaScript/TypeScript const
+                "class ",  # Class definitions
+                "{",  # Braces indicate code
+                "}",  # Braces indicate code
+                "#!",  # Shebang
+                "<!--",  # HTML comment
+            ]
+        )
+
+        # Only reject if it starts with prose AND lacks code patterns
+        if starts_with_prose and not has_code_patterns:
+            return (
+                False,
+                None,
+                f"AI returned explanation instead of code: {first_line[:80]}...",
+            )
+
+        # Validate syntax
+        is_valid, syntax_error = _validate_merged_syntax(
+            task.file_path, merged_content, task.project_dir
+        )
+        if not is_valid:
+            return False, None, f"Invalid syntax: {syntax_error}"
+
+        return True, merged_content, ""
+    else:
+        return False, None, "AI returned empty response"
 
 
 async def _merge_file_with_ai_async(
@@ -1625,83 +1763,42 @@ async def _merge_file_with_ai_async(
                 task.spec_name,
             )
 
-            # Call Claude Haiku for fast merge
-            try:
-                from core.simple_client import create_simple_client
-            except ImportError:
-                return ParallelMergeResult(
-                    file_path=task.file_path,
-                    merged_content=None,
-                    success=False,
-                    error="core.simple_client not available",
-                )
-
-            client = create_simple_client(
-                agent_type="merge_resolver",
-                model="claude-haiku-4-5-20251001",
-                system_prompt=AI_MERGE_SYSTEM_PROMPT,
-                max_thinking_tokens=1024,  # Low thinking for speed
+            # Call Claude Haiku for fast merge first, then fallback to Sonnet if it fails
+            # This two-tier approach matches the chat agent's success rate
+            # - Tier 1: Haiku (fast, handles simple merges)
+            # - Tier 2: Sonnet (more capable, handles complex merges)
+            debug(MODULE, f"Attempting AI merge for {task.file_path} with Haiku (fast)")
+            success, merged_content, error = await _attempt_ai_merge(
+                task,
+                prompt,
+                model=MERGE_FAST_MODEL,
+                max_thinking_tokens=MERGE_FAST_THINKING,
             )
 
-            response_text = ""
-            async with client:
-                await client.query(prompt)
-
-                async for msg in client.receive_response():
-                    msg_type = type(msg).__name__
-                    if msg_type == "AssistantMessage" and hasattr(msg, "content"):
-                        for block in msg.content:
-                            # Must check block type - only TextBlock has .text attribute
-                            block_type = type(block).__name__
-                            if block_type == "TextBlock" and hasattr(block, "text"):
-                                response_text += block.text
-
-            if response_text:
-                # Strip any code fences the model might have added
-                merged_content = _strip_code_fences(response_text.strip())
-
-                # VALIDATION: Check if AI returned natural language instead of code
-                # This catches cases where AI says "I need to see more..." instead of merging
-                natural_language_patterns = [
-                    "I need to",
-                    "Let me",
-                    "I cannot",
-                    "I'm unable",
-                    "The file appears",
-                    "I don't have",
-                    "Unfortunately",
-                    "I apologize",
-                ]
-                first_line = merged_content.split("\n")[0] if merged_content else ""
-                if any(pattern in first_line for pattern in natural_language_patterns):
-                    debug_warning(
-                        MODULE,
-                        f"AI returned natural language instead of code for {task.file_path}: {first_line[:100]}",
-                    )
-                    return ParallelMergeResult(
-                        file_path=task.file_path,
-                        merged_content=None,
-                        success=False,
-                        error=f"AI returned explanation instead of code: {first_line[:80]}...",
-                    )
-
-                # VALIDATION: Run syntax check on the merged content
-                is_valid, syntax_error = _validate_merged_syntax(
-                    task.file_path, merged_content, task.project_dir
+            if success and merged_content:
+                debug(MODULE, f"Haiku merged {task.file_path} successfully")
+                return ParallelMergeResult(
+                    file_path=task.file_path,
+                    merged_content=merged_content,
+                    success=True,
+                    was_auto_merged=False,
                 )
-                if not is_valid:
-                    debug_warning(
-                        MODULE,
-                        f"AI merge produced invalid syntax for {task.file_path}: {syntax_error}",
-                    )
-                    return ParallelMergeResult(
-                        file_path=task.file_path,
-                        merged_content=None,
-                        success=False,
-                        error=f"AI merge produced invalid syntax: {syntax_error}",
-                    )
 
-                debug(MODULE, f"AI merged {task.file_path} successfully")
+            # Haiku failed, retry with Sonnet (more capable model)
+            debug_warning(
+                MODULE,
+                f"Haiku merge failed for {task.file_path}: {error}, retrying with Sonnet...",
+            )
+            print(muted(f"    Retrying {task.file_path} with more capable AI model..."))
+            success, merged_content, error = await _attempt_ai_merge(
+                task,
+                prompt,
+                model=MERGE_CAPABLE_MODEL,
+                max_thinking_tokens=MERGE_COMPLEX_THINKING,
+            )
+
+            if success and merged_content:
+                debug(MODULE, f"Sonnet merged {task.file_path} successfully")
                 return ParallelMergeResult(
                     file_path=task.file_path,
                     merged_content=merged_content,
@@ -1709,11 +1806,16 @@ async def _merge_file_with_ai_async(
                     was_auto_merged=False,
                 )
             else:
+                # Both models failed
+                debug_error(
+                    MODULE,
+                    f"Both AI models failed to merge {task.file_path}: {error}",
+                )
                 return ParallelMergeResult(
                     file_path=task.file_path,
                     merged_content=None,
                     success=False,
-                    error="AI returned empty response",
+                    error=f"AI merge failed: {error}",
                 )
 
         except Exception as e:
