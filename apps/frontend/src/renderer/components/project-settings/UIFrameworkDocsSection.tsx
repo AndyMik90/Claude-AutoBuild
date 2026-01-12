@@ -90,13 +90,16 @@ export function UIFrameworkDocsSection({
     try {
       const result = await window.electronAPI.refreshProjectIndex(projectId);
       if (result.success) {
-        // Reload the page to show updated framework detection
+        // Detection successful - show notification
+        alert('UI frameworks detected successfully! The page will reload to show updates.');
         window.location.reload();
       } else {
         console.error('Failed to detect UI framework:', result.error);
+        alert(`Failed to detect frameworks: ${result.error}`);
       }
     } catch (error) {
       console.error('Failed to detect UI framework:', error);
+      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsDetecting(false);
     }
