@@ -288,6 +288,11 @@ def main() -> None:
     # Set up environment first
     setup_environment()
 
+    # Initialize Sentry early to capture any startup errors
+    from core.sentry import init_sentry, capture_exception, set_context
+
+    init_sentry(component="cli")
+
     # Parse arguments
     args = parse_args()
 

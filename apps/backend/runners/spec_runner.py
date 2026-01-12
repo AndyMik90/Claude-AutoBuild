@@ -93,6 +93,11 @@ if env_file.exists():
 elif dev_env_file.exists():
     load_dotenv(dev_env_file)
 
+# Initialize Sentry early to capture any startup errors
+from core.sentry import init_sentry, capture_exception
+
+init_sentry(component="spec-runner")
+
 from debug import debug, debug_error, debug_section, debug_success
 from phase_config import resolve_model_id
 from review import ReviewState
