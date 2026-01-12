@@ -10,7 +10,6 @@ import {
   fetchAnthropicOAuthUsage,
   fetchUsageForProfile
 } from './profile-usage';
-import { RESETTING_SOON } from './profile-usage';
 import type { ClaudeUsageSnapshot } from '../../../shared/types/agent';
 
 // Mock global fetch

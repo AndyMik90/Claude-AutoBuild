@@ -64,17 +64,26 @@ interface AnthropicUsageResponse {
  * Detect provider type from base URL
  */
 export function detectProvider(baseUrl: string): UsageProvider {
-  const normalizedUrl = baseUrl.toLowerCase().trim();
+  try {
+    const url = new URL(baseUrl);
+    const hostname = url.hostname.toLowerCase();
 
-  if (normalizedUrl.includes('api.z.ai') || normalizedUrl.includes('z.ai')) {
-    return 'zai';
+    // Check for Z.ai domains (api.z.ai or z.ai)
+    if (hostname === 'api.z.ai' || hostname === 'z.ai' ||
+        hostname.endsWith('.z.ai') || hostname.endsWith('.api.z.ai')) {
+      return 'zai';
+    }
+
+    // Check for Anthropic OAuth domain (api.anthropic.com)
+    if (hostname === 'api.anthropic.com' || hostname.endsWith('.api.anthropic.com')) {
+      return 'anthropic-oauth';
+    }
+
+    return 'other';
+  } catch {
+    // Invalid URL, treat as unknown provider
+    return 'other';
   }
-
-  if (normalizedUrl.includes('api.anthropic.com')) {
-    return 'anthropic-oauth';
-  }
-
-  return 'other';
 }
 
 // ============================================
