@@ -2,7 +2,7 @@ import { app } from 'electron';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
+import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, TaskErrorInfo, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
@@ -384,6 +384,7 @@ export class ProjectStore {
 
         // Try to read implementation plan
         let plan: ImplementationPlan | null = null;
+        let parseError: TaskErrorInfo | null = null;
         if (existsSync(planPath)) {
           console.warn(`[ProjectStore] Loading implementation_plan.json for spec: ${dir.name} from ${location}`);
           try {
@@ -397,7 +398,15 @@ export class ProjectStore {
               subtaskCount: plan?.phases?.flatMap(p => p.subtasks || []).length || 0
             });
           } catch (err) {
-            console.error(`[ProjectStore] Failed to parse implementation_plan.json for ${dir.name}:`, err);
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            parseError = {
+              key: 'errors:task.parseImplementationPlan',
+              meta: {
+                specId: dir.name,
+                error: errorMessage.slice(0, 500)
+              }
+            };
+            console.error(`[ProjectStore] Failed to parse implementation_plan.json for ${dir.name}:`, errorMessage);
           }
         } else {
           console.warn(`[ProjectStore] No implementation_plan.json found for spec: ${dir.name} at ${planPath}`);
@@ -455,7 +464,21 @@ export class ProjectStore {
         }
 
         // Determine task status and review reason from plan
-        const { status, reviewReason } = this.determineTaskStatusAndReason(plan, specPath, metadata);
+        // If there's a parse error, override to error status
+        let finalStatus: TaskStatus;
+        let finalDescription = description;
+        let finalReviewReason: ReviewReason | undefined = undefined;
+        let finalErrorInfo: TaskErrorInfo | undefined = undefined;
+
+        if (parseError) {
+          finalStatus = 'error';
+          finalErrorInfo = parseError;
+          console.error(`[ProjectStore] Creating error task for ${dir.name}:`, parseError);
+        } else {
+          const { status, reviewReason } = this.determineTaskStatusAndReason(plan, specPath, metadata);
+          finalStatus = status;
+          finalReviewReason = reviewReason;
+        }
 
         // Extract subtasks from plan (handle both 'subtasks' and 'chunks' naming)
         const subtasks = plan?.phases?.flatMap((phase) => {
@@ -498,12 +521,13 @@ export class ProjectStore {
           specId: dir.name,
           projectId,
           title,
-          description,
-          status,
-          reviewReason,
+          description: finalDescription,
+          status: finalStatus,
           subtasks,
           logs: [],
           metadata,
+          ...(finalReviewReason !== undefined && { reviewReason: finalReviewReason }),
+          ...(finalErrorInfo !== undefined && { errorInfo: finalErrorInfo }),
           stagedInMainProject,
           stagedAt,
           location, // Add location metadata (main vs worktree)
@@ -583,7 +607,8 @@ export class ProjectStore {
         'human_review': 'human_review',
         'ai_review': 'ai_review',
         'pr_created': 'pr_created', // PR has been created for this task
-        'backlog': 'backlog'
+        'backlog': 'backlog',
+        'error': 'error' // Preserves error status from JSON parse failures
       };
       const storedStatus = statusMap[plan.status];
 
@@ -595,6 +620,11 @@ export class ProjectStore {
       // If task has a PR created, always respect that status
       if (storedStatus === 'pr_created') {
         return { status: 'pr_created' };
+      }
+
+      // If task has an error status, always respect that (from JSON parse failures)
+      if (storedStatus === 'error') {
+        return { status: 'error' };
       }
 
       // For other stored statuses, validate against calculated status

@@ -80,6 +80,7 @@
     "start": "Start",
     "stop": "Stop",
     "refresh": "Refresh",
+    "refreshing": "Refreshing...",
     "merge": "Merge",
     "discard": "Discard",
     "switch": "Switch",

@@ -129,12 +129,12 @@ function computePRStatus(params: {
     (f: { severity: string }) => f.severity === 'critical' || f.severity === 'high'
   );
   const hasNewCommits = newCommitsCheck?.hasNewCommits ?? false;
-  const newCommitCount = newCommitsCheck?.newCommitCount ?? 0;
+  const _newCommitCount = newCommitsCheck?.newCommitCount ?? 0; // Reserved for future use
   const hasCommitsAfterPosting = newCommitsCheck?.hasCommitsAfterPosting ?? false;
 
   // Follow-up review specific statuses
   if (reviewResult.isFollowupReview) {
-    const resolvedCount = reviewResult.resolvedFindings?.length ?? 0;
+    const _resolvedCount = reviewResult.resolvedFindings?.length ?? 0; // Reserved for future use
     const unresolvedCount = reviewResult.unresolvedFindings?.length ?? 0;
     const newIssuesCount = reviewResult.newFindingsSinceLastReview?.length ?? 0;
     const hasBlockingIssuesRemaining = reviewResult.findings.some(

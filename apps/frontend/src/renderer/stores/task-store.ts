@@ -231,11 +231,21 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           // 1. Subtasks array is properly populated (not empty)
           // 2. All subtasks are actually completed (for 'done' and 'ai_review' statuses)
           const hasSubtasks = subtasks.length > 0;
-          const terminalStatuses: TaskStatus[] = ['human_review', 'pr_created', 'done'];
+          const terminalStatuses: TaskStatus[] = ['human_review', 'pr_created', 'done', 'error'];
 
           // If task is currently in a terminal status, validate subtasks before allowing downgrade
           // This prevents flip-flop when plan file is written with incomplete data
           const shouldBlockTerminalTransition = (newStatus: TaskStatus): boolean => {
+            // Allow recovery from error status to backlog or in_progress
+            if (t.status === 'error' && (newStatus === 'backlog' || newStatus === 'in_progress')) {
+              return false; // Allow error recovery transitions
+            }
+
+            // Error status doesn't require completion validation (it's a failure state)
+            if (newStatus === 'error') {
+              return false; // Allow transitions to error without completion check
+            }
+
             // Block if: moving to terminal status but subtasks indicate incomplete work
             if (terminalStatuses.includes(newStatus) || newStatus === 'ai_review') {
               // For ai_review, all subtasks must be completed

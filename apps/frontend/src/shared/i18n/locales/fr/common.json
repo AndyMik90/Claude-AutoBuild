@@ -72,6 +72,7 @@
     "start": "Démarrer",
     "stop": "Arrêter",
     "refresh": "Actualiser",
+    "refreshing": "Actualisation...",
     "merge": "Fusionner",
     "discard": "Abandonner",
     "switch": "Changer",

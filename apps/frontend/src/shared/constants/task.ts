@@ -9,6 +9,7 @@
 
 // Task status columns in Kanban board order
 export const TASK_STATUS_COLUMNS = [
+  'error',
   'backlog',
   'in_progress',
   'ai_review',
@@ -16,9 +17,12 @@ export const TASK_STATUS_COLUMNS = [
   'done'
 ] as const;
 
+export type TaskStatusColumn = typeof TASK_STATUS_COLUMNS[number];
+
 // Status label translation keys (use with t() from react-i18next)
 // Note: pr_created maps to 'done' column in Kanban view (see KanbanBoard.tsx)
-export const TASK_STATUS_LABELS: Record<string, string> = {
+export const TASK_STATUS_LABELS: Record<TaskStatusColumn | 'pr_created', string> = {
+  error: 'columns.error',
   backlog: 'columns.backlog',
   in_progress: 'columns.in_progress',
   ai_review: 'columns.ai_review',
@@ -29,7 +33,8 @@ export const TASK_STATUS_LABELS: Record<string, string> = {
 
 // Status colors for UI
 // Note: pr_created maps to 'done' column in Kanban view (see KanbanBoard.tsx)
-export const TASK_STATUS_COLORS: Record<string, string> = {
+export const TASK_STATUS_COLORS: Record<TaskStatusColumn | 'pr_created', string> = {
+  error: 'bg-destructive/10 text-destructive',
   backlog: 'bg-muted text-muted-foreground',
   in_progress: 'bg-info/10 text-info',
   ai_review: 'bg-warning/10 text-warning',
