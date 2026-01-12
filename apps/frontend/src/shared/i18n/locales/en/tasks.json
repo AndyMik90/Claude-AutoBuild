@@ -220,5 +220,31 @@
   },
   "subtasks": {
     "untitled": "Untitled subtask"
+  },
+  "queue": {
+    "button": {
+      "queueEnabled": "Queue enabled - click to configure",
+      "queueDisabled": "Queue disabled - click to enable"
+    },
+    "status": {
+      "enabled": "Queue Enabled",
+      "disabled": "Queue Disabled",
+      "runningCount": "{{current}} of {{max}} running"
+    },
+    "settings": {
+      "title": "Queue Settings",
+      "description": "Configure automatic task scheduling from Planning to In Progress",
+      "enableQueue": "Enable Queue",
+      "enableQueueDescription": "Automatically start tasks when slots are available",
+      "currentStatus": "Current Status",
+      "exceedsLimit": "exceeds limit",
+      "maxConcurrent": "Max concurrent tasks",
+      "maxConcurrentDescription": "Maximum number of tasks that can run simultaneously",
+      "single": "task",
+      "multiple": "tasks",
+      "exceedsWarning": "Warning: {{running}} tasks are running but max is {{max}}. New tasks won't start until a slot is available.",
+      "disabledInfo": "Enable the queue to automatically start tasks from Planning when slots become available in In Progress.",
+      "save": "Save Settings"
+    }
   }
 }

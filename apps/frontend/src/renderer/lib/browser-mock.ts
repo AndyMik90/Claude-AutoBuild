@@ -98,6 +98,21 @@ const browserMockAPI: ElectronAPI = {
   // Context Operations
   ...contextMock,
 
+  // Queue Operations
+  getQueueConfig: async () => ({
+    success: true,
+    data: { enabled: false, maxConcurrent: 1 }
+  }),
+
+  setQueueConfig: async () => ({
+    success: true
+  }),
+
+  getQueueStatus: async () => ({
+    success: true,
+    data: { enabled: false, maxConcurrent: 1, runningCount: 0, backlogCount: 0 }
+  }),
+
   // Environment Configuration & Integration Operations
   ...integrationMock,
 

@@ -9,6 +9,7 @@ import type { BrowserWindow } from 'electron';
 import { AgentManager } from './agent';
 import { TerminalManager } from './terminal-manager';
 import { PythonEnvManager } from './python-env-manager';
+import { TaskQueueManager } from './task-queue-manager';
 import { setupIpcHandlers as setupModularHandlers } from './ipc-handlers';
 
 /**
@@ -32,18 +33,21 @@ import { setupIpcHandlers as setupModularHandlers } from './ipc-handlers';
  * - ideation-handlers.ts: Ideation generation
  * - changelog-handlers.ts: Changelog operations
  * - insights-handlers.ts: AI insights chat
+ * - queue-handlers.ts: Task queue configuration and status
  *
  * @param agentManager - The agent manager instance
  * @param terminalManager - The terminal manager instance
  * @param getMainWindow - Function to get the main BrowserWindow
  * @param pythonEnvManager - The Python environment manager instance
+ * @param taskQueueManager - The task queue manager instance
  */
 export function setupIpcHandlers(
   agentManager: AgentManager,
   terminalManager: TerminalManager,
   getMainWindow: () => BrowserWindow | null,
-  pythonEnvManager: PythonEnvManager
+  pythonEnvManager: PythonEnvManager,
+  taskQueueManager: TaskQueueManager | null
 ): void {
   // Delegate to modular handler setup
-  setupModularHandlers(agentManager, terminalManager, getMainWindow, pythonEnvManager);
+  setupModularHandlers(agentManager, terminalManager, getMainWindow, pythonEnvManager, taskQueueManager);
 }

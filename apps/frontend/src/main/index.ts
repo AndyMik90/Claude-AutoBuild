@@ -28,6 +28,7 @@ import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
 import { TerminalManager } from './terminal-manager';
 import { pythonEnvManager } from './python-env-manager';
+import { TaskQueueManager } from './task-queue-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
 import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handlers';
 import { initializeAppUpdater } from './app-updater';
@@ -122,6 +123,7 @@ function getIconPath(): string {
 // Keep a global reference of the window object to prevent garbage collection
 let mainWindow: BrowserWindow | null = null;
 let agentManager: AgentManager | null = null;
+let taskQueueManager: TaskQueueManager | null = null;
 let terminalManager: TerminalManager | null = null;
 
 function createWindow(): void {
@@ -265,6 +267,9 @@ app.whenReady().then(() => {
   // Initialize agent manager
   agentManager = new AgentManager();
 
+  // Initialize task queue manager (must be after agentManager)
+  taskQueueManager = new TaskQueueManager(agentManager, agentManager);
+
   // Load settings and configure agent manager with Python and auto-claude paths
   // Uses EAFP pattern (try/catch) instead of LBYL (existsSync) to avoid TOCTOU race conditions
   const settingsPath = join(app.getPath('userData'), 'settings.json');
@@ -345,7 +350,7 @@ app.whenReady().then(() => {
   terminalManager = new TerminalManager(() => mainWindow);
 
   // Setup IPC handlers (pass pythonEnvManager for Python path management)
-  setupIpcHandlers(agentManager, terminalManager, () => mainWindow, pythonEnvManager);
+  setupIpcHandlers(agentManager, terminalManager, () => mainWindow, pythonEnvManager, taskQueueManager);
 
   // Create window
   createWindow();

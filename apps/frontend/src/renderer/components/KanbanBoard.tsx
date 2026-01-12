@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from 'react';
+import { useState, useMemo, useEffect, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
@@ -19,10 +19,14 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, List, Play, Pause, Settings } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { Badge } from './ui/badge';
+import { QueueSettingsDialog } from './QueueSettingsDialog';
+import { useQueueStore, loadQueueConfig, getQueueStatus } from '../stores/queue-store';
+import type { QueueConfig } from '../../shared/types';
 import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
@@ -57,6 +61,11 @@ interface DroppableColumnProps {
   archivedCount?: number;
   showArchived?: boolean;
   onToggleArchived?: () => void;
+  // Queue props for backlog column
+  queueConfig?: QueueConfig;
+  queueRunningCount?: number;
+  onQueueSettingsClick?: () => void;
+  projectId?: string;
 }
 
 /**
@@ -100,6 +109,9 @@ function droppableColumnPropsAreEqual(
   if (prevProps.archivedCount !== nextProps.archivedCount) return false;
   if (prevProps.showArchived !== nextProps.showArchived) return false;
   if (prevProps.onToggleArchived !== nextProps.onToggleArchived) return false;
+  if (prevProps.queueConfig?.enabled !== nextProps.queueConfig?.enabled) return false;
+  if (prevProps.queueConfig?.maxConcurrent !== nextProps.queueConfig?.maxConcurrent) return false;
+  if (prevProps.queueRunningCount !== nextProps.queueRunningCount) return false;
 
   // Deep compare tasks
   const tasksEqual = tasksAreEquivalent(prevProps.tasks, nextProps.tasks);
@@ -153,7 +165,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived, queueConfig, queueRunningCount = 0, onQueueSettingsClick, projectId }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -243,6 +255,61 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
             >
               <Plus className="h-4 w-4" />
             </Button>
+          )}
+          {status === 'backlog' && projectId && queueConfig && (
+            <>
+              {queueConfig.enabled ? (
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-primary bg-primary/10 hover:bg-primary/20 transition-colors relative"
+                      onClick={onQueueSettingsClick}
+                      aria-label={t('tasks:queue.button.queueEnabled')}
+                    >
+                      <Play className="h-4 w-4" />
+                      {queueRunningCount > 0 && (
+                        <Badge
+                          variant="success"
+                          className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 text-[10px] flex items-center justify-center"
+                        >
+                          {queueRunningCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="text-xs">
+                      <p className="font-medium">{t('tasks:queue.status.enabled')}</p>
+                      <p className="text-muted-foreground">
+                        {t('tasks:queue.status.runningCount', {
+                          current: queueRunningCount,
+                          max: queueConfig.maxConcurrent
+                        })}
+                      </p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 hover:bg-muted-foreground/10 hover:text-muted-foreground transition-colors"
+                      onClick={onQueueSettingsClick}
+                      aria-label={t('tasks:queue.button.queueDisabled')}
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">{t('tasks:queue.status.disabled')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </>
           )}
           {status === 'done' && onArchiveAll && tasks.length > 0 && !showArchived && (
             <Button
@@ -356,11 +423,37 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     error: undefined
   });
 
+  // Queue settings dialog state
+  const [queueDialogOpen, setQueueDialogOpen] = useState(false);
+  const [queueConfig, setQueueConfig] = useState<QueueConfig>({ enabled: false, maxConcurrent: 1 });
+  const [queueRunningCount, setQueueRunningCount] = useState(0);
+
   // Calculate archived count for Done column button
   const archivedCount = useMemo(() =>
     tasks.filter(t => t.metadata?.archivedAt).length,
     [tasks]
   );
+
+  // Get projectId from tasks
+  const projectId = tasks[0]?.projectId;
+
+  // Load queue config and status when projectId changes
+  useEffect(() => {
+    if (!projectId) return;
+
+    const loadQueueData = async () => {
+      const config = await loadQueueConfig(projectId);
+      if (config) {
+        setQueueConfig(config);
+      }
+      const status = await getQueueStatus(projectId);
+      if (status) {
+        setQueueRunningCount(status.runningCount);
+      }
+    };
+
+    loadQueueData();
+  }, [projectId]);
 
   // Filter tasks based on archive status
   const filteredTasks = useMemo(() => {
@@ -594,6 +687,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               archivedCount={status === 'done' ? archivedCount : undefined}
               showArchived={status === 'done' ? showArchived : undefined}
               onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
+              queueConfig={status === 'backlog' ? queueConfig : undefined}
+              queueRunningCount={status === 'backlog' ? queueRunningCount : undefined}
+              onQueueSettingsClick={status === 'backlog' ? () => setQueueDialogOpen(true) : undefined}
+              projectId={projectId}
             />
           ))}
         </div>
@@ -622,6 +719,37 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         }}
         onConfirm={handleWorktreeCleanupConfirm}
       />
+
+      {/* Queue settings dialog */}
+      {projectId && (
+        <QueueSettingsDialog
+          projectId={projectId}
+          open={queueDialogOpen}
+          onOpenChange={(open) => {
+            setQueueDialogOpen(open);
+            // Reload config when dialog closes to get latest values
+            if (!open) {
+              loadQueueConfig(projectId).then((config) => {
+                if (config) setQueueConfig(config);
+              });
+              getQueueStatus(projectId).then((status) => {
+                if (status) setQueueRunningCount(status.runningCount);
+              });
+            }
+          }}
+          currentConfig={queueConfig}
+          runningCount={queueRunningCount}
+          onSaved={() => {
+            // Reload config and status after saving
+            loadQueueConfig(projectId).then((config) => {
+              if (config) setQueueConfig(config);
+            });
+            getQueueStatus(projectId).then((status) => {
+              if (status) setQueueRunningCount(status.runningCount);
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -26,6 +26,13 @@ export interface ProjectSettings {
   mainBranch?: string;
   /** Include CLAUDE.md instructions in agent system prompt (default: true) */
   useClaudeMd?: boolean;
+  /** Task queue configuration for automatic task scheduling */
+  queueConfig?: {
+    /** Enable automatic task queueing from Planning to In Progress */
+    enabled: boolean;
+    /** Maximum number of concurrent tasks allowed (1-3) */
+    maxConcurrent: number;
+  };
 }
 
 export interface NotificationSettings {

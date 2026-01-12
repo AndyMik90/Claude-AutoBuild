@@ -220,5 +220,31 @@
   },
   "subtasks": {
     "untitled": "Sous-tâche sans titre"
+  },
+  "queue": {
+    "button": {
+      "queueEnabled": "File activée - cliquer pour configurer",
+      "queueDisabled": "File désactivée - cliquer pour activer"
+    },
+    "status": {
+      "enabled": "File activée",
+      "disabled": "File désactivée",
+      "runningCount": "{{current}} sur {{max}} en cours"
+    },
+    "settings": {
+      "title": "Paramètres de la file",
+      "description": "Configurer la planification automatique des tâches de Planification vers En cours",
+      "enableQueue": "Activer la file",
+      "enableQueueDescription": "Démarrer automatiquement les tâches lorsque des emplacements sont disponibles",
+      "currentStatus": "État actuel",
+      "exceedsLimit": "dépasse la limite",
+      "maxConcurrent": "Tâches simultanées maximum",
+      "maxConcurrentDescription": "Nombre maximum de tâches pouvant s'exécuter simultanément",
+      "single": "tâche",
+      "multiple": "tâches",
+      "exceedsWarning": "Attention : {{running}} tâches sont en cours mais le maximum est {{max}}. Les nouvelles tâches ne démarreront pas tant qu'un emplacement ne sera pas disponible.",
+      "disabledInfo": "Activez la file pour démarrer automatiquement les tâches depuis Planification lorsque des emplacements deviennent disponibles dans En cours.",
+      "save": "Enregistrer les paramètres"
+    }
   }
 }

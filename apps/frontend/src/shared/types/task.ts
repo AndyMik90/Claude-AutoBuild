@@ -7,6 +7,26 @@ import type { ExecutionPhase as ExecutionPhaseType, CompletablePhase } from '../
 
 export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'pr_created' | 'done';
 
+/**
+ * Queue configuration for automatic task scheduling
+ */
+export interface QueueConfig {
+  /** Whether the queue is enabled for the project */
+  enabled: boolean;
+  /** Maximum number of concurrent tasks allowed (1-3) */
+  maxConcurrent: number;
+}
+
+/**
+ * Queue status for automatic task scheduling
+ */
+export interface QueueStatus extends QueueConfig {
+  /** Current number of tasks running in In Progress */
+  runningCount: number;
+  /** Number of tasks waiting in backlog */
+  backlogCount: number;
+}
+
 // Reason why a task is in human_review status
 // - 'completed': All subtasks done and QA passed, ready for final approval/merge
 // - 'errors': Subtasks failed during execution

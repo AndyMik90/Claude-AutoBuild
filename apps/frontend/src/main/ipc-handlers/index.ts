@@ -9,6 +9,7 @@ import type { BrowserWindow } from 'electron';
 import { AgentManager } from '../agent';
 import { TerminalManager } from '../terminal-manager';
 import { PythonEnvManager } from '../python-env-manager';
+import { TaskQueueManager } from '../task-queue-manager';
 
 // Import all handler registration functions
 import { registerProjectHandlers } from './project-handlers';
@@ -34,6 +35,7 @@ import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { notificationService } from '../notification-service';
+import { registerQueueHandlers } from './queue-handlers';
 
 /**
  * Setup all IPC handlers across all domains
@@ -42,12 +44,14 @@ import { notificationService } from '../notification-service';
  * @param terminalManager - The terminal manager instance
  * @param getMainWindow - Function to get the main BrowserWindow
  * @param pythonEnvManager - The Python environment manager instance
+ * @param taskQueueManager - The task queue manager instance
  */
 export function setupIpcHandlers(
   agentManager: AgentManager,
   terminalManager: TerminalManager,
   getMainWindow: () => BrowserWindow | null,
-  pythonEnvManager: PythonEnvManager
+  pythonEnvManager: PythonEnvManager,
+  taskQueueManager: TaskQueueManager | null
 ): void {
   // Initialize notification service
   notificationService.initialize(getMainWindow);
@@ -57,6 +61,13 @@ export function setupIpcHandlers(
 
   // Task handlers
   registerTaskHandlers(agentManager, pythonEnvManager, getMainWindow);
+
+  // Queue handlers (must be after task handlers)
+  if (taskQueueManager) {
+    registerQueueHandlers(taskQueueManager);
+  } else {
+    console.warn('[IPC] TaskQueueManager is null, skipping queue handler registration');
+  }
 
   // Terminal and Claude profile handlers
   registerTerminalHandlers(terminalManager, getMainWindow);

@@ -42,7 +42,9 @@ import type {
   TaskRecoveryOptions,
   TaskMetadata,
   TaskLogs,
-  TaskLogStreamChunk
+  TaskLogStreamChunk,
+  QueueConfig,
+  QueueStatus
 } from './task';
 import type {
   TerminalCreateOptions,
@@ -788,6 +790,11 @@ export interface ElectronAPI {
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
+
+  // Queue operations
+  getQueueConfig: (projectId: string) => Promise<IPCResult<QueueConfig>>;
+  setQueueConfig: (projectId: string, config: QueueConfig) => Promise<IPCResult>;
+  getQueueStatus: (projectId: string) => Promise<IPCResult<QueueStatus>>;
 }
 
 declare global {
