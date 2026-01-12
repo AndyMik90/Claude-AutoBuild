@@ -713,15 +713,15 @@ class WorktreeManager:
         """List all spec worktrees (includes legacy .worktrees/ location)."""
         worktrees = []
         seen_specs = set()
+        # Skip worktrees on base branches (orphaned after GitHub merge)
+        # But allow any feature branch pattern (auto-claude/*, feature/*, etc.)
+        base_branches = {"main", "master", "develop", "HEAD"}
 
         # Check new location first
         if self.worktrees_dir.exists():
             for item in self.worktrees_dir.iterdir():
                 if item.is_dir():
                     info = self.get_worktree_info(item.name)
-                    # Skip if worktree is on a base branch (orphaned after GitHub merge)
-                    # But allow any feature branch pattern (auto-claude/*, feature/*, etc.)
-                    base_branches = {"main", "master", "develop", "HEAD"}
                     if info and info.branch not in base_branches:
                         worktrees.append(info)
                         seen_specs.add(item.name)
@@ -732,8 +732,6 @@ class WorktreeManager:
             for item in legacy_dir.iterdir():
                 if item.is_dir() and item.name not in seen_specs:
                     info = self.get_worktree_info(item.name)
-                    # Skip if worktree is on a base branch
-                    base_branches = {"main", "master", "develop", "HEAD"}
                     if info and info.branch not in base_branches:
                         worktrees.append(info)
 

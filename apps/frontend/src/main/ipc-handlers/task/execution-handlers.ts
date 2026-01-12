@@ -40,13 +40,15 @@ function getWorktreeBranch(worktreePath: string): string | null {
 
     // Skip if on a base branch (orphaned after GitHub merge)
     // Allow any feature branch pattern (auto-claude/*, feature/*, etc.)
-    const baseBranches = ['main', 'master', 'develop', 'HEAD'];
-    if (baseBranches.includes(branch)) {
+    // Use case-insensitive comparison for robustness
+    const baseBranches = ['main', 'master', 'develop', 'head'];
+    if (baseBranches.includes(branch.toLowerCase())) {
       return null;
     }
     return branch;
-  } catch {
+  } catch (error) {
     // Git command failed - worktree is in invalid state
+    console.warn(`[getWorktreeBranch] Failed to get branch for worktree at ${worktreePath}:`, error);
     return null;
   }
 }
@@ -612,9 +614,10 @@ export function registerTaskExecutionHandlers(
                   timeout: 30000
                 });
                 console.warn(`[TASK_UPDATE_STATUS] Orphaned worktree removed: ${worktreePath}`);
-              } catch {
+              } catch (gitRemoveError) {
                 // If git worktree remove fails, the directory might not be a valid worktree
                 // Just remove the directory manually
+                console.warn(`[TASK_UPDATE_STATUS] 'git worktree remove' failed, falling back to directory deletion. Error:`, gitRemoveError);
                 rmSync(worktreePath, { recursive: true, force: true });
                 console.warn(`[TASK_UPDATE_STATUS] Orphaned worktree directory deleted: ${worktreePath}`);
               }
@@ -719,15 +722,18 @@ export function registerTaskExecutionHandlers(
               }
 
               // Delete the branch (ignore errors if branch doesn't exist)
-              try {
-                execFileSync(getToolPath('git'), ['branch', '-D', worktreeBranch], {
-                  cwd: project.path,
-                  encoding: 'utf-8',
-                  timeout: 30000
-                });
-                console.warn(`[TASK_UPDATE_STATUS] Branch deleted: ${worktreeBranch}`);
-              } catch (branchDeleteError) {
-                console.warn(`[TASK_UPDATE_STATUS] Could not delete branch ${worktreeBranch} (may not exist or be checked out elsewhere)`);
+              // Defensive null check - worktreeBranch should be non-null here since isValidWorktree is true
+              if (worktreeBranch) {
+                try {
+                  execFileSync(getToolPath('git'), ['branch', '-D', worktreeBranch], {
+                    cwd: project.path,
+                    encoding: 'utf-8',
+                    timeout: 30000
+                  });
+                  console.warn(`[TASK_UPDATE_STATUS] Branch deleted: ${worktreeBranch}`);
+                } catch (branchDeleteError) {
+                  console.warn(`[TASK_UPDATE_STATUS] Could not delete branch ${worktreeBranch} (may not exist or be checked out elsewhere)`);
+                }
               }
 
               console.warn(`[TASK_UPDATE_STATUS] Worktree cleanup completed successfully`);

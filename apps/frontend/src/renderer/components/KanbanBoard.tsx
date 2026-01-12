@@ -538,7 +538,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const handleWorktreeSkipCleanup = async () => {
     if (!worktreeCleanupDialog.taskId) return;
 
-    setWorktreeCleanupDialog(prev => ({ ...prev, isProcessing: true, error: undefined }));
+    setWorktreeCleanupDialog(prev => ({ ...prev, isProcessing: true, error: undefined, canSkipCleanup: false }));
 
     const result = await skipCleanupCompleteTask(worktreeCleanupDialog.taskId);
 
