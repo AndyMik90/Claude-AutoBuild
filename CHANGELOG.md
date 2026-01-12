@@ -1,3 +1,577 @@
+## 2.7.3 - Reliability & Stability Focus
+
+### ✨ New Features
+
+- Add terminal copy/paste keyboard shortcuts for Windows/Linux
+
+- Add Sentry environment variables to CI build workflows for error monitoring
+
+- Add Claude Code changelog link to version notifiers
+
+- Enhance PR merge readiness checks with branch state validation
+
+- Add PR creation workflow for task worktrees
+
+- Add prominent verdict summary to PR review comments
+
+- Add Dart/Flutter/Melos support to security profiles
+
+- Custom Anthropic compatible API profile management
+
+- Add terminal dropdown with inbuilt and external options in task review
+
+- Centralize CLI tool path management
+
+- Add terminal support for worktrees
+
+- Add Files tab to task details panel
+
+- Enhance PR review page to include PRs filters
+
+- Add GitLab integration
+
+- Add Flatpak packaging support for Linux
+
+- Bundle Python 3.12 with packaged Electron app
+
+- Add iOS/Swift project detection
+
+- Add automated PR review with follow-up support
+
+- Add i18n internationalization system
+
+- Add OpenRouter as LLM/embedding provider
+
+- Add UI scale feature with 75-200% range
+
+### 🛠️ Improvements
+
+- Extract shared task form components for consistent modals
+
+- Simplify task description handling and improve modal layout
+
+- Replace confidence scoring with evidence-based validation in GitHub reviews
+
+- Convert synchronous I/O to async operations in worktree handlers
+
+- Remove top bars from UI
+
+- Improve task card title readability
+
+- Add path-aware AI merge resolution and device code streaming
+
+- Increase Claude SDK JSON buffer size to 10MB
+
+- Improve performance by removing projectTabs from useEffect dependencies
+
+- Normalize feature status values for Kanban display
+
+- Improve GLM presets, ideation auth, and Insights env
+
+- Detect and clear cross-platform CLI paths in settings
+
+- Improve CLI tool detection and add Claude CLI path settings
+
+- Multiple bug fixes including binary file handling and semantic tracking
+
+- Centralize Claude CLI invocation across the application
+
+- Improve PR review with structured outputs and fork support
+
+- Improve task card description truncation for better display
+
+- Improve GitHub PR review with better evidence-based findings
+
+### 🐛 Bug Fixes
+
+- Implement atomic JSON writes to prevent file corruption
+
+- Prevent "Render frame was disposed" crash in frontend
+
+- Strip ANSI escape codes from roadmap/ideation progress messages
+
+- Resolve integrations freeze and improve rate limit handling
+
+- Use shared project-wide memory for cross-spec learning
+
+- Add isinstance(dict) validation to Graphiti to prevent AttributeError
+
+- Enforce implementation_plan schema in planner
+
+- Remove obsolete @lydell/node-pty extraResources entry from build
+
+- Add Post Clean Review button for clean PR reviews
+
+- Fix Kanban status flip-flop and phase state inconsistency
+
+- Resolve multiple merge-related issues affecting worktree operations
+
+- Show running review state when switching back to PR with in-progress review
+
+- Properly quote Windows .cmd/.bat paths in spawn() calls
+
+- Improve Claude CLI detection on Windows with space-containing paths
+
+- Display subtask titles instead of UUIDs in UI
+
+- Use HTTP for Azure Trusted Signing timestamp URL in CI
+
+- Fix Kanban state transitions and status flip-flop bug
+
+- Use selectedPR from hook to restore Files changed list
+
+- Automate auto labeling based on comments
+
+- Fix subtasks tab not updating on Linux
+
+- Add PYTHONPATH to subprocess environment for bundled packages
+
+- Prevent crash after worktree creation in terminal
+
+- Ensure PATH includes system directories when launched from Electron
+
+- Grant worktree access to original project directories
+
+- Filter task IPC events by project to prevent cross-project interference
+
+- Verify critical packages exist, not just marker file during Python bundling
+
+- Await async sendMessage to prevent race condition in insights
+
+- Add pywin32 dependency for LadybugDB on Windows
+
+- Handle Ollama version errors during model pull
+
+- Add helpful error message when Python dependencies are missing
+
+- Prevent app freeze by making Claude CLI detection non-blocking
+
+- Use Homebrew for Ollama installation on macOS
+
+- Use --continue instead of --resume for Claude session restoration
+
+- Add context menu for keyboard-accessible task status changes
+
+- Security allowlist now works correctly in worktree mode
+
+- Fix InvestigationDialog overflow issue
+
+- Auto-create .env from .env.example during backend install
+
+- Show OAuth terminal during profile authentication
+
+- Pass augmented env to Claude CLI validation on macOS
+
+- Fix Git bash path detection on Windows
+
+- Support API profiles in auth check and model resolution
+
+- Window size adjustment on Hi-DPI displays
+
+- Centralize Claude CLI invocation
+
+- Pass OAuth token to Python runner subprocesses for GitHub operations
+
+- Resolve React Fast Refresh hook error in usePtyProcess
+
+- Detect @lydell/node-pty prebuilts in postinstall
+
+- Detect Claude CLI installed via NVM on Linux/macOS
+
+- Allow toggle deselection and improve embedding model name matching
+
+- Sanitize environment to prevent PYTHONHOME contamination
+
+- Check .claude.json for OAuth auth in profile scorer
+
+- Use shell mode for Windows command spawning in MCP
+
+- Update TaskCard description truncation for improved display
+
+- Change hardcoded Opus defaults to Sonnet
+
+- Include update manifests for architecture-specific auto-updates
+
+- Fix security hook cwd extraction and PATH issues
+
+- Filter empty env vars to prevent OAuth token override
+
+- Persist human_review status (worktree plan path fix)
+
+- Resolve PATH and PYTHONPATH issues in insights and changelog services
+
+- Pass electron version explicitly to electron-rebuild on Windows
+
+- Complete refresh button implementation for Kanban
+
+- Fixed version-specific links in readme and pre-commit hook
+
+- Preserve terminal state when switching projects
+
+- Close parent modal when Edit dialog opens
+
+- Solve LadybugDB problem on Windows during npm install
+
+- Handle Windows CRLF line endings in regex fallback
+
+- Respect preferred terminal setting for Windows PTY shell
+
+- Detect and clear cross-platform CLI paths in settings
+
+- Preserve original task description after spec creation
+
+- Fix learning loop to retrieve patterns and gotchas
+
+- Resolve frontend lag and update dependencies
+
+- Allow external HTTPS images in Content-Security-Policy
+
+- Use temporary worktree for PR review isolation
+
+- Prefer versioned Homebrew Python over system python3
+
+- Support bun.lock text format for Bun 1.2.0+
+
+- Create spec.md during roadmap-to-task conversion
+
+- Treat LOW-only findings as ready to merge in PR review
+
+- Prevent infinite re-render loop in task selection
+
+- Accept Python 3.12+ in install-backend.js
+
+- Infinite loop in useTaskDetail merge preview loading
+
+- Resolve EINVAL error when opening worktree in VS Code on Windows
+
+- Add fallback to prevent tasks stuck in ai_review status
+
+- Add spec_dir to SDK permissions
+
+- Add --base-branch argument support to spec_runner
+
+- Allow Windows to run PR Reviewer
+
+- Respect task_metadata.json model selection
+
+- Add .js extension to electron-log/main imports
+
+- Move Swift detection before Ruby detection in analyzer
+
+- Prevent TaskEditDialog from unmounting when opened
+
+- Add iOS/Swift project detection
+
+- Memory Status card respects configured embedding provider
+
+- Remove projectTabs from useEffect dependencies to fix re-render loop
+
+- Invalidate profile cache when file is created/modified
+
+- Handle Python paths with spaces in subprocess
+
+- Preserve terminal state when switching projects
+
+- Add C#/Java/Swift/Kotlin project files to security hash
+
+- Make backend tests pass on Windows
+
+- Stop tracking spec files in git
+
+- Sync status to worktree implementation plan to prevent reset
+
+- Fix task status persistence reverting on refresh
+
+- Proper semver comparison for pre-release versions
+
+- Use venv Python for all services to fix dotenv errors
+
+- Use explicit Windows System32 tar path in build
+
+- Use PowerShell for tar extraction on Windows
+
+- Add --force-local flag to tar on Windows
+
+- Add explicit GET method to gh api comment fetches
+
+- Support archiving tasks across all worktree locations
+
+- Validate backend source path before using it
+
+- Resolve spawn python ENOENT error on Linux
+
+- Resolve CodeQL file system race conditions and unused variables
+
+- Use correct electron-builder arch flags
+
+- Use develop branch for dry-run builds in beta-release workflow
+
+- Accept bug_fix workflow_type alias during planning
+
+- Normalize relative paths to posix
+
+- Update path resolution for ollama_model_detector.py in memory handlers
+
+- Resolve Python detection and backend packaging issues
+
+- Add future annotations import to discovery.py
+
+- Add global spec numbering lock to prevent collisions
+
+- Add Python 3.10+ version validation and GitHub Actions Python setup
+
+- Correct welcome workflow PR message
+
+- Hide status badge when execution phase badge is showing
+
+- Stop running process when task status changes away from in_progress
+
+- Remove legacy path from auto-claude source detection
+
+- Resolve Python environment race condition
+
+- Persist staged task state across app restarts
+
+- Update progress calculation to include just-completed ideation type
+
+- Add missing ARIA attributes for screen reader accessibility
+
+- Restore missing aria-label attributes on icon buttons
+
+- Enable scrolling in Project Files list in Task Creation Wizard
+
+---
+
+## What's Changed
+
+- chore: bump version to 2.7.3 by @Test User in 53e2ef6c
+- fix(core): implement atomic JSON writes to prevent file corruption (ACS-209) (#915) by @StillKnotKnown in 3c56a1ba
+- fix(frontend): prevent "Render frame was disposed" crash (ACS-211) (#918) by @StillKnotKnown in 179744e2
+- fix(frontend): strip ANSI escape codes from roadmap/ideation progress messages (ACS-219) (#933) by @StillKnotKnown in 9e86de76
+- fix(ACS-175): Resolve integrations freeze and improve rate limit handling (#839) by @Michael Ludlow in 3ca15e1c
+- fix(memory): use shared project-wide memory for cross-spec learning (#905) by @StillKnotKnown in 0c139add
+- fix(graphiti): add isinstance(dict) validation to prevent AttributeError (ACS-215) (#924) by @StillKnotKnown in d9e3b286
+- fix(planner): enforce implementation_plan schema (issue #884) (#912) by @Umaru in 29d28bf0
+- fix(build): remove obsolete @lydell/node-pty extraResources entry by @Test User in c4e08aee
+- fix(ui): add Post Clean Review button for clean PR reviews (ACS-201) (#894) by @StillKnotKnown in f43c7c51
+- fix(ACS-203): Fix Kanban status flip-flop and phase state inconsistency (#898) by @StillKnotKnown in 96fc6129
+- fix(merge): resolve multiple merge-related issues (ACS-194, ACS-179, ACS-174, ACS-163) (#885) by @StillKnotKnown in d024eec1
+- fix(github-prs): show running review state when switching back to PR with in-progress review (ACS-200) (#890) by @StillKnotKnown in d9ed8179
+- fix: properly quote Windows .cmd/.bat paths in spawn() calls (#889) by @StillKnotKnown in 6dc538c8
+- Fix/worktree branch selection (#854) by @Andy in a6bd8842
+- refactor(ui): extract shared task form components for consistent modals (#765) by @Andy in df540ec5
+- fix(ui): persist staged task state across app restarts (#800) by @Andy in 91bd2401
+- fix: improve Claude CLI detection on Windows with space-containing paths (#827) by @Umaru in 11710c55
+- fix(ui): display subtask titles instead of UUIDs (#844) (#849) by @Andy in 660e1ada
+- fix(ci): use HTTP for Azure Trusted Signing timestamp URL (#843) by @Andy in 152678bd
+- fix(ACS-51, ACS-55, ACS-71): Fix Kanban state transitions and status flip-flop bug (#824) by @Adam Slaker in dc29794e
+- fix(github): use selectedPR from hook to restore Files changed list (#822) by @StillKnotKnown in c623ab00
+- ci(release): add Azure Trusted Signing for Windows builds (#805) by @Andy in 20458849
+- feat: Add Sentry environment variables to CI build workflows (#803) by @Andy in 63e142ae
+- Fix pydantic_core missing module error during packaging (#806) by @Maxim Kosterin in 07ae1ef7
+- feat: add Claude Code changelog link to version notifiers (#820) by @StillKnotKnown in ada91fb1
+- feat(github): enhance PR merge readiness checks with branch state validation (#751) by @Andy in cbb1cb81
+- fix: automate auto labeling based on comments (#812) by @Alex in 32e8fee3
+- feat: add PR creation workflow for task worktrees (#677) by @ThrownLemon in a74bd865
+- fix: increase Claude SDK JSON buffer size to 10MB (#815) by @StillKnotKnown in e310d56f
+- fix(a11y): restore missing aria-label attributes on icon buttons (#808) by @Orinks in ab3149fc
+- feat: Add terminal copy/paste keyboard shortcuts for Windows/Linux (#786) by @StillKnotKnown in a6ffd0e1
+- fix(ui): enable scrolling in Project Files list in Task Creation Wizard (#757) (#785) by @Ashwinhegde19 in 05c652e4
+- fix: resolve subtasks tab not updating on Linux (#794) by @StillKnotKnown in 29ef46d7
+- fix: add PYTHONPATH to subprocess environment for bundled packages (#139) (#777) by @Andy in a47354b4
+- fix(terminal): prevent crash after worktree creation (#771) by @Andy in 40fc7e4d
+- feat(pr-review): add prominent verdict summary to PR review comments (#780) by @Andy in 63766f76
+- fix(frontend): ensure PATH includes system directories when launched (#748) by @Marcelo Czerewacz in 4cc9198a
+- fix(permissions): grant worktree access to original project directories (#385) (#776) by @Andy in 42033412
+- fix(multi-project): filter task IPC events by project to prevent cross-project interference (#723) (#775) by @Andy in cc78d7ae
+- fix(python-bundling): verify critical packages exist, not just marker file (#416) (#774) by @Andy in 061411d7
+- fix(insights): await async sendMessage to prevent race condition (#613) (#773) by @Andy in cbd47f2c
+- fix(windows): add pywin32 dependency for LadybugDB (#627) (#778) by @Andy in fbaf2e7a
+- fix(memory): handle Ollama version errors during model pull (#760) by @Brett Bonner in 01decaeb
+- ACS-103 Windows can finish a task (#739) by @Alex in 96b7eb4a
+- fix(roadmap): normalize feature status values for Kanban display [ACS-115] (#763) by @Michael Ludlow in 5e783908
+- fix: add helpful error message when Python dependencies are missing (ACS-145) (#755) by @StillKnotKnown in 31519c2a
+- fix(startup): prevent app freeze by making Claude CLI detection non-blocking (#680 regression) (#720) by @Adam Slaker in f4069590
+- refactor: simplify task description handling and improve modal layout (#750) by @Andy in e3d72d64
+- fix(memory): use Homebrew for Ollama installation on macOS (#742) by @Michael Ludlow in e9c859cc
+- fix: use --continue instead of --resume for Claude session restoration (#699) by @Andy in 7fda36ad
+- fix: Multiple bug fixes including binary file handling and semantic tracking (#732) by @Andy in 78b80bca
+- fix(a11y): Add context menu for keyboard-accessible task status changes (#710) by @Orinks in 724ad827
+- Fix: Security allowlist not working in worktree mode (#646) by @arcker in 2f321fb2
+- fix: InvestigationDialog overflow issue (#669) by @Masanori Uehara in df57fbf8
+- fix(setup): auto-create .env from .env.example during backend install (#713) by @Crimson341 in 84bc5226
+- fix: show OAuth terminal during profile authentication (#671) by @Bogdan Dragomir in 8a4b5066
+- fix: pass augmented env to Claude CLI validation on macOS (#640) by @tallinn102 in 574cd117
+- fix: WIndows not finding the gith bash path (#724) by @Alex in 09aa4f4f
+- fix(profiles): support API profiles in auth check and model resolution (#608) by @Ginanjar Noviawan in 78aceaed
+- Fix Window Size on Hi-DPI Displays (#696) by @aaronson2012 in 5005e56e
+- fix: centralize Claude CLI invocation (#680) by @StillKnotKnown in ec4441c1
+- fix(github): pass OAuth token to Python runner subprocesses (fixes #563) (#698) by @Michael Ludlow in 97f34496
+- chore: Update Linux app icon to use multiple resolution sizes and fix .deb icon (#672) by @Rooki in 2c9fcbf4
+- fix(a11y): Add missing ARIA attributes for screen reader accessibility (#634) by @Orinks in 3930b12c
+- docs: add stars badge and star history chart to README (#675) by @eddie333016 in e2937320
+- fix(terminal): resolve React Fast Refresh hook error in usePtyProcess by @AndyMik90 in 81afc3d2
+- sentry dev support + sessions handling in terminals by @AndyMik90 in 63f46173
+- fix(frontend): detect @lydell/node-pty prebuilts in postinstall (#673) by @Vinícius Santos in 35573fd5
+- Fix/small fixes all around (#645) by @Andy in 7b4993e9
+- fix: detect Claude CLI installed via NVM on Linux/macOS (#623) by @StillKnotKnown in c2713543
+- fix: improve GLM presets, ideation auth, and Insights env (#648) by @StillKnotKnown in 6fb2d484
+- Fix/update app (#594) by @Andy in 1e3e8bda
+- feat(sentry): add anonymous error reporting with privacy controls (#636) by @Andy in 8be0e6ff
+- fix(settings): allow toggle deselection and improve embedding model name matching (#661) by @Michael Ludlow in 234d44f6
+- fix(python): sanitize environment to prevent PYTHONHOME contamination (#664) by @Michael Ludlow in 65f60898
+- fix: check .claude.json for OAuth auth in profile scorer (#652) by @Michael Ludlow in eeef8a3d
+- fix(mcp): use shell mode for Windows command spawning (#572) by @Andy in e1e89430
+- fix(ui): update TaskCard description truncation for improved display (#637) by @Andy in b7203124
+- fix: change hardcoded Opus defaults to Sonnet (fix #433) (#633) by @Michael Ludlow in 46c41f8f
+- Fix/small fixes 2.7.3 (#631) by @Andy in 39da8193
+- fix(ci): include update manifests for architecture-specific auto-updates (#611) by @Hunter Luisi in f7b02e87
+- fix: security hook cwd extraction and PATH issues (#555, #556) (#587) by @Hunter Luisi in 4ec9db8c
+- fix(frontend): filter empty env vars to prevent OAuth token override (#520) by @Ashwinhegde19 in 556f0b21
+- refactor(github-review): replace confidence scoring with evidence-based validation (#628) by @Andy in acdd7d9b
+- feat(terminal): add worktree support for terminals (#625) by @Andy in 13535f1b
+- fix: human_review status persistence bug (worktree plan path fix) (#605) by @Michael Ludlow in 7177c799
+- fix(frontend): resolve PATH and PYTHONPATH issues in insights and changelog services (#558) (#610) by @Hunter Luisi in f5be7943
+- fix: pass electron version explicitly to electron-rebuild on Windows (#622) by @Vinícius Santos in 14b3db56
+- fix(kanban): complete refresh button implementation (#584) by @Michael Ludlow in 6c855905
+- feat: add Dart/Flutter/Melos support to security profiles (#583) by @Mitsu in 4a833048
+- docs: update stable download links to v2.7.2 (#579) by @Alex in 5efc2c56
+- Improving Task Card Title Readability (#461) by @Vinícius Santos in 3086233f
+- feat: custom Anthropic compatible API profile management (#181) by @Ginanjar Noviawan in d278963b
+- 2.7.2 release by @AndyMik90 in 6ac3012f
+- fix: Solve ladybug problem on running npm install all on windows (#576) by @Alex in effaa681
+- fix(merge): handle Windows CRLF line endings in regex fallback by @AndyMik90 in 04de8c78
+- ci(release): add CHANGELOG.md validation and fix release workflow by @AndyMik90 in 6d4231ed
+- # 🔥 hotfix(electron): restore app functionality on Windows broken by GPU cache errors (#569) by @sniggl in dedd0757
+- fix(ci): cache pip wheels to speed up Intel Mac builds by @AndyMik90 in 90dddc28
+- feat(terminal): respect preferred terminal setting for Windows PTY shell by @AndyMik90 in 90a20320
+- fix(ci): add Python setup to beta-release and fix PR status gate checks (#565) by @Andy in c2148bb9
+- fix: detect and clear cross-platform CLI paths in settings (#535) by @Andy in 29e45505
+- fix(ui): preserve original task description after spec creation (#536) by @Andy in 7990dcb4
+- fix(memory): fix learning loop to retrieve patterns and gotchas (#530) by @Andy in f58c2578
+- fix: resolve frontend lag and update dependencies (#526) by @Andy in 30f7951a
+- fix(csp): allow external HTTPS images in Content-Security-Policy (#549) by @Michael Ludlow in 3db02c5d
+- fix(pr-review): use temporary worktree for PR review isolation (#532) by @Andy in 344ec65e
+- fix: prefer versioned Homebrew Python over system python3 (#494) by @Navid in 8d58dd6f
+- fix(detection): support bun.lock text format for Bun 1.2.0+ (#525) by @Andy in 4da8cd66
+- chore: bump version to 2.7.2-beta.12 (#460) by @Andy in 8e5c11ac
+- Fix/windows issues (#471) by @Andy in 72106109
+- fix(ci): add Rust toolchain for Intel Mac builds (#459) by @Andy in 52a4fcc6
+- fix: create spec.md during roadmap-to-task conversion (#446) by @Mulaveesala Pranaveswar in fb6b7fc6
+- fix(pr-review): treat LOW-only findings as ready to merge (#455) by @Andy in 0f9c5b84
+- Fix/2.7.2 beta12 (#424) by @Andy in 5d8ede23
+- feat: remove top bars (#386) by @Vinícius Santos in da31b687
+- fix: prevent infinite re-render loop in task selection useEffect (#442) by @Abe Diaz in 2effa535
+- fix: accept Python 3.12+ in install-backend.js (#443) by @Abe Diaz in c15bb311
+- fix: infinite loop in useTaskDetail merge preview loading (#444) by @Abe Diaz in 203a970a
+- fix(windows): resolve EINVAL error when opening worktree in VS Code (#434) by @Vinícius Santos in 3c0708b7
+- feat(frontend): Add Files tab to task details panel (#430) by @Mitsu in 666794b5
+- refactor: remove deprecated TaskDetailPanel component (#432) by @Mitsu in ac8dfcac
+- fix(ui): add fallback to prevent tasks stuck in ai_review status (#397) by @Michael Ludlow in 798ca79d
+- feat: Enhance the look of the PR Detail area (#427) by @Alex in bdb01549
+- ci: remove conventional commits PR title validation workflow by @AndyMik90 in 515b73b5
+- fix(client): add spec_dir to SDK permissions (#429) by @Mitsu in 88c76059
+- fix(spec_runner): add --base-branch argument support (#428) by @Mitsu in 62a75515
+- feat: enhance pr review page to include PRs filters (#423) by @Alex in 717fba04
+- feat: add gitlab integration (#254) by @Mitsu in 0a571d3a
+- fix: Allow windows to run CC PR Reviewer (#406) by @Alex in 2f662469
+- fix(model): respect task_metadata.json model selection (#415) by @Andy in e7e6b521
+- feat(build): add Flatpak packaging support for Linux (#404) by @Mitsu in 230de5fc
+- fix(github): pass repo parameter to GHClient for explicit PR resolution (#413) by @Andy in 4bdf7a0c
+- chore(ci): remove redundant CLA GitHub Action workflow by @AndyMik90 in a39ea49d
+- fix(frontend): add .js extension to electron-log/main imports by @AndyMik90 in 9aef0dd0
+- fix: 2.7.2 bug fixes and improvements (#388) by @Andy in 05131217
+- fix(analyzer): move Swift detection before Ruby detection (#401) by @Michael Ludlow in 321c9712
+- fix(ui): prevent TaskEditDialog from unmounting when opened (#395) by @Michael Ludlow in 98b12ed8
+- fix: improve CLI tool detection and add Claude CLI path settings (#393) by @Joe in aaa83131
+- feat(analyzer): add iOS/Swift project detection (#389) by @Michael Ludlow in 68548e33
+- fix(github): improve PR review with structured outputs and fork support (#363) by @Andy in 7751588e
+- fix(ideation): update progress calculation to include just-completed ideation type (#381) by @Illia Filippov in 8b4ce58c
+- Fixes failing spec - "gh CLI Check Handler - should return installed: true when gh CLI is found" (#370) by @Ian in bc220645
+- fix: Memory Status card respects configured embedding provider (#336) (#373) by @Michael Ludlow in db0cbea3
+- fix: fixed version-specific links in readme and pre-commit hook that updates them (#378) by @Ian in 0ca2e3f6
+- docs: add security research documentation (#361) by @Brian in 2d3b7fb4
+- fix/Improving UX for Display/Scaling Changes (#332) by @Kevin Rajan in 9bbdef09
+- fix(perf): remove projectTabs from useEffect deps to fix re-render loop (#362) by @Michael Ludlow in 753dc8bb
+- fix(security): invalidate profile cache when file is created/modified (#355) by @Michael Ludlow in 20f20fa3
+- fix(subprocess): handle Python paths with spaces (#352) by @Michael Ludlow in eabe7c7d
+- fix: Resolve pre-commit hook failures with version sync, pytest path, ruff version, and broken quality-dco workflow (#334) by @Ian in 1fa7a9c7
+- fix(terminal): preserve terminal state when switching projects (#358) by @Andy in 7881b2d1
+- fix(analyzer): add C#/Java/Swift/Kotlin project files to security hash (#351) by @Michael Ludlow in 4e71361b
+- fix: make backend tests pass on Windows (#282) by @Oluwatosin Oyeladun in 4dcc5afa
+- fix(ui): close parent modal when Edit dialog opens (#354) by @Michael Ludlow in e9782db0
+- chore: bump version to 2.7.2-beta.10 by @AndyMik90 in 40d04d7c
+- feat: add terminal dropdown with inbuilt and external options in task review (#347) by @JoshuaRileyDev in fef07c95
+- refactor: remove deprecated code across backend and frontend (#348) by @Mitsu in 9d43abed
+- feat: centralize CLI tool path management (#341) by @HSSAINI Saad in d51f4562
+- refactor(components): remove deprecated TaskDetailPanel re-export (#344) by @Mitsu in 787667e9
+- chore: Refactor/kanban realtime status sync (#249) by @souky-byte in 9734b70b
+- refactor(settings): remove deprecated ProjectSettings modal and hooks (#343) by @Mitsu in fec6b9f3
+- perf: convert synchronous I/O to async operations in worktree handlers (#337) by @JoshuaRileyDev in d3a63b09
+- feat: bump version (#329) by @Alex in 50e3111a
+- fix(ci): remove version bump to fix branch protection conflict (#325) by @Michael Ludlow in 8a80b1d5
+- fix(tasks): sync status to worktree implementation plan to prevent reset (#243) (#323) by @Alex in cb6b2165
+- fix(ci): add auto-updater manifest files and version auto-update (#317) by @Michael Ludlow in 661e47c3
+- fix(project): fix task status persistence reverting on refresh (#246) (#318) by @Michael Ludlow in e80ef79d
+- fix(updater): proper semver comparison for pre-release versions (#313) by @Michael Ludlow in e1b0f743
+- fix(python): use venv Python for all services to fix dotenv errors (#311) by @Alex in 92c6f278
+- chore(ci): cancel in-progress runs (#302) by @Oluwatosin Oyeladun in 1c142273
+- fix(build): use explicit Windows System32 tar path (#308) by @Andy in c0a02a45
+- fix(github): add augmented PATH env to all gh CLI calls by @AndyMik90 in 086429cb
+- fix(build): use PowerShell for tar extraction on Windows by @AndyMik90 in d9fb8f29
+- fix(build): add --force-local flag to tar on Windows (#303) by @Andy in d0b0b3df
+- fix: stop tracking spec files in git (#295) by @Andy in 937a60f8
+- Fix/2.7.2 fixes (#300) by @Andy in 7a51cbd5
+- feat(merge,oauth): add path-aware AI merge resolution and device code streaming (#296) by @Andy in 26beefe3
+- feat: enhance the logs for the commit linting stage (#293) by @Alex in 8416f307
+- fix(github): add explicit GET method to gh api comment fetches (#294) by @Andy in 217249c8
+- fix(frontend): support archiving tasks across all worktree locations (#286) by @Andy in 8bb3df91
+- Potential fix for code scanning alert no. 224: Uncontrolled command line (#285) by @Andy in 5106c6e9
+- fix(frontend): validate backend source path before using it (#287) by @Andy in 3ff61274
+- feat(python): bundle Python 3.12 with packaged Electron app (#284) by @Andy in 7f19c2e1
+- fix: resolve spawn python ENOENT error on Linux by using getAugmentedEnv() (#281) by @Todd W. Bucy in d98e2830
+- fix(ci): add write permissions to beta-release update-version job by @AndyMik90 in 0b874d4b
+- chore(deps): bump @xterm/xterm from 5.5.0 to 6.0.0 in /apps/frontend (#270) by @dependabot[bot] in 50dd1078
+- fix(github): resolve follow-up review API issues by @AndyMik90 in f1cc5a09
+- fix(security): resolve CodeQL file system race conditions and unused variables (#277) by @Andy in b005fa5c
+- fix(ci): use correct electron-builder arch flags (#278) by @Andy in d79f2da4
+- chore(deps): bump jsdom from 26.1.0 to 27.3.0 in /apps/frontend (#268) by @dependabot[bot] in 5ac566e2
+- chore(deps): bump typescript-eslint in /apps/frontend (#269) by @dependabot[bot] in f49d4817
+- fix(ci): use develop branch for dry-run builds in beta-release workflow (#276) by @Andy in 1e1d7d9b
+- fix: accept bug_fix workflow_type alias during planning (#240) by @Daniel Frey in e74a3dff
+- fix(paths): normalize relative paths to posix (#239) by @Daniel Frey in 6ac8250b
+- chore(deps): bump @electron/rebuild in /apps/frontend (#271) by @dependabot[bot] in a2cee694
+- chore(deps): bump vitest from 4.0.15 to 4.0.16 in /apps/frontend (#272) by @dependabot[bot] in d4cad80a
+- feat(github): add automated PR review with follow-up support (#252) by @Andy in 596e9513
+- ci: implement enterprise-grade PR quality gates and security scanning (#266) by @Alex in d42041c5
+- fix: update path resolution for ollama_model_detector.py in memory handlers (#263) by @delyethan in a3f87540
+- feat: add i18n internationalization system (#248) by @Mitsu in f8438112
+- Revert "Feat/Auto Fix Github issues and do extensive AI PR reviews (#250)" (#251) by @Andy in 5e8c5308
+- Feat/Auto Fix Github issues and do extensive AI PR reviews (#250) by @Andy in 348de6df
+- fix: resolve Python detection and backend packaging issues (#241) by @HSSAINI Saad in 0f7d6e05
+- fix: add future annotations import to discovery.py (#229) by @Joris Slagter in 5ccdb6ab
+- Fix/ideation status sync (#212) by @souky-byte in 6ec8549f
+- fix(core): add global spec numbering lock to prevent collisions (#209) by @Andy in 53527293
+- feat: Add OpenRouter as LLM/embedding provider (#162) by @Fernando Possebon in 02bef954
+- fix: Add Python 3.10+ version validation and GitHub Actions Python setup (#180 #167) (#208) by @Fernando Possebon in f168bdc3
+- fix(ci): correct welcome workflow PR message (#206) by @Andy in e3eec68a
+- Feat/beta release (#193) by @Andy in 407a0bee
+- feat/beta-release (#190) by @Andy in 8f766ad1
+- fix/PRs from old main setup to apps structure (#185) by @Andy in ced2ad47
+- fix: hide status badge when execution phase badge is showing (#154) by @Andy in 05f5d303
+- feat: Add UI scale feature with 75-200% range (#125) by @Enes Cingöz in 6951251b
+- fix(task): stop running process when task status changes away from in_progress by @AndyMik90 in 30e7536b
+- Fix/linear 400 error by @Andy in 220faf0f
+- fix: remove legacy path from auto-claude source detection (#148) by @Joris Slagter in f96c6301
+- fix: resolve Python environment race condition (#142) by @Joris Slagter in ebd8340d
+- Feat: Ollama download progress tracking with new apps structure (#141) by @rayBlock in df779530
+- Feature/apps restructure v2.7.2 (#138) by @Andy in 0adaddac
+- docs: Add Git Flow branching strategy to CONTRIBUTING.md by @AndyMik90 in 91f7051d
+
+## Thanks to all contributors
+
+@Test User, @StillKnotKnown, @Umaru, @Andy, @Adam Slaker, @Michael Ludlow, @Maxim Kosterin, @ThrownLemon, @Ashwinhegde19, @Orinks, @Marcelo Czerewacz, @Brett Bonner, @Alex, @Rooki, @eddie333016, @AndyMik90, @Vinícius Santos, @arcker, @Masanori Uehara, @Crimson341, @Bogdan Dragomir, @tallinn102, @Ginanjar Noviawan, @aaronson2012, @Hunter Luisi, @Navid, @Mulaveesala Pranaveswar, @sniggl, @Abe Diaz, @Mitsu, @Joe, @Illia Filippov, @Ian, @Brian, @Kevin Rajan, @HSSAINI Saad, @JoshuaRileyDev, @souky-byte, @Alex, @Oluwatosin Oyeladun, @Daniel Frey, @delyethan, @Joris Slagter, @Fernando Possebon, @Enes Cingöz, @Todd W. Bucy, @dependabot[bot], @rayBlock
+
 ## 2.7.2 - Stability & Performance Enhancements
 
 ### ✨ New Features
