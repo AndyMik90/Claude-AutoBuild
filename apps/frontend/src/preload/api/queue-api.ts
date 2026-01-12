@@ -3,6 +3,7 @@
  */
 
 import { ipcRenderer } from 'electron';
+import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { QueueConfig, QueueStatus } from '../../shared/types';
 
 export interface QueueAPI {
@@ -12,10 +13,10 @@ export interface QueueAPI {
 }
 
 export const createQueueAPI = (): QueueAPI => ({
-  getQueueConfig: (projectId: string) => ipcRenderer.invoke('getQueueConfig', projectId),
+  getQueueConfig: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.QUEUE_GET_CONFIG, projectId),
 
   setQueueConfig: (projectId: string, config: QueueConfig) =>
-    ipcRenderer.invoke('setQueueConfig', projectId, config),
+    ipcRenderer.invoke(IPC_CHANNELS.QUEUE_SET_CONFIG, projectId, config),
 
-  getQueueStatus: (projectId: string) => ipcRenderer.invoke('getQueueStatus', projectId)
+  getQueueStatus: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.QUEUE_GET_STATUS, projectId)
 });

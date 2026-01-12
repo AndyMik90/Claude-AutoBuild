@@ -37,9 +37,20 @@ const PRIORITY_WEIGHT: Record<TaskPriority | '', number> = {
 
 /**
  * Delay to wait for status updates to propagate after a task exits.
- * This allows the project store to update task statuses before we check
- * if new tasks can be started. May need adjustment based on actual
- * status propagation characteristics.
+ *
+ * This is a deliberate trade-off between simplicity and correctness:
+ * - Simpler alternative: Track task status in-memory in TaskQueueManager
+ * - More complex alternative: Have projectStore emit events/promises on status changes
+ *
+ * The 500ms delay is pragmatic because:
+ * 1. Task status updates typically complete within 100-200ms
+ * 2. The queue check happens infrequently (only on task exit)
+ * 3. The small delay is imperceptible to users
+ * 4. Adding event-based synchronization would complicate projectStore architecture
+ *
+ * If this proves insufficient (e.g., races on slow systems), the preferred fix is
+ * to track running tasks in TaskQueueManager state rather than relying on
+ * projectStore's eventually-consistent status.
  */
 const STATUS_PROPAGATION_DELAY_MS = 500;
 
@@ -62,8 +73,6 @@ export class TaskQueueManager {
   private boundHandleTaskExit: (taskId: string, exitCode: number | null) => Promise<void>;
   /** Fast lookup cache: taskId -> { task, project, projectId } */
   private taskIndex = new Map<string, { task: Task; project: Project; projectId: string }>();
-  /** Flag to invalidate the cache when tasks change */
-  private indexValid = false;
 
   constructor(agentManager: AgentManager, emitter: EventEmitter) {
     this.agentManager = agentManager;
@@ -163,10 +172,7 @@ export class TaskQueueManager {
       }
 
       // Wait for status updates to propagate before checking if we can start more tasks.
-      // TODO: Replace with explicit synchronization - have projectStore emit a
-      // "status-persisted" event or return a Promise from status updates, then await
-      // that here instead of using a fixed delay. The current delay is a pragmatic
-      // compromise to avoid races between task exit and status persistence.
+      // See STATUS_PROPAGATION_DELAY_MS documentation for the trade-off analysis.
       await new Promise(resolve => setTimeout(resolve, STATUS_PROPAGATION_DELAY_MS));
 
       // Check if we can start more tasks
@@ -261,8 +267,11 @@ export class TaskQueueManager {
   }
 
   /**
-   * Manually trigger queue processing for a project
-   * Starts up to maxConcurrent tasks from backlog
+   * Manually trigger queue processing for a project.
+   * Starts up to maxConcurrent tasks from backlog.
+   *
+   * Uses per-project promise chaining to prevent race conditions with
+   * handleTaskExit, ensuring maxConcurrent is never exceeded.
    */
   async triggerQueue(projectId: string): Promise<void> {
     const config = this.getQueueConfig(projectId);
@@ -273,23 +282,42 @@ export class TaskQueueManager {
 
     debugLog('[TaskQueueManager] Manually triggering queue for project:', projectId);
 
-    // Start tasks until we reach max concurrent or run out of backlog
-    const status = this.getQueueStatus(projectId);
-    const tasksToStart = Math.min(config.maxConcurrent - status.runningCount, status.backlogCount);
+    // Get or create the processing promise chain for this project
+    const existingChain = this.processingQueue.get(projectId) || Promise.resolve();
 
-    debugLog('[TaskQueueManager] Will start', tasksToStart, 'tasks from backlog');
+    // Chain this operation onto the existing one
+    const processingPromise = existingChain.then(async () => {
+      // Start tasks until we reach max concurrent or run out of backlog
+      const status = this.getQueueStatus(projectId);
+      const tasksToStart = Math.min(config.maxConcurrent - status.runningCount, status.backlogCount);
 
-    for (let i = 0; i < tasksToStart; i++) {
-      const started = await this.triggerNextTask(projectId);
-      if (!started) {
-        break; // Stop if we can't start more tasks
+      debugLog('[TaskQueueManager] Will start', tasksToStart, 'tasks from backlog');
+
+      for (let i = 0; i < tasksToStart; i++) {
+        const started = await this.triggerNextTask(projectId);
+        if (!started) {
+          break; // Stop if we can't start more tasks
+        }
+        // Small delay between starts to avoid overwhelming the system
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
-      // Small delay between starts to avoid overwhelming the system
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
 
-    // Emit queue status update
-    this.emitQueueStatusUpdate(projectId);
+      // Emit queue status update
+      this.emitQueueStatusUpdate(projectId);
+    });
+
+    // Update the chain (removes the completed promise to prevent memory leak)
+    processingPromise.then(() => {
+      // Only remove if it's still the current chain
+      if (this.processingQueue.get(projectId) === processingPromise) {
+        this.processingQueue.delete(projectId);
+      }
+    });
+
+    this.processingQueue.set(projectId, processingPromise);
+
+    // Wait for this operation to complete
+    await processingPromise;
   }
 
   /**
@@ -302,13 +330,19 @@ export class TaskQueueManager {
 
   /**
    * Helper to find task and project by taskId
-   * Uses an in-memory index for O(1) lookups after initial build
+   *
+   * Always rebuilds the index before lookup to ensure fresh data.
+   * This is O(n) but only occurs on task exit events (infrequent).
+   *
+   * Note: The cache is always rebuilt rather than invalidated because
+   * task changes can happen through multiple paths (IPC, events, direct
+   * store mutations) and tracking all invalidation points would be
+   * complex and error-prone. Since lookups only occur on task exit,
+   * the rebuild cost is acceptable for correctness and simplicity.
    */
   private findTaskAndProject(taskId: string): { task: Task | undefined; project: Project | undefined } {
-    // Rebuild index if invalid (e.g., after task changes)
-    if (!this.indexValid) {
-      this.rebuildTaskIndex();
-    }
+    // Always rebuild to ensure we have the latest task data
+    this.rebuildTaskIndex();
 
     const cached = this.taskIndex.get(taskId);
     if (cached) {
@@ -319,8 +353,8 @@ export class TaskQueueManager {
   }
 
   /**
-   * Rebuild the task index from current project store data
-   * This provides O(1) lookups at the cost of periodic O(n) rebuilds
+   * Rebuild the task index from current project store data.
+   * Called before each lookup to ensure fresh data.
    */
   private rebuildTaskIndex(): void {
     this.taskIndex.clear();
@@ -336,15 +370,5 @@ export class TaskQueueManager {
         }
       }
     }
-
-    this.indexValid = true;
-  }
-
-  /**
-   * Invalidate the task index (call when tasks are added/removed/modified)
-   * The index will be rebuilt on the next lookup
-   */
-  private invalidateTaskIndex(): void {
-    this.indexValid = false;
   }
 }

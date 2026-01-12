@@ -28,6 +28,11 @@ export const IPC_CHANNELS = {
   TASK_RECOVER_STUCK: 'task:recoverStuck',
   TASK_CHECK_RUNNING: 'task:checkRunning',
 
+  // Queue operations
+  QUEUE_GET_CONFIG: 'queue:getConfig',
+  QUEUE_SET_CONFIG: 'queue:setConfig',
+  QUEUE_GET_STATUS: 'queue:getStatus',
+
   // Workspace management (for human review)
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
   TASK_WORKTREE_STATUS: 'task:worktreeStatus',

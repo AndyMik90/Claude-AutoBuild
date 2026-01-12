@@ -10,6 +10,7 @@ import { ipcMain } from 'electron';
 import { TaskQueueManager } from '../task-queue-manager';
 import { projectStore } from '../project-store';
 import { QUEUE_MIN_CONCURRENT, QUEUE_MAX_CONCURRENT } from '../../shared/constants/task';
+import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { QueueConfig, QueueStatus } from '../../shared/types';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
@@ -21,7 +22,7 @@ export function registerQueueHandlers(taskQueueManager: TaskQueueManager): void 
   /**
    * Get queue configuration for a project
    */
-  ipcMain.handle('getQueueConfig', async (_event, projectId: string) => {
+  ipcMain.handle(IPC_CHANNELS.QUEUE_GET_CONFIG, async (_event, projectId: string) => {
     try {
       const project = projectStore.getProject(projectId);
       if (!project?.settings.queueConfig) {
@@ -45,7 +46,7 @@ export function registerQueueHandlers(taskQueueManager: TaskQueueManager): void 
   /**
    * Set queue configuration for a project
    */
-  ipcMain.handle('setQueueConfig', async (_event, projectId: string, config: QueueConfig) => {
+  ipcMain.handle(IPC_CHANNELS.QUEUE_SET_CONFIG, async (_event, projectId: string, config: QueueConfig) => {
     try {
       const project = projectStore.getProject(projectId);
       if (!project) {
@@ -94,7 +95,7 @@ export function registerQueueHandlers(taskQueueManager: TaskQueueManager): void 
   /**
    * Get queue status for a project (includes running/backlog counts)
    */
-  ipcMain.handle('getQueueStatus', async (_event, projectId: string) => {
+  ipcMain.handle(IPC_CHANNELS.QUEUE_GET_STATUS, async (_event, projectId: string) => {
     try {
       const status = taskQueueManager.getQueueStatus(projectId);
       return {
