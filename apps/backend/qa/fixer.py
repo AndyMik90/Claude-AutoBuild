@@ -9,6 +9,8 @@ Memory Integration:
 - Saves fix outcomes and learnings after session
 """
 
+import base64
+import re
 from pathlib import Path
 
 # Memory integration for cross-session learning
@@ -39,6 +41,66 @@ def load_qa_fixer_prompt() -> str:
     if not prompt_file.exists():
         raise FileNotFoundError(f"QA fixer prompt not found: {prompt_file}")
     return prompt_file.read_text()
+
+
+def load_qa_feedback_screenshots(spec_dir: Path) -> list[dict]:
+    """
+    Load user feedback screenshots from QA_FIX_REQUEST.md.
+
+    Returns a list of image content blocks for Claude to see.
+    """
+    fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
+    if not fix_request_file.exists():
+        return []
+
+    content = fix_request_file.read_text()
+
+    # Find screenshot paths in the markdown (format: - `qa-feedback-screenshots/filename.png`)
+    screenshot_pattern = r"`(qa-feedback-screenshots/[^`]+)`"
+    screenshot_paths = re.findall(screenshot_pattern, content)
+
+    if not screenshot_paths:
+        return []
+
+    image_blocks = []
+    for rel_path in screenshot_paths:
+        image_path = spec_dir / rel_path
+        if image_path.exists():
+            try:
+                with open(image_path, "rb") as f:
+                    image_data = f.read()
+                    image_base64 = base64.b64encode(image_data).decode("utf-8")
+
+                    # Determine media type from extension
+                    ext = image_path.suffix.lower()
+                    media_type_map = {
+                        ".png": "image/png",
+                        ".jpg": "image/jpeg",
+                        ".jpeg": "image/jpeg",
+                        ".gif": "image/gif",
+                        ".webp": "image/webp",
+                    }
+                    media_type = media_type_map.get(ext, "image/png")
+
+                    image_blocks.append(
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": image_base64,
+                            },
+                        }
+                    )
+                    debug(
+                        "qa_fixer",
+                        f"Loaded feedback screenshot: {rel_path}",
+                        size=len(image_data),
+                    )
+            except Exception as e:
+                debug_error("qa_fixer", f"Failed to load screenshot {rel_path}: {e}")
+
+    return image_blocks
 
 
 # =============================================================================
@@ -123,10 +185,26 @@ async def run_qa_fixer_session(
     prompt += f"\n**IMPORTANT**: All spec files are located in: `{spec_dir}/`\n"
     prompt += f"The fix request file is at: `{spec_dir}/QA_FIX_REQUEST.md`\n"
 
+    # Load user feedback screenshots if they exist
+    screenshot_blocks = load_qa_feedback_screenshots(spec_dir)
+
     try:
         debug("qa_fixer", "Sending query to Claude SDK...")
-        await client.query(prompt)
-        debug_success("qa_fixer", "Query sent successfully")
+
+        # If screenshots exist, send as multimodal content blocks
+        if screenshot_blocks:
+            prompt += "\n\n---\n\n## User Feedback Screenshots\n\nThe user provided the following screenshots showing the issues that need to be fixed. **ANALYZE THESE SCREENSHOTS CAREFULLY** to understand the visual problems before making changes:\n\n"
+
+            content_blocks = [{"type": "text", "text": prompt}] + screenshot_blocks
+            await client.query(content_blocks)
+            debug_success(
+                "qa_fixer",
+                f"Query sent with {len(screenshot_blocks)} screenshot(s)",
+            )
+        else:
+            # No screenshots, send text-only prompt
+            await client.query(prompt)
+            debug_success("qa_fixer", "Query sent successfully")
 
         response_text = ""
         debug("qa_fixer", "Starting to receive response stream...")

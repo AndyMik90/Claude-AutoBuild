@@ -1,4 +1,4 @@
-import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, WorktreeCreatePRResult } from '../../../shared/types';
+import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, WorktreeCreatePRResult, ImageAttachment } from '../../../shared/types';
 import {
   StagedSuccessMessage,
   WorkspaceStatus,
@@ -15,6 +15,7 @@ import {
 interface TaskReviewProps {
   task: Task;
   feedback: string;
+  feedbackImages: ImageAttachment[];
   isSubmitting: boolean;
   worktreeStatus: WorktreeStatus | null;
   worktreeDiff: WorktreeDiff | null;
@@ -32,6 +33,7 @@ interface TaskReviewProps {
   isLoadingPreview: boolean;
   showConflictDialog: boolean;
   onFeedbackChange: (value: string) => void;
+  onFeedbackImagesChange: (images: ImageAttachment[]) => void;
   onReject: () => void;
   onMerge: () => void;
   onDiscard: () => void;
@@ -63,6 +65,7 @@ interface TaskReviewProps {
 export function TaskReview({
   task,
   feedback,
+  feedbackImages,
   isSubmitting,
   worktreeStatus,
   worktreeDiff,
@@ -80,6 +83,7 @@ export function TaskReview({
   isLoadingPreview,
   showConflictDialog,
   onFeedbackChange,
+  onFeedbackImagesChange,
   onReject,
   onMerge,
   onDiscard,
@@ -154,8 +158,10 @@ export function TaskReview({
       {/* QA Feedback Section */}
       <QAFeedbackSection
         feedback={feedback}
+        images={feedbackImages}
         isSubmitting={isSubmitting}
         onFeedbackChange={onFeedbackChange}
+        onImagesChange={onFeedbackImagesChange}
         onReject={onReject}
       />
 
