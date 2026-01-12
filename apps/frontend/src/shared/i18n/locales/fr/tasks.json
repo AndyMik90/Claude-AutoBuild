@@ -103,6 +103,12 @@
       "plan": "Plan",
       "code": "Code",
       "qa": "QA"
+    },
+    "subtaskStatus": {
+      "completed": "Terminé",
+      "inProgress": "En cours",
+      "failed": "Échoué",
+      "pending": "En attente"
     }
   },
   "files": {

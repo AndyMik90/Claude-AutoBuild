@@ -242,6 +242,7 @@ export interface TaskMetadata {
   baseBranch?: string;  // Override base branch for this task's worktree
   prUrl?: string;  // GitHub PR URL if task has been submitted as a PR
   useWorktree?: boolean;  // If false, use direct mode (no worktree isolation) - default is true for safety
+  reviewIterations?: number;  // Number of times task has cycled between human_review and ai_review
 
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
@@ -267,6 +268,7 @@ export interface Task {
   location?: 'main' | 'worktree';  // Where task was loaded from (main project or worktree)
   specsPath?: string;  // Full path to specs directory for this task
   isReadOnly?: boolean;  // If true, task doesn't modify project files (from implementation_plan.metadata)
+  branch?: string;  // Git branch name for DIRECT mode tasks (e.g., 'auto-claude/001-task-name')
   createdAt: Date;
   updatedAt: Date;
 }

@@ -280,17 +280,15 @@ export function Worktrees({ projectId }: WorktreesProps) {
   }
 
   return (
-    <div className="flex h-full flex-col p-6">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <GitBranch className="h-6 w-6" />
-            Worktrees
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage isolated workspaces for your Auto Claude tasks
-          </p>
+      <div className="border-b border-border p-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <GitBranch className="h-5 w-5 text-primary" />
+          <div>
+            <h2 className="text-lg font-semibold">Worktrees</h2>
+            <p className="text-xs text-muted-foreground">Manage isolated workspaces for your Auto Claude tasks</p>
+          </div>
         </div>
         <Button
           variant="outline"
@@ -303,43 +301,45 @@ export function Worktrees({ projectId }: WorktreesProps) {
         </Button>
       </div>
 
-      {/* Error message */}
-      {error && (
-        <div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-            <div>
-              <p className="font-medium text-destructive">Error</p>
-              <p className="text-muted-foreground mt-1">{error}</p>
+      <div className="flex-1 overflow-hidden p-6">
+
+        {/* Error message */}
+        {error && (
+          <div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-destructive">Error</p>
+                <p className="text-muted-foreground mt-1">{error}</p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Loading state */}
-      {isLoading && worktrees.length === 0 && terminalWorktrees.length === 0 && (
-        <div className="flex h-full items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!isLoading && worktrees.length === 0 && terminalWorktrees.length === 0 && (
-        <div className="flex h-full flex-col items-center justify-center text-center">
-          <div className="rounded-full bg-muted p-4 mb-4">
-            <GitBranch className="h-8 w-8 text-muted-foreground" />
+        {/* Loading state */}
+        {isLoading && worktrees.length === 0 && terminalWorktrees.length === 0 && (
+          <div className="flex h-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground">No Worktrees</h3>
-          <p className="text-sm text-muted-foreground mt-2 max-w-md">
-            Worktrees are created automatically when Auto Claude builds features.
-            You can also create terminal worktrees from the Agent Terminals tab.
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* Main content area with scroll */}
-      {(worktrees.length > 0 || terminalWorktrees.length > 0) && (
-        <ScrollArea className="flex-1 -mx-2">
+        {/* Empty state */}
+        {!isLoading && worktrees.length === 0 && terminalWorktrees.length === 0 && (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <div className="rounded-full bg-muted p-4 mb-4">
+              <GitBranch className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground">No Worktrees</h3>
+            <p className="text-sm text-muted-foreground mt-2 max-w-md">
+              Worktrees are created automatically when Auto Claude builds features.
+              You can also create terminal worktrees from the Agent Terminals tab.
+            </p>
+          </div>
+        )}
+
+        {/* Main content area with scroll */}
+        {(worktrees.length > 0 || terminalWorktrees.length > 0) && (
+          <ScrollArea className="flex-1 -mx-2">
           <div className="space-y-6 px-2">
             {/* Task Worktrees Section */}
             {worktrees.length > 0 && (
@@ -532,9 +532,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
                 ))}
               </div>
             )}
-          </div>
-        </ScrollArea>
-      )}
+            </div>
+          </ScrollArea>
+        )}
+      </div>
 
       {/* Merge Dialog */}
       <Dialog open={showMergeDialog} onOpenChange={setShowMergeDialog}>

@@ -1,11 +1,13 @@
 import { app } from 'electron';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
+import { execFileSync } from 'child_process';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask, QAReport } from '../shared/types';
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
+import { getToolPath } from './cli-tool-manager';
 
 interface TabState {
   openProjectIds: string[];
@@ -354,6 +356,31 @@ export class ProjectStore {
   }
 
   /**
+   * Check if a git branch exists (both local and remote)
+   */
+  private getBranchForSpec(projectPath: string, specName: string): string | undefined {
+    const branchName = `auto-claude/${specName}`;
+
+    try {
+      // Check if branch exists (local or remote)
+      const result = execFileSync(getToolPath('git'), ['branch', '-a'], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      // Parse branches: remove markers (* for current, + for checked out in worktree) and remotes/ prefix
+      const branches = result.split('\n').map(b => b.trim().replace(/^[*+]\s+/, '').replace(/^remotes\/origin\//, ''));
+
+      // Check if our branch exists
+      return branches.some(b => b === branchName) ? branchName : undefined;
+    } catch (err) {
+      console.error(`[ProjectStore] Failed to check branch for ${specName}:`, err);
+      return undefined;
+    }
+  }
+
+  /**
    * Load tasks from a specs directory (helper method for main project and worktrees)
    */
   private loadTasksFromSpecsDir(
@@ -524,6 +551,10 @@ export class ProjectStore {
         const planMetadata = (plan as unknown as { metadata?: { read_only?: boolean } })?.metadata;
         const isReadOnly = planMetadata?.read_only || false;
 
+        // Detect branch for DIRECT mode tasks (check if auto-claude/SPEC-NAME branch exists)
+        const project = this.getProject(projectId);
+        const branch = project ? this.getBranchForSpec(project.path, dir.name) : undefined;
+
         tasks.push({
           id: dir.name, // Use spec directory name as ID
           specId: dir.name,
@@ -541,6 +572,7 @@ export class ProjectStore {
           location, // Add location metadata (main vs worktree)
           specsPath: specPath, // Add full path to specs directory
           isReadOnly, // Flag for READ-ONLY tasks (no project modifications)
+          branch, // Git branch for DIRECT mode tasks (undefined for worktree tasks)
           createdAt: new Date(plan?.created_at || Date.now()),
           updatedAt: new Date(plan?.updated_at || Date.now())
         });

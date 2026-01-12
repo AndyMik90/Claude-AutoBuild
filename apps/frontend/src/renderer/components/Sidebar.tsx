@@ -19,8 +19,10 @@ import {
   FileText,
   Sparkles,
   GitBranch,
+  GitCommit,
   HelpCircle,
-  Wrench
+  Wrench,
+  ChevronDown
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -31,6 +33,13 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from './ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from './ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -52,7 +61,7 @@ import { RateLimitIndicator } from './RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
 import type { Project, AutoBuildVersionInfo, GitStatus, ProjectEnvConfig } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'branches' | 'agent-tools';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -78,7 +87,8 @@ const baseNavItems: NavItem[] = [
   { id: 'changelog', labelKey: 'navigation:items.changelog', icon: FileText, shortcut: 'L' },
   { id: 'context', labelKey: 'navigation:items.context', icon: BookOpen, shortcut: 'C' },
   { id: 'agent-tools', labelKey: 'navigation:items.agentTools', icon: Wrench, shortcut: 'M' },
-  { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' }
+  { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' },
+  { id: 'branches', labelKey: 'navigation:items.branches', icon: GitCommit, shortcut: 'B' }
 ];
 
 // GitHub nav items shown when GitHub is enabled
@@ -278,10 +288,10 @@ export function Sidebar({
         disabled={!selectedProjectId}
         aria-keyshortcuts={item.shortcut}
         className={cn(
-          'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200',
-          'hover:bg-accent hover:text-accent-foreground',
+          'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[14px] font-semibold transition-all duration-200',
+          'hover:bg-gradient-to-r hover:from-[#1c1c1c] hover:to-[#202020]',
           'disabled:pointer-events-none disabled:opacity-50',
-          isActive && 'bg-accent text-accent-foreground'
+          isActive ? 'bg-gradient-to-r from-[#1c1c1c] to-[#202020] text-primary' : 'text-white'
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
@@ -298,13 +308,44 @@ export function Sidebar({
   return (
     <TooltipProvider>
       <div className="flex h-full w-64 flex-col bg-sidebar border-r border-border">
-        {/* Header with drag area - extra top padding for macOS traffic lights */}
-        <div className="electron-drag flex h-14 items-center px-4 pt-6">
-          <span className="electron-no-drag text-lg font-bold text-primary">Auto Claude</span>
+        {/* Project Selector Dropdown */}
+        <div className="p-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Projects</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex-1 justify-between gap-2 px-3 py-2 h-auto bg-card hover:bg-card/80 border border-border rounded-lg"
+                >
+                  <span className="text-sm font-medium truncate">
+                    {selectedProject ? selectedProject.name : 'Select Project'}
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                {projects.map((project) => (
+                  <DropdownMenuItem
+                    key={project.id}
+                    onClick={() => selectProject(project.id)}
+                    className={cn(
+                      'cursor-pointer',
+                      selectedProjectId === project.id && 'bg-primary/10 text-primary'
+                    )}
+                  >
+                    {project.name}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleAddProject} className="text-primary">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Project
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-
-        <Separator className="mt-2" />
-
 
         <Separator />
 
@@ -329,7 +370,7 @@ export function Sidebar({
         <RateLimitIndicator />
 
         {/* Bottom section with Settings, Help, and New Task */}
-        <div className="p-4 space-y-3">
+        <div className="p-6 space-y-3">
           {/* Claude Code Status Badge */}
           <ClaudeCodeStatusBadge />
 

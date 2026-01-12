@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, ArrowUpDown } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, ArrowUpDown, LayoutGrid } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -222,7 +222,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
     <div
       ref={setNodeRef}
       className={cn(
-        'flex min-w-72 max-w-[30rem] flex-1 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+        'flex min-w-72 max-w-[30rem] flex-1 flex-col rounded-md border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
         getColumnBorderColor(),
         'border-t-2',
         isOver && 'drop-zone-highlight'
@@ -601,21 +601,27 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   return (
     <div className="flex h-full flex-col">
-      {/* Kanban header with refresh button */}
-      {onRefresh && (
-        <div className="flex items-center justify-end px-6 pt-4 pb-2">
+      {/* Header */}
+      <div className="border-b border-border p-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <LayoutGrid className="h-6 w-6 text-primary" />
+          <div>
+            <h2 className="text-lg font-semibold">Kanban Board</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Manage and track your Auto Claude tasks</p>
+          </div>
+        </div>
+        {onRefresh && (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="gap-2 text-muted-foreground hover:text-foreground"
           >
-            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh Tasks'}
+            <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
+            Refresh
           </Button>
-        </div>
-      )}
+        )}
+      </div>
       {/* Kanban columns */}
       <DndContext
         sensors={sensors}

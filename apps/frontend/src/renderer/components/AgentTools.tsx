@@ -1096,7 +1096,7 @@ export function AgentTools() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="border-b border-border p-6">
+      <div className="border-b border-border p-4">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-muted">
             <Server className="h-5 w-5 text-muted-foreground" />

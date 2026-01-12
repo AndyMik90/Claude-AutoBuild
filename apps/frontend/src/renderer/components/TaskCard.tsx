@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, Image as ImageIcon } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, Image as ImageIcon, GitBranch, FolderGit } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
 import {
@@ -68,6 +69,8 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.description === nextTask.description &&
     prevTask.updatedAt === nextTask.updatedAt &&
     prevTask.reviewReason === nextTask.reviewReason &&
+    prevTask.branch === nextTask.branch &&
+    prevTask.location === nextTask.location &&
     prevTask.executionProgress?.phase === nextTask.executionProgress?.phase &&
     prevTask.executionProgress?.phaseProgress === nextTask.executionProgress?.phaseProgress &&
     prevTask.subtasks.length === nextTask.subtasks.length &&
@@ -75,6 +78,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
     prevTask.metadata?.archivedAt === nextTask.metadata?.archivedAt &&
     prevTask.metadata?.prUrl === nextTask.metadata?.prUrl &&
+    prevTask.metadata?.reviewIterations === nextTask.metadata?.reviewIterations &&
     prevTask.qaReport?.screenshots?.length === nextTask.qaReport?.screenshots?.length &&
     // Check if any subtask statuses changed (compare all subtasks)
     prevTask.subtasks.every((s, i) => s.status === nextTask.subtasks[i]?.status)
@@ -320,34 +324,104 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
       )}
       onClick={onClick}
     >
-      <CardContent className="p-4">
-        {/* Task ID Badge - prominent numeric identifier */}
-        <Badge
-          variant="outline"
-          className="mb-2 text-xs px-2 py-0.5 font-mono font-semibold bg-primary/10 text-primary border-primary/30"
-          title={task.id}
-        >
-          #{task.id.split('-')[0]}
-        </Badge>
+      <CardContent className="p-5">
+        {/* Header: Task ID, Mode Badge, and Actions Menu */}
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex flex-wrap gap-2 flex-1 min-w-0">
+            {/* Task ID Badge */}
+            <Badge
+              variant="outline"
+              className="text-xs px-2.5 py-1 font-mono font-semibold bg-primary/10 text-primary border-primary/30 shrink-0"
+              title={`Task ID: ${task.id}`}
+            >
+              ID: {task.id.split('-')[0]}
+            </Badge>
 
-        {/* Title - full width, no wrapper */}
+            {/* Execution Mode Badge */}
+            {task.location === 'worktree' ? (
+              <Badge
+                variant="outline"
+                className="text-xs px-2.5 py-1 bg-info/10 text-info border-info/30 flex items-center gap-1.5 shrink-0"
+                title={`ISOLATED mode - Task runs in separate worktree directory`}
+              >
+                <FolderGit className="h-3 w-3" />
+                ISOLATED
+              </Badge>
+            ) : task.branch ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="inline-flex">
+                    <Badge
+                      variant="outline"
+                      className="text-xs px-2.5 py-1 bg-purple-500/10 text-purple-400 border-purple-500/30 flex items-center gap-1.5 shrink-0 cursor-help"
+                    >
+                      <GitBranch className="h-3 w-3" />
+                      DIRECT
+                    </Badge>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-md">
+                  <div className="text-xs max-h-32 overflow-y-auto">
+                    <div className="font-semibold">DIRECT mode</div>
+                    <div className="text-muted-foreground font-mono break-all">{task.branch}</div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+
+            {/* Review Iteration Badge - shows how many times task went back to AI review */}
+            {task.status === 'human_review' && task.metadata?.reviewIterations && task.metadata.reviewIterations > 1 && (
+              <Badge
+                variant="outline"
+                className="text-xs px-2.5 py-1 bg-warning/10 text-warning border-warning/30 shrink-0"
+                title={`This task has been reviewed ${task.metadata.reviewIterations} times (went back to AI review ${task.metadata.reviewIterations - 1} time${task.metadata.reviewIterations > 2 ? 's' : ''})`}
+              >
+                Iteration #{task.metadata.reviewIterations}
+              </Badge>
+            )}
+          </div>
+
+          {/* Actions Menu - moved to top right */}
+          {statusMenuItems && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label={t('actions.taskActions')}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuLabel>{t('actions.moveTo')}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {statusMenuItems}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+
+        {/* Title - improved line height and spacing */}
         <h3
-          className="font-semibold text-sm text-foreground line-clamp-2 leading-snug"
+          className="font-semibold text-base text-foreground line-clamp-2 leading-snug mb-2"
           title={task.title}
         >
           {task.title}
         </h3>
 
-        {/* Description - sanitized to handle markdown content (memoized) */}
+        {/* Description - better contrast and spacing */}
         {sanitizedDescription && (
-          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
+          <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">
             {sanitizedDescription}
           </p>
         )}
 
         {/* Metadata badges */}
         {(task.metadata || isStuck || isIncomplete || hasActiveExecution || reviewReasonInfo) && (
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <div className="mt-4 flex flex-wrap gap-2">
             {/* Stuck indicator - highest priority */}
             {isStuck && (
               <Badge
@@ -486,7 +560,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
 
         {/* Progress section - Phase-aware with animations */}
         {(task.subtasks.length > 0 || hasActiveExecution || isRunning || isStuck) && (
-          <div className="mt-4">
+          <div className="mt-5">
             <PhaseProgressIndicator
               phase={executionPhase}
               subtasks={task.subtasks}
@@ -497,7 +571,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
         )}
 
         {/* Footer */}
-        <div className="mt-4 flex items-center justify-between">
+        <div className="mt-5 flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
             <span>{relativeTime}</span>
@@ -590,28 +664,6 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
                   </>
                 )}
               </Button>
-            )}
-
-            {/* Move to menu for keyboard accessibility */}
-            {statusMenuItems && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label={t('actions.taskActions')}
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenuLabel>{t('actions.moveTo')}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {statusMenuItems}
-                </DropdownMenuContent>
-              </DropdownMenu>
             )}
           </div>
         </div>

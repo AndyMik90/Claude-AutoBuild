@@ -1,22 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, RefreshCw, AlertCircle } from 'lucide-react';
+import { Download, RefreshCw, AlertCircle, LayoutGrid, Folder, ListChecks, CheckCircle2, FolderOpen, Activity } from 'lucide-react';
 import { debugLog } from '../shared/utils/debug-logger';
-import {
-  DndContext,
-  DragOverlay,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  horizontalListSortingStrategy
-} from '@dnd-kit/sortable';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Button } from './components/ui/button';
+import { Badge } from './components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover';
+import { ScrollArea } from './components/ui/scroll-area';
 import { Toaster } from './components/ui/toaster';
 import {
   Dialog,
@@ -43,6 +33,7 @@ import { GitHubPRs } from './components/github-prs';
 import { GitLabMergeRequests } from './components/gitlab-merge-requests';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
+import { Branches } from './components/Branches';
 import { AgentTools } from './components/AgentTools';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RateLimitModal } from './components/RateLimitModal';
@@ -62,39 +53,8 @@ import { GlobalDownloadIndicator } from './components/GlobalDownloadIndicator';
 import { useIpcListeners } from './hooks/useIpc';
 import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
-import { ProjectTabBar } from './components/ProjectTabBar';
 import { AddProjectModal } from './components/AddProjectModal';
 import { ViewStateProvider } from './contexts/ViewStateContext';
-
-// Wrapper component for ProjectTabBar
-interface ProjectTabBarWithContextProps {
-  projects: Project[];
-  activeProjectId: string | null;
-  onProjectSelect: (projectId: string) => void;
-  onProjectClose: (projectId: string) => void;
-  onAddProject: () => void;
-  onSettingsClick: () => void;
-}
-
-function ProjectTabBarWithContext({
-  projects,
-  activeProjectId,
-  onProjectSelect,
-  onProjectClose,
-  onAddProject,
-  onSettingsClick
-}: ProjectTabBarWithContextProps) {
-  return (
-    <ProjectTabBar
-      projects={projects}
-      activeProjectId={activeProjectId}
-      onProjectSelect={onProjectSelect}
-      onProjectClose={onProjectClose}
-      onAddProject={onAddProject}
-      onSettingsClick={onSettingsClick}
-    />
-  );
-}
 
 export function App() {
   // Load IPC listeners for real-time updates
@@ -104,11 +64,9 @@ export function App() {
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const activeProjectId = useProjectStore((state) => state.activeProjectId);
-  const getProjectTabs = useProjectStore((state) => state.getProjectTabs);
   const openProjectIds = useProjectStore((state) => state.openProjectIds);
   const openProjectTab = useProjectStore((state) => state.openProjectTab);
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
-  const reorderTabs = useProjectStore((state) => state.reorderTabs);
   const tasks = useTaskStore((state) => state.tasks);
   const settings = useSettingsStore((state) => state.settings);
   const settingsLoading = useSettingsStore((state) => state.isLoading);
@@ -148,20 +106,7 @@ export function App() {
   const [removeProjectError, setRemoveProjectError] = useState<string | null>(null);
   const [projectToRemove, setProjectToRemove] = useState<Project | null>(null);
 
-  // Setup drag sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // 8px movement required before drag starts
-      },
-    })
-  );
-
-  // Track dragging state for overlay
-  const [activeDragProject, setActiveDragProject] = useState<Project | null>(null);
-
-  // Get tabs and selected project
-  const projectTabs = getProjectTabs();
+  // Get selected project
   const selectedProject = projects.find((p) => p.id === (activeProjectId || selectedProjectId));
 
   // Initial load
@@ -185,9 +130,7 @@ export function App() {
       projectsCount: projects.length,
       openProjectIds,
       activeProjectId,
-      selectedProjectId,
-      projectTabsCount: projectTabs.length,
-      projectTabIds: projectTabs.map(p => p.id)
+      selectedProjectId
     });
 
     if (projects.length > 0) {
@@ -578,18 +521,6 @@ export function App() {
     }
   };
 
-  const handleProjectTabSelect = (projectId: string) => {
-    setActiveProject(projectId);
-  };
-
-  const handleProjectTabClose = (projectId: string) => {
-    // Show confirmation dialog before removing the project
-    const project = projects.find(p => p.id === projectId);
-    if (project) {
-      setProjectToRemove(project);
-      setShowRemoveProjectDialog(true);
-    }
-  };
 
   const handleConfirmRemoveProject = () => {
     if (projectToRemove) {
@@ -616,30 +547,6 @@ export function App() {
     setShowRemoveProjectDialog(false);
     setProjectToRemove(null);
     setRemoveProjectError(null);
-  };
-
-  // Handle drag start - set the active dragged project
-  const handleDragStart = (event: any) => {
-    const { active } = event;
-    const draggedProject = projectTabs.find(p => p.id === active.id);
-    if (draggedProject) {
-      setActiveDragProject(draggedProject);
-    }
-  };
-
-  // Handle drag end - reorder tabs if dropped over another tab
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveDragProject(null);
-
-    if (!over) return;
-
-    const oldIndex = projectTabs.findIndex(p => p.id === active.id);
-    const newIndex = projectTabs.findIndex(p => p.id === over.id);
-
-    if (oldIndex !== newIndex && oldIndex !== -1 && newIndex !== -1) {
-      reorderTabs(oldIndex, newIndex);
-    }
   };
 
   const handleInitialize = async () => {
@@ -755,52 +662,199 @@ export function App() {
 
   return (
     <ViewStateProvider>
-      <TooltipProvider>
+      <TooltipProvider delayDuration={200} skipDelayDuration={100}>
         <ProactiveSwapListener />
-      <div className="flex h-screen bg-background">
-        {/* Sidebar */}
-        <Sidebar
-          onSettingsClick={() => setIsSettingsDialogOpen(true)}
-          onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
-          activeView={activeView}
-          onViewChange={setActiveView}
-        />
-
-        {/* Main content */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Project Tabs */}
-          {projectTabs.length > 0 && (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
+      <div className="flex h-screen flex-col bg-background">
+        {/* Global Title Bar */}
+        <div className="electron-drag flex h-10 items-center bg-primary px-4 shrink-0">
+          <div className="electron-no-drag flex items-center gap-3 ml-64 flex-1">
+            {/* Active View Badge */}
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-1.5 text-white"
+              style={{
+                background: 'rgb(0 0 0 / 8%)',
+                border: '1px solid #ffffff8c',
+                padding: '4px 12px',
+                textShadow: '0px 1px 1px #c6773b'
+              }}
             >
-              <SortableContext items={projectTabs.map(p => p.id)} strategy={horizontalListSortingStrategy}>
-                <ProjectTabBarWithContext
-                  projects={projectTabs}
-                  activeProjectId={activeProjectId}
-                  onProjectSelect={handleProjectTabSelect}
-                  onProjectClose={handleProjectTabClose}
-                  onAddProject={handleAddProject}
-                  onSettingsClick={() => setIsSettingsDialogOpen(true)}
-                />
-              </SortableContext>
+              <LayoutGrid className="h-3.5 w-3.5" />
+              {activeView === 'kanban' ? 'Kanban Board' :
+               activeView === 'terminals' ? 'Agent Terminals' :
+               activeView === 'github-prs' ? 'GitHub PRs' :
+               activeView === 'gitlab-merge-requests' ? 'GitLab MRs' :
+               activeView === 'github-issues' ? 'GitHub Issues' :
+               activeView === 'gitlab-issues' ? 'GitLab Issues' :
+               activeView === 'agent-tools' ? 'MCP Servers' :
+               activeView.replace('-', ' ')}
+            </Badge>
 
-              {/* Drag overlay - shows what's being dragged */}
-              <DragOverlay>
-                {activeDragProject && (
-                  <div className="flex items-center gap-2 bg-card border border-border rounded-md px-4 py-2.5 shadow-lg max-w-[200px]">
-                    <div className="w-1 h-4 bg-muted-foreground rounded-full" />
-                    <span className="truncate font-medium text-sm">
-                      {activeDragProject.name}
-                    </span>
-                  </div>
-                )}
-              </DragOverlay>
-            </DndContext>
-          )}
+            {/* Project Name Badge */}
+            {selectedProject && (
+              <>
+                <Badge
+                  variant="secondary"
+                  className="flex items-center gap-1.5 text-white max-w-[200px] truncate"
+                  style={{
+                    background: 'rgb(0 0 0 / 8%)',
+                    border: '1px solid #ffffff8c',
+                    padding: '4px 12px',
+                    textShadow: '0px 1px 1px #c6773b'
+                  }}
+                >
+                  <Folder className="h-3.5 w-3.5 shrink-0" />
+                  {selectedProject.name}
+                </Badge>
 
+                {/* Project Path Badge */}
+                <Badge
+                  variant="secondary"
+                  className="flex items-center gap-1.5 text-white max-w-[300px] relative overflow-hidden"
+                  style={{
+                    background: 'rgb(0 0 0 / 8%)',
+                    border: '1px solid #ffffff8c',
+                    padding: '4px 12px',
+                    textShadow: '0px 1px 1px #c6773b'
+                  }}
+                >
+                  <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+                  <span
+                    className="font-mono text-xs whitespace-nowrap"
+                    style={{
+                      maskImage: 'linear-gradient(to right, black calc(100% - 20px), transparent)',
+                      WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 20px), transparent)'
+                    }}
+                  >
+                    {selectedProject.path}
+                  </span>
+                </Badge>
+              </>
+            )}
+
+            {/* Task Stats Badges */}
+            <div className="flex items-center gap-2 ml-auto">
+              {/* Current Jobs Badge with Popover */}
+              {(() => {
+                const runningTasks = tasks.filter(t =>
+                  t.status === 'in_progress' || t.status === 'running'
+                );
+
+                console.log('[TitleBar] Running tasks:', runningTasks.length, runningTasks.map(t => ({ id: t.id, title: t.title, status: t.status })));
+
+                if (runningTasks.length === 0) return null;
+
+                return (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Badge
+                        variant="secondary"
+                        className="flex items-center gap-1.5 text-white cursor-pointer hover:brightness-110 transition-all"
+                        style={{
+                          background: 'rgb(0 0 0 / 8%)',
+                          border: '1px solid #ffffff8c',
+                          padding: '4px 12px',
+                          textShadow: '0px 1px 1px #c6773b'
+                        }}
+                      >
+                        <Activity className="h-3.5 w-3.5 animate-pulse" />
+                        {runningTasks.length} Running
+                      </Badge>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-96 p-0" align="end">
+                      <div className="p-3 border-b border-border bg-muted/50">
+                        <h4 className="font-semibold text-sm flex items-center gap-2">
+                          <Activity className="h-4 w-4 text-primary" />
+                          Currently Running Jobs
+                        </h4>
+                      </div>
+                      <ScrollArea className="max-h-[300px]">
+                        <div className="p-2 space-y-1">
+                          {runningTasks.map((task) => (
+                            <div
+                              key={task.id}
+                              className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                              onClick={() => setSelectedTask(task)}
+                            >
+                              <div className="flex items-start justify-between gap-2 mb-1">
+                                <span className="font-medium text-sm line-clamp-1">{task.title}</span>
+                                <Badge variant="outline" className="text-xs shrink-0">
+                                  {task.specId}
+                                </Badge>
+                              </div>
+                              {task.executionProgress?.currentStep && (
+                                <p className="text-xs text-muted-foreground line-clamp-2">
+                                  {task.executionProgress.currentStep}
+                                </p>
+                              )}
+                              {task.executionProgress?.progress !== undefined && (
+                                <div className="mt-2">
+                                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                                    <span>Progress</span>
+                                    <span>{Math.round(task.executionProgress.progress)}%</span>
+                                  </div>
+                                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-primary transition-all duration-300"
+                                      style={{ width: `${task.executionProgress.progress}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                );
+              })()}
+
+              {tasks.length > 0 && (
+                <>
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1.5 text-white"
+                    style={{
+                      background: 'rgb(0 0 0 / 8%)',
+                      border: '1px solid #ffffff8c',
+                      padding: '4px 12px',
+                      textShadow: '0px 1px 1px #c6773b'
+                    }}
+                  >
+                    <ListChecks className="h-3.5 w-3.5" />
+                    {tasks.filter(t => !t.archived).length} Tasks
+                  </Badge>
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1.5 text-white"
+                    style={{
+                      background: 'rgb(0 0 0 / 8%)',
+                      border: '1px solid #ffffff8c',
+                      padding: '4px 12px',
+                      textShadow: '0px 1px 1px #c6773b'
+                    }}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {tasks.filter(t => t.status === 'done' && !t.archived).length} Done
+                  </Badge>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar */}
+          <Sidebar
+            onSettingsClick={() => setIsSettingsDialogOpen(true)}
+            onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
+            activeView={activeView}
+            onViewChange={setActiveView}
+          />
+
+          {/* Main content */}
+          <div className="flex flex-1 flex-col overflow-hidden">
           {/* Main content area */}
           <main className="flex-1 overflow-hidden">
             {selectedProject ? (
@@ -879,6 +933,9 @@ export function App() {
                 {activeView === 'worktrees' && (activeProjectId || selectedProjectId) && (
                   <Worktrees projectId={activeProjectId || selectedProjectId!} />
                 )}
+                {activeView === 'branches' && (activeProjectId || selectedProjectId) && (
+                  <Branches projectId={activeProjectId || selectedProjectId!} />
+                )}
                 {activeView === 'agent-tools' && <AgentTools />}
               </>
             ) : (
@@ -892,6 +949,7 @@ export function App() {
               />
             )}
           </main>
+          </div>
         </div>
 
         {/* Task detail modal */}

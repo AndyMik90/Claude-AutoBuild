@@ -1,6 +1,7 @@
-import { AlertCircle, GitMerge, Loader2, Check, RotateCcw } from 'lucide-react';
+import { AlertCircle, GitMerge, Loader2, Check, RotateCcw, GitBranch } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../../ui/button';
+import { Badge } from '../../ui/badge';
 import { persistTaskStatus } from '../../../stores/task-store';
 import type { Task } from '../../../../shared/types';
 
@@ -66,6 +67,25 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
           ? 'This task was executed in read-only mode without modifying your project files. It ran directly in your project directory for verification or analysis purposes.'
           : 'No isolated workspace was found for this task. The changes may have been made directly in your project.'}
       </p>
+
+      {/* Branch Information - show if task has an associated branch */}
+      {task?.branch && (
+        <div className="mb-3 p-3 rounded-lg bg-primary/10 border border-primary/30">
+          <div className="flex items-center gap-2 mb-2">
+            <GitBranch className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium text-primary">Git Branch (DIRECT Mode)</span>
+          </div>
+          <Badge
+            variant="outline"
+            className="font-mono bg-background/50 text-primary border-primary/30"
+          >
+            {task.branch}
+          </Badge>
+          <p className="text-xs text-muted-foreground mt-2">
+            Changes were made directly on this branch without using an isolated worktree.
+          </p>
+        </div>
+      )}
 
       {/* Allow marking as done */}
       {task && task.status === 'human_review' && (

@@ -87,6 +87,7 @@ export function ProjectTabBar({
     <div className={cn(
       'flex items-center border-b border-border bg-background',
       'overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent',
+      'h-[57px]', // Match column header height (p-4 padding + content)
       className
     )}>
       <div className="flex items-center flex-1 min-w-0">
