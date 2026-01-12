@@ -20,8 +20,12 @@ export function ProjectWindowHeader({ projectId }: ProjectWindowHeaderProps) {
   const reattachProject = useProjectStore(state => state.reattachProject);
 
   const handleMoveToMain = () => {
+    console.log('[ProjectWindowHeader] Move to main clicked, projectId:', projectId);
     if (projectId) {
+      console.log('[ProjectWindowHeader] Calling reattachProject');
       reattachProject(projectId);
+    } else {
+      console.warn('[ProjectWindowHeader] No projectId available');
     }
   };
 

@@ -49,8 +49,13 @@ export function registerWindowHandlers(): void {
       const windowManager = getWindowManager();
       const projectWindow = windowManager.getProjectWindow(projectId);
 
+      console.log(`[window-handlers] Project window found:`, projectWindow ? 'yes' : 'no');
+
       if (projectWindow && !projectWindow.isDestroyed()) {
+        console.log(`[window-handlers] Closing project window`);
         projectWindow.close();
+      } else {
+        console.warn(`[window-handlers] Project window not found or already destroyed`);
       }
 
       // Broadcast to all windows

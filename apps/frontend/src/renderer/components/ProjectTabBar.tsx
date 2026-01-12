@@ -81,12 +81,18 @@ export function ProjectTabBar({
   }
 
   return (
-    <div className={cn(
-      'flex items-center border-b border-border bg-background',
-      'overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent',
-      className
-    )}>
-      <div className="flex items-center flex-1 min-w-0">
+    <div
+      className={cn(
+        'flex items-center border-b border-border bg-background',
+        'overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent',
+        className
+      )}
+      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+    >
+      <div
+        className="flex items-center flex-1 min-w-0"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
         {projects.map((project, index) => {
           const isActiveTab = activeProjectId === project.id;
           return (
@@ -108,7 +114,10 @@ export function ProjectTabBar({
         })}
       </div>
 
-      <div className="flex items-center gap-2 px-2 py-1">
+      <div
+        className="flex items-center gap-2 px-2 py-1"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
         <UsageIndicator />
         <Button
           variant="ghost"
