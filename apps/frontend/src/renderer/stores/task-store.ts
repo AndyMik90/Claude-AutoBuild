@@ -517,6 +517,7 @@ export interface PersistStatusResult {
   success: boolean;
   worktreeExists?: boolean;
   worktreePath?: string;
+  canSkipCleanup?: boolean;
   error?: string;
 }
 
@@ -527,7 +528,7 @@ export interface PersistStatusResult {
 export async function persistTaskStatus(
   taskId: string,
   status: TaskStatus,
-  options?: { forceCleanup?: boolean }
+  options?: { forceCleanup?: boolean; skipCleanup?: boolean }
 ): Promise<PersistStatusResult> {
   const store = useTaskStore.getState();
 
@@ -542,6 +543,16 @@ export async function persistTaskStatus(
         return {
           success: false,
           worktreeExists: true,
+          worktreePath: result.worktreePath,
+          error: result.error
+        };
+      }
+      // Check if cleanup failed but can be skipped
+      if (result.canSkipCleanup) {
+        console.log('[persistTaskStatus] Cleanup failed, skip option available');
+        return {
+          success: false,
+          canSkipCleanup: true,
           worktreePath: result.worktreePath,
           error: result.error
         };
@@ -566,6 +577,15 @@ export async function persistTaskStatus(
  */
 export async function forceCompleteTask(taskId: string): Promise<PersistStatusResult> {
   return persistTaskStatus(taskId, 'done', { forceCleanup: true });
+}
+
+/**
+ * Complete a task without cleaning up its worktree
+ * Used when cleanup fails (e.g., files in use) and user wants to proceed anyway
+ * The worktree will remain for manual deletion later
+ */
+export async function skipCleanupCompleteTask(taskId: string): Promise<PersistStatusResult> {
+  return persistTaskStatus(taskId, 'done', { skipCleanup: true });
 }
 
 /**

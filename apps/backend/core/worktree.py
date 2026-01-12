@@ -719,7 +719,10 @@ class WorktreeManager:
             for item in self.worktrees_dir.iterdir():
                 if item.is_dir():
                     info = self.get_worktree_info(item.name)
-                    if info:
+                    # Skip if worktree is on a base branch (orphaned after GitHub merge)
+                    # But allow any feature branch pattern (auto-claude/*, feature/*, etc.)
+                    base_branches = {"main", "master", "develop", "HEAD"}
+                    if info and info.branch not in base_branches:
                         worktrees.append(info)
                         seen_specs.add(item.name)
 
@@ -729,7 +732,9 @@ class WorktreeManager:
             for item in legacy_dir.iterdir():
                 if item.is_dir() and item.name not in seen_specs:
                     info = self.get_worktree_info(item.name)
-                    if info:
+                    # Skip if worktree is on a base branch
+                    base_branches = {"main", "master", "develop", "HEAD"}
+                    if info and info.branch not in base_branches:
                         worktrees.append(info)
 
         return worktrees

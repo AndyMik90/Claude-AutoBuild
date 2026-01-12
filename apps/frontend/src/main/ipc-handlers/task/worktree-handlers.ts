@@ -2678,6 +2678,15 @@ export function registerWorktreeHandlers(
               encoding: 'utf-8'
             }).trim();
 
+            // Skip if HEAD is detached or pointing to a main/base branch
+            // (this can happen if worktree is orphaned after GitHub merge)
+            // But allow any feature branch pattern (auto-claude/*, feature/*, etc.)
+            const baseBranches = ['main', 'master', 'develop', 'HEAD'];
+            if (baseBranches.includes(branch)) {
+              console.warn(`[TASK_LIST_WORKTREES] Skipping worktree ${entry} - on base branch: ${branch}`);
+              return; // Skip - likely orphaned or misconfigured
+            }
+
             // Get base branch using proper fallback chain:
             // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
             // Note: We do NOT use current HEAD as that may be a feature branch

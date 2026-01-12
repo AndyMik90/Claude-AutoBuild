@@ -17,8 +17,10 @@ interface WorktreeCleanupDialogProps {
   worktreePath?: string;
   isProcessing: boolean;
   error?: string;
+  canSkipCleanup?: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
+  onSkipCleanup?: () => void;
 }
 
 /**
@@ -30,8 +32,10 @@ export function WorktreeCleanupDialog({
   worktreePath,
   isProcessing,
   error,
+  canSkipCleanup,
   onOpenChange,
-  onConfirm
+  onConfirm,
+  onSkipCleanup
 }: WorktreeCleanupDialogProps) {
   const { t } = useTranslation(['dialogs', 'common']);
 
@@ -80,6 +84,19 @@ export function WorktreeCleanupDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isProcessing}>{t('common:buttons.cancel')}</AlertDialogCancel>
+          {error && canSkipCleanup && onSkipCleanup && (
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                onSkipCleanup();
+              }}
+              disabled={isProcessing}
+              className="bg-muted text-muted-foreground hover:bg-muted/80"
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              {t('dialogs:worktreeCleanup.skipCleanup', 'Mark Done (Keep Worktree)')}
+            </AlertDialogAction>
+          )}
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
