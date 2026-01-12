@@ -16,6 +16,7 @@ import { registerTaskExecutionHandlers } from './execution-handlers';
 import { registerWorktreeHandlers } from './worktree-handlers';
 import { registerTaskLogsHandlers } from './logs-handlers';
 import { registerTaskArchiveHandlers } from './archive-handlers';
+import { registerTaskMetadataHandlers } from './metadata-handlers';
 
 /**
  * Register all task-related IPC handlers
@@ -39,6 +40,9 @@ export function registerTaskHandlers(
 
   // Register archive handlers (archive, unarchive)
   registerTaskArchiveHandlers();
+
+  // Register metadata handlers (get, update task_metadata.json)
+  registerTaskMetadataHandlers();
 }
 
 // Export shared utilities for use by other modules if needed

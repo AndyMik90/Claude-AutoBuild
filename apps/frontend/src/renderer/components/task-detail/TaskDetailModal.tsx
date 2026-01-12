@@ -42,6 +42,7 @@ import { TaskSubtasks } from './TaskSubtasks';
 import { TaskLogs } from './TaskLogs';
 import { TaskFiles } from './TaskFiles';
 import { TaskReview } from './TaskReview';
+import { TaskConfiguration } from './TaskConfiguration';
 import type { Task, WorktreeCreatePROptions } from '../../../shared/types';
 
 interface TaskDetailModalProps {
@@ -482,6 +483,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                       {t('tasks:files.tab')}
                     </TabsTrigger>
                   )}
+                  <TabsTrigger
+                    value="configuration"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
+                  >
+                    Configuration
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* Overview Tab */}
@@ -564,6 +571,11 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     <TaskFiles task={task} />
                   </TabsContent>
                 )}
+
+                {/* Configuration Tab */}
+                <TabsContent value="configuration" className="flex-1 min-h-0 overflow-hidden mt-0">
+                  <TaskConfiguration task={task} />
+                </TabsContent>
               </Tabs>
             </div>
 
