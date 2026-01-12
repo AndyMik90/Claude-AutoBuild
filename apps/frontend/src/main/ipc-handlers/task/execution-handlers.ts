@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, TaskStartOptions, TaskStatus, ImageAttachment } from '../../../shared/types';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync, mkdirSync, rmSync } from 'fs';
 import { spawnSync, execFileSync } from 'child_process';
 import { getToolPath } from '../../cli-tool-manager';
 import { AgentManager } from '../../agent';
@@ -615,8 +615,7 @@ export function registerTaskExecutionHandlers(
               } catch {
                 // If git worktree remove fails, the directory might not be a valid worktree
                 // Just remove the directory manually
-                const fs = require('fs');
-                fs.rmSync(worktreePath, { recursive: true, force: true });
+                rmSync(worktreePath, { recursive: true, force: true });
                 console.warn(`[TASK_UPDATE_STATUS] Orphaned worktree directory deleted: ${worktreePath}`);
               }
 
@@ -685,8 +684,7 @@ export function registerTaskExecutionHandlers(
                 if (errorMessage.includes('not a working tree') || errorMessage.includes('is not a valid working tree')) {
                   console.warn(`[TASK_UPDATE_STATUS] Directory exists but isn't a git worktree - deleting directly`);
                   try {
-                    const fs = require('fs');
-                    fs.rmSync(worktreePath, { recursive: true, force: true });
+                    rmSync(worktreePath, { recursive: true, force: true });
                     removed = true;
                     console.warn(`[TASK_UPDATE_STATUS] Directory deleted: ${worktreePath}`);
                     // Prune any stale worktree references
