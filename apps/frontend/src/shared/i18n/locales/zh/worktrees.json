@@ -49,5 +49,11 @@
   "conflicts": "冲突",
   "additions": "增加",
   "deletions": "删除",
-  "created": "创建于"
+  "created": "创建于",
+  "errorLoadingTaskWorktrees": "加载任务工作树失败",
+  "errorLoadingWorktrees": "加载工作树失败",
+  "errorTaskNotFound": "未找到此工作树的任务",
+  "errorMergeFailed": "合并失败",
+  "errorDeleteWorktree": "删除工作树失败",
+  "errorDeleteTerminalWorktree": "删除终端工作树失败"
 }

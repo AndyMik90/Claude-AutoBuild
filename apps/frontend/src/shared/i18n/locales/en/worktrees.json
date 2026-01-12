@@ -49,5 +49,11 @@
   "conflicts": "conflicts",
   "additions": "additions",
   "deletions": "deletions",
-  "created": "Created"
+  "created": "Created",
+  "errorLoadingTaskWorktrees": "Failed to load task worktrees",
+  "errorLoadingWorktrees": "Failed to load worktrees",
+  "errorTaskNotFound": "Task not found for this worktree",
+  "errorMergeFailed": "Merge failed",
+  "errorDeleteWorktree": "Failed to delete worktree",
+  "errorDeleteTerminalWorktree": "Failed to delete terminal worktree"
 }

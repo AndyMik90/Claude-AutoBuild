@@ -250,5 +250,18 @@
     "phases": {
       "complete": "Complete"
     }
+  },
+  "editDialog": {
+    "title": "Edit Task",
+    "description": "Update task details including title, description, classification, images, and settings. Changes will be saved to the spec files.",
+    "titleLabel": "Task Title",
+    "titleHint": "A short, descriptive title will be generated automatically if left empty.",
+    "classificationLabel": "Classification",
+    "referenceImagesLabel": "Reference Images",
+    "referenceImagesHint": "Attach screenshots, mockups, or diagrams to provide visual context for the AI.",
+    "saveChanges": "Save Changes",
+    "errorProcessPastedImage": "Failed to process pasted image",
+    "errorProcessDroppedImage": "Failed to process dropped image",
+    "errorDescriptionRequired": "Description is required"
   }
 }

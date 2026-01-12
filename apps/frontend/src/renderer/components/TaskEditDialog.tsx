@@ -271,7 +271,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
           thumbnail
         });
       } catch {
-        setError('Failed to process pasted image');
+        setError(t('editDialog.errorProcessPastedImage'));
       }
     }
 
@@ -368,7 +368,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
             thumbnail
           });
         } catch {
-          setError('Failed to process dropped image');
+          setError(t('editDialog.errorProcessDroppedImage'));
         }
       }
 
@@ -387,7 +387,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const handleSave = async () => {
     // Validate input - only description is required
     if (!description.trim()) {
-      setError('Description is required');
+      setError(t('editDialog.errorDescriptionRequired'));
       return;
     }
 
@@ -463,9 +463,9 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-foreground">Edit Task</DialogTitle>
+          <DialogTitle className="text-foreground">{t('editDialog.title')}</DialogTitle>
           <DialogDescription>
-            Update task details including title, description, classification, images, and settings. Changes will be saved to the spec files.
+            {t('editDialog.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -501,7 +501,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
           {/* Title (Optional - Auto-generated if empty) */}
           <div className="space-y-2">
             <Label htmlFor="edit-title" className="text-sm font-medium text-foreground">
-              Task Title <span className="text-muted-foreground font-normal">(optional)</span>
+              {t('editDialog.titleLabel')} <span className="text-muted-foreground font-normal">{t('wizard.optional')}</span>
             </Label>
             <Input
               id="edit-title"
@@ -511,7 +511,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
               disabled={isSaving}
             />
             <p className="text-xs text-muted-foreground">
-              A short, descriptive title will be generated automatically if left empty.
+              {t('editDialog.titleHint')}
             </p>
           </div>
 
@@ -538,7 +538,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
           {pasteSuccess && (
             <div className="flex items-center gap-2 text-sm text-success animate-in fade-in slide-in-from-top-1 duration-200">
               <ImageIcon className="h-4 w-4" />
-              Image added successfully!
+              {t('wizard.imageAdded')}
             </div>
           )}
 
@@ -554,7 +554,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
             aria-expanded={showAdvanced}
             aria-controls="edit-advanced-options"
           >
-            <span>Classification (optional)</span>
+            <span>{t('editDialog.classificationLabel')} {t('wizard.optional')}</span>
             {showAdvanced ? (
               <ChevronUp className="h-4 w-4" />
             ) : (
@@ -569,7 +569,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
                 {/* Category */}
                 <div className="space-y-2">
                   <Label htmlFor="edit-category" className="text-xs font-medium text-muted-foreground">
-                    Category
+                    {t('wizard.categoryLabel')}
                   </Label>
                   <Select
                     value={category}
@@ -592,7 +592,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
                 {/* Priority */}
                 <div className="space-y-2">
                   <Label htmlFor="edit-priority" className="text-xs font-medium text-muted-foreground">
-                    Priority
+                    {t('wizard.priorityLabel')}
                   </Label>
                   <Select
                     value={priority}
@@ -615,7 +615,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
                 {/* Complexity */}
                 <div className="space-y-2">
                   <Label htmlFor="edit-complexity" className="text-xs font-medium text-muted-foreground">
-                    Complexity
+                    {t('wizard.complexityLabel')}
                   </Label>
                   <Select
                     value={complexity}
@@ -638,7 +638,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
                 {/* Impact */}
                 <div className="space-y-2">
                   <Label htmlFor="edit-impact" className="text-xs font-medium text-muted-foreground">
-                    Impact
+                    {t('wizard.impactLabel')}
                   </Label>
                   <Select
                     value={impact}
@@ -660,7 +660,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
               </div>
 
               <p className="text-xs text-muted-foreground">
-                These labels help organize and prioritize tasks. They&apos;re optional but useful for filtering.
+                {t('wizard.classificationHint')}
               </p>
             </div>
           )}
@@ -679,7 +679,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
           >
             <span className="flex items-center gap-2">
               <ImageIcon className="h-4 w-4" />
-              Reference Images (optional)
+              {t('editDialog.referenceImagesLabel')} {t('wizard.optional')}
               {images.length > 0 && (
                 <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
                   {images.length}
@@ -697,7 +697,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
           {showImages && (
             <div id="edit-images-section" className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
               <p className="text-xs text-muted-foreground">
-                Attach screenshots, mockups, or diagrams to provide visual context for the AI.
+                {t('editDialog.referenceImagesHint')}
               </p>
               <ImageUpload
                 images={images}
@@ -721,10 +721,10 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
                 htmlFor="edit-require-review"
                 className="text-sm font-medium text-foreground cursor-pointer"
               >
-                Require human review before coding
+                {t('wizard.requireReviewLabel')}
               </Label>
               <p className="text-xs text-muted-foreground">
-                When enabled, you&apos;ll be prompted to review the spec and implementation plan before the coding phase begins. This allows you to approve, request changes, or provide feedback.
+                {t('wizard.requireReviewHint')}
               </p>
             </div>
           </div>
@@ -740,7 +740,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isSaving}>
-            Cancel
+            {t('buttons.cancel')}
           </Button>
           <Button
             onClick={handleSave}
@@ -749,10 +749,10 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                {t('buttons.saving')}
               </>
             ) : (
-              'Save Changes'
+              t('editDialog.saveChanges')
             )}
           </Button>
         </DialogFooter>

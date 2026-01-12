@@ -243,5 +243,18 @@
     "title": "删除任务",
     "confirmMessage": "您确定要删除 \"{{title}}\" 吗？",
     "warning": "此操作无法撤销。所有任务文件，包括规范、实施计划和任何生成的代码将从项目中永久删除。"
+  },
+  "editDialog": {
+    "title": "编辑任务",
+    "description": "更新任务详情，包括标题、描述、分类、图片和设置。更改将保存到规范文件中。",
+    "titleLabel": "任务标题",
+    "titleHint": "如果留空，将自动生成一个简短、描述性的标题。",
+    "classificationLabel": "分类",
+    "referenceImagesLabel": "参考图片",
+    "referenceImagesHint": "附加截图、模型或图表，为 AI 提供视觉上下文。",
+    "saveChanges": "保存更改",
+    "errorProcessPastedImage": "处理粘贴的图片失败",
+    "errorProcessDroppedImage": "处理拖放的图片失败",
+    "errorDescriptionRequired": "需要描述"
   }
 }
