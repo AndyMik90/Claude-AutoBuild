@@ -28,10 +28,8 @@ export function getProviderOAuthHandlers(
           };
         },
         installCli: async () => {
-          const result = await window.electronAPI.installGitHubCli();
-          return {
-            command: result.data?.command || 'gh',
-          };
+          // TODO: Implement installGitHubCli handler
+          return { command: 'gh' };
         },
         startAuth: async () => {
           return await window.electronAPI.startGitHubAuth();
@@ -112,27 +110,19 @@ export function getProviderRepositoryFetcher(provider: ProviderType) {
   switch (provider) {
     case 'github':
       return async () => {
-        const result = await window.electronAPI.getGitHubRepos();
-        if (!result.success || !result.data) {
-          return [];
-        }
-        return result.data.map((repo: any) => ({
-          name: repo.name,
-          fullName: repo.full_name,
-          description: repo.description,
-          visibility: repo.visibility || repo.private ? 'private' : 'public',
-          url: repo.html_url,
-        }));
+        // TODO: Implement GitHub repository listing
+        // Check if window.electronAPI.listUserRepos exists
+        return [];
       };
 
     case 'gitlab':
       return async () => {
-        const result = await window.electronAPI.getGitLabProjects();
-        if (!result.success || !result.data) {
+        const result = await window.electronAPI.listGitLabUserProjects(undefined);
+        if (!result.success || !result.data?.projects) {
           return [];
         }
-        return result.data.map((project: any) => ({
-          name: project.name || project.pathWithNamespace,
+        return result.data.projects.map((project: any) => ({
+          name: project.pathWithNamespace,
           fullName: project.pathWithNamespace,
           description: project.description,
           visibility: project.visibility,

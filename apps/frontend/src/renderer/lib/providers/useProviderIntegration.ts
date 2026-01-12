@@ -138,7 +138,7 @@ export function useProviderIntegration({
       };
       setTimeout(checkAuth, 3000);
     } else {
-      console.error(`[useProviderIntegration] OAuth failed:`, result.error);
+      console.error(`[useProviderIntegration] OAuth failed:`, result);
     }
   }, [provider, providerConfig, oauthHandlers, updateEnvConfig]);
 
