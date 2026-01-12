@@ -22,6 +22,8 @@ import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { useRateLimitStore } from '../stores/rate-limit-store';
 import { useClaudeProfileStore, loadClaudeProfiles, switchTerminalToProfile } from '../stores/claude-profile-store';
+import { useToast } from '../hooks/use-toast';
+import { debugError } from '../../shared/utils/debug-logger';
 
 const CLAUDE_UPGRADE_URL = 'https://claude.ai/upgrade';
 
@@ -29,6 +31,7 @@ export function RateLimitModal() {
   const { t } = useTranslation('common');
   const { isModalOpen, rateLimitInfo, hideRateLimitModal, clearPendingRateLimit } = useRateLimitStore();
   const { profiles, activeProfileId, isSwitching } = useClaudeProfileStore();
+  const { toast } = useToast();
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(false);
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
@@ -64,7 +67,7 @@ export function RateLimitModal() {
         setAutoSwitchEnabled(result.data.autoSwitchOnRateLimit);
       }
     } catch (err) {
-      console.error('Failed to load auto-switch settings:', err);
+      debugError('[RateLimitModal] Failed to load auto-switch settings:', err);
     }
   };
 
@@ -77,7 +80,7 @@ export function RateLimitModal() {
       });
       setAutoSwitchEnabled(enabled);
     } catch (err) {
-      console.error('Failed to update auto-switch settings:', err);
+      debugError('[RateLimitModal] Failed to update auto-switch settings:', err);
     } finally {
       setIsLoadingSettings(false);
     }
@@ -116,22 +119,26 @@ export function RateLimitModal() {
           // Close the modal so user can see the terminal
           hideRateLimitModal();
 
-          // Alert the user about the terminal
-          alert(
-            `A terminal has been opened to authenticate "${profileName}".\n\n` +
-            `Steps to complete:\n` +
-            `1. Check the "Agent Terminals" section in the sidebar\n` +
-            `2. Complete the OAuth login in your browser\n` +
-            `3. The token will be saved automatically\n\n` +
-            `Once done, return here and the account will be available.`
-          );
+          // Notify the user about the terminal (non-blocking)
+          toast({
+            title: t('rateLimit.toast.authenticating', { profileName }),
+            description: t('rateLimit.toast.checkTerminal'),
+          });
         } else {
-          alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
+          toast({
+            variant: 'destructive',
+            title: t('rateLimit.toast.authStartFailed'),
+            description: initResult.error || t('rateLimit.toast.tryAgain'),
+          });
         }
       }
     } catch (err) {
-      console.error('Failed to add profile:', err);
-      alert('Failed to add profile. Please try again.');
+      debugError('[RateLimitModal] Failed to add profile:', err);
+      toast({
+        variant: 'destructive',
+        title: t('rateLimit.toast.addProfileFailed'),
+        description: t('rateLimit.toast.tryAgain'),
+      });
     } finally {
       setIsAddingProfile(false);
     }

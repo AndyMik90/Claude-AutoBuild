@@ -30,7 +30,9 @@ interface UseGitHubPRsResult {
   selectedPRNumber: number | null;
   reviewResult: PRReviewResult | null;
   reviewProgress: PRReviewProgress | null;
+  startedAt: string | null;
   isReviewing: boolean;
+  previousReviewResult: PRReviewResult | null;
   isConnected: boolean;
   repoFullName: string | null;
   activePRReviews: number[]; // PR numbers currently being reviewed
@@ -52,6 +54,7 @@ interface UseGitHubPRsResult {
   assignPR: (prNumber: number, username: string) => Promise<boolean>;
   getReviewStateForPR: (prNumber: number) => {
     isReviewing: boolean;
+    startedAt: string | null;
     progress: PRReviewProgress | null;
     result: PRReviewResult | null;
     previousResult: PRReviewResult | null;
@@ -96,10 +99,12 @@ export function useGitHubPRs(
     return getPRReviewState(projectId, selectedPRNumber);
   }, [projectId, selectedPRNumber, prReviews, getPRReviewState]);
 
-  // Derive values from store state
+  // Derive values from store state - all from the same source to ensure consistency
   const reviewResult = selectedPRReviewState?.result ?? null;
   const reviewProgress = selectedPRReviewState?.progress ?? null;
   const isReviewing = selectedPRReviewState?.isReviewing ?? false;
+  const previousReviewResult = selectedPRReviewState?.previousResult ?? null;
+  const startedAt = selectedPRReviewState?.startedAt ?? null;
 
   // Get list of PR numbers currently being reviewed
   const activePRReviews = useMemo(() => {
@@ -115,6 +120,7 @@ export function useGitHubPRs(
       if (!state) return null;
       return {
         isReviewing: state.isReviewing,
+        startedAt: state.startedAt,
         progress: state.progress,
         result: state.result,
         previousResult: state.previousResult,
@@ -500,7 +506,9 @@ export function useGitHubPRs(
     selectedPRNumber,
     reviewResult,
     reviewProgress,
+    startedAt,
     isReviewing,
+    previousReviewResult,
     isConnected,
     repoFullName,
     activePRReviews,

@@ -1656,8 +1656,18 @@ export function registerWorktreeHandlers(
 
           // Get base branch using proper fallback chain:
           // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
-          // Note: We do NOT use current HEAD as that may be a feature branch
           const baseBranch = getEffectiveBaseBranch(project.path, task.specId, project.settings?.mainBranch);
+
+          // Get user's current branch in main project (this is where changes will merge INTO)
+          let currentProjectBranch: string | undefined;
+          try {
+            currentProjectBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
+              cwd: project.path,
+              encoding: 'utf-8'
+            }).trim();
+          } catch {
+            // Ignore - might be in detached HEAD or git error
+          }
 
           // Get commit count (cross-platform - no shell syntax)
           let commitCount = 0;
@@ -1703,6 +1713,7 @@ export function registerWorktreeHandlers(
               worktreePath,
               branch,
               baseBranch,
+              currentProjectBranch,
               commitCount,
               filesChanged,
               additions,
@@ -2133,39 +2144,16 @@ export function registerWorktreeHandlers(
 
               if (isStageOnly && !hasActualStagedChanges && mergeAlreadyCommitted) {
                 // Stage-only was requested but merge was already committed previously
-                // Mark as done since changes are already in the branch
-                newStatus = 'done';
-                planStatus = 'completed';
-                message = 'Changes were already merged and committed. Task marked as done.';
+                // Keep in human_review and let user explicitly mark as done (which will trigger cleanup confirmation)
+                // This ensures user is in control of when the worktree is deleted
+                newStatus = 'human_review';
+                planStatus = 'review';
+                message = 'Changes were already merged and committed. You can mark this task as complete when ready.';
                 staged = false;
-                debug('Stage-only requested but merge already committed. Marking as done.');
-
-                // Clean up worktree since merge is complete (fixes #243)
-                // This is the same cleanup as the full merge path, needed because
-                // stageOnly defaults to true for human_review tasks
-                try {
-                  if (worktreePath && existsSync(worktreePath)) {
-                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
-                      cwd: project.path,
-                      encoding: 'utf-8'
-                    });
-                    debug('Worktree cleaned up (already merged):', worktreePath);
-
-                    // Also delete the task branch
-                    const taskBranch = `auto-claude/${task.specId}`;
-                    try {
-                      execFileSync(getToolPath('git'), ['branch', '-D', taskBranch], {
-                        cwd: project.path,
-                        encoding: 'utf-8'
-                      });
-                      debug('Task branch deleted:', taskBranch);
-                    } catch {
-                      // Branch might not exist or already deleted
-                    }
-                  }
-                } catch (cleanupErr) {
-                  debug('Worktree cleanup failed (non-fatal):', cleanupErr);
-                }
+                debug('Stage-only requested but merge already committed. Keeping in human_review for user to confirm completion.');
+                // NOTE: We intentionally do NOT auto-clean the worktree here.
+                // User can drag the task to "Done" column which will show a confirmation dialog
+                // asking if they want to delete the worktree and mark complete.
               } else if (isStageOnly && !hasActualStagedChanges) {
                 // Stage-only was requested but no changes to stage (and not committed)
                 // This could mean nothing to merge or an error - keep in human_review for investigation
@@ -2588,7 +2576,7 @@ export function registerWorktreeHandlers(
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_DISCARD,
-    async (_, taskId: string): Promise<IPCResult<WorktreeDiscardResult>> => {
+    async (_, taskId: string, skipStatusChange?: boolean): Promise<IPCResult<WorktreeDiscardResult>> => {
       try {
         const { task, project } = findTaskAndProject(taskId);
         if (!task || !project) {
@@ -2631,9 +2619,13 @@ export function registerWorktreeHandlers(
             // Branch might already be deleted or not exist
           }
 
-          const mainWindow = getMainWindow();
-          if (mainWindow) {
-            mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, 'backlog');
+          // Only send status change to backlog if not skipped
+          // (skip when caller will set a different status, e.g., 'done')
+          if (!skipStatusChange) {
+            const mainWindow = getMainWindow();
+            if (mainWindow) {
+              mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, 'backlog');
+            }
           }
 
           return {
@@ -2839,6 +2831,82 @@ export function registerWorktreeHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to open in terminal'
+        };
+      }
+    }
+  );
+
+  /**
+   * Clear the staged state for a task
+   * This allows the user to re-stage changes if needed
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_CLEAR_STAGED_STATE,
+    async (_, taskId: string): Promise<IPCResult<{ cleared: boolean }>> => {
+      try {
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          return { success: false, error: 'Task not found' };
+        }
+
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specDir = path.join(project.path, specsBaseDir, task.specId);
+        const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+        // Use EAFP pattern (try/catch) instead of LBYL (existsSync check) to avoid TOCTOU race conditions
+        const { promises: fsPromises } = require('fs');
+        const isFileNotFound = (err: unknown): boolean =>
+          !!(err && typeof err === 'object' && 'code' in err && err.code === 'ENOENT');
+
+        // Read, update, and write the plan file
+        let planContent: string;
+        try {
+          planContent = await fsPromises.readFile(planPath, 'utf-8');
+        } catch (readErr) {
+          if (isFileNotFound(readErr)) {
+            return { success: false, error: 'Implementation plan not found' };
+          }
+          throw readErr;
+        }
+
+        const plan = JSON.parse(planContent);
+
+        // Clear the staged state flags
+        delete plan.stagedInMainProject;
+        delete plan.stagedAt;
+        plan.updated_at = new Date().toISOString();
+
+        await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
+
+        // Also update worktree plan if it exists
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        if (worktreePath) {
+          const worktreePlanPath = path.join(worktreePath, specsBaseDir, task.specId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+          try {
+            const worktreePlanContent = await fsPromises.readFile(worktreePlanPath, 'utf-8');
+            const worktreePlan = JSON.parse(worktreePlanContent);
+            delete worktreePlan.stagedInMainProject;
+            delete worktreePlan.stagedAt;
+            worktreePlan.updated_at = new Date().toISOString();
+            await fsPromises.writeFile(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
+          } catch (e) {
+            // Non-fatal - worktree plan update is best-effort
+            // ENOENT is expected when worktree has no plan file
+            if (!isFileNotFound(e)) {
+              console.warn('[CLEAR_STAGED_STATE] Failed to update worktree plan:', e);
+            }
+          }
+        }
+
+        // Invalidate tasks cache to force reload
+        projectStore.invalidateTasksCache(project.id);
+
+        return { success: true, data: { cleared: true } };
+      } catch (error) {
+        console.error('Failed to clear staged state:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to clear staged state'
         };
       }
     }

@@ -7,10 +7,14 @@ Defines the complete implementation plan for a feature/task with progress
 tracking, status management, and follow-up capabilities.
 """
 
+import asyncio
+import functools
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import datetime
 from pathlib import Path
+
+from core.file_utils import write_json_atomic
 
 from .enums import PhaseType, SubtaskStatus, WorkflowType
 from .phase import Phase
@@ -98,18 +102,57 @@ class ImplementationPlan:
             qa_signoff=data.get("qa_signoff"),
         )
 
-    def save(self, path: Path):
-        """Save plan to JSON file."""
+    def _update_timestamps_and_status(self) -> None:
+        """Update timestamps and status before saving.
+
+        Sets updated_at to now, initializes created_at if needed, and updates
+        status based on subtask completion.
+        """
         self.updated_at = datetime.now().isoformat()
         if not self.created_at:
             self.created_at = self.updated_at
-
-        # Auto-update status based on subtask completion
         self.update_status_from_subtasks()
 
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)
+    def save(self, path: Path) -> None:
+        """Save plan to JSON file using atomic write to prevent corruption."""
+        self._update_timestamps_and_status()
+        # Use atomic write to prevent corruption on crash/interrupt
+        write_json_atomic(path, self.to_dict(), indent=2, ensure_ascii=False)
+
+    async def async_save(self, path: Path) -> None:
+        """
+        Async version of save() - runs file I/O in thread pool to avoid blocking event loop.
+
+        Use this from async contexts (like agent sessions) to prevent blocking.
+        Restores in-memory state if the write fails.
+        """
+        # Capture full state for potential rollback (handles future field additions)
+        old_state = self.to_dict()
+
+        # Update state and capture dict
+        self._update_timestamps_and_status()
+        data = self.to_dict()
+
+        # Run sync write in thread pool to avoid blocking event loop
+        loop = asyncio.get_running_loop()
+        partial_write = functools.partial(
+            write_json_atomic,
+            path,
+            data,
+            indent=2,
+            ensure_ascii=False,
+        )
+
+        try:
+            await loop.run_in_executor(None, partial_write)
+        except Exception:
+            # Restore full state from captured dict on write failure
+            # This reverts all fields modified by _update_timestamps_and_status()
+            restored = self.from_dict(old_state)
+            # Copy restored fields back to self (dataclass __init__ returns new instance)
+            for field in fields(self):
+                setattr(self, field.name, getattr(restored, field.name))
+            raise
 
     def update_status_from_subtasks(self):
         """Update overall status and planStatus based on subtask completion state.

@@ -37,12 +37,13 @@ export const WINDOWS_GIT_PATHS: WindowsToolPaths = {
   ],
 };
 
-function isSecurePath(pathStr: string): boolean {
+export function isSecurePath(pathStr: string): boolean {
   const dangerousPatterns = [
-    /[;&|`$(){}[\]<>!]/,  // Shell metacharacters
-    /\.\.\//,             // Unix directory traversal
-    /\.\.\\/,             // Windows directory traversal
-    /[\r\n]/,             // Newlines (command injection)
+    /[;&|`${}[\]<>!"^]/,  // Shell metacharacters (parentheses removed - safe when quoted)
+    /%[^%]+%/,              // Windows environment variable expansion (e.g., %PATH%)
+    /\.\.\//,               // Unix directory traversal
+    /\.\.\\/,               // Windows directory traversal
+    /[\r\n]/,               // Newlines (command injection)
   ];
 
   for (const pattern of dangerousPatterns) {
@@ -155,11 +156,12 @@ export function findWindowsExecutableViaWhere(
     }).trim();
 
     // 'where' returns multiple paths separated by newlines if found in multiple locations
-    // We take the first one (highest priority in PATH)
+    // Prefer paths with .cmd or .exe extensions (executable files)
     const paths = result.split(/\r?\n/).filter(p => p.trim());
 
     if (paths.length > 0) {
-      const foundPath = paths[0].trim();
+      // Prefer .cmd, .bat, or .exe extensions, otherwise take first path
+      const foundPath = (paths.find(p => /\.(cmd|bat|exe)$/i.test(p)) || paths[0]).trim();
 
       // Validate the path exists and is secure
       if (existsSync(foundPath) && isSecurePath(foundPath)) {
@@ -257,11 +259,12 @@ export async function findWindowsExecutableViaWhereAsync(
     });
 
     // 'where' returns multiple paths separated by newlines if found in multiple locations
-    // We take the first one (highest priority in PATH)
+    // Prefer paths with .cmd, .bat, or .exe extensions (executable files)
     const paths = stdout.trim().split(/\r?\n/).filter(p => p.trim());
 
     if (paths.length > 0) {
-      const foundPath = paths[0].trim();
+      // Prefer .cmd, .bat, or .exe extensions, otherwise take first path
+      const foundPath = (paths.find(p => /\.(cmd|bat|exe)$/i.test(p)) || paths[0]).trim();
 
       // Validate the path exists and is secure
       try {

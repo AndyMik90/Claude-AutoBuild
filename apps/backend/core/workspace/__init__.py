@@ -28,6 +28,10 @@ _workspace_module = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_workspace_module)
 merge_existing_build = _workspace_module.merge_existing_build
 _run_parallel_merges = _workspace_module._run_parallel_merges
+AI_MERGE_SYSTEM_PROMPT = _workspace_module.AI_MERGE_SYSTEM_PROMPT
+_build_merge_prompt = _workspace_module._build_merge_prompt
+_check_git_conflicts = _workspace_module._check_git_conflicts
+_rebase_spec_branch = _workspace_module._rebase_spec_branch
 
 # Models and Enums
 # Display Functions
@@ -107,6 +111,10 @@ __all__ = [
     # Merge Operations (from workspace.py)
     "merge_existing_build",
     "_run_parallel_merges",  # Private but used internally
+    "AI_MERGE_SYSTEM_PROMPT",  # System prompt for AI merge (ACS-194)
+    "_build_merge_prompt",  # Internal prompt builder (ACS-194)
+    "_check_git_conflicts",  # Internal git conflict detection (ACS-224)
+    "_rebase_spec_branch",  # Internal rebase function (ACS-224)
     # Models
     "WorkspaceMode",
     "WorkspaceChoice",

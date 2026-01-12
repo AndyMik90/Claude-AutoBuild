@@ -26,7 +26,7 @@ const execFileAsync = promisify(execFile);
  * @param filePath - The path to check
  * @returns Promise resolving to true if path exists, false otherwise
  */
-async function existsAsync(filePath: string): Promise<boolean> {
+export async function existsAsync(filePath: string): Promise<boolean> {
   try {
     await fsPromises.access(filePath);
     return true;
@@ -437,4 +437,112 @@ export async function findExecutableAsync(command: string): Promise<string | nul
 export function clearNpmPrefixCache(): void {
   npmGlobalPrefixCache = undefined;
   npmGlobalPrefixCachePromise = null;
+}
+
+/**
+ * Determine if a command requires shell execution on Windows
+ *
+ * Windows .cmd and .bat files MUST be executed through shell, while .exe files
+ * can be executed directly. This function checks the file extension to determine
+ * the correct execution method.
+ *
+ * @param command - The command path to check
+ * @returns true if shell is required (Windows .cmd/.bat), false otherwise
+ *
+ * @example
+ * ```typescript
+ * shouldUseShell('D:\\nodejs\\claude.cmd')                // true
+ * shouldUseShell('C:\\Program Files\\nodejs\\claude.cmd')  // true
+ * shouldUseShell('C:\\Windows\\System32\\git.exe')         // false
+ * shouldUseShell('/usr/local/bin/claude')                  // false (non-Windows)
+ * ```
+ */
+export function shouldUseShell(command: string): boolean {
+  // Only Windows needs special handling for .cmd/.bat files
+  if (process.platform !== 'win32') {
+    return false;
+  }
+
+  const trimmed = command.trim();
+  const unquoted =
+    trimmed.startsWith('"') && trimmed.endsWith('"') ? trimmed.slice(1, -1) : trimmed;
+
+  // Check if command ends with .cmd or .bat (case-insensitive)
+  return /\.(cmd|bat)$/i.test(unquoted);
+}
+
+/**
+ * Get spawn options with correct shell setting for Windows compatibility
+ *
+ * Provides a consistent way to create spawn options that work across platforms.
+ * Handles the shell requirement for Windows .cmd/.bat files automatically.
+ *
+ * For .cmd/.bat files on Windows, returns options that tell the caller to use
+ * proper quoting for paths with spaces.
+ *
+ * @param command - The command path to execute
+ * @param baseOptions - Base spawn options to merge with (optional)
+ * @returns Spawn options with correct shell setting
+ *
+ * @example
+ * ```typescript
+ * const opts = getSpawnOptions(claudeCmd, { cwd: '/project', env: {...} });
+ * spawn(getSpawnCommand(claudeCmd), ['--version'], opts);
+ * ```
+ */
+export function getSpawnOptions(
+  command: string,
+  baseOptions?: {
+    cwd?: string;
+    env?: Record<string, string>;
+    timeout?: number;
+    windowsHide?: boolean;
+    stdio?: 'inherit' | 'pipe' | Array<'inherit' | 'pipe'>;
+  }
+): {
+  cwd?: string;
+  env?: Record<string, string>;
+  shell: boolean;
+  timeout?: number;
+  windowsHide?: boolean;
+  stdio?: 'inherit' | 'pipe' | Array<'inherit' | 'pipe'>;
+} {
+  return {
+    ...baseOptions,
+    shell: shouldUseShell(command),
+  };
+}
+
+/**
+ * Get the properly quoted command for use with spawn()
+ *
+ * For .cmd/.bat files on Windows with shell:true, the command path must be
+ * quoted to handle paths containing spaces correctly (e.g., C:\Users\OXFAM MONS\...).
+ *
+ * @param command - The command path to execute
+ * @returns The command (quoted if needed for .cmd/.bat files on Windows)
+ *
+ * @example
+ * ```typescript
+ * const cmd = getSpawnCommand(claudeCmd); // "C:\Users\OXFAM MONS\...\claude.cmd"
+ * const opts = getSpawnOptions(claudeCmd, { cwd: '/project', env: {...} });
+ * spawn(cmd, ['--version'], opts);
+ * ```
+ */
+export function getSpawnCommand(command: string): string {
+  // For .cmd/.bat files on Windows, quote the command to handle spaces
+  // The shell will parse the quoted path correctly
+  const trimmed = command.trim();
+  if (shouldUseShell(trimmed)) {
+    // Idempotent if already quoted
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      return trimmed;
+    }
+    return `"${trimmed}"`;
+  }
+  // For non-.cmd/.bat files, strip quotes if present (defensive: no double quotes with shell:false)
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
 }

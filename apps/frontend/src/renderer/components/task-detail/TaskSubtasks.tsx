@@ -1,4 +1,5 @@
 import { CheckCircle2, Clock, XCircle, AlertCircle, ListChecks, FileCode } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -23,6 +24,7 @@ function getSubtaskStatusIcon(status: string) {
 }
 
 export function TaskSubtasks({ task }: TaskSubtasksProps) {
+  const { t } = useTranslation(['tasks']);
   const progress = calculateProgress(task.subtasks);
 
   return (
@@ -69,11 +71,11 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="text-sm font-medium text-foreground truncate cursor-default">
-                            {subtask.id}
+                            {subtask.title || t('tasks:subtasks.untitled')}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs">
-                          <p className="font-mono text-xs">{subtask.id}</p>
+                          <p className="text-xs">{subtask.title || t('tasks:subtasks.untitled')}</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>

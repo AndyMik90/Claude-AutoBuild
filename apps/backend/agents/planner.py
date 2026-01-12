@@ -141,7 +141,7 @@ async def run_followup_planner(
             if pending_subtasks:
                 # Reset the plan status to in_progress (in case planner didn't)
                 plan.reset_for_followup()
-                plan.save(plan_file)
+                await plan.async_save(plan_file)
 
                 print()
                 content = [

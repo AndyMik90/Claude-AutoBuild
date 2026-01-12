@@ -20,6 +20,8 @@ Public API is exported via workspace/__init__.py for backward compatibility.
 import subprocess
 from pathlib import Path
 
+# Import git command helper for centralized logging and allowlist compliance
+from core.git_executable import run_git
 from ui import (
     Icons,
     bold,
@@ -252,9 +254,10 @@ def merge_existing_build(
                 stats = smart_result.get("stats", {})
                 had_conflicts = stats.get("conflicts_resolved", 0) > 0
                 ai_assisted = stats.get("ai_assisted", 0) > 0
+                direct_copy = stats.get("direct_copy", False)
 
-                if had_conflicts or ai_assisted:
-                    # AI actually resolved conflicts or assisted with merges
+                if had_conflicts or ai_assisted or direct_copy:
+                    # AI resolved conflicts, assisted with merges, or direct copy was used
                     # Changes are already written and staged - no need for git merge
                     _print_merge_success(
                         no_commit, stats, spec_name=spec_name, keep_worktree=True
@@ -276,6 +279,13 @@ def merge_existing_build(
                             no_commit, stats, spec_name=spec_name, keep_worktree=True
                         )
                         return True
+                    else:
+                        # Standard git merge failed - report error and don't continue
+                        print()
+                        print_status(
+                            "Merge failed. Please check the errors above.", "error"
+                        )
+                        return False
             elif smart_result.get("git_conflicts"):
                 # Had git conflicts that AI couldn't fully resolve
                 resolved = smart_result.get("resolved", [])
@@ -442,7 +452,56 @@ def _try_smart_merge_inner(
             has_conflicts=git_conflicts.get("has_conflicts"),
             conflicting_files=git_conflicts.get("conflicting_files", []),
             base_branch=git_conflicts.get("base_branch"),
+            needs_rebase=git_conflicts.get("needs_rebase"),
+            commits_behind=git_conflicts.get("commits_behind", 0),
         )
+
+        # Check if spec branch is behind and needs rebase
+        # This must happen BEFORE conflict resolution to ensure merge succeeds
+        # LOGIC-003: Simplified condition - needs_rebase implies commits_behind > 0
+        if git_conflicts.get("needs_rebase"):
+            commits_behind = git_conflicts.get("commits_behind", 0)
+            base_branch = git_conflicts.get("base_branch", "main")
+
+            print()
+            print_status(
+                f"Spec branch is {commits_behind} commit(s) behind {base_branch}",
+                "warning",
+            )
+            print(muted("  Automatically rebasing before merge..."))
+
+            # Attempt to rebase the spec branch onto the latest base branch
+            rebase_success = _rebase_spec_branch(
+                project_dir,
+                spec_name,
+                base_branch,
+            )
+
+            if rebase_success:
+                # Refresh git conflicts after rebase
+                # The rebase may have changed the conflict state
+                git_conflicts = _check_git_conflicts(project_dir, spec_name)
+
+                debug(
+                    MODULE,
+                    "Refreshed git conflicts after rebase",
+                    has_conflicts=git_conflicts.get("has_conflicts"),
+                    conflicting_files=git_conflicts.get("conflicting_files", []),
+                    diverged_but_no_conflicts=git_conflicts.get(
+                        "diverged_but_no_conflicts"
+                    ),
+                )
+
+                # If rebase succeeded and now there are no conflicts,
+                # the diverged_but_no_conflicts path will handle the merge
+            else:
+                # Rebase failed - continue with conflict resolution as before
+                # The AI resolver will handle the conflicts
+                print(
+                    warning(
+                        "  Rebase encountered issues, using AI conflict resolution..."
+                    )
+                )
 
         if git_conflicts.get("has_conflicts"):
             print(
@@ -499,6 +558,155 @@ def _try_smart_merge_inner(
                     "error": resolution_result.get("error"),
                 }
 
+        # Check if branches diverged but no actual conflicts (can do direct copy)
+        if git_conflicts.get("diverged_but_no_conflicts"):
+            debug(MODULE, "Branches diverged but no conflicts - doing direct file copy")
+            print(muted("  Branches diverged but no conflicts detected"))
+            print(muted("  Copying changed files directly from worktree..."))
+
+            # Get changed files from spec branch
+            spec_branch = f"auto-claude/{spec_name}"
+            base_branch = git_conflicts.get("base_branch", "main")
+
+            # Get merge-base for diff
+            merge_base_result = subprocess.run(
+                ["git", "merge-base", base_branch, spec_branch],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+            )
+            merge_base = (
+                merge_base_result.stdout.strip()
+                if merge_base_result.returncode == 0
+                else None
+            )
+
+            if merge_base:
+                # Get list of changed files in spec branch
+                changed_files = _get_changed_files_from_branch(
+                    project_dir, merge_base, spec_branch
+                )
+
+                resolved_files = []
+                skipped_files = []  # Track files that failed to copy
+                files_to_stage = []
+                for file_path, status in changed_files:
+                    if _is_auto_claude_file(file_path):
+                        continue
+
+                    try:
+                        target_path = project_dir / file_path
+
+                        if status == "D":
+                            # Deleted in worktree
+                            if target_path.exists():
+                                target_path.unlink()
+                            files_to_stage.append(file_path)
+                            resolved_files.append(file_path)
+                            print(success(f"    ✓ {file_path} (deleted)"))
+                        else:
+                            # New or modified - copy from spec branch
+                            target_path.parent.mkdir(parents=True, exist_ok=True)
+
+                            if _is_binary_file(file_path):
+                                binary_content = _get_binary_file_content_from_ref(
+                                    project_dir, spec_branch, file_path
+                                )
+                                if binary_content is not None:
+                                    target_path.write_bytes(binary_content)
+                                    files_to_stage.append(file_path)
+                                    resolved_files.append(file_path)
+                                    status_label = (
+                                        "new file" if status == "A" else "updated"
+                                    )
+                                    print(
+                                        success(f"    ✓ {file_path} ({status_label})")
+                                    )
+                                else:
+                                    skipped_files.append(file_path)
+                                    debug_warning(
+                                        MODULE,
+                                        f"Could not retrieve binary content for {file_path}",
+                                    )
+                            else:
+                                content = _get_file_content_from_ref(
+                                    project_dir, spec_branch, file_path
+                                )
+                                if content is not None:
+                                    target_path.write_text(content, encoding="utf-8")
+                                    files_to_stage.append(file_path)
+                                    resolved_files.append(file_path)
+                                    status_label = (
+                                        "new file" if status == "A" else "updated"
+                                    )
+                                    print(
+                                        success(f"    ✓ {file_path} ({status_label})")
+                                    )
+                                else:
+                                    skipped_files.append(file_path)
+                                    debug_warning(
+                                        MODULE,
+                                        f"Could not retrieve content for {file_path}",
+                                    )
+
+                    except Exception as e:
+                        skipped_files.append(file_path)
+                        debug_warning(MODULE, f"Could not copy {file_path}: {e}")
+
+                # Stage all files in a single git add call for efficiency
+                if files_to_stage:
+                    try:
+                        subprocess.run(
+                            ["git", "add"] + files_to_stage,
+                            cwd=project_dir,
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                        )
+                    except subprocess.CalledProcessError as e:
+                        debug_warning(
+                            MODULE, f"Failed to stage files for direct copy: {e.stderr}"
+                        )
+                        # Return failure - files were written but not staged
+                        return {
+                            "success": False,
+                            "error": f"Failed to stage files: {e.stderr}",
+                            "resolved_files": [],
+                        }
+
+                # Build result - check for skipped files to detect partial merges
+                result = {
+                    "success": len(skipped_files) == 0,
+                    "resolved_files": resolved_files,
+                    "stats": {
+                        "files_merged": len(resolved_files),
+                        "conflicts_resolved": 0,
+                        "ai_assisted": 0,
+                        "auto_merged": len(resolved_files),
+                        "direct_copy": True,  # Flag indicating direct copy was used
+                        "skipped_count": len(skipped_files),
+                    },
+                }
+                if skipped_files:
+                    result["skipped_files"] = skipped_files
+                    result["partial_success"] = len(resolved_files) > 0
+                    print()
+                    print(
+                        warning(
+                            f"  ⚠ {len(skipped_files)} file(s) could not be retrieved:"
+                        )
+                    )
+                    for skipped_file in skipped_files:
+                        print(muted(f"    - {skipped_file}"))
+                    print(muted("  These files may need manual review."))
+                return result
+            else:
+                # merge-base failed - branches may not share history
+                debug_warning(
+                    MODULE,
+                    "Could not find merge-base between branches - falling back to semantic analysis",
+                )
+
         # No git conflicts - proceed with semantic analysis
         debug(MODULE, "No git conflicts, proceeding with semantic analysis")
         preview = orchestrator.preview_merge([spec_name])
@@ -542,6 +750,182 @@ def _try_smart_merge_inner(
         return None
 
 
+def _rebase_spec_branch(
+    project_dir: Path,
+    spec_name: str,
+    base_branch: str,
+) -> bool:
+    """
+    Rebase the spec branch onto the latest base branch.
+
+    This performs an automatic rebase of the spec branch onto the current
+    base branch (main/develop) to bring it up to date before merging.
+    If conflicts occur during rebase, the function aborts and returns False
+    so that the caller can fall back to AI conflict resolution.
+
+    The function preserves the current HEAD by restoring it after completion.
+
+    Args:
+        project_dir: The project directory
+        spec_name: Name of the spec
+        base_branch: The branch to rebase onto
+
+    Returns:
+        True if rebase succeeded cleanly or branch was already up-to-date,
+        False if rebase failed due to conflicts or other errors (aborted, no ref movement)
+    """
+    spec_branch = f"auto-claude/{spec_name}"
+
+    debug(
+        MODULE,
+        "Rebasing spec branch",
+        spec_branch=spec_branch,
+        base_branch=base_branch,
+    )
+
+    # Save original branch to restore after rebase (HIGH: prevents leaving repo on spec branch)
+    original_branch_result = run_git(
+        ["rev-parse", "--abbrev-ref", "HEAD"], cwd=project_dir
+    )
+    # Check returncode and validate stdout before using original_branch
+    if original_branch_result.returncode != 0:
+        debug_error(
+            MODULE,
+            "Could not get current branch name",
+            stderr=original_branch_result.stderr,
+        )
+        return False
+    original_branch = original_branch_result.stdout.strip()
+    if not original_branch or original_branch == "HEAD":
+        debug_error(
+            MODULE,
+            "Could not determine current branch (detached HEAD state)",
+        )
+        return False
+
+    # Save current state for recovery
+    # Get the current commit of spec_branch before rebase
+    before_commit_result = run_git(["rev-parse", spec_branch], cwd=project_dir)
+    if before_commit_result.returncode != 0:
+        debug_error(
+            MODULE,
+            "Could not get spec branch commit before rebase",
+            stderr=before_commit_result.stderr,
+        )
+        # Restore original branch before returning
+        run_git(["checkout", original_branch], cwd=project_dir)
+        return False
+    before_commit = before_commit_result.stdout.strip()
+
+    print()
+    print(muted(f"  Rebasing {spec_branch} onto {base_branch}..."))
+
+    try:
+        # Perform the rebase using safe/standard invocation:
+        # 1. Checkout the spec branch first
+        # 2. Run standard rebase (no strategy options - let conflicts stop the rebase)
+        # If conflicts occur, we'll abort and let AI handle them during merge
+        checkout_result = run_git(["checkout", spec_branch], cwd=project_dir)
+        if checkout_result.returncode != 0:
+            debug_error(
+                MODULE,
+                "Could not checkout spec branch for rebase",
+                stderr=checkout_result.stderr,
+            )
+            return False
+
+        # Run standard rebase - will stop on conflicts so we can detect them
+        # Git syntax: git rebase [options] <upstream>
+        # where <upstream> is the branch to rebase onto
+        rebase_result = run_git(
+            ["rebase", base_branch],
+            cwd=project_dir,
+        )
+
+        if rebase_result.returncode != 0:
+            # Rebase failed - check if it was due to conflicts
+            status_result = run_git(["status", "--porcelain"], cwd=project_dir)
+
+            # MEDIUM: Properly parse git status output for conflict markers
+            # Git status --porcelain uses two-character status codes:
+            # UU = both modified, AA = both added, DD = both deleted, etc.
+            has_unmerged = any(
+                line[:2] in ("UU", "AA", "DD", "AU", "UA", "DU", "UD")
+                for line in status_result.stdout.splitlines()
+                if len(line) >= 2
+            )
+
+            # Abort the rebase to return to clean state
+            # NEW-002: If abort fails, immediately return False (repo in bad state)
+            abort_result = run_git(["rebase", "--abort"], cwd=project_dir)
+            if abort_result.returncode != 0:
+                debug_error(
+                    MODULE,
+                    "Failed to abort rebase - repo may be in inconsistent state",
+                    stderr=abort_result.stderr,
+                )
+                return False  # Abort failed - cannot safely continue
+
+            if has_unmerged:
+                # Rebase failed due to conflicts - we aborted, so no ref movement happened
+                debug_warning(
+                    MODULE,
+                    "Rebase encountered conflicts - aborted, will use AI conflict resolution",
+                    stderr=rebase_result.stderr[:200] if rebase_result.stderr else "",
+                )
+                # Return False since we aborted - no rebase occurred, caller should use AI
+                return False
+
+            # Other error (not conflict-related)
+            debug_error(
+                MODULE,
+                "Rebase failed with unexpected error",
+                stderr=rebase_result.stderr[:500] if rebase_result.stderr else "",
+            )
+            return False
+
+        # Rebase succeeded - verify spec_branch moved forward
+        after_commit_result = run_git(["rev-parse", spec_branch], cwd=project_dir)
+
+        if after_commit_result.returncode == 0:
+            after_commit_hash = after_commit_result.stdout.strip()
+
+            # Verify the branch actually moved (commit changed)
+            if before_commit == after_commit_hash:
+                # MEDIUM: Branch already up-to-date is a success condition, not failure
+                debug(
+                    MODULE,
+                    "Branch already up-to-date, no rebase needed",
+                    before_commit=before_commit[:12],
+                )
+                return True
+
+            debug_success(
+                MODULE,
+                "Rebase succeeded",
+                before_commit=before_commit[:12],
+                after_commit=after_commit_hash[:12],
+            )
+            print(success(f"    ✓ Rebased onto {base_branch}"))
+            return True
+
+        debug_error(MODULE, "Could not verify spec branch commit after rebase")
+        return False
+    finally:
+        # HIGH: Always restore original branch, even on error/exception
+        # NEW-001: Log restoration failure (cannot modify return from finally block)
+        if original_branch:
+            restore_result = run_git(["checkout", original_branch], cwd=project_dir)
+            if restore_result.returncode != 0:
+                debug_error(
+                    MODULE,
+                    f"Failed to restore original branch '{original_branch}'",
+                    stderr=restore_result.stderr,
+                )
+                # Note: Cannot modify return value from finally block,
+                # but restoration failure is rare and non-critical (user can manually switch back)
+
+
 def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
     """
     Check for git-level conflicts WITHOUT modifying the working directory.
@@ -560,44 +944,40 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
         "conflicting_files": [],
         "base_branch": "main",
         "spec_branch": spec_branch,
+        "needs_rebase": False,
+        "commits_behind": 0,
     }
 
     try:
         # Get current branch
-        base_result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        base_result = run_git(
+            ["rev-parse", "--abbrev-ref", "HEAD"],
             cwd=project_dir,
-            capture_output=True,
-            text=True,
         )
         if base_result.returncode == 0:
             result["base_branch"] = base_result.stdout.strip()
 
         # Get merge base
-        merge_base_result = subprocess.run(
-            ["git", "merge-base", result["base_branch"], spec_branch],
+        merge_base_result = run_git(
+            ["merge-base", result["base_branch"], spec_branch],
             cwd=project_dir,
-            capture_output=True,
-            text=True,
         )
         if merge_base_result.returncode != 0:
             debug_warning(MODULE, "Could not find merge base")
             return result
 
-        merge_base = merge_base_result.stdout.strip()
+        _merge_base = (
+            merge_base_result.stdout.strip()
+        )  # Reserved for future conflict detection
 
         # Get commit hashes
-        main_commit_result = subprocess.run(
-            ["git", "rev-parse", result["base_branch"]],
+        main_commit_result = run_git(
+            ["rev-parse", result["base_branch"]],
             cwd=project_dir,
-            capture_output=True,
-            text=True,
         )
-        spec_commit_result = subprocess.run(
-            ["git", "rev-parse", spec_branch],
+        spec_commit_result = run_git(
+            ["rev-parse", spec_branch],
             cwd=project_dir,
-            capture_output=True,
-            text=True,
         )
 
         if main_commit_result.returncode != 0 or spec_commit_result.returncode != 0:
@@ -607,11 +987,45 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
         main_commit = main_commit_result.stdout.strip()
         spec_commit = spec_commit_result.stdout.strip()
 
+        # Check if spec branch is behind base branch (needs rebase)
+        # Count commits that are in base branch but not in spec branch
+        rev_list_result = run_git(
+            ["rev-list", "--count", f"{spec_commit}..{main_commit}"],
+            cwd=project_dir,
+        )
+        if rev_list_result.returncode == 0:
+            # LOGIC-002: Handle potential non-integer output gracefully
+            try:
+                commits_behind = int(rev_list_result.stdout.strip())
+            except (ValueError, AttributeError):
+                commits_behind = 0
+                debug_warning(
+                    MODULE,
+                    "Could not parse commit count from rev-list output",
+                    stdout=rev_list_result.stdout[:100]
+                    if rev_list_result.stdout
+                    else "",
+                )
+            result["commits_behind"] = commits_behind
+            if commits_behind > 0:
+                result["needs_rebase"] = True
+                debug(
+                    MODULE,
+                    f"Spec branch is {commits_behind} commit(s) behind base branch",
+                    base_branch=result["base_branch"],
+                    spec_branch=spec_branch,
+                )
+        else:
+            debug_warning(
+                MODULE,
+                "Could not count commits behind",
+                stderr=rev_list_result.stderr,
+            )
+
         # Use git merge-tree to check for conflicts WITHOUT touching working directory
         # Note: --write-tree mode only accepts 2 branches (it auto-finds the merge base)
-        merge_tree_result = subprocess.run(
+        merge_tree_result = run_git(
             [
-                "git",
                 "merge-tree",
                 "--write-tree",
                 "--no-messages",
@@ -619,15 +1033,12 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
                 spec_branch,
             ],
             cwd=project_dir,
-            capture_output=True,
-            text=True,
         )
 
-        # merge-tree returns exit code 1 if there are conflicts
+        # merge-tree returns exit code 1 if there are actual text conflicts
+        # Exit code 0 means clean merge possible
         if merge_tree_result.returncode != 0:
-            result["has_conflicts"] = True
-
-            # Parse the output for conflicting files
+            # Parse the output for ACTUAL conflicting files (look for CONFLICT markers)
             output = merge_tree_result.stdout + merge_tree_result.stderr
             for line in output.split("\n"):
                 if "CONFLICT" in line:
@@ -645,38 +1056,27 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
                         ):
                             result["conflicting_files"].append(file_path)
 
-            # Fallback: if we didn't parse conflicts, use diff to find files changed in both branches
-            if not result["conflicting_files"]:
-                main_files_result = subprocess.run(
-                    ["git", "diff", "--name-only", merge_base, main_commit],
-                    cwd=project_dir,
-                    capture_output=True,
-                    text=True,
+            # Only set has_conflicts if we found ACTUAL CONFLICT markers
+            # A non-zero exit code without CONFLICT markers just means branches diverged
+            # but git can auto-merge them - we handle this with direct file copy
+            if result["conflicting_files"]:
+                result["has_conflicts"] = True
+                debug(
+                    MODULE,
+                    f"Found {len(result['conflicting_files'])} actual git conflicts",
+                    files=result["conflicting_files"],
                 )
-                main_files = (
-                    set(main_files_result.stdout.strip().split("\n"))
-                    if main_files_result.stdout.strip()
-                    else set()
+            else:
+                # No CONFLICT markers = no actual conflicts
+                # Branches diverged but changes don't overlap - git can auto-merge
+                # We'll handle this by copying files directly from spec branch
+                debug(
+                    MODULE,
+                    "No CONFLICT markers - branches diverged but can be auto-merged",
+                    merge_tree_returncode=merge_tree_result.returncode,
                 )
-
-                spec_files_result = subprocess.run(
-                    ["git", "diff", "--name-only", merge_base, spec_commit],
-                    cwd=project_dir,
-                    capture_output=True,
-                    text=True,
-                )
-                spec_files = (
-                    set(spec_files_result.stdout.strip().split("\n"))
-                    if spec_files_result.stdout.strip()
-                    else set()
-                )
-
-                # Files modified in both = potential conflicts
-                # Filter out .auto-claude files - they should never be merged
-                conflicting = main_files & spec_files
-                result["conflicting_files"] = [
-                    f for f in conflicting if not _is_auto_claude_file(f)
-                ]
+                result["has_conflicts"] = False
+                result["diverged_but_no_conflicts"] = True  # Flag for direct copy
 
     except Exception as e:
         print(muted(f"  Error checking git conflicts: {e}"))
@@ -829,6 +1229,7 @@ def _resolve_git_conflicts_with_ai(
         tuple[str, str | None]
     ] = []  # (file_path, merged_content or None for delete)
     lock_files_excluded: list[str] = []  # Lock files excluded from merge
+    auto_merged_simple: set[str] = set()  # Files that were auto-merged via simple 3-way
 
     debug(MODULE, "Categorizing conflicting files for parallel processing")
 
@@ -887,27 +1288,49 @@ def _resolve_git_conflicts_with_ai(
                         f"  {target_file_path}: lock file (excluded - will use main version)",
                     )
                 else:
-                    # Regular file - needs AI merge
-                    # Store the TARGET path for writing, but track original for content retrieval
-                    files_needing_ai_merge.append(
-                        ParallelMergeTask(
-                            file_path=target_file_path,  # Use target path for writing
-                            main_content=main_content,
-                            worktree_content=worktree_content,
-                            base_content=base_content,
-                            spec_name=spec_name,
-                            project_dir=project_dir,
+                    # File exists in both - try simple 3-way merge FIRST (no AI needed)
+                    # This handles cases where:
+                    # - Only one side changed from base (ours==base or theirs==base)
+                    # - Both sides made identical changes (ours==theirs)
+                    simple_success, simple_merged = _try_simple_3way_merge(
+                        base_content, main_content, worktree_content
+                    )
+
+                    if simple_success and simple_merged is not None:
+                        # Simple 3-way merge succeeded - no AI needed!
+                        simple_merges.append((target_file_path, simple_merged))
+                        auto_merged_simple.add(target_file_path)  # Track for stats
+                        debug(
+                            MODULE,
+                            f"  {file_path}: auto-merged (simple 3-way, no AI needed)"
+                            + (
+                                f" (will write to {target_file_path})"
+                                if target_file_path != file_path
+                                else ""
+                            ),
                         )
-                    )
-                    debug(
-                        MODULE,
-                        f"  {file_path}: needs AI merge"
-                        + (
-                            f" (will write to {target_file_path})"
-                            if target_file_path != file_path
-                            else ""
-                        ),
-                    )
+                    else:
+                        # Simple merge failed - needs AI merge
+                        # Store the TARGET path for writing, but track original for content retrieval
+                        files_needing_ai_merge.append(
+                            ParallelMergeTask(
+                                file_path=target_file_path,  # Use target path for writing
+                                main_content=main_content,
+                                worktree_content=worktree_content,
+                                base_content=base_content,
+                                spec_name=spec_name,
+                                project_dir=project_dir,
+                            )
+                        )
+                        debug(
+                            MODULE,
+                            f"  {file_path}: needs AI merge (both sides changed differently)"
+                            + (
+                                f" (will write to {target_file_path})"
+                                if target_file_path != file_path
+                                else ""
+                            ),
+                        )
 
         except Exception as e:
             print(error(f"    ✗ Failed to categorize {file_path}: {e}"))
@@ -932,7 +1355,18 @@ def _resolve_git_conflicts_with_ai(
                         ["git", "add", file_path], cwd=project_dir, capture_output=True
                     )
                     resolved_files.append(file_path)
-                    print(success(f"    ✓ {file_path} (new file)"))
+                    # Show appropriate message based on merge type
+                    if file_path in auto_merged_simple:
+                        print(success(f"    ✓ {file_path} (auto-merged)"))
+                        auto_merged_count += 1  # Count for stats
+                    elif file_path in lock_files_excluded:
+                        print(
+                            success(
+                                f"    ✓ {file_path} (lock file - kept main version)"
+                            )
+                        )
+                    else:
+                        print(success(f"    ✓ {file_path} (new file)"))
                 else:
                     # Delete the file
                     target_path = project_dir / file_path
@@ -1198,6 +1632,9 @@ def _resolve_git_conflicts_with_ai(
             "conflicts_resolved": len(conflicting_files) - len(remaining_conflicts),
             "ai_assisted": ai_merged_count,
             "auto_merged": auto_merged_count,
+            "simple_3way_merged": len(
+                auto_merged_simple
+            ),  # Files auto-merged without AI
             "parallel_ai_merges": len(files_needing_ai_merge),
             "lock_files_excluded": len(lock_files_excluded),
         },
@@ -1250,18 +1687,41 @@ import os
 _merge_logger = logging.getLogger(__name__)
 
 # System prompt for AI file merging
-AI_MERGE_SYSTEM_PROMPT = """You are an expert code merge assistant. Your task is to perform a 3-way merge of code files.
+AI_MERGE_SYSTEM_PROMPT = """You are an expert code merge assistant specializing in intelligent 3-way merges. Your task is to merge code changes from two branches while preserving all meaningful changes.
 
-RULES:
-1. Preserve all functional changes from both versions (ours and theirs)
-2. Maintain code style consistency
-3. Resolve conflicts by understanding the semantic purpose of each change
-4. When changes are independent (different functions/sections), include both
-5. When changes overlap, combine them logically or prefer the more complete version
-6. Preserve all imports from both versions
-7. Output ONLY the merged code - no explanations, no markdown, no code fences
+CONTEXT:
+- "OURS" = current main branch (target for merge)
+- "THEIRS" = task worktree branch (changes being merged in)
+- "BASE" = common ancestor before changes
 
-IMPORTANT: Output the raw merged file content only. Do not wrap in code blocks."""
+MERGE STRATEGY:
+1. **Preserve all functional changes** - Include all features, bug fixes, and improvements from both versions
+2. **Combine independent changes** - If changes are in different functions/sections, include both
+3. **Resolve overlapping changes intelligently**:
+   - Prefer the more complete/updated implementation
+   - Combine logic if both versions add value
+   - When in doubt, favor the version that better addresses the task's intent
+4. **Maintain syntactic correctness** - Ensure the merged code is valid and compiles/runs
+5. **Preserve imports and dependencies** from both versions
+
+HANDLING COMMON PATTERNS:
+- New functions/classes: Include all from both versions
+- Modified functions: Merge changes logically, prefer more complete version
+- Imports: Union of all imports from both versions
+- Comments/Documentation: Include relevant documentation from both
+- Configuration: Merge settings, with conflict resolution favoring task-specific values
+
+CRITICAL RULES:
+- Output ONLY the merged code - no explanations, no prose, no markdown fences
+- If you cannot determine the correct merge, make a reasonable decision based on best practices
+- Never output error messages like "I need more context" - always provide a best-effort merge
+- Ensure the output is complete and syntactically valid code"""
+
+# Model constants for AI merge two-tier strategy (ACS-194)
+MERGE_FAST_MODEL = "claude-haiku-4-5-20251001"  # Fast model for simple merges
+MERGE_CAPABLE_MODEL = "claude-sonnet-4-5-20250929"  # Capable model for complex merges
+MERGE_FAST_THINKING = 1024  # Lower thinking for fast/simple merges
+MERGE_COMPLEX_THINKING = 16000  # Higher thinking for complex merges
 
 
 def _infer_language_from_path(file_path: str) -> str:
@@ -1350,7 +1810,7 @@ def _build_merge_prompt(
         if len(base_content) > 10000:
             base_content = base_content[:10000] + "\n... (truncated)"
         base_section = f"""
-BASE (common ancestor):
+BASE (common ancestor before changes):
 ```{language}
 {base_content}
 ```
@@ -1362,20 +1822,22 @@ BASE (common ancestor):
     if len(worktree_content) > 15000:
         worktree_content = worktree_content[:15000] + "\n... (truncated)"
 
-    prompt = f"""Perform a 3-way merge for file: {file_path}
-Task being merged: {spec_name}
+    prompt = f"""FILE: {file_path}
+TASK: {spec_name}
+
+This is a 3-way code merge. You must combine changes from both versions.
 {base_section}
-OURS (current main branch):
+OURS (current main branch - target for merge):
 ```{language}
 {main_content}
 ```
 
-THEIRS (changes from task worktree):
+THEIRS (task worktree branch - changes being merged):
 ```{language}
 {worktree_content}
 ```
 
-Merge these versions, preserving all meaningful changes from both. Output only the merged file content, no explanations."""
+OUTPUT THE MERGED CODE ONLY. No explanations, no markdown fences."""
 
     return prompt
 
@@ -1391,6 +1853,112 @@ def _strip_code_fences(content: str) -> str:
         else:
             return "\n".join(lines[1:])
     return content
+
+
+async def _attempt_ai_merge(
+    task: "ParallelMergeTask",
+    prompt: str,
+    model: str = MERGE_FAST_MODEL,
+    max_thinking_tokens: int = MERGE_FAST_THINKING,
+) -> tuple[bool, str | None, str]:
+    """
+    Attempt an AI merge with a specific model.
+
+    Args:
+        task: The merge task with file contents
+        prompt: The merge prompt
+        model: Model to use for merge
+        max_thinking_tokens: Max thinking tokens for the model
+
+    Returns:
+        Tuple of (success, merged_content, error_message)
+    """
+    try:
+        from core.simple_client import create_simple_client
+    except ImportError:
+        return False, None, "core.simple_client not available"
+
+    client = create_simple_client(
+        agent_type="merge_resolver",
+        model=model,
+        system_prompt=AI_MERGE_SYSTEM_PROMPT,
+        max_thinking_tokens=max_thinking_tokens,
+    )
+
+    response_text = ""
+    async with client:
+        await client.query(prompt)
+
+        async for msg in client.receive_response():
+            msg_type = type(msg).__name__
+            if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+                for block in msg.content:
+                    block_type = type(block).__name__
+                    if block_type == "TextBlock" and hasattr(block, "text"):
+                        response_text += block.text
+
+    if response_text:
+        merged_content = _strip_code_fences(response_text.strip())
+
+        # Check if AI returned natural language instead of code (case-insensitive)
+        # More robust detection: (1) Check if patterns are at START of line, (2) Check for
+        # absence of code patterns like imports, function definitions, braces, etc.
+        natural_language_patterns = [
+            "i need to",
+            "let me",
+            "i cannot",
+            "i'm unable",
+            "the file appears",
+            "i don't have",
+            "unfortunately",
+            "i apologize",
+        ]
+
+        first_line = merged_content.split("\n")[0] if merged_content else ""
+        first_line_stripped = first_line.lstrip()
+        first_line_lower = first_line_stripped.lower()
+
+        # Check if first line STARTS with natural language pattern (not just contains it)
+        starts_with_prose = any(
+            first_line_lower.startswith(pattern)
+            for pattern in natural_language_patterns
+        )
+
+        # Also check for absence of common code patterns to reduce false positives
+        has_code_patterns = any(
+            pattern in merged_content[:500]  # Check first 500 chars for code patterns
+            for pattern in [
+                "import ",  # Python/JS/TypeScript imports
+                "from ",  # Python imports
+                "def ",  # Python functions
+                "function ",  # JavaScript functions
+                "const ",  # JavaScript/TypeScript const
+                "class ",  # Class definitions
+                "{",  # Braces indicate code
+                "}",  # Braces indicate code
+                "#!",  # Shebang
+                "<!--",  # HTML comment
+            ]
+        )
+
+        # Only reject if it starts with prose AND lacks code patterns
+        if starts_with_prose and not has_code_patterns:
+            return (
+                False,
+                None,
+                f"AI returned explanation instead of code: {first_line[:80]}...",
+            )
+
+        # Validate syntax
+        is_valid, syntax_error = _validate_merged_syntax(
+            task.file_path, merged_content, task.project_dir
+        )
+        if not is_valid:
+            return False, None, f"Invalid syntax: {syntax_error}"
+
+        return True, merged_content, ""
+    else:
+        return False, None, "AI returned empty response"
 
 
 async def _merge_file_with_ai_async(
@@ -1450,83 +2018,42 @@ async def _merge_file_with_ai_async(
                 task.spec_name,
             )
 
-            # Call Claude Haiku for fast merge
-            try:
-                from core.simple_client import create_simple_client
-            except ImportError:
-                return ParallelMergeResult(
-                    file_path=task.file_path,
-                    merged_content=None,
-                    success=False,
-                    error="core.simple_client not available",
-                )
-
-            client = create_simple_client(
-                agent_type="merge_resolver",
-                model="claude-haiku-4-5-20251001",
-                system_prompt=AI_MERGE_SYSTEM_PROMPT,
-                max_thinking_tokens=1024,  # Low thinking for speed
+            # Call Claude Haiku for fast merge first, then fallback to Sonnet if it fails
+            # This two-tier approach matches the chat agent's success rate
+            # - Tier 1: Haiku (fast, handles simple merges)
+            # - Tier 2: Sonnet (more capable, handles complex merges)
+            debug(MODULE, f"Attempting AI merge for {task.file_path} with Haiku (fast)")
+            success, merged_content, error = await _attempt_ai_merge(
+                task,
+                prompt,
+                model=MERGE_FAST_MODEL,
+                max_thinking_tokens=MERGE_FAST_THINKING,
             )
 
-            response_text = ""
-            async with client:
-                await client.query(prompt)
-
-                async for msg in client.receive_response():
-                    msg_type = type(msg).__name__
-                    if msg_type == "AssistantMessage" and hasattr(msg, "content"):
-                        for block in msg.content:
-                            # Must check block type - only TextBlock has .text attribute
-                            block_type = type(block).__name__
-                            if block_type == "TextBlock" and hasattr(block, "text"):
-                                response_text += block.text
-
-            if response_text:
-                # Strip any code fences the model might have added
-                merged_content = _strip_code_fences(response_text.strip())
-
-                # VALIDATION: Check if AI returned natural language instead of code
-                # This catches cases where AI says "I need to see more..." instead of merging
-                natural_language_patterns = [
-                    "I need to",
-                    "Let me",
-                    "I cannot",
-                    "I'm unable",
-                    "The file appears",
-                    "I don't have",
-                    "Unfortunately",
-                    "I apologize",
-                ]
-                first_line = merged_content.split("\n")[0] if merged_content else ""
-                if any(pattern in first_line for pattern in natural_language_patterns):
-                    debug_warning(
-                        MODULE,
-                        f"AI returned natural language instead of code for {task.file_path}: {first_line[:100]}",
-                    )
-                    return ParallelMergeResult(
-                        file_path=task.file_path,
-                        merged_content=None,
-                        success=False,
-                        error=f"AI returned explanation instead of code: {first_line[:80]}...",
-                    )
-
-                # VALIDATION: Run syntax check on the merged content
-                is_valid, syntax_error = _validate_merged_syntax(
-                    task.file_path, merged_content, task.project_dir
+            if success and merged_content:
+                debug(MODULE, f"Haiku merged {task.file_path} successfully")
+                return ParallelMergeResult(
+                    file_path=task.file_path,
+                    merged_content=merged_content,
+                    success=True,
+                    was_auto_merged=False,
                 )
-                if not is_valid:
-                    debug_warning(
-                        MODULE,
-                        f"AI merge produced invalid syntax for {task.file_path}: {syntax_error}",
-                    )
-                    return ParallelMergeResult(
-                        file_path=task.file_path,
-                        merged_content=None,
-                        success=False,
-                        error=f"AI merge produced invalid syntax: {syntax_error}",
-                    )
 
-                debug(MODULE, f"AI merged {task.file_path} successfully")
+            # Haiku failed, retry with Sonnet (more capable model)
+            debug_warning(
+                MODULE,
+                f"Haiku merge failed for {task.file_path}: {error}, retrying with Sonnet...",
+            )
+            print(muted(f"    Retrying {task.file_path} with more capable AI model..."))
+            success, merged_content, error = await _attempt_ai_merge(
+                task,
+                prompt,
+                model=MERGE_CAPABLE_MODEL,
+                max_thinking_tokens=MERGE_COMPLEX_THINKING,
+            )
+
+            if success and merged_content:
+                debug(MODULE, f"Sonnet merged {task.file_path} successfully")
                 return ParallelMergeResult(
                     file_path=task.file_path,
                     merged_content=merged_content,
@@ -1534,11 +2061,16 @@ async def _merge_file_with_ai_async(
                     was_auto_merged=False,
                 )
             else:
+                # Both models failed
+                debug_error(
+                    MODULE,
+                    f"Both AI models failed to merge {task.file_path}: {error}",
+                )
                 return ParallelMergeResult(
                     file_path=task.file_path,
                     merged_content=None,
                     success=False,
-                    error="AI returned empty response",
+                    error=f"AI merge failed: {error}",
                 )
 
         except Exception as e:
