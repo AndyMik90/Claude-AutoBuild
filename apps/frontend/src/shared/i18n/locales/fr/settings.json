@@ -345,6 +345,13 @@
       "integrationTitle": "Mémoire",
       "integrationDescription": "Configurer la mémoire persistante inter-sessions pour les agents",
       "syncDescription": "Configurer la mémoire persistante"
+    },
+    "ui-docs": {
+      "title": "UI Docs",
+      "description": "Documentation des frameworks UI",
+      "integrationTitle": "Documentation des Frameworks UI",
+      "integrationDescription": "Récupération automatique de la documentation des bibliothèques de composants UI",
+      "syncDescription": "Configurer la récupération automatique de documentation UI"
     }
   },
   "agentProfile": {

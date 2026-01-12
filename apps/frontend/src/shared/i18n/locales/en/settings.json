@@ -345,6 +345,13 @@
       "integrationTitle": "Memory",
       "integrationDescription": "Configure persistent cross-session memory for agents",
       "syncDescription": "Configure persistent memory"
+    },
+    "ui-docs": {
+      "title": "UI Docs",
+      "description": "UI framework documentation",
+      "integrationTitle": "UI Framework Documentation",
+      "integrationDescription": "Automatic documentation fetching for UI component libraries",
+      "syncDescription": "Configure automatic UI framework documentation fetching"
     }
   },
   "agentProfile": {

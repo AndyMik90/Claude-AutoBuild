@@ -99,59 +99,63 @@ export function UIFrameworkDocsSection({
       onToggle={onToggle}
       badge={badge}
     >
-      <div className="space-y-4">
+      <div className="space-y-6">
         {/* Info Box */}
-        <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-          <div className="flex items-start gap-2">
-            <Globe className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-            <div className="flex-1 space-y-1">
-              <p className="text-xs font-medium text-foreground">
+        <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <Globe className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+            <div className="flex-1 space-y-2">
+              <p className="text-sm font-semibold text-foreground">
                 Automatic Documentation Fetching
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 AI agents automatically fetch UI framework documentation when building frontend features.
-                Documentation is cached locally in <code className="text-xs bg-background px-1 py-0.5 rounded">.auto-claude/ui-framework-docs/</code>
+                Documentation is cached locally in <code className="text-xs bg-background px-1.5 py-0.5 rounded">.auto-claude/ui-framework-docs/</code>
               </p>
             </div>
           </div>
 
-          <Separator className="my-2" />
+          <Separator className="my-3" />
 
-          <div className="space-y-1.5 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-success" />
-                <span className="font-medium text-foreground">Priority 1:</span>
+          <div className="space-y-3 text-xs">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-success" />
+                  <span className="font-semibold text-foreground text-sm">Priority 1:</span>
+                </div>
+                <span className="text-muted-foreground">Context7 (LLM-optimized)</span>
               </div>
-              <span className="text-muted-foreground">Context7 (LLM-optimized)</span>
+              <p className="text-muted-foreground ml-5 pl-2 leading-relaxed">
+                Pre-processed documentation with no API key required
+              </p>
             </div>
-            <p className="text-muted-foreground ml-4 pl-1">
-              Pre-processed documentation with no API key required
-            </p>
 
-            <div className="flex items-center gap-2 mt-2">
-              <div className="flex items-center gap-1.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-warning" />
-                <span className="font-medium text-foreground">Fallback:</span>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-warning" />
+                  <span className="font-semibold text-foreground text-sm">Fallback:</span>
+                </div>
+                <span className="text-muted-foreground">Firecrawl (web scraping)</span>
               </div>
-              <span className="text-muted-foreground">Firecrawl (web scraping)</span>
+              <p className="text-muted-foreground ml-5 pl-2 leading-relaxed">
+                {hasFirecrawlKey
+                  ? '✓ API key configured - fallback available'
+                  : 'No API key set - Context7 only'}
+              </p>
             </div>
-            <p className="text-muted-foreground ml-4 pl-1">
-              {hasFirecrawlKey
-                ? '✓ API key configured - fallback available'
-                : 'No API key set - Context7 only'}
-            </p>
           </div>
         </div>
 
         {/* Current UI Framework */}
         {hasUntitledUI && (
-          <div className="rounded-lg border border-success/30 bg-success/5 p-3">
-            <div className="flex items-start gap-2">
-              <CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />
+          <div className="rounded-lg border border-success/30 bg-success/5 p-4">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="h-5 w-5 text-success mt-0.5 shrink-0" />
               <div className="flex-1">
-                <p className="text-xs font-medium text-foreground">Untitled UI Detected</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-sm font-semibold text-foreground">Untitled UI Detected</p>
+                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
                   Documentation available via Context7 (172 snippets, 32K tokens)
                 </p>
               </div>
@@ -160,45 +164,45 @@ export function UIFrameworkDocsSection({
         )}
 
         {/* Cached Documentation */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium text-foreground">Cached Documentation</Label>
+            <Label className="text-sm font-semibold text-foreground">Cached Documentation</Label>
             <Button
               variant="ghost"
               size="sm"
               onClick={handleRefreshCache}
               disabled={isLoadingCache}
-              className="h-7 px-2"
+              className="h-8 px-3"
             >
               {isLoadingCache ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <RefreshCw className="h-3 w-3" />
+                <RefreshCw className="h-4 w-4" />
               )}
             </Button>
           </div>
 
           {isLoadingCache ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : cachedDocs.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 No cached documentation yet. Documentation will be automatically fetched when agents need it.
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {cachedDocs.map((doc) => (
                 <div
                   key={doc.framework}
-                  className="flex items-center justify-between rounded-lg border border-border bg-background p-3"
+                  className="flex items-center justify-between rounded-lg border border-border bg-background p-4"
                 >
-                  <div className="flex-1 space-y-1">
+                  <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-3.5 w-3.5 text-primary" />
-                      <span className="text-sm font-medium text-foreground">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-semibold text-foreground">
                         {doc.framework}
                       </span>
                       {doc.source && (
@@ -219,12 +223,12 @@ export function UIFrameworkDocsSection({
                     size="sm"
                     onClick={() => handleDeleteCache(doc.framework)}
                     disabled={isDeletingCache === doc.framework}
-                    className="h-8 px-2 hover:bg-destructive/10 hover:text-destructive"
+                    className="h-9 px-3 hover:bg-destructive/10 hover:text-destructive"
                   >
                     {isDeletingCache === doc.framework ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     )}
                   </Button>
                 </div>
@@ -235,13 +239,15 @@ export function UIFrameworkDocsSection({
 
         {/* Firecrawl API Key (Optional) */}
         <Separator />
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-foreground">
-            Firecrawl API Key (Optional)
-          </Label>
-          <p className="text-xs text-muted-foreground">
-            Used as fallback when Context7 is unavailable. Not required for Untitled UI.
-          </p>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-semibold text-foreground">
+              Firecrawl API Key (Optional)
+            </Label>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Used as fallback when Context7 is unavailable. Not required for Untitled UI.
+            </p>
+          </div>
           <div className="flex gap-2">
             <input
               type="password"

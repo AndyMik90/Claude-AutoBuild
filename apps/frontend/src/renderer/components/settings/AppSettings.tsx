@@ -269,17 +269,15 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                               setAppSection(item.id);
                             }}
                             className={cn(
-                              'w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all',
+                              'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-200',
+                              'hover:bg-gradient-to-r hover:from-[#1c1c1c] hover:to-[#202020]',
                               isActive
-                                ? 'bg-accent text-accent-foreground'
-                                : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
+                                ? 'bg-gradient-to-r from-[#1c1c1c] to-[#202020] text-primary'
+                                : 'text-white'
                             )}
                           >
-                            <Icon className="h-5 w-5 mt-0.5 shrink-0" />
-                            <div className="min-w-0">
-                              <div className="font-medium text-sm">{t(`sections.${item.id}.title`)}</div>
-                              <div className="text-xs text-muted-foreground truncate">{t(`sections.${item.id}.description`)}</div>
-                            </div>
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="flex-1 text-[14px] font-semibold">{t(`sections.${item.id}.title`)}</span>
                           </button>
                         );
                       })}
@@ -335,19 +333,17 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                             }}
                             disabled={projectNavDisabled}
                             className={cn(
-                              'w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all',
+                              'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-200',
+                              'disabled:pointer-events-none disabled:opacity-50',
                               isActive
-                                ? 'bg-accent text-accent-foreground'
+                                ? 'bg-gradient-to-r from-[#1c1c1c] to-[#202020] text-primary'
                                 : projectNavDisabled
-                                  ? 'opacity-50 cursor-not-allowed text-muted-foreground'
-                                  : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
+                                  ? 'text-muted-foreground'
+                                  : 'text-white hover:bg-gradient-to-r hover:from-[#1c1c1c] hover:to-[#202020]'
                             )}
                           >
-                            <Icon className="h-5 w-5 mt-0.5 shrink-0" />
-                            <div className="min-w-0">
-                              <div className="font-medium text-sm">{t(`projectSections.${item.id}.title`)}</div>
-                              <div className="text-xs text-muted-foreground truncate">{t(`projectSections.${item.id}.description`)}</div>
-                            </div>
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="flex-1 text-[14px] font-semibold">{t(`projectSections.${item.id}.title`)}</span>
                           </button>
                         );
                       })}
