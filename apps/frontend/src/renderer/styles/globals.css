@@ -52,6 +52,10 @@
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
 
+  /* Navigation gradient colors */
+  --color-nav-gradient-from: var(--nav-gradient-from);
+  --color-nav-gradient-to: var(--nav-gradient-to);
+
   /* Border radius - from design system */
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -157,6 +161,10 @@
   --error: #D84F68;
   --error-light: #FCE8EC;
 
+  /* Navigation gradient colors - light mode */
+  --nav-gradient-from: #F0F0EB;
+  --nav-gradient-to: #E8E8E3;
+
   /* Shadows - soft and diffused for light mode */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
@@ -218,6 +226,10 @@
   --info-light: #1A2433;
   --error: #E22134;
   --error-light: #2F1A1C;
+
+  /* Navigation gradient colors - dark mode */
+  --nav-gradient-from: #1c1c1c;
+  --nav-gradient-to: #202020;
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.8);

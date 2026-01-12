@@ -270,9 +270,9 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                             }}
                             className={cn(
                               'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-200',
-                              'hover:bg-gradient-to-r hover:from-[#1c1c1c] hover:to-[#202020]',
+                              'hover:bg-gradient-to-r hover:from-nav-gradient-from hover:to-nav-gradient-to',
                               isActive
-                                ? 'bg-gradient-to-r from-[#1c1c1c] to-[#202020] text-primary'
+                                ? 'bg-gradient-to-r from-nav-gradient-from to-nav-gradient-to text-primary'
                                 : 'text-white'
                             )}
                           >
@@ -336,10 +336,10 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                               'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-200',
                               'disabled:pointer-events-none disabled:opacity-50',
                               isActive
-                                ? 'bg-gradient-to-r from-[#1c1c1c] to-[#202020] text-primary'
+                                ? 'bg-gradient-to-r from-nav-gradient-from to-nav-gradient-to text-primary'
                                 : projectNavDisabled
                                   ? 'text-muted-foreground'
-                                  : 'text-white hover:bg-gradient-to-r hover:from-[#1c1c1c] hover:to-[#202020]'
+                                  : 'text-white hover:bg-gradient-to-r hover:from-nav-gradient-from hover:to-nav-gradient-to'
                             )}
                           >
                             <Icon className="h-4 w-4 shrink-0" />
