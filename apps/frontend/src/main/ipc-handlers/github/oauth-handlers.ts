@@ -138,11 +138,16 @@ export function registerCheckGhCli(): void {
         debugLog('gh CLI found at:', ghPath);
 
         // Get version using augmented environment
+        // Disable interactive prompts from Git Credential Manager
         debugLog('Getting gh version...');
         const versionOutput = execFileSync(getToolPath('gh'), ['--version'], {
           encoding: 'utf-8',
           stdio: 'pipe',
-          env: getAugmentedEnv()
+          env: {
+            ...getAugmentedEnv(),
+            GIT_TERMINAL_PROMPT: '0',
+            GCM_INTERACTIVE: 'never'
+          }
         });
         const version = versionOutput.trim().split('\n')[0];
         debugLog('gh version:', version);
