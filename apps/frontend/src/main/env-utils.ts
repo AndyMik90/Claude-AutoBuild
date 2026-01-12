@@ -109,6 +109,7 @@ export const COMMON_BIN_PATHS: Record<string, string[]> = {
     // Windows usually handles PATH better, but we can add common locations
     'C:\\Program Files\\Git\\cmd',
     'C:\\Program Files\\GitHub CLI',
+    '~\\AppData\\Local\\Programs\\glab',  // GitLab CLI (glab)
   ],
 };
 
