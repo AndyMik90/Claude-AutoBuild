@@ -35,8 +35,9 @@ async def get_browser():
 
             from playwright.async_api import async_playwright
 
-            # Read headless setting from environment (default: True)
-            headless_str = os.environ.get("PLAYWRIGHT_HEADLESS", "true").lower()
+            # Read headless setting from environment (default: False = headed/visible)
+            # Set PLAYWRIGHT_HEADLESS=true in .env to run headless (no browser window)
+            headless_str = os.environ.get("PLAYWRIGHT_HEADLESS", "false").lower()
             headless = headless_str in ("true", "1", "yes")
 
             playwright = await async_playwright().start()
@@ -182,7 +183,7 @@ async def execute_screenshot(
     Take a screenshot of the page or element.
 
     Args:
-        path: File path to save screenshot
+        path: File path to save screenshot (relative to SPEC_DIR or absolute)
         selector: Optional CSS selector for element screenshot
         full_page: Capture full scrollable page
 
@@ -192,8 +193,15 @@ async def execute_screenshot(
     try:
         page = await get_page()
 
-        # Ensure directory exists
+        # If path is relative and SPEC_DIR is set, make it absolute relative to spec
         screenshot_path = Path(path)
+        if not screenshot_path.is_absolute():
+            spec_dir = os.environ.get("SPEC_DIR")
+            if spec_dir:
+                screenshot_path = Path(spec_dir) / screenshot_path
+                logger.info(f"Using SPEC_DIR for relative screenshot path: {screenshot_path}")
+
+        # Ensure directory exists
         screenshot_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Taking screenshot: {path}")

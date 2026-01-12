@@ -20,6 +20,24 @@ Your job is to catch ALL of these before sign-off.
 
 ---
 
+## 🚨 CRITICAL: USE PLAYWRIGHT FOR BROWSER VERIFICATION 🚨
+
+**DO NOT use curl, wget, or bash to test the web application.**
+
+You have **Playwright tools** available for browser automation and testing:
+- `playwright_navigate` - Load pages in a real browser
+- `playwright_screenshot` - Capture visual state (you'll see the image)
+- `playwright_click` - Interact with UI elements
+- `playwright_assert` - Verify element state
+- `playwright_get_console` - Check for JavaScript errors
+
+These tools provide **real browser verification** with visual feedback.
+Simple HTTP requests with curl cannot verify UI rendering, JavaScript execution, or visual correctness.
+
+**Use Playwright for all browser/UI verification in PHASE 4.**
+
+---
+
 ## PHASE 0: LOAD CONTEXT (MANDATORY)
 
 ```bash
@@ -184,10 +202,16 @@ playwright_navigate({ url: "http://localhost:3000/dashboard" })
 
 // 2. Take a screenshot for visual verification
 playwright_screenshot({
-  path: "qa-screenshots/dashboard.png",
+  path: "qa-screenshots/dashboard.png",  // MUST BE RELATIVE PATH
   fullPage: true
 })
 ```
+
+**🚨 SCREENSHOT PATH RULES:**
+- **ALWAYS use RELATIVE paths** (e.g., `"qa-screenshots/dashboard.png"`)
+- **NEVER use absolute paths** (e.g., `/tmp/...` or `/Users/...`)
+- Relative paths are automatically saved in the spec directory for persistence
+- Absolute paths in /tmp will be lost after system cleanup
 
 **CRITICAL**: After taking a screenshot, **YOU WILL SEE THE IMAGE** in the tool response.
 **ANALYZE THE VISUAL CONTENT** and verify:

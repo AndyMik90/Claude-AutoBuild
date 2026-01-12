@@ -58,8 +58,9 @@ class PlaywrightScreenshotTool:
     name: str = "playwright_screenshot"
     description: str = (
         "Take a screenshot of the current page or a specific element. "
-        "Use for visual regression testing or debugging UI issues. "
-        "Example: screenshot(path='dashboard.png', selector='#main-content')"
+        "IMPORTANT: Always use RELATIVE paths (e.g., 'qa-screenshots/dashboard.png'), never absolute paths. "
+        "Relative paths are saved in the spec directory for persistence. "
+        "Example: screenshot(path='qa-screenshots/dashboard.png', selector='#main-content')"
     )
 
     def get_schema(self) -> dict[str, Any]:
@@ -71,7 +72,7 @@ class PlaywrightScreenshotTool:
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "File path to save screenshot (e.g., 'screenshots/dashboard.png')",
+                        "description": "RELATIVE file path to save screenshot (e.g., 'qa-screenshots/dashboard.png'). Never use absolute paths like /tmp/... - they will be lost!",
                     },
                     "selector": {
                         "type": "string",
