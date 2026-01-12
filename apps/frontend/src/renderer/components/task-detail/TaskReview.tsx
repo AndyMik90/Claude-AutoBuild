@@ -3,6 +3,7 @@ import {
   StagedSuccessMessage,
   WorkspaceStatus,
   QAFeedbackSection,
+  QAReportSection,
   DiscardDialog,
   DiffViewDialog,
   ConflictDetailsDialog,
@@ -154,6 +155,12 @@ export function TaskReview({
       ) : (
         <NoWorkspaceMessage task={task} onClose={onClose} />
       )}
+
+      {/* QA Report Screenshots */}
+      <QAReportSection
+        qaReport={task.qaReport}
+        specsPath={task.specsPath}
+      />
 
       {/* QA Feedback Section */}
       <QAFeedbackSection
