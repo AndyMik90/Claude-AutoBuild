@@ -28,6 +28,7 @@ import { insightsService } from '../insights-service';
 import { titleGenerator } from '../title-generator';
 import type { BrowserWindow } from 'electron';
 import { getEffectiveSourcePath } from '../updater/path-resolver';
+import { getAugmentedEnv } from '../env-utils';
 
 // ============================================
 // Git Helper Functions
@@ -44,7 +45,12 @@ function getGitBranches(projectPath: string): string[] {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 10000 // 10 second timeout for fetch
+        timeout: 10000, // 10 second timeout for fetch
+        env: {
+          ...getAugmentedEnv(),
+          GIT_TERMINAL_PROMPT: '0',
+          GCM_INTERACTIVE: 'never'
+        }
       });
     } catch {
       // Fetch may fail if offline or no remote, continue with local refs
@@ -54,7 +60,12 @@ function getGitBranches(projectPath: string): string[] {
     const result = execFileSync(getToolPath('git'), ['branch', '--all', '--format=%(refname:short)'], {
       cwd: projectPath,
       encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...getAugmentedEnv(),
+        GIT_TERMINAL_PROMPT: '0',
+        GCM_INTERACTIVE: 'never'
+      }
     });
 
     const branches = result.trim().split('\n')
@@ -97,7 +108,12 @@ function getCurrentGitBranch(projectPath: string): string | null {
     const result = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
       cwd: projectPath,
       encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...getAugmentedEnv(),
+        GIT_TERMINAL_PROMPT: '0',
+        GCM_INTERACTIVE: 'never'
+      }
     });
     return result.trim() || null;
   } catch {
