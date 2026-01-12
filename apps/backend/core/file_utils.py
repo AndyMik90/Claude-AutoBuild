@@ -15,6 +15,7 @@ Usage:
 """
 
 import json
+import logging
 import os
 import tempfile
 from collections.abc import Iterator
@@ -81,9 +82,10 @@ def atomic_write(
         # Clean up temp file on error
         try:
             os.unlink(tmp_path)
-        except Exception:
+        except Exception as cleanup_err:
             # Best-effort cleanup, ignore errors to not mask original exception
-            pass
+            # Log cleanup failure for debugging (orphaned temp files may accumulate)
+            logging.warning(f"Failed to cleanup temp file {tmp_path}: {cleanup_err}")
         raise
 
 

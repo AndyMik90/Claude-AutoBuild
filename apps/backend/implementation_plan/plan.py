@@ -147,6 +147,8 @@ class ImplementationPlan:
             await loop.run_in_executor(None, partial_write)
         except Exception:
             # Restore mutable fields from captured state on write failure
+            # NOTE: If _update_timestamps_and_status() is modified to change additional
+            # fields, those fields must also be restored here for consistency.
             self.updated_at = old_state.get("updated_at")
             self.created_at = old_state.get("created_at")
             self.status = old_state.get("status")
