@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto-Claude Documentation</title>
+  <meta name="description" content="Comprehensive technical documentation for the Auto-Claude project - Electron + Python agent system">
+  <!-- Dark theme for Docsify -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple-dark.min.css">
+  <style>
+    :root {
+      --theme-color: #42b983;
+      --sidebar-width: 280px;
+      --base-background-color: #1a1a2e;
+      --sidebar-background: #16213e;
+      --code-theme-background: #0f0f1a;
+      --code-inline-background: #2a2a4a;
+    }
+
+    body {
+      background-color: var(--base-background-color);
+    }
+
+    .sidebar {
+      background-color: var(--sidebar-background);
+    }
+
+    .markdown-section pre {
+      background-color: var(--code-theme-background);
+      border-radius: 6px;
+    }
+
+    .markdown-section code {
+      background-color: var(--code-inline-background);
+      border-radius: 4px;
+    }
+
+    /* Mermaid diagram styling for dark mode */
+    .mermaid {
+      text-align: center;
+      margin: 1em 0;
+      background: #1e1e2e;
+      padding: 1em;
+      border-radius: 8px;
+    }
+
+    /* Aggressive SVG overrides for Mermaid dark mode */
+    .mermaid svg {
+      background: transparent !important;
+    }
+    .mermaid .node rect,
+    .mermaid .node polygon,
+    .mermaid .node circle,
+    .mermaid .node ellipse,
+    .mermaid .node path {
+      fill: #2a2a4a !important;
+      stroke: #42b983 !important;
+    }
+    .mermaid .flowchart-link {
+      stroke: #6a9955 !important;
+    }
+    .mermaid .marker {
+      fill: #6a9955 !important;
+      stroke: #6a9955 !important;
+    }
+    .mermaid .labelBox {
+      fill: #2a2a4a !important;
+      stroke: #42b983 !important;
+    }
+    .mermaid .labelText,
+    .mermaid .labelText > tspan {
+      fill: #e0e0e0 !important;
+    }
+    .mermaid .loopText,
+    .mermaid .loopText > tspan {
+      fill: #e0e0e0 !important;
+    }
+    .mermaid rect.actor {
+      fill: #3b5998 !important;
+      stroke: #42b983 !important;
+    }
+    .mermaid .actor-line {
+      stroke: #6a9955 !important;
+    }
+    .mermaid .messageLine0,
+    .mermaid .messageLine1 {
+      stroke: #6a9955 !important;
+    }
+    .mermaid .messageText {
+      fill: #e0e0e0 !important;
+    }
+    .mermaid .activation0,
+    .mermaid .activation1,
+    .mermaid .activation2 {
+      fill: #3b5998 !important;
+      stroke: #42b983 !important;
+    }
+    .mermaid .note {
+      fill: #2d4a3e !important;
+      stroke: #42b983 !important;
+    }
+    .mermaid .noteText {
+      fill: #e0e0e0 !important;
+    }
+    .mermaid #arrowhead path {
+      fill: #6a9955 !important;
+      stroke: #6a9955 !important;
+    }
+    .mermaid .edgePath path {
+      stroke: #6a9955 !important;
+    }
+    .mermaid .classGroup rect {
+      fill: #2a2a4a !important;
+      stroke: #42b983 !important;
+    }
+    .mermaid .classGroup line {
+      stroke: #42b983 !important;
+    }
+    .mermaid .classLabel .box {
+      fill: #2a2a4a !important;
+      stroke: #42b983 !important;
+    }
+    .mermaid .classLabel .label {
+      fill: #e0e0e0 !important;
+    }
+    .mermaid .relation {
+      stroke: #6a9955 !important;
+    }
+    .mermaid .entityBox {
+      fill: #2a2a4a !important;
+      stroke: #42b983 !important;
+    }
+    .mermaid .attributeBoxEven,
+    .mermaid .attributeBoxOdd {
+      fill: #252540 !important;
+      stroke: #42b983 !important;
+    }
+    .mermaid .relationshipLabelBox {
+      fill: #1e1e2e !important;
+    }
+    .mermaid .entityLabel {
+      fill: #e0e0e0 !important;
+    }
+    /* Subgraph/cluster styling */
+    .mermaid g.cluster > rect {
+      fill: #16213e !important;
+      stroke: #42b983 !important;
+      rx: 4px;
+    }
+    .mermaid g.cluster > .nodeLabel {
+      fill: #e0e0e0 !important;
+    }
+    /* Force text to be light colored */
+    .mermaid text { fill: #e0e0e0 !important; }
+    .mermaid .nodeLabel { color: #e0e0e0 !important; }
+    .mermaid .label { color: #e0e0e0 !important; fill: #e0e0e0 !important; }
+    .mermaid .edgeLabel { background-color: #1e1e2e !important; }
+    .mermaid .cluster rect { fill: #16213e !important; stroke: #42b983 !important; }
+    .mermaid .cluster text { fill: #e0e0e0 !important; }
+
+    .markdown-section h2 {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #333;
+    }
+
+    /* Dark mode table styling */
+    .markdown-section table {
+      background: #1e1e2e;
+      border-color: #333;
+    }
+    .markdown-section th {
+      background: #2a2a4a;
+    }
+    .markdown-section tr:nth-child(2n) {
+      background: #252540;
+    }
+
+    /* Server required notice for file:// protocol */
+    .server-notice {
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 30px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      text-align: center;
+      color: #e0e0e0;
+    }
+    .server-notice h1 { color: #42b983; margin-bottom: 20px; }
+    .server-notice .warning {
+      background: #3d3d00;
+      border: 1px solid #666600;
+      padding: 15px 20px;
+      border-radius: 6px;
+      margin: 20px 0;
+      text-align: left;
+    }
+    .server-notice code {
+      background: #2a2a4a;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-family: 'Consolas', 'Monaco', monospace;
+    }
+    .server-notice .command {
+      background: #0f0f1a;
+      color: #d4d4d4;
+      padding: 15px 20px;
+      border-radius: 6px;
+      text-align: left;
+      margin: 15px 0;
+      font-family: 'Consolas', 'Monaco', monospace;
+    }
+    .server-notice .command .comment { color: #6a9955; }
+    .server-notice .options { text-align: left; margin: 20px 0; }
+    .server-notice .options h3 { color: #ccc; margin-bottom: 10px; }
+    .server-notice .options ul { padding-left: 20px; }
+    .server-notice .options li { margin: 8px 0; }
+    .server-notice a { color: #42b983; }
+  </style>
+</head>
+<body>
+  <div id="app">Loading documentation...</div>
+
+  <script>
+    // Check if we're running via file:// protocol
+    if (window.location.protocol === 'file:') {
+      document.getElementById('app').innerHTML = `
+        <div class="server-notice">
+          <h1>Auto-Claude Documentation</h1>
+          <div class="warning">
+            <strong>Local Server Required</strong><br>
+            This documentation uses Docsify which requires a local HTTP server.
+          </div>
+          <div class="options">
+            <h3>Quick Start:</h3>
+            <div class="command">
+              <span class="comment"># From project root</span><br>
+              npx serve docs
+            </div>
+          </div>
+          <p>Then open: <a href="http://localhost:3000">http://localhost:3000</a></p>
+        </div>
+      `;
+    }
+  </script>
+
+  <!-- Mermaid - load BEFORE docsify -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      securityLevel: 'loose',
+      themeVariables: {
+        background: '#1e1e2e',
+        primaryColor: '#3b5998',
+        secondaryColor: '#2d4a3e',
+        tertiaryColor: '#2a2a4a',
+        primaryTextColor: '#e0e0e0',
+        secondaryTextColor: '#b0b0b0',
+        tertiaryTextColor: '#a0a0a0',
+        lineColor: '#6a9955',
+        textColor: '#e0e0e0',
+        primaryBorderColor: '#42b983',
+        secondaryBorderColor: '#5a8fd8',
+        nodeBorder: '#42b983',
+        clusterBkg: '#16213e',
+        clusterBorder: '#42b983',
+        defaultLinkColor: '#6a9955',
+        titleColor: '#42b983',
+        edgeLabelBackground: '#1e1e2e',
+        actorBkg: '#3b5998',
+        actorBorder: '#42b983',
+        actorTextColor: '#e0e0e0',
+        actorLineColor: '#6a9955',
+        signalColor: '#e0e0e0',
+        signalTextColor: '#e0e0e0',
+        labelBoxBkgColor: '#2a2a4a',
+        labelBoxBorderColor: '#42b983',
+        labelTextColor: '#e0e0e0',
+        loopTextColor: '#e0e0e0',
+        noteBkgColor: '#2d4a3e',
+        noteTextColor: '#e0e0e0',
+        noteBorderColor: '#42b983',
+        activationBkgColor: '#3b5998',
+        activationBorderColor: '#42b983',
+        sequenceNumberColor: '#1e1e2e',
+        classText: '#e0e0e0',
+        labelColor: '#e0e0e0',
+        altBackground: '#252540',
+        entityBkg: '#2a2a4a',
+        entityBorder: '#42b983'
+      },
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
+      },
+      sequence: {
+        useMaxWidth: true
+      },
+      classDiagram: {
+        useMaxWidth: true
+      }
+    });
+  </script>
+
+  <!-- Docsify configuration -->
+  <script>
+    window.$docsify = {
+      name: 'Auto-Claude',
+      repo: 'https://github.com/AndyMik90/Auto-Claude',
+      loadSidebar: true,
+      subMaxLevel: 3,
+      auto2top: true,
+      coverpage: false,
+      maxLevel: 4,
+      search: {
+        placeholder: 'Search documentation',
+        noData: 'No results found',
+        depth: 3,
+        hideOtherSidebarContent: true
+      },
+      markdown: {
+        renderer: {
+          code: function(code, lang) {
+            if (lang === 'mermaid') {
+              return '<div class="mermaid">' + code + '</div>';
+            }
+            return this.origin.code.apply(this, arguments);
+          }
+        }
+      },
+      plugins: [
+        function(hook) {
+          hook.doneEach(function() {
+            mermaid.run({ querySelector: '.mermaid' });
+          });
+        }
+      ]
+    };
+  </script>
+
+  <!-- Docsify core -->
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4"></script>
+  <!-- Search plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+  <!-- Copy code plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/docsify-copy-code@2"></script>
+</body>
+</html>
