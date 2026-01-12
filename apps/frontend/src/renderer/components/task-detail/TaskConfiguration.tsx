@@ -74,24 +74,14 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
   const [pendingPhaseThinking, setPendingPhaseThinking] = useState<PhaseThinkingConfig>(DEFAULT_PHASE_THINKING);
   const [hasPendingChanges, setHasPendingChanges] = useState(false);
 
-  const isTaskRunning = task.status === 'in_progress' || task.status === 'planning';
+  const isTaskRunning = task.status === 'in_progress';
 
-  // Determine current phase from task
   const getCurrentPhase = (): keyof PhaseModelConfig | null => {
-    if (task.status === 'planning' || task.planStatus === 'in_progress') {
-      return 'planning';
-    }
-    if (task.status === 'in_progress') {
-      // Check if we're in coding or qa based on subtasks
-      const hasCompletedSubtasks = task.subtasks?.some(s => s.status === 'completed');
-      const allSubtasksComplete = task.subtasks?.every(s => s.status === 'completed');
-      if (allSubtasksComplete && task.qaStatus) {
-        return 'qa';
-      }
-      if (hasCompletedSubtasks) {
-        return 'coding';
-      }
-      return 'coding';
+    if (task.status === 'in_progress' && task.executionProgress) {
+      const phase = task.executionProgress.phase;
+      if (phase === 'planning') return 'planning';
+      if (phase === 'coding') return 'coding';
+      if (phase === 'qa_review' || phase === 'qa_fixing') return 'qa';
     }
     return null;
   };

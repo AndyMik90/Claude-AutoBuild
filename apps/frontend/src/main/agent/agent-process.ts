@@ -431,6 +431,10 @@ export class AgentProcessManager {
     // Parse Python commandto handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
 
+    // Get activation script from settings
+    const settings = readSettingsFile();
+    const activationScript = typeof settings?.pythonActivationScript === 'string' ? settings.pythonActivationScript : undefined;
+
     let finalCommand: string;
     let finalArgs: string[];
 

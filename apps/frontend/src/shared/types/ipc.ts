@@ -3,6 +3,8 @@
  */
 
 import type { IPCResult } from './common';
+// Re-export IPCResult for convenience
+export type { IPCResult };
 import type { SupportedIDE, SupportedTerminal } from './settings';
 import type {
   Project,

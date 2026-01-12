@@ -24,20 +24,13 @@ export function registerTaskMetadataHandlers(): void {
           return { success: false, error: 'Task not found' };
         }
 
-        // Determine the correct spec directory
+        // Determine spec directory
         let specDir: string;
-        if (task.worktreePath) {
-          // Task is in worktree - use worktree spec dir
-          specDir = path.join(
-            task.worktreePath,
-            '.auto-claude',
-            'specs',
-            task.specId
-          );
+        if (task.specsPath) {
+          specDir = task.specsPath;
         } else {
-          // Task is in main project
           specDir = path.join(
-            project.path,
+            project?.path || '',
             '.auto-claude',
             'specs',
             task.specId
@@ -53,7 +46,7 @@ export function registerTaskMetadataHandlers(): void {
             success: true,
             data: {
               sourceType: 'manual',
-              category: task.category || 'feature'
+              category: task.metadata?.category || 'feature'
             }
           };
         }
@@ -86,20 +79,13 @@ export function registerTaskMetadataHandlers(): void {
           return { success: false, error: 'Task not found' };
         }
 
-        // Determine the correct spec directory
+        // Determine spec directory
         let specDir: string;
-        if (task.worktreePath) {
-          // Task is in worktree - use worktree spec dir
-          specDir = path.join(
-            task.worktreePath,
-            '.auto-claude',
-            'specs',
-            task.specId
-          );
+        if (task.specsPath) {
+          specDir = task.specsPath;
         } else {
-          // Task is in main project
           specDir = path.join(
-            project.path,
+            project?.path || '',
             '.auto-claude',
             'specs',
             task.specId
