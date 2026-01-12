@@ -33,7 +33,7 @@ export function ProjectWindowHeader({ projectId }: ProjectWindowHeaderProps) {
 
   return (
     <div
-      className="flex items-center justify-between px-4 py-2 pt-12 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      className="flex items-center justify-between px-4 pl-20 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       {/* Project info */}
