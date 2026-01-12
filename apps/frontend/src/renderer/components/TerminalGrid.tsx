@@ -12,7 +12,8 @@ import {
   PointerSensor,
   KeyboardSensor,
   useSensor,
-  useSensors
+  useSensors,
+  closestCenter,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -358,6 +359,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
