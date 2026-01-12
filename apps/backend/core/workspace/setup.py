@@ -75,6 +75,23 @@ def choose_workspace(
     if force_direct:
         return WorkspaceMode.DIRECT
 
+    # Check project .env for user's workspace mode preference
+    project_env_file = project_dir / ".auto-claude" / ".env"
+    if project_env_file.exists():
+        try:
+            from dotenv import dotenv_values
+            env_values = dotenv_values(project_env_file)
+            workspace_mode = env_values.get("WORKSPACE_MODE", "").lower()
+
+            if workspace_mode == "isolated":
+                return WorkspaceMode.ISOLATED
+            elif workspace_mode == "direct":
+                return WorkspaceMode.DIRECT
+            # If not set or invalid, continue with default logic
+        except Exception:
+            # If reading .env fails, continue with default logic
+            pass
+
     # Non-interactive mode: default to isolated for safety
     if auto_continue:
         print("Auto-continue: Using isolated workspace for safety.")

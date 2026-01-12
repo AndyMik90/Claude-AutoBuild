@@ -138,6 +138,9 @@ export function registerEnvHandlers(
     if (config.defaultBranch !== undefined) {
       existingVars['DEFAULT_BRANCH'] = config.defaultBranch;
     }
+    if (config.workspaceMode !== undefined) {
+      existingVars['WORKSPACE_MODE'] = config.workspaceMode;
+    }
     if (config.graphitiEnabled !== undefined) {
       existingVars['GRAPHITI_ENABLED'] = config.graphitiEnabled ? 'true' : 'false';
     }
@@ -450,6 +453,12 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       // Git/Worktree config
       if (vars['DEFAULT_BRANCH']) {
         config.defaultBranch = vars['DEFAULT_BRANCH'];
+      }
+      if (vars['WORKSPACE_MODE']) {
+        const mode = vars['WORKSPACE_MODE'].toLowerCase();
+        if (mode === 'isolated' || mode === 'direct') {
+          config.workspaceMode = mode;
+        }
       }
 
       if (vars['GRAPHITI_ENABLED']?.toLowerCase() === 'true') {
