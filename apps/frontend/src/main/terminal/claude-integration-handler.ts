@@ -403,9 +403,18 @@ export function invokeClaude(
     isDefault: activeProfile?.isDefault
   });
 
-  // Use shell-aware command generation based on terminal's shell type
-  // Platform-aware fallback: 'cmd' on Windows, 'bash' on Unix
+  // Use shell-aware command generation based on terminal's shell type.
+  // Platform-aware fallback: 'cmd' on Windows, 'bash' on Unix.
+  //
+  // Note: We use 'cmd' as the Windows fallback (not 'powershell') because:
+  // 1. cmd.exe is the system default (COMSPEC) and universally available
+  // 2. User's preferred shell is already handled by PTY spawning (getWindowsShell)
+  // 3. This fallback only applies when shell detection fails (rare edge case)
+  // 4. Using the more conservative/universal option prevents issues in edge cases
   const shellType = terminal.shellType || (process.platform === 'win32' ? 'cmd' : 'bash');
+  if (!terminal.shellType) {
+    debugLog('[ClaudeIntegration:invokeClaude] Shell type not detected, using fallback:', shellType);
+  }
   const cwdCommand = buildCdCommandForShell(cwd, shellType);
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
   const escapedClaudeCmd = escapeCommandForShell(claudeCmd, shellType);
@@ -508,8 +517,11 @@ export function resumeClaude(
   terminal.isClaudeMode = true;
   SessionHandler.releaseSessionId(terminal.id);
 
-  // Use shell-aware command generation
+  // Use shell-aware command generation (see invokeClaude for fallback rationale)
   const shellType = terminal.shellType || (process.platform === 'win32' ? 'cmd' : 'bash');
+  if (!terminal.shellType) {
+    debugLog('[ClaudeIntegration:resumeClaude] Shell type not detected, using fallback:', shellType);
+  }
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
   const escapedClaudeCmd = escapeCommandForShell(claudeCmd, shellType);
   const pathPrefix = claudeEnv.PATH
@@ -592,8 +604,11 @@ export async function invokeClaudeAsync(
     isDefault: activeProfile?.isDefault
   });
 
-  // Async CLI invocation - non-blocking, shell-aware command generation
+  // Async CLI invocation - non-blocking, shell-aware command generation (see invokeClaude for fallback rationale)
   const shellType = terminal.shellType || (process.platform === 'win32' ? 'cmd' : 'bash');
+  if (!terminal.shellType) {
+    debugLog('[ClaudeIntegration:invokeClaudeAsync] Shell type not detected, using fallback:', shellType);
+  }
   const cwdCommand = buildCdCommandForShell(cwd, shellType);
   const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
   const escapedClaudeCmd = escapeCommandForShell(claudeCmd, shellType);
@@ -691,8 +706,11 @@ export async function resumeClaudeAsync(
   terminal.isClaudeMode = true;
   SessionHandler.releaseSessionId(terminal.id);
 
-  // Async CLI invocation - non-blocking, shell-aware command generation
+  // Async CLI invocation - non-blocking, shell-aware command generation (see invokeClaude for fallback rationale)
   const shellType = terminal.shellType || (process.platform === 'win32' ? 'cmd' : 'bash');
+  if (!terminal.shellType) {
+    debugLog('[ClaudeIntegration:resumeClaudeAsync] Shell type not detected, using fallback:', shellType);
+  }
   const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
   const escapedClaudeCmd = escapeCommandForShell(claudeCmd, shellType);
   const pathPrefix = claudeEnv.PATH
