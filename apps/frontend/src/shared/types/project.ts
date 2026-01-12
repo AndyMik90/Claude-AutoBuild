@@ -320,6 +320,7 @@ export interface ProjectEnvConfig {
 
   // Git/Worktree Settings
   defaultBranch?: string; // Base branch for worktree creation (e.g., 'main', 'develop')
+  workspaceMode?: 'isolated' | 'direct'; // Workspace mode: isolated (worktree) or direct (no worktree) - default: direct
 
   // Graphiti Memory Integration (V2 - Multi-provider support)
   // Uses LadybugDB embedded database (no Docker required, Python 3.12+)

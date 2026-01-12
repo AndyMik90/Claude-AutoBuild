@@ -89,6 +89,8 @@ export function SectionRouter({
             isCheckingVersion={isCheckingVersion}
             isUpdating={isUpdating}
             handleInitialize={handleInitialize}
+            envConfig={envConfig}
+            updateEnvConfig={updateEnvConfig}
           />
         </SettingsSection>
       );

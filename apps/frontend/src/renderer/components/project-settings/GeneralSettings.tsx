@@ -21,7 +21,8 @@ import { AVAILABLE_MODELS } from '../../../shared/constants';
 import type {
   Project,
   ProjectSettings as ProjectSettingsType,
-  AutoBuildVersionInfo
+  AutoBuildVersionInfo,
+  ProjectEnvConfig
 } from '../../../shared/types';
 
 interface GeneralSettingsProps {
@@ -32,6 +33,8 @@ interface GeneralSettingsProps {
   isCheckingVersion: boolean;
   isUpdating: boolean;
   handleInitialize: () => Promise<void>;
+  envConfig?: ProjectEnvConfig | null;
+  updateEnvConfig?: (updates: Partial<ProjectEnvConfig>) => void;
 }
 
 export function GeneralSettings({
@@ -41,7 +44,9 @@ export function GeneralSettings({
   versionInfo,
   isCheckingVersion,
   isUpdating,
-  handleInitialize
+  handleInitialize,
+  envConfig,
+  updateEnvConfig
 }: GeneralSettingsProps) {
   const { t } = useTranslation(['settings']);
 
@@ -149,6 +154,51 @@ export function GeneralSettings({
           </section>
 
           <Separator />
+
+          {/* Workspace Settings */}
+          {envConfig && updateEnvConfig && (
+            <>
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold text-foreground">Workspace Settings</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-foreground">Workspace Mode</Label>
+                    <Select
+                      value={envConfig.workspaceMode || 'direct'}
+                      onValueChange={(value: 'isolated' | 'direct') =>
+                        updateEnvConfig({ workspaceMode: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="direct">
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">Direct</span>
+                            <span className="text-xs text-muted-foreground">Build directly in project (recommended)</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="isolated">
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">Isolated (Worktree)</span>
+                            <span className="text-xs text-muted-foreground">Build in separate worktree (safer)</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {envConfig.workspaceMode === 'isolated'
+                        ? 'Changes will be built in a separate Git worktree. Your project files are protected until you merge.'
+                        : 'Changes will be made directly to your project. Faster but less isolated.'}
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <Separator />
+            </>
+          )}
 
           {/* Notifications */}
           <section className="space-y-4">
