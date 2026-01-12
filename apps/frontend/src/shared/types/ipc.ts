@@ -281,6 +281,9 @@ export interface ElectronAPI {
     usageSnapshot: ClaudeUsageSnapshot;
   }) => void) => () => void;
 
+  // Queue event listener
+  onQueueStatusUpdate: (callback: (projectId: string, status: QueueStatus) => void) => () => void;
+
   // App settings
   getSettings: () => Promise<IPCResult<AppSettings>>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<IPCResult>;

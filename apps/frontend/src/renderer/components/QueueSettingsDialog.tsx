@@ -71,9 +71,6 @@ const CONCURRENT_PRESETS = [
   QUEUE_MAX_CONCURRENT,
 ] as const;
 
-/** Derived union type of valid max concurrent values */
-type MaxConcurrentValue = typeof CONCURRENT_PRESETS[number];
-
 export function QueueSettingsDialog({
   projectId,
   open,

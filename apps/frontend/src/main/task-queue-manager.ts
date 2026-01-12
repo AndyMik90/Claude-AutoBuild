@@ -250,6 +250,12 @@ export class TaskQueueManager {
       title: nextTask.title
     });
 
+    // Check if task is already running to prevent duplicate starts
+    if (this.agentManager.isRunning(nextTask.id)) {
+      debugLog('[TaskQueueManager] Task already running, skipping:', nextTask.id);
+      return false;
+    }
+
     // Start the task
     try {
       await this.agentManager.startTaskExecution(
@@ -287,9 +293,15 @@ export class TaskQueueManager {
 
     // Chain this operation onto the existing one
     const processingPromise = existingChain.then(async () => {
+      // Fetch fresh config inside the promise chain to avoid stale values
+      const freshConfig = this.getQueueConfig(projectId);
+      if (!freshConfig.enabled) {
+        return;
+      }
+
       // Start tasks until we reach max concurrent or run out of backlog
       const status = this.getQueueStatus(projectId);
-      const tasksToStart = Math.min(config.maxConcurrent - status.runningCount, status.backlogCount);
+      const tasksToStart = Math.min(freshConfig.maxConcurrent - status.runningCount, status.backlogCount);
 
       debugLog('[TaskQueueManager] Will start', tasksToStart, 'tasks from backlog');
 

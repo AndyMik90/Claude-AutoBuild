@@ -113,6 +113,8 @@ const browserMockAPI: ElectronAPI = {
     data: { enabled: false, maxConcurrent: 1, runningCount: 0, backlogCount: 0 }
   }),
 
+  onQueueStatusUpdate: () => () => {},
+
   // Environment Configuration & Integration Operations
   ...integrationMock,
 
