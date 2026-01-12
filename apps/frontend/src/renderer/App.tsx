@@ -744,22 +744,22 @@ export function App() {
       <div className="flex h-screen bg-background">
         {/* Project Window: Simplified UI showing only one project */}
         {isProjectWindow && projectWindowId ? (
-          <div className="flex flex-1 flex-col overflow-hidden">
-            {/* Project window header with reattach button */}
-            <ProjectWindowHeader projectId={projectWindowId} />
+          <>
+            {/* Sidebar */}
+            <Sidebar
+              onSettingsClick={() => setIsSettingsDialogOpen(true)}
+              onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
+              activeView={activeView}
+              onViewChange={setActiveView}
+            />
 
-            {/* Main content area */}
-            <div className="flex flex-1 overflow-hidden">
-              {/* Sidebar for project window */}
-              <Sidebar
-                onSettingsClick={() => setIsSettingsDialogOpen(true)}
-                onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
-                activeView={activeView}
-                onViewChange={setActiveView}
-              />
+            {/* Main content */}
+            <div className="flex flex-1 flex-col overflow-hidden">
+              {/* Project window header (replaces tab bar) */}
+              <ProjectWindowHeader projectId={projectWindowId} />
 
-              {/* Content area */}
-              <div className="flex-1 overflow-auto">
+              {/* Main content area */}
+              <main className="flex-1 overflow-hidden relative">
                 {activeView === 'kanban' && (
                   <KanbanBoard
                     tasks={tasks}
@@ -825,9 +825,9 @@ export function App() {
                 {activeView === 'agent-tools' && projectWindowId && (
                   <AgentTools projectId={projectWindowId} />
                 )}
-              </div>
+              </main>
             </div>
-          </div>
+          </>
         ) : (
           /* Main Window: Full UI with sidebar and tabs */
           <>
