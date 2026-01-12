@@ -10,7 +10,7 @@ tracking, status management, and follow-up capabilities.
 import asyncio
 import functools
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import datetime
 from pathlib import Path
 
@@ -146,15 +146,12 @@ class ImplementationPlan:
         try:
             await loop.run_in_executor(None, partial_write)
         except Exception:
-            # Restore mutable fields from captured state on write failure
-            # NOTE: If _update_timestamps_and_status() is modified to change additional
-            # fields, those fields must also be restored here for consistency.
-            self.updated_at = old_state.get("updated_at")
-            self.created_at = old_state.get("created_at")
-            self.status = old_state.get("status")
-            self.planStatus = old_state.get("planStatus")
-            self.recoveryNote = old_state.get("recoveryNote")
-            self.qa_signoff = old_state.get("qa_signoff")
+            # Restore full state from captured dict on write failure
+            # This reverts all fields modified by _update_timestamps_and_status()
+            restored = self.from_dict(old_state)
+            # Copy restored fields back to self (dataclass __init__ returns new instance)
+            for field in fields(self):
+                setattr(self, field.name, getattr(restored, field.name))
             raise
 
     def update_status_from_subtasks(self):

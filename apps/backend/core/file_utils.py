@@ -62,6 +62,7 @@ def atomic_write(
         dir=filepath.parent, prefix=f".{filepath.name}.tmp.", suffix=""
     )
 
+    replaced = False
     try:
         # Open temp file with requested mode
         # If fdopen fails, close fd and clean up temp file
@@ -77,15 +78,19 @@ def atomic_write(
 
         # Atomic replace - succeeds or fails completely
         os.replace(tmp_path, filepath)
+        replaced = True
 
     except Exception:
-        # Clean up temp file on error
-        try:
-            os.unlink(tmp_path)
-        except Exception as cleanup_err:
-            # Best-effort cleanup, ignore errors to not mask original exception
-            # Log cleanup failure for debugging (orphaned temp files may accumulate)
-            logging.warning(f"Failed to cleanup temp file {tmp_path}: {cleanup_err}")
+        # Clean up temp file on error (only if replace didn't succeed)
+        if not replaced:
+            try:
+                os.unlink(tmp_path)
+            except Exception as cleanup_err:
+                # Best-effort cleanup, ignore errors to not mask original exception
+                # Log cleanup failure for debugging (orphaned temp files may accumulate)
+                logging.warning(
+                    f"Failed to cleanup temp file {tmp_path}: {cleanup_err}"
+                )
         raise
 
 

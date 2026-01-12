@@ -53,6 +53,8 @@ def detect_corrupted_files(specs_dir: Path) -> list[tuple[Path, str]]:
     for json_file in specs_dir.rglob("*.json"):
         is_valid, error = check_json_file(json_file)
         if not is_valid:
+            # Type narrowing: error is str when is_valid is False
+            assert error is not None
             corrupted.append((json_file, error))
 
     return corrupted
@@ -127,6 +129,10 @@ def main() -> None:
 
     args = parser.parse_args()
 
+    # Validate --all requires --delete
+    if args.all and not args.delete:
+        parser.error("--all requires --delete")
+
     # Find specs directory
     if args.specs_dir:
         specs_dir = args.specs_dir
@@ -134,6 +140,10 @@ def main() -> None:
         specs_dir = find_specs_dir(args.project_dir)
 
     print(f"[INFO] Scanning specs directory: {specs_dir}")
+
+    # Default to detect mode if no flags provided
+    if not args.detect and not args.delete:
+        args.detect = True
 
     # Detect corrupted files (dry-run when detect-only, otherwise for deletion)
     corrupted = detect_corrupted_files(specs_dir)
@@ -168,11 +178,16 @@ def main() -> None:
                 sys.exit(1)
 
             print(f"[INFO] Processing spec: {args.spec_id}")
+            has_failures = False
             for json_file in spec_dir.rglob("*.json"):
                 is_valid, error = check_json_file(json_file)
                 if not is_valid:
                     print(f"  [CORRUPTED] {json_file.name}")
-                    backup_corrupted_file(json_file)
+                    if not backup_corrupted_file(json_file):
+                        has_failures = True
+
+            if has_failures:
+                sys.exit(1)
 
         elif args.all:
             # Delete all corrupted files
@@ -184,9 +199,14 @@ def main() -> None:
                 sys.exit(0)
 
             print(f"\n[INFO] Backing up {len(corrupted)} corrupted file(s):\n")
+            has_failures = False
             for filepath, _ in corrupted:
                 # backup_corrupted_file prints its own [BACKUP] message
-                backup_corrupted_file(filepath)
+                if not backup_corrupted_file(filepath):
+                    has_failures = True
+
+            if has_failures:
+                sys.exit(1)
 
         else:
             print("[ERROR] Must specify --spec-id or --all with --delete")
