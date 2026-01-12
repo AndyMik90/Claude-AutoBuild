@@ -647,7 +647,29 @@ class WorktreeManager:
         result = self._run_git(merge_args)
 
         if result.returncode != 0:
-            print("Merge conflict! Aborting merge...")
+            # Check if it's "already up to date" - not an error
+            output = (result.stdout + result.stderr).lower()
+            if "already up to date" in output or "already up-to-date" in output:
+                print(f"Branch {info.branch} is already up to date.")
+                if no_commit:
+                    print("No changes to stage.")
+                if delete_after:
+                    self.remove_worktree(spec_name, delete_branch=True)
+                return True
+            # Check for actual conflicts
+            if "conflict" in output:
+                print("Merge conflict! Aborting merge...")
+                self._run_git(["merge", "--abort"])
+                return False
+            # Other error - show details
+            stderr_msg = (
+                result.stderr[:200]
+                if result.stderr
+                else result.stdout[:200]
+                if result.stdout
+                else "<no output>"
+            )
+            print(f"Merge failed: {stderr_msg}")
             self._run_git(["merge", "--abort"])
             return False
 
