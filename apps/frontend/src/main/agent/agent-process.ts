@@ -441,7 +441,8 @@ export class AgentProcessManager {
     if (activationScript && existsSync(activationScript)) {
       // Build command with conda activation
       if (process.platform === 'win32') {
-        const pythonWithArgs = [pythonCommand, ...pythonBaseArgs, ...args]
+        // Add -u flag for unbuffered output (critical for subprocess communication)
+        const pythonWithArgs = [pythonCommand, ...pythonBaseArgs, '-u', ...args]
           .map(arg => arg.includes(' ') ? `"${arg}"` : arg)
           .join(' ');
 
@@ -494,15 +495,17 @@ export class AgentProcessManager {
       } else {
         // Unix: bash -c "source activate && python args"
         finalCommand = process.env.SHELL || '/bin/bash';
-        const pythonWithArgs = [pythonCommand, ...pythonBaseArgs, ...args]
+        // Add -u flag for unbuffered output (critical for subprocess communication)
+        const pythonWithArgs = [pythonCommand, ...pythonBaseArgs, '-u', ...args]
           .map(arg => arg.includes(' ') ? `"${arg}"` : arg)
           .join(' ');
         finalArgs = ['-c', `source "${activationScript}" && ${pythonWithArgs}`];
       }
     } else {
       // No activation - use Python directly
+      // Add -u flag for unbuffered output (critical for subprocess communication)
       finalCommand = pythonCommand;
-      finalArgs = [...pythonBaseArgs, ...args];
+      finalArgs = [...pythonBaseArgs, '-u', ...args];
     }
 
     // Debug: Log the exact command being spawned
