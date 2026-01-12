@@ -65,10 +65,14 @@ interface QueueSettingsDialogProps {
 }
 
 /** Preset values for max concurrent tasks - derived from min/max constants */
-const CONCURRENT_PRESETS = Array.from(
-  { length: QUEUE_MAX_CONCURRENT - QUEUE_MIN_CONCURRENT + 1 },
-  (_, i) => QUEUE_MIN_CONCURRENT + i
-) as readonly number[];
+const CONCURRENT_PRESETS = [
+  QUEUE_MIN_CONCURRENT,
+  QUEUE_MIN_CONCURRENT + 1,
+  QUEUE_MAX_CONCURRENT,
+] as const;
+
+/** Derived union type of valid max concurrent values */
+type MaxConcurrentValue = typeof CONCURRENT_PRESETS[number];
 
 export function QueueSettingsDialog({
   projectId,
@@ -113,6 +117,9 @@ export function QueueSettingsDialog({
       } else {
         setSaveError(t('tasks:queue.settings.saveFailed'));
       }
+    } catch (error) {
+      setSaveError(t('tasks:queue.settings.saveFailed'));
+      console.error('[QueueSettingsDialog] Unexpected error saving queue config:', error);
     } finally {
       setIsSaving(false);
     }
@@ -204,7 +211,7 @@ export function QueueSettingsDialog({
                       <button
                         key={value}
                         type="button"
-                        onClick={() => setMaxConcurrent(value as 1 | 2 | 3)}
+                        onClick={() => setMaxConcurrent(value as QueueConfig['maxConcurrent'])}
                         className={cn(
                           'flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all',
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
