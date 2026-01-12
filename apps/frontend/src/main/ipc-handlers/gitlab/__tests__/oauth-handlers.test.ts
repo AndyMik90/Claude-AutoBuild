@@ -216,4 +216,143 @@ describe('GitLab OAuth Handlers', () => {
       expect(result.meta.count).toBe(2);
     });
   });
+
+  describe('Version Parsing', () => {
+    /**
+     * Helper function to parse version from glab --version output
+     * Mimics the logic in oauth-handlers.ts
+     */
+    function parseGlabVersion(versionOutput: string): string {
+      let version = versionOutput.trim().split('\n')[0];
+      const versionMatch = version.match(/(\d+\.\d+\.\d+)/);
+      if (versionMatch) {
+        version = versionMatch[1];
+      }
+      return version;
+    }
+
+    it('should extract version from standard glab output', () => {
+      const output = 'glab 1.80.4 (f4b518e)';
+      expect(parseGlabVersion(output)).toBe('1.80.4');
+    });
+
+    it('should extract version from glab version command output', () => {
+      const output = 'glab version 1.88.4';
+      expect(parseGlabVersion(output)).toBe('1.88.4');
+    });
+
+    it('should extract version from multi-line output', () => {
+      const output = 'glab 1.80.4 (f4b518e)\nSome other info\nMore info';
+      expect(parseGlabVersion(output)).toBe('1.80.4');
+    });
+
+    it('should handle version-only output', () => {
+      const output = '1.80.4';
+      expect(parseGlabVersion(output)).toBe('1.80.4');
+    });
+
+    it('should handle versions with build metadata', () => {
+      const output = 'glab 2.0.0-beta.1 (abc123)';
+      expect(parseGlabVersion(output)).toBe('2.0.0');
+    });
+
+    it('should handle different version formats', () => {
+      expect(parseGlabVersion('glab 1.2.3')).toBe('1.2.3');
+      expect(parseGlabVersion('v1.2.3')).toBe('1.2.3');
+      expect(parseGlabVersion('version 10.20.30')).toBe('10.20.30');
+    });
+
+    it('should return original string if no version pattern found', () => {
+      const output = 'no version here';
+      expect(parseGlabVersion(output)).toBe('no version here');
+    });
+  });
+
+  describe('Username Parsing', () => {
+    /**
+     * Helper function to parse username from glab api user JSON response
+     * Mimics the logic in oauth-handlers.ts
+     */
+    function parseGlabUsername(userJson: string): string | null {
+      try {
+        const user = JSON.parse(userJson);
+        return user?.username || null;
+      } catch {
+        return null;
+      }
+    }
+
+    it('should parse username from valid JSON response', () => {
+      const jsonResponse = JSON.stringify({
+        id: 123,
+        username: 'jasonnator',
+        name: 'Jason',
+        email: 'jason@example.com'
+      });
+
+      expect(parseGlabUsername(jsonResponse)).toBe('jasonnator');
+    });
+
+    it('should handle minimal JSON with just username', () => {
+      const jsonResponse = JSON.stringify({ username: 'testuser' });
+      expect(parseGlabUsername(jsonResponse)).toBe('testuser');
+    });
+
+    it('should return null for JSON without username field', () => {
+      const jsonResponse = JSON.stringify({
+        id: 123,
+        name: 'Test User',
+        email: 'test@example.com'
+      });
+
+      expect(parseGlabUsername(jsonResponse)).toBe(null);
+    });
+
+    it('should return null for invalid JSON', () => {
+      const invalidJson = '{ invalid json }';
+      expect(parseGlabUsername(invalidJson)).toBe(null);
+    });
+
+    it('should return null for empty string', () => {
+      expect(parseGlabUsername('')).toBe(null);
+    });
+
+    it('should return null for malformed JSON', () => {
+      expect(parseGlabUsername('not json at all')).toBe(null);
+      expect(parseGlabUsername('{"username":')).toBe(null);
+    });
+
+    it('should handle JSON with null username', () => {
+      const jsonResponse = JSON.stringify({ username: null });
+      expect(parseGlabUsername(jsonResponse)).toBe(null);
+    });
+
+    it('should handle JSON with undefined username', () => {
+      const jsonResponse = JSON.stringify({ username: undefined });
+      // JSON.stringify removes undefined values, so username won't exist
+      expect(parseGlabUsername(jsonResponse)).toBe(null);
+    });
+
+    it('should handle complex GitLab user object', () => {
+      const jsonResponse = JSON.stringify({
+        id: 456,
+        username: 'developer123',
+        name: 'Developer Name',
+        state: 'active',
+        avatar_url: 'https://example.com/avatar.jpg',
+        web_url: 'https://gitlab.com/developer123',
+        created_at: '2024-01-01T00:00:00.000Z',
+        bio: 'Software developer',
+        location: 'Earth',
+        public_email: 'dev@example.com',
+        skype: '',
+        linkedin: '',
+        twitter: '',
+        website_url: 'https://example.com',
+        organization: 'Company Inc'
+      });
+
+      expect(parseGlabUsername(jsonResponse)).toBe('developer123');
+    });
+  });
 });
