@@ -297,6 +297,33 @@ export interface ElectronAPI {
     claude: import('./cli').ToolDetectionResult;
   }>>;
 
+  // Python package validation
+  validatePythonPackages: (params: { pythonPath: string; activationScript?: string }) => Promise<IPCResult<{
+    allInstalled: boolean;
+    missingPackages: string[];
+    installLocation: string;
+  }>>;
+  onPythonValidationProgress: (callback: (progress: { current: number; total: number; packageName: string }) => void) => () => void;
+  installPythonRequirements: (params: { pythonPath: string; activationScript?: string }) => Promise<IPCResult>;
+  onPythonInstallProgress: (callback: (progress: string) => void) => () => void;
+
+  // Python environment validation and reinstall
+  validatePythonEnvironment: (params: { activationScript: string }) => Promise<IPCResult<{
+    valid: boolean;
+    pythonPath: string | null;
+    version: string | null;
+    error: string | null;
+    status: 'valid' | 'missing' | 'wrong_version' | 'error';
+  }>>;
+  reinstallPythonEnvironment: (params: { activationScript: string; pythonVersion?: string }) => Promise<IPCResult<{
+    success: boolean;
+    environmentPath: string | null;
+    pythonVersion: string | null;
+    error: string | null;
+    stepsCompleted: string[];
+  }>>;
+  onPythonReinstallProgress: (callback: (progress: { step: string; completed: number; total: number }) => void) => () => void;
+
   // API Profile management (custom Anthropic-compatible endpoints)
   getAPIProfiles: () => Promise<IPCResult<ProfilesFile>>;
   saveAPIProfile: (profile: Omit<APIProfile, 'id' | 'createdAt' | 'updatedAt'>) => Promise<IPCResult<APIProfile>>;

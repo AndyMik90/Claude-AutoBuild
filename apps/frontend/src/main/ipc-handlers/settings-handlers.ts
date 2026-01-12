@@ -16,7 +16,7 @@ import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-upd
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
 import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
 import { parseEnvFile } from './utils';
-import { validatePythonPackages, installPythonRequirements } from '../python-env-manager';
+import { validatePythonPackages, installPythonRequirements, validatePythonEnvironment, reinstallPythonEnvironment, getEnvironmentPathFromScript } from '../python-env-manager';
 
 const settingsPath = getSettingsPath();
 
@@ -327,6 +327,74 @@ export function registerSettingsHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to install requirements'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.PYTHON_VALIDATE_ENVIRONMENT,
+    async (event, { activationScript }: { activationScript: string }): Promise<IPCResult<{
+      valid: boolean;
+      pythonPath: string | null;
+      version: string | null;
+      error: string | null;
+      status: 'valid' | 'missing' | 'wrong_version' | 'error';
+    }>> => {
+      try {
+        const validation = await validatePythonEnvironment(activationScript);
+        console.log('[PYTHON_VALIDATE_ENVIRONMENT] Validation result:', validation);
+        return { success: true, data: validation };
+      } catch (error) {
+        console.error('[PYTHON_VALIDATE_ENVIRONMENT] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to validate Python environment'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.PYTHON_REINSTALL_ENVIRONMENT,
+    async (event, { activationScript, pythonVersion }: { activationScript: string; pythonVersion?: string }): Promise<IPCResult<{
+      success: boolean;
+      environmentPath: string | null;
+      pythonVersion: string | null;
+      error: string | null;
+      stepsCompleted: string[];
+    }>> => {
+      try {
+        const envPath = getEnvironmentPathFromScript(activationScript);
+        if (!envPath) {
+          return {
+            success: false,
+            error: 'Could not extract environment path from activation script'
+          };
+        }
+
+        // Send progress updates
+        event.sender.send(IPC_CHANNELS.PYTHON_REINSTALL_PROGRESS, {
+          step: 'Starting environment reinstall',
+          completed: 0,
+          total: 3
+        });
+
+        const result = await reinstallPythonEnvironment(
+          envPath,
+          pythonVersion || '3.12',
+          (step: string, completed: number, total: number) => {
+            event.sender.send(IPC_CHANNELS.PYTHON_REINSTALL_PROGRESS, { step, completed, total });
+          }
+        );
+
+        console.log('[PYTHON_REINSTALL_ENVIRONMENT] Result:', result);
+        return { success: true, data: result };
+      } catch (error) {
+        console.error('[PYTHON_REINSTALL_ENVIRONMENT] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to reinstall Python environment'
         };
       }
     }
