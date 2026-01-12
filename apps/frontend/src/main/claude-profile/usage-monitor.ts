@@ -40,7 +40,7 @@ export class UsageMonitor extends EventEmitter {
     const settings = profileManager.getAutoSwitchSettings();
 
     if (!settings.enabled || !settings.proactiveSwapEnabled) {
-      console.warn('[UsageMonitor] Proactive monitoring disabled');
+      console.warn('[UsageMonitor] Proactive monitoring disabled. Settings:', JSON.stringify(settings, null, 2));
       return;
     }
 
@@ -118,6 +118,13 @@ export class UsageMonitor extends EventEmitter {
       const weeklyExceeded = usage.weeklyPercent >= settings.weeklyThreshold;
 
       if (sessionExceeded || weeklyExceeded) {
+        console.warn('[UsageMonitor:TRACE] Threshold exceeded', {
+          sessionPercent: usage.sessionPercent,
+          weekPercent: usage.weeklyPercent,
+          activeProfile: activeProfile.id,
+          hasToken: !!decryptedToken
+        });
+
         console.warn('[UsageMonitor] Threshold exceeded:', {
           sessionPercent: usage.sessionPercent,
           sessionThreshold: settings.sessionThreshold,
@@ -130,8 +137,33 @@ export class UsageMonitor extends EventEmitter {
           activeProfile.id,
           sessionExceeded ? 'session' : 'weekly'
         );
+      } else {
+        console.log('[UsageMonitor:TRACE] Usage OK', {
+          sessionPercent: usage.sessionPercent,
+          weekPercent: usage.weeklyPercent
+        });
       }
     } catch (error) {
+      // Check for auth failure (401/403) from fetchUsageViaAPI
+      if ((error as any).statusCode === 401 || (error as any).statusCode === 403) {
+        console.warn('[UsageMonitor] Auth failure detected, attempting proactive swap');
+        
+        try {
+          const profileManager = getClaudeProfileManager();
+          const activeProfile = profileManager.getActiveProfile();
+          
+          if (activeProfile) {
+            await this.performProactiveSwap(
+              activeProfile.id,
+              'session' // Treat auth failure as session limit for immediate swap
+            );
+            return;
+          }
+        } catch (swapError) {
+          console.error('[UsageMonitor] Failed to perform auth-failure swap:', swapError);
+        }
+      }
+
       console.error('[UsageMonitor] Check failed:', error);
     } finally {
       this.isChecking = false;
@@ -190,6 +222,12 @@ export class UsageMonitor extends EventEmitter {
 
       if (!response.ok) {
         console.error('[UsageMonitor] API error:', response.status, response.statusText);
+        // Throw specific error for auth failures so we can trigger a swap
+        if (response.status === 401 || response.status === 403) {
+          const error = new Error(`API Auth Failure: ${response.status}`);
+          (error as any).statusCode = response.status;
+          throw error;
+        }
         return null;
       }
 
@@ -221,6 +259,11 @@ export class UsageMonitor extends EventEmitter {
           : 'session'
       };
     } catch (error) {
+      // Re-throw auth failures to be handled by checkUsageAndSwap
+      if ((error as any).statusCode === 401 || (error as any).statusCode === 403) {
+        throw error;
+      }
+      
       console.error('[UsageMonitor] API fetch failed:', error);
       return null;
     }
@@ -276,6 +319,8 @@ export class UsageMonitor extends EventEmitter {
     limitType: 'session' | 'weekly'
   ): Promise<void> {
     const profileManager = getClaudeProfileManager();
+    
+    // Explicitly log the search for best profile
     const bestProfile = profileManager.getBestAvailableProfile(currentProfileId);
 
     if (!bestProfile) {

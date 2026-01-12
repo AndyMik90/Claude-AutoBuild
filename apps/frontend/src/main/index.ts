@@ -359,54 +359,64 @@ app.whenReady().then(() => {
     });
   });
 
-  // Pre-initialize Claude profile manager in background (non-blocking)
-  // This ensures profile data is loaded before user clicks "Start Claude Code"
-  setImmediate(() => {
-    initializeClaudeProfileManager().catch((error) => {
-      console.warn('[main] Failed to pre-initialize profile manager:', error);
-    });
-  });
+  // Initialize Claude profile manager, then start usage monitor
+  // We do this sequentially to ensure profile data (including auto-switch settings)
+  // is loaded BEFORE the usage monitor attempts to read settings.
+  // This prevents the "UsageMonitor disabled" error due to race condition.
+  initializeClaudeProfileManager()
+    .then(() => {
+      // Only start monitoring if window is still available (app not quitting)
+      if (mainWindow) {
+        // Setup event forwarding from usage monitor to renderer
+        initializeUsageMonitorForwarding(mainWindow);
 
-  // Initialize usage monitoring after window is created
-  if (mainWindow) {
-    // Setup event forwarding from usage monitor to renderer
-    initializeUsageMonitorForwarding(mainWindow);
-
-    // Start the usage monitor
-    const usageMonitor = getUsageMonitor();
-    usageMonitor.start();
-    console.warn('[main] Usage monitor initialized and started');
-
-    // Log debug mode status
-    const isDebugMode = process.env.DEBUG === 'true';
-    if (isDebugMode) {
-      console.warn('[main] ========================================');
-      console.warn('[main] DEBUG MODE ENABLED (DEBUG=true)');
-      console.warn('[main] ========================================');
-    }
-
-    // Initialize app auto-updater (only in production, or when DEBUG_UPDATER is set)
-    const forceUpdater = process.env.DEBUG_UPDATER === 'true';
-    if (app.isPackaged || forceUpdater) {
-      // Load settings to get beta updates preference
-      const settings = loadSettingsSync();
-      const betaUpdates = settings.betaUpdates ?? false;
-
-      initializeAppUpdater(mainWindow, betaUpdates);
-      console.warn('[main] App auto-updater initialized');
-      console.warn(`[main] Beta updates: ${betaUpdates ? 'enabled' : 'disabled'}`);
-      if (forceUpdater && !app.isPackaged) {
-        console.warn('[main] Updater forced in dev mode via DEBUG_UPDATER=true');
-        console.warn('[main] Note: Updates won\'t actually work in dev mode');
+        // Start the usage monitor
+        const usageMonitor = getUsageMonitor();
+        usageMonitor.start();
+        console.warn('[main] Usage monitor initialized and started (after profile load)');
       }
-    } else {
-      console.warn('[main] ========================================');
-      console.warn('[main] App auto-updater DISABLED (development mode)');
-      console.warn('[main] To test updater logging, set DEBUG_UPDATER=true');
-      console.warn('[main] Note: Actual updates only work in packaged builds');
-      console.warn('[main] ========================================');
+    })
+    .catch((error) => {
+      console.warn('[main] Failed to initialize profile manager:', error);
+      // Fallback: try starting usage monitor anyway (might use defaults)
+      if (mainWindow) {
+        initializeUsageMonitorForwarding(mainWindow);
+        const usageMonitor = getUsageMonitor();
+        usageMonitor.start();
+      }
+    });
+
+    if (mainWindow) {
+      // Log debug mode status
+      const isDebugMode = process.env.DEBUG === 'true';
+      if (isDebugMode) {
+        console.warn('[main] ========================================');
+        console.warn('[main] DEBUG MODE ENABLED (DEBUG=true)');
+        console.warn('[main] ========================================');
+      }
+
+      // Initialize app auto-updater (only in production, or when DEBUG_UPDATER is set)
+      const forceUpdater = process.env.DEBUG_UPDATER === 'true';
+      if (app.isPackaged || forceUpdater) {
+        // Load settings to get beta updates preference
+        const settings = loadSettingsSync();
+        const betaUpdates = settings.betaUpdates ?? false;
+
+        initializeAppUpdater(mainWindow, betaUpdates);
+        console.warn('[main] App auto-updater initialized');
+        console.warn(`[main] Beta updates: ${betaUpdates ? 'enabled' : 'disabled'}`);
+        if (forceUpdater && !app.isPackaged) {
+          console.warn('[main] Updater forced in dev mode via DEBUG_UPDATER=true');
+          console.warn('[main] Note: Updates won\'t actually work in dev mode');
+        }
+      } else {
+        console.warn('[main] ========================================');
+        console.warn('[main] App auto-updater DISABLED (development mode)');
+        console.warn('[main] To test updater logging, set DEBUG_UPDATER=true');
+        console.warn('[main] Note: Actual updates only work in packaged builds');
+        console.warn('[main] ========================================');
+      }
     }
-  }
 
   // macOS: re-create window when dock icon is clicked
   app.on('activate', () => {
