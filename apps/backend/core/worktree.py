@@ -615,8 +615,12 @@ class WorktreeManager:
 
         # Build status message based on strategy and options
         strategy_label = "squash merging" if strategy == "squash" else "merging"
-        staged_label = " (staged, not committed)" if no_commit or strategy == "squash" else ""
-        print(f"{strategy_label.capitalize()} {info.branch} into {self.base_branch}{staged_label}...")
+        staged_label = (
+            " (staged, not committed)" if no_commit or strategy == "squash" else ""
+        )
+        print(
+            f"{strategy_label.capitalize()} {info.branch} into {self.base_branch}{staged_label}..."
+        )
 
         # Switch to base branch in main project, but skip if already on it
         # This avoids triggering git hooks unnecessarily
@@ -723,7 +727,9 @@ class WorktreeManager:
         )
         commits = []
         if result.returncode == 0 and result.stdout.strip():
-            commits = [c.strip() for c in result.stdout.strip().split("\n") if c.strip()]
+            commits = [
+                c.strip() for c in result.stdout.strip().split("\n") if c.strip()
+            ]
 
         commit_count = len(commits)
 
