@@ -31,9 +31,9 @@ export function GitHubIntegrationSection({
   isCheckingGitHub,
   projectName,
 }: GitHubIntegrationSectionProps) {
-  // Show OAuth flow if user previously used OAuth, or if there's no token yet
+  // Only show OAuth flow if user explicitly chose OAuth previously
   const [showOAuthFlow, setShowOAuthFlow] = useState(
-    envConfig.githubAuthMethod === 'oauth' || (!envConfig.githubToken && !envConfig.githubAuthMethod)
+    envConfig.githubAuthMethod === 'oauth'
   );
 
   const badge = envConfig.githubEnabled ? (
