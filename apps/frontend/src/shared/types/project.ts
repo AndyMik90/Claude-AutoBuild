@@ -371,6 +371,8 @@ export interface ProjectEnvConfig {
   uiFrameworkInstructions?: string;
   /** Component import path prefix */
   uiFrameworkComponentPath?: string;
+  /** Firecrawl API key for documentation fetching fallback */
+  firecrawlApiKey?: string;
 }
 
 /**

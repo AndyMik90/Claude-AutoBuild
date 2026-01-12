@@ -3,6 +3,7 @@ import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionI
 import { SettingsSection } from '../SettingsSection';
 import { GeneralSettings } from '../../project-settings/GeneralSettings';
 import { SecuritySettings } from '../../project-settings/SecuritySettings';
+import { UIFrameworkDocsSection } from '../../project-settings/UIFrameworkDocsSection';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
 import { GitLabIntegration } from '../integrations/GitLabIntegration';
@@ -191,6 +192,29 @@ export function SectionRouter({
               setShowOpenAIKey={setShowOpenAIKey}
               expanded={true}
               onToggle={() => {}}
+            />
+          </InitializationGuard>
+        </SettingsSection>
+      );
+
+    case 'ui-docs':
+      return (
+        <SettingsSection
+          title="UI Framework Documentation"
+          description="Automatic documentation fetching for UI component libraries"
+        >
+          <InitializationGuard
+            initialized={!!project.autoBuildPath}
+            title="UI Framework Documentation"
+            description="Configure automatic fetching of UI framework documentation for AI agents"
+          >
+            <UIFrameworkDocsSection
+              isExpanded={true}
+              onToggle={() => {}}
+              envConfig={envConfig || {}}
+              settings={settings}
+              onUpdateConfig={updateEnvConfig}
+              projectPath={project.path}
             />
           </InitializationGuard>
         </SettingsSection>

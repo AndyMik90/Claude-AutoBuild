@@ -11,6 +11,7 @@ export { ClaudeAuthSection } from './ClaudeAuthSection';
 export { LinearIntegrationSection } from './LinearIntegrationSection';
 export { GitHubIntegrationSection } from './GitHubIntegrationSection';
 export { MemoryBackendSection } from './MemoryBackendSection';
+export { UIFrameworkDocsSection } from './UIFrameworkDocsSection';
 export { AgentConfigSection } from './AgentConfigSection';
 export { NotificationsSection } from './NotificationsSection';
 
