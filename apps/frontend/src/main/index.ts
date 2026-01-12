@@ -1,6 +1,6 @@
 // Load .env file FIRST before any other imports that might use process.env
 import { config } from "dotenv";
-import { resolve, dirname } from "path";
+import { resolve } from "path";
 import { existsSync } from "fs";
 
 // Load .env from apps/frontend directory
