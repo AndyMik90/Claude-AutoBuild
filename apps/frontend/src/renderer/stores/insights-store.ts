@@ -251,6 +251,35 @@ export function sendMessage(projectId: string, message: string, modelConfig?: In
   window.electronAPI.sendInsightsMessage(projectId, message, configToUse);
 }
 
+export async function cancelMessage(projectId: string): Promise<string | null> {
+  const store = useInsightsStore.getState();
+
+  // Get the last user message before cancelling
+  const session = store.session;
+  const lastUserMessage = session?.messages
+    .slice()
+    .reverse()
+    .find(m => m.role === 'user');
+
+  // Call the backend to cancel the session
+  const result = await window.electronAPI.cancelInsightsSession(projectId);
+
+  if (result.success) {
+    // Update UI state to reflect cancellation
+    store.clearStreamingContent();
+    store.setCurrentTool(null);
+    store.setStatus({
+      phase: 'idle',
+      message: ''
+    });
+
+    // Return the last user message for retry
+    return lastUserMessage?.content || null;
+  }
+
+  return null;
+}
+
 export async function clearSession(projectId: string): Promise<void> {
   const result = await window.electronAPI.clearInsightsSession(projectId);
   if (result.success) {

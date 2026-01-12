@@ -1,24 +1,18 @@
-import { ipcMain } from "electron";
-import type { BrowserWindow } from "electron";
-import path from "path";
-import { existsSync, readdirSync, mkdirSync, writeFileSync } from "fs";
-import { IPC_CHANNELS, getSpecsDir, AUTO_BUILD_PATHS } from "../../shared/constants";
-import type {
-  IPCResult,
-  InsightsSession,
-  InsightsSessionSummary,
-  InsightsModelConfig,
-  Task,
-  TaskMetadata,
-} from "../../shared/types";
-import { projectStore } from "../project-store";
-import { insightsService } from "../insights-service";
-import { safeSendToRenderer } from "./utils";
+import { ipcMain } from 'electron';
+import type { BrowserWindow } from 'electron';
+import path from 'path';
+import { existsSync, readdirSync, mkdirSync, writeFileSync } from 'fs';
+import { IPC_CHANNELS, getSpecsDir, AUTO_BUILD_PATHS } from '../../shared/constants';
+import type { IPCResult, InsightsSession, InsightsSessionSummary, InsightsModelConfig, Task, TaskMetadata } from '../../shared/types';
+import { projectStore } from '../project-store';
+import { insightsService } from '../insights-service';
 
 /**
  * Register all insights-related IPC handlers
  */
-export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | null): void {
+export function registerInsightsHandlers(
+  getMainWindow: () => BrowserWindow | null
+): void {
   // ============================================
   // Insights Operations
   // ============================================
@@ -28,7 +22,7 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
     async (_, projectId: string): Promise<IPCResult<InsightsSession | null>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
-        return { success: false, error: "Project not found" };
+        return { success: false, error: 'Project not found' };
       }
 
       const session = insightsService.loadSession(projectId, project.path);
@@ -41,12 +35,10 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
     async (_, projectId: string, message: string, modelConfig?: InsightsModelConfig) => {
       const project = projectStore.getProject(projectId);
       if (!project) {
-        safeSendToRenderer(
-          getMainWindow,
-          IPC_CHANNELS.INSIGHTS_ERROR,
-          projectId,
-          "Project not found"
-        );
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          mainWindow.webContents.send(IPC_CHANNELS.INSIGHTS_ERROR, projectId, 'Project not found');
+        }
         return;
       }
 
@@ -60,15 +52,28 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         // Errors during sendMessage (executor errors) are already emitted via
         // the 'error' event, but we catch here to prevent unhandled rejection
         // and ensure all error types are reported to the UI
-        console.error("[Insights IPC] Error in sendMessage:", error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        safeSendToRenderer(
-          getMainWindow,
-          IPC_CHANNELS.INSIGHTS_ERROR,
-          projectId,
-          `Failed to send message: ${errorMessage}`
-        );
+        console.error('[Insights IPC] Error in sendMessage:', error);
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          mainWindow.webContents.send(
+            IPC_CHANNELS.INSIGHTS_ERROR,
+            projectId,
+            `Failed to send message: ${errorMessage}`
+          );
+        }
       }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_CANCEL_SESSION,
+    async (_, projectId: string): Promise<IPCResult> => {
+      const canceled = insightsService.cancelSession(projectId);
+      if (canceled) {
+        return { success: true };
+      }
+      return { success: false, error: 'No active session to cancel' };
     }
   );
 
@@ -77,7 +82,7 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
     async (_, projectId: string): Promise<IPCResult> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
-        return { success: false, error: "Project not found" };
+        return { success: false, error: 'Project not found' };
       }
 
       insightsService.clearSession(projectId, project.path);
@@ -96,32 +101,32 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
     ): Promise<IPCResult<Task>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
-        return { success: false, error: "Project not found" };
+        return { success: false, error: 'Project not found' };
       }
 
       if (!project.autoBuildPath) {
-        return { success: false, error: "Auto Claude not initialized for this project" };
+        return { success: false, error: 'Auto Claude not initialized for this project' };
       }
 
       try {
         // Generate a unique spec ID based on existing specs
         // Get specs directory path
-        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+                const specsBaseDir = getSpecsDir(project.autoBuildPath);
         const specsDir = path.join(project.path, specsBaseDir);
 
         // Find next available spec number
         let specNumber = 1;
         if (existsSync(specsDir)) {
           const existingDirs = readdirSync(specsDir, { withFileTypes: true })
-            .filter((d) => d.isDirectory())
-            .map((d) => d.name);
+            .filter(d => d.isDirectory())
+            .map(d => d.name);
 
           const existingNumbers = existingDirs
-            .map((name) => {
+            .map(name => {
               const match = name.match(/^(\d+)/);
               return match ? parseInt(match[1], 10) : 0;
             })
-            .filter((n) => n > 0);
+            .filter(n => n > 0);
 
           if (existingNumbers.length > 0) {
             specNumber = Math.max(...existingNumbers) + 1;
@@ -131,10 +136,10 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         // Create spec ID with zero-padded number and slugified title
         const slugifiedTitle = title
           .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "")
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
           .substring(0, 50);
-        const specId = `${String(specNumber).padStart(3, "0")}-${slugifiedTitle}`;
+        const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
 
         // Create spec directory
         const specDir = path.join(specsDir, specId);
@@ -142,8 +147,8 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
 
         // Build metadata with source type
         const taskMetadata: TaskMetadata = {
-          sourceType: "insights",
-          ...metadata,
+          sourceType: 'insights',
+          ...metadata
         };
 
         // Create initial implementation_plan.json
@@ -153,15 +158,15 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
           description: description,
           created_at: now,
           updated_at: now,
-          status: "pending",
-          phases: [],
+          status: 'pending',
+          phases: []
         };
 
         const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
         writeFileSync(planPath, JSON.stringify(implementationPlan, null, 2));
 
         // Save task metadata
-        const metadataPath = path.join(specDir, "task_metadata.json");
+        const metadataPath = path.join(specDir, 'task_metadata.json');
         writeFileSync(metadataPath, JSON.stringify(taskMetadata, null, 2));
 
         // Create the task object
@@ -171,19 +176,19 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
           projectId,
           title,
           description,
-          status: "backlog",
+          status: 'backlog',
           subtasks: [],
           logs: [],
           metadata: taskMetadata,
           createdAt: new Date(),
-          updatedAt: new Date(),
+          updatedAt: new Date()
         };
 
         return { success: true, data: task };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : "Failed to create task",
+          error: error instanceof Error ? error.message : 'Failed to create task'
         };
       }
     }
@@ -195,7 +200,7 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
     async (_, projectId: string): Promise<IPCResult<InsightsSessionSummary[]>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
-        return { success: false, error: "Project not found" };
+        return { success: false, error: 'Project not found' };
       }
 
       const sessions = insightsService.listSessions(project.path);
@@ -209,7 +214,7 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
     async (_, projectId: string): Promise<IPCResult<InsightsSession>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
-        return { success: false, error: "Project not found" };
+        return { success: false, error: 'Project not found' };
       }
 
       const session = insightsService.createNewSession(projectId, project.path);
@@ -223,7 +228,7 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
     async (_, projectId: string, sessionId: string): Promise<IPCResult<InsightsSession | null>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
-        return { success: false, error: "Project not found" };
+        return { success: false, error: 'Project not found' };
       }
 
       const session = insightsService.switchSession(projectId, project.path, sessionId);
@@ -237,14 +242,14 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
     async (_, projectId: string, sessionId: string): Promise<IPCResult> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
-        return { success: false, error: "Project not found" };
+        return { success: false, error: 'Project not found' };
       }
 
       const success = insightsService.deleteSession(projectId, project.path, sessionId);
       if (success) {
         return { success: true };
       }
-      return { success: false, error: "Failed to delete session" };
+      return { success: false, error: 'Failed to delete session' };
     }
   );
 
@@ -254,40 +259,31 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
     async (_, projectId: string, sessionId: string, newTitle: string): Promise<IPCResult> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
-        return { success: false, error: "Project not found" };
+        return { success: false, error: 'Project not found' };
       }
 
       const success = insightsService.renameSession(project.path, sessionId, newTitle);
       if (success) {
         return { success: true };
       }
-      return { success: false, error: "Failed to rename session" };
+      return { success: false, error: 'Failed to rename session' };
     }
   );
 
   // Update model configuration for a session
   ipcMain.handle(
     IPC_CHANNELS.INSIGHTS_UPDATE_MODEL_CONFIG,
-    async (
-      _,
-      projectId: string,
-      sessionId: string,
-      modelConfig: InsightsModelConfig
-    ): Promise<IPCResult> => {
+    async (_, projectId: string, sessionId: string, modelConfig: InsightsModelConfig): Promise<IPCResult> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
-        return { success: false, error: "Project not found" };
+        return { success: false, error: 'Project not found' };
       }
 
-      const success = insightsService.updateSessionModelConfig(
-        project.path,
-        sessionId,
-        modelConfig
-      );
+      const success = insightsService.updateSessionModelConfig(project.path, sessionId, modelConfig);
       if (success) {
         return { success: true };
       }
-      return { success: false, error: "Failed to update model configuration" };
+      return { success: false, error: 'Failed to update model configuration' };
     }
   );
 
@@ -296,22 +292,35 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
   // ============================================
 
   // Forward streaming chunks to renderer
-  insightsService.on("stream-chunk", (projectId: string, chunk: unknown) => {
-    safeSendToRenderer(getMainWindow, IPC_CHANNELS.INSIGHTS_STREAM_CHUNK, projectId, chunk);
+  insightsService.on('stream-chunk', (projectId: string, chunk: unknown) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.INSIGHTS_STREAM_CHUNK, projectId, chunk);
+    }
   });
 
   // Forward status updates to renderer
-  insightsService.on("status", (projectId: string, status: unknown) => {
-    safeSendToRenderer(getMainWindow, IPC_CHANNELS.INSIGHTS_STATUS, projectId, status);
+  insightsService.on('status', (projectId: string, status: unknown) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.INSIGHTS_STATUS, projectId, status);
+    }
   });
 
   // Forward errors to renderer
-  insightsService.on("error", (projectId: string, error: string) => {
-    safeSendToRenderer(getMainWindow, IPC_CHANNELS.INSIGHTS_ERROR, projectId, error);
+  insightsService.on('error', (projectId: string, error: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.INSIGHTS_ERROR, projectId, error);
+    }
   });
 
   // Forward SDK rate limit events to renderer
-  insightsService.on("sdk-rate-limit", (rateLimitInfo: unknown) => {
-    safeSendToRenderer(getMainWindow, IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
+  insightsService.on('sdk-rate-limit', (rateLimitInfo: unknown) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
+    }
   });
+
 }

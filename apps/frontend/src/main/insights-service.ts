@@ -110,6 +110,13 @@ export class InsightsService extends EventEmitter {
   }
 
   /**
+   * Cancel active session (stops ongoing agent execution)
+   */
+  cancelSession(projectId: string): boolean {
+    return this.executor.cancelSession(projectId);
+  }
+
+  /**
    * Send a message and get AI response
    */
   async sendMessage(

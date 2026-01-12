@@ -14,7 +14,8 @@ import {
   FileText,
   FolderSearch,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  X
 } from 'lucide-react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -28,6 +29,7 @@ import {
   useInsightsStore,
   loadInsightsSession,
   sendMessage,
+  cancelMessage,
   newSession,
   switchSession,
   deleteSession,
@@ -137,6 +139,19 @@ export function Insights({ projectId }: InsightsProps) {
 
     setInputValue('');
     sendMessage(projectId, message);
+  };
+
+  const handleStop = async () => {
+    const lastMessage = await cancelMessage(projectId);
+    if (lastMessage) {
+      setInputValue(lastMessage);
+      // Focus the textarea so user can immediately edit
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        // Place cursor at the end
+        textareaRef.current?.setSelectionRange(lastMessage.length, lastMessage.length);
+      }, 0);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -370,17 +385,24 @@ export function Insights({ projectId }: InsightsProps) {
             className="min-h-[80px] resize-none"
             disabled={isLoading}
           />
-          <Button
-            onClick={handleSend}
-            disabled={!inputValue.trim() || isLoading}
-            className="self-end"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
+          {isLoading ? (
+            <Button
+              onClick={handleStop}
+              variant="destructive"
+              className="self-end"
+              title="Stop generation"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSend}
+              disabled={!inputValue.trim()}
+              className="self-end"
+            >
               <Send className="h-4 w-4" />
-            )}
-          </Button>
+            </Button>
+          )}
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Press Enter to send, Shift+Enter for new line
