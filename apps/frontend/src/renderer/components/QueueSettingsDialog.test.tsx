@@ -263,11 +263,10 @@ describe('QueueSettingsDialog', () => {
         />
       );
 
-      // The button with "2" should be selected/highlighted
-      const buttons = screen.getAllByText('2');
-      // Find the button element (not just text)
-      const button2 = buttons.find(el => el.tagName === 'BUTTON' || el.closest('button'));
-      expect(button2).toBeDefined();
+      // Find the button for value "2" by role
+      const button2 = screen.getByRole('button', { name: /2/ });
+      // Check that it has the highlighted class
+      expect(button2).toHaveClass('border-primary');
     });
 
     it('should change max concurrent when preset button is clicked', async () => {
@@ -281,15 +280,14 @@ describe('QueueSettingsDialog', () => {
         />
       );
 
-      // Click on the "2" button
-      const buttons = screen.getAllByText('2');
-      const button2 = buttons.find(el => el.tagName === 'BUTTON' || el.closest('button')) || buttons[0];
+      // Find and click the "2" button
+      const button2 = screen.getByRole('button', { name: /2/ });
       fireEvent.click(button2);
 
-      // The value display should update to 2
+      // The value display should update to 2 - use className to be more specific
       await waitFor(() => {
-        const twos = screen.getAllByText('2');
-        expect(twos.length).toBeGreaterThan(0);
+        const valueDisplay = screen.getByText('2', { selector: '.font-mono' });
+        expect(valueDisplay).toBeInTheDocument();
       });
     });
 

@@ -135,7 +135,7 @@ describe('Queue Store', () => {
     });
   });
 
-  describe('fetchQueueStatus', () => {
+  describe('getQueueStatus', () => {
     it('should return undefined for non-existent project', () => {
       const status = useQueueStore.getState().getQueueStatus('non-existent');
 

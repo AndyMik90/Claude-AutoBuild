@@ -268,6 +268,9 @@ app.whenReady().then(() => {
   agentManager = new AgentManager();
 
   // Initialize task queue manager (must be after agentManager)
+  // agentManager is passed twice because: (1) it's the task execution manager,
+  // and (2) AgentManager extends EventEmitter and emits task lifecycle events
+  // that TaskQueueManager listens to (e.g., 'exit' events)
   taskQueueManager = new TaskQueueManager(agentManager, agentManager);
 
   // Load settings and configure agent manager with Python and auto-claude paths

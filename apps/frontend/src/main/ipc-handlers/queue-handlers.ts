@@ -11,12 +11,13 @@ import { TaskQueueManager } from '../task-queue-manager';
 import { projectStore } from '../project-store';
 import { QUEUE_MIN_CONCURRENT, QUEUE_MAX_CONCURRENT } from '../../shared/constants/task';
 import type { QueueConfig, QueueStatus } from '../../shared/types';
+import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
 /**
  * Register queue-related IPC handlers
  */
 export function registerQueueHandlers(taskQueueManager: TaskQueueManager): void {
-  console.log('[IPC] Registering queue handlers...');
+  debugLog('[IPC] Registering queue handlers...');
   /**
    * Get queue configuration for a project
    */
@@ -54,7 +55,13 @@ export function registerQueueHandlers(taskQueueManager: TaskQueueManager): void 
         };
       }
 
-      // Validate maxConcurrent is between MIN and MAX
+      // Validate maxConcurrent is an integer between MIN and MAX
+      if (!Number.isInteger(config.maxConcurrent)) {
+        return {
+          success: false,
+          error: `maxConcurrent must be an integer`
+        };
+      }
       if (config.maxConcurrent < QUEUE_MIN_CONCURRENT || config.maxConcurrent > QUEUE_MAX_CONCURRENT) {
         return {
           success: false,
@@ -71,7 +78,7 @@ export function registerQueueHandlers(taskQueueManager: TaskQueueManager): void 
       if (config.enabled) {
         // Trigger asynchronously, don't wait for it
         taskQueueManager.triggerQueue(projectId).catch((error) => {
-          console.error('[IPC] Failed to trigger queue:', error);
+          debugError('[IPC] Failed to trigger queue:', error);
         });
       }
 
@@ -102,5 +109,5 @@ export function registerQueueHandlers(taskQueueManager: TaskQueueManager): void 
     }
   });
 
-  console.log('[IPC] Queue handlers registered successfully');
+  debugLog('[IPC] Queue handlers registered successfully');
 }

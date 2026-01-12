@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, memo } from 'react';
+import { useState, useMemo, useEffect, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, List, Play, Pause, Settings } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, List, Play } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -429,7 +429,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [queueRunningCount, setQueueRunningCount] = useState(0);
 
   // Helper to refresh queue state (config and running count)
-  const refreshQueueState = async (pid: string) => {
+  const refreshQueueState = useCallback(async (pid: string) => {
     const config = await loadQueueConfig(pid);
     if (config) {
       setQueueConfig(config);
@@ -438,7 +438,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     if (status) {
       setQueueRunningCount(status.runningCount);
     }
-  };
+  }, [setQueueConfig, setQueueRunningCount]);
 
   // Calculate archived count for Done column button
   const archivedCount = useMemo(() =>
@@ -453,7 +453,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   useEffect(() => {
     if (!projectId) return;
     refreshQueueState(projectId);
-  }, [projectId]);
+  }, [projectId, refreshQueueState]);
 
   // Filter tasks based on archive status
   const filteredTasks = useMemo(() => {

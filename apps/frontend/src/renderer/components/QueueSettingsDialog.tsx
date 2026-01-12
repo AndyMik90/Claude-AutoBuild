@@ -32,7 +32,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { List, Check } from 'lucide-react';
+import { Check, List, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -89,7 +89,7 @@ export function QueueSettingsDialog({
   useEffect(() => {
     if (open) {
       setEnabled(currentConfig.enabled);
-      setMaxConcurrent(currentConfig.maxConcurrent);
+      setMaxConcurrent(currentConfig.maxConcurrent || DEFAULT_CONCURRENT);
       setSaveError(null);
     }
   }, [open, currentConfig.enabled, currentConfig.maxConcurrent]);
@@ -99,16 +99,18 @@ export function QueueSettingsDialog({
     setIsSaving(true);
     setSaveError(null);
 
-    const success = await saveQueueConfig(projectId, config);
+    try {
+      const success = await saveQueueConfig(projectId, config);
 
-    if (success) {
-      onOpenChange(false);
-      onSaved?.();
-    } else {
-      setSaveError(t('tasks:queue.settings.saveFailed'));
+      if (success) {
+        onOpenChange(false);
+        onSaved?.();
+      } else {
+        setSaveError(t('tasks:queue.settings.saveFailed'));
+      }
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsSaving(false);
   };
 
   // Calculate if there would be issues with the new settings
@@ -264,7 +266,7 @@ export function QueueSettingsDialog({
           >
             {isSaving ? (
               <>
-                <Check className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {t('common:buttons.saving')}
               </>
             ) : (

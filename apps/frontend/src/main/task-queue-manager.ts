@@ -36,6 +36,14 @@ const PRIORITY_WEIGHT: Record<TaskPriority | '', number> = {
 };
 
 /**
+ * Delay to wait for status updates to propagate after a task exits.
+ * This allows the project store to update task statuses before we check
+ * if new tasks can be started. May need adjustment based on actual
+ * status propagation characteristics.
+ */
+const STATUS_PROPAGATION_DELAY_MS = 500;
+
+/**
  * Task Queue Manager
  *
  * Manages automatic task scheduling from backlog to in_progress
@@ -52,6 +60,10 @@ export class TaskQueueManager {
   private processingQueue = new Map<string, Promise<void>>();
   /** Bound handler for cleanup */
   private boundHandleTaskExit: (taskId: string, exitCode: number | null) => Promise<void>;
+  /** Fast lookup cache: taskId -> { task, project, projectId } */
+  private taskIndex = new Map<string, { task: Task; project: Project; projectId: string }>();
+  /** Flag to invalidate the cache when tasks change */
+  private indexValid = false;
 
   constructor(agentManager: AgentManager, emitter: EventEmitter) {
     this.agentManager = agentManager;
@@ -150,8 +162,12 @@ export class TaskQueueManager {
         return;
       }
 
-      // Wait a bit for status updates to propagate
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait for status updates to propagate before checking if we can start more tasks.
+      // TODO: Replace with explicit synchronization - have projectStore emit a
+      // "status-persisted" event or return a Promise from status updates, then await
+      // that here instead of using a fixed delay. The current delay is a pragmatic
+      // compromise to avoid races between task exit and status persistence.
+      await new Promise(resolve => setTimeout(resolve, STATUS_PROPAGATION_DELAY_MS));
 
       // Check if we can start more tasks
       if (this.canStartMoreTasks(projectId)) {
@@ -286,22 +302,49 @@ export class TaskQueueManager {
 
   /**
    * Helper to find task and project by taskId
-   * (copied from task/shared.ts to avoid circular dependencies)
+   * Uses an in-memory index for O(1) lookups after initial build
    */
   private findTaskAndProject(taskId: string): { task: Task | undefined; project: Project | undefined } {
-    const projects = projectStore.getProjects();
-    let task: Task | undefined;
-    let project: Project | undefined;
+    // Rebuild index if invalid (e.g., after task changes)
+    if (!this.indexValid) {
+      this.rebuildTaskIndex();
+    }
 
-    for (const p of projects) {
-      const tasks = projectStore.getTasks(p.id);
-      task = tasks.find((t) => t.id === taskId || t.specId === taskId);
-      if (task) {
-        project = p;
-        break;
+    const cached = this.taskIndex.get(taskId);
+    if (cached) {
+      return { task: cached.task, project: cached.project };
+    }
+
+    return { task: undefined, project: undefined };
+  }
+
+  /**
+   * Rebuild the task index from current project store data
+   * This provides O(1) lookups at the cost of periodic O(n) rebuilds
+   */
+  private rebuildTaskIndex(): void {
+    this.taskIndex.clear();
+    const projects = projectStore.getProjects();
+
+    for (const project of projects) {
+      const tasks = projectStore.getTasks(project.id);
+      for (const task of tasks) {
+        // Index by both task.id and task.specId for lookup flexibility
+        this.taskIndex.set(task.id, { task, project, projectId: project.id });
+        if (task.specId) {
+          this.taskIndex.set(task.specId, { task, project, projectId: project.id });
+        }
       }
     }
 
-    return { task, project };
+    this.indexValid = true;
+  }
+
+  /**
+   * Invalidate the task index (call when tasks are added/removed/modified)
+   * The index will be rebuilt on the next lookup
+   */
+  private invalidateTaskIndex(): void {
+    this.indexValid = false;
   }
 }

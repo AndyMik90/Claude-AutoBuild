@@ -15,6 +15,7 @@
 
 import { create } from 'zustand';
 import type { QueueConfig, QueueStatus } from '../../shared/types';
+import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
 interface QueueState {
   /** Map of projectId to queue config */
@@ -74,7 +75,10 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   updateRunningCount: (projectId, count) =>
     set((state) => {
       const currentStatus = state.statuses[projectId];
-      if (!currentStatus) return state;
+      if (!currentStatus) {
+        debugLog('[QueueStore] updateRunningCount called for unknown projectId:', projectId);
+        return state;
+      }
 
       return {
         statuses: {
@@ -90,7 +94,10 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   updateBacklogCount: (projectId, count) =>
     set((state) => {
       const currentStatus = state.statuses[projectId];
-      if (!currentStatus) return state;
+      if (!currentStatus) {
+        debugLog('[QueueStore] updateBacklogCount called for unknown projectId:', projectId);
+        return state;
+      }
 
       return {
         statuses: {
@@ -126,7 +133,7 @@ export async function loadQueueConfig(projectId: string): Promise<QueueConfig | 
     }
     return null;
   } catch (error) {
-    console.error('Failed to load queue config:', error);
+    debugError('[QueueStore] Failed to load queue config:', error);
     return null;
   }
 }
@@ -144,7 +151,7 @@ export async function saveQueueConfig(projectId: string, config: QueueConfig): P
     }
     return false;
   } catch (error) {
-    console.error('Failed to save queue config:', error);
+    debugError('[QueueStore] Failed to save queue config:', error);
     return false;
   }
 }
@@ -162,7 +169,7 @@ export async function fetchQueueStatus(projectId: string): Promise<QueueStatus |
     }
     return null;
   } catch (error) {
-    console.error('Failed to get queue status:', error);
+    debugError('[QueueStore] Failed to get queue status:', error);
     return null;
   }
 }
