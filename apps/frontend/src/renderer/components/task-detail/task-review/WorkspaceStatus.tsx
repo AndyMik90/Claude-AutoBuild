@@ -385,10 +385,17 @@ export function WorkspaceStatus({
           <div className="flex flex-wrap gap-3">
             {/* Merge Strategy Selector */}
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background/50">
-              <span className="text-sm text-muted-foreground">{t('taskReview:mergeStrategy.label')}</span>
-              <div className="flex gap-1">
+              <span className="text-sm text-muted-foreground" id="merge-strategy-label">{t('taskReview:mergeStrategy.label')}</span>
+              <div
+                className="flex gap-1"
+                role="radiogroup"
+                aria-labelledby="merge-strategy-label"
+              >
                 <button
                   type="button"
+                  role="radio"
+                  aria-checked={mergeStrategy === 'merge'}
+                  aria-label={t('taskReview:mergeStrategy.merge')}
                   onClick={() => onMergeStrategyChange('merge')}
                   className={cn(
                     "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
@@ -401,6 +408,9 @@ export function WorkspaceStatus({
                 </button>
                 <button
                   type="button"
+                  role="radio"
+                  aria-checked={mergeStrategy === 'squash'}
+                  aria-label={t('taskReview:mergeStrategy.squash')}
                   onClick={() => onMergeStrategyChange('squash')}
                   className={cn(
                     "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",

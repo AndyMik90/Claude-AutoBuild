@@ -141,6 +141,15 @@ class PushAndCreatePRResult(TypedDict, total=False):
     message: str
 
 
+class MergeStrategyRecommendation(TypedDict):
+    """Recommendation for merge strategy based on commit analysis."""
+
+    strategy: str  # "merge" or "squash"
+    reason: str  # Human-readable explanation
+    commitCount: int  # Number of commits in the worktree
+    hasWipCommits: bool  # Whether WIP/fixup commits were detected
+
+
 class WorktreeError(Exception):
     """Error during worktree operations."""
 
@@ -685,7 +694,7 @@ class WorktreeManager:
 
         return True
 
-    def recommend_merge_strategy(self, spec_name: str) -> dict:
+    def recommend_merge_strategy(self, spec_name: str) -> MergeStrategyRecommendation:
         """
         Recommend a merge strategy based on commit analysis.
 
@@ -734,21 +743,23 @@ class WorktreeManager:
         commit_count = len(commits)
 
         # Detect WIP/fixup/temporary commits that suggest squashing
+        # Use regex patterns with word boundaries to avoid false positives
+        # (e.g., "Revert feature" shouldn't match, but "revert" at start should)
         wip_patterns = [
-            "wip",
-            "fixup",
-            "squash",
-            "temp",
-            "xxx",
-            "todo",
-            "fix typo",
-            "oops",
-            "revert",
-            "undo",
-            "amend",
+            r"^wip\b",  # WIP at start of commit message
+            r"^fixup[!:]?\s",  # fixup! or fixup: at start (git autosquash format)
+            r"^squash[!:]?\s",  # squash! or squash: at start (git autosquash format)
+            r"\btemp\b",  # "temp" as a word anywhere
+            r"\bxxx\b",  # "xxx" marker anywhere
+            r"^todo\b",  # TODO at start
+            r"^fix typo",  # "fix typo" at start (common throwaway commit)
+            r"^oops\b",  # "oops" at start
+            r"^revert\b",  # "revert" at start (intentional revert commits)
+            r"^undo\b",  # "undo" at start
+            r"^amend\b",  # "amend" at start
         ]
         has_wip = any(
-            any(pattern in commit.lower() for pattern in wip_patterns)
+            any(re.search(pattern, commit, re.IGNORECASE) for pattern in wip_patterns)
             for commit in commits
         )
 
