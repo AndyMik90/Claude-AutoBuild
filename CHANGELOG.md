@@ -442,7 +442,7 @@
 - fix: Solve ladybug problem on running npm install all on windows (#576) by @Alex in effaa681
 - fix(merge): handle Windows CRLF line endings in regex fallback by @AndyMik90 in 04de8c78
 - ci(release): add CHANGELOG.md validation and fix release workflow by @AndyMik90 in 6d4231ed
-- # 🔥 hotfix(electron): restore app functionality on Windows broken by GPU cache errors (#569) by @sniggl in dedd0757
+- 🔥 hotfix(electron): restore app functionality on Windows broken by GPU cache errors (#569) by @sniggl in dedd0757
 - fix(ci): cache pip wheels to speed up Intel Mac builds by @AndyMik90 in 90dddc28
 - feat(terminal): respect preferred terminal setting for Windows PTY shell by @AndyMik90 in 90a20320
 - fix(ci): add Python setup to beta-release and fix PR status gate checks (#565) by @Andy in c2148bb9
