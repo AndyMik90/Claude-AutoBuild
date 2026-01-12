@@ -61,6 +61,7 @@ lerna-debug.log*
 .auto-claude-status
 .claude_settings.json
 .update-metadata.json
+tmpclaude-*
 
 # ===========================
 # Python (apps/backend)
