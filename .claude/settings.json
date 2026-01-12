@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "version": "1.0.0",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/jeff/Dev_Projects/Auto-claude/.claude/hooks/pre_tool_use.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/jeff/Dev_Projects/Auto-claude/.claude/hooks/post_tool_use.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/jeff/Dev_Projects/Auto-claude/.claude/hooks/stop.py"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/jeff/Dev_Projects/Auto-claude/.claude/hooks/session_start.py"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/jeff/Dev_Projects/Auto-claude/.claude/hooks/subagent_stop.py"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/jeff/Dev_Projects/Auto-claude/.claude/hooks/pre_compact.py"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/jeff/Dev_Projects/Auto-claude/.claude/hooks/user_prompt_submit.py"
+          }
+        ]
+      }
+    ]
+  },
+  "environment": {
+    "PATH": "/Users/jeff/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "ARCHON_MCP_ENABLED": "true",
+    "OTEL_ENABLED": "true",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4317"
+  },
+  "skills": {
+    "enabled": true,
+    "paths": [
+      ".claude/skills"
+    ]
+  },
+  "agents": {
+    "enabled": true,
+    "paths": [
+      ".claude/agents"
+    ]
+  }
+}

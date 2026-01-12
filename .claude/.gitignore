@@ -1,0 +1,24 @@
+# User-specific settings (local overrides, API keys, etc.)
+settings.local.json
+
+# Hook execution logs
+hooks/*.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments (if hooks use local venvs)
+hooks/.venv/
+hooks/venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
