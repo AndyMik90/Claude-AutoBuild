@@ -348,7 +348,7 @@ export interface ProjectEnvConfig {
     electronEnabled?: boolean;
     /** Puppeteer browser automation (QA only) - default: false */
     puppeteerEnabled?: boolean;
-    /** Playwright browser automation (QA only) - default: false */
+    /** Playwright browser automation (QA only) - default: true */
     playwrightEnabled?: boolean;
   };
 

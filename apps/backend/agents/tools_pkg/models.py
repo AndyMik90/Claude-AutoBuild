@@ -230,7 +230,9 @@ AGENT_CONFIGS = {
     "coder": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
-        "mcp_servers_optional": ["linear", "browser"],  # browser auto-enabled for frontend projects
+        "mcp_servers_optional": ["linear"],  # Removed "browser" - use npx playwright CLI instead
+        # Note: Playwright MCP tools removed for coder agent due to server bugs.
+        # Coder should use `npx playwright` CLI commands with relative paths instead.
         "auto_claude_tools": [
             TOOL_UPDATE_SUBTASK_STATUS,
             TOOL_GET_BUILD_PROGRESS,

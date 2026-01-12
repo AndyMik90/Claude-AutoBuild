@@ -65,6 +65,58 @@ async def bash_security_hook(
     if not command:
         return {}
 
+    # Smart path validation for npx playwright commands
+    # Allow: paths within project/spec directory
+    # Block: /tmp and paths outside project
+    if "npx playwright" in command or "npx -y playwright" in command:
+        import re
+
+        # Extract file paths from command (look for paths after common flags)
+        # Patterns: after screenshot/pdf commands, or standalone paths
+        path_pattern = r'(?:screenshot|pdf)\s+\S+\s+([^\s]+)|(?:^|\s)(/[^\s]+\.(?:png|pdf|jpg|jpeg))'
+        matches = re.findall(path_pattern, command)
+        file_paths = [m[0] or m[1] for m in matches if m[0] or m[1]]
+
+        # Get spec directory from environment (set by coder/qa agents)
+        spec_dir = os.environ.get("SPEC_DIR")
+        project_root = os.environ.get(PROJECT_DIR_ENV_VAR) or cwd
+
+        for file_path in file_paths:
+            # Skip relative paths - they're fine (will resolve to cwd)
+            if not file_path.startswith('/'):
+                continue
+
+            # Block /tmp explicitly
+            if file_path.startswith('/tmp/'):
+                return {
+                    "decision": "block",
+                    "reason": (
+                        "Paths to /tmp are blocked (files will be deleted after task completion).\n"
+                        f"Use absolute path to spec directory: $SPEC_DIR/qa-screenshots/file.png\n"
+                        f"Or use relative path: ./qa-screenshots/file.png"
+                    ),
+                }
+
+            # Allow paths within spec directory
+            if spec_dir and file_path.startswith(spec_dir):
+                continue
+
+            # Allow paths within project root
+            if file_path.startswith(project_root):
+                continue
+
+            # Block paths outside project
+            return {
+                "decision": "block",
+                "reason": (
+                    f"Path outside project is blocked: {file_path}\n"
+                    f"Use paths within project:\n"
+                    f"  Spec directory: $SPEC_DIR/qa-screenshots/file.png\n"
+                    f"  Project root: {project_root}/screenshots/file.png\n"
+                    f"  Or relative: ./qa-screenshots/file.png"
+                ),
+            }
+
     # Get the working directory from context or use current directory
     # Priority:
     # 1. Environment variable PROJECT_DIR_ENV_VAR (set by agent on startup)

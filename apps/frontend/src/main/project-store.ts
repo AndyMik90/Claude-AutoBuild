@@ -520,6 +520,10 @@ export class ProjectStore {
           };
         }
 
+        // Extract read_only flag from implementation_plan.metadata
+        const planMetadata = (plan as unknown as { metadata?: { read_only?: boolean } })?.metadata;
+        const isReadOnly = planMetadata?.read_only || false;
+
         tasks.push({
           id: dir.name, // Use spec directory name as ID
           specId: dir.name,
@@ -536,6 +540,7 @@ export class ProjectStore {
           stagedAt,
           location, // Add location metadata (main vs worktree)
           specsPath: specPath, // Add full path to specs directory
+          isReadOnly, // Flag for READ-ONLY tasks (no project modifications)
           createdAt: new Date(plan?.created_at || Date.now()),
           updatedAt: new Date(plan?.updated_at || Date.now())
         });

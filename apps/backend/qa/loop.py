@@ -289,6 +289,14 @@ async def run_qa_validation_loop(
             )
             record_iteration(spec_dir, qa_iteration, "approved", [], iteration_duration)
 
+            # Update plan status to human_review after QA approval
+            plan = load_implementation_plan(spec_dir)
+            if plan:
+                plan["status"] = "human_review"
+                plan["planStatus"] = "review"
+                save_implementation_plan(spec_dir, plan)
+                debug("qa_loop", "Updated plan status to human_review")
+
             print("\n" + "=" * 70)
             print("  ✅ QA APPROVED")
             print("=" * 70)

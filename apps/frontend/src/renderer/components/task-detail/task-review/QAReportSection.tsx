@@ -42,45 +42,63 @@ export function QAReportSection({ qaReport, specsPath }: QAReportSectionProps) {
         {/* Screenshot grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {screenshots.map((screenshot, index) => {
+            // Support both string (legacy) and object format
+            const screenshotPath = typeof screenshot === 'string' ? screenshot : screenshot.path;
+            const verdict = typeof screenshot === 'object' ? screenshot.verdict : undefined;
+            const description = typeof screenshot === 'object' ? screenshot.description : undefined;
+
             // Construct full path to screenshot
             // specsPath is the full path to spec directory
-            // screenshot is relative path from spec directory
-            const screenshotPath = specsPath
-              ? `file://${specsPath}/${screenshot}`
+            // screenshotPath is relative path from spec directory
+            const fullPath = specsPath
+              ? `file://${specsPath}/${screenshotPath}`
               : undefined;
 
-            if (!screenshotPath) {
+            if (!fullPath) {
               return null;
             }
 
             return (
-              <button
-                key={index}
-                type="button"
-                onClick={() => setSelectedScreenshot(screenshotPath)}
-                className="relative group rounded-lg border border-border bg-card overflow-hidden hover:border-primary transition-colors cursor-pointer"
-              >
-                {/* Thumbnail */}
-                <div className="aspect-video flex items-center justify-center bg-muted">
-                  <img
-                    src={screenshotPath}
-                    alt={`QA Screenshot ${index + 1}`}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
+              <div key={index} className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedScreenshot(fullPath)}
+                  className="relative group rounded-lg border border-border bg-card overflow-hidden hover:border-primary transition-colors cursor-pointer w-full"
+                >
+                  {/* Thumbnail */}
+                  <div className="aspect-video flex items-center justify-center bg-muted">
+                    <img
+                      src={fullPath}
+                      alt={`QA Screenshot ${index + 1}`}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
 
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
-                  <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
+                    <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
 
-                {/* File info */}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                  <p className="text-xs text-white font-medium truncate">
-                    {screenshot.split('/').pop()}
-                  </p>
-                </div>
-              </button>
+                  {/* File info */}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                    <p className="text-xs text-white font-medium truncate">
+                      {screenshotPath.split('/').pop()}
+                    </p>
+                  </div>
+                </button>
+
+                {/* QA Verdict and Description */}
+                {(verdict || description) && (
+                  <div className="text-xs space-y-1">
+                    {verdict && (
+                      <p className="font-medium text-foreground">{verdict}</p>
+                    )}
+                    {description && (
+                      <p className="text-muted-foreground leading-relaxed">{description}</p>
+                    )}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

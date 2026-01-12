@@ -46,11 +46,18 @@ export interface Subtask {
   };
 }
 
+export interface QAScreenshot {
+  path: string;
+  verdict?: string;  // QA agent's assessment (e.g., "✅ Feature works correctly")
+  description?: string;  // Detailed explanation from QA agent
+  timestamp?: string;
+}
+
 export interface QAReport {
   status: 'passed' | 'failed' | 'pending';
   issues: QAIssue[];
   timestamp: Date;
-  screenshots?: string[];  // Paths to Playwright screenshots taken during QA
+  screenshots?: (string | QAScreenshot)[];  // Paths or objects with verdict
 }
 
 export interface QAIssue {
@@ -259,6 +266,7 @@ export interface Task {
   stagedAt?: string;  // ISO timestamp when changes were staged
   location?: 'main' | 'worktree';  // Where task was loaded from (main project or worktree)
   specsPath?: string;  // Full path to specs directory for this task
+  isReadOnly?: boolean;  // If true, task doesn't modify project files (from implementation_plan.metadata)
   createdAt: Date;
   updatedAt: Date;
 }

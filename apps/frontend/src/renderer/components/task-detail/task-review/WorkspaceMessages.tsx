@@ -48,14 +48,23 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
     }
   };
 
+  // Different messaging for read-only vs regular tasks
+  const isReadOnly = task?.isReadOnly || false;
+
   return (
-    <div className="rounded-xl border border-border bg-secondary/30 p-4">
+    <div className={`rounded-xl border p-4 ${
+      isReadOnly
+        ? 'border-blue-500/30 bg-blue-500/10'
+        : 'border-border bg-secondary/30'
+    }`}>
       <h3 className="font-medium text-sm text-foreground mb-2 flex items-center gap-2">
-        <AlertCircle className="h-4 w-4 text-muted-foreground" />
-        No Workspace Found
+        <AlertCircle className={`h-4 w-4 ${isReadOnly ? 'text-blue-500' : 'text-muted-foreground'}`} />
+        {isReadOnly ? 'Read-Only Task' : 'No Workspace Found'}
       </h3>
       <p className="text-sm text-muted-foreground mb-3">
-        No isolated workspace was found for this task. The changes may have been made directly in your project.
+        {isReadOnly
+          ? 'This task was executed in read-only mode without modifying your project files. It ran directly in your project directory for verification or analysis purposes.'
+          : 'No isolated workspace was found for this task. The changes may have been made directly in your project.'}
       </p>
 
       {/* Allow marking as done */}

@@ -84,6 +84,45 @@ git add [verified-path]
 
 ---
 
+## 🚨 PLAYWRIGHT FOR BROWSER TASKS 🚨
+
+**If your task requires browser testing or screenshots:**
+
+The Playwright MCP tools currently have bugs (`"name 'os' is not defined"`). Use `npx playwright` commands instead:
+
+**✅ RECOMMENDED - Use absolute paths with $SPEC_DIR:**
+```bash
+# Create directory first
+mkdir -p $SPEC_DIR/qa-screenshots
+
+# Take screenshot with absolute path to spec directory
+npx playwright screenshot https://google.com $SPEC_DIR/qa-screenshots/google.png
+```
+
+**✅ ALSO OK - Relative paths (but depends on working directory):**
+```bash
+mkdir -p ./qa-screenshots
+npx playwright screenshot https://google.com ./qa-screenshots/google.png
+```
+
+**❌ BLOCKED - Paths to /tmp:**
+```bash
+npx playwright screenshot https://google.com /tmp/screenshot.png  # BLOCKED
+```
+
+**Why absolute paths are better:**
+- `$SPEC_DIR` always points to your spec directory (e.g., `.auto-claude/specs/008-task-name/`)
+- Files are saved in the correct location regardless of working directory
+- Prevents files from leaking to project root
+- More reliable than relative paths
+
+**When to use:**
+- Tasks mentioning "Playwright", "browser", "screenshot", "navigate"
+- E2E testing requirements
+- Visual verification needs
+
+---
+
 ## STEP 1: GET YOUR BEARINGS (MANDATORY)
 
 First, check your environment. The prompt should tell you your working directory and spec location.
