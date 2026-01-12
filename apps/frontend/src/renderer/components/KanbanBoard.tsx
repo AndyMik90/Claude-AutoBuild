@@ -19,23 +19,17 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, Trash2, FolderCheck } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, AlertCircle } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from './ui/alert-dialog';
 import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, archiveTasks } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks } from '../stores/task-store';
+import { useToast } from '../hooks/use-toast';
+import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import type { Task, TaskStatus } from '../../shared/types';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
@@ -151,6 +145,12 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
         message: t('kanban.emptyDone'),
         subtext: t('kanban.emptyDoneHint')
       };
+    case 'error':
+      return {
+        icon: <AlertCircle className="h-6 w-6 text-destructive/50" />,
+        message: t('kanban.emptyError'),
+        subtext: t('kanban.emptyErrorHint')
+      };
     default:
       return {
         icon: <Inbox className="h-6 w-6 text-muted-foreground/50" />,
@@ -211,6 +211,8 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
         return 'column-human-review';
       case 'done':
         return 'column-done';
+      case 'error':
+        return 'column-error';
       default:
         return 'border-t-muted-foreground/30';
     }
@@ -339,15 +341,28 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
 }, droppableColumnPropsAreEqual);
 
 export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing }: KanbanBoardProps) {
-  const { t } = useTranslation('tasks');
+  const { t } = useTranslation(['tasks', 'dialogs', 'common']);
+  const { toast } = useToast();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const { showArchived, toggleShowArchived } = useViewState();
 
   // Worktree cleanup dialog state
-  const [worktreeDialogOpen, setWorktreeDialogOpen] = useState(false);
-  const [pendingDoneTask, setPendingDoneTask] = useState<Task | null>(null);
-  const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [worktreeCleanupDialog, setWorktreeCleanupDialog] = useState<{
+    open: boolean;
+    taskId: string | null;
+    taskTitle: string;
+    worktreePath?: string;
+    isProcessing: boolean;
+    error?: string;
+  }>({
+    open: false,
+    taskId: null,
+    taskTitle: '',
+    worktreePath: undefined,
+    isProcessing: false,
+    error: undefined
+  });
 
   // Calculate archived count for Done column button
   const archivedCount = useMemo(() =>
@@ -377,6 +392,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const tasksByStatus = useMemo(() => {
     // Note: pr_created tasks are shown in the 'done' column since they're essentially complete
     const grouped: Record<typeof TASK_STATUS_COLUMNS[number], Task[]> = {
+      error: [],
       backlog: [],
       in_progress: [],
       ai_review: [],
@@ -452,39 +468,66 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   };
 
-  // Check if a task has a worktree (async check)
-  const checkTaskHasWorktree = async (taskId: string): Promise<boolean> => {
-    try {
-      const result = await window.electronAPI.getWorktreeStatus(taskId);
-      return result.success && result.data?.exists === true;
-    } catch {
-      return false;
-    }
-  };
+  /**
+   * Handle status change with worktree cleanup dialog support
+   * Consolidated handler that accepts an optional task object for the dialog title
+   */
+  const handleStatusChange = async (taskId: string, newStatus: TaskStatus, providedTask?: Task) => {
+    const task = providedTask || tasks.find(t => t.id === taskId);
+    const result = await persistTaskStatus(taskId, newStatus);
 
-  // Handle moving task to done with worktree cleanup option
-  const handleMoveToDone = async (task: Task, deleteWorktree: boolean) => {
-    setIsCleaningUp(true);
-    try {
-      if (deleteWorktree) {
-        // Delete worktree first, skip automatic status change to backlog
-        // since we're about to set status to 'done'
-        const result = await window.electronAPI.discardWorktree(task.id, true);
-        if (!result.success) {
-          console.error('Failed to delete worktree:', result.error);
-          // Continue anyway - user can clean up manually
-        }
+    if (!result.success) {
+      if (result.worktreeExists) {
+        // Show the worktree cleanup dialog
+        setWorktreeCleanupDialog({
+          open: true,
+          taskId: taskId,
+          taskTitle: task?.title || t('tasks:untitled'),
+          worktreePath: result.worktreePath,
+          isProcessing: false,
+          error: undefined
+        });
+      } else {
+        // Show error toast for other failures
+        toast({
+          title: t('common:errors.operationFailed'),
+          description: result.error || t('common:errors.unknownError'),
+          variant: 'destructive'
+        });
       }
-      // Mark as done
-      await persistTaskStatus(task.id, 'done');
-    } finally {
-      setIsCleaningUp(false);
-      setWorktreeDialogOpen(false);
-      setPendingDoneTask(null);
     }
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  /**
+   * Handle worktree cleanup confirmation
+   */
+  const handleWorktreeCleanupConfirm = async () => {
+    if (!worktreeCleanupDialog.taskId) return;
+
+    setWorktreeCleanupDialog(prev => ({ ...prev, isProcessing: true, error: undefined }));
+
+    const result = await forceCompleteTask(worktreeCleanupDialog.taskId);
+
+    if (result.success) {
+      setWorktreeCleanupDialog({
+        open: false,
+        taskId: null,
+        taskTitle: '',
+        worktreePath: undefined,
+        isProcessing: false,
+        error: undefined
+      });
+    } else {
+      // Keep dialog open with error state for retry - show actual error if available
+      setWorktreeCleanupDialog(prev => ({
+        ...prev,
+        isProcessing: false,
+        error: result.error || t('dialogs:worktreeCleanup.errorDescription')
+      }));
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
     setOverColumnId(null);
@@ -494,38 +537,31 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const activeTaskId = active.id as string;
     const overId = over.id as string;
 
-    // Determine target status
-    let targetStatus: TaskStatus | null = null;
-
+    // Check if dropped on a column
     if (isValidDropColumn(overId)) {
-      targetStatus = overId;
-    } else {
-      // Dropped on another task - get its column
-      const overTask = tasks.find((t) => t.id === overId);
-      if (overTask) {
-        targetStatus = overTask.status;
+      const newStatus = overId;
+      const task = tasks.find((t) => t.id === activeTaskId);
+
+      if (task && task.status !== newStatus) {
+        // Persist status change to file and update local state
+        handleStatusChange(activeTaskId, newStatus, task).catch((err) =>
+          console.error('[KanbanBoard] Status change failed:', err)
+        );
       }
+      return;
     }
 
-    if (!targetStatus) return;
-
-    const task = tasks.find((t) => t.id === activeTaskId);
-    if (!task || task.status === targetStatus) return;
-
-    // Special handling for moving to "done" - check for worktree
-    if (targetStatus === 'done') {
-      const hasWorktree = await checkTaskHasWorktree(task.id);
-      
-      if (hasWorktree) {
-        // Show dialog asking about worktree cleanup
-        setPendingDoneTask(task);
-        setWorktreeDialogOpen(true);
-        return;
+    // Check if dropped on another task - move to that task's column
+    const overTask = tasks.find((t) => t.id === overId);
+    if (overTask) {
+      const task = tasks.find((t) => t.id === activeTaskId);
+      if (task && task.status !== overTask.status) {
+        // Persist status change to file and update local state
+        handleStatusChange(activeTaskId, overTask.status, task).catch((err) =>
+          console.error('[KanbanBoard] Status change failed:', err)
+        );
       }
     }
-
-    // Normal status change
-    persistTaskStatus(activeTaskId, targetStatus);
   };
 
   return (
@@ -541,7 +577,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             className="gap-2 text-muted-foreground hover:text-foreground"
           >
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh Tasks'}
+            {isRefreshing ? t('common:buttons.refreshing') : t('tasks:refreshTasks')}
           </Button>
         </div>
       )}
@@ -560,7 +596,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               status={status}
               tasks={tasksByStatus[status]}
               onTaskClick={onTaskClick}
-              onStatusChange={persistTaskStatus}
+              onStatusChange={handleStatusChange}
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
@@ -582,71 +618,19 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       </DndContext>
 
       {/* Worktree cleanup confirmation dialog */}
-      <AlertDialog open={worktreeDialogOpen} onOpenChange={setWorktreeDialogOpen}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <FolderCheck className="h-5 w-5 text-primary" />
-              {t('kanban.worktreeCleanupTitle', 'Worktree Cleanup')}
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="text-left space-y-2">
-                {pendingDoneTask?.stagedInMainProject ? (
-                  <p>
-                    {t('kanban.worktreeCleanupStaged', 'This task has been staged and has a worktree. Would you like to clean up the worktree?')}
-                  </p>
-                ) : (
-                  <p>
-                    {t('kanban.worktreeCleanupNotStaged', 'This task has a worktree with changes that have not been merged. Delete the worktree to mark as done, or cancel to review the changes first.')}
-                  </p>
-                )}
-                {pendingDoneTask && (
-                  <p className="text-sm font-medium text-foreground/80 bg-muted/50 rounded px-2 py-1.5">
-                    {pendingDoneTask.title}
-                  </p>
-                )}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setWorktreeDialogOpen(false);
-                setPendingDoneTask(null);
-              }}
-              disabled={isCleaningUp}
-            >
-              {t('common:cancel', 'Cancel')}
-            </Button>
-            {/* Only show "Keep Worktree" option if task is staged */}
-            {pendingDoneTask?.stagedInMainProject && (
-              <Button
-                variant="secondary"
-                onClick={() => pendingDoneTask && handleMoveToDone(pendingDoneTask, false)}
-                disabled={isCleaningUp}
-                className="gap-2"
-              >
-                <FolderCheck className="h-4 w-4" />
-                {t('kanban.keepWorktree', 'Keep Worktree')}
-              </Button>
-            )}
-            <Button
-              variant={pendingDoneTask?.stagedInMainProject ? 'default' : 'destructive'}
-              onClick={() => pendingDoneTask && handleMoveToDone(pendingDoneTask, true)}
-              disabled={isCleaningUp}
-              className="gap-2"
-            >
-              {isCleaningUp ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-              {t('kanban.deleteWorktree', 'Delete Worktree & Mark Done')}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <WorktreeCleanupDialog
+        open={worktreeCleanupDialog.open}
+        taskTitle={worktreeCleanupDialog.taskTitle}
+        worktreePath={worktreeCleanupDialog.worktreePath}
+        isProcessing={worktreeCleanupDialog.isProcessing}
+        error={worktreeCleanupDialog.error}
+        onOpenChange={(open) => {
+          if (!open && !worktreeCleanupDialog.isProcessing) {
+            setWorktreeCleanupDialog(prev => ({ ...prev, open: false, error: undefined }));
+          }
+        }}
+        onConfirm={handleWorktreeCleanupConfirm}
+      />
     </div>
   );
 }

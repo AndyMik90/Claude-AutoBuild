@@ -1,4 +1,5 @@
 {
+  "refreshTasks": "Actualiser les tâches",
   "status": {
     "backlog": "Backlog",
     "todo": "À faire",
@@ -52,6 +53,7 @@
     "description": "Créez votre première tâche pour commencer"
   },
   "columns": {
+    "error": "Erreur",
     "backlog": "Planification",
     "in_progress": "En cours",
     "ai_review": "Révision IA",
@@ -70,6 +72,8 @@
     "emptyHumanReviewHint": "Les tâches attendent votre approbation ici",
     "emptyDone": "Aucune tâche terminée",
     "emptyDoneHint": "Les tâches approuvées apparaissent ici",
+    "emptyError": "Aucune tâche en erreur",
+    "emptyErrorHint": "Les tâches en erreur apparaîtront ici en cas d'échec d'analyse",
     "emptyDefault": "Aucune tâche",
     "dropHere": "Déposer ici",
     "showArchived": "Afficher les archivées",
@@ -81,7 +85,8 @@
     "worktreeCleanupStaged": "Cette tâche a été préparée et possède un worktree. Voulez-vous nettoyer le worktree ?",
     "worktreeCleanupNotStaged": "Cette tâche possède un worktree avec des changements non fusionnés. Supprimez le worktree pour marquer comme terminé, ou annulez pour réviser les changements d'abord.",
     "keepWorktree": "Garder le Worktree",
-    "deleteWorktree": "Supprimer le Worktree & Marquer Terminé"
+    "deleteWorktree": "Supprimer le Worktree & Marquer Terminé",
+    "refreshTasks": "Actualiser les tâches"
   },
   "execution": {
     "phases": {
@@ -131,9 +136,91 @@
     "backgroundTaskDescription": "La tâche est toujours en cours. Vous pouvez rouvrir cette boîte de dialogue pour suivre la progression."
   },
   "wizard": {
+    "createTitle": "Créer une nouvelle tâche",
+    "createDescription": "Décrivez ce que vous voulez construire. L'IA analysera votre demande et créera une spécification détaillée.",
+    "descriptionPlaceholder": "Décrivez la fonctionnalité, la correction de bug ou l'amélioration que vous souhaitez implémenter. Soyez aussi précis que possible sur les exigences, les contraintes et le comportement attendu. Tapez @ pour référencer des fichiers.",
+    "draftRestored": "Brouillon restauré",
+    "startFresh": "Recommencer",
+    "hideFiles": "Masquer les fichiers",
+    "browseFiles": "Parcourir les fichiers",
+    "creating": "Création...",
+    "createTask": "Créer la tâche",
     "gitOptions": {
+      "title": "Options Git (optionnel)",
+      "baseBranchLabel": "Branche de base (optionnel)",
+      "useProjectDefault": "Utiliser la branche par défaut du projet",
+      "useProjectDefaultWithBranch": "Utiliser la branche par défaut du projet ({{branch}})",
+      "helpText": "Remplacez la branche à partir de laquelle le worktree de cette tâche sera créé. Laissez vide pour utiliser la branche par défaut configurée du projet.",
       "useWorktreeLabel": "Utiliser un espace de travail isolé (recommandé)",
       "useWorktreeDescription": "Crée les changements dans un worktree git séparé pour une révision sécurisée avant la fusion. Désactivez pour travailler directement dans votre projet (plus rapide mais risqué)."
+    },
+    "errors": {
+      "createFailed": "Échec de la création de la tâche. Veuillez réessayer."
+    }
+  },
+  "edit": {
+    "title": "Modifier la tâche",
+    "description": "Mettez à jour les détails de la tâche, y compris le titre, la description, la classification, les images et les paramètres. Les modifications seront enregistrées dans les fichiers de spécification.",
+    "saveChanges": "Enregistrer les modifications",
+    "errors": {
+      "updateFailed": "Échec de la mise à jour de la tâche. Veuillez réessayer."
+    }
+  },
+  "form": {
+    "description": "Description",
+    "descriptionPlaceholder": "Décrivez la fonctionnalité, la correction de bug ou l'amélioration que vous souhaitez implémenter. Soyez aussi précis que possible sur les exigences, les contraintes et le comportement attendu.",
+    "imageAddedSuccess": "Image ajoutée avec succès !",
+    "taskTitle": "Titre de la tâche",
+    "titlePlaceholder": "Laissez vide pour générer automatiquement à partir de la description",
+    "titleHelpText": "Un titre court et descriptif sera généré automatiquement s'il est laissé vide.",
+    "classificationOptional": "Classification (optionnel)",
+    "requireReviewLabel": "Exiger une révision humaine avant le codage",
+    "requireReviewDescription": "Lorsque activé, vous serez invité à réviser la spécification et le plan d'implémentation avant le début de la phase de codage. Cela vous permet d'approuver, de demander des modifications ou de fournir des commentaires.",
+    "errors": {
+      "descriptionRequired": "Veuillez fournir une description",
+      "maxImagesReached": "Maximum de 5 images autorisé",
+      "invalidImageType": "Type d'image non valide. Autorisés : PNG, JPEG, GIF, WebP",
+      "processPasteFailed": "Échec du traitement de l'image collée",
+      "processDropFailed": "Échec du traitement de l'image déposée"
+    },
+    "classification": {
+      "category": "Catégorie",
+      "selectCategory": "Sélectionner une catégorie",
+      "priority": "Priorité",
+      "selectPriority": "Sélectionner une priorité",
+      "complexity": "Complexité",
+      "selectComplexity": "Sélectionner une complexité",
+      "impact": "Impact",
+      "selectImpact": "Sélectionner un impact",
+      "helpText": "Ces étiquettes aident à organiser et à prioriser les tâches. Elles sont optionnelles mais utiles pour le filtrage.",
+      "values": {
+        "category": {
+          "feature": "Fonctionnalité",
+          "bug_fix": "Correction de bug",
+          "refactoring": "Refactoring",
+          "documentation": "Documentation",
+          "security": "Sécurité"
+        },
+        "priority": {
+          "low": "Basse",
+          "medium": "Moyenne",
+          "high": "Haute",
+          "urgent": "Urgente"
+        },
+        "complexity": {
+          "trivial": "Triviale",
+          "small": "Petite",
+          "medium": "Moyenne",
+          "large": "Grande",
+          "complex": "Complexe"
+        },
+        "impact": {
+          "low": "Impact faible",
+          "medium": "Impact moyen",
+          "high": "Impact élevé",
+          "critical": "Impact critique"
+        }
+      }
     }
   },
   "subtasks": {

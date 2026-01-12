@@ -1,4 +1,5 @@
 name: Release
+# Triggers on version tags (v*) to build and publish releases
 
 on:
   push:
@@ -715,9 +716,8 @@ jobs:
 
           if [ "$CHANGELOG_CONTENT" = "NOT_FOUND" ] || [ -z "$CHANGELOG_CONTENT" ]; then
             echo "::warning::Version $VERSION not found in CHANGELOG.md, using minimal release notes"
-            CHANGELOG_CONTENT="Release v$VERSION
-
-See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details."
+            REPO="${{ github.repository }}"
+            CHANGELOG_CONTENT="Release v$VERSION"$'\n\n'"See [CHANGELOG.md](https://github.com/${REPO}/blob/main/CHANGELOG.md) for details."
           fi
 
           echo "✅ Extracted changelog content"

@@ -48,15 +48,14 @@ async def _save_to_graphiti_async(
         True if save succeeded, False otherwise
     """
     try:
-        # Check if Graphiti is enabled
-        from graphiti_config import is_graphiti_enabled
+        # Use centralized helper for GraphitiMemory instantiation
+        # The helper handles enablement checks internally
+        from memory.graphiti_helpers import get_graphiti_memory
 
-        if not is_graphiti_enabled():
+        memory = get_graphiti_memory(spec_dir, project_dir)
+        if memory is None:
             return False
 
-        from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
-
-        memory = GraphitiMemory(spec_dir, project_dir)
         try:
             if save_type == "discovery":
                 # Save as codebase discovery
@@ -77,11 +76,14 @@ async def _save_to_graphiti_async(
                 result = False
             return result
         finally:
-            await memory.close()
+            # Always close the memory connection (swallow exceptions to avoid overriding)
+            try:
+                await memory.close()
+            except Exception as e:
+                logger.debug(
+                    "Failed to close Graphiti memory connection", exc_info=True
+                )
 
-    except ImportError as e:
-        logger.debug(f"Graphiti not available for memory tools: {e}")
-        return False
     except Exception as e:
         logger.warning(f"Failed to save to Graphiti: {e}")
         return False

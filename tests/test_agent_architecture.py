@@ -30,7 +30,9 @@ class TestNoExternalParallelism:
 
     def test_no_coordinator_module(self):
         """No external coordinator module should exist."""
-        coordinator_path = Path(__file__).parent.parent / "apps" / "backend" / "coordinator.py"
+        coordinator_path = (
+            Path(__file__).parent.parent / "apps" / "backend" / "coordinator.py"
+        )
         assert not coordinator_path.exists(), (
             "coordinator.py should not exist. Parallel orchestration is handled "
             "internally by the agent using Claude Code's Task tool."
@@ -38,7 +40,9 @@ class TestNoExternalParallelism:
 
     def test_no_task_tool_module(self):
         """No task_tool wrapper module should exist."""
-        task_tool_path = Path(__file__).parent.parent / "apps" / "backend" / "task_tool.py"
+        task_tool_path = (
+            Path(__file__).parent.parent / "apps" / "backend" / "task_tool.py"
+        )
         assert not task_tool_path.exists(), (
             "task_tool.py should not exist. The agent spawns subagents directly "
             "using Claude Code's built-in Task tool."
@@ -46,7 +50,9 @@ class TestNoExternalParallelism:
 
     def test_no_subtask_worker_config(self):
         """No external subtask worker agent config should exist."""
-        worker_config = Path(__file__).parent.parent / ".claude" / "agents" / "subtask-worker.md"
+        worker_config = (
+            Path(__file__).parent.parent / ".claude" / "agents" / "subtask-worker.md"
+        )
         assert not worker_config.exists(), (
             "subtask-worker.md should not exist. Subagents use Claude Code's "
             "built-in agent types, not custom configs."
@@ -59,7 +65,7 @@ class TestCLIInterface:
     def test_no_parallel_flag(self):
         """CLI should not have --parallel argument."""
         run_py_path = Path(__file__).parent.parent / "apps" / "backend" / "run.py"
-        content = run_py_path.read_text()
+        content = run_py_path.read_text(encoding="utf-8")
 
         # Check that --parallel is not defined as an argument
         assert '"--parallel"' not in content, (
@@ -74,7 +80,7 @@ class TestCLIInterface:
     def test_no_parallel_examples_in_docs(self):
         """CLI documentation should not mention parallel mode."""
         run_py_path = Path(__file__).parent.parent / "apps" / "backend" / "run.py"
-        content = run_py_path.read_text()
+        content = run_py_path.read_text(encoding="utf-8")
 
         # The docstring should not have --parallel examples
         assert "--parallel" not in content[:2000], (
@@ -125,8 +131,10 @@ class TestAgentPrompt:
 
     def test_mentions_subagents(self):
         """Agent prompt mentions subagent capability."""
-        coder_prompt_path = Path(__file__).parent.parent / "apps" / "backend" / "prompts" / "coder.md"
-        content = coder_prompt_path.read_text()
+        coder_prompt_path = (
+            Path(__file__).parent.parent / "apps" / "backend" / "prompts" / "coder.md"
+        )
+        content = coder_prompt_path.read_text(encoding="utf-8")
 
         assert "subagent" in content.lower(), (
             "Agent prompt should document subagent capability for parallel work."
@@ -134,12 +142,16 @@ class TestAgentPrompt:
 
     def test_mentions_parallel_capability(self):
         """Agent prompt mentions parallel/concurrent capability."""
-        coder_prompt_path = Path(__file__).parent.parent / "apps" / "backend" / "prompts" / "coder.md"
-        content = coder_prompt_path.read_text()
+        coder_prompt_path = (
+            Path(__file__).parent.parent / "apps" / "backend" / "prompts" / "coder.md"
+        )
+        content = coder_prompt_path.read_text(encoding="utf-8")
 
         has_task_tool = "task tool" in content.lower() or "Task tool" in content
         has_parallel = "parallel" in content.lower()
-        has_concurrent = "concurrent" in content.lower() or "simultaneously" in content.lower()
+        has_concurrent = (
+            "concurrent" in content.lower() or "simultaneously" in content.lower()
+        )
 
         assert has_task_tool or has_parallel or has_concurrent, (
             "Agent prompt should mention parallel/concurrent work capability."
@@ -159,7 +171,7 @@ class TestModuleIntegrity:
     def test_run_module_valid_syntax(self):
         """Run module has valid Python syntax."""
         run_py_path = Path(__file__).parent.parent / "apps" / "backend" / "run.py"
-        content = run_py_path.read_text()
+        content = run_py_path.read_text(encoding="utf-8")
 
         try:
             ast.parse(content)
@@ -170,7 +182,7 @@ class TestModuleIntegrity:
         """Core modules don't import coordinator."""
         for filename in ["run.py", "core/agent.py"]:
             filepath = Path(__file__).parent.parent / "apps" / "backend" / filename
-            content = filepath.read_text()
+            content = filepath.read_text(encoding="utf-8")
 
             assert "from coordinator import" not in content, (
                 f"{filename} should not import coordinator"
@@ -183,7 +195,7 @@ class TestModuleIntegrity:
         """Core modules don't import task_tool."""
         for filename in ["run.py", "core/agent.py"]:
             filepath = Path(__file__).parent.parent / "apps" / "backend" / filename
-            content = filepath.read_text()
+            content = filepath.read_text(encoding="utf-8")
 
             assert "from task_tool import" not in content, (
                 f"{filename} should not import task_tool"
@@ -230,7 +242,9 @@ class TestElectronToolScoping:
 
         # Must pass is_electron=True for Electron tools to be included
         # This is the new phase-aware behavior
-        qa_tools = get_allowed_tools("qa_reviewer", project_capabilities={"is_electron": True})
+        qa_tools = get_allowed_tools(
+            "qa_reviewer", project_capabilities={"is_electron": True}
+        )
 
         # At least one Electron tool should be present
         has_electron = any("electron" in tool.lower() for tool in qa_tools)
@@ -250,7 +264,9 @@ class TestElectronToolScoping:
         from auto_claude_tools import ELECTRON_TOOLS, get_allowed_tools
 
         # Must pass is_electron=True for Electron tools to be included
-        qa_fixer_tools = get_allowed_tools("qa_fixer", project_capabilities={"is_electron": True})
+        qa_fixer_tools = get_allowed_tools(
+            "qa_fixer", project_capabilities={"is_electron": True}
+        )
 
         has_electron = any("electron" in tool.lower() for tool in qa_fixer_tools)
         assert has_electron, (
@@ -268,7 +284,9 @@ class TestElectronToolScoping:
         from auto_claude_tools import get_allowed_tools
 
         # Even with is_electron=True, coder should not get Electron tools
-        coder_tools = get_allowed_tools("coder", project_capabilities={"is_electron": True})
+        coder_tools = get_allowed_tools(
+            "coder", project_capabilities={"is_electron": True}
+        )
 
         has_electron = any("electron" in tool.lower() for tool in coder_tools)
         assert not has_electron, (
@@ -283,7 +301,9 @@ class TestElectronToolScoping:
         from auto_claude_tools import get_allowed_tools
 
         # Even with is_electron=True, planner should not get Electron tools
-        planner_tools = get_allowed_tools("planner", project_capabilities={"is_electron": True})
+        planner_tools = get_allowed_tools(
+            "planner", project_capabilities={"is_electron": True}
+        )
 
         has_electron = any("electron" in tool.lower() for tool in planner_tools)
         assert not has_electron, (
@@ -299,7 +319,9 @@ class TestElectronToolScoping:
 
         for agent_type in ["planner", "coder", "qa_reviewer", "qa_fixer"]:
             # Even with is_electron=True, no tools without env var
-            tools = get_allowed_tools(agent_type, project_capabilities={"is_electron": True})
+            tools = get_allowed_tools(
+                agent_type, project_capabilities={"is_electron": True}
+            )
             has_electron = any("electron" in tool.lower() for tool in tools)
             assert not has_electron, (
                 f"{agent_type} should NOT have Electron tools when ELECTRON_MCP_ENABLED is not set"
@@ -311,8 +333,10 @@ class TestSubtaskTerminology:
 
     def test_progress_uses_subtask_terminology(self):
         """Progress module uses subtask terminology."""
-        progress_path = Path(__file__).parent.parent / "apps" / "backend" / "core" / "progress.py"
-        content = progress_path.read_text()
+        progress_path = (
+            Path(__file__).parent.parent / "apps" / "backend" / "core" / "progress.py"
+        )
+        content = progress_path.read_text(encoding="utf-8")
 
         assert "subtask" in content.lower(), (
             "core/progress.py should use subtask terminology"

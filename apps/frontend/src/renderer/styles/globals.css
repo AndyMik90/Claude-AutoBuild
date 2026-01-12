@@ -1156,6 +1156,10 @@ body {
   border-top-color: var(--success);
 }
 
+.column-error {
+  border-top-color: var(--destructive);
+}
+
 /* Progress bar working animation - subtle glow sweep */
 @keyframes progress-glow-sweep {
   0% {

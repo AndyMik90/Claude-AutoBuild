@@ -921,10 +921,9 @@ class CLIToolManager {
       let version: string;
 
       if (needsShell) {
-        // For .cmd/.bat files on Windows, use execSync with quoted path
-        // execFileSync doesn't handle spaces in .cmd paths correctly even with shell:true
-        const quotedCmd = `"${claudeCmd}"`;
-        version = execSync(`${quotedCmd} --version`, {
+        // For .cmd/.bat files on Windows, use cmd.exe with argument array
+        // This avoids shell command injection while handling spaces in paths
+        version = execFileSync('cmd.exe', ['/c', claudeCmd, '--version'], {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,
@@ -1038,9 +1037,9 @@ class CLIToolManager {
       let stdout: string;
 
       if (needsShell) {
-        // For .cmd/.bat files on Windows, use exec with quoted path
-        const quotedCmd = `"${claudeCmd}"`;
-        const result = await execAsync(`${quotedCmd} --version`, {
+        // For .cmd/.bat files on Windows, use cmd.exe with argument array
+        // This avoids shell command injection while handling spaces in paths
+        const result = await execFileAsync('cmd.exe', ['/c', claudeCmd, '--version'], {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,
