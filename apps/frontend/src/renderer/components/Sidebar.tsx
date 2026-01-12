@@ -283,13 +283,13 @@ export function Sidebar({
               onClick={() => handleNavClick(item.id)}
               disabled={!selectedProjectId}
               className={cn(
-                'flex w-full items-center justify-center rounded-lg p-2.5 text-sm transition-all duration-200',
+                'flex h-11 w-16 items-center justify-center rounded-lg text-sm transition-all duration-200',
                 'hover:bg-accent hover:text-accent-foreground',
                 'disabled:pointer-events-none disabled:opacity-50',
                 isActive && 'bg-accent text-accent-foreground'
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon className="h-5 w-5" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="right">
@@ -328,10 +328,13 @@ export function Sidebar({
     <TooltipProvider>
       <div className={cn(
         "flex h-full flex-col bg-sidebar border-r border-border transition-all duration-300",
-        isCollapsed ? "w-20" : "w-64"
+        isCollapsed ? "w-24" : "w-64"
       )}>
         {/* Header with drag area and collapse toggle */}
-        <div className="electron-drag flex h-14 items-center justify-between px-4 pt-6">
+        <div className={cn(
+          "electron-drag flex h-14 items-center pt-6",
+          isCollapsed ? "justify-center px-2" : "justify-between px-4"
+        )}>
           {!isCollapsed && (
             <span className="electron-no-drag text-lg font-bold text-primary">Auto Claude</span>
           )}
@@ -363,7 +366,7 @@ export function Sidebar({
 
         {/* Navigation */}
         <ScrollArea className="flex-1">
-          <div className={cn("py-4", isCollapsed ? "px-2" : "px-3")}>
+          <div className={cn("py-4", isCollapsed ? "px-1" : "px-3")}>
             {/* Project Section */}
             <div>
               {!isCollapsed && (
@@ -371,7 +374,7 @@ export function Sidebar({
                   {t('sections.project')}
                 </h3>
               )}
-              <nav className="space-y-1">
+              <nav className={cn("space-y-1", isCollapsed && "flex flex-col items-center")}>
                 {visibleNavItems.map(renderNavItem)}
               </nav>
             </div>
@@ -384,21 +387,27 @@ export function Sidebar({
         <RateLimitIndicator />
 
         {/* Bottom section with Settings, Help, and New Task */}
-        <div className={cn("space-y-3", isCollapsed ? "p-2" : "p-4")}>
+        <div className={cn(
+          "space-y-3",
+          isCollapsed ? "p-1 flex flex-col items-center" : "p-4"
+        )}>
           {/* Claude Code Status Badge - hide when collapsed */}
           {!isCollapsed && <ClaudeCodeStatusBadge />}
 
           {/* Settings and Help row */}
-          <div className={cn("flex items-center", isCollapsed ? "flex-col gap-2" : "gap-2")}>
+          <div className={cn(
+            "flex items-center",
+            isCollapsed ? "flex-col gap-1 w-full" : "gap-2"
+          )}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
-                  size={isCollapsed ? "icon" : "sm"}
-                  className={cn(isCollapsed ? "w-full" : "flex-1 justify-start gap-2")}
+                  size="icon"
+                  className={cn(isCollapsed ? "h-11 w-16" : "flex-1 justify-start gap-2 h-9")}
                   onClick={onSettingsClick}
                 >
-                  <Settings className="h-4 w-4" />
+                  <Settings className={cn(isCollapsed ? "h-5 w-5" : "h-4 w-4")} />
                   {!isCollapsed && t('actions.settings')}
                 </Button>
               </TooltipTrigger>
@@ -409,10 +418,10 @@ export function Sidebar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={cn(isCollapsed && "w-full")}
+                  className={cn(isCollapsed ? "h-11 w-16" : "h-9 w-9")}
                   onClick={() => window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')}
                 >
-                  <HelpCircle className="h-4 w-4" />
+                  <HelpCircle className={cn(isCollapsed ? "h-5 w-5" : "h-4 w-4")} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side={isCollapsed ? "right" : "top"}>{t('tooltips.help')}</TooltipContent>
@@ -423,12 +432,12 @@ export function Sidebar({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                className="w-full"
+                className={cn(isCollapsed ? "h-11 w-16" : "w-full")}
                 size={isCollapsed ? "icon" : "default"}
                 onClick={onNewTaskClick}
                 disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
               >
-                <Plus className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
+                <Plus className={cn(isCollapsed ? "h-5 w-5" : "h-4 w-4 mr-2")} />
                 {!isCollapsed && t('actions.newTask')}
               </Button>
             </TooltipTrigger>
