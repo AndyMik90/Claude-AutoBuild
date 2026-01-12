@@ -122,12 +122,6 @@ def invalidate_project_cache(project_dir: Path | None = None) -> None:
 
 
 from agents.tools_pkg import (
-    CONTEXT7_TOOLS,
-    ELECTRON_TOOLS,
-    GRAPHITI_MCP_TOOLS,
-    LINEAR_TOOLS,
-    PLAYWRIGHT_TOOLS,
-    PUPPETEER_TOOLS,
     create_auto_claude_mcp_server,
     get_allowed_tools,
     get_required_mcp_servers,
@@ -536,14 +530,8 @@ def create_client(
     # Check if Graphiti MCP is enabled (already filtered by get_required_mcp_servers)
     graphiti_mcp_enabled = "graphiti" in required_servers
 
-    # Determine browser tools for permissions (already in allowed_tools_list)
-    browser_tools_permissions = []
-    if "electron" in required_servers:
-        browser_tools_permissions = ELECTRON_TOOLS
-    elif "puppeteer" in required_servers:
-        browser_tools_permissions = PUPPETEER_TOOLS
-    elif "playwright" in required_servers:
-        browser_tools_permissions = PLAYWRIGHT_TOOLS
+    # Note: Browser tool permissions (Electron/Puppeteer/Playwright) are now handled
+    # automatically via wildcard MCP permissions (mcp__<server>__*) below
 
     # Create comprehensive security settings
     # Note: Using both relative paths ("./**") and absolute paths to handle
@@ -640,23 +628,15 @@ def create_client(
                 "WebFetch(*)",
                 "WebSearch(*)",
                 # Allow MCP tools based on required servers
-                # Format: tool_name(*) allows all arguments
+                # Use wildcard permissions for automatic tool discovery
+                # This allows all tools from a server without manual tool name mapping
                 *(
-                    [f"{tool}(*)" for tool in CONTEXT7_TOOLS]
-                    if "context7" in required_servers
-                    else []
+                    [
+                        f"mcp__{server}__*(*)"
+                        for server in required_servers
+                        if server != "auto-claude"  # auto-claude tools handled separately
+                    ]
                 ),
-                *(
-                    [f"{tool}(*)" for tool in LINEAR_TOOLS]
-                    if "linear" in required_servers
-                    else []
-                ),
-                *(
-                    [f"{tool}(*)" for tool in GRAPHITI_MCP_TOOLS]
-                    if graphiti_mcp_enabled
-                    else []
-                ),
-                *[f"{tool}(*)" for tool in browser_tools_permissions],
             ],
         },
     }
