@@ -141,6 +141,10 @@ export function registerEnvHandlers(
     if (config.workspaceMode !== undefined) {
       existingVars['WORKSPACE_MODE'] = config.workspaceMode;
     }
+    // Playwright Settings
+    if (config.playwrightHeadless !== undefined) {
+      existingVars['PLAYWRIGHT_HEADLESS'] = config.playwrightHeadless ? 'true' : 'false';
+    }
     if (config.graphitiEnabled !== undefined) {
       existingVars['GRAPHITI_ENABLED'] = config.graphitiEnabled ? 'true' : 'false';
     }
@@ -287,6 +291,8 @@ ${existingVars['LINEAR_MCP_ENABLED'] !== undefined ? `LINEAR_MCP_ENABLED=${exist
 ${existingVars['ELECTRON_MCP_ENABLED'] !== undefined ? `ELECTRON_MCP_ENABLED=${existingVars['ELECTRON_MCP_ENABLED']}` : '# ELECTRON_MCP_ENABLED=false'}
 # Puppeteer browser automation - QA agents only (default: disabled)
 ${existingVars['PUPPETEER_MCP_ENABLED'] !== undefined ? `PUPPETEER_MCP_ENABLED=${existingVars['PUPPETEER_MCP_ENABLED']}` : '# PUPPETEER_MCP_ENABLED=false'}
+# Playwright headless mode - run Playwright without visible browser (default: enabled)
+${existingVars['PLAYWRIGHT_HEADLESS'] !== undefined ? `PLAYWRIGHT_HEADLESS=${existingVars['PLAYWRIGHT_HEADLESS']}` : '# PLAYWRIGHT_HEADLESS=true'}
 
 # =============================================================================
 # PER-AGENT MCP OVERRIDES
@@ -512,6 +518,11 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
           database: vars['GRAPHITI_DATABASE'],
           dbPath: vars['GRAPHITI_DB_PATH'],
         };
+      }
+
+      // Playwright Settings
+      if (vars['PLAYWRIGHT_HEADLESS'] !== undefined) {
+        config.playwrightHeadless = vars['PLAYWRIGHT_HEADLESS'].toLowerCase() !== 'false'; // default true
       }
 
       // MCP Server Configuration (per-project overrides)

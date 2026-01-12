@@ -352,6 +352,10 @@ export interface ProjectEnvConfig {
     playwrightEnabled?: boolean;
   };
 
+  // Playwright Settings
+  /** Run Playwright in headless mode (default: true) */
+  playwrightHeadless?: boolean;
+
   // Per-agent MCP overrides (add/remove MCPs from specific agents)
   agentMcpOverrides?: AgentMcpOverrides;
 

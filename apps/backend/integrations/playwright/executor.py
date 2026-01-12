@@ -31,18 +31,25 @@ async def get_browser():
 
     if _browser is None:
         try:
+            import os
+
             from playwright.async_api import async_playwright
+
+            # Read headless setting from environment (default: True)
+            headless_str = os.environ.get("PLAYWRIGHT_HEADLESS", "true").lower()
+            headless = headless_str in ("true", "1", "yes")
 
             playwright = await async_playwright().start()
             _browser = await playwright.chromium.launch(
-                headless=True,  # Run headless by default
+                headless=headless,
                 args=[
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
                     "--disable-dev-shm-usage",
                 ],
             )
-            logger.info("Playwright browser launched (headless)")
+            mode = "headless" if headless else "headed"
+            logger.info(f"Playwright browser launched ({mode})")
         except ImportError:
             raise RuntimeError(
                 "Playwright not installed. Run: pip install playwright && playwright install chromium"
