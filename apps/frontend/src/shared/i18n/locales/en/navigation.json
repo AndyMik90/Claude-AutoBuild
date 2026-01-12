@@ -30,6 +30,15 @@
   "messages": {
     "initializeToCreateTasks": "Initialize Auto Claude to create tasks"
   },
+  "usageIndicator": {
+    "ariaLabel": "Claude usage status",
+    "sessionUsage": "Session Usage",
+    "weeklyUsage": "Weekly Usage",
+    "tokenUsage": "Token Usage",
+    "monthlyToolUsage": "Monthly Tool Usage",
+    "resets": "Resets",
+    "activeAccount": "Active Account"
+  },
   "claudeCode": {
     "checking": "Checking Claude Code...",
     "upToDate": "Claude Code is up to date",

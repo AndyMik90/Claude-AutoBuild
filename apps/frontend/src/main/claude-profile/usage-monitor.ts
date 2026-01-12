@@ -4,14 +4,24 @@
  * Monitors Claude account usage at configured intervals and automatically
  * switches to alternative accounts before hitting rate limits.
  *
+ * Supports multiple profile types:
+ * - Claude OAuth profiles (multi-account switching)
+ * - API profiles (Z.ai, custom endpoints)
+ *
  * Uses hybrid approach:
  * 1. Primary: Direct OAuth API (https://api.anthropic.com/api/oauth/usage)
- * 2. Fallback: CLI /usage command parsing
+ * 2. API profiles: Provider-specific endpoints (Z.ai, etc.)
+ * 3. Fallback: CLI /usage command parsing
  */
 
 import { EventEmitter } from 'events';
+import { spawn } from 'child_process';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { ClaudeUsageSnapshot } from '../../shared/types/agent';
+import { loadProfilesFile, detectProvider, fetchUsageForProfile } from '../services/profile';
+import { getClaudeCliInvocationAsync } from '../claude-cli-utils';
+import { getSpawnCommand, getSpawnOptions } from '../env-utils';
+import { parseUsageOutput } from './usage-parser';
 
 export class UsageMonitor extends EventEmitter {
   private static instance: UsageMonitor;
@@ -88,6 +98,10 @@ export class UsageMonitor extends EventEmitter {
 
   /**
    * Check usage and trigger swap if thresholds exceeded
+   *
+   * Checks in order:
+   * 1. API profiles (Z.ai, custom endpoints)
+   * 2. Claude OAuth profiles
    */
   private async checkUsageAndSwap(): Promise<void> {
     if (this.isChecking) {
@@ -97,20 +111,16 @@ export class UsageMonitor extends EventEmitter {
     this.isChecking = true;
 
     try {
-      const profileManager = getClaudeProfileManager();
-      const activeProfile = profileManager.getActiveProfile();
+      // First, try to fetch usage from active API profile
+      let usage = await this.fetchAPIProfileUsage();
 
-      if (!activeProfile) {
-        console.warn('[UsageMonitor] No active profile');
-        return;
+      // If no API profile or fetch failed, try Claude OAuth profile
+      if (!usage) {
+        usage = await this.fetchClaudeProfileUsage();
       }
 
-      // Fetch current usage (hybrid approach)
-      // Get decrypted token from ProfileManager (activeProfile.oauthToken is encrypted)
-      const decryptedToken = profileManager.getProfileToken(activeProfile.id);
-      const usage = await this.fetchUsage(activeProfile.id, decryptedToken ?? undefined);
       if (!usage) {
-        console.warn('[UsageMonitor] Failed to fetch usage');
+        console.warn('[UsageMonitor] No usage data available');
         return;
       }
 
@@ -119,10 +129,13 @@ export class UsageMonitor extends EventEmitter {
       // Emit usage update for UI
       this.emit('usage-updated', usage);
 
-      // Check thresholds
-      const settings = profileManager.getAutoSwitchSettings();
-      const sessionExceeded = usage.sessionPercent >= settings.sessionThreshold;
-      const weeklyExceeded = usage.weeklyPercent >= settings.weeklyThreshold;
+      // Proactive swapping only works for Claude OAuth profiles
+      // API profiles don't have automatic switching
+      if (usage.provider === 'anthropic-oauth') {
+        const profileManager = getClaudeProfileManager();
+        const settings = profileManager.getAutoSwitchSettings();
+        const sessionExceeded = usage.sessionPercent >= settings.sessionThreshold;
+        const weeklyExceeded = usage.weeklyPercent >= settings.weeklyThreshold;
 
       if (sessionExceeded || weeklyExceeded) {
         if (this.isDebug) {
@@ -192,6 +205,69 @@ export class UsageMonitor extends EventEmitter {
     } finally {
       this.isChecking = false;
     }
+  }
+
+  /**
+   * Fetch usage from active API profile (Z.ai, custom endpoints)
+   */
+  private async fetchAPIProfileUsage(): Promise<ClaudeUsageSnapshot | null> {
+    try {
+      const profilesFile = await loadProfilesFile();
+
+      // Check if there's an active API profile
+      if (!profilesFile.activeProfileId) {
+        return null;
+      }
+
+      const activeProfile = profilesFile.profiles.find(
+        (p) => p.id === profilesFile.activeProfileId
+      );
+
+      if (!activeProfile) {
+        return null;
+      }
+
+      // Detect provider type
+      const provider = detectProvider(activeProfile.baseUrl);
+
+      // Fetch usage based on provider
+      const usage = await fetchUsageForProfile(
+        provider,
+        activeProfile.apiKey,
+        activeProfile.id,
+        activeProfile.name
+      );
+
+      if (usage) {
+        console.warn('[UsageMonitor] Fetched API profile usage:', {
+          profile: activeProfile.name,
+          provider,
+          sessionPercent: usage.sessionPercent,
+          weeklyPercent: usage.weeklyPercent
+        });
+      }
+
+      return usage;
+    } catch (error) {
+      console.error('[UsageMonitor] API profile fetch failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch usage from Claude OAuth profile
+   */
+  private async fetchClaudeProfileUsage(): Promise<ClaudeUsageSnapshot | null> {
+    const profileManager = getClaudeProfileManager();
+    const activeProfile = profileManager.getActiveProfile();
+
+    if (!activeProfile) {
+      return null;
+    }
+
+    // Get decrypted token from ProfileManager (activeProfile.oauthToken is encrypted)
+    const decryptedToken = profileManager.getProfileToken(activeProfile.id);
+    return await this.fetchUsage(activeProfile.id, decryptedToken ?? undefined);
   }
 
   /**
@@ -270,17 +346,27 @@ export class UsageMonitor extends EventEmitter {
       //   "seven_day_reset_at": "2025-01-20T12:00:00Z"
       // }
 
+      const fiveHourResetTimestamp = data.five_hour_reset_at
+        ? new Date(data.five_hour_reset_at).getTime()
+        : undefined;
+      const sevenDayResetTimestamp = data.seven_day_reset_at
+        ? new Date(data.seven_day_reset_at).getTime()
+        : undefined;
+
       return {
         sessionPercent: Math.round((data.five_hour_utilization || 0) * 100),
         weeklyPercent: Math.round((data.seven_day_utilization || 0) * 100),
         sessionResetTime: this.formatResetTime(data.five_hour_reset_at),
         weeklyResetTime: this.formatResetTime(data.seven_day_reset_at),
+        sessionResetTimestamp: fiveHourResetTimestamp,
+        weeklyResetTimestamp: sevenDayResetTimestamp,
         profileId,
         profileName,
         fetchedAt: new Date(),
         limitType: (data.seven_day_utilization || 0) > (data.five_hour_utilization || 0)
           ? 'weekly'
-          : 'session'
+          : 'session',
+        provider: 'anthropic-oauth'
       };
     } catch (error: any) {
       // Re-throw auth failures to be handled by checkUsageAndSwap
@@ -296,18 +382,77 @@ export class UsageMonitor extends EventEmitter {
   /**
    * Fetch usage via CLI /usage command (fallback)
    * Note: This is a fallback method. The API method is preferred.
-   * CLI-based fetching would require spawning a Claude process and parsing output,
-   * which is complex. For now, we rely on the API method.
+   * Spawns a Claude process with the /usage command and parses the output.
    */
   private async fetchUsageViaCLI(
-    _profileId: string,
-    _profileName: string
+    profileId: string,
+    profileName: string
   ): Promise<ClaudeUsageSnapshot | null> {
-    // CLI-based usage fetching is not implemented yet.
-    // The API method should handle most cases. If we need CLI fallback,
-    // we would need to spawn a Claude process with /usage command and parse the output.
-    console.warn('[UsageMonitor] CLI fallback not implemented, API method should be used');
-    return null;
+    try {
+      const { command: claudeCmd } = await getClaudeCliInvocationAsync();
+
+      return new Promise((resolve) => {
+        let stdout = '';
+        let stderr = '';
+
+        const proc = spawn(getSpawnCommand(claudeCmd), ['/usage'], getSpawnOptions(claudeCmd, {
+          env: {
+            // Suppress interactive prompts
+            ...(process.env.CLAUDE_CONFIG_DIR && { CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR }),
+          }
+        }));
+
+        proc.stdout?.on('data', (data) => {
+          stdout += data.toString();
+        });
+
+        proc.stderr?.on('data', (data) => {
+          stderr += data.toString();
+        });
+
+        proc.on('close', (code) => {
+          if (code === 0 && stdout) {
+            try {
+              const usageData = parseUsageOutput(stdout);
+
+              // Convert ClaudeUsageData to ClaudeUsageSnapshot
+              const snapshot: ClaudeUsageSnapshot = {
+                sessionPercent: usageData.sessionUsagePercent,
+                weeklyPercent: usageData.weeklyUsagePercent,
+                sessionResetTime: usageData.sessionResetTime,
+                weeklyResetTime: usageData.weeklyResetTime,
+                profileId,
+                profileName,
+                fetchedAt: new Date(),
+                limitType: usageData.weeklyUsagePercent > usageData.sessionUsagePercent
+                  ? 'weekly'
+                  : 'session',
+                provider: 'anthropic-api' // CLI method works with API keys
+              };
+
+              console.warn('[UsageMonitor] Successfully fetched via CLI');
+              resolve(snapshot);
+            } catch (parseError) {
+              console.error('[UsageMonitor] Failed to parse usage output:', parseError);
+              resolve(null);
+            }
+          } else {
+            console.error('[UsageMonitor] CLI /usage command failed:', { code, stderr });
+            resolve(null);
+          }
+        });
+
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          proc.kill();
+          console.warn('[UsageMonitor] CLI /usage command timed out');
+          resolve(null);
+        }, 10000);
+      });
+    } catch (error) {
+      console.error('[UsageMonitor] CLI fetch failed:', error);
+      return null;
+    }
   }
 
   /**

@@ -37,6 +37,10 @@ export interface ClaudeUsageSnapshot {
   sessionResetTime?: string;
   /** When the weekly limit resets (human-readable or ISO) */
   weeklyResetTime?: string;
+  /** Unix timestamp for session reset (for countdown timer) */
+  sessionResetTimestamp?: number;
+  /** Unix timestamp for weekly reset (for countdown timer) */
+  weeklyResetTimestamp?: number;
   /** Profile ID this snapshot belongs to */
   profileId: string;
   /** Profile name for display */
@@ -45,6 +49,8 @@ export interface ClaudeUsageSnapshot {
   fetchedAt: Date;
   /** Which limit is closest to threshold ('session' or 'weekly') */
   limitType?: 'session' | 'weekly';
+  /** Provider type for usage display */
+  provider?: 'anthropic-oauth' | 'anthropic-api' | 'zai' | 'other';
 }
 
 /**

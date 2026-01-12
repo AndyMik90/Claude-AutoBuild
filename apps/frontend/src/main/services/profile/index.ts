@@ -31,6 +31,17 @@ export {
 
 export type { CreateProfileInput, UpdateProfileInput } from './profile-service';
 
+// Profile Usage Service
+export {
+  detectProvider,
+  fetchZaiUsage,
+  fetchAnthropicOAuthUsage,
+  fetchUsageForProfile,
+  formatMonthlyResetTime
+} from './profile-usage';
+
+export type { UsageProvider } from './profile-usage';
+
 // Re-export types from shared for convenience
 export type {
   APIProfile,
