@@ -101,6 +101,11 @@ async function fetchAvailableVersions(): Promise<string[]> {
       .sort((a, b) => semver.rcompare(a, b)) // Sort descending
       .slice(0, 20); // Limit to 20 versions
 
+    // Validate we have versions after filtering
+    if (sortedVersions.length === 0) {
+      throw new Error('No valid semver versions found in npm registry');
+    }
+
     // Cache the result
     cachedVersionList = { versions: sortedVersions, timestamp: Date.now() };
     return sortedVersions;

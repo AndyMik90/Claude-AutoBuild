@@ -41,6 +41,8 @@ type StatusType = "loading" | "installed" | "outdated" | "not-found" | "error";
 
 // Check every 24 hours
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+// Delay before re-checking version after install/update
+const VERSION_RECHECK_DELAY_MS = 5000;
 
 /**
  * Claude Code CLI status badge for the sidebar.
@@ -61,6 +63,7 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
   const [versionsError, setVersionsError] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
   const [showRollbackWarning, setShowRollbackWarning] = useState(false);
+  const [installError, setInstallError] = useState<string | null>(null);
 
   // Check Claude Code version
   const checkVersion = useCallback(async () => {
@@ -139,8 +142,10 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
   const performInstall = async () => {
     setIsInstalling(true);
     setShowUpdateWarning(false);
+    setInstallError(null);
     try {
       if (!window.electronAPI?.installClaudeCode) {
+        setInstallError("Installation not available");
         return;
       }
 
@@ -150,10 +155,13 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
         // Re-check after a delay
         setTimeout(() => {
           checkVersion();
-        }, 5000);
+        }, VERSION_RECHECK_DELAY_MS);
+      } else {
+        setInstallError(result.error || "Installation failed");
       }
     } catch (err) {
       console.error("Failed to install Claude Code:", err);
+      setInstallError(err instanceof Error ? err.message : "Installation failed");
     } finally {
       setIsInstalling(false);
     }
@@ -165,9 +173,11 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
 
     setIsInstalling(true);
     setShowRollbackWarning(false);
+    setInstallError(null);
 
     try {
       if (!window.electronAPI?.installClaudeCodeVersion) {
+        setInstallError("Version switching not available");
         return;
       }
 
@@ -177,10 +187,13 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
         // Re-check after a delay
         setTimeout(() => {
           checkVersion();
-        }, 5000);
+        }, VERSION_RECHECK_DELAY_MS);
+      } else {
+        setInstallError(result.error || "Failed to switch version");
       }
     } catch (err) {
       console.error("Failed to switch Claude Code version:", err);
+      setInstallError(err instanceof Error ? err.message : "Failed to switch version");
     } finally {
       setIsInstalling(false);
       setSelectedVersion(null);
@@ -198,12 +211,18 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
     }
   };
 
+  // Normalize version string by removing 'v' prefix for comparison
+  const normalizeVersion = (v: string) => v.replace(/^v/, '');
+
   // Handle version selection
   const handleVersionSelect = (version: string) => {
-    // Don't do anything if it's the currently installed version
-    if (version === versionInfo?.installed) {
+    // Don't do anything if it's the currently installed version (normalize both for comparison)
+    const normalizedSelected = normalizeVersion(version);
+    const normalizedInstalled = versionInfo?.installed ? normalizeVersion(versionInfo.installed) : '';
+    if (normalizedSelected === normalizedInstalled) {
       return;
     }
+    setInstallError(null);
     setSelectedVersion(version);
     setShowRollbackWarning(true);
   };
@@ -375,6 +394,14 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
             </Button>
           </div>
 
+          {/* Install/Update error display */}
+          {installError && (
+            <div className="text-xs p-2 bg-destructive/10 text-destructive rounded-md flex items-center gap-2">
+              <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+              <span>{installError}</span>
+            </div>
+          )}
+
           {/* Version selector - only show when Claude is installed */}
           {versionInfo?.installed && (
             <div className="space-y-1.5">
@@ -382,7 +409,7 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
                 {t("navigation:claudeCode.switchVersion", "Switch Version")}
               </label>
               <Select
-                value=""
+                value={selectedVersion || ""}
                 onValueChange={handleVersionSelect}
                 disabled={isLoadingVersions || isInstalling}
               >
@@ -398,21 +425,24 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableVersions.map((version) => (
-                    <SelectItem
-                      key={version}
-                      value={version}
-                      className="text-xs"
-                      disabled={version === versionInfo.installed}
-                    >
-                      <span className="font-mono">{version}</span>
-                      {version === versionInfo.installed && (
-                        <span className="ml-2 text-muted-foreground">
-                          ({t("navigation:claudeCode.currentVersion", "Current")})
-                        </span>
-                      )}
-                    </SelectItem>
-                  ))}
+                  {availableVersions.map((version) => {
+                    const isCurrentVersion = normalizeVersion(version) === normalizeVersion(versionInfo.installed || '');
+                    return (
+                      <SelectItem
+                        key={version}
+                        value={version}
+                        className="text-xs"
+                        disabled={isCurrentVersion}
+                      >
+                        <span className="font-mono">{version}</span>
+                        {isCurrentVersion && (
+                          <span className="ml-2 text-muted-foreground">
+                            ({t("navigation:claudeCode.currentVersion", "Current")})
+                          </span>
+                        )}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
