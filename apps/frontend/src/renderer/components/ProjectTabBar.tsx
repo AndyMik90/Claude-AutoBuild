@@ -90,7 +90,7 @@ export function ProjectTabBar({
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       <div
-        className="flex items-center flex-1 min-w-0"
+        className="flex items-center min-w-0"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         {projects.map((project, index) => {
