@@ -35,7 +35,7 @@ function findPython() {
 
   for (const cmd of candidates) {
     try {
-      const result = spawnSync(cmd.split(' ')[0], [...cmd.split(' ').slice(1), '--version'], {
+      const result = spawnSync(`${cmd} --version`, [], {
         encoding: 'utf8',
         shell: true,
       });
