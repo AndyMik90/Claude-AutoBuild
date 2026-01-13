@@ -54,7 +54,7 @@ export function SliderControl({
   // Check if value differs from default for reset button visibility
   const isDefault = approxEqual
     ? approxEqual(value, defaultValue)
-    : value !== defaultValue;
+    : value === defaultValue;
 
   // Button styling classes
   const buttonClasses = (disabled: boolean) => cn(
