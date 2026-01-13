@@ -4,6 +4,10 @@
  *
  * This module aggregates all mock implementations from separate modules
  * for better code organization and maintainability.
+ *
+ * NOTE: Auto-invocation has been removed to prevent side effects during import.
+ * Consumers must explicitly call initBrowserMock() to initialize the mock.
+ * Usage: import { initBrowserMock } from './lib/browser-mock'; initBrowserMock();
  */
 
 import type { ElectronAPI } from "../../shared/types";

@@ -18,9 +18,10 @@ interface ProjectTabBarProps {
   onSettingsClick?: () => void;
 }
 
-const isWindows =
+const isMac =
   typeof navigator !== "undefined" &&
-  navigator.userAgent.indexOf("Windows") >= 0;
+  navigator.userAgent.indexOf("Macintosh") >= 0;
+const showCustomControls = !isMac;
 
 export function ProjectTabBar({
   projects,
@@ -160,8 +161,8 @@ export function ProjectTabBar({
         </Button>
       </div>
 
-      {/* Window Controls - Windows Only */}
-      {isWindows && (
+      {/* Window Controls - Windows & Linux */}
+      {showCustomControls && (
         <div className="flex items-center gap-1 px-2 electron-no-drag border-l border-border/40 ml-1">
           <Button
             variant="ghost"
