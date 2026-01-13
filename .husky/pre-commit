@@ -154,17 +154,26 @@ if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
     cd apps/backend
     # Tests to skip: graphiti (external deps), merge_file_tracker/service_orchestrator/worktree/workspace (Windows path/git issues)
     IGNORE_TESTS="--ignore=../../tests/test_graphiti.py --ignore=../../tests/test_merge_file_tracker.py --ignore=../../tests/test_service_orchestrator.py --ignore=../../tests/test_worktree.py --ignore=../../tests/test_workspace.py"
-    if [ -d ".venv" ]; then
-      # Use venv if it exists
-      if [ -f ".venv/bin/pytest" ]; then
-        PYTHONPATH=. .venv/bin/pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
-      elif [ -f ".venv/Scripts/pytest.exe" ]; then
-        # Windows
-        PYTHONPATH=. .venv/Scripts/pytest.exe ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
-      else
-        PYTHONPATH=. python -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
-      fi
+
+    # Determine pytest path - check worktree's venv first, then main repo's venv
+    PYTEST=""
+    if [ -f ".venv/bin/pytest" ]; then
+      PYTEST=".venv/bin/pytest"
+    elif [ -f ".venv/Scripts/pytest.exe" ]; then
+      PYTEST=".venv/Scripts/pytest.exe"
+    elif [ -n "$MAIN_REPO" ] && [ -f "$MAIN_REPO/apps/backend/.venv/bin/pytest" ]; then
+      # Worktree: use main repo's pytest
+      PYTEST="$MAIN_REPO/apps/backend/.venv/bin/pytest"
+    elif [ -n "$MAIN_REPO" ] && [ -f "$MAIN_REPO/apps/backend/.venv/Scripts/pytest.exe" ]; then
+      # Worktree on Windows: use main repo's pytest
+      PYTEST="$MAIN_REPO/apps/backend/.venv/Scripts/pytest.exe"
+    fi
+
+    if [ -n "$PYTEST" ]; then
+      PYTHONPATH=. "$PYTEST" ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
     else
+      # Fallback to python -m pytest (may fail if dependencies not installed)
+      echo "Warning: No venv pytest found, using system Python (may fail if dependencies missing)"
       PYTHONPATH=. python -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
     fi
   )
