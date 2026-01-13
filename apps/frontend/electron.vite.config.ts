@@ -2,8 +2,24 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
+/**
+ * Sentry configuration embedded at build time.
+ *
+ * In CI builds, these come from GitHub secrets.
+ * In local development, these come from apps/frontend/.env (loaded by dotenv).
+ *
+ * The `define` option replaces these values at build time, so they're
+ * embedded in the bundle and available at runtime in packaged apps.
+ */
+const sentryDefines = {
+  '__SENTRY_DSN__': JSON.stringify(process.env.SENTRY_DSN || ''),
+  '__SENTRY_TRACES_SAMPLE_RATE__': JSON.stringify(process.env.SENTRY_TRACES_SAMPLE_RATE || '0.1'),
+  '__SENTRY_PROFILES_SAMPLE_RATE__': JSON.stringify(process.env.SENTRY_PROFILES_SAMPLE_RATE || '0.1'),
+};
+
 export default defineConfig({
   main: {
+    define: sentryDefines,
     plugins: [externalizeDepsPlugin({
       // Bundle these packages into the main process (they won't be in node_modules in packaged app)
       exclude: [
@@ -43,6 +59,7 @@ export default defineConfig({
     }
   },
   renderer: {
+    define: sentryDefines,
     root: resolve(__dirname, 'src/renderer'),
     build: {
       rollupOptions: {
