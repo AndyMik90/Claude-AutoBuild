@@ -48,6 +48,7 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
   const [pendingAction, setPendingAction] = useState<'generate' | 'refresh' | 'append' | null>(null);
   const [showAddMoreDialog, setShowAddMoreDialog] = useState(false);
   const [typesToAdd, setTypesToAdd] = useState<IdeationType[]>([]);
+  const [convertingIdeas, setConvertingIdeas] = useState<Set<string>>(new Set());
 
   const { hasToken, isLoading: isCheckingToken, checkAuth } = useIdeationAuth();
 
@@ -130,11 +131,28 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
   };
 
   const handleConvertToTask = async (idea: Idea) => {
-    const result = await window.electronAPI.convertIdeaToTask(projectId, idea.id);
-    if (result.success && result.data) {
-      // Store the taskId on the idea so we can navigate to it later
-      useIdeationStore.getState().setIdeaTaskId(idea.id, result.data.id);
-      loadTasks(projectId);
+    // Guard: prevent duplicate conversion
+    if (convertingIdeas.has(idea.id)) {
+      return;
+    }
+
+    // Mark as converting
+    setConvertingIdeas(prev => new Set(prev).add(idea.id));
+
+    try {
+      const result = await window.electronAPI.convertIdeaToTask(projectId, idea.id);
+      if (result.success && result.data) {
+        // Store the taskId on the idea so we can navigate to it later
+        useIdeationStore.getState().setIdeaTaskId(idea.id, result.data.id);
+        loadTasks(projectId);
+      }
+    } finally {
+      // Always clear converting state
+      setConvertingIdeas(prev => {
+        const next = new Set(prev);
+        next.delete(idea.id);
+        return next;
+      });
     }
   };
 
@@ -228,6 +246,7 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
     activeIdeas,
     archivedIdeas,
     selectedIds,
+    convertingIdeas,
 
     // Actions
     setSelectedIdea,
