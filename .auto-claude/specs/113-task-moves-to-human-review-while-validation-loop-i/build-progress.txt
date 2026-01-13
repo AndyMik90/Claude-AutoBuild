@@ -144,3 +144,48 @@ Verification:
 Committed: 7db8394c - "auto-claude: subtask-3-1 - Verify update_qa_status tool does NOT set validation_complete flag"
 
 === END SESSION 4 ===
+
+=== SESSION 5 (Coder - Subtask subtask-4-1) ===
+
+Subtask: Create unit tests for update_status_from_subtasks with validation_complete flag
+Status: COMPLETED
+Service: backend
+File: tests/test_implementation_plan_validation.py
+
+Changes made:
+- Created comprehensive unit test suite with 22 tests covering:
+  * TestUpdateStatusFromSubtasksValidation (12 tests):
+    - All subtasks complete with no QA signoff → ai_review
+    - QA approved but validation_complete=False → ai_review
+    - QA approved and validation_complete=True → human_review ✓
+    - Backward compatibility: missing validation_complete field → ai_review
+    - QA rejected with validation_complete (ignored) → ai_review
+    - Partial subtasks with validation_complete → in_progress
+    - Edge cases: null values, truthy non-booleans, multiple phases, failed subtasks
+
+  * TestValidationCompleteSerializationAndPersistence (4 tests):
+    - Serialization to dict preserves validation_complete
+    - Deserialization from dict restores validation_complete
+    - Save/load cycle preserves validation_complete=True
+    - Save/load with missing validation_complete (backward compatibility)
+
+  * TestValidationCompleteEdgeCases (6 tests):
+    - Multiple update_status_from_subtasks calls are idempotent
+    - Status transition from ai_review → human_review when validation_complete set
+    - validation_complete=False explicitly set → ai_review
+    - Empty qa_signoff dict → ai_review
+    - Integer 0 and 1 edge cases (Python equality behavior)
+
+Test Results:
+✅ All 22 tests pass
+✅ Test covers three-condition check: subtasks complete + QA approved + validation_complete=True
+✅ Backward compatibility verified: missing field defaults to False
+✅ Edge cases verified: null, truthy strings, integers, empty dicts
+✅ Serialization and persistence verified through save/load cycle
+
+Verification:
+✅ Test command passes: python -m pytest tests/test_implementation_plan_validation.py -v
+
+Committed: 536732fb - "auto-claude: subtask-4-1 - Create unit tests for update_status_from_subtasks with validation_complete flag"
+
+=== END SESSION 5 ===
