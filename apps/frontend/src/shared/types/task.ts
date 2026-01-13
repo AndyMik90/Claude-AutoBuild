@@ -527,6 +527,6 @@ export interface HealthIssue {
  */
 export interface RecoveryAction {
   label: string;
-  actionType: 'recover_stuck' | 'view_logs' | 'view_qa_report' | 'discard_task' | 'retry';
+  actionType: 'recover_stuck' | 'view_logs' | 'view_qa_report' | 'recreate_spec' | 'discard_task' | 'retry';
   variant?: 'default' | 'destructive' | 'outline' | 'warning' | 'success';
 }

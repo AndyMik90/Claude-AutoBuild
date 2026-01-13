@@ -68,6 +68,10 @@ async function handleRecoveryAction(action: RecoveryAction, taskId: string, onRe
       // TODO: Open QA report
       console.log('View QA report for task:', taskId);
       break;
+    case 'recreate_spec':
+      // TODO: Recreate spec from task context
+      console.log('Recreate spec for task:', taskId);
+      break;
     case 'discard_task':
       // TODO: Discard task
       console.log('Discard task:', taskId);

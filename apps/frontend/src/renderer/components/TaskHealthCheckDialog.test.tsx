@@ -439,7 +439,7 @@ describe('TaskHealthCheckDialog', () => {
             ],
             recoveryActions: [
               { label: 'Recover', actionType: 'recover_stuck', variant: 'warning' },
-              { label: 'Discard Task', actionType: 'discard_task', variant: 'destructive' }
+              { label: 'Recreate Spec', actionType: 'recreate_spec', variant: 'default' }
             ]
           })
         ]

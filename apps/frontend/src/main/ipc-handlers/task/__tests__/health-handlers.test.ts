@@ -11,16 +11,18 @@
  * - Detecting tasks with no progress
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mkdirSync, writeFileSync, existsSync } from 'fs';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { mkdirSync, writeFileSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
-import { rimraf } from 'rimraf';
 import type { Task } from '@shared/types/task';
 
 // Mock electron before importing
 vi.mock('electron', () => ({
   ipcMain: {
     handle: vi.fn()
+  },
+  app: {
+    getPath: (name: string) => `/tmp/test-${name}`
   }
 }));
 
@@ -28,7 +30,7 @@ vi.mock('electron', () => ({
 const mockGetProjects = vi.fn();
 const mockGetTasks = vi.fn();
 
-vi.mock('../project-store', () => ({
+vi.mock('../../../project-store', () => ({
   projectStore: {
     getProjects: () => mockGetProjects(),
     getTasks: () => mockGetTasks()
@@ -45,9 +47,9 @@ vi.mock('../../agent/agent-manager', () => ({
 }));
 
 import { ipcMain } from 'electron';
-import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../shared/constants';
-import { registerTaskHealthHandlers } from './health-handlers';
-import type { AgentManager } from '../../agent';
+import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../../shared/constants';
+import { registerTaskHealthHandlers } from '../health-handlers';
+import type { AgentManager } from '../../../agent';
 import type { TaskHealthCheckResult } from '@shared/types/task';
 
 // Test directory setup
@@ -102,7 +104,7 @@ function setupTestSpecDir(specId: string, files: Record<string, string>) {
  */
 function cleanupTestDir() {
   if (existsSync(TEST_PROJECT_PATH)) {
-    rimraf.sync(TEST_PROJECT_PATH);
+    rmSync(TEST_PROJECT_PATH, { recursive: true, force: true });
   }
 }
 
@@ -447,7 +449,9 @@ describe('health-handlers - TASK_HEALTH_CHECK', () => {
       const result = await handler(null, 'project-1') as { success: boolean; data: TaskHealthCheckResult[] };
 
       expect(result.success).toBe(true);
-      expect(result.data).toHaveLength(2); // stuck + no_progress
+      expect(result.data).toHaveLength(1); // one unhealthy task
+      expect(result.data[0].issues).toHaveLength(2); // stuck + no_progress
+      expect(result.data[0].issues.some(i => i.type === 'stuck')).toBe(true);
       expect(result.data[0].issues.some(i => i.type === 'no_progress')).toBe(true);
     });
 
@@ -582,22 +586,22 @@ describe('health-handlers - TASK_HEALTH_CHECK', () => {
       expect(result.data[0].recoveryActions.some(a => a.actionType === 'view_logs')).toBe(true);
     });
 
-    it('should provide discard_task action for missing artifacts', async () => {
+    it('should provide recreate_spec action for missing spec files', async () => {
       const missingSpecTask = createMockTask({
-        id: 'task-discard',
-        specId: '016-discard',
+        id: 'task-missing-spec',
+        specId: '016-missing-spec',
         status: 'backlog',
-        specsPath: join(TEST_SPECS_DIR, '016-discard')
+        specsPath: join(TEST_SPECS_DIR, '016-missing-spec')
       });
 
-      mkdirSync(join(TEST_SPECS_DIR, '016-discard'), { recursive: true });
+      mkdirSync(join(TEST_SPECS_DIR, '016-missing-spec'), { recursive: true });
 
       mockGetTasks.mockReturnValue([missingSpecTask]);
 
       const result = await handler(null, 'project-1') as { success: boolean; data: TaskHealthCheckResult[] };
 
       expect(result.success).toBe(true);
-      expect(result.data[0].recoveryActions.some(a => a.actionType === 'discard_task')).toBe(true);
+      expect(result.data[0].recoveryActions.some(a => a.actionType === 'recreate_spec')).toBe(true);
     });
   });
 });

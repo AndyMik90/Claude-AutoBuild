@@ -31,7 +31,10 @@ import { projectStore } from '../../project-store';
  * Check if task is stuck (in_progress but not running)
  */
 function checkStuckTask(task: Task, agentManager: AgentManager): HealthIssue | null {
-  if (task.status === 'in_progress' && !agentManager.isRunning(task.id)) {
+  // Don't flag as stuck if the task has a failed phase (that's handled by checkFailedTask)
+  if (task.status === 'in_progress' &&
+      !agentManager.isRunning(task.id) &&
+      task.executionProgress?.phase !== 'failed') {
     return {
       type: 'stuck',
       severity: 'error',
@@ -191,7 +194,8 @@ function buildRecoveryActions(task: Task, issues: HealthIssue[]): RecoveryAction
   const hasStuck = issues.some(i => i.type === 'stuck');
   const hasQARejected = issues.some(i => i.type === 'qa_rejected');
   const hasFailed = issues.some(i => i.type === 'failed' || i.type === 'failed_subtasks');
-  const hasMissingArtifact = issues.some(i => i.type === 'missing_artifact' || i.type === 'corrupted');
+  const hasMissingSpec = issues.some(i => i.type === 'missing_artifact' && i.message.includes('spec.md'));
+  const hasCorrupted = issues.some(i => i.type === 'corrupted' || (i.type === 'missing_artifact' && !i.message.includes('spec.md')));
 
   if (hasStuck) {
     actions.push({
@@ -217,7 +221,17 @@ function buildRecoveryActions(task: Task, issues: HealthIssue[]): RecoveryAction
     });
   }
 
-  if (hasMissingArtifact) {
+  // For missing spec.md, offer to recreate from task context
+  if (hasMissingSpec) {
+    actions.push({
+      label: 'Recreate Spec',
+      actionType: 'recreate_spec',
+      variant: 'default'
+    });
+  }
+
+  // For corrupted or other missing artifacts, offer discard
+  if (hasCorrupted) {
     actions.push({
       label: 'Discard Task',
       actionType: 'discard_task',
@@ -238,13 +252,13 @@ function runHealthChecks(
 ): HealthIssue[] {
   const issues: HealthIssue[] = [];
 
-  // Check 1: Stuck task
-  const stuckIssue = checkStuckTask(task, agentManager);
-  if (stuckIssue) issues.push(stuckIssue);
-
-  // Check 2: Failed task
+  // Check 1: Failed task (higher priority - check before stuck)
   const failedIssue = checkFailedTask(task);
   if (failedIssue) issues.push(failedIssue);
+
+  // Check 2: Stuck task (in_progress but not running)
+  const stuckIssue = checkStuckTask(task, agentManager);
+  if (stuckIssue) issues.push(stuckIssue);
 
   // Check 3: Failed subtasks
   const subtasksIssue = checkFailedSubtasks(task);
