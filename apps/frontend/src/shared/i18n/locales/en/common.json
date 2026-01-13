@@ -352,5 +352,17 @@
     "done": "Done",
     "failedLabel": "Failed",
     "starting": "Starting..."
+  },
+  "ideation": {
+    "converting": "Converting...",
+    "convertToTask": "Convert to Auto-Build Task",
+    "dismissIdea": "Dismiss Idea",
+    "description": "Description",
+    "rationale": "Rationale",
+    "goToTask": "Go to Task",
+    "conversionFailed": "Conversion failed",
+    "conversionFailedDescription": "Failed to convert idea to task",
+    "conversionError": "Conversion error",
+    "conversionErrorDescription": "An error occurred while converting the idea"
   }
 }
