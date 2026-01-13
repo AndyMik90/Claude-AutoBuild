@@ -54,9 +54,7 @@ def _extract_c_argument(command_string: str) -> str | None:
         # Check for standalone -c or combined flags containing 'c'
         # Combined flags: -xc, -ec, -ic, -exc, etc. (short options bundled together)
         is_c_flag = token == "-c" or (
-            token.startswith("-")
-            and not token.startswith("--")
-            and "c" in token[1:]
+            token.startswith("-") and not token.startswith("--") and "c" in token[1:]
         )
         if is_c_flag and i + 1 < len(tokens):
             # The next token is the command to execute
