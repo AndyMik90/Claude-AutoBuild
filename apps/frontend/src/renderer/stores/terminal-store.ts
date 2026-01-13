@@ -70,7 +70,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   terminals: [],
   layouts: [],
   activeTerminalId: null,
-  maxTerminals: 12,
+  maxTerminals: Infinity, // No limit on terminals
   hasRestoredSessions: false,
 
   addTerminal: (cwd?: string, projectPath?: string) => {
