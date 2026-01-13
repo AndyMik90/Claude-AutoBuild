@@ -18,7 +18,7 @@
  */
 
 import { EventEmitter } from 'events';
-import type { Task, TaskStatus, QueueStatus, QueueConfig, TaskPriority, Project } from '../shared/types';
+import type { Task, QueueStatus, QueueConfig, TaskPriority } from '../shared/types';
 import { projectStore } from './project-store';
 import { debugLog, debugError } from '../shared/utils/debug-logger';
 import { QUEUE_MIN_CONCURRENT, QUEUE_MAX_CONCURRENT, type QueueConcurrent } from '../shared/constants/task';
