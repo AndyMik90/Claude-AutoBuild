@@ -723,10 +723,14 @@ class TestCrossLanguageConstantValidation:
         apps/backend/core/worktree.py and apps/frontend/src/shared/constants/git.ts
         is maintained.
         """
-        # Path to the TypeScript constant file
-        ts_file = Path(__file__).parent.parent / "apps" / "frontend" / "src" / "shared" / "constants" / "git.ts"
+        # Navigate from tests/ to repo root, then to frontend constants
+        repo_root = Path(__file__).parent.parent
+        ts_file = repo_root / "apps" / "frontend" / "src" / "shared" / "constants" / "git.ts"
 
-        assert ts_file.exists(), f"TypeScript constants file not found: {ts_file}"
+        assert ts_file.exists(), (
+            f"TypeScript constants file not found: {ts_file}\n"
+            f"Expected path relative to repo root: apps/frontend/src/shared/constants/git.ts"
+        )
 
         # Read and parse TypeScript file
         ts_content = ts_file.read_text()
