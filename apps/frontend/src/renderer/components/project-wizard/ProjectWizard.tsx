@@ -152,13 +152,6 @@ export function ProjectWizard({
     }
   }, [currentStepIndex]);
 
-  const skipToStep = useCallback((stepId: VisibleStepId) => {
-    const index = visibleSteps.indexOf(stepId);
-    if (index >= 0) {
-      setCurrentStepIndex(index);
-    }
-  }, [visibleSteps]);
-
   // Step completion handlers
   const handleProjectSelected = useCallback((project: Project, needsGit: boolean, needsAutoClaude: boolean) => {
     setState(prev => ({
