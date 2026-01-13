@@ -21,6 +21,8 @@ import {
 } from '../utils/windows-paths';
 import { findExecutable, findExecutableAsync } from '../env-utils';
 
+type MockDirent = { name: string; isDirectory: () => boolean };
+
 // Mock Electron app
 vi.mock('electron', () => ({
   app: {
@@ -52,7 +54,7 @@ vi.mock('child_process', () => {
   // so when tests call vi.mocked(execFileSync).mockReturnValue(), it affects execSync too
   const sharedSyncMock = vi.fn();
 
-  const mockExecFile = vi.fn((cmd: any, args: any, options: any, callback: any) => {
+const mockExecFile = vi.fn((cmd: unknown, args: unknown, options: unknown, callback: unknown) => {
     // Return a minimal ChildProcess-like object
     const childProcess = {
       stdout: { on: vi.fn() },
@@ -62,13 +64,14 @@ vi.mock('child_process', () => {
 
     // If callback is provided, call it asynchronously
     if (typeof callback === 'function') {
-      setImmediate(() => callback(null, 'claude-code version 1.0.0\n', ''));
+      const cb = callback as (error: Error | null, stdout: string, stderr: string) => void;
+      setImmediate(() => cb(null, 'claude-code version 1.0.0\n', ''));
     }
 
-    return childProcess as any;
+    return childProcess as unknown as import('child_process').ChildProcess;
   });
 
-  const mockExec = vi.fn((cmd: any, options: any, callback: any) => {
+  const mockExec = vi.fn((cmd: unknown, options: unknown, callback: unknown) => {
     // Return a minimal ChildProcess-like object
     const childProcess = {
       stdout: { on: vi.fn() },
@@ -78,10 +81,11 @@ vi.mock('child_process', () => {
 
     // If callback is provided, call it asynchronously
     if (typeof callback === 'function') {
-      setImmediate(() => callback(null, 'claude-code version 1.0.0\n', ''));
+      const cb = callback as (error: Error | null, stdout: string, stderr: string) => void;
+      setImmediate(() => cb(null, 'claude-code version 1.0.0\n', ''));
     }
 
-    return childProcess as any;
+    return childProcess as unknown as import('child_process').ChildProcess;
   });
 
   return {
@@ -122,7 +126,7 @@ vi.mock('../env-utils', () => ({
     }
     return trimmed;
   }),
-  getSpawnOptions: vi.fn((command: string, baseOptions?: any) => ({
+  getSpawnOptions: vi.fn((command: string, baseOptions?: Record<string, unknown>) => ({
     ...baseOptions,
     shell: /\.(cmd|bat)$/i.test(command) && process.platform === 'win32'
   })),
@@ -176,12 +180,12 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       });
 
       // Mock Node.js version directories (three versions)
-      const mockDirents = [
+      const mockDirents: MockDirent[] = [
         { name: 'v20.0.0', isDirectory: () => true },
         { name: 'v22.17.0', isDirectory: () => true },
         { name: 'v18.20.0', isDirectory: () => true },
       ];
-      vi.mocked(readdirSync).mockReturnValue(mockDirents as any);
+      vi.mocked(readdirSync).mockReturnValue(mockDirents);
 
       // Mock execFileSync to simulate successful version check
       vi.mocked(execFileSync).mockReturnValue('claude-code version 1.0.0\n');
@@ -245,11 +249,11 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
         return false;
       });
 
-      const mockDirents = [
+      const mockDirents: MockDirent[] = [
         { name: 'v22.17.0', isDirectory: () => true },
         { name: 'v20.0.0', isDirectory: () => true },
       ];
-      vi.mocked(readdirSync).mockReturnValue(mockDirents as any);
+      vi.mocked(readdirSync).mockReturnValue(mockDirents);
       vi.mocked(execFileSync).mockReturnValue('claude-code version 1.5.0\n');
 
       const result = getToolInfo('claude');
@@ -272,10 +276,10 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
         return false;
       });
 
-      const mockDirents = [
+      const mockDirents: MockDirent[] = [
         { name: 'v22.17.0', isDirectory: () => true },
       ];
-      vi.mocked(readdirSync).mockReturnValue(mockDirents as any);
+      vi.mocked(readdirSync).mockReturnValue(mockDirents);
 
       // Mock validation failure
       vi.mocked(execFileSync).mockImplementation(() => {
@@ -301,12 +305,12 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       });
 
       // Versions in random order
-      const mockDirents = [
+      const mockDirents: MockDirent[] = [
         { name: 'v18.20.0', isDirectory: () => true },
         { name: 'v22.17.0', isDirectory: () => true },
         { name: 'v20.5.0', isDirectory: () => true },
       ];
-      vi.mocked(readdirSync).mockReturnValue(mockDirents as any);
+      vi.mocked(readdirSync).mockReturnValue(mockDirents);
       vi.mocked(execFileSync).mockReturnValue('claude-code version 1.0.0\n');
 
       const result = getToolInfo('claude');

@@ -30,6 +30,13 @@ import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAs
 import type { ToolDetectionResult } from '../shared/types';
 
 const execFileAsync = promisify(execFile);
+
+type ExecFileSyncOptionsWithVerbatim = import('child_process').ExecFileSyncOptions & {
+  windowsVerbatimArguments?: boolean;
+};
+type ExecFileAsyncOptionsWithVerbatim = import('child_process').ExecFileOptionsWithStringEncoding & {
+  windowsVerbatimArguments?: boolean;
+};
 import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 import {
   getWindowsExecutablePaths,
@@ -932,13 +939,14 @@ class CLIToolManager {
         const cmdExe = process.env.ComSpec
           || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
         const cmdLine = `""${claudeCmd}" --version"`;
-        version = execFileSync(cmdExe, ['/d', '/s', '/c', cmdLine], {
+        const execOptions: ExecFileSyncOptionsWithVerbatim = {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,
           windowsVerbatimArguments: true,
           env,
-        }).trim();
+        };
+        version = execFileSync(cmdExe, ['/d', '/s', '/c', cmdLine], execOptions).trim();
       } else {
         // For .exe files and non-Windows, use execFileSync
         version = execFileSync(claudeCmd, ['--version'], {
@@ -1059,13 +1067,14 @@ class CLIToolManager {
         const cmdExe = process.env.ComSpec
           || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
         const cmdLine = `""${claudeCmd}" --version"`;
-        const result = await execFileAsync(cmdExe, ['/d', '/s', '/c', cmdLine], {
+        const execOptions: ExecFileAsyncOptionsWithVerbatim = {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,
           windowsVerbatimArguments: true,
           env,
-        });
+        };
+        const result = await execFileAsync(cmdExe, ['/d', '/s', '/c', cmdLine], execOptions);
         stdout = result.stdout;
       } else {
         // For .exe files and non-Windows, use execFileAsync
