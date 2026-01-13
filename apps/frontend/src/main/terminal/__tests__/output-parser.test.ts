@@ -77,7 +77,9 @@ describe('output-parser', () => {
         { input: 'Use arr[index] to access elements', desc: 'array access in explanation' },
         { input: 'See the arrow → for details', desc: 'arrow in text' },
         { input: 'File path: ~/projects/test.js', desc: 'file path mid-line' },
-        { input: 'Contact user@example.com for help', desc: 'email in text' },
+        { input: 'Contact user@example.com for help', desc: 'email in text (mid-line)' },
+        { input: 'user@example.com: please review this', desc: 'email at line start with colon (should NOT match)' },
+        { input: 'admin@company.org: check the logs', desc: 'email at line start with text after colon' },
         { input: 'The variable $HOME is set to /Users/dev', desc: 'shell var in explanation' },
         { input: 'Example: (main) branch is default', desc: 'branch name in explanation' },
 

@@ -177,7 +177,8 @@ const CLAUDE_EXIT_PATTERNS = [
   // Standard shell prompts with path/context (bash/zsh)
   // Matches: "user@hostname:~/path$", "hostname:path %", "[user@host path]$"
   // Must be at line start to avoid matching user@host in Claude's output
-  /^[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+[:\s~/]/m,  // user@hostname: pattern
+  // Requires path indicator after colon to avoid matching emails like "user@example.com:"
+  /^[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+:[~/$]/m,  // user@hostname:~ or user@hostname:/path
 
   // Path-based prompts (often in zsh, fish, etc.)
   // Matches: "~/projects $", "/home/user %"

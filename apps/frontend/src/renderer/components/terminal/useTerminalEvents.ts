@@ -147,6 +147,13 @@ export function useTerminalEvents({
     const cleanup = window.electronAPI.onTerminalClaudeExit((id: string) => {
       if (id === terminalId) {
         const store = useTerminalStore.getState();
+        const terminal = store.getTerminal(terminalId);
+        // Guard: If terminal has already exited, don't set status back to 'running'
+        // This handles the race condition where terminal exit and Claude exit events
+        // arrive in unexpected order (e.g., user types 'exit' which closes both)
+        if (terminal?.status === 'exited') {
+          return;
+        }
         // Reset Claude mode - Claude has exited but terminal is still running
         // Use updateTerminal to set all Claude-related state at once
         store.updateTerminal(terminalId, {
