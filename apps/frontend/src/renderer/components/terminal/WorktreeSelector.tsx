@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { FolderGit, Plus, ChevronDown, Loader2, Trash2 } from 'lucide-react';
+import { FolderGit, Plus, ChevronDown, Loader2, Trash2, ListTodo } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { TerminalWorktreeConfig } from '../../../shared/types';
+import type { TerminalWorktreeConfig, WorktreeListItem } from '../../../shared/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { cn } from '../../lib/utils';
+import { useProjectStore } from '../../stores/project-store';
 
 interface WorktreeSelectorProps {
   terminalId: string;
@@ -33,7 +34,7 @@ interface WorktreeSelectorProps {
 }
 
 export function WorktreeSelector({
-  terminalId: _terminalId,
+  terminalId,
   projectPath,
   currentWorktree,
   onCreateWorktree,
@@ -41,23 +42,47 @@ export function WorktreeSelector({
 }: WorktreeSelectorProps) {
   const { t } = useTranslation(['terminal', 'common']);
   const [worktrees, setWorktrees] = useState<TerminalWorktreeConfig[]>([]);
+  const [taskWorktrees, setTaskWorktrees] = useState<WorktreeListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [deleteWorktree, setDeleteWorktree] = useState<TerminalWorktreeConfig | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Get project ID from projectPath for task worktrees API
+  const project = useProjectStore((state) =>
+    state.projects.find((p) => p.path === projectPath)
+  );
 
   // Fetch worktrees when dropdown opens
   const fetchWorktrees = async () => {
     if (!projectPath) return;
     setIsLoading(true);
     try {
-      const result = await window.electronAPI.listTerminalWorktrees(projectPath);
-      if (result.success && result.data) {
-        // Filter out the current worktree from the list
+      // Fetch terminal worktrees and task worktrees in parallel
+      const [terminalResult, taskResult] = await Promise.all([
+        window.electronAPI.listTerminalWorktrees(projectPath),
+        project?.id ? window.electronAPI.listWorktrees(project.id) : Promise.resolve(null),
+      ]);
+
+      // Process terminal worktrees
+      if (terminalResult.success && terminalResult.data) {
+        // Filter out the current worktree from the list using path for consistency
         const available = currentWorktree
-          ? result.data.filter((wt) => wt.name !== currentWorktree.name)
-          : result.data;
+          ? terminalResult.data.filter((wt) => wt.worktreePath !== currentWorktree.worktreePath)
+          : terminalResult.data;
         setWorktrees(available);
+      }
+
+      // Process task worktrees
+      if (taskResult?.success && taskResult.data?.worktrees) {
+        // Filter out current worktree if it matches a task worktree
+        const availableTaskWorktrees = currentWorktree
+          ? taskResult.data.worktrees.filter((wt) => wt.path !== currentWorktree.worktreePath)
+          : taskResult.data.worktrees;
+        setTaskWorktrees(availableTaskWorktrees);
+      } else {
+        // Clear task worktrees when project is null or fetch failed
+        setTaskWorktrees([]);
       }
     } catch (err) {
       console.error('Failed to fetch worktrees:', err);
@@ -66,11 +91,26 @@ export function WorktreeSelector({
     }
   };
 
+  // Convert task worktree to terminal worktree config for selection
+  const selectTaskWorktree = (taskWt: WorktreeListItem) => {
+    const config: TerminalWorktreeConfig = {
+      name: taskWt.specName,
+      worktreePath: taskWt.path,
+      branchName: taskWt.branch,
+      baseBranch: taskWt.baseBranch,
+      hasGitBranch: true,
+      // Note: This represents when the worktree was attached to this terminal, not when it was originally created
+      createdAt: new Date().toISOString(),
+      terminalId,
+    };
+    onSelectWorktree(config);
+  };
+
   useEffect(() => {
     if (isOpen && projectPath) {
       fetchWorktrees();
     }
-  }, [isOpen, projectPath, currentWorktree]);
+  }, [isOpen, projectPath, currentWorktree, project?.id]);
 
   // Handle delete worktree
   const handleDeleteWorktree = async () => {
@@ -137,46 +177,82 @@ export function WorktreeSelector({
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           </>
-        ) : worktrees.length > 0 ? (
+        ) : (
           <>
-            <DropdownMenuSeparator />
-            <div className="px-2 py-1.5 text-xs text-muted-foreground">
-              {t('terminal:worktree.existing')}
-            </div>
-            {worktrees.map((wt) => (
-              <DropdownMenuItem
-                key={wt.name}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsOpen(false);
-                  onSelectWorktree(wt);
-                }}
-                className="text-xs group"
-              >
-                <FolderGit className="h-3 w-3 mr-2 text-amber-500/70 shrink-0" />
-                <div className="flex flex-col min-w-0 flex-1">
-                  <span className="truncate font-medium">{wt.name}</span>
-                  {wt.branchName && (
-                    <span className="text-[10px] text-muted-foreground truncate">
-                      {wt.branchName}
-                    </span>
-                  )}
+            {/* Terminal Worktrees Section */}
+            {worktrees.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                  {t('terminal:worktree.existing')}
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    setDeleteWorktree(wt);
-                  }}
-                  className="ml-2 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                  title={t('common:delete')}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </DropdownMenuItem>
-            ))}
+                {worktrees.map((wt) => (
+                  <DropdownMenuItem
+                    key={wt.name}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsOpen(false);
+                      onSelectWorktree(wt);
+                    }}
+                    className="text-xs group"
+                  >
+                    <FolderGit className="h-3 w-3 mr-2 text-amber-500/70 shrink-0" />
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="truncate font-medium">{wt.name}</span>
+                      {wt.branchName && (
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          {wt.branchName}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setDeleteWorktree(wt);
+                      }}
+                      className="ml-2 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                      title={t('common:delete')}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </DropdownMenuItem>
+                ))}
+              </>
+            )}
+
+            {/* Task Worktrees Section */}
+            {taskWorktrees.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                  {t('terminal:worktree.taskWorktrees')}
+                </div>
+                {taskWorktrees.map((wt) => (
+                  <DropdownMenuItem
+                    key={wt.specName}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsOpen(false);
+                      selectTaskWorktree(wt);
+                    }}
+                    className="text-xs group"
+                  >
+                    <ListTodo className="h-3 w-3 mr-2 text-cyan-500/70 shrink-0" />
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="truncate font-medium">{wt.specName}</span>
+                      {wt.branch && (
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          {wt.branch}
+                        </span>
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </>
+            )}
           </>
-        ) : null}
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
 
