@@ -168,8 +168,6 @@ function cleanupOrphanedWorktree(
   worktreePath: string,
   expectedBranch: string
 ): WorktreeCleanupResult {
-  let directoryDeleted = false;
-
   try {
     // Try git worktree remove first, fall back to direct deletion
     try {
@@ -179,7 +177,6 @@ function cleanupOrphanedWorktree(
         timeout: 30000
       });
       console.warn(`[cleanupOrphanedWorktree] Orphaned worktree removed: ${worktreePath}`);
-      directoryDeleted = true;
     } catch (gitRemoveError) {
       console.warn(`[cleanupOrphanedWorktree] 'git worktree remove' failed, falling back to directory deletion. Error:`, gitRemoveError);
       try {
@@ -187,7 +184,6 @@ function cleanupOrphanedWorktree(
         // Verify the directory was actually deleted
         if (!existsSync(worktreePath)) {
           console.warn(`[cleanupOrphanedWorktree] Orphaned worktree directory deleted: ${worktreePath}`);
-          directoryDeleted = true;
         } else {
           console.error(`[cleanupOrphanedWorktree] Directory still exists after rmSync: ${worktreePath}`);
           return {
@@ -208,12 +204,10 @@ function cleanupOrphanedWorktree(
       }
     }
 
-    // Only delete the branch if the directory was successfully removed
-    // This prevents inconsistent state where branch is deleted but directory still exists
-    if (directoryDeleted) {
-      deleteBranch(projectPath, expectedBranch);
-      pruneWorktrees(projectPath);
-    }
+    // Directory was successfully removed (all failure paths return early above)
+    // Now safe to delete the branch and prune stale worktree references
+    deleteBranch(projectPath, expectedBranch);
+    pruneWorktrees(projectPath);
 
     console.warn(`[cleanupOrphanedWorktree] Orphaned worktree cleanup completed`);
     return { success: true };
