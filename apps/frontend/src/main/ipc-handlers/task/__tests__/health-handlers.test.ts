@@ -14,6 +14,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, writeFileSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
+import { randomBytes } from 'crypto';
 import type { Task } from '@shared/types/task';
 
 // Mock electron before importing
@@ -47,13 +49,15 @@ vi.mock('../../agent/agent-manager', () => ({
 }));
 
 import { ipcMain } from 'electron';
-import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../../shared/constants';
+import { IPC_CHANNELS } from '../../../../shared/constants';
 import { registerTaskHealthHandlers } from '../health-handlers';
 import type { AgentManager } from '../../../agent';
 import type { TaskHealthCheckResult } from '@shared/types/task';
 
 // Test directory setup
-const TEST_PROJECT_PATH = '/tmp/test-health-check-project';
+// Use system temp directory with a unique subdirectory for security
+const TEST_UNIQUE_ID = randomBytes(8).toString('hex');
+const TEST_PROJECT_PATH = join(tmpdir(), `test-health-check-${TEST_UNIQUE_ID}`);
 const TEST_SPECS_DIR = join(TEST_PROJECT_PATH, '.auto-claude', 'specs');
 
 /**

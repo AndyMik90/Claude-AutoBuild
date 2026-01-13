@@ -169,7 +169,7 @@ export function TaskHealthCheckDialog({ open, onOpenChange, projectId }: TaskHea
           <DialogTitle className="flex items-center gap-2">
             {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            ) : results.length === 0 && !isLoading ? (
+            ) : results.length === 0 ? (
               <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-500" />
             ) : (
               <AlertCircle className="h-5 w-5 text-destructive" />
