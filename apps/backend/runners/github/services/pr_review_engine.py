@@ -21,6 +21,7 @@ try:
         ReviewPass,
         StructuralIssue,
     )
+    from .io_utils import safe_print
     from .prompt_manager import PromptManager
     from .response_parsers import ResponseParser
 except (ImportError, ValueError, SystemError):
@@ -32,6 +33,7 @@ except (ImportError, ValueError, SystemError):
         ReviewPass,
         StructuralIssue,
     )
+    from services.io_utils import safe_print
     from services.prompt_manager import PromptManager
     from services.response_parsers import ResponseParser
 
@@ -80,19 +82,19 @@ class PRReviewEngine:
         total_changes = context.total_additions + context.total_deletions
 
         if total_changes > 200:
-            print(
+            safe_print(
                 f"[AI] Deep analysis needed: {total_changes} lines changed", flush=True
             )
             return True
 
         complexity = scan_result.get("complexity", "low")
         if complexity in ["high", "medium"]:
-            print(f"[AI] Deep analysis needed: {complexity} complexity", flush=True)
+            safe_print(f"[AI] Deep analysis needed: {complexity} complexity")
             return True
 
         risk_areas = scan_result.get("risk_areas", [])
         if risk_areas:
-            print(
+            safe_print(
                 f"[AI] Deep analysis needed: {len(risk_areas)} risk areas", flush=True
             )
             return True
@@ -111,7 +113,7 @@ class PRReviewEngine:
                 seen.add(key)
                 unique.append(f)
             else:
-                print(
+                safe_print(
                     f"[AI] Skipping duplicate finding: {f.file}:{f.line} - {f.title}",
                     flush=True,
                 )
@@ -171,7 +173,7 @@ class PRReviewEngine:
 
         # If diff is empty/truncated, build composite from individual file patches
         if context.diff_truncated or not context.diff:
-            print(
+            safe_print(
                 f"[AI] Building composite diff from {len(context.changed_files)} file patches...",
                 flush=True,
             )
@@ -260,7 +262,7 @@ class PRReviewEngine:
             error_msg = f"Review pass {review_pass.value} failed: {e}"
             logger.error(error_msg)
             logger.error(f"Traceback: {traceback.format_exc()}")
-            print(f"[AI] ERROR: {error_msg}", flush=True)
+            safe_print(f"[AI] ERROR: {error_msg}")
 
             # Re-raise to allow caller to handle or track partial failures
             raise RuntimeError(error_msg) from e
@@ -281,7 +283,7 @@ class PRReviewEngine:
         """
         # Use parallel orchestrator with SDK subagents if enabled
         if self.config.use_parallel_orchestrator:
-            print(
+            safe_print(
                 "[AI] Using parallel orchestrator PR review (SDK subagents)...",
                 flush=True,
             )
@@ -303,7 +305,7 @@ class PRReviewEngine:
 
             result = await orchestrator.review(context)
 
-            print(
+            safe_print(
                 f"[PR Review Engine] Parallel orchestrator returned {len(result.findings)} findings",
                 flush=True,
             )
@@ -322,7 +324,7 @@ class PRReviewEngine:
         ai_triages = []
 
         # Pass 1: Quick Scan (must run first - determines if deep analysis needed)
-        print("[AI] Pass 1/6: Quick Scan - Understanding scope...", flush=True)
+        safe_print("[AI] Pass 1/6: Quick Scan - Understanding scope...")
         self._report_progress(
             "analyzing",
             35,
@@ -339,7 +341,7 @@ class PRReviewEngine:
         parallel_tasks = []
         task_names = []
 
-        print("[AI] Running passes 2-6 in parallel...", flush=True)
+        safe_print("[AI] Running passes 2-6 in parallel...")
         self._report_progress(
             "analyzing",
             50,
@@ -348,50 +350,50 @@ class PRReviewEngine:
         )
 
         async def run_security_pass():
-            print(
+            safe_print(
                 "[AI] Pass 2/6: Security Review - Analyzing vulnerabilities...",
                 flush=True,
             )
             findings = await self.run_review_pass(ReviewPass.SECURITY, context)
-            print(f"[AI] Security pass complete: {len(findings)} findings", flush=True)
+            safe_print(f"[AI] Security pass complete: {len(findings)} findings")
             return ("security", findings)
 
         async def run_quality_pass():
-            print(
+            safe_print(
                 "[AI] Pass 3/6: Quality Review - Checking code quality...", flush=True
             )
             findings = await self.run_review_pass(ReviewPass.QUALITY, context)
-            print(f"[AI] Quality pass complete: {len(findings)} findings", flush=True)
+            safe_print(f"[AI] Quality pass complete: {len(findings)} findings")
             return ("quality", findings)
 
         async def run_structural_pass():
-            print(
+            safe_print(
                 "[AI] Pass 4/6: Structural Review - Checking for feature creep...",
                 flush=True,
             )
             result_text = await self._run_structural_pass(context)
             issues = self.parser.parse_structural_issues(result_text)
-            print(f"[AI] Structural pass complete: {len(issues)} issues", flush=True)
+            safe_print(f"[AI] Structural pass complete: {len(issues)} issues")
             return ("structural", issues)
 
         async def run_ai_triage_pass():
-            print(
+            safe_print(
                 "[AI] Pass 5/6: AI Comment Triage - Verifying other AI comments...",
                 flush=True,
             )
             result_text = await self._run_ai_triage_pass(context)
             triages = self.parser.parse_ai_comment_triages(result_text)
-            print(
+            safe_print(
                 f"[AI] AI triage complete: {len(triages)} comments triaged", flush=True
             )
             return ("ai_triage", triages)
 
         async def run_deep_pass():
-            print(
+            safe_print(
                 "[AI] Pass 6/6: Deep Analysis - Reviewing business logic...", flush=True
             )
             findings = await self.run_review_pass(ReviewPass.DEEP_ANALYSIS, context)
-            print(f"[AI] Deep analysis complete: {len(findings)} findings", flush=True)
+            safe_print(f"[AI] Deep analysis complete: {len(findings)} findings")
             return ("deep", findings)
 
         # Always run security, quality, structural
@@ -408,22 +410,22 @@ class PRReviewEngine:
         if has_ai_comments:
             parallel_tasks.append(run_ai_triage_pass())
             task_names.append("AI Triage")
-            print(
+            safe_print(
                 f"[AI] Found {len(context.ai_bot_comments)} AI comments to triage",
                 flush=True,
             )
         else:
-            print("[AI] Pass 5/6: Skipped (no AI comments to triage)", flush=True)
+            safe_print("[AI] Pass 5/6: Skipped (no AI comments to triage)")
 
         # Only run deep analysis if needed
         if needs_deep:
             parallel_tasks.append(run_deep_pass())
             task_names.append("Deep Analysis")
         else:
-            print("[AI] Pass 6/6: Skipped (changes not complex enough)", flush=True)
+            safe_print("[AI] Pass 6/6: Skipped (changes not complex enough)")
 
         # Run all passes in parallel
-        print(
+        safe_print(
             f"[AI] Executing {len(parallel_tasks)} passes in parallel: {', '.join(task_names)}",
             flush=True,
         )
@@ -432,7 +434,7 @@ class PRReviewEngine:
         # Collect results from all parallel passes
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                print(f"[AI] Pass '{task_names[i]}' failed: {result}", flush=True)
+                safe_print(f"[AI] Pass '{task_names[i]}' failed: {result}")
             elif isinstance(result, tuple):
                 pass_type, data = result
                 if pass_type in ("security", "quality", "deep"):
@@ -450,12 +452,12 @@ class PRReviewEngine:
         )
 
         # Deduplicate findings
-        print(
+        safe_print(
             f"[AI] Deduplicating {len(all_findings)} findings from all passes...",
             flush=True,
         )
         unique_findings = self.deduplicate_findings(all_findings)
-        print(
+        safe_print(
             f"[AI] Multi-pass review complete: {len(unique_findings)} findings, "
             f"{len(structural_issues)} structural issues, {len(ai_triages)} AI triages",
             flush=True,
@@ -509,7 +511,7 @@ class PRReviewEngine:
                             if block_type == "TextBlock" and hasattr(block, "text"):
                                 result_text += block.text
         except Exception as e:
-            print(f"[AI] Structural pass error: {e}", flush=True)
+            safe_print(f"[AI] Structural pass error: {e}")
 
         return result_text
 
@@ -567,7 +569,7 @@ class PRReviewEngine:
                             if block_type == "TextBlock" and hasattr(block, "text"):
                                 result_text += block.text
         except Exception as e:
-            print(f"[AI] AI triage pass error: {e}", flush=True)
+            safe_print(f"[AI] AI triage pass error: {e}")
 
         return result_text
 

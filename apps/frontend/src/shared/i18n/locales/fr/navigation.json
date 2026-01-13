@@ -41,6 +41,7 @@
     "missing": "Non installé",
     "current": "Actuelle",
     "latest": "Dernière",
+    "path": "Chemin",
     "lastChecked": "Dernière vérification",
     "learnMore": "En savoir plus sur Claude Code",
     "learnMoreAriaLabel": "En savoir plus sur Claude Code (s'ouvre dans une nouvelle fenêtre)",
@@ -57,6 +58,15 @@
     "rollbackWarningTitle": "Passer à la version {{version}} ?",
     "rollbackWarningDescription": "Le changement de version fermera toutes les sessions Claude Code en cours. Tout travail non sauvegardé dans ces sessions pourrait être perdu. Assurez-vous de sauvegarder votre travail avant de continuer.",
     "switchAnyway": "Changer quand même",
-    "currentVersion": "Actuelle"
+    "currentVersion": "Actuelle",
+    "switchInstallation": "Changer d'installation",
+    "selectInstallation": "Sélectionner une installation",
+    "loadingInstallations": "Chargement des installations...",
+    "failedToLoadInstallations": "Échec du chargement des installations",
+    "activeInstallation": "Active",
+    "pathChangeWarningTitle": "Changer d'installation CLI ?",
+    "pathChangeWarningDescription": "Le changement d'installation CLI utilisera un binaire Claude Code différent. Les sessions en cours continueront à utiliser l'installation précédente jusqu'à leur redémarrage.",
+    "switchInstallationConfirm": "Changer",
+    "versionUnknown": "version inconnue"
   }
 }

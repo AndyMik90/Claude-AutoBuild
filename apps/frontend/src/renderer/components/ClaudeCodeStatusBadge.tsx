@@ -9,6 +9,7 @@ import {
   Download,
   RefreshCw,
   ExternalLink,
+  FolderOpen,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -31,7 +32,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { cn } from "../lib/utils";
-import type { ClaudeCodeVersionInfo } from "../../shared/types/cli";
+import type { ClaudeCodeVersionInfo, ClaudeInstallationInfo } from "../../shared/types/cli";
 
 interface ClaudeCodeStatusBadgeProps {
   className?: string;
@@ -64,6 +65,13 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
   const [showRollbackWarning, setShowRollbackWarning] = useState(false);
   const [installError, setInstallError] = useState<string | null>(null);
+
+  // CLI path selection state
+  const [installations, setInstallations] = useState<ClaudeInstallationInfo[]>([]);
+  const [isLoadingInstallations, setIsLoadingInstallations] = useState(false);
+  const [installationsError, setInstallationsError] = useState<string | null>(null);
+  const [selectedInstallation, setSelectedInstallation] = useState<string | null>(null);
+  const [showPathChangeWarning, setShowPathChangeWarning] = useState(false);
 
   // Check Claude Code version
   const checkVersion = useCallback(async () => {
@@ -119,6 +127,30 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
     }
   }, []);
 
+  // Fetch CLI installations
+  const fetchInstallations = useCallback(async () => {
+    if (!window.electronAPI?.getClaudeCodeInstallations) {
+      return;
+    }
+
+    setIsLoadingInstallations(true);
+    setInstallationsError(null);
+
+    try {
+      const result = await window.electronAPI.getClaudeCodeInstallations();
+      if (result.success && result.data) {
+        setInstallations(result.data.installations);
+      } else {
+        setInstallationsError(result.error || "Failed to load installations");
+      }
+    } catch (err) {
+      console.error("Failed to fetch installations:", err);
+      setInstallationsError("Failed to load installations");
+    } finally {
+      setIsLoadingInstallations(false);
+    }
+  }, []);
+
   // Initial check and periodic re-check
   useEffect(() => {
     checkVersion();
@@ -137,6 +169,13 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
       fetchVersions();
     }
   }, [isOpen, versionInfo?.installed, availableVersions.length, fetchVersions]);
+
+  // Fetch installations when popover opens
+  useEffect(() => {
+    if (isOpen && installations.length === 0) {
+      fetchInstallations();
+    }
+  }, [isOpen, installations.length, fetchInstallations]);
 
   // Perform the actual install/update
   const performInstall = async () => {
@@ -200,6 +239,40 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
     }
   };
 
+  // Perform CLI path switch
+  const performPathSwitch = async () => {
+    if (!selectedInstallation) return;
+
+    setIsInstalling(true);
+    setShowPathChangeWarning(false);
+    setInstallError(null);
+
+    try {
+      if (!window.electronAPI?.setClaudeCodeActivePath) {
+        setInstallError("Path switching not available");
+        return;
+      }
+
+      const result = await window.electronAPI.setClaudeCodeActivePath(selectedInstallation);
+
+      if (result.success) {
+        // Re-check version and refresh installations
+        setTimeout(() => {
+          checkVersion();
+          fetchInstallations();
+        }, VERSION_RECHECK_DELAY_MS);
+      } else {
+        setInstallError(result.error || "Failed to switch CLI path");
+      }
+    } catch (err) {
+      console.error("Failed to switch Claude CLI path:", err);
+      setInstallError(err instanceof Error ? err.message : "Failed to switch CLI path");
+    } finally {
+      setIsInstalling(false);
+      setSelectedInstallation(null);
+    }
+  };
+
   // Handle install/update button click
   const handleInstall = () => {
     if (status === "outdated") {
@@ -209,6 +282,18 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
       // Fresh install - no warning needed
       performInstall();
     }
+  };
+
+  // Handle installation selection
+  const handleInstallationSelect = (cliPath: string) => {
+    // Don't do anything if it's the currently active installation
+    const installation = installations.find(i => i.path === cliPath);
+    if (installation?.isActive) {
+      return;
+    }
+    setInstallError(null);
+    setSelectedInstallation(cliPath);
+    setShowPathChangeWarning(true);
   };
 
   // Normalize version string by removing 'v' prefix for comparison
@@ -354,6 +439,20 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
                   <span className="font-mono">{versionInfo.latest}</span>
                 </div>
               )}
+              {versionInfo.path && (
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <FolderOpen className="h-3 w-3" />
+                    {t("navigation:claudeCode.path", "Path")}:
+                  </span>
+                  <span
+                    className="font-mono text-[10px] truncate max-w-[140px]"
+                    title={versionInfo.path}
+                  >
+                    {versionInfo.path}
+                  </span>
+                </div>
+              )}
               {lastChecked && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>{t("navigation:claudeCode.lastChecked", "Last checked")}:</span>
@@ -397,7 +496,7 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
           {/* Install/Update error display */}
           {installError && (
             <div className="text-xs p-2 bg-destructive/10 text-destructive rounded-md flex items-center gap-2">
-              <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+              <AlertTriangle className="h-3 w-3 shrink-0" />
               <span>{installError}</span>
             </div>
           )}
@@ -443,6 +542,53 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
                       </SelectItem>
                     );
                   })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* CLI Installation selector - show when multiple installations are found */}
+          {installations.length > 1 && (
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">
+                {t("navigation:claudeCode.switchInstallation", "Switch Installation")}
+              </label>
+              <Select
+                value={selectedInstallation || ""}
+                onValueChange={handleInstallationSelect}
+                disabled={isLoadingInstallations || isInstalling}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue
+                    placeholder={
+                      isLoadingInstallations
+                        ? t("navigation:claudeCode.loadingInstallations", "Loading installations...")
+                        : installationsError
+                          ? t("navigation:claudeCode.failedToLoadInstallations", "Failed to load installations")
+                          : t("navigation:claudeCode.selectInstallation", "Select installation")
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {installations.map((installation) => (
+                    <SelectItem
+                      key={installation.path}
+                      value={installation.path}
+                      className="text-xs"
+                      disabled={installation.isActive}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-mono text-[10px] truncate max-w-[180px]" title={installation.path}>
+                          {/* Split on both path separators for cross-platform compatibility */}
+                          {installation.path.split(/[/\\]/).slice(-2).join('/') || installation.path}
+                        </span>
+                        <span className="text-muted-foreground text-[9px]">
+                          {installation.version ? `v${installation.version}` : t("navigation:claudeCode.versionUnknown", "version unknown")} ({installation.source})
+                          {installation.isActive && ` - ${t("navigation:claudeCode.activeInstallation", "Active")}`}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -529,6 +675,34 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
             </AlertDialogCancel>
             <AlertDialogAction onClick={performVersionSwitch}>
               {t("navigation:claudeCode.switchAnyway", "Switch Anyway")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Path change warning dialog */}
+      <AlertDialog open={showPathChangeWarning} onOpenChange={setShowPathChangeWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("navigation:claudeCode.pathChangeWarningTitle", "Switch CLI installation?")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                "navigation:claudeCode.pathChangeWarningDescription",
+                "Switching CLI installations will use a different Claude Code binary. Any running sessions will continue using the previous installation until restarted."
+              )}
+              <span className="block mt-2 font-mono text-xs break-all">
+                {selectedInstallation}
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSelectedInstallation(null)}>
+              {t("common:cancel", "Cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={performPathSwitch}>
+              {t("navigation:claudeCode.switchInstallationConfirm", "Switch")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

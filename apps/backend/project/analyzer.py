@@ -188,9 +188,37 @@ class ProjectAnalyzer:
         return hasher.hexdigest()
 
     def should_reanalyze(self, profile: SecurityProfile) -> bool:
-        """Check if project has changed since last analysis."""
+        """Check if project has changed since last analysis.
+
+        Never re-analyzes inherited profiles (from worktrees) since they
+        came from a validated parent project with full context (e.g., node_modules).
+        """
+        # Never re-analyze inherited profiles - they came from a validated parent
+        # But validate that inherited_from points to a legitimate parent
+        if profile.inherited_from:
+            parent = Path(profile.inherited_from)
+            # Validate the inherited_from path:
+            # 1. Must exist and be a directory
+            # 2. Current project must be a descendant of the parent
+            # 3. Parent must contain a valid security profile
+            if (
+                parent.exists()
+                and parent.is_dir()
+                and self._is_descendant_of(self.project_dir, parent)
+                and (parent / self.PROFILE_FILENAME).exists()
+            ):
+                return False
+            # If validation fails, treat as non-inherited and check hash
         current_hash = self.compute_project_hash()
         return current_hash != profile.project_hash
+
+    def _is_descendant_of(self, child: Path, parent: Path) -> bool:
+        """Check if child path is a descendant of parent path."""
+        try:
+            child.resolve().relative_to(parent.resolve())
+            return True
+        except ValueError:
+            return False
 
     def analyze(self, force: bool = False) -> SecurityProfile:
         """
@@ -205,7 +233,12 @@ class ProjectAnalyzer:
         # Check for existing profile
         existing = self.load_profile()
         if existing and not force and not self.should_reanalyze(existing):
-            print(f"Using cached security profile (hash: {existing.project_hash[:8]})")
+            if existing.inherited_from:
+                print("Using inherited security profile from parent project")
+            else:
+                print(
+                    f"Using cached security profile (hash: {existing.project_hash[:8]})"
+                )
             return existing
 
         print("Analyzing project structure for security profile...")

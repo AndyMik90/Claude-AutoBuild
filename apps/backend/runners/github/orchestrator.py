@@ -46,6 +46,7 @@ try:
         PRReviewEngine,
         TriageEngine,
     )
+    from .services.io_utils import safe_print
 except (ImportError, ValueError, SystemError):
     # When imported directly (runner.py adds github dir to path)
     from bot_detection import BotDetector
@@ -74,6 +75,7 @@ except (ImportError, ValueError, SystemError):
         PRReviewEngine,
         TriageEngine,
     )
+    from services.io_utils import safe_print
 
 
 @dataclass
@@ -267,12 +269,12 @@ class GitHubOrchestrator:
                     comment_id=triage.comment_id,
                     body=triage.response_comment,
                 )
-                print(
+                safe_print(
                     f"[AI TRIAGE] Posted reply to {triage.tool_name} comment {triage.comment_id}",
                     flush=True,
                 )
             except Exception as e:
-                print(
+                safe_print(
                     f"[AI TRIAGE] Failed to post reply to comment {triage.comment_id}: {e}",
                     flush=True,
                 )
@@ -295,7 +297,7 @@ class GitHubOrchestrator:
         Returns:
             PRReviewResult with findings and overall assessment
         """
-        print(
+        safe_print(
             f"[DEBUG orchestrator] review_pr() called for PR #{pr_number}", flush=True
         )
 
@@ -308,14 +310,14 @@ class GitHubOrchestrator:
 
         try:
             # Gather PR context
-            print("[DEBUG orchestrator] Creating context gatherer...", flush=True)
+            safe_print("[DEBUG orchestrator] Creating context gatherer...")
             gatherer = PRContextGatherer(
                 self.project_dir, pr_number, repo=self.config.repo
             )
 
-            print("[DEBUG orchestrator] Gathering PR context...", flush=True)
+            safe_print("[DEBUG orchestrator] Gathering PR context...")
             pr_context = await gatherer.gather()
-            print(
+            safe_print(
                 f"[DEBUG orchestrator] Context gathered: {pr_context.title} "
                 f"({len(pr_context.changed_files)} files, {len(pr_context.related_files)} related)",
                 flush=True,
@@ -331,14 +333,14 @@ class GitHubOrchestrator:
 
             # Allow forcing a review to bypass "already reviewed" check
             if should_skip and force_review and "Already reviewed" in skip_reason:
-                print(
+                safe_print(
                     f"[BOT DETECTION] Force review requested - bypassing: {skip_reason}",
                     flush=True,
                 )
                 should_skip = False
 
             if should_skip:
-                print(
+                safe_print(
                     f"[BOT DETECTION] Skipping PR #{pr_number}: {skip_reason}",
                     flush=True,
                 )
@@ -348,7 +350,7 @@ class GitHubOrchestrator:
                 if "Already reviewed" in skip_reason:
                     existing_review = PRReviewResult.load(self.github_dir, pr_number)
                     if existing_review:
-                        print(
+                        safe_print(
                             "[BOT DETECTION] Returning existing review (no new commits)",
                             flush=True,
                         )
@@ -373,14 +375,14 @@ class GitHubOrchestrator:
             )
 
             # Delegate to PR Review Engine
-            print("[DEBUG orchestrator] Running multi-pass review...", flush=True)
+            safe_print("[DEBUG orchestrator] Running multi-pass review...")
             (
                 findings,
                 structural_issues,
                 ai_triages,
                 quick_scan,
             ) = await self.pr_review_engine.run_multi_pass_review(pr_context)
-            print(
+            safe_print(
                 f"[DEBUG orchestrator] Multi-pass review complete: "
                 f"{len(findings)} findings, {len(structural_issues)} structural, {len(ai_triages)} AI triages",
                 flush=True,
@@ -407,12 +409,12 @@ class GitHubOrchestrator:
                 ci_log_parts.append(f"{pending_without_awaiting} pending")
             if awaiting > 0:
                 ci_log_parts.append(f"{awaiting} awaiting approval")
-            print(
+            safe_print(
                 f"[orchestrator] CI status: {', '.join(ci_log_parts)}",
                 flush=True,
             )
             if awaiting > 0:
-                print(
+                safe_print(
                     f"[orchestrator] ⚠️ {awaiting} workflow(s) from fork need maintainer approval to run",
                     flush=True,
                 )
@@ -426,7 +428,7 @@ class GitHubOrchestrator:
                 has_merge_conflicts=pr_context.has_merge_conflicts,
                 merge_state_status=pr_context.merge_state_status,
             )
-            print(
+            safe_print(
                 f"[DEBUG orchestrator] Verdict: {verdict.value} - {verdict_reasoning}",
                 flush=True,
             )
@@ -471,12 +473,12 @@ class GitHubOrchestrator:
                     blob_sha = file.get("sha", "")
                     if filename and blob_sha:
                         file_blobs[filename] = blob_sha
-                print(
+                safe_print(
                     f"[Review] Captured {len(file_blobs)} file blob SHAs for follow-up tracking",
                     flush=True,
                 )
             except Exception as e:
-                print(
+                safe_print(
                     f"[Review] Warning: Could not capture file blobs: {e}", flush=True
                 )
 
@@ -544,11 +546,11 @@ class GitHubOrchestrator:
             # Log full exception details for debugging
             error_details = f"{type(e).__name__}: {e}"
             full_traceback = traceback.format_exc()
-            print(
+            safe_print(
                 f"[ERROR orchestrator] PR review failed for #{pr_number}: {error_details}",
                 flush=True,
             )
-            print(f"[ERROR orchestrator] Full traceback:\n{full_traceback}", flush=True)
+            safe_print(f"[ERROR orchestrator] Full traceback:\n{full_traceback}")
 
             result = PRReviewResult(
                 pr_number=pr_number,
@@ -577,7 +579,7 @@ class GitHubOrchestrator:
         Raises:
             ValueError: If no previous review exists for this PR
         """
-        print(
+        safe_print(
             f"[DEBUG orchestrator] followup_review_pr() called for PR #{pr_number}",
             flush=True,
         )
@@ -622,7 +624,7 @@ class GitHubOrchestrator:
 
             # Check if context gathering failed
             if followup_context.error:
-                print(
+                safe_print(
                     f"[Followup] Context gathering failed: {followup_context.error}",
                     flush=True,
                 )
@@ -653,7 +655,7 @@ class GitHubOrchestrator:
 
             if not has_commits and not has_file_changes:
                 base_sha = previous_review.reviewed_commit_sha[:8]
-                print(
+                safe_print(
                     f"[Followup] No changes since last review at {base_sha}",
                     flush=True,
                 )
@@ -700,7 +702,7 @@ class GitHubOrchestrator:
 
             # Use parallel orchestrator for follow-up if enabled
             if self.config.use_parallel_orchestrator:
-                print(
+                safe_print(
                     "[AI] Using parallel orchestrator for follow-up review (SDK subagents)...",
                     flush=True,
                 )
@@ -746,7 +748,7 @@ class GitHubOrchestrator:
             # (CI status was already passed to AI via followup_context.ci_status)
             failed_checks = followup_context.ci_status.get("failed_checks", [])
             if failed_checks:
-                print(
+                safe_print(
                     f"[Followup] CI checks failing: {failed_checks}",
                     flush=True,
                 )
@@ -1259,7 +1261,7 @@ class GitHubOrchestrator:
                         issue["number"], result.labels_to_remove
                     )
                 except Exception as e:
-                    print(f"Failed to apply labels to #{issue['number']}: {e}")
+                    safe_print(f"Failed to apply labels to #{issue['number']}: {e}")
 
             # Save result
             await result.save(self.github_dir)

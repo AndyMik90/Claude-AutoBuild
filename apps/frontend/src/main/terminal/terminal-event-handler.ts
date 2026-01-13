@@ -16,6 +16,7 @@ export interface EventHandlerCallbacks {
   onRateLimit: (terminal: TerminalProcess, data: string) => void;
   onOAuthToken: (terminal: TerminalProcess, data: string) => void;
   onClaudeBusyChange: (terminal: TerminalProcess, isBusy: boolean) => void;
+  onClaudeExit: (terminal: TerminalProcess) => void;
 }
 
 // Track the last known busy state per terminal to avoid duplicate events
@@ -58,6 +59,14 @@ export function handleTerminalData(
         callbacks.onClaudeBusyChange(terminal, isBusy);
       }
     }
+
+    // Detect Claude exit (returned to shell prompt)
+    // Only check if not busy - busy output takes precedence
+    if (busyState !== 'busy' && OutputParser.detectClaudeExit(data)) {
+      callbacks.onClaudeExit(terminal);
+      // Clear busy state tracking since Claude has exited
+      lastBusyState.delete(terminal.id);
+    }
   }
 }
 
@@ -97,6 +106,9 @@ export function createEventCallbacks(
       if (win) {
         win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_BUSY, terminal.id, isBusy);
       }
+    },
+    onClaudeExit: (terminal) => {
+      ClaudeIntegration.handleClaudeExit(terminal, getWindow);
     }
   };
 }
