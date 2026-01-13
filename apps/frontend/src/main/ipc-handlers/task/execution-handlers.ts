@@ -897,6 +897,7 @@ export function registerTaskExecutionHandlers(
         if (status !== 'in_progress' && agentManager.isRunning(taskId)) {
           console.warn('[TASK_UPDATE_STATUS] Stopping task due to status change away from in_progress:', taskId);
           agentManager.killTask(taskId);
+          fileWatcher.unwatch(taskId);
         }
 
         // Auto-start task when status changes to 'in_progress' and no process is running
