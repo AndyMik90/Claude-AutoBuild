@@ -18,6 +18,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
 import { cn } from '../../../lib/utils';
 import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal } from '../../../../shared/types';
 import { useSettingsStore } from '../../../stores/settings-store';
@@ -418,26 +419,37 @@ export function WorkspaceStatus({
 
           {/* State 3: Merge preview loaded - show appropriate merge/stage button */}
           {mergePreview && !isLoadingPreview && (
-            <Button
-              variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
-              onClick={onMerge}
-              disabled={isMerging || isDiscarding}
-              className="flex-1"
-            >
-              {isMerging ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {hasGitConflicts || isBranchBehind || hasPathMappedMerges ? 'Resolving...' : stageOnly ? 'Staging...' : 'Merging...'}
-                </>
-              ) : (
-                <>
-                  <GitMerge className="mr-2 h-4 w-4" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
+                  onClick={onMerge}
+                  disabled={isMerging || isDiscarding}
+                  className="flex-1"
+                >
+                  {isMerging ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {hasGitConflicts || isBranchBehind || hasPathMappedMerges ? 'Resolving...' : stageOnly ? 'Staging...' : 'Merging...'}
+                    </>
+                  ) : (
+                    <>
+                      <GitMerge className="mr-2 h-4 w-4" />
+                      {hasGitConflicts || isBranchBehind || hasPathMappedMerges
+                        ? (stageOnly ? 'Stage with AI Merge' : 'Merge with AI')
+                        : (stageOnly ? 'Stage to Main' : 'Merge to Main')}
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
                   {hasGitConflicts || isBranchBehind || hasPathMappedMerges
-                    ? (stageOnly ? 'Stage with AI Merge' : 'Merge with AI')
-                    : (stageOnly ? 'Stage to Main' : 'Merge to Main')}
-                </>
-              )}
-            </Button>
+                    ? 'Merges worktree changes to your base branch, removes the worktree, and uses AI to resolve any conflicts'
+                    : 'Merges worktree changes to your base branch and removes the worktree'}
+                </p>
+              </TooltipContent>
+            </Tooltip>
           )}
 
           {/* Create PR Button */}
