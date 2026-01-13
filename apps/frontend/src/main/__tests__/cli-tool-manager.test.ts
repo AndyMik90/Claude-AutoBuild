@@ -400,6 +400,7 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       expect(result.found).toBe(false);
       expect(result.source).toBe('fallback');
       expect(execFileSync).not.toHaveBeenCalled();
+      expect(isSecurePath).toHaveBeenCalledWith('D:\\Tools\\claude.cmd');
     });
 
     it('should detect Claude CLI in Unix .local/bin path', () => {
