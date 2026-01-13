@@ -19,8 +19,7 @@ interface ProjectTabBarProps {
 }
 
 const isMac =
-  typeof navigator !== "undefined" &&
-  navigator.userAgent.indexOf("Macintosh") >= 0;
+  typeof navigator !== "undefined" && navigator.userAgent.includes("Macintosh");
 const showCustomControls = !isMac;
 
 export function ProjectTabBar({
@@ -48,7 +47,6 @@ export function ProjectTabBar({
         cleanupFullscreen();
       };
     }
-    return () => {};
   }, []);
 
   // Keyboard shortcuts for tab navigation
@@ -109,20 +107,20 @@ export function ProjectTabBar({
 
   return (
     <div
+      role="toolbar"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          window.electronAPI?.maximizeWindow();
+        }
+      }}
       className={cn(
         "flex items-center border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 h-12 electron-drag z-50 relative",
-        // Removed overflow-hidden/auto effectively allows content to flow, but might break scrolling if many tabs.
-        // User requested "remove overflow hidden", assuming they assume x-auto behaves like hidden for popups.
-        // Changing to overflow-visible for tooltips, but wrapping tabs in a scrollable div if needed.
-        // Actually, let's keep scrollbar-thin for horizontal scroll but remove 'overflow-hidden' from parents if any.
-        // For now, I will interpret "remove overflow hidden" as ensuring visible overflow if possible,
-        // but horizontal scrolling requires overflow-x-auto.
-        // I will stick to h-12 and keep scrollbar properties but ensure no clip.
         "overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
         className
       )}
       onDoubleClick={() => {
-        window.electronAPI.maximizeWindow();
+        window.electronAPI?.maximizeWindow();
       }}
     >
       <div className="flex items-center flex-1 min-w-0">
@@ -142,7 +140,7 @@ export function ProjectTabBar({
               }}
               // Pass control props only for active tab
               onSettingsClick={isActiveTab ? onSettingsClick : undefined}
-              onDoubleClick={() => window.electronAPI.maximizeWindow()}
+              onDoubleClick={() => window.electronAPI?.maximizeWindow()}
             />
           );
         })}
@@ -168,7 +166,7 @@ export function ProjectTabBar({
             variant="ghost"
             size="icon"
             className="h-8 w-8 hover:bg-muted"
-            onClick={() => window.electronAPI.minimizeWindow()}
+            onClick={() => window.electronAPI?.minimizeWindow()}
             aria-label={t("window.controls.minimize")}
           >
             <Minus className="h-4 w-4" />
@@ -177,7 +175,7 @@ export function ProjectTabBar({
             variant="ghost"
             size="icon"
             className="h-8 w-8 hover:bg-muted"
-            onClick={() => window.electronAPI.maximizeWindow()}
+            onClick={() => window.electronAPI?.maximizeWindow()}
             aria-label={
               isMaximized
                 ? t("window.controls.restore")
@@ -194,7 +192,7 @@ export function ProjectTabBar({
             variant="ghost"
             size="icon"
             className="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground transition-colors"
-            onClick={() => window.electronAPI.closeWindow()}
+            onClick={() => window.electronAPI?.closeWindow()}
             aria-label={t("window.controls.close")}
           >
             <X className="h-4 w-4" />
