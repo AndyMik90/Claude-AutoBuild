@@ -155,9 +155,9 @@ export async function fetchZaiUsage(
     const tokensLimit = limits.find((limit) => limit.type === 'TOKENS_LIMIT');
     const timeLimit = limits.find((limit) => limit.type === 'TIME_LIMIT');
 
-    // Use pre-calculated percentages from API
-    const tokenPercent = tokensLimit?.percentage ?? 0;
-    const toolPercent = timeLimit?.percentage ?? 0;
+    // Use pre-calculated percentages from API with bounds validation
+    const tokenPercent = Math.max(0, Math.min(100, tokensLimit?.percentage ?? 0));
+    const toolPercent = Math.max(0, Math.min(100, timeLimit?.percentage ?? 0));
 
     // Parse reset time from TOKENS_LIMIT's nextResetTime (Unix timestamp in milliseconds)
     const sessionResetTimestamp = tokensLimit?.nextResetTime;
@@ -247,8 +247,8 @@ export async function fetchAnthropicOAuthUsage(
       : undefined;
 
     return {
-      sessionPercent: Math.round((data.five_hour_utilization || 0) * 100),
-      weeklyPercent: Math.round((data.seven_day_utilization || 0) * 100),
+      sessionPercent: Math.max(0, Math.min(100, Math.round((data.five_hour_utilization || 0) * 100))),
+      weeklyPercent: Math.max(0, Math.min(100, Math.round((data.seven_day_utilization || 0) * 100))),
       sessionResetTime: formatResetTimeFromTimestamp(fiveHourResetTimestamp),
       weeklyResetTime: formatResetTimeFromTimestamp(sevenDayResetTimestamp),
       sessionResetTimestamp: fiveHourResetTimestamp,

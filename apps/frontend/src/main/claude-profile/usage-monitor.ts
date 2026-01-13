@@ -34,6 +34,9 @@ export class UsageMonitor extends EventEmitter {
   private authFailedProfiles: Map<string, number> = new Map(); // profileId -> timestamp
   private static AUTH_FAILURE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown
   private static CLI_USAGE_TIMEOUT_MS = 10000; // 10 seconds timeout for CLI /usage command
+  // API retry mechanism: retry API after N consecutive successful CLI fallbacks
+  private cliFallbackSuccessCount = 0;
+  private static CLI_FALLBACK_RETRY_THRESHOLD = 5; // Retry API after 5 successful CLI calls
 
   // Debug flag for verbose logging
   private readonly isDebug = process.env.DEBUG === 'true';
@@ -277,6 +280,7 @@ export class UsageMonitor extends EventEmitter {
   /**
    * Fetch usage - HYBRID APPROACH
    * Tries API first, falls back to CLI if API fails
+   * Implements retry mechanism: after N successful CLI calls, retry API
    */
   private async fetchUsage(
     profileId: string,
@@ -293,6 +297,7 @@ export class UsageMonitor extends EventEmitter {
       const apiUsage = await this.fetchUsageViaAPI(oauthToken, profileId, profile.name);
       if (apiUsage) {
         console.warn('[UsageMonitor] Successfully fetched via API');
+        this.cliFallbackSuccessCount = 0; // Reset counter on API success
         return apiUsage;
       }
 
@@ -302,7 +307,19 @@ export class UsageMonitor extends EventEmitter {
     }
 
     // Attempt 2: CLI /usage command (fallback)
-    return await this.fetchUsageViaCLI(profileId, profile.name);
+    const cliUsage = await this.fetchUsageViaCLI(profileId, profile.name);
+    if (cliUsage) {
+      this.cliFallbackSuccessCount++;
+
+      // After N successful CLI calls, retry the API method
+      if (this.cliFallbackSuccessCount >= UsageMonitor.CLI_FALLBACK_RETRY_THRESHOLD) {
+        console.warn('[UsageMonitor] Retrying API method after', this.cliFallbackSuccessCount, 'successful CLI calls');
+        this.cliFallbackSuccessCount = 0;
+        this.useApiMethod = true;
+      }
+    }
+
+    return cliUsage;
   }
 
   /**
