@@ -250,6 +250,16 @@ const browserMockAPI: ElectronAPI = {
     success: true,
     data: { command: 'npm install -g @anthropic-ai/claude-code' }
   }),
+  getClaudeCodeVersions: async () => ({
+    success: true,
+    data: {
+      versions: ['1.0.5', '1.0.4', '1.0.3', '1.0.2', '1.0.1', '1.0.0']
+    }
+  }),
+  installClaudeCodeVersion: async (version: string) => ({
+    success: true,
+    data: { command: `npm install -g @anthropic-ai/claude-code@${version}`, version }
+  }),
 
   // Terminal Worktree Operations
   createTerminalWorktree: async () => ({
