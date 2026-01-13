@@ -62,21 +62,37 @@ describe('profile-usage service', () => {
   describe('fetchZaiUsage', () => {
     it('should fetch and parse Z.ai quota successfully', async () => {
       const mockResponse = {
-        token_usage: {
-          used: 75000,
-          limit: 100000
+        code: 200,
+        msg: 'Operation successful',
+        data: {
+          limits: [
+            {
+              type: 'TIME_LIMIT',
+              unit: 5,
+              number: 1,
+              usage: 1000,
+              currentValue: 534,
+              remaining: 466,
+              percentage: 53,
+              usageDetails: [
+                { modelCode: 'search-prime', usage: 485 },
+                { modelCode: 'web-reader', usage: 76 },
+                { modelCode: 'zread', usage: 0 }
+              ]
+            },
+            {
+              type: 'TOKENS_LIMIT',
+              unit: 3,
+              number: 5,
+              usage: 200000000,
+              currentValue: 27128437,
+              remaining: 172871563,
+              percentage: 13,
+              nextResetTime: 1768301417641
+            }
+          ]
         },
-        monthly_tool_usage: {
-          web_search: {
-            used: 45,
-            limit: 100
-          },
-          reader: {
-            used: 20,
-            limit: 50
-          }
-        },
-        reset_time: '2025-02-01T00:00:00Z'
+        success: true
       };
 
       (global.fetch as any).mockResolvedValue({
@@ -88,16 +104,29 @@ describe('profile-usage service', () => {
 
       expect(result).not.toBeNull();
       expect(result?.provider).toBe('zai');
-      expect(result?.sessionPercent).toBe(75); // 75000/100000
-      expect(result?.weeklyPercent).toBe(43); // (45+20)/(100+50) = 65/150 ≈ 43%
+      expect(result?.sessionPercent).toBe(13); // From TOKENS_LIMIT.percentage
+      expect(result?.weeklyPercent).toBe(53); // From TIME_LIMIT.percentage
       expect(result?.profileName).toBe('Test Profile');
     });
 
-    it('should handle missing token_usage gracefully', async () => {
+    it('should handle missing TOKENS_LIMIT gracefully', async () => {
       const mockResponse = {
-        monthly_tool_usage: {
-          web_search: { used: 10, limit: 100 }
-        }
+        code: 200,
+        msg: 'Operation successful',
+        data: {
+          limits: [
+            {
+              type: 'TIME_LIMIT',
+              unit: 5,
+              number: 1,
+              usage: 1000,
+              currentValue: 650,
+              remaining: 350,
+              percentage: 65
+            }
+          ]
+        },
+        success: true
       };
 
       (global.fetch as any).mockResolvedValue({
@@ -107,15 +136,28 @@ describe('profile-usage service', () => {
 
       const result = await fetchZaiUsage('test-api-key', 'test-profile', 'Test Profile');
 
-      expect(result?.sessionPercent).toBe(0);
+      expect(result?.sessionPercent).toBe(0); // Default when TOKENS_LIMIT not found
+      expect(result?.weeklyPercent).toBe(65); // From TIME_LIMIT
     });
 
-    it('should handle missing tool_usage gracefully', async () => {
+    it('should handle missing TIME_LIMIT gracefully', async () => {
       const mockResponse = {
-        token_usage: {
-          used: 50000,
-          limit: 100000
-        }
+        code: 200,
+        msg: 'Operation successful',
+        data: {
+          limits: [
+            {
+              type: 'TOKENS_LIMIT',
+              unit: 3,
+              number: 5,
+              usage: 200000000,
+              currentValue: 150000000,
+              remaining: 50000000,
+              percentage: 75
+            }
+          ]
+        },
+        success: true
       };
 
       (global.fetch as any).mockResolvedValue({
@@ -125,7 +167,8 @@ describe('profile-usage service', () => {
 
       const result = await fetchZaiUsage('test-api-key', 'test-profile', 'Test Profile');
 
-      expect(result?.weeklyPercent).toBe(0);
+      expect(result?.sessionPercent).toBe(75); // From TOKENS_LIMIT
+      expect(result?.weeklyPercent).toBe(0); // Default when TIME_LIMIT not found
     });
 
     it('should return null on API error', async () => {
@@ -148,10 +191,26 @@ describe('profile-usage service', () => {
       expect(result).toBeNull();
     });
 
-    it('should set correct reset timestamp when provided', async () => {
+    it('should set correct reset timestamp when nextResetTime is provided', async () => {
+      const futureTimestamp = Date.now() + 5 * 60 * 60 * 1000; // 5 hours from now
       const mockResponse = {
-        token_usage: { used: 50000, limit: 100000 },
-        reset_time: '2025-02-01T12:00:00Z'
+        code: 200,
+        msg: 'Operation successful',
+        data: {
+          limits: [
+            {
+              type: 'TOKENS_LIMIT',
+              unit: 3,
+              number: 5,
+              usage: 200000000,
+              currentValue: 100000000,
+              remaining: 100000000,
+              percentage: 50,
+              nextResetTime: futureTimestamp
+            }
+          ]
+        },
+        success: true
       };
 
       (global.fetch as any).mockResolvedValue({
@@ -161,10 +220,7 @@ describe('profile-usage service', () => {
 
       const result = await fetchZaiUsage('test-api-key', 'test-profile', 'Test Profile');
 
-      // Check timestamp is set and is a reasonable number (within a day of expected time)
-      expect(result?.sessionResetTimestamp).toBeDefined();
-      expect(result?.sessionResetTimestamp).toBeGreaterThan(1738300000000); // Jan 31, 2025
-      expect(result?.sessionResetTimestamp).toBeLessThan(1738500000000); // Feb 2, 2025
+      expect(result?.sessionResetTimestamp).toBe(futureTimestamp);
     });
   });
 
@@ -274,7 +330,22 @@ describe('profile-usage service', () => {
       (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({
-          token_usage: { used: 75000, limit: 100000 }
+          code: 200,
+          msg: 'Operation successful',
+          data: {
+            limits: [
+              {
+                type: 'TOKENS_LIMIT',
+                unit: 3,
+                number: 5,
+                usage: 200000000,
+                currentValue: 75000000,
+                remaining: 125000000,
+                percentage: 37
+              }
+            ]
+          },
+          success: true
         })
       });
 

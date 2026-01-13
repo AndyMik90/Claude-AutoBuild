@@ -40,23 +40,28 @@ export type UsageProvider = 'anthropic-oauth' | 'zai' | 'other';
 
 /**
  * Z.ai quota response structure
+ * API returns: https://api.z.ai/api/monitor/usage/quota/limit
  */
 interface ZaiQuotaResponse {
-  token_usage?: {
-    used: number;
-    limit: number;
+  code: number;
+  msg: string;
+  data: {
+    limits: Array<{
+      type: 'TOKENS_LIMIT' | 'TIME_LIMIT';
+      unit: number;
+      number: number;
+      usage: number;
+      currentValue: number;
+      remaining: number;
+      percentage: number;
+      nextResetTime?: number; // Unix timestamp for TOKENS_LIMIT
+      usageDetails?: Array<{
+        modelCode: string;
+        usage: number;
+      }>;
+    }>;
   };
-  monthly_tool_usage?: {
-    web_search?: {
-      used: number;
-      limit: number;
-    };
-    reader?: {
-      used: number;
-      limit: number;
-    };
-  };
-  reset_time?: string; // ISO timestamp
+  success: boolean;
 }
 
 /**
@@ -130,38 +135,29 @@ export async function fetchZaiUsage(
 
     const data = (await response.json()) as ZaiQuotaResponse;
 
-    // Calculate token usage percentage
-    const tokenPercent = data.token_usage && data.token_usage.limit > 0
-      ? Math.round((data.token_usage.used / data.token_usage.limit) * 100)
-      : 0;
+    // Extract token and tool limits from the response
+    const tokensLimit = data.data.limits.find((limit) => limit.type === 'TOKENS_LIMIT');
+    const timeLimit = data.data.limits.find((limit) => limit.type === 'TIME_LIMIT');
 
-    // Calculate tool usage percentage (web search + reader combined)
-    const webSearchUsed = data.monthly_tool_usage?.web_search?.used ?? 0;
-    const webSearchLimit = data.monthly_tool_usage?.web_search?.limit ?? 0;
-    const readerUsed = data.monthly_tool_usage?.reader?.used ?? 0;
-    const readerLimit = data.monthly_tool_usage?.reader?.limit ?? 0;
+    // Use pre-calculated percentages from API
+    const tokenPercent = tokensLimit?.percentage ?? 0;
+    const toolPercent = timeLimit?.percentage ?? 0;
 
-    const denom = webSearchLimit + readerLimit;
-    const toolPercent = denom === 0
-      ? 0
-      : Math.round(((webSearchUsed + readerUsed) / denom) * 100);
-
-    // Parse reset time
-    const resetTimestamp = data.reset_time
-      ? new Date(data.reset_time).getTime()
+    // Parse reset time from TOKENS_LIMIT's nextResetTime (Unix timestamp in milliseconds)
+    const sessionResetTimestamp = tokensLimit?.nextResetTime;
+    const sessionResetTime = sessionResetTimestamp
+      ? formatResetTimeFromTimestamp(sessionResetTimestamp)
       : undefined;
 
-    const resetTime = resetTimestamp
-      ? formatResetTimeFromTimestamp(resetTimestamp)
-      : undefined;
-
+    // Z.ai doesn't provide a weekly/monthly reset time for TIME_LIMIT in this response
+    // The TIME_LIMIT appears to be a monthly rolling window based on unit/number fields
     return {
       sessionPercent: tokenPercent,
       weeklyPercent: toolPercent,
-      sessionResetTime: resetTime,
-      weeklyResetTime: resetTime, // Z.ai uses monthly reset for both
-      sessionResetTimestamp: resetTimestamp,
-      weeklyResetTimestamp: resetTimestamp,
+      sessionResetTime,
+      weeklyResetTime: undefined, // Not provided by Z.ai API
+      sessionResetTimestamp,
+      weeklyResetTimestamp: undefined,
       profileId,
       profileName,
       fetchedAt: new Date(),
