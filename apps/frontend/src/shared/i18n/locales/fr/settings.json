@@ -56,33 +56,49 @@
     "addButton": "Ajouter un profil",
     "presets": {
       "anthropic": "Anthropic",
+      "azureFoundry": "Microsoft Foundry (Azure)",
       "openrouter": "OpenRouter",
       "groq": "Groq",
       "glmGlobal": "GLM (Global)",
       "glmChina": "GLM (China)"
     },
+    "types": {
+      "anthropic": "API Anthropic",
+      "foundry": "Microsoft Foundry (Azure AI)"
+    },
     "fields": {
       "name": "Nom",
+      "type": "Type de profil",
       "preset": "Préréglage",
       "baseUrl": "URL de base",
-      "apiKey": "Clé API"
+      "apiKey": "Clé API",
+      "foundryResource": "Nom de ressource Azure",
+      "foundryBaseUrl": "URL du point de terminaison Azure",
+      "foundryApiKey": "Clé API Azure"
     },
     "placeholders": {
       "name": "Mon API personnalisée",
       "preset": "Choisir un préréglage de fournisseur",
       "baseUrl": "https://api.anthropic.com",
-      "apiKey": "sk-ant-..."
+      "apiKey": "sk-ant-...",
+      "foundryResource": "nom-de-votre-ressource",
+      "foundryBaseUrl": "https://votre-ressource.services.ai.azure.com",
+      "foundryApiKey": "Votre clé API Azure (optionnel)"
     },
     "hints": {
       "preset": "Les préréglages remplissent l'URL de base ; vous devez toujours coller votre clé API.",
-      "baseUrl": "Exemple : https://api.anthropic.com ou http://localhost:8080"
+      "baseUrl": "Exemple : https://api.anthropic.com ou http://localhost:8080",
+      "foundryResource": "Votre nom de ressource Azure AI Foundry. Le point de terminaison sera https://{resource}.services.ai.azure.com",
+      "foundryBaseUrl": "URL complète du point de terminaison Azure. Utilisez ceci au lieu du nom de ressource si vous avez un point de terminaison personnalisé.",
+      "foundryApiKey": "Optionnel si vous utilisez l'authentification Entra ID (az login). Requis pour l'authentification par clé API."
     },
     "validation": {
       "nameRequired": "Le nom est requis",
       "baseUrlRequired": "L'URL de base est requise",
       "baseUrlInvalid": "Format d'URL invalide (doit être http:// ou https://)",
       "apiKeyRequired": "La clé API est requise",
-      "apiKeyInvalid": "Format de clé API invalide"
+      "apiKeyInvalid": "Format de clé API invalide",
+      "foundryEndpointRequired": "Le nom de ressource ou l'URL du point de terminaison est requis"
     },
     "actions": {
       "save": "Enregistrer le profil",

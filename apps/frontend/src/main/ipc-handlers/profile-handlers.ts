@@ -24,8 +24,10 @@ import {
   updateProfile,
   deleteProfile,
   testConnection,
+  testFoundryConnection,
   discoverModels
 } from '../services/profile';
+import type { APIProfileType } from '@shared/types/profile';
 
 // Track active test connection requests for cancellation
 const activeTestConnections = new Map<number, AbortController>();
@@ -94,8 +96,10 @@ export function registerProfileHandlers(): void {
         const updatedProfile = await updateProfile({
           id: profileData.id,
           name: profileData.name,
+          type: profileData.type,
           baseUrl: profileData.baseUrl,
           apiKey: profileData.apiKey,
+          foundryResource: profileData.foundryResource,
           models: profileData.models
         });
 
@@ -178,10 +182,18 @@ export function registerProfileHandlers(): void {
    * - Returns detailed error information for different failure types
    * - Includes configurable timeout (defaults to 15 seconds)
    * - Supports cancellation via PROFILES_TEST_CONNECTION_CANCEL
+   * - Routes to appropriate test function based on profile type
    */
   ipcMain.handle(
     IPC_CHANNELS.PROFILES_TEST_CONNECTION,
-    async (_event, baseUrl: string, apiKey: string, requestId: number): Promise<IPCResult<TestConnectionResult>> => {
+    async (
+      _event,
+      baseUrl: string,
+      apiKey: string,
+      requestId: number,
+      profileType?: APIProfileType,
+      foundryResource?: string
+    ): Promise<IPCResult<TestConnectionResult>> => {
       // Create AbortController for timeout and cancellation
       const controller = new AbortController();
       const timeoutMs = 15000; // 15 seconds
@@ -195,7 +207,38 @@ export function registerProfileHandlers(): void {
       }, timeoutMs);
 
       try {
-        // Validate inputs (null/empty checks)
+        // Determine the effective profile type (default to 'anthropic')
+        const effectiveType = profileType || 'anthropic';
+
+        // Route to appropriate test function based on profile type
+        if (effectiveType === 'foundry') {
+          // For Foundry, need either foundryResource OR baseUrl
+          const hasResource = foundryResource && foundryResource.trim() !== '';
+          const hasBaseUrl = baseUrl && baseUrl.trim() !== '';
+
+          if (!hasResource && !hasBaseUrl) {
+            clearTimeout(timeoutId);
+            activeTestConnections.delete(requestId);
+            return {
+              success: false,
+              error: 'Either Azure Resource Name or Endpoint URL is required'
+            };
+          }
+
+          // API key is optional for Foundry (Entra ID auth supported)
+          const result = await testFoundryConnection(
+            baseUrl || '',
+            apiKey || '',
+            foundryResource || '',
+            controller.signal
+          );
+
+          clearTimeout(timeoutId);
+          activeTestConnections.delete(requestId);
+          return { success: true, data: result };
+        }
+
+        // Anthropic profile - validate inputs (null/empty checks)
         if (!baseUrl || baseUrl.trim() === '') {
           clearTimeout(timeoutId);
           activeTestConnections.delete(requestId);

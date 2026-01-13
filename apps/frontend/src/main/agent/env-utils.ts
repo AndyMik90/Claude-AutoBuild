@@ -3,12 +3,14 @@
  */
 
 /**
- * Get environment variables to clear ANTHROPIC_* vars when in OAuth mode
+ * Get environment variables to clear when in OAuth mode
  *
- * When switching from API Profile mode to OAuth mode, residual ANTHROPIC_*
- * environment variables from process.env can cause authentication failures.
+ * When switching from API Profile mode to OAuth mode, residual environment
+ * variables from process.env can cause authentication failures.
  * This function returns an object with empty strings for these vars when
  * no API profile is active, ensuring OAuth tokens are used correctly.
+ *
+ * Clears both standard Anthropic API vars and Microsoft Foundry vars.
  *
  * **Why empty strings?** Setting environment variables to empty strings (rather than
  * undefined) ensures they override any stale values from process.env. Python's SDK
@@ -17,15 +19,17 @@
  * undefined values that might be ignored during object spreading.
  *
  * @param apiProfileEnv - Environment variables from getAPIProfileEnv()
- * @returns Object with empty ANTHROPIC_* vars if in OAuth mode, empty object otherwise
+ * @returns Object with empty profile-related vars if in OAuth mode, empty object otherwise
  */
 export function getOAuthModeClearVars(apiProfileEnv: Record<string, string>): Record<string, string> {
-  // If API profile is active (has ANTHROPIC_* vars), don't clear anything
-  if (apiProfileEnv && Object.keys(apiProfileEnv).some(key => key.startsWith('ANTHROPIC_'))) {
+  // If API profile is active (has ANTHROPIC_* or Foundry vars), don't clear anything
+  if (apiProfileEnv && Object.keys(apiProfileEnv).some(key =>
+    key.startsWith('ANTHROPIC_') || key === 'CLAUDE_CODE_USE_FOUNDRY'
+  )) {
     return {};
   }
 
-  // In OAuth mode (no API profile), clear all ANTHROPIC_* vars
+  // In OAuth mode (no API profile), clear all profile-related vars
   // Setting to empty string ensures they override any values from process.env
   // Python's `if token:` checks treat empty strings as falsy
   //
@@ -33,12 +37,18 @@ export function getOAuthModeClearVars(apiProfileEnv: Record<string, string>): Re
   // API keys that may be present in the shell environment instead of OAuth tokens.
   // Without clearing this, Claude Code would show "Claude API" instead of "Claude Max".
   return {
+    // Standard Anthropic API vars
     ANTHROPIC_API_KEY: '',
     ANTHROPIC_AUTH_TOKEN: '',
     ANTHROPIC_BASE_URL: '',
     ANTHROPIC_MODEL: '',
     ANTHROPIC_DEFAULT_HAIKU_MODEL: '',
     ANTHROPIC_DEFAULT_SONNET_MODEL: '',
-    ANTHROPIC_DEFAULT_OPUS_MODEL: ''
+    ANTHROPIC_DEFAULT_OPUS_MODEL: '',
+    // Microsoft Foundry vars
+    CLAUDE_CODE_USE_FOUNDRY: '',
+    ANTHROPIC_FOUNDRY_API_KEY: '',
+    ANTHROPIC_FOUNDRY_BASE_URL: '',
+    ANTHROPIC_FOUNDRY_RESOURCE: ''
   };
 }
