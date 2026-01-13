@@ -13,6 +13,12 @@ on:
         required: true
         type: string
 
+# Prevent TOCTOU race condition when updating release notes
+# If two runs target the same tag, queue them instead of running in parallel
+concurrency:
+  group: virustotal-${{ github.event.inputs.tag || github.event.release.tag_name }}
+  cancel-in-progress: false
+
 jobs:
   scan:
     name: Scan release assets
@@ -190,7 +196,6 @@ jobs:
 
             # Wait for analysis to complete (max 5 minutes per file)
             analysis=""
-            analysis_failed=false
             for i in {1..30}; do
               sleep 10
               analysis_http_response=$(curl -s -w '\n%{http_code}' --request GET \
