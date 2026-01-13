@@ -118,10 +118,26 @@ export class ProjectStore {
 
   /**
    * Update project's autoBuildPath after initialization
+   *
+   * Validates that autoBuildPath is relative to prevent issues with path.join()
+   * in health checks and other handlers that expect a relative path.
    */
   updateAutoBuildPath(projectId: string, autoBuildPath: string): Project | undefined {
     const project = this.data.projects.find((p) => p.id === projectId);
     if (project) {
+      // Validate that autoBuildPath is relative - absolute paths can cause
+      // path.join() to ignore project.path, leading to incorrect spec directory paths
+      if (path.isAbsolute(autoBuildPath)) {
+        console.error(`[ProjectStore] Rejecting absolute autoBuildPath for project "${project.name}": ${autoBuildPath}. autoBuildPath must be relative to project.path.`);
+        return project;
+      }
+
+      // Also reject empty string (should be set to '.auto-claude' or similar)
+      if (!autoBuildPath || autoBuildPath.trim() === '') {
+        console.error(`[ProjectStore] Rejecting empty autoBuildPath for project "${project.name}". autoBuildPath must be a non-empty relative path.`);
+        return project;
+      }
+
       project.autoBuildPath = autoBuildPath;
       project.updatedAt = new Date();
       this.save();

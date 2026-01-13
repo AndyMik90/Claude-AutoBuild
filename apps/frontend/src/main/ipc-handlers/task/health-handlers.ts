@@ -318,7 +318,10 @@ export function registerTaskHealthHandlers(agentManager: AgentManager): void {
         const results: TaskHealthCheckResult[] = [];
 
         for (const task of tasks) {
-          const specDir = path.join(project.path, specsBaseDir, task.specId);
+          // Use path.resolve to handle cases where specsBaseDir might be absolute
+          // (e.g., from old migrations or manual config). This ensures the path is
+          // always resolved relative to project.path first.
+          const specDir = path.resolve(project.path, specsBaseDir, task.specId);
           const issues = await runHealthChecks(task, specDir, agentManager);
 
           // Build recovery actions
