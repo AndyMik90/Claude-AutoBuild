@@ -1,4 +1,4 @@
-import { useState, useMemo, memo, useEffect } from 'react';
+import { useState, useMemo, memo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
@@ -412,24 +412,25 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [queueConfig, setQueueConfig] = useState<{ enabled: boolean; maxConcurrent: 1 | 2 | 3 }>({ enabled: false, maxConcurrent: 1 });
   const [queueRunningCount, setQueueRunningCount] = useState(0);
 
+  // Helper to refresh queue config and status
+  const refreshQueueData = useCallback(async (pid: string) => {
+    const config = await loadQueueConfig(pid);
+    if (config) {
+      setQueueConfig(config);
+    }
+    const status = await fetchQueueStatus(pid);
+    if (status) {
+      setQueueRunningCount(status.runningCount);
+    }
+  }, []);
+
   // Load queue config and status when tasks change
   useEffect(() => {
     const projectId = tasks[0]?.projectId;
     if (!projectId) return;
 
-    // Load queue config
-    loadQueueConfig(projectId).then(config => {
-      if (config) {
-        setQueueConfig(config);
-      }
-    });
-
-    // Load queue status
-    fetchQueueStatus(projectId).then(status => {
-      if (status) {
-        setQueueRunningCount(status.runningCount);
-      }
-    });
+    // Load queue config and status using helper
+    refreshQueueData(projectId);
 
     // Listen for queue status updates
     const handleQueueStatusUpdate = (updatedProjectId: string, status: any) => {
@@ -444,7 +445,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     return () => {
       unsubscribe?.();
     };
-  }, [tasks]);
+  }, [tasks, refreshQueueData]);
 
   // Get projectId from tasks (all tasks belong to the same project)
   const projectId = tasks[0]?.projectId;
@@ -730,18 +731,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           currentConfig={queueConfig}
           runningCount={queueRunningCount}
           onSaved={() => {
-            // Reload queue config after save
-            loadQueueConfig(projectId).then(config => {
-              if (config) {
-                setQueueConfig(config);
-              }
-            });
-            // Reload queue status after save
-            fetchQueueStatus(projectId).then(status => {
-              if (status) {
-                setQueueRunningCount(status.runningCount);
-              }
-            });
+            // Reload queue config and status after save
+            refreshQueueData(projectId);
           }}
         />
       )}
