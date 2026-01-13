@@ -126,24 +126,10 @@ export function SecuritySettings({
               type="button"
               onClick={() => toggleShowApiKey('openai')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label={showApiKey['openai'] ? 'Hide OpenAI API key' : 'Show OpenAI API key'}
+              aria-label={showApiKey['openai'] ? t('projectSections.memory.openai.hideApiKey') : t('projectSections.memory.openai.showApiKey')}
             >
               {showApiKey['openai'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
-          </div>
-          <div className="space-y-1 mt-3">
-            <Label className="text-xs text-muted-foreground">{t('projectSections.memory.voyage.embeddingModel')} (optional)</Label>
-            <Input
-              placeholder="voyage-3"
-              value={envConfig.graphitiProviderConfig?.voyageEmbeddingModel || ''}
-              onChange={(e) => updateEnvConfig({
-                graphitiProviderConfig: {
-                  ...envConfig.graphitiProviderConfig,
-                  embeddingProvider: 'voyage',
-                  voyageEmbeddingModel: e.target.value || undefined,
-                }
-              })}
-            />
           </div>
         </div>
       );
@@ -175,7 +161,7 @@ export function SecuritySettings({
               type="button"
               onClick={() => toggleShowApiKey('google')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label={showApiKey['google'] ? 'Hide Google API key' : 'Show Google API key'}
+              aria-label={showApiKey['google'] ? t('projectSections.memory.google.hideApiKey') : t('projectSections.memory.google.showApiKey')}
             >
               {showApiKey['google'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -215,7 +201,7 @@ export function SecuritySettings({
                 type="button"
                 onClick={() => toggleShowApiKey('azure')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label={showApiKey['azure'] ? 'Hide Azure OpenAI API key' : 'Show Azure OpenAI API key'}
+                aria-label={showApiKey['azure'] ? t('projectSections.memory.azure.hideApiKey') : t('projectSections.memory.azure.showApiKey')}
               >
                 {showApiKey['azure'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>

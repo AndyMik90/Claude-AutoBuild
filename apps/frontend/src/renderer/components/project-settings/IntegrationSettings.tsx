@@ -194,12 +194,12 @@ export function IntegrationSettings({
                         <p className="text-xs text-muted-foreground">
                           {isCheckingLinear ? t('projectSections.linear.checking') :
                             linearConnectionStatus?.connected
-                              ? `${t('projectSections.linear.connectedTo')} ${linearConnectionStatus.teamName}`
+                              ? t('projectSections.linear.connectedTo', { name: linearConnectionStatus.teamName })
                               : linearConnectionStatus?.error || t('projectSections.linear.notConnected')}
                         </p>
                         {linearConnectionStatus?.connected && linearConnectionStatus.issueCount !== undefined && (
                           <p className="text-xs text-muted-foreground mt-1">
-                            {linearConnectionStatus.issueCount}{t('projectSections.linear.tasksAvailable')}
+                            {t('projectSections.linear.tasksAvailable', { count: linearConnectionStatus.issueCount })}
                           </p>
                         )}
                       </div>
@@ -388,7 +388,7 @@ export function IntegrationSettings({
                         <p className="text-xs text-muted-foreground">
                           {isCheckingGitHub ? t('projectSections.github.checking') :
                             gitHubConnectionStatus?.connected
-                              ? `${t('projectSections.github.connectedTo')} ${gitHubConnectionStatus.repoFullName}`
+                              ? t('projectSections.github.connectedTo', { repo: gitHubConnectionStatus.repoFullName })
                               : gitHubConnectionStatus?.error || t('projectSections.github.notConnected')}
                         </p>
                         {gitHubConnectionStatus?.connected && gitHubConnectionStatus.repoDescription && (

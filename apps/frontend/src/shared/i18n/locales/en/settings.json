@@ -330,9 +330,9 @@
       "linearSettings": "Linear Settings",
       "connectionStatus": "Connection Status",
       "checking": "Checking...",
-      "connectedTo": "Connected to",
+      "connectedTo": "Connected to {{name}}",
       "notConnected": "Not connected",
-      "tasksAvailable": "+ tasks available to import",
+      "tasksAvailable": "{{count}}+ tasks available to import",
       "importExistingTasks": "Import Existing Tasks",
       "importDescription": "Select which Linear issues to import into AutoBuild as tasks.",
       "importTasksFromLinear": "Import Tasks from Linear",
@@ -364,7 +364,7 @@
       "repoExampleDescription": "(e.g., facebook/react)",
       "connectionStatus": "Connection Status",
       "checking": "Checking...",
-      "connectedTo": "Connected to",
+      "connectedTo": "Connected to {{repo}}",
       "notConnected": "Not connected",
       "issuesAvailable": "Issues Available",
       "issuesDescription": "Access GitHub Issues from the sidebar to view, investigate, and create tasks from issues.",
@@ -418,7 +418,9 @@
         "usingGlobalKey": "Using global key",
         "usingGlobalDescription": "Using key from App Settings. Enter a project-specific key below to override.",
         "requiredDescription": "Required for OpenAI embeddings",
-        "overridePlaceholder": "Enter to override global key..."
+        "overridePlaceholder": "Enter to override global key...",
+        "hideApiKey": "Hide OpenAI API key",
+        "showApiKey": "Show OpenAI API key"
       },
       "voyage": {
         "apiKey": "Voyage AI API Key",
@@ -429,13 +431,17 @@
         "apiKey": "Google AI API Key",
         "requiredDescription": "Required for Google AI embeddings",
         "getKeyFrom": "Get your key from",
-        "linkText": "Google AI Studio"
+        "linkText": "Google AI Studio",
+        "hideApiKey": "Hide Google API key",
+        "showApiKey": "Show Google API key"
       },
       "azure": {
         "configuration": "Azure OpenAI Configuration",
         "apiKey": "API Key",
         "baseUrl": "Base URL",
-        "embeddingDeployment": "Embedding Deployment Name"
+        "embeddingDeployment": "Embedding Deployment Name",
+        "hideApiKey": "Hide Azure OpenAI API key",
+        "showApiKey": "Show Azure OpenAI API key"
       },
       "ollama": {
         "configuration": "Ollama Configuration",

@@ -330,9 +330,9 @@
       "linearSettings": "Paramètres Linear",
       "connectionStatus": "Statut de connexion",
       "checking": "Vérification...",
-      "connectedTo": "Connecté à",
+      "connectedTo": "Connecté à {{name}}",
       "notConnected": "Non connecté",
-      "tasksAvailable": "+ tâches disponibles à importer",
+      "tasksAvailable": "{{count}}+ tâches disponibles à importer",
       "importExistingTasks": "Importer des tâches existantes",
       "importDescription": "Sélectionnez les issues Linear à importer dans AutoBuild comme tâches.",
       "importTasksFromLinear": "Importer des tâches depuis Linear",
@@ -364,7 +364,7 @@
       "repoExampleDescription": "(ex: facebook/react)",
       "connectionStatus": "Statut de connexion",
       "checking": "Vérification...",
-      "connectedTo": "Connecté à",
+      "connectedTo": "Connecté à {{repo}}",
       "notConnected": "Non connecté",
       "issuesAvailable": "Issues disponibles",
       "issuesDescription": "Accédez aux issues GitHub depuis la barre latérale pour visualiser, étudier et créer des tâches à partir des issues.",
@@ -418,7 +418,9 @@
         "usingGlobalKey": "Utilisation de la clé globale",
         "usingGlobalDescription": "Utilisation de la clé des paramètres de l'app. Entrez une clé spécifique au projet ci-dessous pour remplacer.",
         "requiredDescription": "Requise pour les embeddings OpenAI",
-        "overridePlaceholder": "Entrez pour remplacer la clé globale..."
+        "overridePlaceholder": "Entrez pour remplacer la clé globale...",
+        "hideApiKey": "Masquer la clé API OpenAI",
+        "showApiKey": "Afficher la clé API OpenAI"
       },
       "voyage": {
         "apiKey": "Clé API Voyage AI",
@@ -429,13 +431,17 @@
         "apiKey": "Clé API Google AI",
         "requiredDescription": "Requise pour les embeddings Google AI",
         "getKeyFrom": "Obtenez votre clé sur",
-        "linkText": "Google AI Studio"
+        "linkText": "Google AI Studio",
+        "hideApiKey": "Masquer la clé API Google",
+        "showApiKey": "Afficher la clé API Google"
       },
       "azure": {
         "configuration": "Configuration Azure OpenAI",
         "apiKey": "Clé API",
         "baseUrl": "URL de base",
-        "embeddingDeployment": "Nom du déploiement d'embedding"
+        "embeddingDeployment": "Nom du déploiement d'embedding",
+        "hideApiKey": "Masquer la clé API Azure OpenAI",
+        "showApiKey": "Afficher la clé API Azure OpenAI"
       },
       "ollama": {
         "configuration": "Configuration Ollama",

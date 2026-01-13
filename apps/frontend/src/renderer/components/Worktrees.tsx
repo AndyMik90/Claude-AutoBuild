@@ -108,7 +108,8 @@ export function Worktrees({ projectId }: WorktreesProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [projectId, selectedProject, t]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- t is stable from useTranslation
+  }, [projectId, selectedProject]);
 
   // Load on mount and when project changes
   useEffect(() => {
