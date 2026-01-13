@@ -44,6 +44,7 @@ try:
         ReviewSeverity,
     )
     from .category_utils import map_category
+    from .io_utils import safe_print
     from .pr_worktree_manager import PRWorktreeManager
     from .pydantic_models import ParallelFollowupResponse
     from .sdk_utils import process_sdk_stream
@@ -62,6 +63,7 @@ except (ImportError, ValueError, SystemError):
     )
     from phase_config import get_thinking_budget
     from services.category_utils import map_category
+    from services.io_utils import safe_print
     from services.pr_worktree_manager import PRWorktreeManager
     from services.pydantic_models import ParallelFollowupResponse
     from services.sdk_utils import process_sdk_stream
@@ -456,7 +458,7 @@ The SDK will run invoked agents in parallel automatically.
             if head_sha and _validate_git_ref(head_sha):
                 try:
                     if DEBUG_MODE:
-                        print(
+                        safe_print(
                             f"[Followup] DEBUG: Creating worktree for head_sha={head_sha}",
                             flush=True,
                         )
@@ -464,13 +466,13 @@ The SDK will run invoked agents in parallel automatically.
                         head_sha, context.pr_number
                     )
                     project_root = worktree_path
-                    print(
+                    safe_print(
                         f"[Followup] Using worktree at {worktree_path.name} for PR review",
                         flush=True,
                     )
                 except Exception as e:
                     if DEBUG_MODE:
-                        print(
+                        safe_print(
                             f"[Followup] DEBUG: Worktree creation FAILED: {e}",
                             flush=True,
                         )
@@ -520,7 +522,7 @@ The SDK will run invoked agents in parallel automatically.
             async with client:
                 await client.query(prompt)
 
-                print(
+                safe_print(
                     f"[ParallelFollowup] Running orchestrator ({model})...",
                     flush=True,
                 )
@@ -572,7 +574,7 @@ The SDK will run invoked agents in parallel automatically.
             logger.info(
                 f"[ParallelFollowup] Session complete. Agents invoked: {final_agents}"
             )
-            print(
+            safe_print(
                 f"[ParallelFollowup] Complete. Agents invoked: {final_agents}",
                 flush=True,
             )
@@ -601,7 +603,7 @@ The SDK will run invoked agents in parallel automatically.
                     "Blocked: PR has merge conflicts with base branch. "
                     "Resolve conflicts before merge."
                 )
-                print(
+                safe_print(
                     "[ParallelFollowup] ⚠️ PR has merge conflicts - blocking merge",
                     flush=True,
                 )
@@ -616,7 +618,7 @@ The SDK will run invoked agents in parallel automatically.
                 ):
                     verdict = MergeVerdict.NEEDS_REVISION
                     verdict_reasoning = BRANCH_BEHIND_REASONING
-                print(
+                safe_print(
                     "[ParallelFollowup] ⚠️ PR branch is behind base - needs update",
                     flush=True,
                 )
@@ -711,7 +713,7 @@ The SDK will run invoked agents in parallel automatically.
 
         except Exception as e:
             logger.error(f"[ParallelFollowup] Review failed: {e}", exc_info=True)
-            print(f"[ParallelFollowup] Error: {e}", flush=True)
+            safe_print(f"[ParallelFollowup] Error: {e}")
 
             return PRReviewResult(
                 pr_number=context.pr_number,
@@ -742,12 +744,12 @@ The SDK will run invoked agents in parallel automatically.
             # Log agents from structured output
             agents_from_output = response.agents_invoked or []
             if agents_from_output:
-                print(
+                safe_print(
                     f"[ParallelFollowup] Specialist agents invoked: {', '.join(agents_from_output)}",
                     flush=True,
                 )
                 for agent in agents_from_output:
-                    print(f"[Agent:{agent}] Analysis complete", flush=True)
+                    safe_print(f"[Agent:{agent}] Analysis complete")
 
             findings = []
             resolved_ids = []
@@ -762,7 +764,7 @@ The SDK will run invoked agents in parallel automatically.
                 validation_map[fv.finding_id] = fv
                 if fv.validation_status == "dismissed_false_positive":
                     dismissed_ids.append(fv.finding_id)
-                    print(
+                    safe_print(
                         f"[ParallelFollowup] Finding {fv.finding_id} DISMISSED as false positive: {fv.explanation[:100]}",
                         flush=True,
                     )
@@ -774,7 +776,7 @@ The SDK will run invoked agents in parallel automatically.
                     # Check if finding was validated and dismissed as false positive
                     if rv.finding_id in dismissed_ids:
                         # Finding-validator determined this was a false positive - skip it
-                        print(
+                        safe_print(
                             f"[ParallelFollowup] Skipping {rv.finding_id} - dismissed as false positive by finding-validator",
                             flush=True,
                         )
@@ -887,27 +889,27 @@ The SDK will run invoked agents in parallel automatically.
             )
 
             # Log findings summary for verification
-            print(
+            safe_print(
                 f"[ParallelFollowup] Parsed {len(findings)} findings, "
                 f"{len(resolved_ids)} resolved, {len(unresolved_ids)} unresolved, "
                 f"{len(new_finding_ids)} new",
                 flush=True,
             )
             if dismissed_ids:
-                print(
+                safe_print(
                     f"[ParallelFollowup] Validation: {len(dismissed_ids)} findings dismissed as false positives, "
                     f"{confirmed_valid_count} confirmed valid, {needs_human_count} need human review",
                     flush=True,
                 )
             if findings:
-                print("[ParallelFollowup] Findings summary:", flush=True)
+                safe_print("[ParallelFollowup] Findings summary:")
                 for i, f in enumerate(findings, 1):
                     validation_note = ""
                     if f.validation_status == "confirmed_valid":
                         validation_note = " [VALIDATED]"
                     elif f.validation_status == "needs_human_review":
                         validation_note = " [NEEDS HUMAN REVIEW]"
-                    print(
+                    safe_print(
                         f"  [{f.severity.value.upper()}] {i}. {f.title} ({f.file}:{f.line}){validation_note}",
                         flush=True,
                     )
