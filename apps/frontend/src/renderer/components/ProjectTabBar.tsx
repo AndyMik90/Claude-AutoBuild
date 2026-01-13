@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Minus, Square, X, Copy } from "lucide-react";
+import { Plus, X, Minus, Square, Minimize2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import { SortableProjectTab } from "./SortableProjectTab";
@@ -179,8 +179,7 @@ export function ProjectTabBar({
             }
           >
             {isMaximized ? (
-              // Use Copy icon rotated 180deg to simulate "Restore" (overlapping squares)
-              <Copy className="h-3 w-3 rotate-180" />
+              <Minimize2 className="h-3 w-3" />
             ) : (
               <Square className="h-3 w-3" />
             )}
