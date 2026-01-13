@@ -163,6 +163,9 @@ export type ThinkingLevel = 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
 // Model type shorthand
 export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus';
 
+// Provider for auto-build agent execution
+export type AutoBuildProvider = 'claude' | 'codex' | 'hybrid';
+
 // Phase-based model configuration for Auto profile
 // Each phase can use a different model optimized for that task type
 export interface PhaseModelConfig {
@@ -221,6 +224,7 @@ export interface AppSettings {
   colorTheme?: ColorTheme;
   defaultModel: string;
   agentFramework: string;
+  autoBuildProvider?: AutoBuildProvider;
   pythonPath?: string;
   gitPath?: string;
   githubCLIPath?: string;
