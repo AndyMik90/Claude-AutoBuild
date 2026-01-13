@@ -70,6 +70,7 @@ def _mask_user_paths(text: str) -> str:
     - macOS: /Users/username/... becomes /Users/***/...
     - Windows: C:\\Users\\username\\... becomes C:\\Users\\***\\...
     - Linux: /home/username/... becomes /home/***/...
+    - WSL: /mnt/c/Users/username/... becomes /mnt/c/Users/***/...
 
     Note: Project paths remain visible for debugging purposes.
     """
@@ -89,11 +90,31 @@ def _mask_user_paths(text: str) -> str:
     # Linux: /home/username/...
     text = re.sub(r"/home/[^/]+(?=/|$)", "/home/***", text)
 
+    # WSL: /mnt/c/Users/username/... (accessing Windows filesystem from WSL)
+    text = re.sub(
+        r"/mnt/[a-z]/Users/[^/]+(?=/|$)",
+        lambda m: f"{m.group(0)[:6]}/Users/***",
+        text,
+    )
+
     return text
 
 
-def _mask_object_paths(obj: Any) -> Any:
-    """Recursively mask paths in an object."""
+def _mask_object_paths(obj: Any, _depth: int = 0) -> Any:
+    """
+    Recursively mask paths in an object.
+
+    Args:
+        obj: The object to mask paths in
+        _depth: Current recursion depth (internal use)
+
+    Returns:
+        Object with paths masked
+    """
+    # Prevent stack overflow on deeply nested or circular structures
+    if _depth > 50:
+        return obj
+
     if obj is None:
         return obj
 
@@ -101,10 +122,12 @@ def _mask_object_paths(obj: Any) -> Any:
         return _mask_user_paths(obj)
 
     if isinstance(obj, list):
-        return [_mask_object_paths(item) for item in obj]
+        return [_mask_object_paths(item, _depth + 1) for item in obj]
 
     if isinstance(obj, dict):
-        return {key: _mask_object_paths(value) for key, value in obj.items()}
+        return {
+            key: _mask_object_paths(value, _depth + 1) for key, value in obj.items()
+        }
 
     return obj
 
@@ -309,10 +332,16 @@ def capture_message(message: str, level: str = "info", **kwargs) -> None:
 
         with sentry_sdk.push_scope() as scope:
             for key, value in kwargs.items():
-                scope.set_extra(key, value)
+                # Apply defensive path masking for extra data (same as capture_exception)
+                masked_value = (
+                    _mask_object_paths(value)
+                    if isinstance(value, (str, dict, list))
+                    else value
+                )
+                scope.set_extra(key, masked_value)
             sentry_sdk.capture_message(message, level=level)
     except ImportError:
-        pass
+        logger.debug("[Sentry] SDK not installed")
     except Exception as e:
         logger.error(f"[Sentry] Failed to capture message: {e}")
 
@@ -337,7 +366,7 @@ def set_context(name: str, data: dict) -> None:
         masked_data = _mask_object_paths(data)
         sentry_sdk.set_context(name, masked_data)
     except ImportError:
-        pass
+        logger.debug("[Sentry] SDK not installed")
     except Exception as e:
         logger.debug(f"Failed to set context '{name}': {e}")
 
@@ -362,7 +391,7 @@ def set_tag(key: str, value: str) -> None:
         masked_value = _mask_user_paths(value) if isinstance(value, str) else value
         sentry_sdk.set_tag(key, masked_value)
     except ImportError:
-        pass
+        logger.debug("[Sentry] SDK not installed")
     except Exception as e:
         logger.debug(f"Failed to set tag '{key}': {e}")
 

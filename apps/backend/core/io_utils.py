@@ -50,6 +50,14 @@ def safe_print(message: str, flush: bool = True) -> None:
         except Exception:
             pass
         logger.debug("Output pipe closed by parent process")
+    except ValueError as e:
+        # Handle writes to closed file (can happen after stdout.close())
+        if "closed file" in str(e).lower():
+            _pipe_broken = True
+            logger.debug("Output stream closed")
+        else:
+            # Re-raise unexpected ValueErrors
+            raise
     except OSError as e:
         # Handle other pipe-related errors (EPIPE, etc.)
         if e.errno == 32:  # EPIPE - Broken pipe
@@ -73,7 +81,14 @@ def reset_pipe_state() -> None:
     """
     Reset pipe broken state.
 
-    Useful for testing or when starting a new subprocess context.
+    Useful for testing or when starting a new subprocess context where
+    stdout has been reopened. Should only be called when stdout is known
+    to be functional (e.g., in a fresh subprocess with a new stdout).
+
+    Warning:
+        Calling this after stdout has been closed will result in safe_print()
+        attempting to write to the closed stream. The ValueError will be
+        caught and the pipe will be marked as broken again.
     """
     global _pipe_broken
     _pipe_broken = False
