@@ -31,8 +31,10 @@ jobs:
 
       - name: Check for API key
         id: check-key
+        env:
+          VT_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
         run: |
-          if [ -z "${{ secrets.VIRUSTOTAL_API_KEY }}" ]; then
+          if [ -z "$VT_KEY" ]; then
             echo "::warning::VIRUSTOTAL_API_KEY not configured, skipping scan"
             echo "has_key=false" >> $GITHUB_OUTPUT
           else
@@ -48,6 +50,15 @@ jobs:
           echo "Downloading assets for release $TAG..."
 
           mkdir -p release-assets
+
+          # First verify the release exists
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "::error::Release $TAG not found"
+            exit 1
+          fi
+
+          # Download assets, distinguishing between "no matching assets" and real errors
+          set +e
           gh release download "$TAG" \
             --repo "${{ github.repository }}" \
             --pattern "*.exe" \
@@ -55,7 +66,19 @@ jobs:
             --pattern "*.AppImage" \
             --pattern "*.deb" \
             --pattern "*.flatpak" \
-            --dir release-assets || true
+            --dir release-assets 2>&1
+          exit_code=$?
+          set -e
+
+          if [ $exit_code -ne 0 ]; then
+            # Check if it's just "no assets matched" vs a real error
+            asset_count=$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets -q '.assets | length')
+            if [ "$asset_count" -eq 0 ]; then
+              echo "Release has no assets yet (this is OK for new releases)"
+            else
+              echo "No assets matched the patterns (exe, dmg, AppImage, deb, flatpak)"
+            fi
+          fi
 
           echo "Downloaded assets:"
           ls -la release-assets/ || echo "No assets found"
@@ -87,12 +110,21 @@ jobs:
             filesize=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file")
             echo "Scanning $filename (${filesize} bytes)..."
 
-            # For files > 32MB, get a special upload URL first
-            if [ "$filesize" -gt 33554432 ]; then
+            # VirusTotal requires special upload URL for files > 32MB
+            LARGE_FILE_THRESHOLD=33554432  # 32 MB in bytes
+            if [ "$filesize" -gt "$LARGE_FILE_THRESHOLD" ]; then
               echo "  Large file detected, requesting upload URL..."
-              upload_url_response=$(curl -s --request GET \
+              upload_http_response=$(curl -s -w '\n%{http_code}' --request GET \
                 --url "https://www.virustotal.com/api/v3/files/upload_url" \
                 --header "x-apikey: $VT_API_KEY")
+              upload_http_code=$(echo "$upload_http_response" | tail -1)
+              upload_url_response=$(echo "$upload_http_response" | sed '$d')
+
+              if [ "$upload_http_code" != "200" ]; then
+                echo "::warning::Failed to get upload URL for large file $filename (HTTP $upload_http_code)"
+                echo "- $filename - ⚠️ Upload failed (large file, HTTP $upload_http_code)" >> vt_results.md
+                continue
+              fi
 
               upload_url=$(echo "$upload_url_response" | jq -r '.data // empty')
               if [ -z "$upload_url" ]; then
@@ -106,11 +138,26 @@ jobs:
               api_url="https://www.virustotal.com/api/v3/files"
             fi
 
-            # Upload file to VirusTotal
-            response=$(curl -s --request POST \
+            # Upload file to VirusTotal (capture HTTP status code)
+            http_response=$(curl -s -w '\n%{http_code}' --request POST \
               --url "$api_url" \
               --header "x-apikey: $VT_API_KEY" \
               --form "file=@$file")
+            http_code=$(echo "$http_response" | tail -1)
+            response=$(echo "$http_response" | sed '$d')
+
+            # Check HTTP status code first
+            if [ "$http_code" != "200" ]; then
+              echo "::warning::VirusTotal returned HTTP $http_code for $filename"
+              if [ "$http_code" = "429" ]; then
+                echo "- $filename - ⚠️ Scan failed (rate limited)" >> vt_results.md
+              elif [ "$http_code" = "403" ]; then
+                echo "- $filename - ⚠️ Scan failed (forbidden - check API key)" >> vt_results.md
+              else
+                echo "- $filename - ⚠️ Scan failed (HTTP $http_code)" >> vt_results.md
+              fi
+              continue
+            fi
 
             # Check if response is valid JSON before parsing
             if ! echo "$response" | jq -e . >/dev/null 2>&1; then
@@ -143,11 +190,24 @@ jobs:
 
             # Wait for analysis to complete (max 5 minutes per file)
             analysis=""
+            analysis_failed=false
             for i in {1..30}; do
               sleep 10
-              analysis=$(curl -s --request GET \
+              analysis_http_response=$(curl -s -w '\n%{http_code}' --request GET \
                 --url "https://www.virustotal.com/api/v3/analyses/$analysis_id" \
                 --header "x-apikey: $VT_API_KEY")
+              analysis_http_code=$(echo "$analysis_http_response" | tail -1)
+              analysis=$(echo "$analysis_http_response" | sed '$d')
+
+              # Check HTTP status code
+              if [ "$analysis_http_code" != "200" ]; then
+                echo "  Warning: HTTP $analysis_http_code on attempt $i, retrying..."
+                if [ "$analysis_http_code" = "429" ]; then
+                  echo "  Rate limited, waiting longer..."
+                  sleep 30
+                fi
+                continue
+              fi
 
               # Validate JSON response
               if ! echo "$analysis" | jq -e . >/dev/null 2>&1; then
@@ -210,8 +270,16 @@ jobs:
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
 
-          # Get current release body
-          current_body=$(gh release view "$TAG" --repo "${{ github.repository }}" --json body -q '.body')
+          # Get current release body with error checking
+          if ! current_body=$(gh release view "$TAG" --repo "${{ github.repository }}" --json body -q '.body'); then
+            echo "::error::Failed to fetch current release body for $TAG"
+            exit 1
+          fi
+
+          # Additional safeguard for empty body
+          if [ -z "$current_body" ]; then
+            echo "::warning::Release body is empty, this may indicate a problem"
+          fi
 
           # Check if VirusTotal results already exist in the body
           if echo "$current_body" | grep -q "## VirusTotal Scan Results"; then
@@ -219,17 +287,23 @@ jobs:
             exit 0
           fi
 
-          # Append VirusTotal results
-          new_body="${current_body}
+          # Use file-based approach to avoid shell expansion issues
+          # First, write current body to file
+          echo "$current_body" > release-body.md
 
----
+          # Remove placeholder text if present
+          sed -i '/_VirusTotal scan results will be added automatically after release\./d' release-body.md
 
-${{ steps.virustotal.outputs.vt_results }}"
+          # Append separator and VT results
+          echo "" >> release-body.md
+          echo "---" >> release-body.md
+          echo "" >> release-body.md
+          cat vt_results.md >> release-body.md
 
-          # Update release
+          # Update release using --notes-file to avoid shell quoting issues
           gh release edit "$TAG" \
             --repo "${{ github.repository }}" \
-            --notes "$new_body"
+            --notes-file release-body.md
 
           echo "✅ Updated release notes with VirusTotal scan results"
 
