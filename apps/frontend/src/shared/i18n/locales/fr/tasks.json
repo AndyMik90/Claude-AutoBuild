@@ -1,4 +1,5 @@
 {
+  "refreshTasks": "Actualiser les tâches",
   "status": {
     "backlog": "Backlog",
     "todo": "À faire",
@@ -52,6 +53,7 @@
     "description": "Créez votre première tâche pour commencer"
   },
   "columns": {
+    "error": "Erreur",
     "backlog": "Planification",
     "in_progress": "En cours",
     "ai_review": "Révision IA",
@@ -70,6 +72,8 @@
     "emptyHumanReviewHint": "Les tâches attendent votre approbation ici",
     "emptyDone": "Aucune tâche terminée",
     "emptyDoneHint": "Les tâches approuvées apparaissent ici",
+    "emptyError": "Aucune tâche en erreur",
+    "emptyErrorHint": "Les tâches en erreur apparaîtront ici en cas d'échec d'analyse",
     "emptyDefault": "Aucune tâche",
     "dropHere": "Déposer ici",
     "showArchived": "Afficher les archivées",
@@ -81,7 +85,8 @@
     "worktreeCleanupStaged": "Cette tâche a été préparée et possède un worktree. Voulez-vous nettoyer le worktree ?",
     "worktreeCleanupNotStaged": "Cette tâche possède un worktree avec des changements non fusionnés. Supprimez le worktree pour marquer comme terminé, ou annulez pour réviser les changements d'abord.",
     "keepWorktree": "Garder le Worktree",
-    "deleteWorktree": "Supprimer le Worktree & Marquer Terminé"
+    "deleteWorktree": "Supprimer le Worktree & Marquer Terminé",
+    "refreshTasks": "Actualiser les tâches"
   },
   "execution": {
     "phases": {

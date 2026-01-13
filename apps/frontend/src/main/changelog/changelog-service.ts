@@ -1,7 +1,12 @@
 import { EventEmitter } from 'events';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { app } from 'electron';
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { AUTO_BUILD_PATHS, DEFAULT_CHANGELOG_PATH } from '../../shared/constants';
 import { getToolPath } from '../cli-tool-manager';
 import type {

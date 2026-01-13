@@ -1,4 +1,5 @@
 {
+  "refreshTasks": "Refresh Tasks",
   "status": {
     "backlog": "Backlog",
     "todo": "To Do",
@@ -52,6 +53,7 @@
     "description": "Create your first task to get started"
   },
   "columns": {
+    "error": "Error",
     "backlog": "Planning",
     "in_progress": "In Progress",
     "ai_review": "AI Review",
@@ -70,6 +72,8 @@
     "emptyHumanReviewHint": "Tasks await your approval here",
     "emptyDone": "No completed tasks",
     "emptyDoneHint": "Approved tasks appear here",
+    "emptyError": "No error tasks",
+    "emptyErrorHint": "Error tasks will appear here when parsing fails",
     "emptyDefault": "No tasks",
     "dropHere": "Drop here",
     "showArchived": "Show archived",
@@ -81,7 +85,8 @@
     "worktreeCleanupStaged": "This task has been staged and has a worktree. Would you like to clean up the worktree?",
     "worktreeCleanupNotStaged": "This task has a worktree with changes that have not been merged. Delete the worktree to mark as done, or cancel to review the changes first.",
     "keepWorktree": "Keep Worktree",
-    "deleteWorktree": "Delete Worktree & Mark Done"
+    "deleteWorktree": "Delete Worktree & Mark Done",
+    "refreshTasks": "Refresh Tasks"
   },
   "execution": {
     "phases": {

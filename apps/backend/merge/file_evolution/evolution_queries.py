@@ -102,7 +102,7 @@ class EvolutionQueries:
         modifications = []
         for file_path, evolution in evolutions.items():
             snapshot = evolution.get_task_snapshot(task_id)
-            if snapshot and snapshot.semantic_changes:
+            if snapshot and snapshot.has_modifications:
                 modifications.append((file_path, snapshot))
         return modifications
 
@@ -125,7 +125,7 @@ class EvolutionQueries:
 
         for file_path, evolution in evolutions.items():
             for snapshot in evolution.task_snapshots:
-                if snapshot.task_id in task_ids and snapshot.semantic_changes:
+                if snapshot.task_id in task_ids and snapshot.has_modifications:
                     if file_path not in file_tasks:
                         file_tasks[file_path] = []
                     file_tasks[file_path].append(snapshot.task_id)

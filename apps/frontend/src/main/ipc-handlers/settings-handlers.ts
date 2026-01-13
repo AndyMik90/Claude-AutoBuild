@@ -2,7 +2,12 @@ import { ipcMain, dialog, app, shell } from 'electron';
 import { existsSync, writeFileSync, mkdirSync, statSync, readFileSync } from 'fs';
 import { execFileSync } from 'node:child_process';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { is } from '@electron-toolkit/utils';
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, DEFAULT_AGENT_PROFILES } from '../../shared/constants';
 import type {
   AppSettings,

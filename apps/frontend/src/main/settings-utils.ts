@@ -9,7 +9,7 @@
  */
 
 import { app } from 'electron';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import path from 'path';
 
 /**
@@ -40,4 +40,21 @@ export function readSettingsFile(): Record<string, unknown> | undefined {
     // Return undefined on parse error - caller will use defaults
     return undefined;
   }
+}
+
+/**
+ * Write settings to disk.
+ *
+ * @param settings - The settings object to write
+ */
+export function writeSettingsFile(settings: Record<string, unknown>): void {
+  const settingsPath = getSettingsPath();
+
+  // Ensure the directory exists
+  const dir = path.dirname(settingsPath);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+
+  writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
 }

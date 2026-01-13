@@ -69,6 +69,7 @@ export interface TerminalAPI {
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;
   onTerminalTitleChange: (callback: (id: string, title: string) => void) => () => void;
+  onTerminalWorktreeConfigChange: (callback: (id: string, config: TerminalWorktreeConfig | undefined) => void) => () => void;
   onTerminalClaudeSession: (callback: (id: string, sessionId: string) => void) => () => void;
   onTerminalRateLimit: (callback: (info: RateLimitInfo) => void) => () => void;
   onTerminalOAuthToken: (
@@ -78,6 +79,7 @@ export interface TerminalAPI {
     callback: (info: { terminalId: string; profileId: string; profileName: string }) => void
   ) => () => void;
   onTerminalClaudeBusy: (callback: (id: string, isBusy: boolean) => void) => () => void;
+  onTerminalClaudeExit: (callback: (id: string) => void) => () => void;
   onTerminalPendingResume: (callback: (id: string, sessionId?: string) => void) => () => void;
 
   // Claude Profile Management
@@ -227,6 +229,22 @@ export const createTerminalAPI = (): TerminalAPI => ({
     };
   },
 
+  onTerminalWorktreeConfigChange: (
+    callback: (id: string, config: TerminalWorktreeConfig | undefined) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      id: string,
+      config: TerminalWorktreeConfig | undefined
+    ): void => {
+      callback(id, config);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TERMINAL_WORKTREE_CONFIG_CHANGE, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_WORKTREE_CONFIG_CHANGE, handler);
+    };
+  },
+
   onTerminalClaudeSession: (
     callback: (id: string, sessionId: string) => void
   ): (() => void) => {
@@ -301,6 +319,21 @@ export const createTerminalAPI = (): TerminalAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TERMINAL_CLAUDE_BUSY, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_CLAUDE_BUSY, handler);
+    };
+  },
+
+  onTerminalClaudeExit: (
+    callback: (id: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      id: string
+    ): void => {
+      callback(id);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TERMINAL_CLAUDE_EXIT, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_CLAUDE_EXIT, handler);
     };
   },
 

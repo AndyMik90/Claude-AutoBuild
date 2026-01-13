@@ -80,11 +80,60 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
   // Stable downgrade state (shown when user turns off beta while on prerelease)
   const [stableDowngradeInfo, setStableDowngradeInfo] = useState<AppUpdateInfo | null>(null);
 
-  // Check for updates on mount
+  // Check for updates on mount, including any already-downloaded updates
   useEffect(() => {
-    if (section === 'updates') {
-      checkForAppUpdates();
+    if (section !== 'updates') {
+      return;
     }
+
+    let isCancelled = false;
+
+    // First check if an update was already downloaded, then check for new updates
+    (async () => {
+      // Check if an update was already downloaded (e.g., auto-downloaded in background)
+      try {
+        const result = await window.electronAPI.getDownloadedAppUpdate();
+
+        // Skip state updates if component unmounted or section changed
+        if (isCancelled) return;
+
+        if (result.success && result.data) {
+          // An update was already downloaded - show "Install and Restart" button
+          setAppUpdateInfo(result.data);
+          setIsAppUpdateDownloaded(true);
+          console.log('[AdvancedSettings] Found already-downloaded update:', result.data.version);
+          return; // Don't check for new updates if we already have one downloaded
+        }
+      } catch (err) {
+        console.error('Failed to check for downloaded update:', err);
+        if (isCancelled) return;
+      }
+
+      // Only check for available updates if no update is already downloaded
+      // (electron-updater reports no available update when one is already downloaded,
+      // which would clear our appUpdateInfo and lose the version metadata)
+      // Inline the update check with cancellation support
+      setIsCheckingAppUpdate(true);
+      try {
+        const result = await window.electronAPI.checkAppUpdate();
+        if (isCancelled) return;
+        if (result.success && result.data) {
+          setAppUpdateInfo(result.data);
+        } else {
+          setAppUpdateInfo(null);
+        }
+      } catch (err) {
+        console.error('Failed to check for app updates:', err);
+      } finally {
+        if (!isCancelled) {
+          setIsCheckingAppUpdate(false);
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [section]);
 
   // Listen for app update events

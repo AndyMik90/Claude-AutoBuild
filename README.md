@@ -16,17 +16,18 @@
 ### Stable Release
 
 <!-- STABLE_VERSION_BADGE -->
-[![Stable](https://img.shields.io/badge/stable-2.7.2-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.2)
+[![Stable](https://img.shields.io/badge/stable-2.7.4-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.4)
 <!-- STABLE_VERSION_BADGE_END -->
 
 <!-- STABLE_DOWNLOADS -->
 | Platform | Download |
 |----------|----------|
-| **Windows** | [Auto-Claude-2.7.2-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-win32-x64.exe) |
-| **macOS (Apple Silicon)** | [Auto-Claude-2.7.2-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-darwin-arm64.dmg) |
-| **macOS (Intel)** | [Auto-Claude-2.7.2-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-darwin-x64.dmg) |
-| **Linux** | [Auto-Claude-2.7.2-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-linux-x86_64.AppImage) |
-| **Linux (Debian)** | [Auto-Claude-2.7.2-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-linux-amd64.deb) |
+| **Windows** | [Auto-Claude-2.7.3-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.3/Auto-Claude-2.7.3-win32-x64.exe) |
+| **macOS (Apple Silicon)** | [Auto-Claude-2.7.3-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.3/Auto-Claude-2.7.3-darwin-arm64.dmg) |
+| **macOS (Intel)** | [Auto-Claude-2.7.3-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.3/Auto-Claude-2.7.3-darwin-x64.dmg) |
+| **Linux** | [Auto-Claude-2.7.3-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.3/Auto-Claude-2.7.3-linux-x86_64.AppImage) |
+| **Linux (Debian)** | [Auto-Claude-2.7.3-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.3/Auto-Claude-2.7.3-linux-amd64.deb) |
+| **Linux (Flatpak)** | [Auto-Claude-2.7.3-linux-x86_64.flatpak](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.3/Auto-Claude-2.7.3-linux-x86_64.flatpak) |
 <!-- STABLE_DOWNLOADS_END -->
 
 ### Beta Release

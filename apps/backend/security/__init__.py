@@ -59,6 +59,7 @@ from .tool_input_validator import (
 # Validators (for advanced usage)
 from .validator import (
     VALIDATORS,
+    validate_bash_command,
     validate_chmod_command,
     validate_dropdb_command,
     validate_dropuser_command,
@@ -75,6 +76,9 @@ from .validator import (
     validate_psql_command,
     validate_redis_cli_command,
     validate_rm_command,
+    validate_sh_command,
+    validate_shell_c_command,
+    validate_zsh_command,
 )
 
 __all__ = [
@@ -98,6 +102,10 @@ __all__ = [
     "validate_git_command",
     "validate_git_commit",
     "validate_git_config",
+    "validate_shell_c_command",
+    "validate_bash_command",
+    "validate_sh_command",
+    "validate_zsh_command",
     "validate_dropdb_command",
     "validate_dropuser_command",
     "validate_psql_command",
