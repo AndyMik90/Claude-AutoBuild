@@ -47,18 +47,18 @@ export const TERMINAL_FONT_FAMILY_MAP: Record<TerminalFontFamily, string> = {
   dejaVuSansMono: '"DejaVu Sans Mono", "Courier New", monospace'
 };
 
-// Terminal font family options with display labels and CSS font stacks
-export const TERMINAL_FONT_FAMILY_OPTIONS: Record<TerminalFontFamily, { label: string; fontStack: string }> = {
-  system: { label: 'System Default', fontStack: TERMINAL_FONT_FAMILY_MAP.system },
-  jetbrainsMono: { label: 'JetBrains Mono', fontStack: TERMINAL_FONT_FAMILY_MAP.jetbrainsMono },
-  firaCode: { label: 'Fira Code', fontStack: TERMINAL_FONT_FAMILY_MAP.firaCode },
-  cascadiaCode: { label: 'Cascadia Code', fontStack: TERMINAL_FONT_FAMILY_MAP.cascadiaCode },
-  consolas: { label: 'Consolas', fontStack: TERMINAL_FONT_FAMILY_MAP.consolas },
-  monaco: { label: 'Monaco', fontStack: TERMINAL_FONT_FAMILY_MAP.monaco },
-  sfMono: { label: 'SF Mono', fontStack: TERMINAL_FONT_FAMILY_MAP.sfMono },
-  sourceCodePro: { label: 'Source Code Pro', fontStack: TERMINAL_FONT_FAMILY_MAP.sourceCodePro },
-  ubuntuMono: { label: 'Ubuntu Mono', fontStack: TERMINAL_FONT_FAMILY_MAP.ubuntuMono },
-  dejaVuSansMono: { label: 'DejaVu Sans Mono', fontStack: TERMINAL_FONT_FAMILY_MAP.dejaVuSansMono }
+// Terminal font family options with i18n label keys and CSS font stacks
+export const TERMINAL_FONT_FAMILY_OPTIONS: Record<TerminalFontFamily, { labelKey: string; fontStack: string }> = {
+  system: { labelKey: 'terminal.fonts.system', fontStack: TERMINAL_FONT_FAMILY_MAP.system },
+  jetbrainsMono: { labelKey: 'terminal.fonts.jetbrainsMono', fontStack: TERMINAL_FONT_FAMILY_MAP.jetbrainsMono },
+  firaCode: { labelKey: 'terminal.fonts.firaCode', fontStack: TERMINAL_FONT_FAMILY_MAP.firaCode },
+  cascadiaCode: { labelKey: 'terminal.fonts.cascadiaCode', fontStack: TERMINAL_FONT_FAMILY_MAP.cascadiaCode },
+  consolas: { labelKey: 'terminal.fonts.consolas', fontStack: TERMINAL_FONT_FAMILY_MAP.consolas },
+  monaco: { labelKey: 'terminal.fonts.monaco', fontStack: TERMINAL_FONT_FAMILY_MAP.monaco },
+  sfMono: { labelKey: 'terminal.fonts.sfMono', fontStack: TERMINAL_FONT_FAMILY_MAP.sfMono },
+  sourceCodePro: { labelKey: 'terminal.fonts.sourceCodePro', fontStack: TERMINAL_FONT_FAMILY_MAP.sourceCodePro },
+  ubuntuMono: { labelKey: 'terminal.fonts.ubuntuMono', fontStack: TERMINAL_FONT_FAMILY_MAP.ubuntuMono },
+  dejaVuSansMono: { labelKey: 'terminal.fonts.dejaVuSansMono', fontStack: TERMINAL_FONT_FAMILY_MAP.dejaVuSansMono }
 };
 
 export const DEFAULT_TERMINAL_FONT_SETTINGS: TerminalFontSettings = {

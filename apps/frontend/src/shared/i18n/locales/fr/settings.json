@@ -589,6 +589,18 @@
     "resetToDefault": "Réinitialiser par défaut",
     "resetAll": "Tout réinitialiser par défaut",
     "decrease": "Diminuer",
-    "increase": "Augmenter"
+    "increase": "Augmenter",
+    "fonts": {
+      "system": "Par défaut du système",
+      "jetbrainsMono": "JetBrains Mono",
+      "firaCode": "Fira Code",
+      "cascadiaCode": "Cascadia Code",
+      "consolas": "Consolas",
+      "monaco": "Monaco",
+      "sfMono": "SF Mono",
+      "sourceCodePro": "Source Code Pro",
+      "ubuntuMono": "Ubuntu Mono",
+      "dejaVuSansMono": "DejaVu Sans Mono"
+    }
   }
 }

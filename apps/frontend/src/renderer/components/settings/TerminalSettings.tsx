@@ -113,7 +113,7 @@ export function TerminalSettings({ settings, onSettingsChange }: TerminalSetting
             {t('terminal.fontFamilyDescription')}
           </p>
           <div className="grid grid-cols-2 gap-2 max-w-lg pt-1">
-            {Object.entries(TERMINAL_FONT_FAMILY_OPTIONS).map(([key, { label, fontStack }]) => {
+            {Object.entries(TERMINAL_FONT_FAMILY_OPTIONS).map(([key, { labelKey, fontStack }]) => {
               const isSelected = selectedFontFamily === key;
               return (
                 <button
@@ -130,7 +130,7 @@ export function TerminalSettings({ settings, onSettingsChange }: TerminalSetting
                   style={{ fontFamily: fontStack }}
                 >
                   <Terminal className="h-4 w-4 shrink-0" />
-                  <span className="text-sm font-medium">{label}</span>
+                  <span className="text-sm font-medium">{t(labelKey)}</span>
                 </button>
               );
             })}
