@@ -637,7 +637,9 @@ class WorktreeManager:
                     return False
 
         # Merge the spec branch
-        merge_args = ["merge", "--no-ff", info.branch]
+        # Use --no-verify to prevent pre-commit hooks from corrupting worktree state
+        # Hooks can operate on the wrong git index in worktrees, causing branch corruption
+        merge_args = ["merge", "--no-ff", "--no-verify", info.branch]
         if no_commit:
             # --no-commit stages the merge but doesn't create the commit
             merge_args.append("--no-commit")
@@ -697,7 +699,12 @@ class WorktreeManager:
             return False
 
         self._run_git(["add", "."], cwd=worktree_path)
-        result = self._run_git(["commit", "-m", message], cwd=worktree_path)
+        # Use --no-verify to prevent pre-commit hooks from corrupting worktree state
+        # Hooks can operate on the wrong git index in worktrees, causing branch corruption
+        # QA phase validates code anyway, so skipping hooks here is safe
+        result = self._run_git(
+            ["commit", "--no-verify", "-m", message], cwd=worktree_path
+        )
 
         if result.returncode == 0:
             return True
