@@ -320,25 +320,31 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
   // Update terminal options when font settings change
   useEffect(() => {
-    if (xtermRef.current && fitAddonRef.current) {
-      xtermRef.current.options.fontSize = terminalFont.fontSize;
-      xtermRef.current.options.fontFamily = terminalFont.fontFamily;
-      xtermRef.current.options.lineHeight = terminalFont.lineHeight;
-      xtermRef.current.options.letterSpacing = terminalFont.letterSpacing;
+    // Use setTimeout to ensure this runs after initialization effect
+    // This is needed because fitAddonRef might not be set yet on first render
+    const timeoutId = setTimeout(() => {
+      if (xtermRef.current && fitAddonRef.current) {
+        xtermRef.current.options.fontSize = terminalFont.fontSize;
+        xtermRef.current.options.fontFamily = terminalFont.fontFamily;
+        xtermRef.current.options.lineHeight = terminalFont.lineHeight;
+        xtermRef.current.options.letterSpacing = terminalFont.letterSpacing;
 
-      // Recalculate grid dimensions based on new font metrics
-      // Font changes affect character width/height, so cols/rows may change
-      fitAddonRef.current.fit();
+        // Recalculate grid dimensions based on new font metrics
+        // Font changes affect character width/height, so cols/rows may change
+        fitAddonRef.current.fit();
 
-      // Refresh the terminal to apply new font settings
-      xtermRef.current.refresh(0, xtermRef.current.rows);
+        // Refresh the terminal to apply new font settings
+        xtermRef.current.refresh(0, xtermRef.current.rows);
 
-      // Update dimensions state with new grid size
-      setDimensions({
-        cols: xtermRef.current.cols,
-        rows: xtermRef.current.rows
-      });
-    }
+        // Update dimensions state with new grid size
+        setDimensions({
+          cols: xtermRef.current.cols,
+          rows: xtermRef.current.rows
+        });
+      }
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [terminalFont]);
 
   const fit = useCallback(() => {

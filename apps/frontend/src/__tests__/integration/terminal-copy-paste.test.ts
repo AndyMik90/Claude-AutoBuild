@@ -30,6 +30,7 @@ vi.mock('@xterm/xterm', () => ({
       onResize: vi.fn(),
       dispose: vi.fn(),
       write: vi.fn(),
+      refresh: vi.fn(),
       cols: 80,
       rows: 24
     };
