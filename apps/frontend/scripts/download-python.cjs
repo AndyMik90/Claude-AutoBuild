@@ -604,6 +604,173 @@ function checkForBlockedPackages(requirementsPath) {
 }
 
 /**
+ * Fix pywin32 installation for bundled packages.
+ *
+ * When pip installs pywin32 with --target, the post-install script doesn't run,
+ * and the .pth file isn't processed (since PYTHONPATH doesn't process .pth files).
+ *
+ * This means:
+ * 1. `import pywintypes` fails because pywintypes.py is in win32/lib/, not at root
+ * 2. `import _win32sysloader` fails because it's in win32/, not at root
+ * 3. pywin32_system32 needs an __init__.py to be importable as a package
+ *
+ * The fix copies the necessary files to site-packages root so they're directly importable.
+ */
+function fixPywin32(sitePackagesDir) {
+  const pywin32System32 = path.join(sitePackagesDir, 'pywin32_system32');
+  const win32Dir = path.join(sitePackagesDir, 'win32');
+  const win32LibDir = path.join(win32Dir, 'lib');
+
+  if (!fs.existsSync(pywin32System32)) {
+    // pywin32 not installed or not on Windows - nothing to fix
+    return;
+  }
+
+  console.log(`[download-python] Fixing pywin32 for bundled packages...`);
+
+  // 1. Copy pywintypes.py and pythoncom.py from win32/lib/ to root
+  // These are the Python modules that load the DLLs
+  const pyModules = ['pywintypes.py', 'pythoncom.py'];
+  for (const pyModule of pyModules) {
+    const srcPath = path.join(win32LibDir, pyModule);
+    const destPath = path.join(sitePackagesDir, pyModule);
+
+    if (fs.existsSync(srcPath)) {
+      try {
+        fs.copyFileSync(srcPath, destPath);
+        console.log(`[download-python] Copied ${pyModule} to site-packages root`);
+      } catch (err) {
+        console.warn(`[download-python] Failed to copy ${pyModule}: ${err.message}`);
+      }
+    }
+  }
+
+  // 2. Copy _win32sysloader.pyd from win32/ to root
+  // This is required by pywintypes.py to locate and load the DLLs
+  const sysloaderFiles = fs.readdirSync(win32Dir).filter(f => f.startsWith('_win32sysloader'));
+  for (const sysloader of sysloaderFiles) {
+    const srcPath = path.join(win32Dir, sysloader);
+    const destPath = path.join(sitePackagesDir, sysloader);
+
+    try {
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`[download-python] Copied ${sysloader} to site-packages root`);
+    } catch (err) {
+      console.warn(`[download-python] Failed to copy ${sysloader}: ${err.message}`);
+    }
+  }
+
+  // 3. Create __init__.py in pywin32_system32/ to make it importable as a package
+  // pywintypes.py does `import pywin32_system32` and then uses pywin32_system32.__path__
+  const initPath = path.join(pywin32System32, '__init__.py');
+  if (!fs.existsSync(initPath)) {
+    try {
+      // The __init__.py sets up __path__ so pywintypes.py can find the DLLs
+      const initContent = `# Auto-generated for bundled pywin32
+import os
+__path__ = [os.path.dirname(__file__)]
+`;
+      fs.writeFileSync(initPath, initContent);
+      console.log(`[download-python] Created pywin32_system32/__init__.py`);
+    } catch (err) {
+      console.warn(`[download-python] Failed to create __init__.py: ${err.message}`);
+    }
+  }
+
+  // 4. Copy DLLs to win32/ directory as well (backup location for DLL loading)
+  const dllFiles = fs.readdirSync(pywin32System32).filter(f => f.endsWith('.dll'));
+  for (const dll of dllFiles) {
+    const srcPath = path.join(pywin32System32, dll);
+    const destPath = path.join(win32Dir, dll);
+
+    try {
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`[download-python] Copied ${dll} to win32/`);
+    } catch (err) {
+      console.warn(`[download-python] Failed to copy ${dll} to win32/: ${err.message}`);
+    }
+  }
+
+  // 5. Also copy DLLs to site-packages root for maximum compatibility
+  for (const dll of dllFiles) {
+    const srcPath = path.join(pywin32System32, dll);
+    const destPath = path.join(sitePackagesDir, dll);
+
+    try {
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`[download-python] Copied ${dll} to site-packages root`);
+    } catch (err) {
+      console.warn(`[download-python] Failed to copy ${dll}: ${err.message}`);
+    }
+  }
+
+  // 6. Create PYTHONSTARTUP bootstrap script for Python 3.8+ DLL loading
+  // This script runs before any imports and ensures os.add_dll_directory() is called
+  // for pywin32_system32. This is necessary because:
+  // - PYTHONPATH doesn't process .pth files, so pywin32_bootstrap.py never runs
+  // - Python 3.8+ requires os.add_dll_directory() for DLL search paths
+  // - PATH environment variable no longer works for DLL loading in Python 3.8+
+  //
+  // See: https://github.com/AndyMik90/Auto-Claude/issues/810
+  // See: https://github.com/AndyMik90/Auto-Claude/issues/861
+  // See: https://github.com/mhammond/pywin32/blob/main/win32/Lib/pywin32_bootstrap.py
+  const startupScriptPath = path.join(sitePackagesDir, '_auto_claude_startup.py');
+  const startupScriptContent = `# Auto-Claude pywin32 bootstrap script
+# This script runs via PYTHONSTARTUP before the main script.
+# It ensures pywin32 DLLs can be found on Python 3.8+ where
+# os.add_dll_directory() is required for DLL search paths.
+#
+# See: https://github.com/AndyMik90/Auto-Claude/issues/810
+# See: https://github.com/mhammond/pywin32/blob/main/win32/Lib/pywin32_bootstrap.py
+
+import os
+import sys
+
+def _bootstrap_pywin32():
+    """Bootstrap pywin32 DLL loading for Python 3.8+"""
+    # Get the site-packages directory (where this script is located)
+    site_packages = os.path.dirname(os.path.abspath(__file__))
+
+    # 1. Add pywin32_system32 to DLL search path (Python 3.8+ requirement)
+    # This is the critical fix - without this, pywintypes DLL cannot be loaded
+    pywin32_system32 = os.path.join(site_packages, 'pywin32_system32')
+    if os.path.isdir(pywin32_system32):
+        if hasattr(os, 'add_dll_directory'):
+            try:
+                os.add_dll_directory(pywin32_system32)
+            except OSError:
+                pass  # Directory already added or doesn't exist
+
+        # Also add to PATH as fallback for edge cases
+        current_path = os.environ.get('PATH', '')
+        if pywin32_system32 not in current_path:
+            os.environ['PATH'] = pywin32_system32 + os.pathsep + current_path
+
+    # 2. Use site.addsitedir() to process .pth files
+    # This triggers pywin32.pth which imports pywin32_bootstrap
+    # The bootstrap adds win32, win32/lib to sys.path and calls add_dll_directory
+    try:
+        import site
+        if site_packages not in sys.path:
+            site.addsitedir(site_packages)
+    except Exception:
+        pass  # site module issues shouldn't break the app
+
+# Run bootstrap immediately when this script is loaded
+_bootstrap_pywin32()
+`;
+
+  try {
+    fs.writeFileSync(startupScriptPath, startupScriptContent);
+    console.log(`[download-python] Created pywin32 bootstrap script: _auto_claude_startup.py`);
+  } catch (err) {
+    console.warn(`[download-python] Failed to create bootstrap script: ${err.message}`);
+  }
+
+  console.log(`[download-python] pywin32 fix complete`);
+}
+
+/**
  * Install Python packages into a site-packages directory.
  * Uses pip with optimizations for smaller output.
  */
@@ -653,6 +820,9 @@ function installPackages(pythonBin, requirementsPath, targetSitePackages) {
   }
 
   console.log(`[download-python] Packages installed successfully`);
+
+  // Fix pywin32 for Windows builds (must be done BEFORE stripping)
+  fixPywin32(targetSitePackages);
 
   // Strip unnecessary files
   stripSitePackages(targetSitePackages);
