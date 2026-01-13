@@ -69,6 +69,12 @@ export class ClaudeProfileManager {
     // DON'T do file I/O here - defer to async initialize()
     // Start with default data until initialized
     this.data = this.createDefaultData();
+
+    console.warn('[ClaudeProfileManager] Constructor called', {
+      configDir: this.configDir,
+      storePath: this.storePath,
+      initialized: this.initialized
+    });
   }
 
   /**
@@ -76,20 +82,42 @@ export class ClaudeProfileManager {
    * This should be called at app startup via initializeClaudeProfileManager()
    */
   async initialize(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized) {
+      console.warn('[ClaudeProfileManager] Already initialized, skipping');
+      return;
+    }
+
+    console.warn('[ClaudeProfileManager] Starting async initialization...', {
+      configDir: this.configDir,
+      storePath: this.storePath
+    });
 
     // Ensure directory exists (async) - mkdir with recursive:true is idempotent
     await mkdir(this.configDir, { recursive: true });
+    console.warn('[ClaudeProfileManager] Config directory created/verified:', this.configDir);
 
     // Load existing data asynchronously
     const loadedData = await loadProfileStoreAsync(this.storePath);
     if (loadedData) {
       this.data = loadedData;
+      console.warn('[ClaudeProfileManager] Loaded existing profile data:', {
+        profileCount: this.data.profiles.length,
+        activeProfileId: this.data.activeProfileId,
+        profiles: this.data.profiles.map(p => ({ id: p.id, name: p.name, isDefault: p.isDefault }))
+      });
+    } else {
+      console.warn('[ClaudeProfileManager] No existing data found, using defaults:', {
+        profileCount: this.data.profiles.length,
+        activeProfileId: this.data.activeProfileId
+      });
     }
-    // else: keep the default data from constructor
 
     this.initialized = true;
-    console.warn('[ClaudeProfileManager] Initialized asynchronously');
+    console.warn('[ClaudeProfileManager] ✓ Initialization complete', {
+      initialized: this.initialized,
+      profileCount: this.data.profiles.length,
+      activeProfile: this.getActiveProfile().name
+    });
   }
 
   /**
@@ -571,27 +599,36 @@ export function getClaudeProfileManager(): ClaudeProfileManager {
  * The cached promise is reset on failure to allow retries after transient errors.
  */
 export async function initializeClaudeProfileManager(): Promise<ClaudeProfileManager> {
+  console.warn('[initializeClaudeProfileManager] Called');
+
   if (!profileManager) {
+    console.warn('[initializeClaudeProfileManager] Creating new ClaudeProfileManager instance');
     profileManager = new ClaudeProfileManager();
   }
 
   // If already initialized, return immediately
   if (profileManager.isInitialized()) {
+    console.warn('[initializeClaudeProfileManager] Already initialized, returning existing instance');
     return profileManager;
   }
 
   // If initialization is in progress, wait for it (promise caching)
   if (!initPromise) {
+    console.warn('[initializeClaudeProfileManager] Starting initialization...');
     initPromise = profileManager.initialize()
       .then(() => {
+        console.warn('[initializeClaudeProfileManager] Initialization promise resolved successfully');
         return profileManager!;
       })
       .catch((error) => {
         // Reset cached promise on failure so retries can succeed
         // This allows recovery from transient errors (e.g., disk full, permission issues)
+        console.error('[initializeClaudeProfileManager] Initialization failed:', error);
         initPromise = null;
         throw error;
       });
+  } else {
+    console.warn('[initializeClaudeProfileManager] Initialization in progress, waiting for existing promise');
   }
 
   return initPromise;
