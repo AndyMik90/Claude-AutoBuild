@@ -127,13 +127,16 @@ export function ProjectWizard({
   const allSteps = getAllSteps();
   const currentStepId = allSteps[currentStepIndex];
 
+  // Find the current step's index in visibleSteps for progress indicator
+  const currentVisibleStepIndex = visibleSteps.indexOf(currentStepId as VisibleStepId);
+
   // Build step data for progress indicator
   const steps: WizardStep[] = visibleSteps.map((stepId, index) => {
     const stepConfig = WIZARD_STEPS.find(s => s.id === stepId);
     return {
       id: stepId,
       label: stepConfig ? t(stepConfig.labelKey) : stepId,
-      completed: completedSteps.has(stepId) || index < currentStepIndex
+      completed: completedSteps.has(stepId) || index < currentVisibleStepIndex
     };
   });
 
@@ -163,9 +166,9 @@ export function ProjectWizard({
       showGitLab: false  // Will be set by provider selection
     }));
 
-    // Always go to git step first
-    goToNextStep();
-  }, [goToNextStep]);
+    // Always go to git step first (index 2 in allSteps)
+    setCurrentStepIndex(2);
+  }, []);
 
   const handleProjectCreated = useCallback((project: Project, initWithGit: boolean) => {
     setState(prev => ({
@@ -369,7 +372,7 @@ export function ProjectWizard({
           {/* Progress indicator */}
           {showProgress && (
             <div className="mt-6">
-              <WizardProgress currentStep={currentStepIndex} steps={steps} />
+              <WizardProgress currentStep={currentVisibleStepIndex} steps={steps} />
             </div>
           )}
         </FullScreenDialogHeader>

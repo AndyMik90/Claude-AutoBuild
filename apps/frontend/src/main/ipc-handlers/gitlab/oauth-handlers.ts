@@ -234,8 +234,8 @@ export function registerStartGlabAuth(): void {
 
       return new Promise((resolve) => {
         try {
-          // glab auth login with web flow
-          const args = ['auth', 'login', '--web'];
+          // glab auth login (opens browser by default for web flow)
+          const args = ['auth', 'login'];
           if (hostname !== 'gitlab.com') {
             args.push('--hostname', hostname);
           }
