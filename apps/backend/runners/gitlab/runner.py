@@ -38,6 +38,7 @@ if env_file.exists():
 # Add gitlab runner directory to path for direct imports
 sys.path.insert(0, str(Path(__file__).parent))
 
+from core.io_utils import safe_print
 from models import GitLabRunnerConfig
 from orchestrator import GitLabOrchestrator, ProgressCallback
 
@@ -48,7 +49,7 @@ def print_progress(callback: ProgressCallback) -> None:
     if callback.mr_iid:
         prefix = f"[MR !{callback.mr_iid}] "
 
-    print(f"{prefix}[{callback.progress:3d}%] {callback.message}", flush=True)
+    safe_print(f"{prefix}[{callback.progress:3d}%] {callback.message}")
 
 
 def get_config(args) -> GitLabRunnerConfig:
@@ -122,27 +123,24 @@ async def cmd_review_mr(args) -> int:
     sys.stdout.reconfigure(line_buffering=True)
     sys.stderr.reconfigure(line_buffering=True)
 
-    print(f"[DEBUG] Starting MR review for MR !{args.mr_iid}", flush=True)
-    print(f"[DEBUG] Project directory: {args.project_dir}", flush=True)
+    safe_print(f"[DEBUG] Starting MR review for MR !{args.mr_iid}")
+    safe_print(f"[DEBUG] Project directory: {args.project_dir}")
 
-    print("[DEBUG] Building config...", flush=True)
+    safe_print("[DEBUG] Building config...")
     config = get_config(args)
-    print(
-        f"[DEBUG] Config built: project={config.project}, model={config.model}",
-        flush=True,
-    )
+    safe_print(f"[DEBUG] Config built: project={config.project}, model={config.model}")
 
-    print("[DEBUG] Creating orchestrator...", flush=True)
+    safe_print("[DEBUG] Creating orchestrator...")
     orchestrator = GitLabOrchestrator(
         project_dir=args.project_dir,
         config=config,
         progress_callback=print_progress,
     )
-    print("[DEBUG] Orchestrator created", flush=True)
+    safe_print("[DEBUG] Orchestrator created")
 
-    print(f"[DEBUG] Calling orchestrator.review_mr({args.mr_iid})...", flush=True)
+    safe_print(f"[DEBUG] Calling orchestrator.review_mr({args.mr_iid})...")
     result = await orchestrator.review_mr(args.mr_iid)
-    print(f"[DEBUG] review_mr returned, success={result.success}", flush=True)
+    safe_print(f"[DEBUG] review_mr returned, success={result.success}")
 
     if result.success:
         print(f"\n{'=' * 60}")
@@ -174,27 +172,22 @@ async def cmd_followup_review_mr(args) -> int:
     sys.stdout.reconfigure(line_buffering=True)
     sys.stderr.reconfigure(line_buffering=True)
 
-    print(f"[DEBUG] Starting follow-up review for MR !{args.mr_iid}", flush=True)
-    print(f"[DEBUG] Project directory: {args.project_dir}", flush=True)
+    safe_print(f"[DEBUG] Starting follow-up review for MR !{args.mr_iid}")
+    safe_print(f"[DEBUG] Project directory: {args.project_dir}")
 
-    print("[DEBUG] Building config...", flush=True)
+    safe_print("[DEBUG] Building config...")
     config = get_config(args)
-    print(
-        f"[DEBUG] Config built: project={config.project}, model={config.model}",
-        flush=True,
-    )
+    safe_print(f"[DEBUG] Config built: project={config.project}, model={config.model}")
 
-    print("[DEBUG] Creating orchestrator...", flush=True)
+    safe_print("[DEBUG] Creating orchestrator...")
     orchestrator = GitLabOrchestrator(
         project_dir=args.project_dir,
         config=config,
         progress_callback=print_progress,
     )
-    print("[DEBUG] Orchestrator created", flush=True)
+    safe_print("[DEBUG] Orchestrator created")
 
-    print(
-        f"[DEBUG] Calling orchestrator.followup_review_mr({args.mr_iid})...", flush=True
-    )
+    safe_print(f"[DEBUG] Calling orchestrator.followup_review_mr({args.mr_iid})...")
 
     try:
         result = await orchestrator.followup_review_mr(args.mr_iid)
@@ -202,7 +195,7 @@ async def cmd_followup_review_mr(args) -> int:
         print(f"\nFollow-up review failed: {e}")
         return 1
 
-    print(f"[DEBUG] followup_review_mr returned, success={result.success}", flush=True)
+    safe_print(f"[DEBUG] followup_review_mr returned, success={result.success}")
 
     if result.success:
         print(f"\n{'=' * 60}")

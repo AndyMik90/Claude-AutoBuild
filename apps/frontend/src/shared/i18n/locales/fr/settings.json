@@ -261,7 +261,12 @@
     "detected": "Détecté",
     "notInstalled": "Non installé",
     "detectedSummary": "Détecté sur votre système :",
-    "noToolsDetected": "Aucun outil supplémentaire détecté (VS Code et le terminal système seront utilisés)"
+    "noToolsDetected": "Aucun outil supplémentaire détecté (VS Code et le terminal système seront utilisés)",
+    "yoloMode": {
+      "label": "Mode YOLO",
+      "description": "Démarrer Claude avec le flag --dangerously-skip-permissions, contournant toutes les invites de sécurité. À utiliser avec une extrême prudence.",
+      "warning": "Ce mode contourne le système de permissions de Claude. N'activez que si vous faites entièrement confiance au code exécuté."
+    }
   },
   "updates": {
     "title": "Mises à jour",

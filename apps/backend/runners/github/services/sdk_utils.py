@@ -15,6 +15,11 @@ import os
 from collections.abc import Callable
 from typing import Any
 
+try:
+    from .io_utils import safe_print
+except (ImportError, ValueError, SystemError):
+    from core.io_utils import safe_print
+
 logger = logging.getLogger(__name__)
 
 # Check if debug mode is enabled
@@ -66,9 +71,9 @@ async def process_sdk_stream(
     # Track subagent tool IDs to log their results
     subagent_tool_ids: dict[str, str] = {}  # tool_id -> agent_name
 
-    print(f"[{context_name}] Processing SDK stream...", flush=True)
+    safe_print(f"[{context_name}] Processing SDK stream...")
     if DEBUG_MODE:
-        print(f"[DEBUG {context_name}] Awaiting response stream...", flush=True)
+        safe_print(f"[DEBUG {context_name}] Awaiting response stream...")
 
     try:
         async for msg in client.receive_response():
@@ -81,9 +86,8 @@ async def process_sdk_stream(
                     msg_details = ""
                     if hasattr(msg, "type"):
                         msg_details = f" (type={msg.type})"
-                    print(
-                        f"[DEBUG {context_name}] Message #{msg_count}: {msg_type}{msg_details}",
-                        flush=True,
+                    safe_print(
+                        f"[DEBUG {context_name}] Message #{msg_count}: {msg_type}{msg_details}"
                     )
 
                 # Track thinking blocks
@@ -94,16 +98,14 @@ async def process_sdk_stream(
                         msg, "text", ""
                     )
                     if thinking_text:
-                        print(
-                            f"[{context_name}] AI thinking: {len(thinking_text)} chars",
-                            flush=True,
+                        safe_print(
+                            f"[{context_name}] AI thinking: {len(thinking_text)} chars"
                         )
                         if DEBUG_MODE:
                             # Show first 200 chars of thinking
                             preview = thinking_text[:200].replace("\n", " ")
-                            print(
-                                f"[DEBUG {context_name}] Thinking preview: {preview}...",
-                                flush=True,
+                            safe_print(
+                                f"[DEBUG {context_name}] Thinking preview: {preview}..."
                             )
                         # Invoke callback
                         if on_thinking:
@@ -118,9 +120,8 @@ async def process_sdk_stream(
                     tool_input = getattr(msg, "input", {})
 
                     if DEBUG_MODE:
-                        print(
-                            f"[DEBUG {context_name}] Tool call: {tool_name} (id={tool_id})",
-                            flush=True,
+                        safe_print(
+                            f"[DEBUG {context_name}] Tool call: {tool_name} (id={tool_id})"
                         )
 
                     if tool_name == "Task":
@@ -129,9 +130,7 @@ async def process_sdk_stream(
                         agents_invoked.append(agent_name)
                         # Track this tool ID to log its result later
                         subagent_tool_ids[tool_id] = agent_name
-                        print(
-                            f"[{context_name}] Invoked agent: {agent_name}", flush=True
-                        )
+                        safe_print(f"[{context_name}] Invoked agent: {agent_name}")
                     elif tool_name == "StructuredOutput":
                         if tool_input:
                             # Warn if overwriting existing structured output
@@ -141,19 +140,13 @@ async def process_sdk_stream(
                                     f"overwriting previous output"
                                 )
                             structured_output = tool_input
-                            print(
-                                f"[{context_name}] Received structured output",
-                                flush=True,
-                            )
+                            safe_print(f"[{context_name}] Received structured output")
                             # Invoke callback
                             if on_structured_output:
                                 on_structured_output(tool_input)
                     elif DEBUG_MODE:
                         # Log other tool calls in debug mode
-                        print(
-                            f"[DEBUG {context_name}] Other tool: {tool_name}",
-                            flush=True,
-                        )
+                        safe_print(f"[DEBUG {context_name}] Other tool: {tool_name}")
 
                     # Invoke callback for all tool uses
                     if on_tool_use:
@@ -180,15 +173,13 @@ async def process_sdk_stream(
                         result_preview = (
                             str(result_content)[:600].replace("\n", " ").strip()
                         )
-                        print(
-                            f"[Agent:{agent_name}] {status}: {result_preview}{'...' if len(str(result_content)) > 600 else ''}",
-                            flush=True,
+                        safe_print(
+                            f"[Agent:{agent_name}] {status}: {result_preview}{'...' if len(str(result_content)) > 600 else ''}"
                         )
                     elif DEBUG_MODE:
                         status = "ERROR" if is_error else "OK"
-                        print(
-                            f"[DEBUG {context_name}] Tool result: {tool_id} [{status}]",
-                            flush=True,
+                        safe_print(
+                            f"[DEBUG {context_name}] Tool result: {tool_id} [{status}]"
                         )
 
                     # Invoke callback
@@ -214,9 +205,8 @@ async def process_sdk_stream(
                                 if agent_name not in agents_invoked:
                                     agents_invoked.append(agent_name)
                                     subagent_tool_ids[tool_id] = agent_name
-                                    print(
-                                        f"[{context_name}] Invoking agent: {agent_name}",
-                                        flush=True,
+                                    safe_print(
+                                        f"[{context_name}] Invoking agent: {agent_name}"
                                     )
                             elif tool_name == "StructuredOutput":
                                 if tool_input:
@@ -242,9 +232,8 @@ async def process_sdk_stream(
                             # Always print text content preview (not just in DEBUG_MODE)
                             text_preview = block.text[:500].replace("\n", " ").strip()
                             if text_preview:
-                                print(
-                                    f"[{context_name}] AI response: {text_preview}{'...' if len(block.text) > 500 else ''}",
-                                    flush=True,
+                                safe_print(
+                                    f"[{context_name}] AI response: {text_preview}{'...' if len(block.text) > 500 else ''}"
                                 )
                                 # Invoke callback
                                 if on_text:
@@ -304,9 +293,8 @@ async def process_sdk_stream(
                                 result_preview = (
                                     str(result_content)[:600].replace("\n", " ").strip()
                                 )
-                                print(
-                                    f"[Agent:{agent_name}] {status}: {result_preview}{'...' if len(str(result_content)) > 600 else ''}",
-                                    flush=True,
+                                safe_print(
+                                    f"[Agent:{agent_name}] {status}: {result_preview}{'...' if len(str(result_content)) > 600 else ''}"
                                 )
 
                             # Invoke callback
@@ -319,25 +307,25 @@ async def process_sdk_stream(
                     f"[{context_name}] Error processing message #{msg_count}: {msg_error}"
                 )
                 if DEBUG_MODE:
-                    print(
-                        f"[DEBUG {context_name}] Message processing error: {msg_error}",
-                        flush=True,
+                    safe_print(
+                        f"[DEBUG {context_name}] Message processing error: {msg_error}"
                     )
                 # Continue processing subsequent messages
 
+    except BrokenPipeError:
+        # Pipe closed by parent process - expected during shutdown
+        stream_error = "Output pipe closed"
+        logger.debug(f"[{context_name}] Output pipe closed by parent process")
     except Exception as e:
         # Log stream-level errors
         stream_error = str(e)
         logger.error(f"[{context_name}] SDK stream processing failed: {e}")
-        print(f"[{context_name}] ERROR: Stream processing failed: {e}", flush=True)
+        safe_print(f"[{context_name}] ERROR: Stream processing failed: {e}")
 
     if DEBUG_MODE:
-        print(
-            f"[DEBUG {context_name}] Session ended. Total messages: {msg_count}",
-            flush=True,
-        )
+        safe_print(f"[DEBUG {context_name}] Session ended. Total messages: {msg_count}")
 
-    print(f"[{context_name}] Session ended. Total messages: {msg_count}", flush=True)
+    safe_print(f"[{context_name}] Session ended. Total messages: {msg_count}")
 
     return {
         "result_text": result_text,

@@ -114,6 +114,18 @@ export function useTerminalEvents({
     return cleanup;
   }, [terminalId]);
 
+  // Handle worktree config change (synced from main process during restoration)
+  // This ensures the worktree label appears after terminal recovery
+  useEffect(() => {
+    const cleanup = window.electronAPI.onTerminalWorktreeConfigChange((id, config) => {
+      if (id === terminalId) {
+        useTerminalStore.getState().setWorktreeConfig(terminalId, config);
+      }
+    });
+
+    return cleanup;
+  }, [terminalId]);
+
   // Handle Claude session ID capture
   useEffect(() => {
     const cleanup = window.electronAPI.onTerminalClaudeSession((id, sessionId) => {
@@ -136,6 +148,33 @@ export function useTerminalEvents({
     const cleanup = window.electronAPI.onTerminalClaudeBusy((id, isBusy) => {
       if (id === terminalId) {
         useTerminalStore.getState().setClaudeBusy(terminalId, isBusy);
+      }
+    });
+
+    return cleanup;
+  }, [terminalId]);
+
+  // Handle Claude exit (user closed Claude within terminal, returned to shell)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onTerminalClaudeExit((id: string) => {
+      if (id === terminalId) {
+        const store = useTerminalStore.getState();
+        const terminal = store.getTerminal(terminalId);
+        // Guard: If terminal has already exited, don't set status back to 'running'
+        // This handles the race condition where terminal exit and Claude exit events
+        // arrive in unexpected order (e.g., user types 'exit' which closes both)
+        if (terminal?.status === 'exited') {
+          return;
+        }
+        // Reset Claude mode - Claude has exited but terminal is still running
+        // Use updateTerminal to set all Claude-related state at once
+        store.updateTerminal(terminalId, {
+          isClaudeMode: false,
+          isClaudeBusy: undefined,
+          claudeSessionId: undefined,
+          status: 'running'  // Terminal is still running, just not in Claude mode
+        });
+        console.warn('[Terminal] Claude exited, reset mode for terminal:', terminalId);
       }
     });
 

@@ -158,6 +158,10 @@ VALIDATED_COMMANDS: dict[str, str] = {
     "pkill": "validate_pkill",
     "kill": "validate_kill",
     "killall": "validate_killall",
+    # Shell interpreters - validate commands inside -c
+    "bash": "validate_shell_c",
+    "sh": "validate_shell_c",
+    "zsh": "validate_shell_c",
 }
 
 
