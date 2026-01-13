@@ -21,7 +21,20 @@ import {
 } from '../utils/windows-paths';
 import { findExecutable, findExecutableAsync } from '../env-utils';
 
-type MockDirent = { name: string; isDirectory: () => boolean };
+type MockDirent = import('fs').Dirent<import('node:buffer').NonSharedBuffer>;
+
+const createDirent = (name: string, isDir: boolean): MockDirent =>
+  ({
+    name,
+    parentPath: '',
+    isDirectory: () => isDir,
+    isFile: () => !isDir,
+    isBlockDevice: () => false,
+    isCharacterDevice: () => false,
+    isSymbolicLink: () => false,
+    isFIFO: () => false,
+    isSocket: () => false
+  }) as unknown as MockDirent;
 
 // Mock Electron app
 vi.mock('electron', () => ({
@@ -181,9 +194,9 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
 
       // Mock Node.js version directories (three versions)
       const mockDirents: MockDirent[] = [
-        { name: 'v20.0.0', isDirectory: () => true },
-        { name: 'v22.17.0', isDirectory: () => true },
-        { name: 'v18.20.0', isDirectory: () => true },
+        createDirent('v20.0.0', true),
+        createDirent('v22.17.0', true),
+        createDirent('v18.20.0', true),
       ];
       vi.mocked(readdirSync).mockReturnValue(mockDirents);
 
@@ -250,8 +263,8 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       });
 
       const mockDirents: MockDirent[] = [
-        { name: 'v22.17.0', isDirectory: () => true },
-        { name: 'v20.0.0', isDirectory: () => true },
+        createDirent('v22.17.0', true),
+        createDirent('v20.0.0', true),
       ];
       vi.mocked(readdirSync).mockReturnValue(mockDirents);
       vi.mocked(execFileSync).mockReturnValue('claude-code version 1.5.0\n');
@@ -277,7 +290,7 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       });
 
       const mockDirents: MockDirent[] = [
-        { name: 'v22.17.0', isDirectory: () => true },
+        createDirent('v22.17.0', true),
       ];
       vi.mocked(readdirSync).mockReturnValue(mockDirents);
 
@@ -306,9 +319,9 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
 
       // Versions in random order
       const mockDirents: MockDirent[] = [
-        { name: 'v18.20.0', isDirectory: () => true },
-        { name: 'v22.17.0', isDirectory: () => true },
-        { name: 'v20.5.0', isDirectory: () => true },
+        createDirent('v18.20.0', true),
+        createDirent('v22.17.0', true),
+        createDirent('v20.5.0', true),
       ];
       vi.mocked(readdirSync).mockReturnValue(mockDirents);
       vi.mocked(execFileSync).mockReturnValue('claude-code version 1.0.0\n');

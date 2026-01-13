@@ -37,6 +37,9 @@ type ExecFileSyncOptionsWithVerbatim = import('child_process').ExecFileSyncOptio
 type ExecFileAsyncOptionsWithVerbatim = import('child_process').ExecFileOptionsWithStringEncoding & {
   windowsVerbatimArguments?: boolean;
 };
+
+const normalizeExecOutput = (output: string | Buffer): string =>
+  typeof output === 'string' ? output : output.toString('utf-8');
 import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 import {
   getWindowsExecutablePaths,
@@ -956,16 +959,20 @@ class CLIToolManager {
           windowsVerbatimArguments: true,
           env,
         };
-        version = execFileSync(cmdExe, ['/d', '/s', '/c', cmdLine], execOptions).trim();
+        version = normalizeExecOutput(
+          execFileSync(cmdExe, ['/d', '/s', '/c', cmdLine], execOptions)
+        ).trim();
       } else {
         // For .exe files and non-Windows, use execFileSync
-        version = execFileSync(claudeCmd, ['--version'], {
-          encoding: 'utf-8',
-          timeout: 5000,
-          windowsHide: true,
-          shell: false,
-          env,
-        }).trim();
+        version = normalizeExecOutput(
+          execFileSync(claudeCmd, ['--version'], {
+            encoding: 'utf-8',
+            timeout: 5000,
+            windowsHide: true,
+            shell: false,
+            env,
+          })
+        ).trim();
       }
 
       // Claude CLI version output format: "claude-code version X.Y.Z" or similar
@@ -1098,7 +1105,7 @@ class CLIToolManager {
         stdout = result.stdout;
       }
 
-      const version = stdout.trim();
+      const version = normalizeExecOutput(stdout).trim();
       const match = version.match(/(\d+\.\d+\.\d+)/);
       const versionStr = match ? match[1] : version.split('\n')[0];
 
