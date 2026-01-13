@@ -474,7 +474,7 @@ describe('claude-integration-handler - Helper Functions', () => {
         "cd '/tmp/project' && ",
         "PATH='/opt/bin' ",
         "'/opt/bin/claude'",
-        { method: 'config-dir', escapedConfigDir: "'/home/user/.claude-work'" }
+        { method: 'config-dir', escapedConfigDir: "'/home/user/.claude-work'", rawConfigDir: '/home/user/.claude-work' }
       );
 
       expect(result).toContain('clear && ');

@@ -60,7 +60,7 @@ function escapeForPlatform(arg: string): string {
 type ClaudeCommandConfig =
   | { method: 'default' }
   | { method: 'temp-file'; escapedTempFile: string }
-  | { method: 'config-dir'; escapedConfigDir: string };
+  | { method: 'config-dir'; escapedConfigDir: string; rawConfigDir: string };
 
 /**
  * Build the shell command for invoking Claude CLI.
@@ -108,8 +108,9 @@ export function buildClaudeShellCommand(
         return `cls && ${cwdCommand}call ${config.escapedTempFile} && del ${config.escapedTempFile} && ${fullCmd}\r`;
 
       case 'config-dir':
-        // On Windows, use 'set' to set environment variable inline
-        return `cls && ${cwdCommand}set CLAUDE_CONFIG_DIR=${config.escapedConfigDir} && ${fullCmd}\r`;
+        // On Windows, use 'set "VAR=value"' syntax to handle paths with spaces correctly
+        // The quotes go around the entire assignment, not around the value
+        return `cls && ${cwdCommand}set "CLAUDE_CONFIG_DIR=${escapeShellArgWindows(config.rawConfigDir)}" && ${fullCmd}\r`;
 
       default:
         // On Windows, don't use PATH= prefix syntax - the PTY already has correct PATH
@@ -486,7 +487,7 @@ export function invokeClaude(
 
       // Write platform-appropriate content
       const tempFileContent = isWindows
-        ? `@echo off\r\nset CLAUDE_CODE_OAUTH_TOKEN=${token}\r\n`  // Windows batch file
+        ? `@echo off\r\nset CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArgWindows(token)}\r\n`  // Windows batch file
         : `export CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArg(token)}\n`;  // Unix shell script
 
       fs.writeFileSync(tempFile, tempFileContent, { mode: 0o600 });
@@ -500,7 +501,7 @@ export function invokeClaude(
       return;
     } else if (activeProfile.configDir) {
       const escapedConfigDir = escapeForPlatform(activeProfile.configDir);
-      const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'config-dir', escapedConfigDir }, extraFlags);
+      const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'config-dir', escapedConfigDir, rawConfigDir: activeProfile.configDir }, extraFlags);
       debugLog('[ClaudeIntegration:invokeClaude] Executing command (configDir method, history-safe)');
       terminal.pty.write(command);
       profileManager.markProfileUsed(activeProfile.id);
@@ -549,7 +550,8 @@ export function resumeClaude(
 
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
   const escapedClaudeCmd = escapeForPlatform(claudeCmd);
-  const pathPrefix = claudeEnv.PATH
+  // On Windows, the PTY already has the correct PATH - don't use bash-style PATH= prefix
+  const pathPrefix = !isWindows && claudeEnv.PATH
     ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
     : '';
 
@@ -668,7 +670,7 @@ export async function invokeClaudeAsync(
 
       // Write platform-appropriate content
       const tempFileContent = isWindows
-        ? `@echo off\r\nset CLAUDE_CODE_OAUTH_TOKEN=${token}\r\n`  // Windows batch file
+        ? `@echo off\r\nset CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArgWindows(token)}\r\n`  // Windows batch file
         : `export CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArg(token)}\n`;  // Unix shell script
 
       await fsPromises.writeFile(tempFile, tempFileContent, { mode: 0o600 });
@@ -682,7 +684,7 @@ export async function invokeClaudeAsync(
       return;
     } else if (activeProfile.configDir) {
       const escapedConfigDir = escapeForPlatform(activeProfile.configDir);
-      const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'config-dir', escapedConfigDir }, extraFlags);
+      const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'config-dir', escapedConfigDir, rawConfigDir: activeProfile.configDir }, extraFlags);
       debugLog('[ClaudeIntegration:invokeClaudeAsync] Executing command (configDir method, history-safe)');
       terminal.pty.write(command);
       profileManager.markProfileUsed(activeProfile.id);
@@ -727,7 +729,8 @@ export async function resumeClaudeAsync(
   // Async CLI invocation - non-blocking
   const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
   const escapedClaudeCmd = escapeForPlatform(claudeCmd);
-  const pathPrefix = claudeEnv.PATH
+  // On Windows, the PTY already has the correct PATH - don't use bash-style PATH= prefix
+  const pathPrefix = !isWindows && claudeEnv.PATH
     ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
     : '';
 
