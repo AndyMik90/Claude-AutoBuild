@@ -452,7 +452,15 @@
       "tokenSavedDescription": "Votre token a été enregistré avec succès.",
       "tokenSaveFailed": "Échec de l'enregistrement du token",
       "settingsUpdateFailed": "Échec de la mise à jour des paramètres",
-      "tryAgain": "Veuillez réessayer."
+      "tryAgain": "Veuillez réessayer.",
+      "terminalCreationFailed": "Échec de la création du terminal d'authentification",
+      "terminalCreationFailedDescription": "Impossible de démarrer le processus d'authentification. {{error}}",
+      "maxTerminalsReached": "Nombre maximum de terminaux atteint",
+      "maxTerminalsReachedDescription": "Veuillez fermer certains terminaux et réessayer. Vous pouvez avoir jusqu'à 12 terminaux ouverts.",
+      "terminalError": "Erreur de terminal",
+      "terminalErrorDescription": "Échec de la création du terminal : {{error}}",
+      "authProcessFailed": "Le processus d'authentification n'a pas pu démarrer",
+      "authProcessFailedDescription": "Le terminal d'authentification n'a pas pu être créé. Veuillez réessayer ou consulter les logs pour plus de détails."
     }
   },
   "debug": {

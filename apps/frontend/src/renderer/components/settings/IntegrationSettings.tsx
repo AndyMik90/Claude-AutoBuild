@@ -156,10 +156,33 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
           // Users can see the 'claude setup-token' output directly
         } else {
           await loadClaudeProfiles();
+
+          // Provide specific error messages based on error type
+          const errorMessage = initResult.error || '';
+          let title = t('integrations.toast.authStartFailed');
+          let description = t('integrations.toast.tryAgain');
+
+          if (errorMessage.toLowerCase().includes('max terminals')) {
+            title = t('integrations.toast.maxTerminalsReached');
+            description = t('integrations.toast.maxTerminalsReachedDescription');
+          } else if (errorMessage.toLowerCase().includes('terminal creation')) {
+            title = t('integrations.toast.terminalCreationFailed');
+            description = t('integrations.toast.terminalCreationFailedDescription', { error: errorMessage });
+          } else if (errorMessage.toLowerCase().includes('terminal')) {
+            title = t('integrations.toast.terminalError');
+            description = t('integrations.toast.terminalErrorDescription', { error: errorMessage });
+          } else if (errorMessage) {
+            title = t('integrations.toast.authProcessFailed');
+            description = errorMessage;
+          } else {
+            title = t('integrations.toast.authProcessFailed');
+            description = t('integrations.toast.authProcessFailedDescription');
+          }
+
           toast({
             variant: 'destructive',
-            title: t('integrations.toast.authStartFailed'),
-            description: initResult.error || t('integrations.toast.tryAgain'),
+            title,
+            description,
           });
         }
       }
@@ -236,10 +259,32 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       const initResult = await window.electronAPI.initializeClaudeProfile(profileId);
       debugLog('[IntegrationSettings] IPC returned:', initResult);
       if (!initResult.success) {
+        // Provide specific error messages based on error type
+        const errorMessage = initResult.error || '';
+        let title = t('integrations.toast.authStartFailed');
+        let description = t('integrations.toast.tryAgain');
+
+        if (errorMessage.toLowerCase().includes('max terminals')) {
+          title = t('integrations.toast.maxTerminalsReached');
+          description = t('integrations.toast.maxTerminalsReachedDescription');
+        } else if (errorMessage.toLowerCase().includes('terminal creation')) {
+          title = t('integrations.toast.terminalCreationFailed');
+          description = t('integrations.toast.terminalCreationFailedDescription', { error: errorMessage });
+        } else if (errorMessage.toLowerCase().includes('terminal')) {
+          title = t('integrations.toast.terminalError');
+          description = t('integrations.toast.terminalErrorDescription', { error: errorMessage });
+        } else if (errorMessage) {
+          title = t('integrations.toast.authProcessFailed');
+          description = errorMessage;
+        } else {
+          title = t('integrations.toast.authProcessFailed');
+          description = t('integrations.toast.authProcessFailedDescription');
+        }
+
         toast({
           variant: 'destructive',
-          title: t('integrations.toast.authStartFailed'),
-          description: initResult.error || t('integrations.toast.tryAgain'),
+          title,
+          description,
         });
       }
       // Note: If successful, the terminal is now visible in the UI via the onTerminalAuthCreated event
