@@ -77,6 +77,7 @@ def choose_workspace(
 
     # Check task_metadata.json for task-specific workspace mode (takes precedence)
     # useWorktree: true = ISOLATED, false = DIRECT
+    spec_dir = project_dir / ".auto-claude" / "specs" / spec_name
     metadata_path = spec_dir / "task_metadata.json"
     if metadata_path.exists():
         try:
@@ -292,16 +293,25 @@ def setup_workspace(
         current_branch = current_branch_result.stdout.strip() if current_branch_result.returncode == 0 else ""
 
         if current_branch != branch_name:
-            # Fetch latest from remote to ensure we have up-to-date code
-            fetch_result = run_git(["fetch", "origin", base_branch], cwd=project_dir)
-            if fetch_result.returncode != 0:
-                debug_warning(MODULE, f"Could not fetch {base_branch} from origin: {fetch_result.stderr}")
-                print(f"Warning: Could not fetch {base_branch} from origin")
+            # Determine the base branch - default to current branch if not specified
+            effective_base = base_branch if base_branch else current_branch
+            if not effective_base:
+                # Fallback to HEAD if even current branch detection failed
+                effective_base = "HEAD"
 
             # Determine start point (prefer remote over local)
-            remote_ref = f"origin/{base_branch}"
+            remote_ref = f"origin/{effective_base}"
             check_remote = run_git(["rev-parse", "--verify", remote_ref], cwd=project_dir)
-            start_point = remote_ref if check_remote.returncode == 0 else base_branch
+
+            # Only fetch if remote branch exists (prevents errors for local-only branches)
+            if check_remote.returncode == 0:
+                # Fetch latest from remote to ensure we have up-to-date code
+                fetch_result = run_git(["fetch", "origin", effective_base], cwd=project_dir)
+                if fetch_result.returncode != 0:
+                    debug_warning(MODULE, f"Could not fetch {effective_base} from origin: {fetch_result.stderr}")
+                    print(f"Warning: Could not fetch {effective_base} from origin")
+
+            start_point = remote_ref if check_remote.returncode == 0 else effective_base
 
             # Check if branch already exists
             branch_exists = run_git(["rev-parse", "--verify", branch_name], cwd=project_dir)
@@ -372,6 +382,23 @@ def setup_workspace(
         print_status(
             f"Security config copied: {', '.join(security_files_copied)}", "success"
         )
+
+        # Mark the security profile as inherited from parent project
+        # This prevents hash-based re-analysis which would produce a broken profile
+        # (worktrees lack node_modules and other build artifacts needed for detection)
+        if PROFILE_FILENAME in security_files_copied:
+            profile_path = worktree_info.path / PROFILE_FILENAME
+            try:
+                with open(profile_path) as f:
+                    profile_data = json.load(f)
+                profile_data["inherited_from"] = str(project_dir.resolve())
+                with open(profile_path, "w") as f:
+                    json.dump(profile_data, f, indent=2)
+                debug(
+                    MODULE, f"Marked security profile as inherited from {project_dir}"
+                )
+            except (OSError, json.JSONDecodeError) as e:
+                debug_warning(MODULE, f"Failed to mark profile as inherited: {e}")
 
     # Ensure .auto-claude/ is in the worktree's .gitignore
     # This is critical because the worktree inherits .gitignore from the base branch,

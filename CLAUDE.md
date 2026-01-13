@@ -370,6 +370,7 @@ The frontend uses `react-i18next` for internationalization. All labels, buttons,
 - `settings.json` - Settings page content
 - `dialogs.json` - Dialog boxes and modals
 - `tasks.json` - Task/spec related content
+- `errors.json` - Error messages (structured error information with substitution support)
 - `onboarding.json` - Onboarding wizard content
 - `welcome.json` - Welcome screen content
 
@@ -383,6 +384,16 @@ const { t } = useTranslation(['navigation', 'common']);
 // Use translation keys, NOT hardcoded strings
 <span>{t('navigation:items.githubPRs')}</span>  // ✅ CORRECT
 <span>GitHub PRs</span>                          // ❌ WRONG
+```
+
+**Error messages with substitution:**
+
+```tsx
+// For error messages with dynamic content, use interpolation
+const { t } = useTranslation(['errors']);
+
+// errors.json: { "task": { "parseError": "Failed to parse: {{error}}" } }
+<span>{t('errors:task.parseError', { error: errorMessage })}</span>
 ```
 
 **When adding new UI text:**

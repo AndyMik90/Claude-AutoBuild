@@ -293,6 +293,9 @@ const ALLOWED_PATH_PATTERNS: RegExp[] = [
   /^.*\/miniconda\d*\/bin\/python\d*(\.\d+)?$/,
   /^.*\/anaconda\d*\/envs\/[^/]+\/bin\/python\d*(\.\d+)?$/,
   /^.*\/miniconda\d*\/envs\/[^/]+\/bin\/python\d*(\.\d+)?$/,
+  // Bundled Python in Electron app (macOS/Linux)
+  /^\/.*\.app\/Contents\/Resources\/python\/bin\/python\d*(\.\d+)?$/,
+  /^\/.*\.app\/Contents\/Resources\/python-runtime\/[^/]+\/bin\/python\d*(\.\d+)?$/,
 ];
 
 /**

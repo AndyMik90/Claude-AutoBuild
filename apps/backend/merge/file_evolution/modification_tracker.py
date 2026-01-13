@@ -383,7 +383,7 @@ class ModificationTracker:
                 )
                 return "main"
         except subprocess.CalledProcessError:
-            pass
+            pass  # 'main' branch doesn't exist - fall through to last resort
 
         # Last resort: use HEAD~10 as a fallback comparison point
         # This allows modification tracking even on non-standard branch setups

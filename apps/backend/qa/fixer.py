@@ -54,7 +54,7 @@ def load_qa_feedback_screenshots(spec_dir: Path) -> tuple[str, list[dict]]:
     if not fix_request_file.exists():
         return "", []
 
-    content = fix_request_file.read_text()
+    content = fix_request_file.read_text(encoding="utf-8")
 
     # Extract feedback text (between "## Feedback" and "## Screenshots" or end)
     feedback_match = re.search(
@@ -76,7 +76,12 @@ def load_qa_feedback_screenshots(spec_dir: Path) -> tuple[str, list[dict]]:
             image_path = spec_dir / rel_path
             # Ensure the resolved path is within spec_dir
             resolved_path = image_path.resolve()
-            if not str(resolved_path).startswith(str(spec_dir.resolve())):
+            resolved_spec_dir = spec_dir.resolve()
+
+            # Use is_relative_to() for proper path containment check
+            # This is more robust than string startswith() which can be bypassed
+            # by similarly-prefixed directories (e.g., "dir-evil" vs "dir")
+            if not resolved_path.is_relative_to(resolved_spec_dir):
                 debug_error(
                     "qa_fixer",
                     f"Path traversal attempt blocked: {rel_path}",

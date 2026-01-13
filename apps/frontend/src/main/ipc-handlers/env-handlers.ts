@@ -567,6 +567,55 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         }
       }
 
+      // Load UI framework data from project_index.json (auto-detected)
+      const projectIndexPath = path.join(project.path, project.autoBuildPath, 'project_index.json');
+      if (existsSync(projectIndexPath)) {
+        try {
+          const indexContent = readFileSync(projectIndexPath, 'utf-8');
+          const projectIndex = JSON.parse(indexContent);
+
+          // Collect UI libraries and styling frameworks from all services
+          const uiLibraries: string[] = [];
+          const stylingFrameworks: string[] = [];
+          const componentPaths: string[] = [];
+
+          if (projectIndex.services) {
+            Object.values(projectIndex.services).forEach((service: any) => {
+              if (service.ui_library) {
+                uiLibraries.push(service.ui_library);
+              }
+              if (service.styling) {
+                stylingFrameworks.push(service.styling);
+              }
+              // Try to infer component path from key_directories
+              if (service.key_directories?.components) {
+                const componentsPath = service.key_directories.components.path;
+                // Convert to import path format (e.g., "components" -> "@/components")
+                componentPaths.push(`@/${componentsPath}`);
+              }
+            });
+          }
+
+          // Set uiFrameworkLibrary if we found any
+          if (uiLibraries.length > 0) {
+            config.uiFrameworkLibrary = uiLibraries.join(', ');
+          }
+
+          // Set uiFrameworkStyling if we found any
+          if (stylingFrameworks.length > 0) {
+            config.uiFrameworkStyling = stylingFrameworks.join(', ');
+          }
+
+          // Set uiFrameworkComponentPath if we found any (use first one)
+          if (componentPaths.length > 0) {
+            config.uiFrameworkComponentPath = componentPaths[0];
+          }
+        } catch (err) {
+          // Ignore errors reading project_index.json
+          console.error('[ENV_GET] Failed to read project_index.json:', err);
+        }
+      }
+
       return { success: true, data: config };
     }
   );

@@ -22,7 +22,6 @@ export function GitLabIssues({ onOpenSettings, onNavigateToTask }: GitLabIssuesP
   const tasks = useTaskStore((state) => state.tasks);
 
   const {
-    issues,
     syncStatus,
     isLoading,
     error,

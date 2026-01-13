@@ -505,4 +505,54 @@ export function registerProjectHandlers(
       }
     }
   );
+
+  // Checkout a git branch
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_CHECKOUT_BRANCH,
+    async (_, projectPath: string, branch: string): Promise<IPCResult<void>> => {
+      try {
+        if (!existsSync(projectPath)) {
+          return { success: false, error: 'Directory does not exist' };
+        }
+
+        execFileSync(getToolPath('git'), ['checkout', branch], {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to checkout branch'
+        };
+      }
+    }
+  );
+
+  // Merge a git branch into current branch
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_MERGE_BRANCH,
+    async (_, projectPath: string, branch: string): Promise<IPCResult<void>> => {
+      try {
+        if (!existsSync(projectPath)) {
+          return { success: false, error: 'Directory does not exist' };
+        }
+
+        execFileSync(getToolPath('git'), ['merge', branch], {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to merge branch'
+        };
+      }
+    }
+  );
 }

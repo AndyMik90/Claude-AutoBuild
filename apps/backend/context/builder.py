@@ -225,6 +225,8 @@ class ContextBuilder:
         service_info: dict,
     ) -> dict:
         """Get or generate context for a service."""
+        import os
+
         # Check for SERVICE_CONTEXT.md
         context_file = service_path / "SERVICE_CONTEXT.md"
         if context_file.exists():
@@ -234,7 +236,7 @@ class ContextBuilder:
             }
 
         # Generate basic context from service info
-        return {
+        context = {
             "source": "generated",
             "language": service_info.get("language"),
             "framework": service_info.get("framework"),
@@ -242,3 +244,69 @@ class ContextBuilder:
             "entry_point": service_info.get("entry_point"),
             "key_directories": service_info.get("key_directories", {}),
         }
+
+        # Add UI framework info for frontend services
+        if service_info.get("type") == "frontend":
+            # Get styling framework (auto-detected or from ENV override)
+            styling = os.environ.get("UI_FRAMEWORK_STYLING") or service_info.get("styling")
+            if styling:
+                context["styling"] = styling
+
+            # Get UI component library (auto-detected or from ENV override)
+            ui_library = os.environ.get("UI_FRAMEWORK_LIBRARY") or service_info.get("ui_library")
+            if ui_library:
+                context["ui_library"] = ui_library
+
+                # Auto-fetch UI framework documentation if supported
+                try:
+                    from ui_docs import ensure_ui_docs_available
+
+                    success, docs_path, message = ensure_ui_docs_available(
+                        ui_library, self.project_dir
+                    )
+                    if success and docs_path:
+                        context["ui_docs_path"] = str(docs_path)
+                        context["ui_docs_available"] = True
+                    else:
+                        context["ui_docs_available"] = False
+                        context["ui_docs_message"] = message
+                except Exception as e:
+                    # Silently fail if docs fetching fails - not critical
+                    context["ui_docs_available"] = False
+                    context["ui_docs_message"] = f"Could not fetch docs: {e}"
+
+            # Get custom UI framework instructions from ENV
+            ui_instructions = os.environ.get("UI_FRAMEWORK_INSTRUCTIONS")
+            if ui_instructions:
+                context["ui_framework_instructions"] = ui_instructions
+
+            # Get component path prefix (from ENV or default)
+            component_path = os.environ.get("UI_FRAMEWORK_COMPONENT_PATH", "@/components")
+            context["component_path"] = component_path
+
+        # Backend/CMS framework documentation
+        if service_info.get("type") in ("backend", "cms"):
+            # Get backend framework (auto-detected or from ENV override)
+            backend_framework = os.environ.get("BACKEND_FRAMEWORK") or service_info.get("framework")
+            if backend_framework:
+                context["framework"] = backend_framework
+
+                # Auto-fetch backend framework documentation if supported
+                try:
+                    from backend_docs import ensure_backend_docs_available
+
+                    success, docs_path, message = ensure_backend_docs_available(
+                        backend_framework, self.project_dir
+                    )
+                    if success and docs_path:
+                        context["backend_docs_path"] = str(docs_path)
+                        context["backend_docs_available"] = True
+                    else:
+                        context["backend_docs_available"] = False
+                        context["backend_docs_message"] = message
+                except Exception as e:
+                    # Silently fail if docs fetching fails - not critical
+                    context["backend_docs_available"] = False
+                    context["backend_docs_message"] = f"Could not fetch docs: {e}"
+
+        return context

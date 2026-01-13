@@ -22,3 +22,6 @@ pydantic>=2.0.0
 
 # Playwright for E2E testing and browser automation
 playwright>=1.40.0
+
+# Error tracking (optional - requires SENTRY_DSN environment variable)
+sentry-sdk>=2.0.0

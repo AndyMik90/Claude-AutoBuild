@@ -173,29 +173,41 @@ export class AgentManager extends EventEmitter {
     specId: string,
     options: TaskExecutionOptions = {}
   ): Promise<void> {
+    console.log('[DEBUG] startTaskExecution CALLED:', { taskId, specId, projectPath, options });
+
     // Pre-flight auth check: Verify active profile has valid authentication
     const profileManager = getClaudeProfileManager();
+    console.log('[DEBUG] Checking auth...');
     if (!profileManager.hasValidAuth()) {
+      console.log('[DEBUG] BLOCKED: No valid auth');
       this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
       return;
     }
+    console.log('[DEBUG] Auth check PASSED');
 
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+    console.log('[DEBUG] autoBuildSource:', autoBuildSource);
 
     if (!autoBuildSource) {
+      console.log('[DEBUG] BLOCKED: No autoBuildSource');
       this.emit('error', taskId, 'Auto-build source path not found. Please configure it in App Settings.');
       return;
     }
+    console.log('[DEBUG] autoBuildSource check PASSED');
 
     const runPath = path.join(autoBuildSource, 'run.py');
+    console.log('[DEBUG] runPath:', runPath);
 
     if (!existsSync(runPath)) {
+      console.log('[DEBUG] BLOCKED: runPath does not exist');
       this.emit('error', taskId, `Run script not found at: ${runPath}`);
       return;
     }
+    console.log('[DEBUG] runPath exists check PASSED');
 
     // Get combined environment variables
     const combinedEnv = this.processManager.getCombinedEnv(projectPath);
+    console.log('[DEBUG] combinedEnv keys:', Object.keys(combinedEnv));
 
     const args = [runPath, '--spec', specId, '--project-dir', projectPath];
 
@@ -221,9 +233,13 @@ export class AgentManager extends EventEmitter {
     // which allows per-phase configuration for planner, coder, and QA phases
 
     // Store context for potential restart
+    console.log('[DEBUG] Storing task context...');
     this.storeTaskContext(taskId, projectPath, specId, options, false);
+    console.log('[DEBUG] Task context stored');
 
+    console.log('[DEBUG] About to call spawnProcess with args:', args);
     await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+    console.log('[DEBUG] spawnProcess call COMPLETED');
   }
 
   /**

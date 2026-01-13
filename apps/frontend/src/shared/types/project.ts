@@ -52,7 +52,8 @@ export interface ServiceInfo {
   path: string;
   language?: string;
   framework?: string;
-  type?: 'backend' | 'frontend' | 'worker' | 'scraper' | 'library' | 'proxy' | 'mobile' | 'desktop' | 'unknown';
+  wp_root?: string; // WordPress root directory (relative path, e.g., "app/public")
+  type?: 'backend' | 'frontend' | 'worker' | 'scraper' | 'library' | 'proxy' | 'mobile' | 'desktop' | 'cms' | 'unknown';
   package_manager?: string;
   default_port?: number;
   entry_point?: string;
@@ -361,6 +362,18 @@ export interface ProjectEnvConfig {
 
   // Custom MCP servers defined by the user
   customMcpServers?: CustomMcpServer[];
+
+  // Frontend UI Framework Configuration
+  /** UI styling framework (auto-detected or manually set) */
+  uiFrameworkStyling?: string;
+  /** UI component library (auto-detected or manually set) */
+  uiFrameworkLibrary?: string;
+  /** Custom UI framework instructions for AI agents */
+  uiFrameworkInstructions?: string;
+  /** Component import path prefix */
+  uiFrameworkComponentPath?: string;
+  /** Firecrawl API key for documentation fetching fallback */
+  firecrawlApiKey?: string;
 }
 
 /**

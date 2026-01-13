@@ -70,36 +70,42 @@ export function Branches({ projectId }: BranchesProps) {
 
       if (result.success && result.data) {
         // Parse branches and filter for auto-claude branches
-        const autoclaudeBranches: BranchInfo[] = [];
+        // Use a map to track both local and remote status for each branch
+        const branchMap: Record<string, { isLocal: boolean; isRemote: boolean }> = {};
 
-        for (let branch of result.data) {
-          // API returns branch names, possibly with remotes/origin/ prefix
-          const isRemote = branch.startsWith('remotes/origin/');
-
-          if (isRemote) {
-            branch = branch.replace('remotes/origin/', '');
-          }
+        for (const rawBranchName of result.data) {
+          const isRemote = rawBranchName.startsWith('remotes/origin/');
+          const branchName = isRemote
+            ? rawBranchName.replace('remotes/origin/', '')
+            : rawBranchName;
 
           // Only include auto-claude branches
-          if (branch.startsWith('auto-claude/')) {
-            // Extract spec name (001-task-name)
-            const specName = branch.replace('auto-claude/', '');
+          if (branchName.startsWith('auto-claude/')) {
+            if (!branchMap[branchName]) {
+              branchMap[branchName] = { isLocal: false, isRemote: false };
+            }
 
-            // Find associated task
-            const task = tasks.find(t => t.branch === branch);
-
-            // Avoid duplicates (local and remote of same branch)
-            const existing = autoclaudeBranches.find(b => b.fullName === branch);
-            if (!existing) {
-              autoclaudeBranches.push({
-                name: specName,
-                fullName: branch,
-                task,
-                isRemote
-              });
+            if (isRemote) {
+              branchMap[branchName].isRemote = true;
+            } else {
+              branchMap[branchName].isLocal = true;
             }
           }
         }
+
+        // Convert map to array with correct isRemote flag
+        const autoclaudeBranches: BranchInfo[] = Object.keys(branchMap).map((branchName) => {
+          const specName = branchName.replace('auto-claude/', '');
+          const task = tasks.find((t) => t.branch === branchName);
+
+          return {
+            name: specName,
+            fullName: branchName,
+            task,
+            // A branch is considered remote if it exists on remote (regardless of local status)
+            isRemote: branchMap[branchName].isRemote
+          };
+        });
 
         setBranches(autoclaudeBranches);
       } else {
@@ -132,12 +138,18 @@ export function Branches({ projectId }: BranchesProps) {
       });
 
       if (deleteLocal.success) {
-        // Try to delete remote branch as well
-        await window.electronAPI.invoke('execute-command', {
+        // Try to delete remote branch as well (if it exists)
+        const deleteRemote = await window.electronAPI.invoke('execute-command', {
           command: 'git',
           args: ['push', 'origin', '--delete', branchToDelete.fullName],
           cwd: selectedProject.path
         });
+
+        // Only show error if remote deletion failed (ignore if branch was local-only)
+        if (!deleteRemote.success && deleteRemote.error && !deleteRemote.error.includes('unable to delete')) {
+          setError(deleteRemote.error || 'Failed to delete remote branch');
+          return;
+        }
 
         // Refresh branches after successful delete
         await loadBranches();

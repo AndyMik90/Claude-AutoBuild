@@ -352,7 +352,7 @@ describe('ReviewStatusTree - Reviewing Status (ACS-200)', () => {
     });
 
     it('should return status-appropriate dot color when not reviewing', () => {
-      const { container: readyContainer } = render(
+      render(
         <ReviewStatusTree
           status="ready_to_merge"
           isReviewing={false}

@@ -128,7 +128,7 @@ FRAMEWORK_COMMANDS: dict[str, set[str]] = {
     # PHP frameworks
     "laravel": {"artisan", "sail"},
     "symfony": {"symfony", "console"},
-    "wordpress": {"wp"},
+    "wordpress": {"wp", "wp-cli", "php"},  # WP-CLI + PHP built-in server
     "drupal": {"drush"},
     "phpunit": {"phpunit"},
     "phpstan": {"phpstan"},

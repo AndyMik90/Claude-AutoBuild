@@ -13,6 +13,7 @@ import { getClaudeProfileManager } from '../../claude-profile-manager';
 import {
   getPlanPath,
   persistPlanStatus,
+  persistPlanStatusSync,
   createPlanIfNotExists
 } from './plan-file-utils';
 import { findTaskWorktree } from '../../worktree-paths';
@@ -230,30 +231,21 @@ export function registerTaskExecutionHandlers(
         console.log(`[TASK_START] IPC sent immediately for task ${taskId}, deferring file persistence`);
       }
 
-      // CRITICAL: Persist status to implementation_plan.json to prevent status flip-flop
-      // When getTasks() is called (on refresh), it reads status from the plan file.
-      // Without persisting here, the old status (e.g., 'human_review') would override
-      // the in-memory 'in_progress' status, causing the task to flip back and forth.
-      // Uses shared utility for consistency with agent-events-handlers.ts
-      // NOTE: This is now async and non-blocking for better UI responsiveness
+      // CRITICAL: Persist status to implementation_plan.json SYNCHRONOUSLY to prevent race condition
+      // When user clicks "Resume", the UI calls reloadPlanForIncompleteTask() which reads the plan file.
+      // If we defer the status update with setImmediate(), getTasks() will read the OLD status
+      // (e.g., 'human_review') before the file is updated, causing the task to stay stuck.
+      // Use synchronous write to ensure file is updated BEFORE any UI refresh that reads the file.
       const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-      setImmediate(async () => {
-        const persistStart = Date.now();
-        try {
-          const persisted = await persistPlanStatus(planPath, 'in_progress', project.id);
-          if (persisted) {
-            console.warn('[TASK_START] Updated plan status to: in_progress');
-          }
-          if (DEBUG) {
-            const delay = persistStart - ipcSentAt;
-            const duration = Date.now() - persistStart;
-            console.log(`[TASK_START] File persistence: delayed ${delay}ms after IPC, completed in ${duration}ms`);
-          }
-        } catch (err) {
-          console.error('[TASK_START] Failed to persist plan status:', err);
+      try {
+        const persisted = persistPlanStatusSync(planPath, 'in_progress', project.id);
+        if (persisted) {
+          console.warn('[TASK_START] Updated plan status to: in_progress (sync)');
         }
-      });
-      // Note: Plan file may not exist yet for new tasks - that's fine (persistPlanStatus handles ENOENT)
+      } catch (err) {
+        console.error('[TASK_START] Failed to persist plan status:', err);
+      }
+      // Note: Plan file may not exist yet for new tasks - that's fine (persistPlanStatusSync handles ENOENT)
     }
   );
 
@@ -423,7 +415,7 @@ export function registerTaskExecutionHandlers(
                 const safeFilename = path.basename(image.filename);
 
                 // SECURITY: Validate filename contains only safe characters
-                if (!/^[a-zA-Z0-9_\-\.]+$/.test(safeFilename)) {
+                if (!/^[a-zA-Z0-9_\-.]+$/.test(safeFilename)) {
                   console.error('[TASK_REVIEW] Invalid filename rejected:', safeFilename);
                   continue;
                 }
@@ -848,8 +840,9 @@ export function registerTaskExecutionHandlers(
           const { completedCount, totalCount, allCompleted } = checkSubtasksCompletion(plan);
 
           if (totalCount > 0) {
-            if (allCompleted) {
-              // All subtasks completed - should go to review (ai_review or human_review based on source)
+            if (allCompleted && completedCount === totalCount && completedCount > 0) {
+              // EXTRA CHECK: All subtasks completed AND completedCount > 0
+              // This prevents false positives where recovery thinks task is done when it just started
               // For recovery, human_review is safer as it requires manual verification
               newStatus = 'human_review';
             } else if (completedCount > 0) {

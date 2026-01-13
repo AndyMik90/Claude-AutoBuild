@@ -41,38 +41,68 @@ class PortDetector(BaseAnalyzer):
         Returns:
             Detected port or default_port if not found
         """
+        verbose = True  # Enable verbose logging
+        if verbose:
+            print(f"\n[PortDetector] Starting port detection (default: {default_port})")
+
         # 1. Check entry point files for explicit port definitions
         port = self._detect_port_in_entry_points()
         if port:
+            if verbose:
+                print(f"[PortDetector] ✓ Found port {port} in entry point files")
             return port
+        if verbose:
+            print("[PortDetector] ✗ No port found in entry point files")
 
         # 2. Check environment files
         port = self._detect_port_in_env_files()
         if port:
+            if verbose:
+                print(f"[PortDetector] ✓ Found port {port} in environment files")
             return port
+        if verbose:
+            print("[PortDetector] ✗ No port found in environment files")
 
         # 3. Check Docker Compose
         port = self._detect_port_in_docker_compose()
         if port:
+            if verbose:
+                print(f"[PortDetector] ✓ Found port {port} in docker-compose.yml")
             return port
+        if verbose:
+            print("[PortDetector] ✗ No port found in docker-compose.yml")
 
         # 4. Check configuration files
         port = self._detect_port_in_config_files()
         if port:
+            if verbose:
+                print(f"[PortDetector] ✓ Found port {port} in config files")
             return port
+        if verbose:
+            print("[PortDetector] ✗ No port found in config files")
 
         # 5. Check package.json scripts (for Node.js)
         if self.analysis.get("language") in ["JavaScript", "TypeScript"]:
             port = self._detect_port_in_package_scripts()
             if port:
+                if verbose:
+                    print(f"[PortDetector] ✓ Found port {port} in package.json scripts")
                 return port
+            if verbose:
+                print("[PortDetector] ✗ No port found in package.json scripts")
 
         # 6. Check Makefile/shell scripts
         port = self._detect_port_in_scripts()
         if port:
+            if verbose:
+                print(f"[PortDetector] ✓ Found port {port} in Makefile/scripts")
             return port
+        if verbose:
+            print("[PortDetector] ✗ No port found in Makefile/scripts")
 
         # Fall back to default
+        if verbose:
+            print(f"[PortDetector] → Using default port {default_port}\n")
         return default_port
 
     def _detect_port_in_entry_points(self) -> int | None:

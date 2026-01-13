@@ -15,7 +15,6 @@ from pathlib import Path
 import pytest
 
 # Import the module to test - use direct path to avoid package imports
-import sys
 import importlib.util
 
 backend_path = Path(__file__).parent.parent / "apps" / "backend"

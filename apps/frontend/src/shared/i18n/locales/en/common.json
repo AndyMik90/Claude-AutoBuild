@@ -72,6 +72,7 @@
     "start": "Start",
     "stop": "Stop",
     "refresh": "Refresh",
+    "refreshing": "Refreshing...",
     "merge": "Merge",
     "discard": "Discard",
     "switch": "Switch",
@@ -147,6 +148,40 @@
       "ideation": "Ideation",
       "titleGenerator": "Title Generator",
       "claude": "Claude"
+    },
+    "toast": {
+      "authenticating": "Authenticating \"{{profileName}}\"",
+      "checkTerminal": "Check the Agent Terminals section in the sidebar to complete OAuth login.",
+      "authStartFailed": "Failed to start authentication",
+      "addProfileFailed": "Failed to add profile",
+      "tryAgain": "Please try again."
+    },
+    "sdk": {
+      "title": "Claude Code Rate Limit",
+      "interrupted": "{{source}} was interrupted due to usage limits.",
+      "proactiveSwap": "✓ Proactive Swap",
+      "reactiveSwap": "⚡ Reactive Swap",
+      "proactiveSwapDesc": "Automatically switched from {{from}} to {{to}} before hitting rate limit.",
+      "reactiveSwapDesc": "Rate limit hit on {{from}}. Automatically switched to {{to}} and restarted.",
+      "continueWithoutInterruption": "Your work continued without interruption.",
+      "rateLimitReached": "Rate limit reached",
+      "operationStopped": "The operation was stopped because {{account}} reached its usage limit.",
+      "switchBelow": "Switch to another account below to continue.",
+      "addAccountToContinue": "Add another Claude account to continue working.",
+      "upgradeToProButton": "Upgrade to Pro for Higher Limits",
+      "resetsLabel": "Resets {{time}}",
+      "weeklyLimit": "Weekly limit - resets in about a week",
+      "sessionLimit": "Session limit - resets in a few hours",
+      "switchAccountRetry": "Switch Account & Retry",
+      "retrying": "Retrying...",
+      "retry": "Retry",
+      "autoSwitchRetryLabel": "Auto-switch & retry on rate limit",
+      "add": "Add",
+      "whatHappened": "What happened:",
+      "whatHappenedDesc": "The {{source}} operation was stopped because your Claude account ({{account}}) reached its usage limit.",
+      "switchRetryOrAdd": "You can switch to another account and retry, or add more accounts above.",
+      "addOrWait": "Add another Claude account above to continue working, or wait for the limit to reset.",
+      "close": "Close"
     }
   },
   "prReview": {
@@ -317,5 +352,17 @@
     "done": "Done",
     "failedLabel": "Failed",
     "starting": "Starting..."
+  },
+  "ideation": {
+    "converting": "Converting...",
+    "convertToTask": "Convert to Auto-Build Task",
+    "dismissIdea": "Dismiss Idea",
+    "description": "Description",
+    "rationale": "Rationale",
+    "goToTask": "Go to Task",
+    "conversionFailed": "Conversion failed",
+    "conversionFailedDescription": "Failed to convert idea to task",
+    "conversionError": "Conversion error",
+    "conversionErrorDescription": "An error occurred while converting the idea"
   }
 }

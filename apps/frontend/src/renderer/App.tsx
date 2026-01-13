@@ -740,8 +740,6 @@ export function App() {
                   t.status === 'in_progress' || t.status === 'running'
                 );
 
-                console.log('[TitleBar] Running tasks:', runningTasks.length, runningTasks.map(t => ({ id: t.id, title: t.title, status: t.status })));
-
                 if (runningTasks.length === 0) return null;
 
                 return (

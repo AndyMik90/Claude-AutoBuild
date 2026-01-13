@@ -215,6 +215,93 @@ export function GeneralSettings({
               </section>
 
               <Separator />
+
+              {/* UI Framework Configuration */}
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold text-foreground">UI Framework Configuration</h3>
+                <p className="text-xs text-muted-foreground">
+                  Configure which UI framework and component library AI agents should use when building frontend features. Auto-detected from your project if not set.
+                </p>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ui-styling" className="text-sm font-medium text-foreground">
+                      UI Styling Framework
+                    </Label>
+                    <input
+                      id="ui-styling"
+                      type="text"
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="e.g., Tailwind CSS, styled-components, Emotion"
+                      value={envConfig.uiFrameworkStyling || ''}
+                      onChange={(e) =>
+                        updateEnvConfig({ uiFrameworkStyling: e.target.value || undefined })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Leave empty for auto-detection from package.json
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ui-library" className="text-sm font-medium text-foreground">
+                      UI Component Library
+                    </Label>
+                    <input
+                      id="ui-library"
+                      type="text"
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="e.g., shadcn/ui, Material UI, Chakra UI, Ant Design"
+                      value={envConfig.uiFrameworkLibrary || ''}
+                      onChange={(e) =>
+                        updateEnvConfig({ uiFrameworkLibrary: e.target.value || undefined })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Leave empty for auto-detection from package.json
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ui-component-path" className="text-sm font-medium text-foreground">
+                      Component Import Path
+                    </Label>
+                    <input
+                      id="ui-component-path"
+                      type="text"
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="e.g., @/components/ui"
+                      value={envConfig.uiFrameworkComponentPath || ''}
+                      onChange={(e) =>
+                        updateEnvConfig({ uiFrameworkComponentPath: e.target.value || undefined })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Path prefix for component imports (default: @/components)
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ui-instructions" className="text-sm font-medium text-foreground">
+                      Custom UI Instructions
+                    </Label>
+                    <textarea
+                      id="ui-instructions"
+                      rows={3}
+                      className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                      placeholder="e.g., Always use Button from @/components/ui/button, never create custom buttons"
+                      value={envConfig.uiFrameworkInstructions || ''}
+                      onChange={(e) =>
+                        updateEnvConfig({ uiFrameworkInstructions: e.target.value || undefined })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Specific guidance for AI agents about your UI component usage patterns
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <Separator />
             </>
           )}
 

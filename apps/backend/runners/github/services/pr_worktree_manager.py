@@ -258,7 +258,7 @@ class PRWorktreeManager:
                     try:
                         pr_number = int(parts[1])
                     except ValueError:
-                        pass
+                        pass  # Non-numeric PR number in dir name - leave as None
 
             worktrees.append(
                 WorktreeInfo(path=item, age_days=age_days, pr_number=pr_number)

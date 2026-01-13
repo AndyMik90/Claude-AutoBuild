@@ -1,4 +1,5 @@
 {
+  "refreshTasks": "Refresh Tasks",
   "status": {
     "backlog": "Backlog",
     "todo": "To Do",
@@ -52,6 +53,7 @@
     "description": "Create your first task to get started"
   },
   "columns": {
+    "error": "Error",
     "backlog": "Planning",
     "in_progress": "In Progress",
     "ai_review": "AI Review",
@@ -70,6 +72,8 @@
     "emptyHumanReviewHint": "Tasks await your approval here",
     "emptyDone": "No completed tasks",
     "emptyDoneHint": "Approved tasks appear here",
+    "emptyError": "No error tasks",
+    "emptyErrorHint": "Error tasks will appear here when parsing fails",
     "emptyDefault": "No tasks",
     "dropHere": "Drop here",
     "showArchived": "Show archived",
@@ -81,7 +85,8 @@
     "worktreeCleanupStaged": "This task has been staged and has a worktree. Would you like to clean up the worktree?",
     "worktreeCleanupNotStaged": "This task has a worktree with changes that have not been merged. Delete the worktree to mark as done, or cancel to review the changes first.",
     "keepWorktree": "Keep Worktree",
-    "deleteWorktree": "Delete Worktree & Mark Done"
+    "deleteWorktree": "Delete Worktree & Mark Done",
+    "refreshTasks": "Refresh Tasks"
   },
   "execution": {
     "phases": {
@@ -146,6 +151,10 @@
     "browseFiles": "Browse Files",
     "creating": "Creating...",
     "createTask": "Create Task",
+    "worktreeNotice": {
+      "title": "Isolated Workspace",
+      "description": "This task runs in an isolated git worktree. Your main branch stays safe until you choose to merge."
+    },
     "gitOptions": {
       "title": "Git Options (optional)",
       "baseBranchLabel": "Base Branch (optional)",
@@ -158,6 +167,9 @@
     "errors": {
       "createFailed": "Failed to create task. Please try again."
     }
+  },
+  "review": {
+    "mergeTooltip": "Merges changes from the task's worktree branch back to your base branch. AI will resolve any conflicts. You can then choose whether to keep or remove the worktree."
   },
   "edit": {
     "title": "Edit Task",

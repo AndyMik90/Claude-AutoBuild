@@ -52,6 +52,7 @@ export const THINKING_LEVELS = [
 // Each profile has its own default phase models and thinking levels
 
 // Auto (Optimized) - Opus with optimized thinking per phase
+// NOTE: Coding upgraded to 'high' for Claude Code-level quality
 export const AUTO_PHASE_MODELS: PhaseModelConfig = {
   spec: 'opus',
   planning: 'opus',
@@ -62,8 +63,8 @@ export const AUTO_PHASE_MODELS: PhaseModelConfig = {
 export const AUTO_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = {
   spec: 'ultrathink',   // Deep thinking for comprehensive spec creation
   planning: 'high',     // High thinking for planning complex features
-  coding: 'low',        // Faster coding iterations
-  qa: 'low'             // Efficient QA review
+  coding: 'high',       // Deep reasoning for quality implementations (upgraded from low)
+  qa: 'high'            // Thorough QA review (upgraded from low)
 };
 
 // Complex Tasks - Opus with ultrathink across all phases
@@ -154,8 +155,8 @@ export const FEATURE_LABELS: Record<keyof FeatureModelConfig, { label: string; d
 export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
   {
     id: 'auto',
-    name: 'Auto (Optimized)',
-    description: 'Uses Opus across all phases with optimized thinking levels',
+    name: 'Auto (Quality)',
+    description: 'Claude Code-level quality: Opus + deep thinking for best results',
     model: 'opus',
     thinkingLevel: 'high',
     icon: 'Sparkles',
@@ -184,8 +185,8 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
   },
   {
     id: 'balanced',
-    name: 'Balanced',
-    description: 'Good balance of speed and quality for most tasks',
+    name: 'Balanced (Cost-Effective)',
+    description: 'Sonnet with medium thinking - faster and cheaper, good for simpler tasks',
     model: 'sonnet',
     thinkingLevel: 'medium',
     icon: 'Scale',

@@ -26,7 +26,7 @@ import path from 'path';
 import os from 'os';
 import { promisify } from 'util';
 import { app } from 'electron';
-import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell, existsAsync, getSpawnCommand } from './env-utils';
+import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell, existsAsync } from './env-utils';
 import type { ToolDetectionResult } from '../shared/types';
 
 const execFileAsync = promisify(execFile);
@@ -137,6 +137,16 @@ interface ClaudeDetectionPaths {
  * Returns platform-specific paths where Claude CLI might be installed.
  * This pure function consolidates path configuration used by both sync
  * and async detection methods.
+ *
+ * IMPORTANT: This function has a corresponding implementation in the Python backend:
+ * apps/backend/core/client.py (_get_claude_detection_paths)
+ *
+ * Both implementations MUST be kept in sync to ensure consistent detection behavior
+ * across the Electron frontend and Python backend.
+ *
+ * When adding new detection paths, update BOTH:
+ * 1. This function (getClaudeDetectionPaths in cli-tool-manager.ts)
+ * 2. _get_claude_detection_paths() in client.py
  *
  * @param homeDir - User's home directory (from os.homedir())
  * @returns Object containing homebrew, platform, and NVM paths
@@ -921,10 +931,9 @@ class CLIToolManager {
       let version: string;
 
       if (needsShell) {
-        // For .cmd/.bat files on Windows, use execSync with quoted path
-        // execFileSync doesn't handle spaces in .cmd paths correctly even with shell:true
-        const quotedCmd = getSpawnCommand(claudeCmd);
-        version = execSync(`${quotedCmd} --version`, {
+        // For .cmd/.bat files on Windows, use cmd.exe with argument array
+        // This avoids shell command injection while handling spaces in paths
+        version = execFileSync('cmd.exe', ['/c', claudeCmd, '--version'], {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,
@@ -1038,9 +1047,9 @@ class CLIToolManager {
       let stdout: string;
 
       if (needsShell) {
-        // For .cmd/.bat files on Windows, use exec with quoted path
-        const quotedCmd = getSpawnCommand(claudeCmd);
-        const result = await execAsync(`${quotedCmd} --version`, {
+        // For .cmd/.bat files on Windows, use cmd.exe with argument array
+        // This avoids shell command injection while handling spaces in paths
+        const result = await execFileAsync('cmd.exe', ['/c', claudeCmd, '--version'], {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,

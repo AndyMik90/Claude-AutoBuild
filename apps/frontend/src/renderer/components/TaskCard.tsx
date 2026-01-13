@@ -272,6 +272,8 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
         return 'success';
       case 'done':
         return 'success';
+      case 'error':
+        return 'destructive';
       default:
         return 'secondary';
     }
@@ -289,6 +291,8 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
         return t('columns.pr_created');
       case 'done':
         return t('status.complete');
+      case 'error':
+        return t('columns.error');
       default:
         return t('labels.pending');
     }

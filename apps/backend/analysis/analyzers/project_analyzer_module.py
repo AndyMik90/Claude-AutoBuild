@@ -31,6 +31,7 @@ class ProjectAnalyzer:
         """Run full project analysis."""
         self._detect_project_type()
         self._find_and_analyze_services()
+        self._fetch_framework_documentation()  # Auto-fetch docs for detected frameworks
         self._analyze_infrastructure()
         self._detect_conventions()
         self._map_dependencies()
@@ -121,6 +122,18 @@ class ProjectAnalyzer:
             service_info = analyzer.analyze()
             if service_info.get("language"):
                 services["main"] = service_info
+
+            # Also check for common frontend/backend subdirectories in single projects
+            # These often contain separate package.json with UI libraries
+            common_subdirs = ["browser", "web", "frontend", "client", "www", "ui", "app", "backend", "server", "api"]
+            for subdir_name in common_subdirs:
+                subdir = self.project_dir / subdir_name
+                if subdir.is_dir() and (subdir / "package.json").exists():
+                    # Analyze this subdirectory as a separate service
+                    sub_analyzer = ServiceAnalyzer(subdir, subdir_name)
+                    sub_service_info = sub_analyzer.analyze()
+                    if sub_service_info.get("language"):
+                        services[subdir_name] = sub_service_info
 
         self.index["services"] = services
 
@@ -277,6 +290,52 @@ class ProjectAnalyzer:
 
             if consumes:
                 service_info["consumes"] = consumes
+
+    def _fetch_framework_documentation(self) -> None:
+        """
+        Automatically fetch framework documentation for detected frameworks.
+
+        Uses backend_docs to fetch from Context7 or Firecrawl.
+        This runs after service analysis, so all frameworks are detected.
+        """
+        try:
+            from backend_docs import ensure_backend_docs_available
+
+            print("\n[DocumentationFetcher] Checking for framework documentation...")
+
+            # Collect all frameworks detected across services
+            frameworks_to_fetch = set()
+            for service_name, service_info in self.index.get("services", {}).items():
+                framework = service_info.get("framework")
+                service_type = service_info.get("type")
+
+                # Only fetch docs for backend/CMS frameworks
+                if framework and service_type in ("backend", "cms"):
+                    frameworks_to_fetch.add(framework)
+                    print(f"[DocumentationFetcher] Found {framework} in service '{service_name}'")
+
+            # Fetch documentation for each framework
+            for framework in frameworks_to_fetch:
+                print(f"[DocumentationFetcher] Fetching documentation for {framework}...")
+                success, docs_path, message = ensure_backend_docs_available(
+                    framework, self.project_dir
+                )
+                if success and docs_path:
+                    print(f"[DocumentationFetcher] ✓ {framework} documentation ready at {docs_path}")
+                else:
+                    print(f"[DocumentationFetcher] ✗ {framework}: {message}")
+
+            if not frameworks_to_fetch:
+                print("[DocumentationFetcher] No backend/CMS frameworks detected")
+
+            print("[DocumentationFetcher] Documentation fetch complete\n")
+
+        except ImportError:
+            # Silently skip if backend_docs not available
+            pass
+        except Exception as e:
+            # Don't fail the analysis if docs fetching fails
+            print(f"[DocumentationFetcher] Error: {e}")
 
     def _has_in_pyproject(self, tool: str) -> bool:
         """Check if a tool is configured in pyproject.toml."""

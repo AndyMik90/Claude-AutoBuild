@@ -121,6 +121,7 @@ export function Sidebar({
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const [envConfig, setEnvConfig] = useState<ProjectEnvConfig | null>(null);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -225,6 +226,7 @@ export function Sidebar({
   const handleProjectAdded = (project: Project, needsInit: boolean) => {
     if (needsInit) {
       setPendingProject(project);
+      setInitError(null); // Clear previous errors
       setShowInitDialog(true);
     }
   };
@@ -234,6 +236,7 @@ export function Sidebar({
 
     const projectId = pendingProject.id;
     setIsInitializing(true);
+    setInitError(null); // Clear previous errors
     try {
       const result = await initializeProject(projectId);
       if (result?.success) {
@@ -241,7 +244,13 @@ export function Sidebar({
         // This prevents onOpenChange from triggering skip logic
         setPendingProject(null);
         setShowInitDialog(false);
+        setInitError(null);
+      } else {
+        // Show error to user
+        setInitError(result?.error || 'Failed to initialize project');
       }
+    } catch (error) {
+      setInitError(error instanceof Error ? error.message : 'Unknown error occurred');
     } finally {
       setIsInitializing(false);
     }
@@ -250,6 +259,7 @@ export function Sidebar({
   const handleSkipInit = () => {
     setShowInitDialog(false);
     setPendingProject(null);
+    setInitError(null);
   };
 
   const handleGitInitialized = async () => {
@@ -457,6 +467,17 @@ export function Sidebar({
                     <p className="text-muted-foreground mt-1">
                       {t('dialogs:initialize.sourcePathNotConfiguredDescription')}
                     </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {initError && (
+              <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-destructive">Initialization Failed</p>
+                    <p className="text-muted-foreground mt-1">{initError}</p>
                   </div>
                 </div>
               </div>

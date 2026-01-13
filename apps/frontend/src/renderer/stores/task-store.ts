@@ -223,19 +223,32 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           // FIX (Flip-Flop Bug): Respect explicit human_review status from plan file
           // When the plan explicitly says 'human_review', don't override it with calculated status
           // Note: ImplementationPlan type already defines status?: TaskStatus
+          // EXTRA CHECK: Only treat as "explicit" human_review if it's FINAL QA approval (has qa_signoff.status==approved)
+          // Spec approval stage (all pending subtasks, no QA) should be recalculated to backlog
           const planStatus = plan.status;
-          const isExplicitHumanReview = planStatus === 'human_review';
+          const hasApprovedQA = plan.qa_signoff && plan.qa_signoff.status === 'approved';
+          const isExplicitHumanReview = planStatus === 'human_review' && (hasApprovedQA || anyFailed || anyInProgress);
 
           // FIX (ACS-203): Add defensive check for terminal status transitions
           // Before allowing transition to 'done', 'human_review', or 'ai_review', verify:
           // 1. Subtasks array is properly populated (not empty)
           // 2. All subtasks are actually completed (for 'done' and 'ai_review' statuses)
           const hasSubtasks = subtasks.length > 0;
-          const terminalStatuses: TaskStatus[] = ['human_review', 'pr_created', 'done'];
+          const terminalStatuses: TaskStatus[] = ['human_review', 'pr_created', 'done', 'error'];
 
           // If task is currently in a terminal status, validate subtasks before allowing downgrade
           // This prevents flip-flop when plan file is written with incomplete data
           const shouldBlockTerminalTransition = (newStatus: TaskStatus): boolean => {
+            // Allow recovery from error status to backlog or in_progress
+            if (t.status === 'error' && (newStatus === 'backlog' || newStatus === 'in_progress')) {
+              return false; // Allow error recovery transitions
+            }
+
+            // Error status doesn't require completion validation (it's a failure state)
+            if (newStatus === 'error') {
+              return false; // Allow transitions to error without completion check
+            }
+
             // Block if: moving to terminal status but subtasks indicate incomplete work
             if (terminalStatuses.includes(newStatus) || newStatus === 'ai_review') {
               // For ai_review, all subtasks must be completed

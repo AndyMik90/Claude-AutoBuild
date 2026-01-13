@@ -19,7 +19,8 @@ import {
   Globe,
   Code,
   Bug,
-  Server
+  Server,
+  FileText
 } from 'lucide-react';
 
 // GitLab icon component (lucide-react doesn't have one)
@@ -75,9 +76,10 @@ interface NavItemConfig<T extends string> {
 }
 
 const appNavItemsConfig: NavItemConfig<AppSection>[] = [
-  { id: 'appearance', icon: Palette },
-  { id: 'display', icon: Monitor },
-  { id: 'language', icon: Globe },
+  // Temporarily hidden - TODO: re-enable later
+  // { id: 'appearance', icon: Palette },
+  // { id: 'display', icon: Monitor },
+  // { id: 'language', icon: Globe },
   { id: 'devtools', icon: Code },
   { id: 'agent', icon: Bot },
   { id: 'paths', icon: FolderOpen },
@@ -93,7 +95,8 @@ const projectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
   { id: 'linear', icon: Zap },
   { id: 'github', icon: Github },
   { id: 'gitlab', icon: GitLabIcon },
-  { id: 'memory', icon: Database }
+  { id: 'memory', icon: Database },
+  { id: 'ui-docs', icon: FileText }
 ];
 
 /**
@@ -107,7 +110,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
 
   // Track which top-level section is active
   const [activeTopLevel, setActiveTopLevel] = useState<'app' | 'project'>('app');
-  const [appSection, setAppSection] = useState<AppSection>(initialSection || 'appearance');
+  const [appSection, setAppSection] = useState<AppSection>(initialSection || 'devtools');
   const [projectSection, setProjectSection] = useState<ProjectSettingsSection>('general');
 
   // Navigate to initial section when dialog opens with a specific section
@@ -180,12 +183,13 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
 
   const renderAppSection = () => {
     switch (appSection) {
-      case 'appearance':
-        return <ThemeSettings settings={settings} onSettingsChange={setSettings} />;
-      case 'display':
-        return <DisplaySettings settings={settings} onSettingsChange={setSettings} />;
-      case 'language':
-        return <LanguageSettings settings={settings} onSettingsChange={setSettings} />;
+      // Temporarily hidden - TODO: re-enable later
+      // case 'appearance':
+      //   return <ThemeSettings settings={settings} onSettingsChange={setSettings} />;
+      // case 'display':
+      //   return <DisplaySettings settings={settings} onSettingsChange={setSettings} />;
+      // case 'language':
+      //   return <LanguageSettings settings={settings} onSettingsChange={setSettings} />;
       case 'devtools':
         return <DevToolsSettings settings={settings} onSettingsChange={setSettings} />;
       case 'agent':
@@ -235,13 +239,43 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
     }}>
       <FullScreenDialogContent>
         <FullScreenDialogHeader>
-          <FullScreenDialogTitle className="flex items-center gap-3">
-            <Settings className="h-6 w-6" />
-            {t('title')}
-          </FullScreenDialogTitle>
-          <FullScreenDialogDescription>
-            {t('tabs.app')} & {t('tabs.project')}
-          </FullScreenDialogDescription>
+          <div className="flex items-center justify-between w-full">
+            <div>
+              <FullScreenDialogTitle className="flex items-center gap-3">
+                <Settings className="h-6 w-6" />
+                {t('title')}
+              </FullScreenDialogTitle>
+              <FullScreenDialogDescription>
+                {t('tabs.app')} & {t('tabs.project')}
+              </FullScreenDialogDescription>
+            </div>
+
+            {/* Tab Switcher */}
+            <div className="flex gap-2 bg-muted/30 p-1 rounded-lg mr-12">
+              <button
+                onClick={() => setActiveTopLevel('app')}
+                className={cn(
+                  'px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200',
+                  activeTopLevel === 'app'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {t('tabs.app')}
+              </button>
+              <button
+                onClick={() => setActiveTopLevel('project')}
+                className={cn(
+                  'px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200',
+                  activeTopLevel === 'project'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {t('tabs.project')}
+              </button>
+            </div>
+          </div>
         </FullScreenDialogHeader>
 
         <FullScreenDialogBody>
@@ -249,35 +283,27 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
             {/* Navigation sidebar */}
             <nav className="w-80 border-r border-border bg-muted/30 p-4">
               <ScrollArea className="h-full">
-                <div className="space-y-6">
-                  {/* APPLICATION Section */}
-                  <div>
-                    <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t('tabs.app')}
-                    </h3>
-                    <div className="space-y-1">
+                <div className="space-y-2">
+                  {/* App Settings Navigation */}
+                  {activeTopLevel === 'app' && (
+                    <>
                       {appNavItemsConfig.map((item) => {
                         const Icon = item.icon;
-                        const isActive = activeTopLevel === 'app' && appSection === item.id;
+                        const isActive = appSection === item.id;
                         return (
                           <button
                             key={item.id}
-                            onClick={() => {
-                              setActiveTopLevel('app');
-                              setAppSection(item.id);
-                            }}
+                            onClick={() => setAppSection(item.id)}
                             className={cn(
-                              'w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all',
+                              'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-200',
+                              'hover:bg-gradient-to-r hover:from-nav-gradient-from hover:to-nav-gradient-to',
                               isActive
-                                ? 'bg-accent text-accent-foreground'
-                                : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
+                                ? 'bg-gradient-to-r from-nav-gradient-from to-nav-gradient-to text-primary'
+                                : 'text-white'
                             )}
                           >
-                            <Icon className="h-5 w-5 mt-0.5 shrink-0" />
-                            <div className="min-w-0">
-                              <div className="font-medium text-sm">{t(`sections.${item.id}.title`)}</div>
-                              <div className="text-xs text-muted-foreground truncate">{t(`sections.${item.id}.description`)}</div>
-                            </div>
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="flex-1 text-[14px] font-semibold">{t(`sections.${item.id}.title`)}</span>
                           </button>
                         );
                       })}
@@ -302,55 +328,46 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                           </div>
                         </button>
                       )}
-                    </div>
-                  </div>
+                    </>
+                  )}
 
-                  {/* PROJECT Section */}
-                  <div>
-                    <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t('tabs.project')}
-                    </h3>
+                  {/* Project Settings Navigation */}
+                  {activeTopLevel === 'project' && (
+                    <>
+                      {/* Project Selector */}
+                      <div className="px-1 mb-3">
+                        <ProjectSelector
+                          selectedProjectId={selectedProjectId}
+                          onProjectChange={handleProjectChange}
+                        />
+                      </div>
 
-                    {/* Project Selector */}
-                    <div className="px-1 mb-3">
-                      <ProjectSelector
-                        selectedProjectId={selectedProjectId}
-                        onProjectChange={handleProjectChange}
-                      />
-                    </div>
-
-                    {/* Project Nav Items */}
-                    <div className="space-y-1">
+                      {/* Project Nav Items */}
                       {projectNavItemsConfig.map((item) => {
                         const Icon = item.icon;
-                        const isActive = activeTopLevel === 'project' && projectSection === item.id;
+                        const isActive = projectSection === item.id;
                         return (
                           <button
                             key={item.id}
-                            onClick={() => {
-                              setActiveTopLevel('project');
-                              setProjectSection(item.id);
-                            }}
+                            onClick={() => setProjectSection(item.id)}
                             disabled={projectNavDisabled}
                             className={cn(
-                              'w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all',
+                              'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-200',
+                              'disabled:pointer-events-none disabled:opacity-50',
                               isActive
-                                ? 'bg-accent text-accent-foreground'
+                                ? 'bg-gradient-to-r from-nav-gradient-from to-nav-gradient-to text-primary'
                                 : projectNavDisabled
-                                  ? 'opacity-50 cursor-not-allowed text-muted-foreground'
-                                  : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
+                                  ? 'text-muted-foreground'
+                                  : 'text-white hover:bg-gradient-to-r hover:from-nav-gradient-from hover:to-nav-gradient-to'
                             )}
                           >
-                            <Icon className="h-5 w-5 mt-0.5 shrink-0" />
-                            <div className="min-w-0">
-                              <div className="font-medium text-sm">{t(`projectSections.${item.id}.title`)}</div>
-                              <div className="text-xs text-muted-foreground truncate">{t(`projectSections.${item.id}.description`)}</div>
-                            </div>
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="flex-1 text-[14px] font-semibold">{t(`projectSections.${item.id}.title`)}</span>
                           </button>
                         );
                       })}
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Version at bottom */}

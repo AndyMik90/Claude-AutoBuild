@@ -17,6 +17,7 @@ from .context_analyzer import ContextAnalyzer
 from .database_detector import DatabaseDetector
 from .framework_analyzer import FrameworkAnalyzer
 from .route_detector import RouteDetector
+from ..test_discovery import TestDiscovery
 
 
 class ServiceAnalyzer(BaseAnalyzer):
@@ -210,28 +211,81 @@ class ServiceAnalyzer(BaseAnalyzer):
             self.analysis["dependencies"] = deps[:20]
 
     def _detect_testing(self) -> None:
-        """Detect testing framework and configuration."""
-        if self._exists("package.json"):
-            pkg = self._read_json("package.json")
-            if pkg:
-                deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
-                if "vitest" in deps:
-                    self.analysis["testing"] = "Vitest"
-                elif "jest" in deps:
-                    self.analysis["testing"] = "Jest"
-                if "@playwright/test" in deps:
-                    self.analysis["e2e_testing"] = "Playwright"
-                elif "cypress" in deps:
-                    self.analysis["e2e_testing"] = "Cypress"
+        """Detect testing framework, configuration, and commands."""
+        # Use TestDiscovery for comprehensive test detection
+        discovery = TestDiscovery()
+        result = discovery.discover(self.path)
 
-        elif self._exists("pytest.ini") or self._exists("pyproject.toml"):
-            self.analysis["testing"] = "pytest"
+        # Set primary test command
+        if result.test_command:
+            self.analysis["test_command"] = result.test_command
 
-        # Find test directory
-        for test_dir in ["tests", "test", "__tests__", "spec"]:
-            if self._exists(test_dir):
-                self.analysis["test_directory"] = test_dir
-                break
+        # Set coverage command if available
+        if result.coverage_command:
+            self.analysis["coverage_command"] = result.coverage_command
+
+        # Set test directory
+        if result.test_directories:
+            self.analysis["test_directory"] = result.test_directories[0]
+
+        # Process discovered frameworks
+        unit_frameworks = []
+        e2e_frameworks = []
+
+        for framework in result.frameworks:
+            if framework.type == "e2e":
+                e2e_frameworks.append(framework)
+                # Set e2e-specific fields
+                if not self.analysis.get("e2e_command"):
+                    self.analysis["e2e_command"] = framework.command
+                    self.analysis["e2e_testing"] = framework.name
+            else:
+                unit_frameworks.append(framework)
+                # Set unit test framework name
+                if not self.analysis.get("testing"):
+                    self.analysis["testing"] = framework.name
+
+        # Store all detected frameworks for reference
+        if result.frameworks:
+            self.analysis["test_frameworks"] = [
+                {
+                    "name": f.name,
+                    "type": f.type,
+                    "command": f.command,
+                    "config_file": f.config_file,
+                }
+                for f in result.frameworks
+            ]
+
+        # Fallback to simple detection if TestDiscovery found nothing
+        if not result.frameworks:
+            if self._exists("package.json"):
+                pkg = self._read_json("package.json")
+                if pkg:
+                    deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+                    if "vitest" in deps:
+                        self.analysis["testing"] = "Vitest"
+                        self.analysis["test_command"] = "npm run test"
+                    elif "jest" in deps:
+                        self.analysis["testing"] = "Jest"
+                        self.analysis["test_command"] = "npm test"
+                    if "@playwright/test" in deps:
+                        self.analysis["e2e_testing"] = "Playwright"
+                        self.analysis["e2e_command"] = "npx playwright test"
+                    elif "cypress" in deps:
+                        self.analysis["e2e_testing"] = "Cypress"
+                        self.analysis["e2e_command"] = "npx cypress run"
+
+            elif self._exists("pytest.ini") or self._exists("pyproject.toml"):
+                self.analysis["testing"] = "pytest"
+                self.analysis["test_command"] = "pytest"
+
+            # Find test directory if not found
+            if not self.analysis.get("test_directory"):
+                for test_dir in ["tests", "test", "__tests__", "spec"]:
+                    if self._exists(test_dir):
+                        self.analysis["test_directory"] = test_dir
+                        break
 
     def _find_dockerfile(self) -> None:
         """Find Dockerfile for this service."""

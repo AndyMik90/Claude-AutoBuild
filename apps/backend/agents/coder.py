@@ -6,6 +6,7 @@ Main autonomous agent loop that runs the coder agent to implement subtasks.
 """
 
 import asyncio
+import json
 import logging
 import os
 from pathlib import Path

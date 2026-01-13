@@ -436,6 +436,15 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
                 s.get("status") == "completed" for s in subtasks
             )
 
+        # Helper to extract phase number from various dependency formats
+        def extract_phase_num(dep_str: str) -> str | None:
+            """Extract phase number from dependency string like 'phase-1-plugin-setup' or '1'."""
+            if dep_str.startswith("phase-"):
+                parts = dep_str.split("-")
+                if len(parts) >= 2 and parts[1].isdigit():
+                    return parts[1]
+            return dep_str  # Return as-is if it's already a number string
+
         # Find next available subtask
         for phase in phases:
             phase_id_value = phase.get("id")
@@ -451,7 +460,14 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
                 depends_on = [str(depends_on_raw)]
 
             # Check if dependencies are satisfied
-            deps_satisfied = all(phase_complete.get(dep, False) for dep in depends_on)
+            # Handle both formats: "phase-1-plugin-setup" and "1"
+            deps_satisfied = True
+            for dep in depends_on:
+                dep_phase_num = extract_phase_num(dep)
+                if dep_phase_num and not phase_complete.get(dep_phase_num, False):
+                    deps_satisfied = False
+                    break
+
             if not deps_satisfied:
                 continue
 

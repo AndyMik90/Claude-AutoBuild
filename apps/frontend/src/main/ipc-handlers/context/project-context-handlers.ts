@@ -90,25 +90,33 @@ export function registerProjectContextHandlers(
   ipcMain.handle(
     IPC_CHANNELS.CONTEXT_GET,
     async (_, projectId: string): Promise<IPCResult<ProjectContextData>> => {
+      console.log('[project-context] CONTEXT_GET called for project:', projectId);
       const project = projectStore.getProject(projectId);
       if (!project) {
         return { success: false, error: 'Project not found' };
       }
 
       try {
+        console.log('[project-context] Loading project index...');
         // Load project index
         const projectIndex = loadProjectIndex(project.path);
+        console.log('[project-context] Project index loaded:', projectIndex ? 'success' : 'null');
 
+        console.log('[project-context] Loading graphiti state...');
         // Load graphiti state from most recent spec
         const memoryState = loadGraphitiStateFromSpecs(project.path, project.autoBuildPath);
+        console.log('[project-context] Graphiti state loaded');
 
+        console.log('[project-context] Building memory status...');
         // Build memory status
         const memoryStatus = buildMemoryStatus(
           project.path,
           project.autoBuildPath,
           memoryState
         );
+        console.log('[project-context] Memory status built:', memoryStatus.available);
 
+        console.log('[project-context] Loading recent memories...');
         // Load recent memories
         const recentMemories = await loadRecentMemories(
           project.path,
@@ -117,7 +125,9 @@ export function registerProjectContextHandlers(
           memoryStatus.dbPath,
           memoryStatus.database
         );
+        console.log('[project-context] Recent memories loaded:', recentMemories.length);
 
+        console.log('[project-context] CONTEXT_GET complete');
         return {
           success: true,
           data: {
@@ -129,6 +139,7 @@ export function registerProjectContextHandlers(
           }
         };
       } catch (error) {
+        console.error('[project-context] CONTEXT_GET error:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to load project context'
@@ -167,10 +178,11 @@ export function registerProjectContextHandlers(
 
         const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonCmd);
 
-        // Run analyzer
+        // Run analyzer with timeout
         await new Promise<void>((resolve, reject) => {
           let stdout = '';
           let stderr = '';
+          let isResolved = false;
 
           const proc = spawn(pythonCommand, [
             ...pythonBaseArgs,
@@ -182,6 +194,16 @@ export function registerProjectContextHandlers(
             env: getAugmentedEnv()
           });
 
+          // Set timeout (60 seconds for large projects)
+          const timeout = setTimeout(() => {
+            if (!isResolved) {
+              isResolved = true;
+              console.error('[project-context] Analyzer timeout after 60s');
+              proc.kill('SIGTERM');
+              reject(new Error('Analyzer operation timed out after 60 seconds'));
+            }
+          }, 60000);
+
           proc.stdout?.on('data', (data) => {
             stdout += data.toString();
           });
@@ -191,20 +213,29 @@ export function registerProjectContextHandlers(
           });
 
           proc.on('close', (code: number) => {
-            if (code === 0) {
-              console.log('[project-context] Analyzer stdout:', stdout);
-              resolve();
-            } else {
-              console.error('[project-context] Analyzer failed with code', code);
-              console.error('[project-context] Analyzer stderr:', stderr);
-              console.error('[project-context] Analyzer stdout:', stdout);
-              reject(new Error(`Analyzer exited with code ${code}: ${stderr || stdout}`));
+            if (!isResolved) {
+              isResolved = true;
+              clearTimeout(timeout);
+
+              if (code === 0) {
+                console.log('[project-context] Analyzer stdout:', stdout);
+                resolve();
+              } else {
+                console.error('[project-context] Analyzer failed with code', code);
+                console.error('[project-context] Analyzer stderr:', stderr);
+                console.error('[project-context] Analyzer stdout:', stdout);
+                reject(new Error(`Analyzer exited with code ${code}: ${stderr || stdout}`));
+              }
             }
           });
 
           proc.on('error', (err) => {
-            console.error('[project-context] Analyzer spawn error:', err);
-            reject(err);
+            if (!isResolved) {
+              isResolved = true;
+              clearTimeout(timeout);
+              console.error('[project-context] Analyzer spawn error:', err);
+              reject(err);
+            }
           });
         });
 

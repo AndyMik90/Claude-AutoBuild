@@ -110,7 +110,45 @@ export function initializeGit(projectPath: string): InitializationResult {
       execFileSync(git, ['init'], {
         cwd: projectPath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 30000 // 30 second timeout
+      });
+    }
+
+    // Step 1.5: Ensure git user is configured (required for commits)
+    try {
+      execFileSync(git, ['config', 'user.name'], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 5000
+      });
+    } catch {
+      // No user.name configured, set a default
+      debug('Setting default git user.name');
+      execFileSync(git, ['config', 'user.name', 'Auto Claude'], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 5000
+      });
+    }
+
+    try {
+      execFileSync(git, ['config', 'user.email'], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 5000
+      });
+    } catch {
+      // No user.email configured, set a default
+      debug('Setting default git user.email');
+      execFileSync(git, ['config', 'user.email', 'auto-claude@local'], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 5000
       });
     }
 
@@ -118,32 +156,43 @@ export function initializeGit(projectPath: string): InitializationResult {
     const statusOutput = execFileSync(git, ['status', '--porcelain'], {
       cwd: projectPath,
       encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 10000, // 10 second timeout
+      maxBuffer: 10 * 1024 * 1024 // 10MB buffer
     }).trim();
 
     // Step 3: If there are untracked/modified files, add and commit them
     if (statusOutput || !status.hasCommits) {
       debug('Adding files and creating initial commit');
 
-      // Add all files
+      // Add all files (with timeout for large projects)
       execFileSync(git, ['add', '-A'], {
         cwd: projectPath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 60000, // 60 second timeout for large projects
+        maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large projects
       });
 
       // Create initial commit
       execFileSync(git, ['commit', '-m', 'Initial commit', '--allow-empty'], {
         cwd: projectPath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 30000 // 30 second timeout
       });
     }
 
     debug('Git initialization complete');
     return { success: true };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error during git initialization';
+    let errorMessage = error instanceof Error ? error.message : 'Unknown error during git initialization';
+
+    // Check for timeout specifically
+    if (errorMessage.includes('ETIMEDOUT') || errorMessage.includes('timed out')) {
+      errorMessage = 'Git operation timed out. The project may be too large or git is hung. Try initializing git manually.';
+    }
+
     debug('Git initialization failed', { error: errorMessage });
     return {
       success: false,

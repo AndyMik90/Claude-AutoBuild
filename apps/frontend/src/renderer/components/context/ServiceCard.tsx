@@ -1,4 +1,4 @@
-import { Database, CheckCircle, FileCode, Globe, Code, Package } from 'lucide-react';
+import { Database, CheckCircle, FileCode, Globe, Code, Package, FolderOpen, BookOpen } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -19,9 +19,17 @@ interface ServiceCardProps {
   service: ServiceInfo;
 }
 
+// Frameworks that support automatic documentation fetching
+const DOCUMENTED_FRAMEWORKS = ['WordPress', 'Laravel', 'Django', 'FastAPI', 'Symfony'];
+
 export function ServiceCard({ name, service }: ServiceCardProps) {
   const Icon = serviceTypeIcons[service.type || 'unknown'];
   const colorClass = serviceTypeColors[service.type || 'unknown'];
+
+  // Show docs indicator for backend/CMS frameworks that support documentation
+  const showDocsIndicator = service.framework &&
+    (service.type === 'backend' || service.type === 'cms') &&
+    DOCUMENTED_FRAMEWORKS.includes(service.framework);
 
   return (
     <Card className="overflow-hidden">
@@ -50,9 +58,19 @@ export function ServiceCard({ name, service }: ServiceCardProps) {
             </Badge>
           )}
           {service.framework && (
-            <Badge variant="secondary" className="text-xs">
-              {service.framework}
-            </Badge>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="secondary" className={cn('text-xs gap-1', showDocsIndicator && 'pr-1')}>
+                  {service.framework}
+                  {showDocsIndicator && (
+                    <BookOpen className="h-3 w-3 text-green-400" />
+                  )}
+                </Badge>
+              </TooltipTrigger>
+              {showDocsIndicator && (
+                <TooltipContent>Documentation auto-fetched via Context7</TooltipContent>
+              )}
+            </Tooltip>
           )}
           {service.package_manager && (
             <Badge variant="outline" className="text-xs">
@@ -87,9 +105,25 @@ export function ServiceCard({ name, service }: ServiceCardProps) {
             </div>
           )}
           {service.default_port && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 text-muted-foreground cursor-help">
+                  <Globe className="h-3 w-3 shrink-0" />
+                  <span>Port: {service.default_port}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="text-xs">
+                  <div className="font-medium">Default Port</div>
+                  <div className="text-muted-foreground">Auto-detected from project config</div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {service.wp_root && (
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Globe className="h-3 w-3 shrink-0" />
-              <span>Port: {service.default_port}</span>
+              <FolderOpen className="h-3 w-3 shrink-0" />
+              <span>WordPress Root: {service.wp_root}</span>
             </div>
           )}
           {service.styling && (

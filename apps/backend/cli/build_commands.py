@@ -203,20 +203,24 @@ def handle_build_command(
             base_branch = metadata_branch
             debug("run.py", f"Using base branch from task metadata: {base_branch}")
 
+    # Setup workspace for BOTH modes:
+    # - ISOLATED: Creates worktree with isolated branch
+    # - DIRECT: Creates branch in main repo (no worktree)
     if workspace_mode == WorkspaceMode.ISOLATED:
         # Keep reference to original spec directory for syncing progress back
         source_spec_dir = spec_dir
 
-        working_dir, worktree_manager, localized_spec_dir = setup_workspace(
-            project_dir,
-            spec_dir.name,
-            workspace_mode,
-            source_spec_dir=spec_dir,
-            base_branch=base_branch,
-        )
-        # Use the localized spec directory (inside worktree) for AI access
-        if localized_spec_dir:
-            spec_dir = localized_spec_dir
+    working_dir, worktree_manager, localized_spec_dir = setup_workspace(
+        project_dir,
+        spec_dir.name,
+        workspace_mode,
+        source_spec_dir=spec_dir if workspace_mode == WorkspaceMode.ISOLATED else None,
+        base_branch=base_branch,
+    )
+
+    # Use the localized spec directory (inside worktree) for AI access
+    if workspace_mode == WorkspaceMode.ISOLATED and localized_spec_dir:
+        spec_dir = localized_spec_dir
 
     # Run the autonomous agent
     debug_section("run.py", "Starting Build Execution")

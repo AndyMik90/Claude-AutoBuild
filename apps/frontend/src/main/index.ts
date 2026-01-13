@@ -1,7 +1,12 @@
 // Load .env file FIRST before any other imports that might use process.env
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Load .env from apps/frontend directory
 // In development: __dirname is out/main (compiled), so go up 2 levels
@@ -359,24 +364,34 @@ app.whenReady().then(() => {
     });
   });
 
-  // Pre-initialize Claude profile manager in background (non-blocking)
-  // This ensures profile data is loaded before user clicks "Start Claude Code"
-  setImmediate(() => {
-    initializeClaudeProfileManager().catch((error) => {
-      console.warn('[main] Failed to pre-initialize profile manager:', error);
+  // Initialize Claude profile manager, then start usage monitor
+  // We do this sequentially to ensure profile data (including auto-switch settings)
+  // is loaded BEFORE the usage monitor attempts to read settings.
+  // This prevents the "UsageMonitor disabled" error due to race condition.
+  initializeClaudeProfileManager()
+    .then(() => {
+      // Only start monitoring if window is still available (app not quitting)
+      if (mainWindow) {
+        // Setup event forwarding from usage monitor to renderer
+        initializeUsageMonitorForwarding(mainWindow);
+
+        // Start the usage monitor
+        const usageMonitor = getUsageMonitor();
+        usageMonitor.start();
+        console.warn('[main] Usage monitor initialized and started (after profile load)');
+      }
+    })
+    .catch((error) => {
+      console.warn('[main] Failed to initialize profile manager:', error);
+      // Fallback: try starting usage monitor anyway (might use defaults)
+      if (mainWindow) {
+        initializeUsageMonitorForwarding(mainWindow);
+        const usageMonitor = getUsageMonitor();
+        usageMonitor.start();
+      }
     });
-  });
 
-  // Initialize usage monitoring after window is created
   if (mainWindow) {
-    // Setup event forwarding from usage monitor to renderer
-    initializeUsageMonitorForwarding(mainWindow);
-
-    // Start the usage monitor
-    const usageMonitor = getUsageMonitor();
-    usageMonitor.start();
-    console.warn('[main] Usage monitor initialized and started');
-
     // Log debug mode status
     const isDebugMode = process.env.DEBUG === 'true';
     if (isDebugMode) {

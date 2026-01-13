@@ -91,6 +91,12 @@ class FrameworkAnalyzer(BaseAnalyzer):
             content = self._read_file("Gemfile")
             self._detect_ruby_framework(content)
 
+        # PHP detection (check root AND common subdirectories for WordPress)
+        elif self._exists("composer.json") or self._exists("wp-config.php") or self._php_exists_in_subdirs():
+            self.analysis["language"] = "PHP"
+            self.analysis["package_manager"] = "composer"
+            self._detect_php_framework()
+
     def _detect_python_framework(self, content: str) -> None:
         """Detect Python framework."""
         from .port_detector import PortDetector
@@ -207,6 +213,66 @@ class FrameworkAnalyzer(BaseAnalyzer):
         elif "@emotion/react" in deps_lower:
             self.analysis["styling"] = "Emotion"
 
+        # UI Component Libraries / Design Systems
+        ui_libraries = []
+
+        # Check for Untitled UI (premium design system - not in npm)
+        # Detect by folder structure, component comments, and @untitledui packages
+        untitled_ui_detected = False
+        # Check for @untitledui packages in dependencies
+        if any("@untitledui/" in k.lower() for k in deps_lower):
+            untitled_ui_detected = True
+        elif self._exists("src/components/untitled-ui") or self._exists("components/untitled-ui"):
+            untitled_ui_detected = True
+        elif self._exists("src/design-system") or self._exists("design-system"):
+            # Check if design-system folder contains Untitled UI references
+            design_system_paths = [
+                self.path / "src" / "design-system",
+                self.path / "design-system"
+            ]
+            for ds_path in design_system_paths:
+                if ds_path.exists():
+                    # Look for Untitled UI markers in first few component files
+                    component_files = list(ds_path.glob("**/*.tsx"))[:5] + list(ds_path.glob("**/*.ts"))[:5]
+                    for comp_file in component_files:
+                        try:
+                            content = comp_file.read_text(encoding="utf-8", errors="ignore")
+                            if "untitled" in content.lower() and ("ui" in content.lower() or "design system" in content.lower()):
+                                untitled_ui_detected = True
+                                break
+                        except Exception:
+                            continue
+                if untitled_ui_detected:
+                    break
+
+        if untitled_ui_detected:
+            ui_libraries.append("Untitled UI")
+
+        # Other UI libraries
+        if any(k.startswith("@radix-ui/") for k in deps_lower):
+            # Check if it's shadcn/ui (uses Radix + has components directory)
+            if self._exists("components.json") or self._exists("src/components/ui"):
+                ui_libraries.append("shadcn/ui")
+            else:
+                ui_libraries.append("Radix UI")
+        if "@mui/material" in deps_lower or "@mui/core" in deps_lower:
+            ui_libraries.append("Material UI")
+        if "antd" in deps_lower or "ant-design" in deps_lower:
+            ui_libraries.append("Ant Design")
+        if "@chakra-ui/react" in deps_lower:
+            ui_libraries.append("Chakra UI")
+        if "@mantine/core" in deps_lower:
+            ui_libraries.append("Mantine")
+        if "react-bootstrap" in deps_lower:
+            ui_libraries.append("React Bootstrap")
+        if "@headlessui/react" in deps_lower:
+            ui_libraries.append("Headless UI")
+        if "@nextui-org/react" in deps_lower:
+            ui_libraries.append("NextUI")
+
+        if ui_libraries:
+            self.analysis["ui_library"] = ", ".join(ui_libraries)
+
         # State management
         if "zustand" in deps_lower:
             self.analysis["state_management"] = "Zustand"
@@ -298,6 +364,106 @@ class FrameworkAnalyzer(BaseAnalyzer):
 
         if "sidekiq" in content.lower():
             self.analysis["task_queue"] = "Sidekiq"
+
+    def _php_exists_in_subdirs(self) -> bool:
+        """
+        Check if PHP/WordPress files exist in common subdirectories.
+        This enables PHP detection even when project root doesn't have composer.json.
+        """
+        common_dirs = ["public", "app/public", "web", "wordpress", "wp", "html", "htdocs", "public_html", "www", "site"]
+        for subdir in common_dirs:
+            check_path = self.path / subdir
+            if check_path.is_dir():
+                if (check_path / "wp-config.php").exists() or (check_path / "composer.json").exists():
+                    return True
+        return False
+
+    def _find_wordpress_root(self) -> tuple[bool, str | None]:
+        """
+        Find WordPress root directory by scanning common subdirectories.
+
+        Returns:
+            Tuple of (found, relative_path) where:
+            - found: True if WordPress detected
+            - relative_path: Relative path to WordPress root (e.g., "app/public") or None if in project root
+        """
+        # Common WordPress subdirectory patterns (in priority order)
+        common_wp_dirs = [
+            ".",  # Project root (check first)
+            "public",
+            "app/public",
+            "web",
+            "wordpress",
+            "wp",
+            "html",
+            "htdocs",
+            "public_html",
+            "www",
+            "site",
+        ]
+
+        for subdir in common_wp_dirs:
+            check_path = self.path / subdir if subdir != "." else self.path
+
+            # Skip if directory doesn't exist (except for "." which is always valid)
+            if subdir != "." and not check_path.is_dir():
+                continue
+
+            # Check for WordPress indicators
+            wp_config = check_path / "wp-config.php"
+            wp_content = check_path / "wp-content"
+
+            if wp_config.exists() or wp_content.exists():
+                # Return relative path (None for project root)
+                return (True, None if subdir == "." else subdir)
+
+        return (False, None)
+
+    def _detect_php_framework(self) -> None:
+        """Detect PHP framework (WordPress, Laravel, Symfony)."""
+        from .port_detector import PortDetector
+
+        port_detector = PortDetector(self.path, self.analysis)
+
+        # Check for WordPress in project root and common subdirectories
+        found, wp_root = self._find_wordpress_root()
+        if found:
+            self.analysis["framework"] = "WordPress"
+            self.analysis["type"] = "cms"
+            # WordPress typically runs on port 8000 for local dev, or 80/443 in production
+            detected_port = port_detector.detect_port_from_sources(8000)
+            self.analysis["default_port"] = detected_port
+            # Store WordPress root directory if found in subdirectory
+            if wp_root:
+                self.analysis["wp_root"] = wp_root
+            return
+
+        # Check composer.json for framework detection
+        composer = self._read_json("composer.json")
+        if composer:
+            deps = {
+                **composer.get("require", {}),
+                **composer.get("require-dev", {}),
+            }
+
+            # WordPress via Composer (Bedrock, custom setups)
+            if any(pkg in deps for pkg in ["johnpbloch/wordpress", "roots/wordpress", "roots/bedrock"]):
+                self.analysis["framework"] = "WordPress"
+                self.analysis["type"] = "cms"
+                detected_port = port_detector.detect_port_from_sources(8000)
+                self.analysis["default_port"] = detected_port
+            # Laravel
+            elif "laravel/framework" in deps:
+                self.analysis["framework"] = "Laravel"
+                self.analysis["type"] = "backend"
+                detected_port = port_detector.detect_port_from_sources(8000)
+                self.analysis["default_port"] = detected_port
+            # Symfony
+            elif "symfony/framework-bundle" in deps:
+                self.analysis["framework"] = "Symfony"
+                self.analysis["type"] = "backend"
+                detected_port = port_detector.detect_port_from_sources(8000)
+                self.analysis["default_port"] = detected_port
 
     def _detect_swift_framework(self) -> None:
         """Detect Swift/iOS framework and dependencies."""
