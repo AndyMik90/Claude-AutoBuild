@@ -103,7 +103,7 @@ export class TaskQueueManager {
   /** Per-project promise chain for serializing queue operations with metadata */
   private processingQueue = new Map<string, ProcessingQueueEntry>();
   /** Bound handler for cleanup */
-  private boundHandleTaskExit: (taskId: string, exitCode: number | null) => Promise<void>;
+  private boundHandleTaskExit: (taskId: string, exitCode: number | null, processType: string) => Promise<void>;
   /** Periodic prune interval for cleaning up stale queue entries */
   private pruneInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -172,6 +172,19 @@ export class TaskQueueManager {
   }
 
   /**
+   * Validate maxConcurrent value is within allowed range
+   * @returns true if value is a valid QueueConcurrent (integer between MIN and MAX)
+   */
+  private isValidQueueConcurrent(value: unknown): value is QueueConcurrent {
+    return (
+      typeof value === 'number' &&
+      Number.isInteger(value) &&
+      value >= QUEUE_MIN_CONCURRENT &&
+      value <= QUEUE_MAX_CONCURRENT
+    );
+  }
+
+  /**
    * Get queue configuration for a project
    */
   getQueueConfig(projectId: string): QueueConfig {
@@ -182,7 +195,7 @@ export class TaskQueueManager {
 
     let maxConcurrent = project.settings.queueConfig.maxConcurrent;
     // Validate maxConcurrent is a number within allowed range
-    if (typeof maxConcurrent !== 'number' || !Number.isInteger(maxConcurrent) || maxConcurrent < QUEUE_MIN_CONCURRENT || maxConcurrent > QUEUE_MAX_CONCURRENT) {
+    if (!this.isValidQueueConcurrent(maxConcurrent)) {
       debugLog('[TaskQueueManager] Invalid maxConcurrent value:', maxConcurrent, ', falling back to QUEUE_MIN_CONCURRENT');
       maxConcurrent = QUEUE_MIN_CONCURRENT;
     }
@@ -284,7 +297,7 @@ export class TaskQueueManager {
    * Handle task exit event - trigger queue check
    * Uses per-project promise chaining to prevent race conditions
    */
-  private async handleTaskExit(taskId: string, exitCode: number | null): Promise<void> {
+  private async handleTaskExit(taskId: string, exitCode: number | null, _processType: string): Promise<void> {
     debugLog('[TaskQueueManager] Task exit:', { taskId, exitCode });
 
     // Find the project for this task
