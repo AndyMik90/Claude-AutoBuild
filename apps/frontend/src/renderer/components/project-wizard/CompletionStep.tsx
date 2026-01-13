@@ -85,9 +85,9 @@ export function CompletionStep({
 
         {/* Summary */}
         <div className="space-y-3 mb-10">
-          {items.map((item, index) => (
+          {items.map((item) => (
             <div
-              key={index}
+              key={item.title}
               className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${
                 item.completed
                   ? 'border-success/30 bg-success/5'

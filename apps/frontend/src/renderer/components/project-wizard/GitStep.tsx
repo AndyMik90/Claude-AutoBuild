@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GitBranch, Terminal, CheckCircle2, AlertCircle, Loader2, FolderGit2 } from 'lucide-react';
+import { GitBranch, CheckCircle2, AlertCircle, Loader2, FolderGit2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import type { Project } from '../../../shared/types';
 
@@ -77,10 +77,6 @@ export function GitStep({ project, gitInitialized, onComplete, onSkip, onBack }:
     } finally {
       setIsInitializing(false);
     }
-  };
-
-  const handleSkip = () => {
-    onSkip();
   };
 
   const needsGitInit = gitStatus && !gitStatus.isGitRepo;

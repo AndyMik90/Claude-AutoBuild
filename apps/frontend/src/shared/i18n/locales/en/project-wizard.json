@@ -84,7 +84,8 @@
     "initialize": "Initialize Auto Claude",
     "initializing": "Initializing...",
     "success": "Auto Claude Initialized",
-    "readyToUse": "Auto Claude is now set up in your project!"
+    "readyToUse": "Auto Claude is now set up in your project!",
+    "failedToInitialize": "Initialization failed"
   },
   "github": {
     "title": "Connect to GitHub",

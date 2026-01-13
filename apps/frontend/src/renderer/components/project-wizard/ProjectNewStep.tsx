@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { cn } from '../../lib/utils';
 import type { Project } from '../../../shared/types';
 
 interface ProjectNewStepProps {
@@ -89,8 +88,9 @@ export function ProjectNewStep({ onProjectCreated, onBack }: ProjectNewStepProps
                 mainBranch: mainBranchResult.data
               });
             }
-          } catch {
+          } catch (e) {
             // Non-fatal - main branch can be set later
+            console.error('Failed to detect or set main branch for new project:', e);
           }
         }
 

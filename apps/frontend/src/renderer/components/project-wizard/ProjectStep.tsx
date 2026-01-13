@@ -33,8 +33,9 @@ export function ProjectStep({ onNext, onCreateNew, onBack }: ProjectStepProps) {
                 mainBranch: mainBranchResult.data
               });
             }
-          } catch {
+          } catch (e) {
             // Non-fatal - main branch can be set later
+            console.error('Failed to detect or set main branch for existing project:', e);
           }
 
           // Determine what this project needs

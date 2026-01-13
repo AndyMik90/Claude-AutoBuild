@@ -4,13 +4,6 @@ import { Github, CheckCircle2, ChevronRight, Sparkles, Plus, Link, Loader2, User
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '../ui/select';
 import { GitHubOAuthFlow } from '../project-settings/GitHubOAuthFlow';
 import { ClaudeOAuthFlow } from '../project-settings/ClaudeOAuthFlow';
 import type { Project } from '../../../shared/types';
@@ -37,7 +30,6 @@ export function GitHubStep({ project, onComplete, onSkip, onBack }: GitHubStepPr
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
   const [recommendedBranch, setRecommendedBranch] = useState<string | null>(null);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
-  const [isLoadingRepo, setIsLoadingRepo] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Repo setup state
@@ -116,7 +108,6 @@ export function GitHubStep({ project, onComplete, onSkip, onBack }: GitHubStepPr
   const detectRepository = async () => {
     if (!project) return;
 
-    setIsLoadingRepo(true);
     setError(null);
 
     try {
@@ -133,18 +124,21 @@ export function GitHubStep({ project, onComplete, onSkip, onBack }: GitHubStepPr
       setError(err instanceof Error ? err.message : 'Failed to detect repository');
       await loadUserAndOrgs();
       setStep('repo');
-    } finally {
-      setIsLoadingRepo(false);
     }
   };
 
   // Load branches from GitHub
   const loadBranches = async (repo: string) => {
+    if (!githubToken) {
+      setError('GitHub token is not available.');
+      return;
+    }
+
     setIsLoadingBranches(true);
     setError(null);
 
     try {
-      const result = await window.electronAPI.getGitHubBranches(repo, githubToken!);
+      const result = await window.electronAPI.getGitHubBranches(repo, githubToken);
       if (result.success && result.data) {
         setBranches(result.data);
 

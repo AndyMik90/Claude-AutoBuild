@@ -36,6 +36,8 @@ export function AutoClaudeStep({
       if (result.success && result.data?.autoBuildPath) {
         setAutoBuildPath(result.data.autoBuildPath);
       }
+    }).catch(err => {
+      console.error('Failed to get settings in AutoClaudeStep:', err);
     });
   }, []);
 
@@ -135,7 +137,7 @@ export function AutoClaudeStep({
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium">{t('initialize.initFailed')}</p>
+                  <p className="font-medium">{t('autoclaude.failedToInitialize')}</p>
                   <p className="text-xs mt-1">{error}</p>
                 </div>
               </div>

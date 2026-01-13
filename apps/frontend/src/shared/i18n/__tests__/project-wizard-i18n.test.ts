@@ -8,7 +8,7 @@
  * registered and all required translation keys are present.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import i18n, { resources } from '../index';
 
 // Required translation keys for project-wizard namespace

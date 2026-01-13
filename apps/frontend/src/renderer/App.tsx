@@ -134,9 +134,6 @@ export function App() {
   // Project Wizard state (new unified wizard)
   const [showProjectWizard, setShowProjectWizard] = useState(false);
 
-  // Legacy modal state (kept for backward compatibility during migration)
-  const [showAddProjectModal, setShowAddProjectModal] = useState(false);
-
   // Initialize dialog state
   const [showInitDialog, setShowInitDialog] = useState(false);
   const [pendingProject, setPendingProject] = useState<Project | null>(null);

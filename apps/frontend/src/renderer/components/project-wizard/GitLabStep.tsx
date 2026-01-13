@@ -1,16 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, ChevronRight, Loader2, Terminal, Server, ExternalLink, Plus, Link, User, Building } from 'lucide-react';
+import { ChevronRight, Loader2, Server, ExternalLink, Plus, Link, User, Building } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '../ui/select';
 import type { Project } from '../../../shared/types';
 
 interface GitLabProject {

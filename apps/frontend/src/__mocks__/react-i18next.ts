@@ -152,6 +152,17 @@ function getNestedValue(obj: any, key: string): string {
   return typeof current === 'string' ? current : key;
 }
 
+/**
+ * Helper function to apply interpolation to translation strings
+ * Replaces {{param}} patterns with values from options object
+ */
+function applyInterpolation(text: string, options?: any): string {
+  if (options && typeof text === 'string') {
+    return text.replace(/\{\{(\w+)\}\}/g, (_match, param) => options[param] || '');
+  }
+  return text;
+}
+
 export const useTranslation = (namespaces?: string | string[]) => {
   return {
     t: (key: string, options?: any) => {
@@ -160,11 +171,7 @@ export const useTranslation = (namespaces?: string | string[]) => {
         const [ns, nsKey] = key.split(':');
         if (ns in enTranslations) {
           const result = getNestedValue((enTranslations as any)[ns], nsKey);
-          // Handle interpolation if options provided
-          if (options && typeof result === 'string') {
-            return result.replace(/\{\{(\w+)\}\}/g, (_match, param) => options[param] || '');
-          }
-          return result;
+          return applyInterpolation(result, options);
         }
       }
 
@@ -189,19 +196,12 @@ export const useTranslation = (namespaces?: string | string[]) => {
       for (const ns of Object.keys(enTranslations)) {
         const result = getNestedValue((enTranslations as any)[ns], key);
         if (result !== key) {
-          // Handle interpolation if options provided
-          if (options && typeof result === 'string') {
-            return result.replace(/\{\{(\w+)\}\}/g, (_match, param) => options[param] || '');
-          }
-          return result;
+          return applyInterpolation(result, options);
         }
       }
 
       // Return key if not found
-      if (options && typeof key === 'string') {
-        return key.replace(/\{\{(\w+)\}\}/g, (_match, param) => options[param] || '');
-      }
-      return key;
+      return applyInterpolation(key, options);
     },
     i18n: {
       language: 'en',
