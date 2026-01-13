@@ -22,6 +22,7 @@ import {
 } from '../utils/windows-paths';
 import { findExecutable, findExecutableAsync } from '../env-utils';
 
+type SpawnOptions = Parameters<(typeof import('../env-utils'))['getSpawnOptions']>[1];
 type MockDirent = import('fs').Dirent<import('node:buffer').NonSharedBuffer>;
 
 const createDirent = (name: string, isDir: boolean): MockDirent =>
@@ -111,18 +112,23 @@ const mockExecFile = vi.fn((cmd: unknown, args: unknown, options: unknown, callb
 });
 
 // Mock env-utils to avoid PATH augmentation complexity
-vi.mock('../env-utils', () => ({
+vi.mock('../env-utils', () => {
+  const mockShouldUseShell = vi.fn((command: string) => {
+    if (process.platform !== 'win32') {
+      return false;
+    }
+    const trimmed = command.trim();
+    const unquoted =
+      trimmed.startsWith('"') && trimmed.endsWith('"') ? trimmed.slice(1, -1) : trimmed;
+    return /\.(cmd|bat)$/i.test(unquoted);
+  });
+
+  return ({
   findExecutable: vi.fn(() => null), // Return null to force platform-specific path checking
   findExecutableAsync: vi.fn(() => Promise.resolve(null)),
   getAugmentedEnv: vi.fn(() => ({ PATH: '' })),
   getAugmentedEnvAsync: vi.fn(() => Promise.resolve({ PATH: '' })),
-  shouldUseShell: vi.fn((command: string) => {
-    // Mock shouldUseShell to match actual behavior
-    if (process.platform !== 'win32') {
-      return false;
-    }
-    return /\.(cmd|bat)$/i.test(command);
-  }),
+  shouldUseShell: mockShouldUseShell,
   getSpawnCommand: vi.fn((command: string) => {
     // Mock getSpawnCommand to match actual behavior
     const trimmed = command.trim();
@@ -140,12 +146,13 @@ vi.mock('../env-utils', () => ({
     }
     return trimmed;
   }),
-  getSpawnOptions: vi.fn((command: string, baseOptions?: Record<string, unknown>) => ({
+  getSpawnOptions: vi.fn((command: string, baseOptions?: SpawnOptions) => ({
     ...baseOptions,
-    shell: /\.(cmd|bat)$/i.test(command) && process.platform === 'win32'
+    shell: mockShouldUseShell(command)
   })),
   existsAsync: vi.fn(() => Promise.resolve(false))
-}));
+  });
+});
 
 // Mock homebrew-python utility
 vi.mock('../utils/homebrew-python', () => ({
@@ -378,7 +385,7 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       vi.mocked(findWindowsExecutableViaWhere).mockReturnValue(
         'D:\\Tools\\claude.cmd'
       );
-      vi.mocked(isSecurePath).mockReturnValue(false);
+      vi.mocked(isSecurePath).mockReturnValueOnce(false);
 
       vi.mocked(existsSync).mockImplementation((filePath) => {
         const pathStr = String(filePath);
@@ -393,7 +400,6 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       expect(result.found).toBe(false);
       expect(result.source).toBe('fallback');
       expect(execFileSync).not.toHaveBeenCalled();
-      vi.mocked(isSecurePath).mockReturnValue(true);
     });
 
     it('should detect Claude CLI in Unix .local/bin path', () => {
