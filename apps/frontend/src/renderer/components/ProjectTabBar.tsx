@@ -37,16 +37,18 @@ export function ProjectTabBar({
 
   useEffect(() => {
     // Listen for window state changes
-    if (window.electronAPI?.onWindowMaximizedChange) {
-      const cleanupMaximized =
-        window.electronAPI.onWindowMaximizedChange(setIsMaximized);
-      const cleanupFullscreen =
-        window.electronAPI.onWindowFullscreenChange(setIsFullscreen);
-      return () => {
-        cleanupMaximized();
-        cleanupFullscreen();
-      };
-    }
+    const cleanupMaximized = window.electronAPI?.onWindowMaximizedChange
+      ? window.electronAPI.onWindowMaximizedChange(setIsMaximized)
+      : undefined;
+
+    const cleanupFullscreen = window.electronAPI?.onWindowFullscreenChange
+      ? window.electronAPI.onWindowFullscreenChange(setIsFullscreen)
+      : undefined;
+
+    return () => {
+      if (cleanupMaximized) cleanupMaximized();
+      if (cleanupFullscreen) cleanupFullscreen();
+    };
   }, []);
 
   // Keyboard shortcuts for tab navigation
@@ -108,12 +110,6 @@ export function ProjectTabBar({
   return (
     <div
       role="toolbar"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          window.electronAPI?.maximizeWindow();
-        }
-      }}
       className={cn(
         "flex items-center border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 h-12 electron-drag z-50 relative",
         "overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
