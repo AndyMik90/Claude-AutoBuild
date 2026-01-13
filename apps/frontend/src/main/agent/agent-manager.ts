@@ -120,7 +120,12 @@ export class AgentManager extends EventEmitter {
     const combinedEnv = this.processManager.getCombinedEnv(projectPath);
 
     // spec_runner.py will auto-start run.py after spec creation completes
-    const args = [specRunnerPath, '--task', taskDescription, '--project-dir', projectPath];
+    // Write task description to a temp file to avoid command-line quoting issues
+    const os = require('os');
+    const fs = require('fs');
+    const tempTaskFile = path.join(os.tmpdir(), `task-${Date.now()}-${Math.random().toString(36).substring(7)}.txt`);
+    fs.writeFileSync(tempTaskFile, taskDescription, 'utf-8');
+    const args = [specRunnerPath, '--task-file', tempTaskFile, '--project-dir', projectPath];
 
     // Pass spec directory if provided (for UI-created tasks that already have a directory)
     if (specDir) {
