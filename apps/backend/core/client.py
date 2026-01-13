@@ -928,7 +928,27 @@ def create_client(
 
     # Write settings to a file in the project directory
     settings_file = project_dir / ".claude_settings.json"
-    with open(settings_file, "w") as f:
+
+    # Merge with existing settings to preserve user's custom permissions
+    try:
+        with open(settings_file, "r", encoding="utf-8") as f:
+            existing = json.load(f)
+        existing_allow = existing.get("permissions", {}).get("allow", [])
+        if isinstance(existing_allow, list):
+            # Filter to only valid string permissions (security: prevent injection)
+            valid_existing = [p for p in existing_allow if isinstance(p, str)]
+            new_allow = security_settings["permissions"]["allow"]
+            security_settings["permissions"]["allow"] = list(
+                dict.fromkeys(valid_existing + new_allow)
+            )
+    except FileNotFoundError:
+        pass  # No existing file, use defaults
+    except (json.JSONDecodeError, AttributeError, TypeError) as e:
+        logger.warning(
+            f"Could not merge settings from {settings_file}, overwriting. Error: {e}"
+        )
+
+    with open(settings_file, "w", encoding="utf-8") as f:
         json.dump(security_settings, f, indent=2)
 
     print(f"Security settings: {settings_file}")
