@@ -1,4 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from '../../../hooks/use-toast';
 import {
   useIdeationStore,
   loadIdeation,
@@ -27,6 +29,7 @@ interface UseIdeationOptions {
 
 export function useIdeation(projectId: string, options: UseIdeationOptions = {}) {
   const { onGoToTask, showArchived: externalShowArchived } = options;
+  const { t } = useTranslation('common');
   const session = useIdeationStore((state) => state.session);
   const generationStatus = useIdeationStore((state) => state.generationStatus);
   const isGenerating = useIdeationStore((state) => state.isGenerating);
@@ -48,6 +51,9 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
   const [pendingAction, setPendingAction] = useState<'generate' | 'refresh' | 'append' | null>(null);
   const [showAddMoreDialog, setShowAddMoreDialog] = useState(false);
   const [typesToAdd, setTypesToAdd] = useState<IdeationType[]>([]);
+  const [convertingIdeas, setConvertingIdeas] = useState<Set<string>>(new Set());
+  // Ref for synchronous tracking - prevents race condition from stale React state closure
+  const convertingIdeaRef = useRef<Set<string>>(new Set());
 
   const { hasToken, isLoading: isCheckingToken, checkAuth } = useIdeationAuth();
 
@@ -130,11 +136,42 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
   };
 
   const handleConvertToTask = async (idea: Idea) => {
-    const result = await window.electronAPI.convertIdeaToTask(projectId, idea.id);
-    if (result.success && result.data) {
-      // Store the taskId on the idea so we can navigate to it later
-      useIdeationStore.getState().setIdeaTaskId(idea.id, result.data.id);
-      loadTasks(projectId);
+    // Guard: use ref for synchronous check to prevent race condition from stale state closure
+    // React state is captured at render time, so rapid clicks would both see empty set
+    if (convertingIdeaRef.current.has(idea.id)) {
+      return;
+    }
+
+    // Mark as converting - update ref synchronously first, then state for UI
+    convertingIdeaRef.current.add(idea.id);
+    setConvertingIdeas(new Set(convertingIdeaRef.current));
+
+    try {
+      const result = await window.electronAPI.convertIdeaToTask(projectId, idea.id);
+      if (result.success && result.data) {
+        // Store the taskId on the idea so we can navigate to it later
+        useIdeationStore.getState().setIdeaTaskId(idea.id, result.data.id);
+        loadTasks(projectId);
+      } else {
+        // Show error toast when conversion fails (e.g., already converted, idea not found)
+        toast({
+          variant: 'destructive',
+          title: t('ideation.conversionFailed'),
+          description: result.error || t('ideation.conversionFailedDescription')
+        });
+      }
+    } catch (error) {
+      // Handle unexpected errors (network issues, etc.)
+      console.error('Failed to convert idea to task:', error);
+      toast({
+        variant: 'destructive',
+        title: t('ideation.conversionError'),
+        description: t('ideation.conversionErrorDescription')
+      });
+    } finally {
+      // Always clear converting state - update ref first, then state
+      convertingIdeaRef.current.delete(idea.id);
+      setConvertingIdeas(new Set(convertingIdeaRef.current));
     }
   };
 
@@ -228,6 +265,7 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
     activeIdeas,
     archivedIdeas,
     selectedIds,
+    convertingIdeas,
 
     // Actions
     setSelectedIdea,

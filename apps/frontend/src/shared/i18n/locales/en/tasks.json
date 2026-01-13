@@ -145,6 +145,10 @@
     "browseFiles": "Browse Files",
     "creating": "Creating...",
     "createTask": "Create Task",
+    "worktreeNotice": {
+      "title": "Isolated Workspace",
+      "description": "This task runs in an isolated git worktree. Your main branch stays safe until you choose to merge."
+    },
     "gitOptions": {
       "title": "Git Options (optional)",
       "baseBranchLabel": "Base Branch (optional)",
@@ -165,6 +169,9 @@
     "invalidTypeError": "Invalid image type. Allowed: {{types}}",
     "removeImage": "Remove image",
     "processingError": "Failed to process image"
+  },
+  "review": {
+    "mergeTooltip": "Merges changes from the task's worktree branch back to your base branch. AI will resolve any conflicts. You can then choose whether to keep or remove the worktree."
   },
   "edit": {
     "title": "Edit Task",

@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Code, Terminal, RefreshCw, Loader2, Check, FolderOpen } from 'lucide-react';
+import { Code, Terminal, RefreshCw, Loader2, Check, FolderOpen, AlertTriangle } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Button } from '../ui/button';
+import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
 import type { AppSettings, SupportedIDE, SupportedTerminal } from '../../../shared/types';
 
@@ -361,6 +362,37 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
                 </Button>
               </div>
             </div>
+          )}
+        </div>
+
+        {/* YOLO Mode Toggle */}
+        <div className="space-y-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <Label htmlFor="yolo-mode" className="text-amber-200">
+                {t('devtools.yoloMode.label', 'YOLO Mode')}
+              </Label>
+            </div>
+            <Switch
+              id="yolo-mode"
+              checked={settings.dangerouslySkipPermissions ?? false}
+              onCheckedChange={(checked) => {
+                onSettingsChange({
+                  ...settings,
+                  dangerouslySkipPermissions: checked
+                });
+              }}
+            />
+          </div>
+          <p className="text-xs text-amber-400/80">
+            {t('devtools.yoloMode.description', 'Start Claude with --dangerously-skip-permissions flag, bypassing all safety prompts. Use with extreme caution.')}
+          </p>
+          {settings.dangerouslySkipPermissions && (
+            <p className="text-xs text-amber-500 font-medium flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              {t('devtools.yoloMode.warning', 'This mode bypasses Claude\'s permission system. Only enable if you fully trust the code being executed.')}
+            </p>
           )}
         </div>
 
