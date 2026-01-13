@@ -166,6 +166,7 @@ export class AgentManager extends EventEmitter {
 
   /**
    * Start task execution (run.py)
+   * @throws Error if authentication is missing, auto-build path is not found, or run.py doesn't exist
    */
   async startTaskExecution(
     taskId: string,
@@ -176,22 +177,25 @@ export class AgentManager extends EventEmitter {
     // Pre-flight auth check: Verify active profile has valid authentication
     const profileManager = getClaudeProfileManager();
     if (!profileManager.hasValidAuth()) {
-      this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
-      return;
+      const error = new Error('Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
+      this.emit('error', taskId, error.message);
+      throw error;
     }
 
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();
 
     if (!autoBuildSource) {
-      this.emit('error', taskId, 'Auto-build source path not found. Please configure it in App Settings.');
-      return;
+      const error = new Error('Auto-build source path not found. Please configure it in App Settings.');
+      this.emit('error', taskId, error.message);
+      throw error;
     }
 
     const runPath = path.join(autoBuildSource, 'run.py');
 
     if (!existsSync(runPath)) {
-      this.emit('error', taskId, `Run script not found at: ${runPath}`);
-      return;
+      const error = new Error(`Run script not found at: ${runPath}`);
+      this.emit('error', taskId, error.message);
+      throw error;
     }
 
     // Get combined environment variables
@@ -228,6 +232,7 @@ export class AgentManager extends EventEmitter {
 
   /**
    * Start QA process
+   * @throws Error if auto-build path is not found or run.py doesn't exist
    */
   async startQAProcess(
     taskId: string,
@@ -237,15 +242,17 @@ export class AgentManager extends EventEmitter {
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();
 
     if (!autoBuildSource) {
-      this.emit('error', taskId, 'Auto-build source path not found. Please configure it in App Settings.');
-      return;
+      const error = new Error('Auto-build source path not found. Please configure it in App Settings.');
+      this.emit('error', taskId, error.message);
+      throw error;
     }
 
     const runPath = path.join(autoBuildSource, 'run.py');
 
     if (!existsSync(runPath)) {
-      this.emit('error', taskId, `Run script not found at: ${runPath}`);
-      return;
+      const error = new Error(`Run script not found at: ${runPath}`);
+      this.emit('error', taskId, error.message);
+      throw error;
     }
 
     // Get combined environment variables

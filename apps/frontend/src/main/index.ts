@@ -447,7 +447,30 @@ app.on('window-all-closed', () => {
 });
 
 // Cleanup before quit
-app.on('before-quit', async () => {
+// Electron doesn't await async handlers, so we use the preventDefault pattern:
+// 1. Prevent the quit on first call
+// 2. Run async cleanup
+// 3. Call app.quit() again when cleanup completes
+// 4. Use cleaned flag to prevent infinite loop
+let cleaned = false;
+app.on('before-quit', (event) => {
+  if (!cleaned) {
+    event.preventDefault();
+
+    // Run async cleanup and quit when done
+    doCleanup().then(() => {
+      cleaned = true;
+      app.quit();
+    }).catch((error) => {
+      console.error('[main] Error during cleanup:', error);
+      // Quit anyway even if cleanup fails
+      cleaned = true;
+      app.quit();
+    });
+  }
+});
+
+async function doCleanup(): Promise<void> {
   // Stop usage monitor
   const usageMonitor = getUsageMonitor();
   usageMonitor.stop();
@@ -462,11 +485,12 @@ app.on('before-quit', async () => {
   if (agentManager) {
     await agentManager.killAll();
   }
+
   // Kill all terminal processes
   if (terminalManager) {
     await terminalManager.killAll();
   }
-});
+}
 
 // Note: Uncaught exceptions and unhandled rejections are now
 // logged by setupErrorLogging() in app-logger.ts
