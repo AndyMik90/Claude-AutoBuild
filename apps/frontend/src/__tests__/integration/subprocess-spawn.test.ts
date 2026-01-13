@@ -39,11 +39,14 @@ vi.mock('child_process', async (importOriginal) => {
 });
 
 // Mock claude-profile-manager to bypass auth checks in tests
+const mockProfileManager = {
+  hasValidAuth: () => true,
+  getActiveProfile: () => ({ profileId: 'default', profileName: 'Default' })
+};
+
 vi.mock('../../main/claude-profile-manager', () => ({
-  getClaudeProfileManager: () => ({
-    hasValidAuth: () => true,
-    getActiveProfile: () => ({ profileId: 'default', profileName: 'Default' })
-  })
+  getClaudeProfileManager: () => mockProfileManager,
+  initializeClaudeProfileManager: () => Promise.resolve(mockProfileManager)
 }));
 
 // Mock validatePythonPath to allow test paths (security validation is tested separately)
