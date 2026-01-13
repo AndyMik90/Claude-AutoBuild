@@ -101,7 +101,7 @@ export function WorkspaceStatus({
   onSwitchToTerminals,
   onOpenInbuiltTerminal
 }: WorkspaceStatusProps) {
-  const { t } = useTranslation(['taskReview', 'common']);
+  const { t } = useTranslation(['taskReview', 'common', 'tasks']);
   const { settings } = useSettingsStore();
   const preferredIDE = settings.preferredIDE || 'vscode';
   const preferredTerminal = settings.preferredTerminal || 'system';
@@ -444,9 +444,7 @@ export function WorkspaceStatus({
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs">
-                  {hasGitConflicts || isBranchBehind || hasPathMappedMerges
-                    ? 'Merges worktree changes to your base branch, removes the worktree, and uses AI to resolve any conflicts'
-                    : 'Merges worktree changes to your base branch and removes the worktree'}
+                  {t('tasks:review.mergeTooltip')}
                 </p>
               </TooltipContent>
             </Tooltip>
