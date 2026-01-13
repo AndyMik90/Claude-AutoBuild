@@ -261,7 +261,12 @@
     "detected": "Detected",
     "notInstalled": "Not installed",
     "detectedSummary": "Detected on your system:",
-    "noToolsDetected": "No additional tools detected (VS Code and system terminal will be used)"
+    "noToolsDetected": "No additional tools detected (VS Code and system terminal will be used)",
+    "yoloMode": {
+      "label": "YOLO Mode",
+      "description": "Start Claude with --dangerously-skip-permissions flag, bypassing all safety prompts. Use with extreme caution.",
+      "warning": "This mode bypasses Claude's permission system. Only enable if you fully trust the code being executed."
+    }
   },
   "updates": {
     "title": "Updates",

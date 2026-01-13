@@ -32,20 +32,27 @@ const PROJECT_DEFAULT_BRANCH = '__project_default__';
  * - Converts to lowercase
  * - Replaces spaces and invalid characters with hyphens
  * - Collapses consecutive hyphens
- * - Trims leading/trailing hyphens
+ * - Trims leading hyphens (but allows trailing during input)
  * - Ensures name ends with alphanumeric (matching backend WORKTREE_NAME_REGEX)
+ *
+ * @param trimTrailing - If true, trims trailing hyphens/underscores (for final validation)
  */
-function sanitizeWorktreeName(value: string, maxLength?: number): string {
+function sanitizeWorktreeName(value: string, maxLength?: number, trimTrailing = false): string {
   let sanitized = value
     .toLowerCase()
     .replace(/\s+/g, '-') // Replace spaces with hyphens
-    .replace(/[^a-z0-9_-]/g, '-') // Replace invalid chars (including dots) with hyphens
+    .replace(/[^a-z0-9_-]/g, '') // Remove invalid chars (only allow letters, numbers, hyphens, underscores)
     .replace(/-{2,}/g, '-') // Collapse consecutive hyphens
-    .replace(/^[-_]+|[-_]+$/g, ''); // Trim leading and trailing hyphens/underscores
+    .replace(/_{2,}/g, '_') // Collapse consecutive underscores
+    .replace(/^[-_]+/, ''); // Trim leading hyphens/underscores only
 
   if (maxLength) {
     sanitized = sanitized.slice(0, maxLength);
-    // Trim trailing hyphens/underscores again after slicing
+  }
+
+  // Only trim trailing hyphens/underscores when explicitly requested (final validation)
+  // Applied once at the end after all other transformations including maxLength slice
+  if (trimTrailing) {
     sanitized = sanitized.replace(/[-_]+$/, '');
   }
 
@@ -93,6 +100,12 @@ export function CreateWorktreeDialog({
   const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
 
+  // Sanitized name for validation (without display fallback)
+  const sanitizedName = useMemo(() => sanitizeWorktreeName(name, undefined, true), [name]);
+
+  // Preview name with fallback for display (using i18n)
+  const previewName = sanitizedName || t('terminal:worktree.namePlaceholder');
+
   // Fetch branches when dialog opens
   useEffect(() => {
     if (!open || !projectPath) return;
@@ -138,8 +151,11 @@ export function CreateWorktreeDialog({
   }, [open, projectPath, project?.settings?.mainBranch]);
 
   const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const sanitized = sanitizeWorktreeName(e.target.value);
-    setName(sanitized);
+    // Apply lowercase and convert spaces to hyphens as user types
+    // This reduces the visual gap between input and preview
+    // Full sanitization (removing invalid chars) happens on submit
+    const rawValue = e.target.value.toLowerCase().replace(/\s+/g, '-');
+    setName(rawValue);
     setError(null);
   }, []);
 
@@ -153,21 +169,25 @@ export function CreateWorktreeDialog({
     if (!name) {
       const task = backlogTasks.find(t => t.id === taskId);
       if (task) {
-        const autoName = sanitizeWorktreeName(task.title, 40);
+        // Trim trailing when auto-filling from task title (complete value)
+        const autoName = sanitizeWorktreeName(task.title, 40, true);
         setName(autoName);
       }
     }
   }, [backlogTasks, name]);
 
   const handleCreate = async () => {
-    if (!name.trim()) {
+    // Final sanitization: trim trailing hyphens/underscores for submission
+    const finalName = sanitizeWorktreeName(name, undefined, true);
+
+    if (!finalName) {
       setError(t('terminal:worktree.nameRequired'));
       return;
     }
 
     // Validate name format - allow letters, numbers, dashes, and underscores
     // Must start and end with letter or number (matching backend WORKTREE_NAME_REGEX)
-    if (!/^[a-z0-9][a-z0-9_-]*[a-z0-9]$/.test(name) && !/^[a-z0-9]$/.test(name)) {
+    if (!/^[a-z0-9][a-z0-9_-]*[a-z0-9]$/.test(finalName) && !/^[a-z0-9]$/.test(finalName)) {
       setError(t('terminal:worktree.nameInvalid'));
       return;
     }
@@ -178,7 +198,7 @@ export function CreateWorktreeDialog({
     try {
       const result = await window.electronAPI.createTerminalWorktree({
         terminalId,
-        name: name.trim(),
+        name: finalName,
         taskId: selectedTaskId,
         createGitBranch,
         projectPath,
@@ -297,7 +317,7 @@ export function CreateWorktreeDialog({
                 {t('terminal:worktree.createBranch')}
               </Label>
               <p className="text-xs text-muted-foreground">
-                {t('terminal:worktree.branchHelp', { branch: `terminal/${name || 'name'}` })}
+                {t('terminal:worktree.branchHelp', { branch: `terminal/${previewName}` })}
               </p>
             </div>
             <Switch
@@ -338,7 +358,7 @@ export function CreateWorktreeDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isCreating}>
             {t('common:buttons.cancel')}
           </Button>
-          <Button onClick={handleCreate} disabled={isCreating || !name.trim()}>
+          <Button onClick={handleCreate} disabled={isCreating || !sanitizedName}>
             {isCreating ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

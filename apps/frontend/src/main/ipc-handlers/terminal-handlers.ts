@@ -10,6 +10,7 @@ import { terminalNameGenerator } from '../terminal-name-generator';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { escapeShellArg, escapeShellArgWindows } from '../../shared/utils/shell-escape';
 import { getClaudeCliInvocationAsync } from '../claude-cli-utils';
+import { readSettingsFileAsync } from '../settings-utils';
 
 
 /**
@@ -54,8 +55,17 @@ export function registerTerminalHandlers(
   ipcMain.on(
     IPC_CHANNELS.TERMINAL_INVOKE_CLAUDE,
     (_, id: string, cwd?: string) => {
-      // Use async version to avoid blocking main process during CLI detection
-      terminalManager.invokeClaudeAsync(id, cwd).catch((error) => {
+      // Wrap in async IIFE to allow async settings read without blocking
+      (async () => {
+        // Read settings asynchronously to check for YOLO mode (dangerously skip permissions)
+        const settings = await readSettingsFileAsync();
+        const dangerouslySkipPermissions = settings?.dangerouslySkipPermissions === true;
+
+        debugLog('[terminal-handlers] Invoking Claude with dangerouslySkipPermissions:', dangerouslySkipPermissions);
+
+        // Use async version to avoid blocking main process during CLI detection
+        await terminalManager.invokeClaudeAsync(id, cwd, undefined, dangerouslySkipPermissions);
+      })().catch((error) => {
         debugError('[terminal-handlers] Failed to invoke Claude:', error);
       });
     }

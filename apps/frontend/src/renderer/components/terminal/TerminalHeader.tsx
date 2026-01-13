@@ -98,9 +98,12 @@ export function TerminalHeader({
           />
         </div>
         {isClaudeMode && (
-          <span className="flex items-center gap-1 text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+          <span
+            className="flex items-center gap-1 text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded"
+            title="Claude"
+          >
             <Sparkles className="h-2.5 w-2.5" />
-            Claude
+            {terminalCount < 4 && <span>Claude</span>}
           </span>
         )}
         {isClaudeMode && (
@@ -115,9 +118,15 @@ export function TerminalHeader({
         )}
         {/* Worktree selector or badge - placed next to task selector */}
         {worktreeConfig ? (
-          <span className="flex items-center gap-1 text-[10px] font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">
-            <FolderGit className="h-2.5 w-2.5" />
-            {worktreeConfig.name}
+          <span
+            className={cn(
+              'flex items-center gap-1 text-[10px] font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded',
+              terminalCount >= 6 ? 'max-w-20' : terminalCount >= 4 ? 'max-w-28' : 'max-w-40'
+            )}
+            title={worktreeConfig.name}
+          >
+            <FolderGit className="h-2.5 w-2.5 flex-shrink-0" />
+            <span className="truncate">{worktreeConfig.name}</span>
           </span>
         ) : (
           projectPath && onCreateWorktree && onSelectWorktree && (
@@ -136,29 +145,37 @@ export function TerminalHeader({
         {worktreeConfig && onOpenInIDE && (
           <Button
             variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs gap-1 hover:bg-muted"
+            size={terminalCount >= 4 ? 'icon' : 'sm'}
+            className={cn(
+              'h-6 hover:bg-muted',
+              terminalCount >= 4 ? 'w-6' : 'px-2 text-xs gap-1'
+            )}
             onClick={(e) => {
               e.stopPropagation();
               onOpenInIDE();
             }}
+            title={t('terminal:worktree.openInIDE')}
           >
             <ExternalLink className="h-3 w-3" />
-            {t('terminal:worktree.openInIDE')}
+            {terminalCount < 4 && t('terminal:worktree.openInIDE')}
           </Button>
         )}
         {!isClaudeMode && status !== 'exited' && (
           <Button
             variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs gap-1 hover:bg-primary/10 hover:text-primary"
+            size={terminalCount >= 4 ? 'icon' : 'sm'}
+            className={cn(
+              'h-6 hover:bg-primary/10 hover:text-primary',
+              terminalCount >= 4 ? 'w-6' : 'px-2 text-xs gap-1'
+            )}
             onClick={(e) => {
               e.stopPropagation();
               onInvokeClaude();
             }}
+            title="Claude"
           >
             <Sparkles className="h-3 w-3" />
-            Claude
+            {terminalCount < 4 && <span>Claude</span>}
           </Button>
         )}
         {/* Expand/collapse button */}

@@ -19,6 +19,8 @@ export interface TerminalProcess {
   worktreeConfig?: TerminalWorktreeConfig;
   /** Whether this terminal has a pending Claude resume that should be triggered on activation */
   pendingClaudeResume?: boolean;
+  /** Whether Claude was invoked with --dangerously-skip-permissions (YOLO mode) */
+  dangerouslySkipPermissions?: boolean;
 }
 
 /**

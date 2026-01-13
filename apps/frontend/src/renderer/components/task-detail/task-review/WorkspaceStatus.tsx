@@ -18,6 +18,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
 import { cn } from '../../../lib/utils';
 import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal } from '../../../../shared/types';
 import { useSettingsStore } from '../../../stores/settings-store';
@@ -100,7 +101,7 @@ export function WorkspaceStatus({
   onSwitchToTerminals,
   onOpenInbuiltTerminal
 }: WorkspaceStatusProps) {
-  const { t } = useTranslation(['taskReview', 'common']);
+  const { t } = useTranslation(['taskReview', 'common', 'tasks']);
   const { settings } = useSettingsStore();
   const preferredIDE = settings.preferredIDE || 'vscode';
   const preferredTerminal = settings.preferredTerminal || 'system';
@@ -418,32 +419,41 @@ export function WorkspaceStatus({
 
           {/* State 3: Merge preview loaded - show appropriate merge/stage button */}
           {mergePreview && !isLoadingPreview && (
-            <Button
-              variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
-              onClick={onMerge}
-              disabled={isMerging || isDiscarding}
-              className="flex-1"
-            >
-              {isMerging ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {hasGitConflicts || isBranchBehind || hasPathMappedMerges
-                    ? t('taskReview:merge.buttons.resolving')
-                    : stageOnly
-                      ? t('taskReview:merge.buttons.staging')
-                      : t('taskReview:merge.buttons.merging')}
-                </>
-              ) : (
-                <>
-                  <GitMerge className="mr-2 h-4 w-4" />
-                  {hasGitConflicts || isBranchBehind || hasPathMappedMerges
-                    ? (stageOnly ? t('taskReview:merge.buttons.stageWithAIMerge') : t('taskReview:merge.buttons.mergeWithAI'))
-                    : (stageOnly
-                        ? t('taskReview:merge.buttons.stageTo', { branch: worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main' })
-                        : t('taskReview:merge.buttons.mergeTo', { branch: worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main' }))}
-                </>
-              )}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
+                  onClick={onMerge}
+                  disabled={isMerging || isDiscarding}
+                  className="flex-1"
+                >
+                  {isMerging ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {hasGitConflicts || isBranchBehind || hasPathMappedMerges
+                        ? t('taskReview:merge.buttons.resolving')
+                        : stageOnly
+                          ? t('taskReview:merge.buttons.staging')
+                          : t('taskReview:merge.buttons.merging')}
+                    </>
+                  ) : (
+                    <>
+                      <GitMerge className="mr-2 h-4 w-4" />
+                      {hasGitConflicts || isBranchBehind || hasPathMappedMerges
+                        ? (stageOnly ? t('taskReview:merge.buttons.stageWithAIMerge') : t('taskReview:merge.buttons.mergeWithAI'))
+                        : (stageOnly
+                            ? t('taskReview:merge.buttons.stageTo', { branch: worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main' })
+                            : t('taskReview:merge.buttons.mergeTo', { branch: worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main' }))}
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  {t('tasks:review.mergeTooltip')}
+                </p>
+              </TooltipContent>
+            </Tooltip>
           )}
 
           {/* Create PR Button */}
