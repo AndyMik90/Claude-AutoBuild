@@ -38,6 +38,7 @@ from .utils import (
 )
 from .workspace_commands import (
     handle_cleanup_worktrees_command,
+    handle_create_pr_command,
     handle_discard_command,
     handle_list_worktrees_command,
     handle_merge_command,
@@ -153,6 +154,30 @@ Environment Variables:
         action="store_true",
         help="Discard an existing build (requires confirmation)",
     )
+    build_group.add_argument(
+        "--create-pr",
+        action="store_true",
+        help="Push branch and create a GitHub Pull Request",
+    )
+
+    # PR options
+    parser.add_argument(
+        "--pr-target",
+        type=str,
+        metavar="BRANCH",
+        help="With --create-pr: target branch for PR (default: auto-detect)",
+    )
+    parser.add_argument(
+        "--pr-title",
+        type=str,
+        metavar="TITLE",
+        help="With --create-pr: custom PR title (default: generated from spec name)",
+    )
+    parser.add_argument(
+        "--pr-draft",
+        action="store_true",
+        help="With --create-pr: create as draft PR",
+    )
 
     # Merge options
     parser.add_argument(
@@ -263,6 +288,28 @@ def main() -> None:
     # Set up environment first
     setup_environment()
 
+    # Initialize Sentry early to capture any startup errors
+    from core.sentry import capture_exception, init_sentry
+
+    init_sentry(component="cli")
+
+    try:
+        _run_cli()
+    except KeyboardInterrupt:
+        # Clean exit on Ctrl+C
+        sys.exit(130)
+    except Exception as e:
+        # Capture unexpected errors to Sentry
+        capture_exception(e)
+        print(f"\nUnexpected error: {e}")
+        sys.exit(1)
+
+
+def _run_cli() -> None:
+    """Run the CLI logic (extracted for error handling)."""
+    # Import here to avoid import errors during startup
+    from core.sentry import set_context
+
     # Parse arguments
     args = parse_args()
 
@@ -333,6 +380,15 @@ def main() -> None:
 
     debug_success("run.py", "Spec found", spec_dir=str(spec_dir))
 
+    # Set Sentry context for error tracking
+    set_context(
+        "spec",
+        {
+            "name": spec_dir.name,
+            "project": str(project_dir),
+        },
+    )
+
     # Handle build management commands
     if args.merge_preview:
         from cli.workspace_commands import handle_merge_preview_command
@@ -363,6 +419,21 @@ def main() -> None:
 
     if args.discard:
         handle_discard_command(project_dir, spec_dir.name)
+        return
+
+    if args.create_pr:
+        # Pass args.pr_target directly - WorktreeManager._detect_base_branch
+        # handles base branch detection internally when target_branch is None
+        result = handle_create_pr_command(
+            project_dir=project_dir,
+            spec_name=spec_dir.name,
+            target_branch=args.pr_target,
+            title=args.pr_title,
+            draft=args.pr_draft,
+        )
+        # JSON output is already printed by handle_create_pr_command
+        if not result.get("success"):
+            sys.exit(1)
         return
 
     # Handle QA commands

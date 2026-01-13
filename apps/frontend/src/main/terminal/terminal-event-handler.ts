@@ -6,6 +6,7 @@
 import * as OutputParser from './output-parser';
 import * as ClaudeIntegration from './claude-integration-handler';
 import type { TerminalProcess, WindowGetter } from './types';
+import { IPC_CHANNELS } from '../../shared/constants';
 
 /**
  * Event handler callbacks
@@ -14,7 +15,12 @@ export interface EventHandlerCallbacks {
   onClaudeSessionId: (terminal: TerminalProcess, sessionId: string) => void;
   onRateLimit: (terminal: TerminalProcess, data: string) => void;
   onOAuthToken: (terminal: TerminalProcess, data: string) => void;
+  onClaudeBusyChange: (terminal: TerminalProcess, isBusy: boolean) => void;
+  onClaudeExit: (terminal: TerminalProcess) => void;
 }
+
+// Track the last known busy state per terminal to avoid duplicate events
+const lastBusyState = new Map<string, boolean>();
 
 /**
  * Handle terminal data output
@@ -39,6 +45,36 @@ export function handleTerminalData(
 
   // Check for OAuth token
   callbacks.onOAuthToken(terminal, data);
+
+  // Detect Claude busy state changes (only when in Claude mode)
+  if (terminal.isClaudeMode) {
+    const busyState = OutputParser.detectClaudeBusyState(data);
+    if (busyState !== null) {
+      const isBusy = busyState === 'busy';
+      const lastState = lastBusyState.get(terminal.id);
+
+      // Only emit if state actually changed
+      if (lastState !== isBusy) {
+        lastBusyState.set(terminal.id, isBusy);
+        callbacks.onClaudeBusyChange(terminal, isBusy);
+      }
+    }
+
+    // Detect Claude exit (returned to shell prompt)
+    // Only check if not busy - busy output takes precedence
+    if (busyState !== 'busy' && OutputParser.detectClaudeExit(data)) {
+      callbacks.onClaudeExit(terminal);
+      // Clear busy state tracking since Claude has exited
+      lastBusyState.delete(terminal.id);
+    }
+  }
+}
+
+/**
+ * Clear busy state tracking for a terminal (call on terminal destruction)
+ */
+export function clearBusyState(terminalId: string): void {
+  lastBusyState.delete(terminalId);
 }
 
 /**
@@ -64,6 +100,15 @@ export function createEventCallbacks(
     },
     onOAuthToken: (terminal, data) => {
       ClaudeIntegration.handleOAuthToken(terminal, data, getWindow);
+    },
+    onClaudeBusyChange: (terminal, isBusy) => {
+      const win = getWindow();
+      if (win) {
+        win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_BUSY, terminal.id, isBusy);
+      }
+    },
+    onClaudeExit: (terminal) => {
+      ClaudeIntegration.handleClaudeExit(terminal, getWindow);
     }
   };
 }

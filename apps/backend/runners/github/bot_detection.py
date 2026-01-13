@@ -34,6 +34,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 
+try:
+    from .file_lock import FileLock, atomic_write
+except (ImportError, ValueError, SystemError):
+    from file_lock import FileLock, atomic_write
+
 
 @dataclass
 class BotDetectionState:
@@ -61,12 +66,14 @@ class BotDetectionState:
         )
 
     def save(self, state_dir: Path) -> None:
-        """Save state to disk."""
+        """Save state to disk with file locking for concurrent safety."""
         state_dir.mkdir(parents=True, exist_ok=True)
         state_file = state_dir / "bot_detection_state.json"
 
-        with open(state_file, "w") as f:
-            json.dump(self.to_dict(), f, indent=2)
+        # Use file locking to prevent concurrent write corruption
+        with FileLock(state_file, timeout=5.0, exclusive=True):
+            with atomic_write(state_file) as f:
+                json.dump(self.to_dict(), f, indent=2)
 
     @classmethod
     def load(cls, state_dir: Path) -> BotDetectionState:
@@ -311,8 +318,9 @@ class BotDetector:
             return True, reason
 
         # Check 2: Is the latest commit by the bot?
+        # Note: GitHub API returns commits oldest-first, so commits[-1] is the latest
         if commits and not self.review_own_prs:
-            latest_commit = commits[0] if commits else None
+            latest_commit = commits[-1] if commits else None
             if latest_commit and self.is_bot_commit(latest_commit):
                 reason = "Latest commit authored by bot (likely an auto-fix)"
                 print(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
@@ -403,3 +411,44 @@ class BotDetector:
             "total_reviews_performed": total_reviews,
             "cooling_off_minutes": self.COOLING_OFF_MINUTES,
         }
+
+    def cleanup_stale_prs(self, max_age_days: int = 30) -> int:
+        """
+        Remove tracking state for PRs that haven't been reviewed recently.
+
+        This prevents unbounded growth of the state file by cleaning up
+        entries for PRs that are likely closed/merged.
+
+        Args:
+            max_age_days: Remove PRs not reviewed in this many days (default: 30)
+
+        Returns:
+            Number of PRs cleaned up
+        """
+        cutoff = datetime.now() - timedelta(days=max_age_days)
+        prs_to_remove: list[str] = []
+
+        for pr_key, last_review_str in self.state.last_review_times.items():
+            try:
+                last_review = datetime.fromisoformat(last_review_str)
+                if last_review < cutoff:
+                    prs_to_remove.append(pr_key)
+            except (ValueError, TypeError):
+                # Invalid timestamp - mark for removal
+                prs_to_remove.append(pr_key)
+
+        # Remove stale PRs
+        for pr_key in prs_to_remove:
+            if pr_key in self.state.reviewed_commits:
+                del self.state.reviewed_commits[pr_key]
+            if pr_key in self.state.last_review_times:
+                del self.state.last_review_times[pr_key]
+
+        if prs_to_remove:
+            self.state.save(self.state_dir)
+            print(
+                f"[BotDetector] Cleaned up {len(prs_to_remove)} stale PRs "
+                f"(older than {max_age_days} days)"
+            )
+
+        return len(prs_to_remove)

@@ -1,4 +1,5 @@
-import { GitPullRequest, User, Clock, FileDiff } from 'lucide-react';
+import { useRef, useEffect, useCallback } from 'react';
+import { GitPullRequest, User, Clock, FileDiff, Loader2 } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { Badge } from '../../ui/badge';
 import { cn } from '../../../lib/utils';
@@ -22,6 +23,8 @@ interface PRStatusFlowProps {
   hasPosted: boolean;
   hasBlockingFindings: boolean;
   hasNewCommits: boolean;
+  /** Whether commits happened AFTER findings were posted - for "Ready for Follow-up" status */
+  hasCommitsAfterPosting: boolean;
   t: (key: string) => string;
 }
 
@@ -34,6 +37,7 @@ function PRStatusFlow({
   hasPosted,
   hasBlockingFindings,
   hasNewCommits,
+  hasCommitsAfterPosting,
   t,
 }: PRStatusFlowProps) {
   // Determine flow state - prioritize more advanced states first
@@ -51,7 +55,10 @@ function PRStatusFlow({
 
   // Determine final status color for posted state
   let finalStatus: FinalStatus = 'success';
-  if (hasNewCommits) {
+  // Only show "Ready for Follow-up" if there are commits AFTER findings were posted
+  // This prevents showing follow-up status for commits that happened during/before the review
+  // hasNewCommits tells us the commits are different, hasCommitsAfterPosting tells us if they're newer
+  if (hasNewCommits && hasCommitsAfterPosting) {
     finalStatus = 'followup';
   } else if (hasBlockingFindings) {
     finalStatus = 'warning';
@@ -160,9 +167,12 @@ interface PRListProps {
   prs: PRData[];
   selectedPRNumber: number | null;
   isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMore: boolean;
   error: string | null;
   getReviewStateForPR: (prNumber: number) => PRReviewInfo | null;
   onSelectPR: (prNumber: number) => void;
+  onLoadMore: () => void;
 }
 
 function formatDate(dateString: string): string {
@@ -185,8 +195,45 @@ function formatDate(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-export function PRList({ prs, selectedPRNumber, isLoading, error, getReviewStateForPR, onSelectPR }: PRListProps) {
+export function PRList({
+  prs,
+  selectedPRNumber,
+  isLoading,
+  isLoadingMore,
+  hasMore,
+  error,
+  getReviewStateForPR,
+  onSelectPR,
+  onLoadMore
+}: PRListProps) {
   const { t } = useTranslation('common');
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+
+  // Intersection Observer for infinite scroll
+  const handleIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
+    const [entry] = entries;
+    if (entry.isIntersecting && hasMore && !isLoadingMore && !isLoading) {
+      onLoadMore();
+    }
+  }, [hasMore, isLoadingMore, isLoading, onLoadMore]);
+
+  useEffect(() => {
+    const trigger = loadMoreTriggerRef.current;
+    if (!trigger) return;
+
+    const observer = new IntersectionObserver(handleIntersection, {
+      root: null, // Use viewport as root
+      rootMargin: '100px', // Start loading 100px before reaching the bottom
+      threshold: 0
+    });
+
+    observer.observe(trigger);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [handleIntersection]);
 
   if (isLoading && prs.length === 0) {
     return (
@@ -221,7 +268,7 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, getReviewState
   }
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea className="flex-1" ref={scrollAreaRef}>
       <div className="divide-y divide-border">
         {prs.map((pr) => {
           const reviewState = getReviewStateForPR(pr.number);
@@ -256,10 +303,16 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, getReviewState
                         // Follow-up review with no new findings to post is effectively "posted"
                         (Boolean(reviewState?.result?.isFollowupReview) && reviewState?.result?.findings?.length === 0)
                       }
-                      hasBlockingFindings={Boolean(reviewState?.result?.findings?.some(
-                        f => f.severity === 'critical' || f.severity === 'high'
-                      ))}
+                      hasBlockingFindings={
+                        // Use overallStatus from review result as source of truth
+                        reviewState?.result?.overallStatus === 'request_changes' ||
+                        // Fallback to checking findings severity
+                        Boolean(reviewState?.result?.findings?.some(
+                          f => f.severity === 'critical' || f.severity === 'high'
+                        ))
+                      }
                       hasNewCommits={Boolean(reviewState?.newCommitsCheck?.hasNewCommits)}
+                      hasCommitsAfterPosting={reviewState?.newCommitsCheck?.hasCommitsAfterPosting ?? false}
                       t={t}
                     />
                   </div>
@@ -284,6 +337,24 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, getReviewState
             </button>
           );
         })}
+
+        {/* Load more trigger / Loading indicator */}
+        <div ref={loadMoreTriggerRef} className="py-4 flex justify-center">
+          {isLoadingMore ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">{t('prReview.loadingMore')}</span>
+            </div>
+          ) : hasMore ? (
+            <span className="text-xs text-muted-foreground opacity-50">
+              {t('prReview.scrollForMore')}
+            </span>
+          ) : prs.length > 0 ? (
+            <span className="text-xs text-muted-foreground opacity-50">
+              {t('prReview.allPRsLoaded')}
+            </span>
+          ) : null}
+        </div>
       </div>
     </ScrollArea>
   );

@@ -268,7 +268,7 @@ Output JSON array of structural issues:
 ```
 """,
             ReviewPass.AI_COMMENT_TRIAGE: """
-You are triaging comments from other AI code review tools (CodeRabbit, Cursor, Greptile, etc).
+You are triaging comments from other AI code review tools (CodeRabbit, Gemini Code Assist, Cursor, Greptile, etc).
 
 For each AI comment, determine:
 - CRITICAL: Genuine issue that must be addressed before merge

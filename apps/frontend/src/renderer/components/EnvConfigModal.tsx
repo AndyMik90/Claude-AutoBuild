@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   AlertCircle,
   Key,
@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
+import { useSettingsStore } from '../stores/settings-store';
 import {
   Dialog,
   DialogContent,
@@ -592,35 +593,51 @@ export function EnvConfigModal({
 /**
  * Hook to check if the Claude token is configured
  * Returns { hasToken, isLoading, checkToken }
+ *
+ * This combines two sources of authentication:
+ * 1. OAuth token from source .env (checked via checkSourceToken)
+ * 2. Active API profile (custom Anthropic-compatible endpoint)
  */
 export function useClaudeTokenCheck() {
   const [hasToken, setHasToken] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const checkToken = async () => {
+  // Get active API profile from settings store
+  const activeProfileId = useSettingsStore((state) => state.activeProfileId);
+
+  const checkToken = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
+    // Compute once - activeProfileId is captured from closure
+    const hasAPIProfile = !!activeProfileId;
+
     try {
       const result = await window.electronAPI.checkSourceToken();
-      if (result.success && result.data) {
-        setHasToken(result.data.hasToken);
-      } else {
-        setHasToken(false);
+      const hasSourceOAuthToken = result.success && result.data?.hasToken;
+
+      // Auth is valid if either OAuth token OR API profile exists
+      setHasToken(hasSourceOAuthToken || hasAPIProfile);
+
+      // Set error if OAuth check failed and no API profile fallback
+      if (!result.success && !hasAPIProfile) {
         setError(result.error || 'Failed to check token');
       }
     } catch (err) {
-      setHasToken(false);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      // Even if OAuth check fails, API profile is still valid auth
+      setHasToken(hasAPIProfile);
+      if (!hasAPIProfile) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeProfileId]);
 
   useEffect(() => {
     checkToken();
-  }, []);
+  }, [checkToken]); // Re-check when checkToken changes (i.e., when activeProfileId changes)
 
   return { hasToken, isLoading, error, checkToken };
 }

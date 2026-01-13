@@ -184,7 +184,7 @@ class TestSpecOrchestratorInit:
             assert orchestrator.spec_dir == custom_spec_dir
 
     def test_init_default_model(self, temp_dir: Path):
-        """Uses default model."""
+        """Uses default model (shorthand)."""
         with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
             mock_init.return_value = (temp_dir / ".auto-claude", False)
             specs_dir = temp_dir / ".auto-claude" / "specs"
@@ -192,7 +192,8 @@ class TestSpecOrchestratorInit:
 
             orchestrator = SpecOrchestrator(project_dir=temp_dir)
 
-            assert orchestrator.model == "claude-sonnet-4-5-20250929"
+            # Default is now "sonnet" shorthand (resolved via API Profile if configured)
+            assert orchestrator.model == "sonnet"
 
     def test_init_custom_model(self, temp_dir: Path):
         """Uses custom model."""

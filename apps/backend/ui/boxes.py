@@ -95,11 +95,54 @@ def box(
     for line in content:
         # Strip ANSI for length calculation
         visible_line = re.sub(r"\033\[[0-9;]*m", "", line)
-        padding = inner_width - len(visible_line) - 2  # -2 for padding spaces
+        visible_len = len(visible_line)
+        padding = inner_width - visible_len - 2  # -2 for padding spaces
+
         if padding < 0:
-            # Truncate if too long
-            line = line[: inner_width - 5] + "..."
-            padding = 0
+            # Line is too long - need to truncate intelligently
+            # Calculate how much to remove (visible characters only)
+            chars_to_remove = abs(padding) + 3  # +3 for "..."
+            target_len = visible_len - chars_to_remove
+
+            if target_len <= 0:
+                # Line is way too long, just show "..."
+                line = "..."
+                padding = inner_width - 5  # 3 for "..." + 2 for padding
+            else:
+                # Truncate the visible text, preserving ANSI codes for what remains
+                # Split line into segments (ANSI code vs text)
+                segments = re.split(r"(\033\[[0-9;]*m)", line)
+                visible_chars = 0
+                result_segments = []
+
+                for segment in segments:
+                    if re.match(r"\033\[[0-9;]*m", segment):
+                        # ANSI code - include it without counting
+                        result_segments.append(segment)
+                    else:
+                        # Text segment - count visible characters
+                        remaining_space = target_len - visible_chars
+                        if remaining_space <= 0:
+                            break
+                        if len(segment) <= remaining_space:
+                            result_segments.append(segment)
+                            visible_chars += len(segment)
+                        else:
+                            # Truncate this segment at word boundary if possible
+                            truncated = segment[:remaining_space]
+                            # Try to truncate at last space to avoid mid-word cuts
+                            last_space = truncated.rfind(" ")
+                            if (
+                                last_space > remaining_space * 0.7
+                            ):  # Only if space is in last 30%
+                                truncated = truncated[:last_space]
+                            result_segments.append(truncated)
+                            visible_chars += len(truncated)
+                            break
+
+                line = "".join(result_segments) + "..."
+                padding = 0
+
         lines.append(v + " " + line + " " * (padding + 1) + v)
 
     # Bottom border

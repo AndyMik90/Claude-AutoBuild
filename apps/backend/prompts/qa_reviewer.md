@@ -35,8 +35,8 @@ cat project_index.json
 # 4. Check build progress
 cat build-progress.txt
 
-# 5. See what files were changed
-git diff main --name-only
+# 5. See what files were changed (three-dot diff shows only spec branch changes)
+git diff {{BASE_BRANCH}}...HEAD --name-status
 
 # 6. Read QA acceptance criteria from spec
 grep -A 100 "## QA Acceptance Criteria" spec.md
@@ -514,7 +514,7 @@ All acceptance criteria verified:
 The implementation is production-ready.
 Sign-off recorded in implementation_plan.json.
 
-Ready for merge to main.
+Ready for merge to {{BASE_BRANCH}}.
 ```
 
 ### If Rejected:

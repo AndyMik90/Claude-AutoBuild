@@ -52,4 +52,8 @@ def emit_phase(
         print(f"{PHASE_MARKER_PREFIX}{json.dumps(payload, default=str)}", flush=True)
     except (OSError, UnicodeEncodeError) as e:
         if _DEBUG:
-            print(f"[phase_event] emit failed: {e}", file=sys.stderr, flush=True)
+            try:
+                sys.stderr.write(f"[phase_event] emit failed: {e}\n")
+                sys.stderr.flush()
+            except (OSError, UnicodeEncodeError):
+                pass  # Truly silent on complete I/O failure

@@ -8,11 +8,12 @@ Functions for setting up and initializing workspaces.
 
 import json
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
+from core.git_executable import run_git
 from merge import FileTimelineTracker
+from security.constants import ALLOWLIST_FILENAME, PROFILE_FILENAME
 from ui import (
     Icons,
     MenuOption,
@@ -267,6 +268,60 @@ def setup_workspace(
             f"Environment files copied: {', '.join(copied_env_files)}", "success"
         )
 
+    # Copy security configuration files if they exist
+    # Note: Unlike env files, security files always overwrite to ensure
+    # the worktree uses the same security rules as the main project.
+    # This prevents security bypasses through stale worktree configs.
+    security_files = [
+        ALLOWLIST_FILENAME,
+        PROFILE_FILENAME,
+    ]
+    security_files_copied = []
+
+    for filename in security_files:
+        source_file = project_dir / filename
+        if source_file.is_file():
+            target_file = worktree_info.path / filename
+            try:
+                shutil.copy2(source_file, target_file)
+                security_files_copied.append(filename)
+            except (OSError, PermissionError) as e:
+                debug_warning(MODULE, f"Failed to copy {filename}: {e}")
+                print_status(
+                    f"Warning: Could not copy {filename} to worktree", "warning"
+                )
+
+    if security_files_copied:
+        print_status(
+            f"Security config copied: {', '.join(security_files_copied)}", "success"
+        )
+
+        # Mark the security profile as inherited from parent project
+        # This prevents hash-based re-analysis which would produce a broken profile
+        # (worktrees lack node_modules and other build artifacts needed for detection)
+        if PROFILE_FILENAME in security_files_copied:
+            profile_path = worktree_info.path / PROFILE_FILENAME
+            try:
+                with open(profile_path) as f:
+                    profile_data = json.load(f)
+                profile_data["inherited_from"] = str(project_dir.resolve())
+                with open(profile_path, "w") as f:
+                    json.dump(profile_data, f, indent=2)
+                debug(
+                    MODULE, f"Marked security profile as inherited from {project_dir}"
+                )
+            except (OSError, json.JSONDecodeError) as e:
+                debug_warning(MODULE, f"Failed to mark profile as inherited: {e}")
+
+    # Ensure .auto-claude/ is in the worktree's .gitignore
+    # This is critical because the worktree inherits .gitignore from the base branch,
+    # which may not have .auto-claude/ if that change wasn't committed/pushed.
+    # Without this, spec files would be committed to the worktree's branch.
+    from init import ensure_gitignore_entry
+
+    if ensure_gitignore_entry(worktree_info.path, ".auto-claude/"):
+        debug(MODULE, "Added .auto-claude/ to worktree's .gitignore")
+
     # Copy spec files to worktree if provided
     localized_spec_dir = None
     if source_spec_dir and source_spec_dir.exists():
@@ -368,11 +423,9 @@ def initialize_timeline_tracking(
                         files_to_modify.extend(subtask.get("files", []))
 
         # Get the current branch point commit
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
+        result = run_git(
+            ["rev-parse", "HEAD"],
             cwd=project_dir,
-            capture_output=True,
-            text=True,
         )
         branch_point = result.stdout.strip() if result.returncode == 0 else None
 

@@ -122,19 +122,36 @@ export class PythonEnvManager extends EventEmitter {
       return false;
     }
 
-    // Check for the marker file that indicates successful bundling
-    const markerPath = path.join(sitePackagesPath, '.bundled');
-    if (existsSync(markerPath)) {
-      console.log(`[PythonEnvManager] Found bundle marker, using bundled packages`);
-      return true;
+    // Critical packages that must exist for proper functionality
+    // This fixes GitHub issue #416 where marker exists but packages are missing
+    // Note: Same list exists in download-python.cjs - keep them in sync
+    // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
+    const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core'];
+
+    // Check each package exists with valid structure (directory + __init__.py)
+    const missingPackages = criticalPackages.filter((pkg) => {
+      const pkgPath = path.join(sitePackagesPath, pkg);
+      const initPath = path.join(pkgPath, '__init__.py');
+      // Package is valid if directory and __init__.py both exist
+      return !existsSync(pkgPath) || !existsSync(initPath);
+    });
+
+    // Log missing packages for debugging
+    for (const pkg of missingPackages) {
+      console.log(
+        `[PythonEnvManager] Missing critical package: ${pkg} at ${path.join(sitePackagesPath, pkg)}`
+      );
     }
 
-    // Fallback: check if key packages exist
-    // This handles cases where the marker might be missing but packages are there
-    const claudeSdkPath = path.join(sitePackagesPath, 'claude_agent_sdk');
-    const dotenvPath = path.join(sitePackagesPath, 'dotenv');
-    if (existsSync(claudeSdkPath) || existsSync(dotenvPath)) {
-      console.log(`[PythonEnvManager] Found key packages, using bundled packages`);
+    // All packages must exist - don't rely solely on marker file
+    if (missingPackages.length === 0) {
+      // Also check marker for logging purposes
+      const markerPath = path.join(sitePackagesPath, '.bundled');
+      if (existsSync(markerPath)) {
+        console.log(`[PythonEnvManager] Found bundle marker and all critical packages`);
+      } else {
+        console.log(`[PythonEnvManager] Found critical packages (marker missing)`);
+      }
       return true;
     }
 
@@ -619,23 +636,40 @@ if sys.version_info >= (3, 12):
   /**
    * Get environment variables that should be set when spawning Python processes.
    * This ensures Python finds the bundled packages or venv packages.
+   *
+   * IMPORTANT: This returns a COMPLETE environment (based on process.env) with
+   * problematic Python variables removed. This fixes the "Could not find platform
+   * independent libraries <prefix>" error on Windows when PYTHONHOME is set.
+   *
+   * @see https://github.com/AndyMik90/Auto-Claude/issues/176
    */
   getPythonEnv(): Record<string, string> {
-    const env: Record<string, string> = {
+    // Start with process.env but explicitly remove problematic Python variables
+    // PYTHONHOME causes "Could not find platform independent libraries" when set
+    // to a different Python installation than the one we're spawning
+    const baseEnv: Record<string, string> = {};
+
+    for (const [key, value] of Object.entries(process.env)) {
+      // Skip PYTHONHOME - it causes the "platform independent libraries" error
+      // Use case-insensitive check for Windows compatibility (env vars are case-insensitive on Windows)
+      // Skip undefined values (TypeScript type guard)
+      if (key.toUpperCase() !== 'PYTHONHOME' && value !== undefined) {
+        baseEnv[key] = value;
+      }
+    }
+
+    // Apply our Python configuration on top
+    return {
+      ...baseEnv,
       // Don't write bytecode - not needed and avoids permission issues
       PYTHONDONTWRITEBYTECODE: '1',
       // Use UTF-8 encoding
       PYTHONIOENCODING: 'utf-8',
       // Disable user site-packages to avoid conflicts
       PYTHONNOUSERSITE: '1',
+      // Override PYTHONPATH if we have bundled packages
+      ...(this.sitePackagesPath ? { PYTHONPATH: this.sitePackagesPath } : {}),
     };
-
-    // Set PYTHONPATH to our site-packages
-    if (this.sitePackagesPath) {
-      env.PYTHONPATH = this.sitePackagesPath;
-    }
-
-    return env;
   }
 
   /**

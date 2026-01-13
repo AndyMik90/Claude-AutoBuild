@@ -26,6 +26,7 @@ export type IdeationTypeState = 'pending' | 'generating' | 'completed' | 'failed
 
 interface IdeationState {
   // Data
+  currentProjectId: string | null;
   session: IdeationSession | null;
   generationStatus: IdeationGenerationStatus;
   config: IdeationConfig;
@@ -35,6 +36,7 @@ interface IdeationState {
   isGenerating: boolean;
 
   // Actions
+  setCurrentProjectId: (projectId: string | null) => void;
   setSession: (session: IdeationSession | null) => void;
   setIsGenerating: (isGenerating: boolean) => void;
   setGenerationStatus: (status: IdeationGenerationStatus) => void;
@@ -86,6 +88,7 @@ const initialTypeStates: Record<IdeationType, IdeationTypeState> = {
 
 export const useIdeationStore = create<IdeationState>((set) => ({
   // Initial state
+  currentProjectId: null,
   session: null,
   generationStatus: initialGenerationStatus,
   config: initialConfig,
@@ -95,6 +98,23 @@ export const useIdeationStore = create<IdeationState>((set) => ({
   isGenerating: false,
 
   // Actions
+  setCurrentProjectId: (projectId) =>
+    set((state) => {
+      // If switching to a different project, clear the state
+      if (state.currentProjectId !== projectId) {
+        return {
+          currentProjectId: projectId,
+          session: null,
+          generationStatus: initialGenerationStatus,
+          logs: [],
+          typeStates: { ...initialTypeStates },
+          selectedIds: new Set<string>(),
+          isGenerating: false
+        };
+      }
+      return { currentProjectId: projectId };
+    }),
+
   setSession: (session) => set({ session }),
 
   setIsGenerating: (isGenerating) => set({ isGenerating }),
@@ -349,21 +369,28 @@ export const useIdeationStore = create<IdeationState>((set) => ({
 }));
 
 export async function loadIdeation(projectId: string): Promise<void> {
-  if (useIdeationStore.getState().isGenerating) {
+  const store = useIdeationStore.getState();
+
+  // Set the current project ID (this clears state if switching projects)
+  store.setCurrentProjectId(projectId);
+
+  if (store.isGenerating) {
     return;
   }
 
   const result = await window.electronAPI.getIdeation(projectId);
 
   // Check again after async operation to handle race condition
-  if (useIdeationStore.getState().isGenerating) {
+  const currentState = useIdeationStore.getState();
+  if (currentState.isGenerating || currentState.currentProjectId !== projectId) {
+    // Project changed during async operation, ignore result
     return;
   }
 
   if (result.success && result.data) {
-    useIdeationStore.getState().setSession(result.data);
+    currentState.setSession(result.data);
   } else {
-    useIdeationStore.getState().setSession(null);
+    currentState.setSession(null);
   }
 }
 
@@ -614,12 +641,26 @@ export function isUIUXIdea(idea: Idea): idea is Idea & { type: 'ui_ux_improvemen
 export function setupIdeationListeners(): () => void {
   const store = useIdeationStore.getState;
 
+  // Helper to check if event is for the current project
+  const isCurrentProject = (eventProjectId: string): boolean => {
+    const currentProjectId = store().currentProjectId;
+    return currentProjectId === eventProjectId;
+  };
+
   // Listen for progress updates
-  const unsubProgress = window.electronAPI.onIdeationProgress((_projectId, status) => {
+  const unsubProgress = window.electronAPI.onIdeationProgress((projectId, status) => {
+    // Only process events for the current project
+    if (!isCurrentProject(projectId)) {
+      if (window.DEBUG) {
+        console.log('[Ideation] Ignoring progress for different project:', projectId);
+      }
+      return;
+    }
+
     // Debug logging
     if (window.DEBUG) {
       console.log('[Ideation] Progress update:', {
-        projectId: _projectId,
+        projectId,
         phase: status.phase,
         progress: status.progress,
         message: status.message
@@ -629,17 +670,26 @@ export function setupIdeationListeners(): () => void {
   });
 
   // Listen for log messages
-  const unsubLog = window.electronAPI.onIdeationLog((_projectId, log) => {
+  const unsubLog = window.electronAPI.onIdeationLog((projectId, log) => {
+    if (!isCurrentProject(projectId)) return;
     store().addLog(log);
   });
 
   // Listen for individual ideation type completion (streaming)
   const unsubTypeComplete = window.electronAPI.onIdeationTypeComplete(
-    (_projectId, ideationType, ideas) => {
+    (projectId, ideationType, ideas) => {
+      // Only process events for the current project
+      if (!isCurrentProject(projectId)) {
+        if (window.DEBUG) {
+          console.log('[Ideation] Ignoring type complete for different project:', projectId);
+        }
+        return;
+      }
+
       // Debug logging
       if (window.DEBUG) {
         console.log('[Ideation] Type completed:', {
-          projectId: _projectId,
+          projectId,
           ideationType,
           ideasCount: ideas.length,
           ideas: ideas.map(i => ({ id: i.id, title: i.title, type: i.type }))
@@ -677,10 +727,13 @@ export function setupIdeationListeners(): () => void {
 
   // Listen for individual ideation type failure
   const unsubTypeFailed = window.electronAPI.onIdeationTypeFailed(
-    (_projectId, ideationType) => {
+    (projectId, ideationType) => {
+      // Only process events for the current project
+      if (!isCurrentProject(projectId)) return;
+
       // Debug logging
       if (window.DEBUG) {
-        console.error('[Ideation] Type failed:', { projectId: _projectId, ideationType });
+        console.error('[Ideation] Type failed:', { projectId, ideationType });
       }
 
       store().setTypeState(ideationType as IdeationType, 'failed');
@@ -688,10 +741,18 @@ export function setupIdeationListeners(): () => void {
     }
   );
 
-  const unsubComplete = window.electronAPI.onIdeationComplete((_projectId, session) => {
+  const unsubComplete = window.electronAPI.onIdeationComplete((projectId, session) => {
+    // Only process events for the current project
+    if (!isCurrentProject(projectId)) {
+      if (window.DEBUG) {
+        console.log('[Ideation] Ignoring complete for different project:', projectId);
+      }
+      return;
+    }
+
     if (window.DEBUG) {
       console.log('[Ideation] Generation complete:', {
-        projectId: _projectId,
+        projectId,
         totalIdeas: session.ideas.length,
         ideaTypes: session.ideas.reduce((acc, idea) => {
           acc[idea.type] = (acc[idea.type] || 0) + 1;
@@ -700,7 +761,7 @@ export function setupIdeationListeners(): () => void {
       });
     }
 
-    clearGenerationTimeout(_projectId);
+    clearGenerationTimeout(projectId);
 
     store().setIsGenerating(false);
     store().setSession(session);
@@ -713,12 +774,15 @@ export function setupIdeationListeners(): () => void {
     store().addLog('Ideation generation complete!');
   });
 
-  const unsubError = window.electronAPI.onIdeationError((_projectId, error) => {
+  const unsubError = window.electronAPI.onIdeationError((projectId, error) => {
+    // Only process events for the current project
+    if (!isCurrentProject(projectId)) return;
+
     if (window.DEBUG) {
-      console.error('[Ideation] Error received:', { projectId: _projectId, error });
+      console.error('[Ideation] Error received:', { projectId, error });
     }
 
-    clearGenerationTimeout(_projectId);
+    clearGenerationTimeout(projectId);
 
     store().setIsGenerating(false);
     store().resetGeneratingTypes('failed');
@@ -731,12 +795,15 @@ export function setupIdeationListeners(): () => void {
     store().addLog(`Error: ${error}`);
   });
 
-  const unsubStopped = window.electronAPI.onIdeationStopped((_projectId) => {
+  const unsubStopped = window.electronAPI.onIdeationStopped((projectId) => {
+    // Only process events for the current project
+    if (!isCurrentProject(projectId)) return;
+
     if (window.DEBUG) {
-      console.log('[Ideation] Stopped:', { projectId: _projectId });
+      console.log('[Ideation] Stopped:', { projectId });
     }
 
-    clearGenerationTimeout(_projectId);
+    clearGenerationTimeout(projectId);
 
     store().setIsGenerating(false);
     store().resetGeneratingTypes('pending');

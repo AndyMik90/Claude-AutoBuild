@@ -158,7 +158,7 @@ export function registerInvestigateIssue(
         });
 
         // Create spec for the issue
-        const task = await createSpecForIssue(project, issue, config);
+        const task = await createSpecForIssue(project, issue, config, project.settings?.mainBranch);
 
         if (!task) {
           sendError(getMainWindow, project.id, 'Failed to create task from issue');

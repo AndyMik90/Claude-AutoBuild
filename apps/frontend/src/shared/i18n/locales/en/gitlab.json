@@ -100,7 +100,17 @@
     "noBranchesFound": "No branches found",
     "branchFromNote": "All new tasks will branch from",
     "autoSyncOnLoad": "Auto-Sync on Load",
-    "autoSyncDescription": "Automatically fetch issues when the project loads"
+    "autoSyncDescription": "Automatically fetch issues when the project loads",
+    "cli": {
+      "required": "GitLab CLI Required",
+      "notInstalled": "The GitLab CLI (glab) is required for OAuth authentication. Install it to use the 'Use OAuth' option.",
+      "installButton": "Install glab",
+      "installing": "Installing...",
+      "installSuccess": "Installation started in your terminal. Complete it and click Refresh.",
+      "refresh": "Refresh",
+      "learnMore": "Learn more",
+      "installed": "GitLab CLI installed:"
+    }
   },
   "mergeRequests": {
     "title": "GitLab Merge Requests",
@@ -168,21 +178,21 @@
   },
   "findings": {
     "summary": "selected",
-    "selectCriticalHigh": "Select Critical/High",
+    "selectCriticalHigh": "Select Blocker/Required",
     "selectAll": "Select All",
     "clear": "Clear",
     "noIssues": "No issues found! The code looks good.",
     "suggestedFix": "Suggested fix:",
     "posted": "Posted",
     "severity": {
-      "critical": "Critical",
-      "criticalDesc": "Must fix before merge",
-      "high": "High",
-      "highDesc": "Should fix before merge",
-      "medium": "Medium",
-      "mediumDesc": "Consider fixing",
-      "low": "Low",
-      "lowDesc": "Nice to have"
+      "critical": "Blocker",
+      "criticalDesc": "Must fix",
+      "high": "Required",
+      "highDesc": "Should fix",
+      "medium": "Recommended",
+      "mediumDesc": "Improve quality",
+      "low": "Suggestion",
+      "lowDesc": "Consider"
     },
     "category": {
       "security": "Security",

@@ -11,6 +11,7 @@
     "title": "Recent Projects",
     "empty": "No projects yet",
     "emptyDescription": "Create a new project or open an existing one to get started",
-    "openFolder": "Open Folder"
+    "openFolder": "Open Folder",
+    "openProjectAriaLabel": "Open project {{name}}"
   }
 }

@@ -275,7 +275,7 @@ class TestDiscovery:
             return "yarn"
         if (project_dir / "package-lock.json").exists():
             return "npm"
-        if (project_dir / "bun.lockb").exists():
+        if (project_dir / "bun.lockb").exists() or (project_dir / "bun.lock").exists():
             return "bun"
         if (project_dir / "uv.lock").exists():
             return "uv"

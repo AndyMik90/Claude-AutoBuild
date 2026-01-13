@@ -11,8 +11,10 @@ import type { IPCResult, AppUpdateInfo } from '../../shared/types';
 import {
   checkForUpdates,
   downloadUpdate,
+  downloadStableVersion,
   quitAndInstall,
-  getCurrentVersion
+  getCurrentVersion,
+  getDownloadedUpdateInfo
 } from '../app-updater';
 
 /**
@@ -66,6 +68,26 @@ export function registerAppUpdateHandlers(): void {
   );
 
   /**
+   * APP_UPDATE_DOWNLOAD_STABLE: Download stable version (for downgrade from beta)
+   * Uses allowDowngrade to download an older stable version
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.APP_UPDATE_DOWNLOAD_STABLE,
+    async (): Promise<IPCResult> => {
+      try {
+        await downloadStableVersion();
+        return { success: true };
+      } catch (error) {
+        console.error('[app-update-handlers] Download stable version failed:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to download stable version'
+        };
+      }
+    }
+  );
+
+  /**
    * APP_UPDATE_INSTALL: Quit and install update
    * Quits the app and installs the downloaded update
    */
@@ -98,6 +120,29 @@ export function registerAppUpdateHandlers(): void {
       } catch (error) {
         console.error('[app-update-handlers] Get version failed:', error);
         throw error;
+      }
+    }
+  );
+
+  /**
+   * APP_UPDATE_GET_DOWNLOADED: Get downloaded update info
+   * Returns info about a downloaded update that's ready to install,
+   * or null if no update has been downloaded yet.
+   * This allows the UI to show "Install and Restart" even if the user
+   * opens Settings after the download completed in the background.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.APP_UPDATE_GET_DOWNLOADED,
+    async (): Promise<IPCResult<AppUpdateInfo | null>> => {
+      try {
+        const downloadedInfo = getDownloadedUpdateInfo();
+        return { success: true, data: downloadedInfo };
+      } catch (error) {
+        console.error('[app-update-handlers] Get downloaded update info failed:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get downloaded update info'
+        };
       }
     }
   );

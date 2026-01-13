@@ -38,7 +38,13 @@
     "branchDescription": "Choose which branch Auto Claude should use as the base for creating task branches.",
     "whyBranch": "Why select a branch?",
     "branchExplanation": "Auto Claude creates isolated workspaces for each task. Selecting the right base branch ensures your tasks start with the latest code from your main development line.",
-    "ready": "Auto Claude is ready to use! You can now create tasks that will be automatically based on the {{branchName}} branch."
+    "ready": "Auto Claude is ready to use! You can now create tasks that will be automatically based on the {{branchName}} branch.",
+    "createRepoAriaLabel": "Create new repository on GitHub",
+    "linkRepoAriaLabel": "Link to existing repository",
+    "goBackAriaLabel": "Go back to repository selection",
+    "selectOwnerAriaLabel": "Select {{owner}} as repository owner",
+    "selectOrgAriaLabel": "Select {{org}} as repository owner",
+    "selectVisibilityAriaLabel": "Set repository visibility to {{visibility}}"
   },
   "worktrees": {
     "title": "Worktrees",
@@ -49,6 +55,17 @@
     "mergeDescription": "Merge changes from this worktree into the base branch.",
     "delete": "Delete Worktree?",
     "deleteDescription": "This will permanently delete the worktree and all uncommitted changes. This action cannot be undone."
+  },
+  "worktreeCleanup": {
+    "title": "Complete Task",
+    "hasWorktree": "The task <strong>\"{{taskTitle}}\"</strong> still has an isolated workspace (worktree).",
+    "willDelete": "To mark this task as complete, the worktree and its associated branch will be deleted.",
+    "warning": "Make sure you have merged or saved any changes you want to keep before proceeding.",
+    "confirm": "Delete Worktree & Complete",
+    "completing": "Completing...",
+    "retry": "Try Again",
+    "errorTitle": "Cleanup Failed",
+    "errorDescription": "Failed to cleanup worktree. Please try again."
   },
   "update": {
     "title": "Auto Claude",
@@ -109,7 +126,9 @@
     "nameRequired": "Please enter a project name",
     "locationRequired": "Please select a location",
     "failedToOpen": "Failed to open project",
-    "failedToCreate": "Failed to create project"
+    "failedToCreate": "Failed to create project",
+    "openExistingAriaLabel": "Open existing project folder",
+    "createNewAriaLabel": "Create new project"
   },
   "customModel": {
     "title": "Custom Model Configuration",
@@ -118,5 +137,27 @@
     "thinkingLevel": "Thinking Level",
     "cancel": "Cancel",
     "apply": "Apply"
+  },
+  "removeProject": {
+    "title": "Remove Project?",
+    "description": "This will remove \"{{projectName}}\" from the app. Your files will be preserved on disk and you can re-add the project later.",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "error": "Failed to remove project"
+  },
+  "appUpdate": {
+    "title": "App Update Available",
+    "description": "A new version of Auto Claude is ready to download",
+    "newVersion": "New Version",
+    "released": "Released",
+    "downloading": "Downloading...",
+    "downloadUpdate": "Download Update",
+    "installAndRestart": "Install and Restart",
+    "installLater": "Install Later",
+    "remindMeLater": "Remind Me Later",
+    "updateDownloaded": "Update downloaded successfully! Click Install to restart and apply the update.",
+    "downloadError": "Failed to download update",
+    "claudeCodeChangelog": "View Claude Code Changelog",
+    "claudeCodeChangelogAriaLabel": "View Claude Code Changelog (opens in new window)"
   }
 }

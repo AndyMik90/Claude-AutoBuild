@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LinearTaskImportModal } from '../LinearTaskImportModal';
 import { SettingsSection } from './SettingsSection';
 import { useProjectSettings, UseProjectSettingsReturn } from '../project-settings/hooks/useProjectSettings';
@@ -9,7 +10,7 @@ import { SectionRouter } from './sections/SectionRouter';
 import { createHookProxy } from './utils/hookProxyFactory';
 import type { Project } from '../../../shared/types';
 
-export type ProjectSettingsSection = 'general' | 'claude' | 'linear' | 'github' | 'gitlab' | 'memory';
+export type ProjectSettingsSection = 'general' | 'linear' | 'github' | 'gitlab' | 'memory';
 
 interface ProjectSettingsContentProps {
   project: Project | undefined;
@@ -28,12 +29,14 @@ export function ProjectSettingsContent({
   isOpen,
   onHookReady
 }: ProjectSettingsContentProps) {
+  const { t } = useTranslation('settings');
+
   // Show empty state if no project selected
   if (!project) {
     return (
       <SettingsSection
-        title="No Project Selected"
-        description="Select a project from the dropdown above to configure its settings"
+        title={t('projectSettings.noProjectSelected.title')}
+        description={t('projectSettings.noProjectSelected.description')}
       >
         <EmptyProjectState />
       </SettingsSection>
@@ -81,8 +84,6 @@ function ProjectSettingsContentInner({
     isLoadingEnv,
     envError,
     updateEnvConfig,
-    showClaudeToken,
-    setShowClaudeToken,
     showLinearKey,
     setShowLinearKey,
     showOpenAIKey,
@@ -97,14 +98,11 @@ function ProjectSettingsContentInner({
     setShowGitLabToken,
     gitLabConnectionStatus,
     isCheckingGitLab,
-    isCheckingClaudeAuth,
-    claudeAuthStatus,
     showLinearImportModal,
     setShowLinearImportModal,
     linearConnectionStatus,
     isCheckingLinear,
     handleInitialize,
-    handleClaudeSetup,
     error
   } = hook;
 
@@ -134,8 +132,6 @@ function ProjectSettingsContentInner({
         isLoadingEnv={isLoadingEnv}
         envError={envError}
         updateEnvConfig={updateEnvConfig}
-        showClaudeToken={showClaudeToken}
-        setShowClaudeToken={setShowClaudeToken}
         showLinearKey={showLinearKey}
         setShowLinearKey={setShowLinearKey}
         showOpenAIKey={showOpenAIKey}
@@ -148,12 +144,9 @@ function ProjectSettingsContentInner({
         setShowGitLabToken={setShowGitLabToken}
         gitLabConnectionStatus={gitLabConnectionStatus}
         isCheckingGitLab={isCheckingGitLab}
-        isCheckingClaudeAuth={isCheckingClaudeAuth}
-        claudeAuthStatus={claudeAuthStatus}
         linearConnectionStatus={linearConnectionStatus}
         isCheckingLinear={isCheckingLinear}
         handleInitialize={handleInitialize}
-        handleClaudeSetup={handleClaudeSetup}
         onOpenLinearImport={() => setShowLinearImportModal(true)}
       />
 

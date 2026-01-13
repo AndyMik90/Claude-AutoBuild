@@ -118,6 +118,7 @@ def _create_linear_client() -> ClaudeSDKClient:
         get_sdk_env_vars,
         require_auth_token,
     )
+    from phase_config import resolve_model_id
 
     require_auth_token()  # Raises ValueError if no token found
     ensure_claude_code_oauth_token()
@@ -130,7 +131,7 @@ def _create_linear_client() -> ClaudeSDKClient:
 
     return ClaudeSDKClient(
         options=ClaudeAgentOptions(
-            model="claude-haiku-4-5",  # Fast & cheap model for simple API calls
+            model=resolve_model_id("haiku"),  # Resolves via API Profile if configured
             system_prompt="You are a Linear API assistant. Execute the requested Linear operation precisely.",
             allowed_tools=LINEAR_TOOLS,
             mcp_servers={

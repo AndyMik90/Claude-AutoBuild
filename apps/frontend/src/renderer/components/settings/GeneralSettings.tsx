@@ -59,6 +59,7 @@ function ToolDetectionDisplay({ info, isLoading, t }: ToolDetectionDisplayProps)
       'user-config': t('general.sourceUserConfig'),
       'venv': t('general.sourceVenv'),
       'homebrew': t('general.sourceHomebrew'),
+      'nvm': t('general.sourceNvm'),
       'system-path': t('general.sourceSystemPath'),
       'bundled': t('general.sourceBundled'),
       'fallback': t('general.sourceFallback'),

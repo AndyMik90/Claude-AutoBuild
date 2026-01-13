@@ -189,7 +189,14 @@ class TimelineGitHelper:
             task_id.replace("task-", "") if task_id.startswith("task-") else task_id
         )
 
-        worktree_path = self.project_path / ".worktrees" / spec_name / file_path
+        worktree_path = (
+            self.project_path
+            / ".auto-claude"
+            / "worktrees"
+            / "tasks"
+            / spec_name
+            / file_path
+        )
         if worktree_path.exists():
             try:
                 return worktree_path.read_text(encoding="utf-8")

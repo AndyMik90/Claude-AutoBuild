@@ -167,6 +167,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
             'bg-card hover:bg-accent hover:border-accent transition-all duration-200',
             'text-left group'
           )}
+          aria-label={t('addProject.openExistingAriaLabel')}
         >
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
             <FolderOpen className="h-6 w-6 text-primary" />
@@ -188,6 +189,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
             'bg-card hover:bg-accent hover:border-accent transition-all duration-200',
             'text-left group'
           )}
+          aria-label={t('addProject.createNewAriaLabel')}
         >
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-success/10">
             <FolderPlus className="h-6 w-6 text-success" />
@@ -203,7 +205,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
       </div>
 
       {error && (
-        <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3 mt-2">
+        <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3 mt-2" role="alert">
           {error}
         </div>
       )}
@@ -272,7 +274,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
         </div>
 
         {error && (
-          <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3">
+          <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3" role="alert">
             {error}
           </div>
         )}

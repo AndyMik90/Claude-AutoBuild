@@ -26,11 +26,11 @@ The AI considers:
 - Risk factors and edge cases
 
 Usage:
-    python auto-claude/spec_runner.py --task "Add user authentication"
-    python auto-claude/spec_runner.py --interactive
-    python auto-claude/spec_runner.py --continue 001-feature
-    python auto-claude/spec_runner.py --task "Fix button color" --complexity simple
-    python auto-claude/spec_runner.py --task "Simple fix" --no-ai-assessment
+    python runners/spec_runner.py --task "Add user authentication"
+    python runners/spec_runner.py --interactive
+    python runners/spec_runner.py --continue 001-feature
+    python runners/spec_runner.py --task "Fix button color" --complexity simple
+    python runners/spec_runner.py --task "Simple fix" --no-ai-assessment
 """
 
 import sys
@@ -81,8 +81,10 @@ if sys.platform == "win32":
 # Add auto-claude to path (parent of runners/)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Load .env file
-from dotenv import load_dotenv
+# Load .env file with centralized error handling
+from cli.utils import import_dotenv
+
+load_dotenv = import_dotenv()
 
 env_file = Path(__file__).parent.parent / ".env"
 dev_env_file = Path(__file__).parent.parent.parent / "dev" / "auto-claude" / ".env"
@@ -90,6 +92,11 @@ if env_file.exists():
     load_dotenv(env_file)
 elif dev_env_file.exists():
     load_dotenv(dev_env_file)
+
+# Initialize Sentry early to capture any startup errors
+from core.sentry import capture_exception, init_sentry
+
+init_sentry(component="spec-runner")
 
 from debug import debug, debug_error, debug_section, debug_success
 from phase_config import resolve_model_id
@@ -198,8 +205,20 @@ Examples:
         default=None,
         help="Base branch for creating worktrees (default: auto-detect or current branch)",
     )
+    parser.add_argument(
+        "--direct",
+        action="store_true",
+        help="Build directly in project without worktree isolation (default: use isolated worktree)",
+    )
 
     args = parser.parse_args()
+
+    # Warn user about direct mode risks
+    if args.direct:
+        print_status(
+            "Direct mode: Building in project directory without worktree isolation",
+            "warning",
+        )
 
     # Handle task from file if provided
     task_description = args.task
@@ -328,6 +347,10 @@ Examples:
             if args.base_branch:
                 run_cmd.extend(["--base-branch", args.base_branch])
 
+            # Pass --direct flag if specified (skip worktree isolation)
+            if args.direct:
+                run_cmd.append("--direct")
+
             # Note: Model configuration for subsequent phases (planning, coding, qa)
             # is read from task_metadata.json by run.py, so we don't pass it here.
             # This allows per-phase configuration when using Auto profile.
@@ -351,6 +374,14 @@ Examples:
         print(
             f"To continue: python auto-claude/spec_runner.py --continue {orchestrator.spec_dir.name}"
         )
+        sys.exit(1)
+    except Exception as e:
+        # Capture unexpected errors to Sentry
+        capture_exception(
+            e, spec_dir=str(orchestrator.spec_dir) if orchestrator else None
+        )
+        debug_error("spec_runner", f"Unexpected error: {e}")
+        print(f"\n\nUnexpected error: {e}")
         sys.exit(1)
 
 

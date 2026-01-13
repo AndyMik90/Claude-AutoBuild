@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, KeyRound, Loader2, CheckCircle2, AlertCircle, User, Lock, Globe, ChevronDown, GitBranch, Server } from 'lucide-react';
+import { RefreshCw, KeyRound, Loader2, CheckCircle2, AlertCircle, User, Lock, Globe, ChevronDown, GitBranch, Server, Terminal, ExternalLink } from 'lucide-react';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
 import { Separator } from '../../ui/separator';
 import { Button } from '../../ui/button';
 import { PasswordInput } from '../../project-settings/PasswordInput';
-import type { ProjectEnvConfig, GitLabSyncStatus } from '../../../../shared/types';
+import type { ProjectEnvConfig, GitLabSyncStatus, ProjectSettings } from '../../../../shared/types';
 
 // Debug logging
 const DEBUG = process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true';
@@ -35,6 +35,9 @@ interface GitLabIntegrationProps {
   gitLabConnectionStatus: GitLabSyncStatus | null;
   isCheckingGitLab: boolean;
   projectPath?: string;
+  // Project settings for mainBranch (used by kanban tasks and terminal worktrees)
+  settings?: ProjectSettings;
+  setSettings?: React.Dispatch<React.SetStateAction<ProjectSettings>>;
 }
 
 /**
@@ -49,7 +52,9 @@ export function GitLabIntegration({
   setShowGitLabToken: _setShowGitLabToken,
   gitLabConnectionStatus,
   isCheckingGitLab,
-  projectPath
+  projectPath,
+  settings,
+  setSettings
 }: GitLabIntegrationProps) {
   const { t } = useTranslation('gitlab');
   const [authMode, setAuthMode] = useState<'manual' | 'oauth' | 'oauth-success'>('manual');
@@ -63,6 +68,13 @@ export function GitLabIntegration({
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [branchesError, setBranchesError] = useState<string | null>(null);
 
+  // glab CLI detection state
+  const [glabInstalled, setGlabInstalled] = useState<boolean | null>(null);
+  const [glabVersion, setGlabVersion] = useState<string | null>(null);
+  const [isCheckingGlab, setIsCheckingGlab] = useState(false);
+  const [isInstallingGlab, setIsInstallingGlab] = useState(false);
+  const [glabInstallSuccess, setGlabInstallSuccess] = useState(false);
+
   debugLog('Render - authMode:', authMode);
   debugLog('Render - projectPath:', projectPath);
   debugLog('Render - envConfig:', envConfig ? { gitlabEnabled: envConfig.gitlabEnabled, hasToken: !!envConfig.gitlabToken, defaultBranch: envConfig.defaultBranch } : null);
@@ -73,6 +85,29 @@ export function GitLabIntegration({
       fetchUserProjects();
     }
   }, [authMode]);
+
+  // Check glab CLI on mount
+  useEffect(() => {
+    const checkGlab = async () => {
+      setIsCheckingGlab(true);
+      try {
+        const result = await window.electronAPI.checkGitLabCli();
+        debugLog('checkGitLabCli result:', result);
+        if (result.success && result.data) {
+          setGlabInstalled(result.data.installed);
+          setGlabVersion(result.data.version || null);
+        } else {
+          setGlabInstalled(false);
+        }
+      } catch (error) {
+        debugLog('Error checking glab CLI:', error);
+        setGlabInstalled(false);
+      } finally {
+        setIsCheckingGlab(false);
+      }
+    };
+    checkGlab();
+  }, []);
 
   // Fetch branches when GitLab is enabled and project path is available
   useEffect(() => {
@@ -85,6 +120,24 @@ export function GitLabIntegration({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [envConfig?.gitlabEnabled, projectPath]);
+
+  /**
+   * Handler for branch selection changes.
+   * Updates BOTH project.settings.mainBranch (for Electron app) and envConfig.defaultBranch (for CLI backward compatibility).
+   */
+  const handleBranchChange = (branch: string) => {
+    debugLog('handleBranchChange: Updating branch to:', branch);
+
+    // Update project settings (primary source for Electron app)
+    if (setSettings) {
+      setSettings(prev => ({ ...prev, mainBranch: branch }));
+      debugLog('handleBranchChange: Updated settings.mainBranch');
+    }
+
+    // Also update envConfig for CLI backward compatibility
+    updateEnvConfig({ defaultBranch: branch });
+    debugLog('handleBranchChange: Updated envConfig.defaultBranch');
+  };
 
   const fetchBranches = async () => {
     if (!projectPath) {
@@ -105,14 +158,15 @@ export function GitLabIntegration({
         setBranches(result.data);
         debugLog('fetchBranches: Loaded branches:', result.data.length);
 
-        // Auto-detect default branch if not set
-        if (!envConfig?.defaultBranch) {
-          debugLog('fetchBranches: No defaultBranch set, auto-detecting...');
+        // Auto-detect default branch if not set in project settings
+        // Priority: settings.mainBranch > envConfig.defaultBranch > auto-detect
+        if (!settings?.mainBranch && !envConfig?.defaultBranch) {
+          debugLog('fetchBranches: No branch set, auto-detecting...');
           const detectResult = await window.electronAPI.detectMainBranch(projectPath);
           debugLog('fetchBranches: detectMainBranch result:', detectResult);
           if (detectResult.success && detectResult.data) {
             debugLog('fetchBranches: Auto-detected default branch:', detectResult.data);
-            updateEnvConfig({ defaultBranch: detectResult.data });
+            handleBranchChange(detectResult.data);
           }
         }
       } else {
@@ -211,6 +265,48 @@ export function GitLabIntegration({
     updateEnvConfig({ gitlabProject: projectPath });
   };
 
+  const handleInstallGlab = async () => {
+    setIsInstallingGlab(true);
+    setGlabInstallSuccess(false);
+    try {
+      const result = await window.electronAPI.installGitLabCli();
+      debugLog('installGitLabCli result:', result);
+      if (result.success) {
+        setGlabInstallSuccess(true);
+        // Re-check after 5 seconds to give user time to complete installation
+        setTimeout(async () => {
+          await handleRefreshGlab();
+          setIsInstallingGlab(false);
+        }, 5000);
+      } else {
+        setIsInstallingGlab(false);
+      }
+    } catch (error) {
+      debugLog('Error installing glab:', error);
+      setIsInstallingGlab(false);
+    }
+  };
+
+  const handleRefreshGlab = async () => {
+    setIsCheckingGlab(true);
+    setGlabInstallSuccess(false);
+    try {
+      const result = await window.electronAPI.checkGitLabCli();
+      debugLog('checkGitLabCli refresh result:', result);
+      if (result.success && result.data) {
+        setGlabInstalled(result.data.installed);
+        setGlabVersion(result.data.version || null);
+      } else {
+        setGlabInstalled(false);
+      }
+    } catch (error) {
+      debugLog('Error refreshing glab status:', error);
+      setGlabInstalled(false);
+    } finally {
+      setIsCheckingGlab(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -305,6 +401,86 @@ export function GitLabIntegration({
           {/* Manual Token Entry */}
           {authMode === 'manual' && (
             <>
+              {/* glab CLI Required Card */}
+              {glabInstalled === false && (
+                <div className="rounded-lg border border-warning/30 bg-warning/10 p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-warning mt-0.5 shrink-0" />
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{t('settings.cli.required')}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {t('settings.cli.notInstalled')}
+                        </p>
+                      </div>
+                      {glabInstallSuccess ? (
+                        <div className="rounded-md border border-success/30 bg-success/10 p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-success" />
+                              <p className="text-xs text-success">{t('settings.cli.installSuccess')}</p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleRefreshGlab}
+                              disabled={isCheckingGlab}
+                              className="h-7 gap-1.5"
+                            >
+                              <RefreshCw className={`h-3 w-3 ${isCheckingGlab ? 'animate-spin' : ''}`} />
+                              {t('settings.cli.refresh')}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleInstallGlab}
+                            disabled={isInstallingGlab}
+                            className="gap-2"
+                          >
+                            {isInstallingGlab ? (
+                              <>
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                {t('settings.cli.installing')}
+                              </>
+                            ) : (
+                              <>
+                                <Terminal className="h-3 w-3" />
+                                {t('settings.cli.installButton')}
+                              </>
+                            )}
+                          </Button>
+                          <a
+                            href="https://gitlab.com/gitlab-org/cli#installation"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-info hover:underline flex items-center gap-1"
+                          >
+                            {t('settings.cli.learnMore')}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* glab CLI Installed Success */}
+              {glabInstalled === true && glabVersion && (
+                <div className="rounded-lg border border-success/30 bg-success/10 p-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-success" />
+                    <p className="text-xs text-success">
+                      {t('settings.cli.installed')} <span className="font-mono">{glabVersion}</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium text-foreground">{t('settings.personalAccessToken')}</Label>
@@ -312,9 +488,14 @@ export function GitLabIntegration({
                     variant="outline"
                     size="sm"
                     onClick={handleSwitchToOAuth}
+                    disabled={glabInstalled === false || isCheckingGlab}
                     className="gap-2"
                   >
-                    <KeyRound className="h-3 w-3" />
+                    {isCheckingGlab ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <KeyRound className="h-3 w-3" />
+                    )}
                     {t('settings.useOAuth')}
                   </Button>
                 </div>
@@ -358,10 +539,10 @@ export function GitLabIntegration({
           {projectPath && (
             <BranchSelector
               branches={branches}
-              selectedBranch={envConfig.defaultBranch || ''}
+              selectedBranch={settings?.mainBranch || envConfig.defaultBranch || ''}
               isLoading={isLoadingBranches}
               error={branchesError}
-              onSelect={(branch) => updateEnvConfig({ defaultBranch: branch })}
+              onSelect={handleBranchChange}
               onRefresh={fetchBranches}
             />
           )}

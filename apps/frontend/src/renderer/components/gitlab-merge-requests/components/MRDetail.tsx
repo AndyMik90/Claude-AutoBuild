@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ExternalLink,
   User,
@@ -96,6 +97,7 @@ export function MRDetail({
   onMergeMR,
   onApproveMR,
 }: MRDetailProps) {
+  const { t } = useTranslation('common');
   // Selection state for findings
   const [selectedFindingIds, setSelectedFindingIds] = useState<Set<string>>(new Set());
   const [postedFindingIds, setPostedFindingIds] = useState<Set<string>>(new Set());
@@ -355,7 +357,7 @@ export function MRDetail({
               </Badge>
               <span className="text-sm text-muted-foreground">!{mr.iid}</span>
             </div>
-            <Button variant="ghost" size="icon" asChild>
+            <Button variant="ghost" size="icon" asChild aria-label={t('accessibility.openOnGitLabAriaLabel')}>
               <a href={mr.webUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4" />
               </a>

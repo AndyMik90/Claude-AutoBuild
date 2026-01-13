@@ -7,14 +7,31 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { RoadmapConfig } from './types';
 import type { IdeationConfig, Idea } from '../../shared/types';
-import { MODEL_ID_MAP } from '../../shared/constants';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
+import { getAPIProfileEnv } from '../services/profile';
+import { getOAuthModeClearVars } from './env-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
+import { stripAnsiCodes } from '../../shared/utils/ansi-sanitizer';
 import { parsePythonCommand } from '../python-detector';
 import { pythonEnvManager } from '../python-env-manager';
 import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ipc-handlers/ideation/transformers';
 import { transformRoadmapFromSnakeCase } from '../ipc-handlers/roadmap/transformers';
 import type { RawIdea } from '../ipc-handlers/ideation/types';
+
+/** Maximum length for status messages displayed in progress UI */
+const STATUS_MESSAGE_MAX_LENGTH = 200;
+
+/**
+ * Formats a raw log line for display as a status message.
+ * Strips ANSI escape codes, extracts the first line, and truncates to max length.
+ *
+ * @param log - Raw log output from backend process
+ * @returns Formatted status message safe for UI display
+ */
+function formatStatusMessage(log: string): string {
+  if (!log) return '';
+  return stripAnsiCodes(log.trim()).split('\n')[0].substring(0, STATUS_MESSAGE_MAX_LENGTH);
+}
 
 /**
  * Queue management for ideation and roadmap generation
@@ -38,20 +55,54 @@ export class AgentQueueManager {
   }
 
   /**
+   * Ensure Python environment is ready before spawning processes.
+   * Prevents the race condition where generation starts before dependencies are installed,
+   * which would cause it to fall back to system Python and fail with ModuleNotFoundError.
+   *
+   * @param projectId - The project ID for error event emission
+   * @param eventType - The error event type to emit on failure
+   * @returns true if environment is ready, false if initialization failed (error already emitted)
+   */
+  private async ensurePythonEnvReady(
+    projectId: string,
+    eventType: 'ideation-error' | 'roadmap-error'
+  ): Promise<boolean> {
+    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+
+    if (!pythonEnvManager.isEnvReady()) {
+      debugLog('[Agent Queue] Python environment not ready, waiting for initialization...');
+      if (autoBuildSource) {
+        const status = await pythonEnvManager.initialize(autoBuildSource);
+        if (!status.ready) {
+          debugError('[Agent Queue] Python environment initialization failed:', status.error);
+          this.emitter.emit(eventType, projectId, `Python environment not ready: ${status.error || 'initialization failed'}`);
+          return false;
+        }
+        debugLog('[Agent Queue] Python environment now ready');
+      } else {
+        debugError('[Agent Queue] Cannot initialize Python - auto-build source not found');
+        this.emitter.emit(eventType, projectId, 'Python environment not ready: auto-build source not found');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
    * Start roadmap generation process
    *
    * @param refreshCompetitorAnalysis - Force refresh competitor analysis even if it exists.
    *   This allows refreshing competitor data independently of the general roadmap refresh.
    *   Use when user explicitly wants new competitor research.
    */
-  startRoadmapGeneration(
+  async startRoadmapGeneration(
     projectId: string,
     projectPath: string,
     refresh: boolean = false,
     enableCompetitorAnalysis: boolean = false,
     refreshCompetitorAnalysis: boolean = false,
     config?: RoadmapConfig
-  ): void {
+  ): Promise<void> {
     debugLog('[Agent Queue] Starting roadmap generation:', {
       projectId,
       projectPath,
@@ -94,9 +145,9 @@ export class AgentQueueManager {
     }
 
     // Add model and thinking level from config
+    // Pass shorthand (opus/sonnet/haiku) - backend resolves using API profile env vars
     if (config?.model) {
-      const modelId = MODEL_ID_MAP[config.model] || MODEL_ID_MAP['opus'];
-      args.push('--model', modelId);
+      args.push('--model', config.model);
     }
     if (config?.thinkingLevel) {
       args.push('--thinking-level', config.thinkingLevel);
@@ -105,18 +156,18 @@ export class AgentQueueManager {
     debugLog('[Agent Queue] Spawning roadmap process with args:', args);
 
     // Use projectId as taskId for roadmap operations
-    this.spawnRoadmapProcess(projectId, projectPath, args);
+    await this.spawnRoadmapProcess(projectId, projectPath, args);
   }
 
   /**
    * Start ideation generation process
    */
-  startIdeationGeneration(
+  async startIdeationGeneration(
     projectId: string,
     projectPath: string,
     config: IdeationConfig,
     refresh: boolean = false
-  ): void {
+  ): Promise<void> {
     debugLog('[Agent Queue] Starting ideation generation:', {
       projectId,
       projectPath,
@@ -170,9 +221,9 @@ export class AgentQueueManager {
     }
 
     // Add model and thinking level from config
+    // Pass shorthand (opus/sonnet/haiku) - backend resolves using API profile env vars
     if (config.model) {
-      const modelId = MODEL_ID_MAP[config.model] || MODEL_ID_MAP['opus'];
-      args.push('--model', modelId);
+      args.push('--model', config.model);
     }
     if (config.thinkingLevel) {
       args.push('--thinking-level', config.thinkingLevel);
@@ -181,18 +232,27 @@ export class AgentQueueManager {
     debugLog('[Agent Queue] Spawning ideation process with args:', args);
 
     // Use projectId as taskId for ideation operations
-    this.spawnIdeationProcess(projectId, projectPath, args);
+    await this.spawnIdeationProcess(projectId, projectPath, args);
   }
 
   /**
    * Spawn a Python process for ideation generation
    */
-  private spawnIdeationProcess(
+  private async spawnIdeationProcess(
     projectId: string,
     projectPath: string,
     args: string[]
-  ): void {
+  ): Promise<void> {
     debugLog('[Agent Queue] Spawning ideation process:', { projectId, projectPath });
+
+    // Run from auto-claude source directory so imports work correctly
+    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+    const cwd = autoBuildSource || process.cwd();
+
+    // Ensure Python environment is ready before spawning
+    if (!await this.ensurePythonEnvReady(projectId, 'ideation-error')) {
+      return;
+    }
 
     // Kill existing process for this project if any
     const wasKilled = this.processManager.killProcess(projectId);
@@ -204,15 +264,18 @@ export class AgentQueueManager {
     const spawnId = this.state.generateSpawnId();
     debugLog('[Agent Queue] Generated spawn ID:', spawnId);
 
-    // Run from auto-claude source directory so imports work correctly
-    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
-    const cwd = autoBuildSource || process.cwd();
 
     // Get combined environment variables
     const combinedEnv = this.processManager.getCombinedEnv(projectPath);
 
     // Get active Claude profile environment (CLAUDE_CODE_OAUTH_TOKEN if not default)
     const profileEnv = getProfileEnv();
+
+    // Get active API profile environment variables
+    const apiProfileEnv = await getAPIProfileEnv();
+
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
 
     // Get Python path from process manager (uses venv if configured)
     const pythonPath = this.processManager.getPythonPath();
@@ -234,28 +297,30 @@ export class AgentQueueManager {
     // 1. process.env (system)
     // 2. pythonEnv (bundled packages environment)
     // 3. combinedEnv (auto-claude/.env for CLI usage)
-    // 4. profileEnv (Electron app OAuth token - highest priority)
-    // 5. Our specific overrides
+    // 4. oauthModeClearVars (clear stale ANTHROPIC_* vars when in OAuth mode)
+    // 5. profileEnv (Electron app OAuth token)
+    // 6. apiProfileEnv (Active API profile config - highest priority for ANTHROPIC_* vars)
+    // 7. Our specific overrides
     const finalEnv = {
       ...process.env,
       ...pythonEnv,
       ...combinedEnv,
+      ...oauthModeClearVars,
       ...profileEnv,
+      ...apiProfileEnv,
       PYTHONPATH: combinedPythonPath,
       PYTHONUNBUFFERED: '1',
       PYTHONUTF8: '1'
     };
 
-    // Debug: Show OAuth token source
+    // Debug: Show OAuth token source (token values intentionally omitted for security - AC4)
     const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
       ? 'Electron app profile'
       : (combinedEnv['CLAUDE_CODE_OAUTH_TOKEN'] ? 'auto-claude/.env' : 'not found');
-    const oauthToken = (finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
-    const hasToken = !!oauthToken;
+    const hasToken = !!(finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
     debugLog('[Agent Queue] OAuth token status:', {
       source: tokenSource,
-      hasToken,
-      tokenPreview: hasToken ? oauthToken?.substring(0, 20) + '...' : 'none'
+      hasToken
     });
 
     // Parse Python command to handle space-separated commands like "py -3"
@@ -374,7 +439,7 @@ export class AgentQueueManager {
       progressPercent = progressUpdate.progress;
 
       // Emit progress update with a clean message for the status bar
-      const statusMessage = log.trim().split('\n')[0].substring(0, 200);
+      const statusMessage = formatStatusMessage(log);
       this.emitter.emit('ideation-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
@@ -393,7 +458,7 @@ export class AgentQueueManager {
       this.emitter.emit('ideation-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: log.trim().split('\n')[0].substring(0, 200)
+        message: formatStatusMessage(log)
       });
     });
 
@@ -500,12 +565,21 @@ export class AgentQueueManager {
   /**
    * Spawn a Python process for roadmap generation
    */
-  private spawnRoadmapProcess(
+  private async spawnRoadmapProcess(
     projectId: string,
     projectPath: string,
     args: string[]
-  ): void {
+  ): Promise<void> {
     debugLog('[Agent Queue] Spawning roadmap process:', { projectId, projectPath });
+
+    // Run from auto-claude source directory so imports work correctly
+    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+    const cwd = autoBuildSource || process.cwd();
+
+    // Ensure Python environment is ready before spawning
+    if (!await this.ensurePythonEnvReady(projectId, 'roadmap-error')) {
+      return;
+    }
 
     // Kill existing process for this project if any
     const wasKilled = this.processManager.killProcess(projectId);
@@ -517,15 +591,18 @@ export class AgentQueueManager {
     const spawnId = this.state.generateSpawnId();
     debugLog('[Agent Queue] Generated roadmap spawn ID:', spawnId);
 
-    // Run from auto-claude source directory so imports work correctly
-    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
-    const cwd = autoBuildSource || process.cwd();
 
     // Get combined environment variables
     const combinedEnv = this.processManager.getCombinedEnv(projectPath);
 
     // Get active Claude profile environment (CLAUDE_CODE_OAUTH_TOKEN if not default)
     const profileEnv = getProfileEnv();
+
+    // Get active API profile environment variables
+    const apiProfileEnv = await getAPIProfileEnv();
+
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
 
     // Get Python path from process manager (uses venv if configured)
     const pythonPath = this.processManager.getPythonPath();
@@ -547,28 +624,30 @@ export class AgentQueueManager {
     // 1. process.env (system)
     // 2. pythonEnv (bundled packages environment)
     // 3. combinedEnv (auto-claude/.env for CLI usage)
-    // 4. profileEnv (Electron app OAuth token - highest priority)
-    // 5. Our specific overrides
+    // 4. oauthModeClearVars (clear stale ANTHROPIC_* vars when in OAuth mode)
+    // 5. profileEnv (Electron app OAuth token)
+    // 6. apiProfileEnv (Active API profile config - highest priority for ANTHROPIC_* vars)
+    // 7. Our specific overrides
     const finalEnv = {
       ...process.env,
       ...pythonEnv,
       ...combinedEnv,
+      ...oauthModeClearVars,
       ...profileEnv,
+      ...apiProfileEnv,
       PYTHONPATH: combinedPythonPath,
       PYTHONUNBUFFERED: '1',
       PYTHONUTF8: '1'
     };
 
-    // Debug: Show OAuth token source
+    // Debug: Show OAuth token source (token values intentionally omitted for security - AC4)
     const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
       ? 'Electron app profile'
       : (combinedEnv['CLAUDE_CODE_OAUTH_TOKEN'] ? 'auto-claude/.env' : 'not found');
-    const oauthToken = (finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
-    const hasToken = !!oauthToken;
+    const hasToken = !!(finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
     debugLog('[Agent Queue] OAuth token status:', {
       source: tokenSource,
-      hasToken,
-      tokenPreview: hasToken ? oauthToken?.substring(0, 20) + '...' : 'none'
+      hasToken
     });
 
     // Parse Python command to handle space-separated commands like "py -3"
@@ -622,7 +701,7 @@ export class AgentQueueManager {
       this.emitter.emit('roadmap-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: log.trim().substring(0, 200) // Truncate long messages
+        message: formatStatusMessage(log)
       });
     });
 
@@ -636,7 +715,7 @@ export class AgentQueueManager {
       this.emitter.emit('roadmap-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: log.trim().substring(0, 200)
+        message: formatStatusMessage(log)
       });
     });
 

@@ -27,10 +27,11 @@ function run(cmd, options = {}) {
 }
 
 // Find Python 3.12+
+// Prefer 3.12 first since it has the most stable wheel support for native packages
 function findPython() {
   const candidates = isWindows
-    ? ['py -3.14', 'py -3.13', 'py -3.12', 'python3.14', 'python3.13', 'python3.12', 'python3', 'python']
-    : ['python3.14', 'python3.13', 'python3.12', 'python3', 'python'];
+    ? ['py -3.12', 'py -3.13', 'py -3.14', 'python3.12', 'python3.13', 'python3.14', 'python3', 'python']
+    : ['python3.12', 'python3.13', 'python3.14', 'python3', 'python'];
 
   for (const cmd of candidates) {
     try {
@@ -100,6 +101,29 @@ async function main() {
   if (!run(`"${pip}" install -r requirements.txt`)) {
     console.error('Failed to install dependencies');
     process.exit(1);
+  }
+
+  // Create .env file from .env.example if it doesn't exist
+  const envPath = path.join(backendDir, '.env');
+  const envExamplePath = path.join(backendDir, '.env.example');
+
+  if (fs.existsSync(envPath)) {
+    console.log('\n✓ .env file already exists');
+  } else if (fs.existsSync(envExamplePath)) {
+    console.log('\nCreating .env file from .env.example...');
+    try {
+      fs.copyFileSync(envExamplePath, envPath);
+      console.log('✓ Created .env file');
+      console.log('  Please configure it with your credentials:');
+      console.log(`  - Run: claude setup-token`);
+      console.log(`  - Or edit: ${envPath}`);
+    } catch (error) {
+      console.warn('Warning: Could not create .env file:', error.message);
+      console.warn('You will need to manually copy .env.example to .env');
+    }
+  } else {
+    console.warn('\nWarning: .env.example not found. Cannot auto-create .env file.');
+    console.warn('Please create a .env file manually if your configuration requires it.');
   }
 
   console.log('\nBackend installation complete!');

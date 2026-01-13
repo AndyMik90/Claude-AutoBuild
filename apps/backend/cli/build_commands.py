@@ -79,7 +79,7 @@ def handle_build_command(
         base_branch: Base branch for worktree creation (default: current branch)
     """
     # Lazy imports to avoid loading heavy modules
-    from agent import run_autonomous_agent, sync_plan_to_source
+    from agent import run_autonomous_agent, sync_spec_to_source
     from debug import (
         debug,
         debug_info,
@@ -87,6 +87,7 @@ def handle_build_command(
         debug_success,
     )
     from phase_config import get_phase_model
+    from prompts_pkg.prompts import get_base_branch_from_metadata
     from qa_loop import run_qa_validation_loop, should_run_qa
 
     from .utils import print_banner, validate_environment
@@ -194,6 +195,14 @@ def handle_build_command(
         auto_continue=auto_continue,
     )
 
+    # If base_branch not provided via CLI, try to read from task_metadata.json
+    # This ensures the backend uses the branch configured in the frontend
+    if base_branch is None:
+        metadata_branch = get_base_branch_from_metadata(spec_dir)
+        if metadata_branch:
+            base_branch = metadata_branch
+            debug("run.py", f"Using base branch from task metadata: {base_branch}")
+
     if workspace_mode == WorkspaceMode.ISOLATED:
         # Keep reference to original spec directory for syncing progress back
         source_spec_dir = spec_dir
@@ -274,7 +283,7 @@ def handle_build_command(
 
                 # Sync implementation plan to main project after QA
                 # This ensures the main project has the latest status (human_review)
-                if sync_plan_to_source(spec_dir, source_spec_dir):
+                if sync_spec_to_source(spec_dir, source_spec_dir):
                     debug_info(
                         "run.py", "Implementation plan synced to main project after QA"
                     )

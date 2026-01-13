@@ -100,7 +100,17 @@
     "noBranchesFound": "Aucune branche trouvée",
     "branchFromNote": "Toutes les nouvelles tâches partiront de",
     "autoSyncOnLoad": "Sync auto au chargement",
-    "autoSyncDescription": "Récupérer automatiquement les issues au chargement du projet"
+    "autoSyncDescription": "Récupérer automatiquement les issues au chargement du projet",
+    "cli": {
+      "required": "GitLab CLI requis",
+      "notInstalled": "La CLI GitLab (glab) est requise pour l'authentification OAuth. Installez-la pour utiliser l'option 'Utiliser OAuth'.",
+      "installButton": "Installer glab",
+      "installing": "Installation...",
+      "installSuccess": "Installation démarrée dans votre terminal. Terminez-la et cliquez sur Actualiser.",
+      "refresh": "Actualiser",
+      "learnMore": "En savoir plus",
+      "installed": "GitLab CLI installé :"
+    }
   },
   "mergeRequests": {
     "title": "Merge Requests GitLab",
@@ -159,6 +169,16 @@
       "requestChanges": "Modifications demandées",
       "comment": "Commentaire"
     },
+    "severity": {
+      "critical": "Bloquant",
+      "criticalDesc": "À corriger",
+      "high": "Requis",
+      "highDesc": "À traiter",
+      "medium": "Recommandé",
+      "mediumDesc": "Améliore la qualité",
+      "low": "Suggestion",
+      "lowDesc": "À considérer"
+    },
     "resolution": {
       "resolved": "résolu(s)",
       "stillOpen": "encore ouvert(s)",
@@ -168,21 +188,21 @@
   },
   "findings": {
     "summary": "sélectionné(s)",
-    "selectCriticalHigh": "Sélectionner Critique/Élevé",
+    "selectCriticalHigh": "Sélectionner Bloquant/Requis",
     "selectAll": "Tout sélectionner",
     "clear": "Effacer",
     "noIssues": "Aucun problème trouvé ! Le code est bon.",
     "suggestedFix": "Correction suggérée :",
     "posted": "Publié",
     "severity": {
-      "critical": "Critique",
-      "criticalDesc": "À corriger avant fusion",
-      "high": "Élevé",
-      "highDesc": "Devrait être corrigé avant fusion",
-      "medium": "Moyen",
-      "mediumDesc": "À considérer",
-      "low": "Faible",
-      "lowDesc": "Optionnel"
+      "critical": "Bloquant",
+      "criticalDesc": "À corriger",
+      "high": "Requis",
+      "highDesc": "À traiter",
+      "medium": "Recommandé",
+      "mediumDesc": "Améliore la qualité",
+      "low": "Suggestion",
+      "lowDesc": "À considérer"
     },
     "category": {
       "security": "Sécurité",

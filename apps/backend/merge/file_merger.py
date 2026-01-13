@@ -19,6 +19,35 @@ from pathlib import Path
 from .types import ChangeType, SemanticChange, TaskSnapshot
 
 
+def detect_line_ending(content: str) -> str:
+    """
+    Detect line ending style in content using priority-based detection.
+
+    Uses a priority order (CRLF > CR > LF) to detect the line ending style.
+    CRLF is checked first because it contains LF, so presence of any CRLF
+    indicates Windows-style endings. This approach is fast and works well
+    for files that consistently use one style.
+
+    Note: This returns the first detected style by priority, not the most
+    frequent style. For files with mixed line endings, consider normalizing
+    to a single style before processing.
+
+    Args:
+        content: File content to analyze
+
+    Returns:
+        The detected line ending string: "\\r\\n", "\\r", or "\\n"
+    """
+    # Check for CRLF first (Windows) - must check before LF since CRLF contains LF
+    if "\r\n" in content:
+        return "\r\n"
+    # Check for CR (classic Mac, rare but possible)
+    if "\r" in content:
+        return "\r"
+    # Default to LF (Unix/modern Mac)
+    return "\n"
+
+
 def apply_single_task_changes(
     baseline: str,
     snapshot: TaskSnapshot,
@@ -35,7 +64,16 @@ def apply_single_task_changes(
     Returns:
         Modified content with changes applied
     """
-    content = baseline
+    # Detect line ending style before normalizing
+    original_line_ending = detect_line_ending(baseline)
+
+    # Normalize to LF for consistent matching with regex_analyzer output
+    # The regex_analyzer normalizes content to LF when extracting content_before/after,
+    # so we must also normalize baseline to ensure replace() matches correctly
+    content = baseline.replace("\r\n", "\n").replace("\r", "\n")
+
+    # Use LF for internal processing
+    line_ending = "\n"
 
     for change in snapshot.semantic_changes:
         if change.content_before and change.content_after:
@@ -45,13 +83,19 @@ def apply_single_task_changes(
             # Addition - need to determine where to add
             if change.change_type == ChangeType.ADD_IMPORT:
                 # Add import at top
-                lines = content.split("\n")
+                lines = content.splitlines()
                 import_end = find_import_end(lines, file_path)
                 lines.insert(import_end, change.content_after)
-                content = "\n".join(lines)
+                content = line_ending.join(lines)
             elif change.change_type == ChangeType.ADD_FUNCTION:
                 # Add function at end (before exports)
-                content += f"\n\n{change.content_after}"
+                content += f"{line_ending}{line_ending}{change.content_after}"
+
+    # Restore original line ending style if it was CRLF
+    if original_line_ending == "\r\n":
+        content = content.replace("\n", "\r\n")
+    elif original_line_ending == "\r":
+        content = content.replace("\n", "\r")
 
     return content
 
@@ -72,7 +116,16 @@ def combine_non_conflicting_changes(
     Returns:
         Combined content with all changes applied
     """
-    content = baseline
+    # Detect line ending style before normalizing
+    original_line_ending = detect_line_ending(baseline)
+
+    # Normalize to LF for consistent matching with regex_analyzer output
+    # The regex_analyzer normalizes content to LF when extracting content_before/after,
+    # so we must also normalize baseline to ensure replace() matches correctly
+    content = baseline.replace("\r\n", "\n").replace("\r", "\n")
+
+    # Use LF for internal processing
+    line_ending = "\n"
 
     # Group changes by type for proper ordering
     imports: list[SemanticChange] = []
@@ -96,13 +149,13 @@ def combine_non_conflicting_changes(
 
     # Add imports
     if imports:
-        lines = content.split("\n")
+        lines = content.splitlines()
         import_end = find_import_end(lines, file_path)
         for imp in imports:
             if imp.content_after and imp.content_after not in content:
                 lines.insert(import_end, imp.content_after)
                 import_end += 1
-        content = "\n".join(lines)
+        content = line_ending.join(lines)
 
     # Apply modifications
     for mod in modifications:
@@ -112,14 +165,20 @@ def combine_non_conflicting_changes(
     # Add functions
     for func in functions:
         if func.content_after:
-            content += f"\n\n{func.content_after}"
+            content += f"{line_ending}{line_ending}{func.content_after}"
 
     # Apply other changes
     for change in other:
         if change.content_after and not change.content_before:
-            content += f"\n{change.content_after}"
+            content += f"{line_ending}{change.content_after}"
         elif change.content_before and change.content_after:
             content = content.replace(change.content_before, change.content_after)
+
+    # Restore original line ending style if it was CRLF
+    if original_line_ending == "\r\n":
+        content = content.replace("\n", "\r\n")
+    elif original_line_ending == "\r":
+        content = content.replace("\n", "\r")
 
     return content
 

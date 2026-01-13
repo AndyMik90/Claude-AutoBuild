@@ -8,6 +8,7 @@ import { execSync, execFileSync, spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult } from '../../../shared/types';
 import { getAugmentedEnv, findExecutable } from '../../env-utils';
+import { openTerminalWithCommand } from '../claude-code-handlers';
 import type { GitLabAuthStartResult } from './types';
 
 const DEFAULT_GITLAB_URL = 'https://gitlab.com';
@@ -112,6 +113,51 @@ export function registerCheckGlabCli(): void {
         return {
           success: true,
           data: { installed: false }
+        };
+      }
+    }
+  );
+}
+
+/**
+ * Install glab CLI by opening a terminal with the appropriate install command
+ * Uses the user's preferred terminal from settings
+ */
+export function registerInstallGlabCli(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITLAB_INSTALL_CLI,
+    async (): Promise<IPCResult<{ command: string }>> => {
+      debugLog('installGitLabCli handler called');
+      try {
+        const platform = process.platform;
+        let command: string;
+
+        if (platform === 'darwin') {
+          // macOS: Use Homebrew
+          command = 'brew install glab';
+        } else if (platform === 'win32') {
+          // Windows: Use winget
+          command = 'winget install --id GitLab.glab';
+        } else {
+          // Linux: Try snap first, then homebrew
+          command = 'sudo snap install glab || brew install glab';
+        }
+
+        debugLog('Install command:', command);
+        debugLog('Opening terminal...');
+        await openTerminalWithCommand(command);
+        debugLog('Terminal opened successfully');
+
+        return {
+          success: true,
+          data: { command }
+        };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        debugLog('Install failed:', errorMsg);
+        return {
+          success: false,
+          error: `Failed to open terminal for installation: ${errorMsg}`
         };
       }
     }
@@ -717,6 +763,7 @@ export function registerListGitLabGroups(): void {
 export function registerGitlabOAuthHandlers(): void {
   debugLog('Registering GitLab OAuth handlers');
   registerCheckGlabCli();
+  registerInstallGlabCli();
   registerCheckGlabAuth();
   registerStartGlabAuth();
   registerGetGlabToken();

@@ -12,9 +12,400 @@ The client factory now uses AGENT_CONFIGS from agents/tools_pkg/models.py as the
 single source of truth for phase-aware tool and MCP server configuration.
 """
 
+import copy
 import json
+import logging
 import os
+import platform
+import shutil
+import subprocess
+import threading
+import time
 from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Project Index Cache
+# =============================================================================
+# Caches project index and capabilities to avoid reloading on every create_client() call.
+# This significantly reduces the time to create new agent sessions.
+
+_PROJECT_INDEX_CACHE: dict[str, tuple[dict[str, Any], dict[str, bool], float]] = {}
+_CACHE_TTL_SECONDS = 300  # 5 minute TTL
+_CACHE_LOCK = threading.Lock()  # Protects _PROJECT_INDEX_CACHE access
+
+
+def _get_cached_project_data(
+    project_dir: Path,
+) -> tuple[dict[str, Any], dict[str, bool]]:
+    """
+    Get project index and capabilities with caching.
+
+    Args:
+        project_dir: Path to the project directory
+
+    Returns:
+        Tuple of (project_index, project_capabilities)
+    """
+
+    key = str(project_dir.resolve())
+    now = time.time()
+    debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
+
+    # Check cache with lock
+    with _CACHE_LOCK:
+        if key in _PROJECT_INDEX_CACHE:
+            cached_index, cached_capabilities, cached_time = _PROJECT_INDEX_CACHE[key]
+            cache_age = now - cached_time
+            if cache_age < _CACHE_TTL_SECONDS:
+                if debug:
+                    print(
+                        f"[ClientCache] Cache HIT for project index (age: {cache_age:.1f}s / TTL: {_CACHE_TTL_SECONDS}s)"
+                    )
+                logger.debug(f"Using cached project index for {project_dir}")
+                # Return deep copies to prevent callers from corrupting the cache
+                return copy.deepcopy(cached_index), copy.deepcopy(cached_capabilities)
+            elif debug:
+                print(
+                    f"[ClientCache] Cache EXPIRED for project index (age: {cache_age:.1f}s > TTL: {_CACHE_TTL_SECONDS}s)"
+                )
+
+    # Cache miss or expired - load fresh data (outside lock to avoid blocking)
+    load_start = time.time()
+    logger.debug(f"Loading project index for {project_dir}")
+    project_index = load_project_index(project_dir)
+    project_capabilities = detect_project_capabilities(project_index)
+
+    if debug:
+        load_duration = (time.time() - load_start) * 1000
+        print(
+            f"[ClientCache] Cache MISS - loaded project index in {load_duration:.1f}ms"
+        )
+
+    # Store in cache with lock - use double-checked locking pattern
+    # Re-check if another thread populated the cache while we were loading
+    with _CACHE_LOCK:
+        if key in _PROJECT_INDEX_CACHE:
+            cached_index, cached_capabilities, cached_time = _PROJECT_INDEX_CACHE[key]
+            cache_age = time.time() - cached_time
+            if cache_age < _CACHE_TTL_SECONDS:
+                # Another thread already cached valid data while we were loading
+                if debug:
+                    print(
+                        "[ClientCache] Cache was populated by another thread, using cached data"
+                    )
+                # Return deep copies to prevent callers from corrupting the cache
+                return copy.deepcopy(cached_index), copy.deepcopy(cached_capabilities)
+        # Either no cache entry or it's expired - store our fresh data
+        _PROJECT_INDEX_CACHE[key] = (project_index, project_capabilities, time.time())
+
+    # Return the freshly loaded data (no need to copy since it's not from cache)
+    return project_index, project_capabilities
+
+
+def invalidate_project_cache(project_dir: Path | None = None) -> None:
+    """
+    Invalidate the project index cache.
+
+    Args:
+        project_dir: Specific project to invalidate, or None to clear all
+    """
+    with _CACHE_LOCK:
+        if project_dir is None:
+            _PROJECT_INDEX_CACHE.clear()
+            logger.debug("Cleared all project index cache entries")
+        else:
+            key = str(project_dir.resolve())
+            if key in _PROJECT_INDEX_CACHE:
+                del _PROJECT_INDEX_CACHE[key]
+                logger.debug(f"Invalidated project index cache for {project_dir}")
+
+
+# =============================================================================
+# Claude CLI Path Detection
+# =============================================================================
+# Cross-platform detection of Claude Code CLI binary.
+# This mirrors the frontend's cli-tool-manager.ts logic to ensure consistency.
+
+_CLAUDE_CLI_CACHE: dict[str, str | None] = {}
+_CLI_CACHE_LOCK = threading.Lock()
+
+
+def _get_claude_detection_paths() -> dict[str, list[str]]:
+    """
+    Get all candidate paths for Claude CLI detection.
+
+    Returns platform-specific paths where Claude CLI might be installed.
+
+    IMPORTANT: This function mirrors the frontend's getClaudeDetectionPaths()
+    in apps/frontend/src/main/cli-tool-manager.ts. Both implementations MUST
+    be kept in sync to ensure consistent detection behavior across the
+    Python backend and Electron frontend.
+
+    When adding new detection paths, update BOTH:
+    1. This function (_get_claude_detection_paths in client.py)
+    2. getClaudeDetectionPaths() in cli-tool-manager.ts
+
+    Returns:
+        Dict with 'homebrew', 'platform', and 'nvm' path lists
+    """
+    home_dir = Path.home()
+    is_windows = platform.system() == "Windows"
+
+    homebrew_paths = [
+        "/opt/homebrew/bin/claude",  # Apple Silicon
+        "/usr/local/bin/claude",  # Intel Mac
+    ]
+
+    if is_windows:
+        platform_paths = [
+            str(home_dir / "AppData" / "Local" / "Programs" / "claude" / "claude.exe"),
+            str(home_dir / "AppData" / "Roaming" / "npm" / "claude.cmd"),
+            str(home_dir / ".local" / "bin" / "claude.exe"),
+            "C:\\Program Files\\Claude\\claude.exe",
+            "C:\\Program Files (x86)\\Claude\\claude.exe",
+        ]
+    else:
+        platform_paths = [
+            str(home_dir / ".local" / "bin" / "claude"),
+            str(home_dir / "bin" / "claude"),
+        ]
+
+    nvm_versions_dir = str(home_dir / ".nvm" / "versions" / "node")
+
+    return {
+        "homebrew": homebrew_paths,
+        "platform": platform_paths,
+        "nvm_versions_dir": nvm_versions_dir,
+    }
+
+
+def _is_secure_path(path_str: str) -> bool:
+    """
+    Validate that a path doesn't contain dangerous characters.
+
+    Prevents command injection attacks by rejecting paths with shell metacharacters,
+    directory traversal patterns, or environment variable expansion.
+
+    Args:
+        path_str: Path to validate
+
+    Returns:
+        True if the path is safe, False otherwise
+    """
+    import re
+
+    dangerous_patterns = [
+        r'[;&|`${}[\]<>!"^]',  # Shell metacharacters
+        r"%[^%]+%",  # Windows environment variable expansion
+        r"\.\./",  # Unix directory traversal
+        r"\.\.\\",  # Windows directory traversal
+        r"[\r\n]",  # Newlines (command injection)
+    ]
+
+    for pattern in dangerous_patterns:
+        if re.search(pattern, path_str):
+            return False
+
+    return True
+
+
+def _validate_claude_cli(cli_path: str) -> tuple[bool, str | None]:
+    """
+    Validate that a Claude CLI path is executable and returns a version.
+
+    Includes security validation to prevent command injection attacks.
+
+    Args:
+        cli_path: Path to the Claude CLI executable
+
+    Returns:
+        Tuple of (is_valid, version_string or None)
+
+    Note:
+        Cross-references with frontend's validateClaudeCliAsync() in
+        apps/frontend/src/main/ipc-handlers/claude-code-handlers.ts
+        Both should be kept in sync for consistent behavior.
+    """
+    import re
+
+    # Security validation: reject paths with shell metacharacters or directory traversal
+    if not _is_secure_path(cli_path):
+        logger.warning(f"Rejecting insecure Claude CLI path: {cli_path}")
+        return False, None
+
+    try:
+        is_windows = platform.system() == "Windows"
+
+        # Augment PATH with the CLI directory for proper resolution
+        env = os.environ.copy()
+        cli_dir = os.path.dirname(cli_path)
+        if cli_dir:
+            env["PATH"] = cli_dir + os.pathsep + env.get("PATH", "")
+
+        # For Windows .cmd/.bat files, use cmd.exe with proper quoting
+        # /d = disable AutoRun registry commands
+        # /s = strip first and last quotes, preserving inner quotes
+        # /c = run command then terminate
+        if is_windows and cli_path.lower().endswith((".cmd", ".bat")):
+            # Get cmd.exe path from environment or use default
+            cmd_exe = os.environ.get("ComSpec") or os.path.join(
+                os.environ.get("SystemRoot", "C:\\Windows"), "System32", "cmd.exe"
+            )
+            # Use double-quoted command line for paths with spaces
+            cmd_line = f'""{cli_path}" --version"'
+            result = subprocess.run(
+                [cmd_exe, "/d", "/s", "/c", cmd_line],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                env=env,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+        else:
+            result = subprocess.run(
+                [cli_path, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                env=env,
+                creationflags=subprocess.CREATE_NO_WINDOW if is_windows else 0,
+            )
+
+        if result.returncode == 0:
+            # Extract version from output (e.g., "claude-code version 1.0.0")
+            output = result.stdout.strip()
+            match = re.search(r"(\d+\.\d+\.\d+)", output)
+            version = match.group(1) if match else output.split("\n")[0]
+            return True, version
+
+        return False, None
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        logger.debug(f"Claude CLI validation failed for {cli_path}: {e}")
+        return False, None
+
+
+def find_claude_cli() -> str | None:
+    """
+    Find the Claude Code CLI binary path.
+
+    Uses cross-platform detection with the following priority:
+    1. CLAUDE_CLI_PATH environment variable (user override)
+    2. shutil.which() - system PATH lookup
+    3. Homebrew paths (macOS)
+    4. NVM paths (Unix - checks Node.js version manager)
+    5. Platform-specific standard locations
+
+    Returns:
+        Path to Claude CLI if found and valid, None otherwise
+    """
+    # Check cache first
+    cache_key = "claude_cli"
+    with _CLI_CACHE_LOCK:
+        if cache_key in _CLAUDE_CLI_CACHE:
+            cached = _CLAUDE_CLI_CACHE[cache_key]
+            logger.debug(f"Using cached Claude CLI path: {cached}")
+            return cached
+
+    is_windows = platform.system() == "Windows"
+    paths = _get_claude_detection_paths()
+
+    # 1. Check environment variable override
+    env_path = os.environ.get("CLAUDE_CLI_PATH")
+    if env_path:
+        if Path(env_path).exists():
+            valid, version = _validate_claude_cli(env_path)
+            if valid:
+                logger.info(f"Using CLAUDE_CLI_PATH: {env_path} (v{version})")
+                with _CLI_CACHE_LOCK:
+                    _CLAUDE_CLI_CACHE[cache_key] = env_path
+                return env_path
+        logger.warning(f"CLAUDE_CLI_PATH is set but invalid: {env_path}")
+
+    # 2. Try shutil.which() - most reliable cross-platform PATH lookup
+    which_path = shutil.which("claude")
+    if which_path:
+        valid, version = _validate_claude_cli(which_path)
+        if valid:
+            logger.info(f"Found Claude CLI in PATH: {which_path} (v{version})")
+            with _CLI_CACHE_LOCK:
+                _CLAUDE_CLI_CACHE[cache_key] = which_path
+            return which_path
+
+    # 3. Homebrew paths (macOS)
+    if platform.system() == "Darwin":
+        for hb_path in paths["homebrew"]:
+            if Path(hb_path).exists():
+                valid, version = _validate_claude_cli(hb_path)
+                if valid:
+                    logger.info(f"Found Claude CLI (Homebrew): {hb_path} (v{version})")
+                    with _CLI_CACHE_LOCK:
+                        _CLAUDE_CLI_CACHE[cache_key] = hb_path
+                    return hb_path
+
+    # 4. NVM paths (Unix only) - check Node.js version manager installations
+    if not is_windows:
+        nvm_dir = Path(paths["nvm_versions_dir"])
+        if nvm_dir.exists():
+            try:
+                # Get all version directories and sort by version (newest first)
+                version_dirs = []
+                for entry in nvm_dir.iterdir():
+                    if entry.is_dir() and entry.name.startswith("v"):
+                        # Parse version: v20.0.0 -> (20, 0, 0)
+                        try:
+                            parts = entry.name[1:].split(".")
+                            if len(parts) == 3:
+                                version_dirs.append(
+                                    (tuple(int(p) for p in parts), entry.name)
+                                )
+                        except ValueError:
+                            continue
+
+                # Sort by version descending (newest first)
+                version_dirs.sort(reverse=True)
+
+                for _, version_name in version_dirs:
+                    nvm_claude = nvm_dir / version_name / "bin" / "claude"
+                    if nvm_claude.exists():
+                        valid, version = _validate_claude_cli(str(nvm_claude))
+                        if valid:
+                            logger.info(
+                                f"Found Claude CLI (NVM): {nvm_claude} (v{version})"
+                            )
+                            with _CLI_CACHE_LOCK:
+                                _CLAUDE_CLI_CACHE[cache_key] = str(nvm_claude)
+                            return str(nvm_claude)
+            except OSError as e:
+                logger.debug(f"Error scanning NVM directory: {e}")
+
+    # 5. Platform-specific standard locations
+    for plat_path in paths["platform"]:
+        if Path(plat_path).exists():
+            valid, version = _validate_claude_cli(plat_path)
+            if valid:
+                logger.info(f"Found Claude CLI: {plat_path} (v{version})")
+                with _CLI_CACHE_LOCK:
+                    _CLAUDE_CLI_CACHE[cache_key] = plat_path
+                return plat_path
+
+    # Not found
+    logger.warning(
+        "Claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code"
+    )
+    with _CLI_CACHE_LOCK:
+        _CLAUDE_CLI_CACHE[cache_key] = None
+    return None
+
+
+def clear_claude_cli_cache() -> None:
+    """Clear the Claude CLI path cache, forcing re-detection on next call."""
+    with _CLI_CACHE_LOCK:
+        _CLAUDE_CLI_CACHE.clear()
+    logger.debug("Claude CLI cache cleared")
+
 
 from agents.tools_pkg import (
     CONTEXT7_TOOLS,
@@ -33,6 +424,245 @@ from core.auth import get_sdk_env_vars, require_auth_token
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
 from security import bash_security_hook
+
+
+def _validate_custom_mcp_server(server: dict) -> bool:
+    """
+    Validate a custom MCP server configuration for security.
+
+    Ensures only expected fields with valid types are present.
+    Rejects configurations that could lead to command injection.
+
+    Args:
+        server: Dict representing a custom MCP server configuration
+
+    Returns:
+        True if valid, False otherwise
+    """
+    if not isinstance(server, dict):
+        return False
+
+    # Required fields
+    required_fields = {"id", "name", "type"}
+    if not all(field in server for field in required_fields):
+        logger.warning(
+            f"Custom MCP server missing required fields: {required_fields - server.keys()}"
+        )
+        return False
+
+    # Validate field types
+    if not isinstance(server.get("id"), str) or not server["id"]:
+        return False
+    if not isinstance(server.get("name"), str) or not server["name"]:
+        return False
+    # FIX: Changed from ('command', 'url') to ('command', 'http') to match actual usage
+    if server.get("type") not in ("command", "http"):
+        logger.warning(f"Invalid MCP server type: {server.get('type')}")
+        return False
+
+    # Allowlist of safe executable commands for MCP servers
+    # Only allow known package managers and interpreters - NO shell commands
+    SAFE_COMMANDS = {
+        "npx",
+        "npm",
+        "node",
+        "python",
+        "python3",
+        "uv",
+        "uvx",
+    }
+
+    # Blocklist of dangerous shell commands that should never be allowed
+    DANGEROUS_COMMANDS = {
+        "bash",
+        "sh",
+        "cmd",
+        "powershell",
+        "pwsh",  # PowerShell Core
+        "/bin/bash",
+        "/bin/sh",
+        "/bin/zsh",
+        "/usr/bin/bash",
+        "/usr/bin/sh",
+        "zsh",
+        "fish",
+    }
+
+    # Dangerous interpreter flags that allow arbitrary code execution
+    # Covers Python (-e, -c, -m, -p), Node.js (--eval, --print, loaders), and general
+    DANGEROUS_FLAGS = {
+        "--eval",
+        "-e",
+        "-c",
+        "--exec",
+        "-m",  # Python module execution
+        "-p",  # Python eval+print
+        "--print",  # Node.js print
+        "--input-type=module",  # Node.js ES module mode
+        "--experimental-loader",  # Node.js custom loaders
+        "--require",  # Node.js require injection
+        "-r",  # Node.js require shorthand
+    }
+
+    # Type-specific validation
+    if server["type"] == "command":
+        if not isinstance(server.get("command"), str) or not server["command"]:
+            logger.warning("Command-type MCP server missing 'command' field")
+            return False
+
+        # SECURITY FIX: Validate command is in safe list and not in dangerous list
+        command = server.get("command", "")
+
+        # Reject paths - commands must be bare names only (no / or \)
+        # This prevents path traversal like '/custom/malicious' or './evil'
+        if "/" in command or "\\" in command:
+            logger.warning(
+                f"Rejected command with path in MCP server: {command}. "
+                f"Commands must be bare names without path separators."
+            )
+            return False
+
+        if command in DANGEROUS_COMMANDS:
+            logger.warning(
+                f"Rejected dangerous command in MCP server: {command}. "
+                f"Shell commands are not allowed for security reasons."
+            )
+            return False
+
+        if command not in SAFE_COMMANDS:
+            logger.warning(
+                f"Rejected unknown command in MCP server: {command}. "
+                f"Only allowed commands: {', '.join(sorted(SAFE_COMMANDS))}"
+            )
+            return False
+
+        # Validate args is a list of strings if present
+        if "args" in server:
+            if not isinstance(server["args"], list):
+                return False
+            if not all(isinstance(arg, str) for arg in server["args"]):
+                return False
+            # Check for dangerous interpreter flags that allow code execution
+            for arg in server["args"]:
+                if arg in DANGEROUS_FLAGS:
+                    logger.warning(
+                        f"Rejected dangerous flag '{arg}' in MCP server args. "
+                        f"Interpreter code execution flags are not allowed."
+                    )
+                    return False
+    elif server["type"] == "http":
+        if not isinstance(server.get("url"), str) or not server["url"]:
+            logger.warning("HTTP-type MCP server missing 'url' field")
+            return False
+        # Validate headers is a dict of strings if present
+        if "headers" in server:
+            if not isinstance(server["headers"], dict):
+                return False
+            if not all(
+                isinstance(k, str) and isinstance(v, str)
+                for k, v in server["headers"].items()
+            ):
+                return False
+
+    # Optional description must be string if present
+    if "description" in server and not isinstance(server.get("description"), str):
+        return False
+
+    # Reject any unexpected fields that could be exploited
+    allowed_fields = {
+        "id",
+        "name",
+        "type",
+        "command",
+        "args",
+        "url",
+        "headers",
+        "description",
+    }
+    unexpected_fields = set(server.keys()) - allowed_fields
+    if unexpected_fields:
+        logger.warning(f"Custom MCP server has unexpected fields: {unexpected_fields}")
+        return False
+
+    return True
+
+
+def load_project_mcp_config(project_dir: Path) -> dict:
+    """
+    Load MCP configuration from project's .auto-claude/.env file.
+
+    Returns a dict of MCP-related env vars:
+    - CONTEXT7_ENABLED (default: true)
+    - LINEAR_MCP_ENABLED (default: true)
+    - ELECTRON_MCP_ENABLED (default: false)
+    - PUPPETEER_MCP_ENABLED (default: false)
+    - AGENT_MCP_<agent>_ADD (per-agent MCP additions)
+    - AGENT_MCP_<agent>_REMOVE (per-agent MCP removals)
+    - CUSTOM_MCP_SERVERS (JSON array of custom server configs)
+
+    Args:
+        project_dir: Path to the project directory
+
+    Returns:
+        Dict of MCP configuration values (string values, except CUSTOM_MCP_SERVERS which is parsed JSON)
+    """
+    env_path = project_dir / ".auto-claude" / ".env"
+    if not env_path.exists():
+        return {}
+
+    config = {}
+    mcp_keys = {
+        "CONTEXT7_ENABLED",
+        "LINEAR_MCP_ENABLED",
+        "ELECTRON_MCP_ENABLED",
+        "PUPPETEER_MCP_ENABLED",
+    }
+
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip().strip("\"'")
+                    # Include global MCP toggles
+                    if key in mcp_keys:
+                        config[key] = value
+                    # Include per-agent MCP overrides (AGENT_MCP_<agent>_ADD/REMOVE)
+                    elif key.startswith("AGENT_MCP_"):
+                        config[key] = value
+                    # Include custom MCP servers (parse JSON with schema validation)
+                    elif key == "CUSTOM_MCP_SERVERS":
+                        try:
+                            parsed = json.loads(value)
+                            if not isinstance(parsed, list):
+                                logger.warning(
+                                    "CUSTOM_MCP_SERVERS must be a JSON array"
+                                )
+                                config["CUSTOM_MCP_SERVERS"] = []
+                            else:
+                                # Validate each server and filter out invalid ones
+                                valid_servers = []
+                                for i, server in enumerate(parsed):
+                                    if _validate_custom_mcp_server(server):
+                                        valid_servers.append(server)
+                                    else:
+                                        logger.warning(
+                                            f"Skipping invalid custom MCP server at index {i}"
+                                        )
+                                config["CUSTOM_MCP_SERVERS"] = valid_servers
+                        except json.JSONDecodeError:
+                            logger.warning(
+                                f"Failed to parse CUSTOM_MCP_SERVERS JSON: {value}"
+                            )
+                            config["CUSTOM_MCP_SERVERS"] = []
+    except Exception as e:
+        logger.debug(f"Failed to load project MCP config from {env_path}: {e}")
+
+    return config
 
 
 def is_graphiti_mcp_enabled() -> bool:
@@ -97,6 +727,7 @@ def create_client(
     agent_type: str = "coder",
     max_thinking_tokens: int | None = None,
     output_format: dict | None = None,
+    agents: dict | None = None,
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
@@ -119,6 +750,10 @@ def create_client(
         output_format: Optional structured output format for validated JSON responses.
                       Use {"type": "json_schema", "schema": Model.model_json_schema()}
                       See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
+        agents: Optional dict of subagent definitions for SDK parallel execution.
+               Format: {"agent-name": {"description": "...", "prompt": "...",
+                        "tools": [...], "model": "inherit"}}
+               See: https://platform.claude.com/docs/en/agent-sdk/subagents
 
     Returns:
         Configured ClaudeSDKClient
@@ -140,6 +775,12 @@ def create_client(
     # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, etc.)
     sdk_env = get_sdk_env_vars()
 
+    # Debug: Log git-bash path detection on Windows
+    if "CLAUDE_CODE_GIT_BASH_PATH" in sdk_env:
+        logger.info(f"Git Bash path found: {sdk_env['CLAUDE_CODE_GIT_BASH_PATH']}")
+    elif platform.system() == "Windows":
+        logger.warning("Git Bash path not detected on Windows!")
+
     # Check if Linear integration is enabled
     linear_enabled = is_linear_enabled()
     linear_api_key = os.environ.get("LINEAR_API_KEY", "")
@@ -149,23 +790,30 @@ def create_client(
 
     # Load project capabilities for dynamic MCP tool selection
     # This enables context-aware tool injection based on project type
-    project_index = load_project_index(project_dir)
-    project_capabilities = detect_project_capabilities(project_index)
+    # Uses caching to avoid reloading on every create_client() call
+    project_index, project_capabilities = _get_cached_project_data(project_dir)
+
+    # Load per-project MCP configuration from .auto-claude/.env
+    mcp_config = load_project_mcp_config(project_dir)
 
     # Get allowed tools using phase-aware configuration
     # This respects AGENT_CONFIGS and only includes tools the agent needs
+    # Also respects per-project MCP configuration
     allowed_tools_list = get_allowed_tools(
         agent_type,
         project_capabilities,
         linear_enabled,
+        mcp_config,
     )
 
     # Get required MCP servers for this agent type
     # This is the key optimization - only start servers the agent needs
+    # Now also respects per-project MCP configuration
     required_servers = get_required_mcp_servers(
         agent_type,
         project_capabilities,
         linear_enabled,
+        mcp_config,
     )
 
     # Check if Graphiti MCP is enabled (already filtered by get_required_mcp_servers)
@@ -183,6 +831,48 @@ def create_client(
     # cases where Claude uses absolute paths for file operations
     project_path_str = str(project_dir.resolve())
     spec_path_str = str(spec_dir.resolve())
+
+    # Detect if we're running in a worktree and get the original project directory
+    # Worktrees are located in either:
+    # - .auto-claude/worktrees/tasks/{spec-name}/ (new location)
+    # - .worktrees/{spec-name}/ (legacy location)
+    # When running in a worktree, we need to allow access to both the worktree
+    # and the original project's .auto-claude/ directory for spec files
+    original_project_permissions = []
+    resolved_project_path = project_dir.resolve()
+
+    # Check for worktree paths and extract original project directory
+    # This handles spec worktrees, PR review worktrees, and legacy worktrees
+    # Note: Windows paths are normalized to forward slashes before comparison
+    worktree_markers = [
+        "/.auto-claude/worktrees/tasks/",  # Spec/task worktrees
+        "/.auto-claude/github/pr/worktrees/",  # PR review worktrees
+        "/.worktrees/",  # Legacy worktree location
+    ]
+    project_path_posix = str(resolved_project_path).replace("\\", "/")
+
+    for marker in worktree_markers:
+        if marker in project_path_posix:
+            # Extract the original project directory (parent of worktree location)
+            # Use rsplit to get the rightmost occurrence (handles nested projects)
+            original_project_str = project_path_posix.rsplit(marker, 1)[0]
+            original_project_dir = Path(original_project_str)
+
+            # Grant permissions for relevant directories in the original project
+            permission_ops = ["Read", "Write", "Edit", "Glob", "Grep"]
+            dirs_to_permit = [
+                original_project_dir / ".auto-claude",
+                original_project_dir / ".worktrees",  # Legacy support
+            ]
+
+            for dir_path in dirs_to_permit:
+                if dir_path.exists():
+                    path_str = str(dir_path.resolve())
+                    original_project_permissions.extend(
+                        [f"{op}({path_str}/**)" for op in permission_ops]
+                    )
+            break
+
     security_settings = {
         "sandbox": {"enabled": True, "autoAllowBashIfSandboxed": True},
         "permissions": {
@@ -205,6 +895,9 @@ def create_client(
                 f"Read({spec_path_str}/**)",
                 f"Write({spec_path_str}/**)",
                 f"Edit({spec_path_str}/**)",
+                # Allow original project's .auto-claude/ and .worktrees/ directories
+                # when running in a worktree (fixes issue #385 - permission errors)
+                *original_project_permissions,
                 # Bash permission granted here, but actual commands are validated
                 # by the bash_security_hook (see security.py for allowed commands)
                 "Bash(*)",
@@ -241,6 +934,8 @@ def create_client(
     print(f"Security settings: {settings_file}")
     print("   - Sandbox enabled (OS-level bash isolation)")
     print(f"   - Filesystem restricted to: {project_dir.resolve()}")
+    if original_project_permissions:
+        print("   - Worktree permissions: granted for original project directories")
     print("   - Bash commands restricted to allowlist")
     if max_thinking_tokens:
         print(f"   - Extended thinking: {max_thinking_tokens:,} tokens")
@@ -323,6 +1018,30 @@ def create_client(
         if auto_claude_mcp_server:
             mcp_servers["auto-claude"] = auto_claude_mcp_server
 
+    # Add custom MCP servers from project config
+    custom_servers = mcp_config.get("CUSTOM_MCP_SERVERS", [])
+    for custom in custom_servers:
+        server_id = custom.get("id")
+        if not server_id:
+            continue
+        # Only include if agent has it in their effective server list
+        if server_id not in required_servers:
+            continue
+        server_type = custom.get("type", "command")
+        if server_type == "command":
+            mcp_servers[server_id] = {
+                "command": custom.get("command", "npx"),
+                "args": custom.get("args", []),
+            }
+        elif server_type == "http":
+            server_config = {
+                "type": "http",
+                "url": custom.get("url", ""),
+            }
+            if custom.get("headers"):
+                server_config["headers"] = custom["headers"]
+            mcp_servers[server_id] = server_config
+
     # Build system prompt
     base_prompt = (
         f"You are an expert full-stack developer building production-quality software. "
@@ -347,8 +1066,16 @@ def create_client(
         print("   - CLAUDE.md: disabled by project settings")
     print()
 
+    # Find Claude CLI path for SDK
+    # This ensures the SDK can find the Claude Code binary even if it's not in PATH
+    cli_path = find_claude_cli()
+    if cli_path:
+        print(f"   - Claude CLI: {cli_path}")
+    else:
+        print("   - Claude CLI: using SDK default detection")
+
     # Build options dict, conditionally including output_format
-    options_kwargs = {
+    options_kwargs: dict[str, Any] = {
         "model": model,
         "system_prompt": base_prompt,
         "allowed_tools": allowed_tools_list,
@@ -363,11 +1090,26 @@ def create_client(
         "settings": str(settings_file.resolve()),
         "env": sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess
         "max_thinking_tokens": max_thinking_tokens,  # Extended thinking budget
+        "max_buffer_size": 10
+        * 1024
+        * 1024,  # 10MB buffer (default: 1MB) - fixes large tool results
+        # Enable file checkpointing to track file read/write state across tool calls
+        # This prevents "File has not been read yet" errors in recovery sessions
+        "enable_file_checkpointing": True,
     }
+
+    # Add CLI path if found (helps SDK find Claude Code in non-standard locations)
+    if cli_path:
+        options_kwargs["cli_path"] = cli_path
 
     # Add structured output format if specified
     # See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
     if output_format:
         options_kwargs["output_format"] = output_format
+
+    # Add subagent definitions if specified
+    # See: https://platform.claude.com/docs/en/agent-sdk/subagents
+    if agents:
+        options_kwargs["agents"] = agents
 
     return ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, Circle, CircleDot, Play } from 'lucide-react';
+import { CheckCircle, Circle, CircleDot, Play, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
@@ -15,11 +15,13 @@ export type ReviewStatus =
   | 'ready_to_merge'
   | 'needs_attention'
   | 'ready_for_followup'
-  | 'followup_issues_remain';
+  | 'followup_issues_remain'
+  | 'reviewing';
 
 export interface ReviewStatusTreeProps {
   status: ReviewStatus;
   isReviewing: boolean;
+  startedAt: string | null;
   reviewResult: PRReviewResult | null;
   previousReviewResult: PRReviewResult | null;
   postedCount: number;
@@ -37,6 +39,7 @@ export interface ReviewStatusTreeProps {
 export function ReviewStatusTree({
   status,
   isReviewing,
+  startedAt,
   reviewResult,
   previousReviewResult,
   postedCount,
@@ -127,7 +130,7 @@ export function ReviewStatusTree({
       id: 'start',
       label: t('prReview.reviewStarted'),
       status: 'completed',
-      date: reviewResult?.reviewedAt || new Date().toISOString()
+      date: startedAt || reviewResult?.reviewedAt || new Date().toISOString()
     });
 
     // Step 2: AI Analysis
@@ -143,7 +146,18 @@ export function ReviewStatusTree({
         id: 'analysis',
         label: t('prReview.analysisComplete', { count: reviewResult.findings.length }),
         status: 'completed',
-        date: reviewResult.reviewedAt
+        date: reviewResult.reviewedAt,
+        action: (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onRunReview}
+            className="ml-2 h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+            title={t('prReview.rerunReview')}
+          >
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+        )
       });
     }
 
@@ -164,8 +178,9 @@ export function ReviewStatusTree({
       });
     }
 
-    // Step 4: Follow-up (only show when not currently reviewing)
-    if (!isReviewing && newCommitsCheck?.hasNewCommits) {
+    // Step 4: Follow-up (only show when not currently reviewing AND commits happened after posting)
+    // This prevents showing follow-up prompts for commits that were made during/before the review
+    if (!isReviewing && newCommitsCheck?.hasNewCommits && newCommitsCheck?.hasCommitsAfterPosting) {
       steps.push({
         id: 'new_commits',
         label: t('prReview.newCommits', { count: newCommitsCheck.newCommitCount }),

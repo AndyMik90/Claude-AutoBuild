@@ -1,0 +1,343 @@
+name: VirusTotal Scan
+
+# Runs AFTER release is published to avoid blocking release creation
+# VirusTotal scans can take 5+ minutes per file, which delays releases
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to scan (e.g., v2.8.0)'
+        required: true
+        type: string
+
+# Prevent TOCTOU race condition when updating release notes
+# If two runs target the same tag, queue them instead of running in parallel
+concurrency:
+  group: virustotal-${{ github.event.inputs.tag || github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Scan release assets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to update release notes
+    steps:
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for API key
+        id: check-key
+        env:
+          VT_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+        run: |
+          if [ -z "$VT_KEY" ]; then
+            echo "::warning::VIRUSTOTAL_API_KEY not configured, skipping scan"
+            echo "has_key=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_key=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download release assets
+        if: steps.check-key.outputs.has_key == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          echo "Downloading assets for release $TAG..."
+
+          mkdir -p release-assets
+
+          # First verify the release exists
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "::error::Release $TAG not found"
+            exit 1
+          fi
+
+          # Download assets, distinguishing between "no matching assets" and real errors
+          set +e
+          gh release download "$TAG" \
+            --repo "${{ github.repository }}" \
+            --pattern "*.exe" \
+            --pattern "*.dmg" \
+            --pattern "*.AppImage" \
+            --pattern "*.deb" \
+            --pattern "*.flatpak" \
+            --dir release-assets 2>&1
+          exit_code=$?
+          set -e
+
+          if [ $exit_code -ne 0 ]; then
+            # Check if it's just "no assets matched" vs a real error
+            asset_count=$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets -q '.assets | length')
+            if [ "$asset_count" -eq 0 ]; then
+              echo "Release has no assets yet (this is OK for new releases)"
+            else
+              # Check if any scannable assets exist that should have been downloaded
+              scannable_assets=$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets \
+                -q '.assets[].name | select(test("\\.(exe|dmg|AppImage|deb|flatpak)$"))' | wc -l)
+              if [ "$scannable_assets" -gt 0 ]; then
+                echo "::error::Download failed - $scannable_assets scannable asset(s) exist but download failed"
+                exit 1
+              fi
+              echo "No assets matched the patterns (exe, dmg, AppImage, deb, flatpak)"
+            fi
+          fi
+
+          echo "Downloaded assets:"
+          ls -la release-assets/ || echo "No assets found"
+
+      - name: Scan with VirusTotal
+        if: steps.check-key.outputs.has_key == 'true'
+        id: virustotal
+        env:
+          VT_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+        run: |
+          echo "## VirusTotal Scan Results" > vt_results.md
+          echo "" >> vt_results.md
+
+          # Check if there are any files to scan
+          shopt -s nullglob
+          files=(release-assets/*.{exe,dmg,AppImage,deb,flatpak})
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No scannable files found in release assets"
+            echo "- No executable files found in release" >> vt_results.md
+            echo "vt_results<<EOF" >> $GITHUB_OUTPUT
+            cat vt_results.md >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          for file in "${files[@]}"; do
+            [ -f "$file" ] || continue
+            filename=$(basename "$file")
+            filesize=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file")
+            echo "Scanning $filename (${filesize} bytes)..."
+
+            # VirusTotal requires special upload URL for files > 32MB
+            LARGE_FILE_THRESHOLD=33554432  # 32 MB in bytes
+            if [ "$filesize" -gt "$LARGE_FILE_THRESHOLD" ]; then
+              echo "  Large file detected, requesting upload URL..."
+              upload_http_response=$(curl -s -w '\n%{http_code}' --request GET \
+                --url "https://www.virustotal.com/api/v3/files/upload_url" \
+                --header "x-apikey: $VT_API_KEY")
+              upload_http_code=$(echo "$upload_http_response" | tail -1)
+              upload_url_response=$(echo "$upload_http_response" | sed '$d')
+
+              if [ "$upload_http_code" != "200" ]; then
+                echo "::warning::Failed to get upload URL for large file $filename (HTTP $upload_http_code)"
+                echo "- $filename - ⚠️ Upload failed (large file, HTTP $upload_http_code)" >> vt_results.md
+                continue
+              fi
+
+              upload_url=$(echo "$upload_url_response" | jq -r '.data // empty')
+              if [ -z "$upload_url" ]; then
+                echo "::warning::Failed to get upload URL for large file $filename"
+                echo "Response: $upload_url_response"
+                echo "- $filename - ⚠️ Upload failed (large file)" >> vt_results.md
+                continue
+              fi
+              api_url="$upload_url"
+            else
+              api_url="https://www.virustotal.com/api/v3/files"
+            fi
+
+            # Upload file to VirusTotal (capture HTTP status code)
+            http_response=$(curl -s -w '\n%{http_code}' --request POST \
+              --url "$api_url" \
+              --header "x-apikey: $VT_API_KEY" \
+              --form "file=@$file")
+            http_code=$(echo "$http_response" | tail -1)
+            response=$(echo "$http_response" | sed '$d')
+
+            # Check HTTP status code first
+            if [ "$http_code" != "200" ]; then
+              echo "::warning::VirusTotal returned HTTP $http_code for $filename"
+              if [ "$http_code" = "429" ]; then
+                echo "- $filename - ⚠️ Scan failed (rate limited)" >> vt_results.md
+              elif [ "$http_code" = "403" ]; then
+                echo "- $filename - ⚠️ Scan failed (forbidden - check API key)" >> vt_results.md
+              else
+                echo "- $filename - ⚠️ Scan failed (HTTP $http_code)" >> vt_results.md
+              fi
+              continue
+            fi
+
+            # Check if response is valid JSON before parsing
+            if ! echo "$response" | jq -e . >/dev/null 2>&1; then
+              echo "::warning::VirusTotal returned invalid JSON for $filename"
+              echo "Response (first 500 chars): ${response:0:500}"
+              echo "- $filename - ⚠️ Scan failed (invalid response)" >> vt_results.md
+              continue
+            fi
+
+            # Check for API error response
+            error_code=$(echo "$response" | jq -r '.error.code // empty')
+            if [ -n "$error_code" ]; then
+              error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error"')
+              echo "::warning::VirusTotal API error for $filename: $error_code - $error_msg"
+              echo "- $filename - ⚠️ Scan failed ($error_code)" >> vt_results.md
+              continue
+            fi
+
+            # Extract analysis ID
+            analysis_id=$(echo "$response" | jq -r '.data.id // empty')
+
+            if [ -z "$analysis_id" ]; then
+              echo "::warning::Failed to upload $filename to VirusTotal"
+              echo "Response: $response"
+              echo "- $filename - ⚠️ Upload failed" >> vt_results.md
+              continue
+            fi
+
+            echo "Uploaded $filename, analysis ID: $analysis_id"
+
+            # Wait for analysis to complete (max 5 minutes per file)
+            analysis=""
+            for i in {1..30}; do
+              sleep 10
+              analysis_http_response=$(curl -s -w '\n%{http_code}' --request GET \
+                --url "https://www.virustotal.com/api/v3/analyses/$analysis_id" \
+                --header "x-apikey: $VT_API_KEY")
+              analysis_http_code=$(echo "$analysis_http_response" | tail -1)
+              analysis=$(echo "$analysis_http_response" | sed '$d')
+
+              # Check HTTP status code
+              if [ "$analysis_http_code" != "200" ]; then
+                echo "  Warning: HTTP $analysis_http_code on attempt $i, retrying..."
+                if [ "$analysis_http_code" = "429" ]; then
+                  echo "  Rate limited, waiting longer..."
+                  sleep 30
+                fi
+                continue
+              fi
+
+              # Validate JSON response
+              if ! echo "$analysis" | jq -e . >/dev/null 2>&1; then
+                echo "  Warning: Invalid JSON response on attempt $i, retrying..."
+                continue
+              fi
+
+              status=$(echo "$analysis" | jq -r '.data.attributes.status // "unknown"')
+              echo "  Status: $status (attempt $i/30)"
+
+              if [ "$status" = "completed" ]; then
+                break
+              fi
+            done
+
+            # Handle analysis timeout - if loop completed without status=completed
+            if [ "$status" != "completed" ]; then
+              echo "::warning::Analysis timed out for $filename (status: $status after 5 minutes)"
+              file_hash=$(sha256sum "$file" | cut -d' ' -f1)
+              echo "- [$filename](https://www.virustotal.com/gui/file/$file_hash) - ⚠️ Analysis timed out" >> vt_results.md
+              continue
+            fi
+
+            # Final validation that we have valid analysis data
+            if ! echo "$analysis" | jq -e '.data.attributes.stats' >/dev/null 2>&1; then
+              echo "::warning::Could not get complete analysis for $filename, using local hash"
+              file_hash=$(sha256sum "$file" | cut -d' ' -f1)
+              echo "- [$filename](https://www.virustotal.com/gui/file/$file_hash) - ⚠️ Analysis incomplete" >> vt_results.md
+              continue
+            fi
+
+            # Get file hash for permanent URL
+            file_hash=$(echo "$analysis" | jq -r '.meta.file_info.sha256 // empty')
+
+            if [ -z "$file_hash" ]; then
+              # Fallback: calculate hash locally
+              file_hash=$(sha256sum "$file" | cut -d' ' -f1)
+            fi
+
+            # Get detection stats
+            malicious=$(echo "$analysis" | jq -r '.data.attributes.stats.malicious // 0')
+            suspicious=$(echo "$analysis" | jq -r '.data.attributes.stats.suspicious // 0')
+            undetected=$(echo "$analysis" | jq -r '.data.attributes.stats.undetected // 0')
+
+            vt_url="https://www.virustotal.com/gui/file/$file_hash"
+
+            if [ "$malicious" -gt 0 ] || [ "$suspicious" -gt 0 ]; then
+              echo "::warning::$filename has $malicious malicious and $suspicious suspicious detections (likely false positives)"
+              echo "- [$filename]($vt_url) - ⚠️ **$malicious malicious, $suspicious suspicious** detections (review recommended)" >> vt_results.md
+            else
+              echo "$filename is clean ($undetected engines, 0 detections)"
+              echo "- [$filename]($vt_url) - ✅ Clean ($undetected engines, 0 detections)" >> vt_results.md
+            fi
+          done
+
+          echo "" >> vt_results.md
+
+          # Save results for next step
+          cat vt_results.md
+          echo "vt_results<<EOF" >> $GITHUB_OUTPUT
+          cat vt_results.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Update release notes with scan results
+        if: steps.check-key.outputs.has_key == 'true' && steps.virustotal.outputs.vt_results != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+
+          # Get current release body with error checking
+          if ! current_body=$(gh release view "$TAG" --repo "${{ github.repository }}" --json body -q '.body'); then
+            echo "::error::Failed to fetch current release body for $TAG"
+            exit 1
+          fi
+
+          # Additional safeguard for empty body
+          if [ -z "$current_body" ]; then
+            echo "::warning::Release body is empty, this may indicate a problem"
+          fi
+
+          # Check if VirusTotal results already exist in the body
+          if echo "$current_body" | grep -q "## VirusTotal Scan Results"; then
+            echo "VirusTotal results already in release notes, skipping update"
+            exit 0
+          fi
+
+          # Use file-based approach to avoid shell expansion issues
+          # First, write current body to file
+          echo "$current_body" > release-body.md
+
+          # Remove placeholder text if present (portable sed approach)
+          sed '/_VirusTotal scan results will be added automatically after release\./d' release-body.md > release-body.tmp && mv release-body.tmp release-body.md
+
+          # Append separator and VT results
+          echo "" >> release-body.md
+          echo "---" >> release-body.md
+          echo "" >> release-body.md
+          cat vt_results.md >> release-body.md
+
+          # Update release using --notes-file to avoid shell quoting issues
+          gh release edit "$TAG" \
+            --repo "${{ github.repository }}" \
+            --notes-file release-body.md
+
+          echo "✅ Updated release notes with VirusTotal scan results"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## VirusTotal Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release:** ${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check-key.outputs.has_key }}" = "false" ]; then
+            echo "⚠️ Scan skipped: VIRUSTOTAL_API_KEY not configured" >> $GITHUB_STEP_SUMMARY
+          elif [ -f vt_results.md ]; then
+            cat vt_results.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No scan results available" >> $GITHUB_STEP_SUMMARY
+          fi

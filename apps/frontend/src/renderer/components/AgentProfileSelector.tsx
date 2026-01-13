@@ -96,23 +96,18 @@ export function AgentProfileSelector({
     if (selectedId === 'custom') {
       // Keep current model/thinking level, just mark as custom
       onProfileChange('custom', model as ModelType || 'sonnet', thinkingLevel as ThinkingLevel || 'medium');
-    } else if (selectedId === 'auto') {
-      // Auto profile - set defaults
-      const autoProfile = DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto');
-      if (autoProfile) {
-        onProfileChange('auto', autoProfile.model, autoProfile.thinkingLevel);
-        // Initialize phase configs with defaults if callback provided
-        if (onPhaseModelsChange && autoProfile.phaseModels) {
-          onPhaseModelsChange(autoProfile.phaseModels);
-        }
-        if (onPhaseThinkingChange && autoProfile.phaseThinking) {
-          onPhaseThinkingChange(autoProfile.phaseThinking);
-        }
-      }
     } else {
+      // Select preset profile - all profiles now have phase configs
       const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === selectedId);
       if (profile) {
         onProfileChange(profile.id, profile.model, profile.thinkingLevel);
+        // Initialize phase configs with profile defaults if callbacks provided
+        if (onPhaseModelsChange && profile.phaseModels) {
+          onPhaseModelsChange(profile.phaseModels);
+        }
+        if (onPhaseThinkingChange && profile.phaseThinking) {
+          onPhaseThinkingChange(profile.phaseThinking);
+        }
       }
     }
   };
@@ -193,10 +188,7 @@ export function AgentProfileSelector({
                     <div>
                       <span className="font-medium">{profile.name}</span>
                       <span className="ml-2 text-xs text-muted-foreground">
-                        {profile.isAutoProfile
-                          ? '(per-phase optimization)'
-                          : `(${modelLabel} + ${profile.thinkingLevel})`
-                        }
+                        ({modelLabel} + {profile.thinkingLevel})
                       </span>
                     </div>
                   </div>
@@ -221,8 +213,8 @@ export function AgentProfileSelector({
         </p>
       </div>
 
-      {/* Auto Profile - Phase Configuration */}
-      {isAuto && (
+      {/* Phase Configuration - shown for all preset profiles */}
+      {!isCustom && (
         <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
           {/* Clickable Header */}
           <button

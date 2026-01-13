@@ -17,6 +17,7 @@ import * as SessionHandler from './session-handler';
 import * as TerminalLifecycle from './terminal-lifecycle';
 import * as TerminalEventHandler from './terminal-event-handler';
 import * as ClaudeIntegration from './claude-integration-handler';
+import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
 export class TerminalManager {
   private terminals: Map<string, TerminalProcess> = new Map();
@@ -80,6 +81,12 @@ export class TerminalManager {
             this.terminals,
             this.getWindow
           );
+        },
+        onResumeNeeded: (terminalId, sessionId) => {
+          // Use async version to avoid blocking main process
+          this.resumeClaudeAsync(terminalId, sessionId).catch((error) => {
+            debugError('[terminal-manager] Failed to resume Claude session:', error);
+          });
         }
       },
       cols,
@@ -114,9 +121,14 @@ export class TerminalManager {
    * Send input to a terminal
    */
   write(id: string, data: string): void {
+    debugLog('[TerminalManager:write] Writing to terminal:', id, 'data length:', data.length);
     const terminal = this.terminals.get(id);
     if (terminal) {
+      debugLog('[TerminalManager:write] Terminal found, calling writeToPty...');
       PtyManager.writeToPty(terminal, data);
+      debugLog('[TerminalManager:write] writeToPty completed');
+    } else {
+      debugError('[TerminalManager:write] Terminal NOT found:', id);
     }
   }
 
@@ -131,7 +143,34 @@ export class TerminalManager {
   }
 
   /**
+   * Invoke Claude in a terminal with optional profile override (async - non-blocking)
+   */
+  async invokeClaudeAsync(id: string, cwd?: string, profileId?: string): Promise<void> {
+    const terminal = this.terminals.get(id);
+    if (!terminal) {
+      return;
+    }
+
+    await ClaudeIntegration.invokeClaudeAsync(
+      terminal,
+      cwd,
+      profileId,
+      this.getWindow,
+      (terminalId, projectPath, startTime) => {
+        SessionHandler.captureClaudeSessionId(
+          terminalId,
+          projectPath,
+          startTime,
+          this.terminals,
+          this.getWindow
+        );
+      }
+    );
+  }
+
+  /**
    * Invoke Claude in a terminal with optional profile override
+   * @deprecated Use invokeClaudeAsync for non-blocking behavior
    */
   invokeClaude(id: string, cwd?: string, profileId?: string): void {
     const terminal = this.terminals.get(id);
@@ -169,13 +208,48 @@ export class TerminalManager {
       terminal,
       profileId,
       this.getWindow,
-      (terminalId, cwd, profileId) => this.invokeClaude(terminalId, cwd, profileId),
+      async (terminalId, cwd, profileId) => this.invokeClaudeAsync(terminalId, cwd, profileId),
       (terminalId) => this.lastNotifiedRateLimitReset.delete(terminalId)
     );
   }
 
   /**
+   * Resume Claude in a terminal asynchronously (non-blocking)
+   */
+  async resumeClaudeAsync(id: string, sessionId?: string): Promise<void> {
+    const terminal = this.terminals.get(id);
+    if (!terminal) {
+      return;
+    }
+
+    await ClaudeIntegration.resumeClaudeAsync(terminal, sessionId, this.getWindow);
+  }
+
+  /**
+   * Activate deferred Claude resume for a terminal
+   * Called when a terminal with pendingClaudeResume becomes active (user views it)
+   */
+  async activateDeferredResume(id: string): Promise<void> {
+    const terminal = this.terminals.get(id);
+    if (!terminal) {
+      return;
+    }
+
+    // Check if terminal has a pending resume
+    if (!terminal.pendingClaudeResume) {
+      return;
+    }
+
+    // Clear the pending flag
+    terminal.pendingClaudeResume = false;
+
+    // Now actually resume Claude
+    await ClaudeIntegration.resumeClaudeAsync(terminal, undefined, this.getWindow);
+  }
+
+  /**
    * Resume Claude in a terminal with a specific session ID
+   * @deprecated Use resumeClaudeAsync for non-blocking behavior
    */
   resumeClaude(id: string, sessionId?: string): void {
     const terminal = this.terminals.get(id);
@@ -239,6 +313,12 @@ export class TerminalManager {
             this.terminals,
             this.getWindow
           );
+        },
+        onResumeNeeded: (terminalId, sessionId) => {
+          // Use async version to avoid blocking main process
+          this.resumeClaudeAsync(terminalId, sessionId).catch((error) => {
+            debugError('[terminal-manager] Failed to resume Claude session:', error);
+          });
         }
       },
       cols,
@@ -276,6 +356,20 @@ export class TerminalManager {
     const terminal = this.terminals.get(id);
     if (terminal) {
       terminal.title = title;
+    }
+  }
+
+  /**
+   * Update terminal worktree config
+   */
+  setWorktreeConfig(id: string, config: import('../../shared/types').TerminalWorktreeConfig | undefined): void {
+    const terminal = this.terminals.get(id);
+    if (terminal) {
+      terminal.worktreeConfig = config;
+      // Persist immediately when worktree config changes
+      if (terminal.projectPath) {
+        SessionHandler.persistSession(terminal);
+      }
     }
   }
 

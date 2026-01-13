@@ -66,7 +66,8 @@ ${issue.body || 'No description provided.'}
             issue.title,
             description,
             issue.html_url,
-            labelNames
+            labelNames,
+            project.settings?.mainBranch  // Pass project's configured main branch
           );
 
           // Start spec creation with the existing spec directory

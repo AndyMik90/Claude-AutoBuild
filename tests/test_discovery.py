@@ -80,6 +80,12 @@ class TestPackageManagerDetection:
         result = discovery.discover(temp_dir)
         assert result.package_manager == "bun"
 
+    def test_detect_bun_text_lockfile(self, discovery, temp_dir):
+        """Test bun detection via bun.lock (text format, Bun 1.2.0+)."""
+        (temp_dir / "bun.lock").write_text("")
+        result = discovery.discover(temp_dir)
+        assert result.package_manager == "bun"
+
     def test_detect_uv(self, discovery, temp_dir):
         """Test uv detection via uv.lock."""
         (temp_dir / "uv.lock").write_text("")
