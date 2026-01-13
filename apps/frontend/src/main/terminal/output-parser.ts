@@ -176,31 +176,37 @@ export function detectClaudeBusyState(data: string): 'busy' | 'idle' | null {
 const CLAUDE_EXIT_PATTERNS = [
   // Standard shell prompts with path/context (bash/zsh)
   // Matches: "user@hostname:~/path$", "hostname:path %", "[user@host path]$"
-  /[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+[:\s~/]/,  // user@hostname: pattern
+  // Must be at line start to avoid matching user@host in Claude's output
+  /^[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+[:\s~/]/m,  // user@hostname: pattern
 
   // Path-based prompts (often in zsh, fish, etc.)
   // Matches: "~/projects $", "/home/user %"
-  /[~/][^\s]*\s*[$%#❯]\s*$/m,
+  // Anchored to line start to avoid matching paths in Claude's explanations
+  /^[~/][^\s]*\s*[$%#❯]\s*$/m,
 
   // Prompts with brackets (common in bash)
   // Matches: "[user@host directory]$", "(venv) user@host:~$"
-  /\[[^\]]+\]\s*[$%#]\s*$/m,
+  // Anchored to avoid matching array access like ${arr[0]}
+  /^\s*\[[^\]]+\]\s*[$%#]\s*$/m,
 
   // Virtual environment or conda prompts followed by standard prompt
   // Matches: "(venv) $", "(base) user@host:~$"
-  /\([a-zA-Z0-9_-]+\)\s*.*[$%#❯]\s*$/m,
+  /^\([a-zA-Z0-9_-]+\)\s*.*[$%#❯]\s*$/m,
 
   // Starship, Oh My Zsh, Powerlevel10k common patterns
   // Matches: "❯", "➜", "λ" at end of line (often colored/styled)
-  /[❯➜λ]\s*$/m,
+  // Anchored to avoid matching Unicode arrows in Claude's explanations
+  /^\s*[❯➜λ]\s*$/m,
 
   // Fish shell prompt patterns
   // Matches: "user@host ~/path>", "~/path>"
-  /~?\/[^\s]*>\s*$/m,
+  // Anchored to avoid matching file paths ending with >
+  /^~?\/[^\s]*>\s*$/m,
 
   // Git branch in prompt followed by prompt character
   // Matches: "(main) $", "[git:main] >"
-  /[([a-zA-Z0-9/_-]+[)\]]\s*[$%#>❯]\s*$/m,
+  // Anchored to avoid matching code snippets with brackets
+  /^\s*[([a-zA-Z0-9/_-]+[)\]]\s*[$%#>❯]\s*$/m,
 
   // Simple but distinctive shell prompts with hostname
   // Matches: "hostname$", "hostname %"

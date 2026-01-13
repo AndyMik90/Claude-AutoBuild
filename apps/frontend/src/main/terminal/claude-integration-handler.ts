@@ -345,7 +345,6 @@ export function handleClaudeExit(
     return;
   }
 
-  debugLog('[ClaudeIntegration] Claude exit detected for terminal:', terminal.id);
   console.warn('[ClaudeIntegration] Claude exit detected, resetting mode for terminal:', terminal.id);
 
   // Reset Claude mode state
