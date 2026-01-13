@@ -1,7 +1,12 @@
 // Load .env file FIRST before any other imports that might use process.env
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Load .env from apps/frontend directory
 // In development: __dirname is out/main (compiled), so go up 2 levels

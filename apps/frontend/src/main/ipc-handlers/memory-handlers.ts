@@ -8,8 +8,13 @@
 import { ipcMain, app } from 'electron';
 import { spawn, execFileSync } from 'child_process';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as os from 'os';
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
   IPCResult,
