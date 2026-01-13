@@ -654,16 +654,21 @@ function fixPywin32(sitePackagesDir) {
   // 3. Create __init__.py in pywin32_system32/ to make it importable as a package
   // pywintypes.py does `import pywin32_system32` and then uses pywin32_system32.__path__
   const initPath = path.join(pywin32System32, '__init__.py');
-  if (!fs.existsSync(initPath)) {
-    try {
-      // The __init__.py sets up __path__ so pywintypes.py can find the DLLs
-      const initContent = `# Auto-generated for bundled pywin32
+  try {
+    // The __init__.py sets up __path__ so pywintypes.py can find the DLLs
+    const initContent = `# Auto-generated for bundled pywin32
 import os
 __path__ = [os.path.dirname(__file__)]
 `;
-      fs.writeFileSync(initPath, initContent);
-      console.log(`[download-python] Created pywin32_system32/__init__.py`);
-    } catch (err) {
+    // Use 'wx' flag for atomic exclusive write - fails if file exists (EEXIST)
+    // This avoids TOCTOU race condition where existsSync + writeFileSync could
+    // allow another process to create/modify the file between check and write.
+    // See: https://nodejs.org/api/fs.html#file-system-flags
+    fs.writeFileSync(initPath, initContent, { flag: 'wx' });
+    console.log(`[download-python] Created pywin32_system32/__init__.py`);
+  } catch (err) {
+    // EEXIST means file already exists - that's fine, we wanted to avoid overwriting
+    if (err.code !== 'EEXIST') {
       console.warn(`[download-python] Failed to create __init__.py: ${err.message}`);
     }
   }

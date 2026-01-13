@@ -160,20 +160,21 @@ describe('PythonEnvManager', () => {
 
       // Mock existsSync:
       // - First call (in getPythonEnv to check if script exists): false
-      // - Second call (in ensurePywin32StartupScript to check before writing): false
-      // - Third call (in getPythonEnv after creation): true
+      // - Second call (in getPythonEnv after creation attempt): true
       vi.mocked(fs.existsSync)
-        .mockReturnValueOnce(false)  // getPythonEnv check
-        .mockReturnValueOnce(false)  // ensurePywin32StartupScript check
-        .mockReturnValue(true);      // after creation check
+        .mockReturnValueOnce(false) // getPythonEnv check
+        .mockReturnValue(true); // after creation check
+
+      // Mock writeFileSync to succeed (file doesn't exist, so no EEXIST error)
+      vi.mocked(fs.writeFileSync).mockReturnValue(undefined);
 
       const env = manager.getPythonEnv();
 
-      // Should have tried to create the script
+      // Should have tried to create the script using 'wx' flag
       expect(fs.writeFileSync).toHaveBeenCalledWith(
         path.join(sitePackagesPath, '_auto_claude_startup.py'),
         expect.stringContaining('_bootstrap_pywin32'),
-        'utf-8'
+        { encoding: 'utf-8', flag: 'wx' }
       );
 
       // Should have set PYTHONSTARTUP after creating the script
@@ -238,7 +239,7 @@ describe('PythonEnvManager', () => {
       expect(writtenContent).toContain('_bootstrap_pywin32');
     });
 
-    it('should not overwrite existing bootstrap script', () => {
+    it('should not overwrite existing bootstrap script (EEXIST handled)', () => {
       const sitePackagesPath = 'C:\\test\\site-packages';
 
       // Access private method for testing
@@ -246,12 +247,23 @@ describe('PythonEnvManager', () => {
         manager
       );
 
-      vi.mocked(fs.existsSync).mockReturnValue(true);
+      // Mock writeFileSync to throw EEXIST error (file already exists)
+      // This simulates the atomic 'wx' flag behavior when file exists
+      const eexistError = new Error('EEXIST: file already exists') as NodeJS.ErrnoException;
+      eexistError.code = 'EEXIST';
+      vi.mocked(fs.writeFileSync).mockImplementation(() => {
+        throw eexistError;
+      });
 
-      ensureScript(sitePackagesPath);
+      // Should not throw - EEXIST is expected and handled silently
+      expect(() => ensureScript(sitePackagesPath)).not.toThrow();
 
-      // Should not write if file exists
-      expect(fs.writeFileSync).not.toHaveBeenCalled();
+      // writeFileSync WAS called (with 'wx' flag), but threw EEXIST which was handled
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        path.join(sitePackagesPath, '_auto_claude_startup.py'),
+        expect.stringContaining('_bootstrap_pywin32'),
+        { encoding: 'utf-8', flag: 'wx' }
+      );
     });
   });
 });

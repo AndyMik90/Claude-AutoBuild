@@ -756,11 +756,6 @@ if sys.version_info >= (3, 12):
   private ensurePywin32StartupScript(sitePackagesPath: string): void {
     const startupScript = path.join(sitePackagesPath, '_auto_claude_startup.py');
 
-    // Don't overwrite if it already exists
-    if (existsSync(startupScript)) {
-      return;
-    }
-
     // The startup script content
     // This mimics what pywin32_bootstrap.py does, but runs before any imports
     const scriptContent = `# Auto-Claude pywin32 bootstrap script
@@ -809,12 +804,20 @@ _bootstrap_pywin32()
 `;
 
     try {
-      writeFileSync(startupScript, scriptContent, 'utf-8');
+      // Use 'wx' flag for atomic exclusive write - fails if file exists (EEXIST)
+      // This avoids TOCTOU race condition where existsSync + writeFileSync could
+      // allow another process to create/modify the file between check and write.
+      // See: https://nodejs.org/api/fs.html#file-system-flags
+      writeFileSync(startupScript, scriptContent, { encoding: 'utf-8', flag: 'wx' });
       console.log(`[PythonEnvManager] Created pywin32 bootstrap script: ${startupScript}`);
-    } catch (error) {
-      // If we can't write the script (e.g., read-only filesystem), log but don't fail
-      // The PATH-based fallback may still work for some cases
-      console.warn(`[PythonEnvManager] Could not create pywin32 bootstrap script: ${error}`);
+    } catch (error: unknown) {
+      // EEXIST means file already exists - that's fine, we wanted to avoid overwriting
+      const isEexist = error instanceof Error && 'code' in error && error.code === 'EEXIST';
+      if (!isEexist) {
+        // Other errors (e.g., read-only filesystem) - log but don't fail
+        // The PATH-based fallback may still work for some cases
+        console.warn(`[PythonEnvManager] Could not create pywin32 bootstrap script: ${error}`);
+      }
     }
   }
 
