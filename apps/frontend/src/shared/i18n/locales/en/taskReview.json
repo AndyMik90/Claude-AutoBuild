@@ -21,7 +21,16 @@
     "filesNeedAIMergeDueToRenamesPlural_other": "{{count}} files need AI merge due to {{renameCount}} file renames.",
     "fileRenamesDetected": "{{count}} file rename detected - AI will handle the merge.",
     "fileRenamesDetected_other": "{{count}} file renames detected - AI will handle the merge.",
-    "filesRenamedOrMoved": "Files may have been renamed or moved - AI will handle the merge."
+    "filesRenamedOrMoved": "Files may have been renamed or moved - AI will handle the merge.",
+    "buttons": {
+      "stageWithAIMerge": "Stage with AI Merge",
+      "mergeWithAI": "Merge with AI",
+      "stageTo": "Stage to {{branch}}",
+      "mergeTo": "Merge to {{branch}}",
+      "resolving": "Resolving...",
+      "staging": "Staging...",
+      "merging": "Merging..."
+    }
   },
   "pr": {
     "title": "Create Pull Request",

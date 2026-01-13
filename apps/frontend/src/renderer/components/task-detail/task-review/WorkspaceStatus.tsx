@@ -427,14 +427,20 @@ export function WorkspaceStatus({
               {isMerging ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {hasGitConflicts || isBranchBehind || hasPathMappedMerges ? 'Resolving...' : stageOnly ? 'Staging...' : 'Merging...'}
+                  {hasGitConflicts || isBranchBehind || hasPathMappedMerges
+                    ? t('taskReview:merge.buttons.resolving')
+                    : stageOnly
+                      ? t('taskReview:merge.buttons.staging')
+                      : t('taskReview:merge.buttons.merging')}
                 </>
               ) : (
                 <>
                   <GitMerge className="mr-2 h-4 w-4" />
                   {hasGitConflicts || isBranchBehind || hasPathMappedMerges
-                    ? (stageOnly ? 'Stage with AI Merge' : 'Merge with AI')
-                    : (stageOnly ? 'Stage to Main' : 'Merge to Main')}
+                    ? (stageOnly ? t('taskReview:merge.buttons.stageWithAIMerge') : t('taskReview:merge.buttons.mergeWithAI'))
+                    : (stageOnly
+                        ? t('taskReview:merge.buttons.stageTo', { branch: worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main' })
+                        : t('taskReview:merge.buttons.mergeTo', { branch: worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main' }))}
                 </>
               )}
             </Button>

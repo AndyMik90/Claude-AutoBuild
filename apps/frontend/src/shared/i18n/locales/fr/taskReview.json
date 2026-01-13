@@ -21,7 +21,16 @@
     "filesNeedAIMergeDueToRenamesPlural_other": "{{count}} fichiers nécessitent une fusion IA en raison de {{renameCount}} renommages de fichiers.",
     "fileRenamesDetected": "{{count}} renommage de fichier détecté - l'IA gérera la fusion.",
     "fileRenamesDetected_other": "{{count}} renommages de fichiers détectés - l'IA gérera la fusion.",
-    "filesRenamedOrMoved": "Des fichiers ont peut-être été renommés ou déplacés - l'IA gérera la fusion."
+    "filesRenamedOrMoved": "Des fichiers ont peut-être été renommés ou déplacés - l'IA gérera la fusion.",
+    "buttons": {
+      "stageWithAIMerge": "Préparer avec fusion IA",
+      "mergeWithAI": "Fusionner avec IA",
+      "stageTo": "Préparer vers {{branch}}",
+      "mergeTo": "Fusionner vers {{branch}}",
+      "resolving": "Résolution...",
+      "staging": "Préparation...",
+      "merging": "Fusion..."
+    }
   },
   "pr": {
     "title": "Créer une Pull Request",
