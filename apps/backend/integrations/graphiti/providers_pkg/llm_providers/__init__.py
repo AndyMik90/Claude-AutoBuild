@@ -16,6 +16,7 @@ from .google_llm import create_google_llm_client
 from .ollama_llm import create_ollama_llm_client
 from .openai_llm import create_openai_llm_client
 from .openrouter_llm import create_openrouter_llm_client
+from .zai_llm import create_zai_llm_client
 
 __all__ = [
     "create_openai_llm_client",
@@ -24,4 +25,5 @@ __all__ = [
     "create_ollama_llm_client",
     "create_google_llm_client",
     "create_openrouter_llm_client",
+    "create_zai_llm_client",
 ]

@@ -236,8 +236,9 @@ export interface AppSettings {
   globalGoogleApiKey?: string;
   globalGroqApiKey?: string;
   globalOpenRouterApiKey?: string;
+  globalZaiApiKey?: string;
   // Graphiti LLM provider settings (legacy)
-  graphitiLlmProvider?: 'openai' | 'anthropic' | 'google' | 'groq' | 'ollama';
+  graphitiLlmProvider?: 'openai' | 'anthropic' | 'google' | 'groq' | 'ollama' | 'zai';
   ollamaBaseUrl?: string;
   // Memory/Graphiti configuration (app-wide, set during onboarding)
   memoryEnabled?: boolean;
