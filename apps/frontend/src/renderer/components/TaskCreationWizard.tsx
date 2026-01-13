@@ -12,7 +12,7 @@
  */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch, Info } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import {
@@ -521,6 +521,19 @@ export function TaskCreationWizard({
       }
     >
       <div className="space-y-6">
+        {/* Worktree isolation info banner */}
+        <div className="flex items-start gap-3 p-4 bg-info/10 border border-info/30 rounded-lg">
+          <Info className="h-5 w-5 text-info flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-medium text-foreground mb-1">
+              {t('tasks:wizard.worktreeNotice.title')}
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              {t('tasks:wizard.worktreeNotice.description')}
+            </p>
+          </div>
+        </div>
+
         {/* Main form fields */}
         <TaskFormFields
           description={description}

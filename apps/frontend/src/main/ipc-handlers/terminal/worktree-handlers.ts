@@ -138,7 +138,7 @@ function isValidProjectPath(projectPath: string): boolean {
   return projects.some(p => p.path === projectPath);
 }
 
-const MAX_TERMINAL_WORKTREES = 12;
+// No limit on terminal worktrees - users can create as many as needed
 
 /**
  * Get the default branch from project settings OR env config
@@ -264,14 +264,6 @@ async function createTerminalWorktree(
     return {
       success: false,
       error: 'Invalid base branch name',
-    };
-  }
-
-  const existing = await listTerminalWorktrees(projectPath);
-  if (existing.length >= MAX_TERMINAL_WORKTREES) {
-    return {
-      success: false,
-      error: `Maximum of ${MAX_TERMINAL_WORKTREES} terminal worktrees reached.`,
     };
   }
 

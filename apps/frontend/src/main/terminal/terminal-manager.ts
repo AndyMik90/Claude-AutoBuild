@@ -145,7 +145,7 @@ export class TerminalManager {
   /**
    * Invoke Claude in a terminal with optional profile override (async - non-blocking)
    */
-  async invokeClaudeAsync(id: string, cwd?: string, profileId?: string): Promise<void> {
+  async invokeClaudeAsync(id: string, cwd?: string, profileId?: string, dangerouslySkipPermissions?: boolean): Promise<void> {
     const terminal = this.terminals.get(id);
     if (!terminal) {
       return;
@@ -164,7 +164,8 @@ export class TerminalManager {
           this.terminals,
           this.getWindow
         );
-      }
+      },
+      dangerouslySkipPermissions
     );
   }
 
@@ -172,7 +173,7 @@ export class TerminalManager {
    * Invoke Claude in a terminal with optional profile override
    * @deprecated Use invokeClaudeAsync for non-blocking behavior
    */
-  invokeClaude(id: string, cwd?: string, profileId?: string): void {
+  invokeClaude(id: string, cwd?: string, profileId?: string, dangerouslySkipPermissions?: boolean): void {
     const terminal = this.terminals.get(id);
     if (!terminal) {
       return;
@@ -191,7 +192,8 @@ export class TerminalManager {
           this.terminals,
           this.getWindow
         );
-      }
+      },
+      dangerouslySkipPermissions
     );
   }
 
@@ -208,7 +210,7 @@ export class TerminalManager {
       terminal,
       profileId,
       this.getWindow,
-      async (terminalId, cwd, profileId) => this.invokeClaudeAsync(terminalId, cwd, profileId),
+      async (terminalId, cwd, profileId, dangerouslySkipPermissions) => this.invokeClaudeAsync(terminalId, cwd, profileId, dangerouslySkipPermissions),
       (terminalId) => this.lastNotifiedRateLimitReset.delete(terminalId)
     );
   }

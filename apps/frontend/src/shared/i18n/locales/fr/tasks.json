@@ -145,6 +145,10 @@
     "browseFiles": "Parcourir les fichiers",
     "creating": "Création...",
     "createTask": "Créer la tâche",
+    "worktreeNotice": {
+      "title": "Espace de travail isolé",
+      "description": "Cette tâche s'exécute dans un worktree git isolé. Votre branche principale reste protégée jusqu'à ce que vous choisissiez de fusionner."
+    },
     "gitOptions": {
       "title": "Options Git (optionnel)",
       "baseBranchLabel": "Branche de base (optionnel)",
@@ -157,6 +161,17 @@
     "errors": {
       "createFailed": "Échec de la création de la tâche. Veuillez réessayer."
     }
+  },
+  "feedback": {
+    "dragDropHint": "Glissez-déposez des images ou collez des captures d'écran",
+    "imageAdded": "Image ajoutée avec succès",
+    "maxImagesError": "Maximum de {{count}} images autorisées",
+    "invalidTypeError": "Type d'image invalide. Autorisés : {{types}}",
+    "removeImage": "Supprimer l'image",
+    "processingError": "Échec du traitement de l'image"
+  },
+  "review": {
+    "mergeTooltip": "Fusionne les changements de la branche worktree de la tâche vers votre branche de base. L'IA résoudra les conflits éventuels. Vous pourrez ensuite choisir de conserver ou de supprimer le worktree."
   },
   "edit": {
     "title": "Modifier la tâche",

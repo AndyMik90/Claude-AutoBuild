@@ -148,7 +148,8 @@ describe('IPC Bridge Integration', () => {
         const submitReview = electronAPI['submitReview'] as (
           id: string,
           approved: boolean,
-          feedback?: string
+          feedback?: string,
+          images?: unknown[]
         ) => Promise<unknown>;
         await submitReview('task-id', false, 'Needs more work');
 
@@ -156,7 +157,8 @@ describe('IPC Bridge Integration', () => {
           'task:review',
           'task-id',
           false,
-          'Needs more work'
+          'Needs more work',
+          undefined
         );
       });
     });

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, ExternalLink, Lightbulb, Play, X } from 'lucide-react';
+import { ChevronRight, ExternalLink, Lightbulb, Loader2, Play, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import {
@@ -30,9 +30,10 @@ interface IdeaDetailPanelProps {
   onConvert: (idea: Idea) => void;
   onGoToTask?: (taskId: string) => void;
   onDismiss: (idea: Idea) => void;
+  isConverting?: boolean;
 }
 
-export function IdeaDetailPanel({ idea, onClose, onConvert, onGoToTask, onDismiss }: IdeaDetailPanelProps) {
+export function IdeaDetailPanel({ idea, onClose, onConvert, onGoToTask, onDismiss, isConverting }: IdeaDetailPanelProps) {
   const { t } = useTranslation('common');
   const isDismissed = idea.status === 'dismissed';
   const isConverted = idea.status === 'converted';
@@ -66,7 +67,7 @@ export function IdeaDetailPanel({ idea, onClose, onConvert, onGoToTask, onDismis
       <div className="flex-1 overflow-auto p-4 space-y-6">
         {/* Description */}
         <div>
-          <h3 className="text-sm font-medium mb-2">Description</h3>
+          <h3 className="text-sm font-medium mb-2">{t('common:ideation.description')}</h3>
           <p className="text-sm text-muted-foreground">{idea.description}</p>
         </div>
 
@@ -74,7 +75,7 @@ export function IdeaDetailPanel({ idea, onClose, onConvert, onGoToTask, onDismis
         <div>
           <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
             <Lightbulb className="h-4 w-4" />
-            Rationale
+            {t('common:ideation.rationale')}
           </h3>
           <p className="text-sm text-muted-foreground">{idea.rationale}</p>
         </div>
@@ -91,9 +92,13 @@ export function IdeaDetailPanel({ idea, onClose, onConvert, onGoToTask, onDismis
       {/* Actions */}
       {!isDismissed && !isConverted && (
         <div className="shrink-0 p-4 border-t border-border space-y-2">
-          <Button className="w-full" onClick={() => onConvert(idea)}>
-            <Play className="h-4 w-4 mr-2" />
-            Convert to Auto-Build Task
+          <Button className="w-full" onClick={() => onConvert(idea)} disabled={isConverting}>
+            {isConverting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4 mr-2" />
+            )}
+            {isConverting ? t('common:ideation.converting') : t('common:ideation.convertToTask')}
           </Button>
           <Button
             variant="outline"
@@ -104,7 +109,7 @@ export function IdeaDetailPanel({ idea, onClose, onConvert, onGoToTask, onDismis
             }}
           >
             <X className="h-4 w-4 mr-2" />
-            Dismiss Idea
+            {t('common:ideation.dismissIdea')}
           </Button>
         </div>
       )}
@@ -112,7 +117,7 @@ export function IdeaDetailPanel({ idea, onClose, onConvert, onGoToTask, onDismis
         <div className="shrink-0 p-4 border-t border-border">
           <Button className="w-full" onClick={() => onGoToTask(idea.taskId!)}>
             <ExternalLink className="h-4 w-4 mr-2" />
-            Go to Task
+            {t('common:ideation.goToTask')}
           </Button>
         </div>
       )}

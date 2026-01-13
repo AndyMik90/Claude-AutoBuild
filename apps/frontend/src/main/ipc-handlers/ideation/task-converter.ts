@@ -194,29 +194,46 @@ export async function convertIdeaToTask(
     AUTO_BUILD_PATHS.IDEATION_FILE
   );
 
-  const ideation = readIdeationFile(ideationPath);
-  if (!ideation) {
+  // Quick check that ideation file exists (actual read happens inside lock)
+  if (!existsSync(ideationPath)) {
     return { success: false, error: 'Ideation not found' };
   }
 
+  // Get specs directory path
+  const specsBaseDir = getSpecsDir(project.autoBuildPath);
+  const specsDir = path.join(project.path, specsBaseDir);
+
+  // Ensure specs directory exists
+  if (!existsSync(specsDir)) {
+    mkdirSync(specsDir, { recursive: true });
+  }
+
   try {
-    // Find the idea
-    const idea = ideation.ideas?.find((i) => i.id === ideaId);
-    if (!idea) {
-      return { success: false, error: 'Idea not found' };
-    }
-
-    // Get specs directory path
-    const specsBaseDir = getSpecsDir(project.autoBuildPath);
-    const specsDir = path.join(project.path, specsBaseDir);
-
-    // Ensure specs directory exists
-    if (!existsSync(specsDir)) {
-      mkdirSync(specsDir, { recursive: true });
-    }
-
     // Use coordinated spec numbering with lock to prevent collisions
+    // CRITICAL: All state checks must happen INSIDE the lock to prevent TOCTOU race conditions
     return await withSpecNumberLock(project.path, async (lock) => {
+      // Re-read ideation file INSIDE the lock to get fresh state
+      const ideation = readIdeationFile(ideationPath);
+      if (!ideation) {
+        return { success: false, error: 'Ideation not found' };
+      }
+
+      // Find the idea (inside lock for fresh state)
+      const idea = ideation.ideas?.find((i) => i.id === ideaId);
+      if (!idea) {
+        return { success: false, error: 'Idea not found' };
+      }
+
+      // Idempotency check INSIDE lock - prevents TOCTOU race condition
+      // Two concurrent requests can both pass an outside check, but only one
+      // can hold the lock at a time, so this check is authoritative
+      if (idea.linked_task_id) {
+        return {
+          success: false,
+          error: `Idea has already been converted to task: ${idea.linked_task_id}`
+        };
+      }
+
       // Get next spec number from global scan (main + all worktrees)
       const nextNum = lock.getNextSpecNumber(project.autoBuildPath);
       const slugifiedTitle = slugifyTitle(idea.title);
