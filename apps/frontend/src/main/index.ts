@@ -453,9 +453,9 @@ app.on('before-quit', async () => {
   usageMonitor.stop();
   console.warn('[main] Usage monitor stopped');
 
-  // Clean up task queue manager
+  // Clean up task queue manager (await graceful shutdown)
   if (taskQueueManager) {
-    taskQueueManager.stop();
+    await taskQueueManager.stop();
   }
 
   // Kill all running agent processes

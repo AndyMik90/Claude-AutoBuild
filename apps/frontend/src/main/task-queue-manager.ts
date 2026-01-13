@@ -26,9 +26,15 @@ import type { AgentManager } from './agent/agent-manager';
 import { findTaskAndProject } from './ipc-handlers/task/shared';
 
 /**
+ * Task priority or empty (when not set)
+ * Used for PRIORITY_WEIGHT map to handle missing priority values
+ */
+type TaskPriorityOrEmpty = TaskPriority | '';
+
+/**
  * Priority weight for sorting tasks (higher = more important)
  */
-const PRIORITY_WEIGHT: Record<TaskPriority | '', number> = {
+const PRIORITY_WEIGHT: Record<TaskPriorityOrEmpty, number> = {
   urgent: 4,
   high: 3,
   medium: 2,
