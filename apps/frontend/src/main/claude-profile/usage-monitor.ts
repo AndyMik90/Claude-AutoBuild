@@ -33,6 +33,7 @@ export class UsageMonitor extends EventEmitter {
   // Swap loop protection: track profiles that recently failed auth
   private authFailedProfiles: Map<string, number> = new Map(); // profileId -> timestamp
   private static AUTH_FAILURE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown
+  private static CLI_USAGE_TIMEOUT_MS = 10000; // 10 seconds timeout for CLI /usage command
 
   // Debug flag for verbose logging
   private readonly isDebug = process.env.DEBUG === 'true';
@@ -374,7 +375,7 @@ export class UsageMonitor extends EventEmitter {
           proc.kill();
           console.warn('[UsageMonitor] CLI /usage command timed out');
           resolve(null);
-        }, 10000);
+        }, UsageMonitor.CLI_USAGE_TIMEOUT_MS);
 
         // Use once() to ensure the close handler only fires once
         proc.once('close', (code) => {

@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '../../../shared/i18n';
 import { UsageIndicator } from '../UsageIndicator';
@@ -64,7 +64,10 @@ function renderWithI18n(ui: React.ReactElement) {
 describe('UsageIndicator', () => {
   beforeAll(async () => {
     // Ensure i18n is initialized before running tests
-    await i18n.init();
+    // Guard against duplicate initialization warnings
+    if (!i18n.isInitialized) {
+      await i18n.init();
+    }
   });
 
   beforeEach(() => {
@@ -248,13 +251,13 @@ describe('UsageIndicator', () => {
 
   describe('resetting soon and past timestamp handling', () => {
     it('should not show countdown when sessionResetTimestamp is in the past', async () => {
-      const past = new Date();
-      past.setHours(past.getHours() - 1); // 1 hour ago
+      // Use timestamp arithmetic instead of mutable Date.setHours
+      const pastTimestamp = Date.now() - (60 * 60 * 1000); // 1 hour ago
 
       const usage = createUsageSnapshot({
         sessionPercent: 99,
         weeklyPercent: 30,
-        sessionResetTimestamp: past.getTime(),
+        sessionResetTimestamp: pastTimestamp,
         limitType: 'session'
       });
       mockRequestUsageUpdate.mockResolvedValue({ success: true, data: usage });
@@ -279,11 +282,20 @@ describe('UsageIndicator', () => {
 
       renderWithI18n(<UsageIndicator />);
 
-      // Wait for badge to render with percentage
-      // The percentage (72%) appears in both the badge and tooltip content
+      // Wait for badge to render
+      const badge = await waitFor(() => screen.getByRole('button', { name: /claude usage status/i }));
+      expect(badge).toBeInTheDocument();
+
+      // Simulate hover to reveal tooltip
+      fireEvent.mouseEnter(badge);
+
+      // Verify tooltip content appears with session usage percentage
       await waitFor(() => {
         expect(screen.getByText('72%')).toBeInTheDocument();
       });
+
+      // Cleanup hover state
+      fireEvent.mouseLeave(badge);
     });
 
     it('should show weekly usage percentage in tooltip', async () => {
@@ -292,11 +304,20 @@ describe('UsageIndicator', () => {
 
       renderWithI18n(<UsageIndicator />);
 
-      // Wait for badge to render with percentage
-      // The percentage (45%) appears in both the badge and tooltip content
+      // Wait for badge to render
+      const badge = await waitFor(() => screen.getByRole('button', { name: /claude usage status/i }));
+      expect(badge).toBeInTheDocument();
+
+      // Simulate hover to reveal tooltip
+      fireEvent.mouseEnter(badge);
+
+      // Verify tooltip content appears with weekly usage percentage
       await waitFor(() => {
         expect(screen.getByText('45%')).toBeInTheDocument();
       });
+
+      // Cleanup hover state
+      fireEvent.mouseLeave(badge);
     });
   });
 

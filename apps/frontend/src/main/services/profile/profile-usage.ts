@@ -12,6 +12,24 @@ import type { ClaudeUsageSnapshot } from '../../../shared/types/agent';
 import { RESETTING_SOON } from '../../../shared/types/agent';
 
 // ============================================
+// Error Classes
+// ============================================
+
+/**
+ * Custom error for API authentication failures
+ * Used when fetch returns 401 or 403 status codes
+ */
+export class ApiAuthError extends Error {
+  public readonly statusCode: number;
+  public readonly name = 'ApiAuthError';
+
+  constructor(statusCode: number, message?: string) {
+    super(message || `API Auth Failure: ${statusCode}`);
+    this.statusCode = statusCode;
+  }
+}
+
+// ============================================
 // Provider Detection
 // ============================================
 
@@ -65,7 +83,7 @@ export function detectProvider(baseUrl: string): UsageProvider {
     }
 
     // Check for Anthropic OAuth domain (api.anthropic.com)
-    if (hostname === 'api.anthropic.com' || hostname.endsWith('.api.anthropic.com')) {
+    if (hostname === 'api.anthropic.com') {
       return 'anthropic-oauth';
     }
 
@@ -89,13 +107,21 @@ export async function fetchZaiUsage(
   profileId: string,
   profileName: string
 ): Promise<ClaudeUsageSnapshot | null> {
+  const FETCH_TIMEOUT_MS = 10000; // 10 seconds timeout
+
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
     const response = await fetch('https://api.z.ai/api/monitor/usage/quota/limit', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${apiKey}`
-      }
+      },
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error('[profile-usage] Z.ai API error:', response.status, response.statusText);
@@ -109,7 +135,7 @@ export async function fetchZaiUsage(
       ? Math.round((data.token_usage.used / data.token_usage.limit) * 100)
       : 0;
 
-    // Calculate tool usage percentage (web search + reader)
+    // Calculate tool usage percentage (web search + reader combined)
     const webSearchUsed = data.monthly_tool_usage?.web_search?.used ?? 0;
     const webSearchLimit = data.monthly_tool_usage?.web_search?.limit ?? 0;
     const readerUsed = data.monthly_tool_usage?.reader?.used ?? 0;
@@ -143,6 +169,11 @@ export async function fetchZaiUsage(
       provider: 'zai'
     };
   } catch (error) {
+    // Handle AbortError from timeout
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('[profile-usage] Z.ai fetch timed out');
+      return null;
+    }
     console.error('[profile-usage] Z.ai fetch failed:', error);
     return null;
   }
@@ -167,22 +198,28 @@ export async function fetchAnthropicOAuthUsage(
   profileName: string,
   throwOnAuthFailure = false
 ): Promise<ClaudeUsageSnapshot | null> {
+  const FETCH_TIMEOUT_MS = 10000; // 10 seconds timeout
+
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
     const response = await fetch('https://api.anthropic.com/api/oauth/usage', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${oauthToken}`,
         'anthropic-version': '2023-06-01'
-      }
+      },
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error('[profile-usage] Anthropic OAuth API error:', response.status, response.statusText);
       // Throw specific error for auth failures if requested
       if (throwOnAuthFailure && (response.status === 401 || response.status === 403)) {
-        const error = new Error(`API Auth Failure: ${response.status}`);
-        (error as any).statusCode = response.status;
-        throw error;
+        throw new ApiAuthError(response.status);
       }
       return null;
     }
@@ -212,9 +249,14 @@ export async function fetchAnthropicOAuthUsage(
         : 'session',
       provider: 'anthropic-oauth'
     };
-  } catch (error: any) {
-    // Re-throw auth failures if they were explicitly thrown
-    if (error?.statusCode === 401 || error?.statusCode === 403) {
+  } catch (error) {
+    // Handle AbortError from timeout
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('[profile-usage] Anthropic OAuth fetch timed out');
+      return null;
+    }
+    // Re-throw ApiAuthError instances
+    if (error instanceof ApiAuthError) {
       throw error;
     }
     console.error('[profile-usage] Anthropic OAuth fetch failed:', error);
