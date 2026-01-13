@@ -6,7 +6,7 @@
  * Integration tests for terminal copy/paste functionality
  * Tests xterm.js selection API integration with clipboard operations
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { render, act } from '@testing-library/react';
 import React from 'react';
 import type { Mock } from 'vitest';
@@ -81,6 +81,26 @@ vi.mock('../../renderer/stores/settings-store', () => ({
 }));
 
 describe('Terminal copy/paste integration', () => {
+  // Store original requestAnimationFrame for restoration after tests
+  const originalRequestAnimationFrame = global.requestAnimationFrame;
+  const originalCancelAnimationFrame = global.cancelAnimationFrame;
+
+  // Create mock functions that won't be restored by vi.restoreAllMocks()
+  const mockRequestAnimationFrame = (cb: FrameRequestCallback) => setTimeout(cb, 0) as unknown as number;
+  const mockCancelAnimationFrame = (id: number) => clearTimeout(id);
+
+  beforeAll(() => {
+    // Mock requestAnimationFrame for jsdom environment (not provided by default)
+    // Use direct assignment instead of vi.fn() to prevent restoration by vi.restoreAllMocks()
+    global.requestAnimationFrame = mockRequestAnimationFrame;
+    global.cancelAnimationFrame = mockCancelAnimationFrame;
+  });
+
+  afterAll(() => {
+    // Restore original functions after all tests complete
+    global.requestAnimationFrame = originalRequestAnimationFrame;
+    global.cancelAnimationFrame = originalCancelAnimationFrame;
+  });
   let mockClipboard: {
     writeText: Mock;
     readText: Mock;
@@ -96,16 +116,6 @@ describe('Terminal copy/paste integration', () => {
         unobserve: vi.fn(),
         disconnect: vi.fn()
       };
-    });
-
-    // Mock requestAnimationFrame
-    global.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => {
-      return setTimeout(cb, 0) as unknown as number;
-    });
-
-    // Mock cancelAnimationFrame
-    global.cancelAnimationFrame = vi.fn((id: number) => {
-      clearTimeout(id);
     });
 
     // Mock navigator.clipboard

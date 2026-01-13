@@ -17,28 +17,15 @@ import {
   TERMINAL_LETTER_SPACING_MAX,
   TERMINAL_LETTER_SPACING_DEFAULT,
   TERMINAL_LETTER_SPACING_STEP,
-  DEFAULT_TERMINAL_FONT_SETTINGS
-} from '../../../shared/constants';
+  DEFAULT_TERMINAL_FONT_SETTINGS,
+  TERMINAL_FONT_FAMILY_OPTIONS
+} from '../../../shared/constants/config';
 import type { AppSettings, TerminalFontFamily } from '../../../shared/types';
 
 interface TerminalSettingsProps {
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
 }
-
-// Font family options with display names and CSS font stacks
-const FONT_FAMILY_OPTIONS: Record<TerminalFontFamily, { label: string; fontStack: string }> = {
-  system: { label: 'System Default', fontStack: 'var(--font-mono), "JetBrains Mono", Menlo, Monaco, "Courier New", monospace' },
-  jetbrainsMono: { label: 'JetBrains Mono', fontStack: '"JetBrains Mono", Menlo, Monaco, "Courier New", monospace' },
-  firaCode: { label: 'Fira Code', fontStack: '"Fira Code", "JetBrains Mono", Menlo, Monaco, "Courier New", monospace' },
-  cascadiaCode: { label: 'Cascadia Code', fontStack: '"Cascadia Code", "JetBrains Mono", Menlo, Monaco, "Courier New", monospace' },
-  consolas: { label: 'Consolas', fontStack: 'Consolas, "Courier New", monospace' },
-  monaco: { label: 'Monaco', fontStack: 'Monaco, "Courier New", monospace' },
-  sfMono: { label: 'SF Mono', fontStack: '"SF Mono", Monaco, "Courier New", monospace' },
-  sourceCodePro: { label: 'Source Code Pro', fontStack: '"Source Code Pro", "Courier New", monospace' },
-  ubuntuMono: { label: 'Ubuntu Mono', fontStack: '"Ubuntu Mono", "Courier New", monospace' },
-  dejaVuSansMono: { label: 'DejaVu Sans Mono', fontStack: '"DejaVu Sans Mono", "Courier New", monospace' }
-};
 
 /**
  * Terminal settings section for font customization
@@ -92,7 +79,7 @@ export function TerminalSettings({ settings, onSettingsChange }: TerminalSetting
     currentFontSettings.fontSize === DEFAULT_TERMINAL_FONT_SETTINGS.fontSize &&
     approxEqual(currentFontSettings.lineHeight, DEFAULT_TERMINAL_FONT_SETTINGS.lineHeight) &&
     approxEqual(currentFontSettings.letterSpacing, DEFAULT_TERMINAL_FONT_SETTINGS.letterSpacing) &&
-    selectedFontFamily === 'system';
+    selectedFontFamily === DEFAULT_TERMINAL_FONT_SETTINGS.fontFamily;
 
   return (
     <SettingsSection
@@ -107,7 +94,7 @@ export function TerminalSettings({ settings, onSettingsChange }: TerminalSetting
             {t('terminal.fontFamilyDescription')}
           </p>
           <div className="grid grid-cols-2 gap-2 max-w-lg pt-1">
-            {Object.entries(FONT_FAMILY_OPTIONS).map(([key, { label, fontStack }]) => {
+            {Object.entries(TERMINAL_FONT_FAMILY_OPTIONS).map(([key, { label, fontStack }]) => {
               const isSelected = selectedFontFamily === key;
               return (
                 <button
@@ -182,6 +169,7 @@ export function TerminalSettings({ settings, onSettingsChange }: TerminalSetting
               step={TERMINAL_FONT_SIZE_STEP}
               value={currentFontSettings.fontSize}
               onChange={(e) => handleFontSizeChange(parseFloat(e.target.value))}
+              aria-label={t('terminal.fontSize')}
               className={cn(
                 'flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
@@ -276,6 +264,7 @@ export function TerminalSettings({ settings, onSettingsChange }: TerminalSetting
               step={TERMINAL_LINE_HEIGHT_STEP}
               value={currentFontSettings.lineHeight}
               onChange={(e) => handleLineHeightChange(parseFloat(e.target.value))}
+              aria-label={t('terminal.lineHeight')}
               className={cn(
                 'flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
@@ -369,6 +358,7 @@ export function TerminalSettings({ settings, onSettingsChange }: TerminalSetting
               step={TERMINAL_LETTER_SPACING_STEP}
               value={currentFontSettings.letterSpacing}
               onChange={(e) => handleLetterSpacingChange(parseFloat(e.target.value))}
+              aria-label={t('terminal.letterSpacing')}
               className={cn(
                 'flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',

@@ -3,7 +3,7 @@
  * Default settings, file paths, and project structure
  */
 
-import type { TerminalFontSettings } from '../types/settings';
+import type { TerminalFontSettings, TerminalFontFamily } from '../types/settings';
 
 // ============================================
 // UI Scale Constants
@@ -32,6 +32,34 @@ export const TERMINAL_LETTER_SPACING_MIN = -2;
 export const TERMINAL_LETTER_SPACING_MAX = 2;
 export const TERMINAL_LETTER_SPACING_DEFAULT = 0;
 export const TERMINAL_LETTER_SPACING_STEP = 0.5;
+
+// Map TerminalFontFamily to CSS font stacks for xterm.js
+export const TERMINAL_FONT_FAMILY_MAP: Record<TerminalFontFamily, string> = {
+  system: 'var(--font-mono), "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+  jetbrainsMono: '"JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+  firaCode: '"Fira Code", "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+  cascadiaCode: '"Cascadia Code", "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+  consolas: 'Consolas, "Courier New", monospace',
+  monaco: 'Monaco, "Courier New", monospace',
+  sfMono: '"SF Mono", Monaco, "Courier New", monospace',
+  sourceCodePro: '"Source Code Pro", "Courier New", monospace',
+  ubuntuMono: '"Ubuntu Mono", "Courier New", monospace',
+  dejaVuSansMono: '"DejaVu Sans Mono", "Courier New", monospace'
+};
+
+// Terminal font family options with display labels and CSS font stacks
+export const TERMINAL_FONT_FAMILY_OPTIONS: Record<TerminalFontFamily, { label: string; fontStack: string }> = {
+  system: { label: 'System Default', fontStack: TERMINAL_FONT_FAMILY_MAP.system },
+  jetbrainsMono: { label: 'JetBrains Mono', fontStack: TERMINAL_FONT_FAMILY_MAP.jetbrainsMono },
+  firaCode: { label: 'Fira Code', fontStack: TERMINAL_FONT_FAMILY_MAP.firaCode },
+  cascadiaCode: { label: 'Cascadia Code', fontStack: TERMINAL_FONT_FAMILY_MAP.cascadiaCode },
+  consolas: { label: 'Consolas', fontStack: TERMINAL_FONT_FAMILY_MAP.consolas },
+  monaco: { label: 'Monaco', fontStack: TERMINAL_FONT_FAMILY_MAP.monaco },
+  sfMono: { label: 'SF Mono', fontStack: TERMINAL_FONT_FAMILY_MAP.sfMono },
+  sourceCodePro: { label: 'Source Code Pro', fontStack: TERMINAL_FONT_FAMILY_MAP.sourceCodePro },
+  ubuntuMono: { label: 'Ubuntu Mono', fontStack: TERMINAL_FONT_FAMILY_MAP.ubuntuMono },
+  dejaVuSansMono: { label: 'DejaVu Sans Mono', fontStack: TERMINAL_FONT_FAMILY_MAP.dejaVuSansMono }
+};
 
 export const DEFAULT_TERMINAL_FONT_SETTINGS: TerminalFontSettings = {
   fontFamily: 'system',
