@@ -59,7 +59,9 @@ describe('InsightsConfig', () => {
     expect(env.CLAUDE_CODE_OAUTH_TOKEN).toBe('oauth-token');
     expect(env.ANTHROPIC_BASE_URL).toBe('https://api.z.ai');
     expect(env.ANTHROPIC_AUTH_TOKEN).toBe('key');
-    expect(env.PYTHONPATH).toBe(['/site-packages', '/backend'].join(path.delimiter));
+    expect(env.PYTHONPATH).toBe(
+      [path.resolve('/site-packages'), path.resolve('/backend')].join(path.delimiter)
+    );
   });
 
   it('should clear ANTHROPIC env vars in OAuth mode when no API profile is set', async () => {
@@ -84,7 +86,7 @@ describe('InsightsConfig', () => {
 
     const env = await config.getProcessEnv();
 
-    expect(env.PYTHONPATH).toBe('/backend');
+    expect(env.PYTHONPATH).toBe(path.resolve('/backend'));
   });
 
   it('should keep PYTHONPATH from python env when auto-build path is missing', async () => {
@@ -94,6 +96,6 @@ describe('InsightsConfig', () => {
 
     const env = await config.getProcessEnv();
 
-    expect(env.PYTHONPATH).toBe('/site-packages');
+    expect(env.PYTHONPATH).toBe(path.resolve('/site-packages'));
   });
 });

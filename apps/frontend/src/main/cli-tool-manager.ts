@@ -20,7 +20,7 @@
  * - Graceful fallbacks when tools not found
  */
 
-import { execFileSync, execFile, execSync, exec } from 'child_process';
+import { execFileSync, execFile } from 'child_process';
 import { existsSync, readdirSync, promises as fsPromises } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -28,10 +28,19 @@ import { promisify } from 'util';
 import { app } from 'electron';
 import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell, existsAsync } from './env-utils';
 import type { ToolDetectionResult } from '../shared/types';
+import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 
 const execFileAsync = promisify(execFile);
-const execAsync = promisify(exec);
-import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
+
+type ExecFileSyncOptionsWithVerbatim = import('child_process').ExecFileSyncOptions & {
+  windowsVerbatimArguments?: boolean;
+};
+type ExecFileAsyncOptionsWithVerbatim = import('child_process').ExecFileOptionsWithStringEncoding & {
+  windowsVerbatimArguments?: boolean;
+};
+
+const normalizeExecOutput = (output: string | Buffer): string =>
+  typeof output === 'string' ? output : output.toString('utf-8');
 import {
   getWindowsExecutablePaths,
   getWindowsExecutablePathsAsync,
@@ -926,28 +935,51 @@ class CLIToolManager {
    */
   private validateClaude(claudeCmd: string): ToolValidation {
     try {
-      const needsShell = shouldUseShell(claudeCmd);
+      const trimmedCmd = claudeCmd.trim();
+      const unquotedCmd =
+        trimmedCmd.startsWith('"') && trimmedCmd.endsWith('"')
+          ? trimmedCmd.slice(1, -1)
+          : trimmedCmd;
+
+      const needsShell = shouldUseShell(trimmedCmd);
+      const cmdDir = path.dirname(unquotedCmd);
+      const env = getAugmentedEnv(cmdDir && cmdDir !== '.' ? [cmdDir] : []);
 
       let version: string;
 
       if (needsShell) {
-        // For .cmd/.bat files on Windows, use cmd.exe with argument array
-        // This avoids shell command injection while handling spaces in paths
-        version = execFileSync('cmd.exe', ['/c', claudeCmd, '--version'], {
+        // For .cmd/.bat files on Windows, use cmd.exe with a quoted command line
+        // /s preserves quotes so paths with spaces are handled correctly.
+        if (!isSecurePath(unquotedCmd)) {
+          return {
+            valid: false,
+            message: `Claude CLI path failed security validation: ${unquotedCmd}`,
+          };
+        }
+        const cmdExe = process.env.ComSpec
+          || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+        const cmdLine = `""${unquotedCmd}" --version"`;
+        const execOptions: ExecFileSyncOptionsWithVerbatim = {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,
-          env: getAugmentedEnv(),
-        }).trim();
+          windowsVerbatimArguments: true,
+          env,
+        };
+        version = normalizeExecOutput(
+          execFileSync(cmdExe, ['/d', '/s', '/c', cmdLine], execOptions)
+        ).trim();
       } else {
         // For .exe files and non-Windows, use execFileSync
-        version = execFileSync(claudeCmd, ['--version'], {
-          encoding: 'utf-8',
-          timeout: 5000,
-          windowsHide: true,
-          shell: false,
-          env: getAugmentedEnv(),
-        }).trim();
+        version = normalizeExecOutput(
+          execFileSync(unquotedCmd, ['--version'], {
+            encoding: 'utf-8',
+            timeout: 5000,
+            windowsHide: true,
+            shell: false,
+            env,
+          })
+        ).trim();
       }
 
       // Claude CLI version output format: "claude-code version X.Y.Z" or similar
@@ -1042,33 +1074,52 @@ class CLIToolManager {
    */
   private async validateClaudeAsync(claudeCmd: string): Promise<ToolValidation> {
     try {
-      const needsShell = shouldUseShell(claudeCmd);
+      const trimmedCmd = claudeCmd.trim();
+      const unquotedCmd =
+        trimmedCmd.startsWith('"') && trimmedCmd.endsWith('"')
+          ? trimmedCmd.slice(1, -1)
+          : trimmedCmd;
+
+      const needsShell = shouldUseShell(trimmedCmd);
+      const cmdDir = path.dirname(unquotedCmd);
+      const env = await getAugmentedEnvAsync(cmdDir && cmdDir !== '.' ? [cmdDir] : []);
 
       let stdout: string;
 
       if (needsShell) {
-        // For .cmd/.bat files on Windows, use cmd.exe with argument array
-        // This avoids shell command injection while handling spaces in paths
-        const result = await execFileAsync('cmd.exe', ['/c', claudeCmd, '--version'], {
+        // For .cmd/.bat files on Windows, use cmd.exe with a quoted command line
+        // /s preserves quotes so paths with spaces are handled correctly.
+        if (!isSecurePath(unquotedCmd)) {
+          return {
+            valid: false,
+            message: `Claude CLI path failed security validation: ${unquotedCmd}`,
+          };
+        }
+        const cmdExe = process.env.ComSpec
+          || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+        const cmdLine = `""${unquotedCmd}" --version"`;
+        const execOptions: ExecFileAsyncOptionsWithVerbatim = {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,
-          env: await getAugmentedEnvAsync(),
-        });
+          windowsVerbatimArguments: true,
+          env,
+        };
+        const result = await execFileAsync(cmdExe, ['/d', '/s', '/c', cmdLine], execOptions);
         stdout = result.stdout;
       } else {
         // For .exe files and non-Windows, use execFileAsync
-        const result = await execFileAsync(claudeCmd, ['--version'], {
+        const result = await execFileAsync(unquotedCmd, ['--version'], {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,
           shell: false,
-          env: await getAugmentedEnvAsync(),
+          env,
         });
         stdout = result.stdout;
       }
 
-      const version = stdout.trim();
+      const version = normalizeExecOutput(stdout).trim();
       const match = version.match(/(\d+\.\d+\.\d+)/);
       const versionStr = match ? match[1] : version.split('\n')[0];
 

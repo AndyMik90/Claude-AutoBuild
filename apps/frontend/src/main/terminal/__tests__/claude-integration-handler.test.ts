@@ -1,8 +1,10 @@
 import { writeFileSync } from 'fs';
 import { tmpdir } from 'os';
+import path from 'path';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type * as pty from '@lydell/node-pty';
 import type { TerminalProcess } from '../types';
+import { buildCdCommand } from '../../../shared/utils/shell-escape';
 
 /** Escape special regex characters in a string for safe use in RegExp constructor */
 const escapeForRegex = (str: string): string => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -100,7 +102,7 @@ describe('claude-integration-handler', () => {
     invokeClaude(terminal, '/tmp/project', undefined, () => null, vi.fn());
 
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
-    expect(written).toContain("cd '/tmp/project' && ");
+    expect(written).toContain(buildCdCommand('/tmp/project'));
     expect(written).toContain("PATH='/opt/claude/bin:/usr/bin' ");
     expect(written).toContain("'/opt/claude bin/claude'\\''s'");
     expect(mockReleaseSessionId).toHaveBeenCalledWith('term-1');
@@ -233,8 +235,8 @@ describe('claude-integration-handler', () => {
 
     const tokenPath = vi.mocked(writeFileSync).mock.calls[0]?.[0] as string;
     const tokenContents = vi.mocked(writeFileSync).mock.calls[0]?.[1] as string;
-    const tmpDir = escapeForRegex(tmpdir());
-    expect(tokenPath).toMatch(new RegExp(`^${tmpDir}/\\.claude-token-1234-[0-9a-f]{16}$`));
+    const tokenPrefix = path.join(tmpdir(), '.claude-token-1234-');
+    expect(tokenPath).toMatch(new RegExp(`^${escapeForRegex(tokenPrefix)}[0-9a-f]{16}$`));
     expect(tokenContents).toBe("export CLAUDE_CODE_OAUTH_TOKEN='token-value'\n");
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
     expect(written).toContain("HISTFILE= HISTCONTROL=ignorespace ");
@@ -276,8 +278,8 @@ describe('claude-integration-handler', () => {
 
     const tokenPath = vi.mocked(writeFileSync).mock.calls[0]?.[0] as string;
     const tokenContents = vi.mocked(writeFileSync).mock.calls[0]?.[1] as string;
-    const tmpDir = escapeForRegex(tmpdir());
-    expect(tokenPath).toMatch(new RegExp(`^${tmpDir}/\\.claude-token-5678-[0-9a-f]{16}$`));
+    const tokenPrefix = path.join(tmpdir(), '.claude-token-5678-');
+    expect(tokenPath).toMatch(new RegExp(`^${escapeForRegex(tokenPrefix)}[0-9a-f]{16}$`));
     expect(tokenContents).toBe("export CLAUDE_CODE_OAUTH_TOKEN='token-value'\n");
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
     expect(written).toContain(`source '${tokenPath}'`);
