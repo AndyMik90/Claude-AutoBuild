@@ -15,8 +15,10 @@
     "filesNeedIntelligentMerging_other": "{{count}} files will need intelligent merging:",
     "branchHasNewCommitsSinceBuild": "{{branch}} branch has {{count}} new commit since this build started.",
     "branchHasNewCommitsSinceBuild_other": "{{branch}} branch has {{count}} new commits since this build started.",
-    "filesNeedAIMergeDueToRenames": "{{fileCount}} file needs AI merge due to {{renameCount}} file rename.",
-    "filesNeedAIMergeDueToRenames_other": "{{fileCount}} files need AI merge due to {{renameCount}} file renames.",
+    "filesNeedAIMergeDueToRenames": "{{count}} file needs AI merge due to {{renameCount}} file rename.",
+    "filesNeedAIMergeDueToRenames_other": "{{count}} files need AI merge due to {{renameCount}} file renames.",
+    "filesNeedAIMergeDueToRenamesPlural": "{{count}} file needs AI merge due to {{renameCount}} file renames.",
+    "filesNeedAIMergeDueToRenamesPlural_other": "{{count}} files need AI merge due to {{renameCount}} file renames.",
     "fileRenamesDetected": "{{count}} file rename detected - AI will handle the merge.",
     "fileRenamesDetected_other": "{{count}} file renames detected - AI will handle the merge.",
     "filesRenamedOrMoved": "Files may have been renamed or moved - AI will handle the merge."

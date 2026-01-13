@@ -361,7 +361,7 @@ export function WorkspaceStatus({
             {t('taskReview:merge.branchHasNewCommitsSinceBuild', { branch: mergePreview.gitConflicts.baseBranch, count: commitsBehind })}
             {hasPathMappedMerges ? (
               <span className="text-warning">
-                {' '}{t('taskReview:merge.filesNeedAIMergeDueToRenames', { fileCount: pathMappedAIMergeCount, renameCount: totalRenames, count: pathMappedAIMergeCount })}
+                {' '}{t(totalRenames === 1 ? 'taskReview:merge.filesNeedAIMergeDueToRenames' : 'taskReview:merge.filesNeedAIMergeDueToRenamesPlural', { renameCount: totalRenames, count: pathMappedAIMergeCount })}
               </span>
             ) : totalRenames > 0 ? (
               <span className="text-warning"> {t('taskReview:merge.fileRenamesDetected', { count: totalRenames })}</span>
