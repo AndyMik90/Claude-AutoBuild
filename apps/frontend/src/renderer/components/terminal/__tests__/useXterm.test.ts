@@ -58,6 +58,20 @@ vi.mock('../../../../lib/terminal-buffer-manager', () => ({
   }
 }));
 
+// Mock settings store
+vi.mock('../../../stores/settings-store', () => ({
+  useSettingsStore: vi.fn(() => ({
+    settings: {
+      terminalFont: {
+        fontFamily: 'var(--font-mono), "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+        fontSize: 13,
+        lineHeight: 1.2,
+        letterSpacing: 0
+      }
+    }
+  }))
+}));
+
 // Mock navigator.platform for platform detection
 const originalNavigatorPlatform = navigator.platform;
 

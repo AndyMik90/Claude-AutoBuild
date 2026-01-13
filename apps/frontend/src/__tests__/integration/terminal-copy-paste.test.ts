@@ -59,6 +59,20 @@ vi.mock('@xterm/addon-serialize', () => ({
   })
 }));
 
+// Mock settings store
+vi.mock('../../renderer/stores/settings-store', () => ({
+  useSettingsStore: vi.fn(() => ({
+    settings: {
+      terminalFont: {
+        fontFamily: 'var(--font-mono), "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+        fontSize: 13,
+        lineHeight: 1.2,
+        letterSpacing: 0
+      }
+    }
+  }))
+}));
+
 describe('Terminal copy/paste integration', () => {
   let mockClipboard: {
     writeText: Mock;
