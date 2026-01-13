@@ -46,17 +46,14 @@ function sanitizeWorktreeName(value: string, maxLength?: number, trimTrailing = 
     .replace(/_{2,}/g, '_') // Collapse consecutive underscores
     .replace(/^[-_]+/, ''); // Trim leading hyphens/underscores only
 
-  // Only trim trailing hyphens/underscores when explicitly requested (final validation)
-  if (trimTrailing) {
-    sanitized = sanitized.replace(/[-_]+$/, '');
-  }
-
   if (maxLength) {
     sanitized = sanitized.slice(0, maxLength);
-    // Trim trailing hyphens/underscores after slicing for final output
-    if (trimTrailing) {
-      sanitized = sanitized.replace(/[-_]+$/, '');
-    }
+  }
+
+  // Only trim trailing hyphens/underscores when explicitly requested (final validation)
+  // Applied once at the end after all other transformations including maxLength slice
+  if (trimTrailing) {
+    sanitized = sanitized.replace(/[-_]+$/, '');
   }
 
   return sanitized;
@@ -103,8 +100,11 @@ export function CreateWorktreeDialog({
   const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
 
-  // Preview name with trailing hyphens/underscores trimmed (for branch preview)
-  const previewName = useMemo(() => sanitizeWorktreeName(name, undefined, true) || 'name', [name]);
+  // Sanitized name for validation (without display fallback)
+  const sanitizedName = useMemo(() => sanitizeWorktreeName(name, undefined, true), [name]);
+
+  // Preview name with fallback for display (using i18n)
+  const previewName = sanitizedName || t('terminal:worktree.namePlaceholder');
 
   // Fetch branches when dialog opens
   useEffect(() => {
@@ -151,9 +151,10 @@ export function CreateWorktreeDialog({
   }, [open, projectPath, project?.settings?.mainBranch]);
 
   const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow typing freely, but convert spaces to hyphens as user types
-    // Full sanitization happens on submit
-    const rawValue = e.target.value.replace(/\s+/g, '-');
+    // Apply lowercase and convert spaces to hyphens as user types
+    // This reduces the visual gap between input and preview
+    // Full sanitization (removing invalid chars) happens on submit
+    const rawValue = e.target.value.toLowerCase().replace(/\s+/g, '-');
     setName(rawValue);
     setError(null);
   }, []);
@@ -357,7 +358,7 @@ export function CreateWorktreeDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isCreating}>
             {t('common:buttons.cancel')}
           </Button>
-          <Button onClick={handleCreate} disabled={isCreating || !name.trim()}>
+          <Button onClick={handleCreate} disabled={isCreating || !sanitizedName}>
             {isCreating ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
