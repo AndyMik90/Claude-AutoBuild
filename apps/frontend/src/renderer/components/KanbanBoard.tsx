@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from 'react';
+import { useState, useMemo, memo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, AlertCircle } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, AlertCircle, List, Settings2 } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -28,8 +28,10 @@ import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
 import { persistTaskStatus, forceCompleteTask, archiveTasks } from '../stores/task-store';
+import { useQueueStore, loadQueueConfig, fetchQueueStatus } from '../stores/queue-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
+import { QueueSettingsDialog } from './QueueSettingsDialog';
 import type { Task, TaskStatus } from '../../shared/types';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
@@ -57,6 +59,11 @@ interface DroppableColumnProps {
   archivedCount?: number;
   showArchived?: boolean;
   onToggleArchived?: () => void;
+  // Queue management props (for backlog column)
+  projectId?: string;
+  queueEnabled?: boolean;
+  runningCount?: number;
+  onOpenQueueSettings?: () => void;
 }
 
 /**
@@ -100,6 +107,10 @@ function droppableColumnPropsAreEqual(
   if (prevProps.archivedCount !== nextProps.archivedCount) return false;
   if (prevProps.showArchived !== nextProps.showArchived) return false;
   if (prevProps.onToggleArchived !== nextProps.onToggleArchived) return false;
+  if (prevProps.projectId !== nextProps.projectId) return false;
+  if (prevProps.queueEnabled !== nextProps.queueEnabled) return false;
+  if (prevProps.runningCount !== nextProps.runningCount) return false;
+  if (prevProps.onOpenQueueSettings !== nextProps.onOpenQueueSettings) return false;
 
   // Deep compare tasks
   const tasksEqual = tasksAreEquivalent(prevProps.tasks, nextProps.tasks);
@@ -159,7 +170,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived, projectId, queueEnabled, runningCount, onOpenQueueSettings }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -251,6 +262,38 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
             >
               <Plus className="h-4 w-4" />
             </Button>
+          )}
+          {status === 'backlog' && projectId && onOpenQueueSettings && (
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    'h-7 w-7 transition-colors relative',
+                    queueEnabled
+                      ? 'text-info bg-info/10 hover:bg-info/20'
+                      : 'hover:bg-muted-foreground/10 hover:text-muted-foreground'
+                  )}
+                  onClick={onOpenQueueSettings}
+                  aria-label={t('tasks:queue.settings.ariaLabel')}
+                >
+                  {queueEnabled ? <Settings2 className="h-3.5 w-3.5" /> : <List className="h-3.5 w-3.5" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="text-xs">
+                  {queueEnabled
+                    ? t('tasks:queue.settings.queueEnabledTooltip')
+                    : t('tasks:queue.settings.queueDisabledTooltip')}
+                  {runningCount !== undefined && queueEnabled && (
+                    <span className="ml-1 text-muted-foreground">
+                      ({runningCount})
+                    </span>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
           )}
           {status === 'done' && onArchiveAll && tasks.length > 0 && !showArchived && (
             <Button
@@ -363,6 +406,48 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     isProcessing: false,
     error: undefined
   });
+
+  // Queue settings dialog state
+  const [queueDialogOpen, setQueueDialogOpen] = useState(false);
+  const [queueConfig, setQueueConfig] = useState<{ enabled: boolean; maxConcurrent: 1 | 2 | 3 }>({ enabled: false, maxConcurrent: 1 });
+  const [queueRunningCount, setQueueRunningCount] = useState(0);
+
+  // Load queue config and status when tasks change
+  useEffect(() => {
+    const projectId = tasks[0]?.projectId;
+    if (!projectId) return;
+
+    // Load queue config
+    loadQueueConfig(projectId).then(config => {
+      if (config) {
+        setQueueConfig(config);
+      }
+    });
+
+    // Load queue status
+    fetchQueueStatus(projectId).then(status => {
+      if (status) {
+        setQueueRunningCount(status.runningCount);
+      }
+    });
+
+    // Listen for queue status updates
+    const handleQueueStatusUpdate = (updatedProjectId: string, status: any) => {
+      if (updatedProjectId === projectId) {
+        setQueueConfig({ enabled: status.enabled, maxConcurrent: status.maxConcurrent });
+        setQueueRunningCount(status.runningCount);
+      }
+    };
+
+    const unsubscribe = window.electronAPI.onQueueStatusUpdate(handleQueueStatusUpdate);
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [tasks]);
+
+  // Get projectId from tasks (all tasks belong to the same project)
+  const projectId = tasks[0]?.projectId;
 
   // Calculate archived count for Done column button
   const archivedCount = useMemo(() =>
@@ -603,6 +688,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               archivedCount={status === 'done' ? archivedCount : undefined}
               showArchived={status === 'done' ? showArchived : undefined}
               onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
+              projectId={status === 'backlog' ? projectId : undefined}
+              queueEnabled={status === 'backlog' ? queueConfig.enabled : undefined}
+              runningCount={status === 'backlog' ? queueRunningCount : undefined}
+              onOpenQueueSettings={status === 'backlog' ? () => setQueueDialogOpen(true) : undefined}
             />
           ))}
         </div>
@@ -631,6 +720,31 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         }}
         onConfirm={handleWorktreeCleanupConfirm}
       />
+
+      {/* Queue settings dialog */}
+      {projectId && (
+        <QueueSettingsDialog
+          projectId={projectId}
+          open={queueDialogOpen}
+          onOpenChange={setQueueDialogOpen}
+          currentConfig={queueConfig}
+          runningCount={queueRunningCount}
+          onSaved={() => {
+            // Reload queue config after save
+            loadQueueConfig(projectId).then(config => {
+              if (config) {
+                setQueueConfig(config);
+              }
+            });
+            // Reload queue status after save
+            fetchQueueStatus(projectId).then(status => {
+              if (status) {
+                setQueueRunningCount(status.runningCount);
+              }
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

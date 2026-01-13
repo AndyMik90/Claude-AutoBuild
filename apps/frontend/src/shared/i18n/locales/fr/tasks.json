@@ -257,7 +257,10 @@
       "exceedsWarning": "Attention : {{running}} tâches sont en cours mais le maximum est {{max}}. Les nouvelles tâches ne démarreront pas tant qu'un emplacement ne sera pas disponible.",
       "disabledInfo": "Activez la file pour démarrer automatiquement les tâches depuis Planification lorsque des emplacements deviennent disponibles dans En cours.",
       "save": "Enregistrer les paramètres",
-      "saveFailed": "Échec de l'enregistrement des paramètres de la file. Veuillez réessayer."
+      "saveFailed": "Échec de l'enregistrement des paramètres de la file. Veuillez réessayer.",
+      "ariaLabel": "Ouvrir les paramètres de la file",
+      "queueEnabledTooltip": "File activée",
+      "queueDisabledTooltip": "File désactivée"
     }
   }
 }

@@ -257,7 +257,10 @@
       "exceedsWarning": "Warning: {{running}} tasks are running but max is {{max}}. New tasks won't start until a slot is available.",
       "disabledInfo": "Enable the queue to automatically start tasks from Planning when slots become available in In Progress.",
       "save": "Save Settings",
-      "saveFailed": "Failed to save queue settings. Please try again."
+      "saveFailed": "Failed to save queue settings. Please try again.",
+      "ariaLabel": "Open queue settings",
+      "queueEnabledTooltip": "Queue enabled",
+      "queueDisabledTooltip": "Queue disabled"
     }
   }
 }
