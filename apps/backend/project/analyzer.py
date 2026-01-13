@@ -194,10 +194,31 @@ class ProjectAnalyzer:
         came from a validated parent project with full context (e.g., node_modules).
         """
         # Never re-analyze inherited profiles - they came from a validated parent
+        # But validate that inherited_from points to a legitimate parent
         if profile.inherited_from:
-            return False
+            parent = Path(profile.inherited_from)
+            # Validate the inherited_from path:
+            # 1. Must exist and be a directory
+            # 2. Current project must be a descendant of the parent
+            # 3. Parent must contain a valid security profile
+            if (
+                parent.exists()
+                and parent.is_dir()
+                and self._is_descendant_of(self.project_dir, parent)
+                and (parent / self.PROFILE_FILENAME).exists()
+            ):
+                return False
+            # If validation fails, treat as non-inherited and check hash
         current_hash = self.compute_project_hash()
         return current_hash != profile.project_hash
+
+    def _is_descendant_of(self, child: Path, parent: Path) -> bool:
+        """Check if child path is a descendant of parent path."""
+        try:
+            child.resolve().relative_to(parent.resolve())
+            return True
+        except ValueError:
+            return False
 
     def analyze(self, force: bool = False) -> SecurityProfile:
         """

