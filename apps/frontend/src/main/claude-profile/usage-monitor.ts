@@ -17,7 +17,7 @@
 import { EventEmitter } from 'events';
 import { spawn } from 'child_process';
 import { getClaudeProfileManager } from '../claude-profile-manager';
-import { ClaudeUsageSnapshot } from '../../shared/types/agent';
+import { ClaudeUsageSnapshot, RESETTING_SOON } from '../../shared/types/agent';
 import { loadProfilesFile, detectProvider, fetchUsageForProfile } from '../services/profile';
 import { getClaudeCliInvocationAsync } from '../claude-cli-utils';
 import { getSpawnCommand, getSpawnOptions } from '../env-utils';
@@ -29,11 +29,11 @@ export class UsageMonitor extends EventEmitter {
   private currentUsage: ClaudeUsageSnapshot | null = null;
   private isChecking = false;
   private useApiMethod = true; // Try API first, fall back to CLI if it fails
-  
+
   // Swap loop protection: track profiles that recently failed auth
   private authFailedProfiles: Map<string, number> = new Map(); // profileId -> timestamp
   private static AUTH_FAILURE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown
-  
+
   // Debug flag for verbose logging
   private readonly isDebug = process.env.DEBUG === 'true';
 
@@ -134,6 +134,8 @@ export class UsageMonitor extends EventEmitter {
       if (usage.provider === 'anthropic-oauth') {
         const profileManager = getClaudeProfileManager();
         const settings = profileManager.getAutoSwitchSettings();
+        const activeProfile = profileManager.getProfile(usage.profileId);
+        const decryptedToken = activeProfile ? profileManager.getProfileToken(activeProfile.id) : undefined;
         const sessionExceeded = usage.sessionPercent >= settings.sessionThreshold;
         const weeklyExceeded = usage.weeklyPercent >= settings.weeklyThreshold;
 
@@ -142,7 +144,7 @@ export class UsageMonitor extends EventEmitter {
           console.warn('[UsageMonitor:TRACE] Threshold exceeded', {
             sessionPercent: usage.sessionPercent,
             weekPercent: usage.weeklyPercent,
-            activeProfile: activeProfile.id,
+            activeProfile: activeProfile?.id,
             hasToken: !!decryptedToken
           });
         }
@@ -156,7 +158,7 @@ export class UsageMonitor extends EventEmitter {
 
         // Attempt proactive swap
         await this.performProactiveSwap(
-          activeProfile.id,
+          activeProfile?.id || usage.profileId,
           sessionExceeded ? 'session' : 'weekly'
         );
       } else {
@@ -167,17 +169,18 @@ export class UsageMonitor extends EventEmitter {
           });
         }
       }
+      }
     } catch (error) {
       // Check for auth failure (401/403) from fetchUsageViaAPI
       if ((error as any).statusCode === 401 || (error as any).statusCode === 403) {
         const profileManager = getClaudeProfileManager();
         const activeProfile = profileManager.getActiveProfile();
-        
+
         if (activeProfile) {
           // Mark this profile as auth-failed to prevent swap loops
           this.authFailedProfiles.set(activeProfile.id, Date.now());
           console.warn('[UsageMonitor] Auth failure detected, marked profile as failed:', activeProfile.id);
-          
+
           // Clean up expired entries from the failed profiles map
           const now = Date.now();
           this.authFailedProfiles.forEach((timestamp, profileId) => {
@@ -185,7 +188,7 @@ export class UsageMonitor extends EventEmitter {
               this.authFailedProfiles.delete(profileId);
             }
           });
-          
+
           try {
             const excludeProfiles = Array.from(this.authFailedProfiles.keys());
             console.warn('[UsageMonitor] Attempting proactive swap (excluding failed profiles):', excludeProfiles);
@@ -373,7 +376,7 @@ export class UsageMonitor extends EventEmitter {
       if (error?.statusCode === 401 || error?.statusCode === 403) {
         throw error;
       }
-      
+
       console.error('[UsageMonitor] API fetch failed:', error);
       return null;
     }
@@ -395,13 +398,18 @@ export class UsageMonitor extends EventEmitter {
         let stdout = '';
         let stderr = '';
         let timedOut = false;
+        let timeoutId: NodeJS.Timeout;
 
         const proc = spawn(getSpawnCommand(claudeCmd), ['/usage'], getSpawnOptions(claudeCmd, {
-          env: {
-            // Suppress interactive prompts
-            ...(process.env.CLAUDE_CONFIG_DIR && { CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR }),
-          }
+          env: process.env as Record<string, string>
         }));
+
+        // Handle spawn errors (e.g., command not found)
+        proc.on('error', (err) => {
+          clearTimeout(timeoutId);
+          console.error('[UsageMonitor] CLI spawn error:', err);
+          resolve(null);
+        });
 
         proc.stdout?.on('data', (data) => {
           stdout += data.toString();
@@ -411,14 +419,15 @@ export class UsageMonitor extends EventEmitter {
           stderr += data.toString();
         });
 
-        const timeoutId = setTimeout(() => {
+        timeoutId = setTimeout(() => {
           timedOut = true;
           proc.kill();
           console.warn('[UsageMonitor] CLI /usage command timed out');
           resolve(null);
         }, 10000);
 
-        proc.on('close', (code) => {
+        // Use once() to ensure the close handler only fires once
+        proc.once('close', (code) => {
           clearTimeout(timeoutId);
           if (timedOut) return;
 
@@ -438,7 +447,7 @@ export class UsageMonitor extends EventEmitter {
                 limitType: usageData.weeklyUsagePercent > usageData.sessionUsagePercent
                   ? 'weekly'
                   : 'session',
-                provider: 'anthropic-api' // CLI method works with API keys
+                provider: 'anthropic-oauth' // CLI fallback for OAuth profiles
               };
 
               console.warn('[UsageMonitor] Successfully fetched via CLI');
@@ -470,7 +479,7 @@ export class UsageMonitor extends EventEmitter {
       const now = new Date();
       const diffMs = date.getTime() - now.getTime();
 
-      if (diffMs <= 0) return 'Resetting soon';
+      if (diffMs <= 0) return RESETTING_SOON;
 
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
       const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
@@ -499,12 +508,12 @@ export class UsageMonitor extends EventEmitter {
     additionalExclusions: string[] = []
   ): Promise<void> {
     const profileManager = getClaudeProfileManager();
-    
+
     // Get all profiles to swap to, excluding current and any additional exclusions
     const allProfiles = profileManager.getProfilesSortedByAvailability();
     const excludeIds = new Set([currentProfileId, ...additionalExclusions]);
     const eligibleProfiles = allProfiles.filter(p => !excludeIds.has(p.id));
-    
+
     if (eligibleProfiles.length === 0) {
       console.warn('[UsageMonitor] No alternative profile for proactive swap (excluded:', Array.from(excludeIds), ')');
       this.emit('proactive-swap-failed', {
@@ -514,7 +523,7 @@ export class UsageMonitor extends EventEmitter {
       });
       return;
     }
-    
+
     // Use the best available from eligible profiles
     const bestProfile = eligibleProfiles[0];
 

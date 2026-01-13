@@ -16,7 +16,7 @@ import {
   TooltipTrigger,
 } from './ui/tooltip';
 import type { ClaudeUsageSnapshot } from '../../shared/types/agent';
-import { RESETTING_SOON } from '../../main/services/profile/profile-usage';
+import { RESETTING_SOON } from '../../shared/types/agent';
 
 export function UsageIndicator() {
   const { t } = useTranslation('navigation');
@@ -62,7 +62,7 @@ export function UsageIndicator() {
       return;
     }
 
-    // Initial calculation
+    // Derive reset timestamp based on limitType
     const resetTimestamp = usage.limitType === 'weekly'
       ? usage.weeklyResetTimestamp
       : usage.sessionResetTimestamp;
@@ -74,7 +74,7 @@ export function UsageIndicator() {
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [usage, calculateCountdown]);
+  }, [usage, calculateCountdown, usage?.limitType, usage?.weeklyResetTimestamp, usage?.sessionResetTimestamp]);
 
   useEffect(() => {
     // Listen for usage updates from main process

@@ -9,16 +9,10 @@
  */
 
 import type { ClaudeUsageSnapshot } from '../../../shared/types/agent';
+import { RESETTING_SOON } from '../../../shared/types/agent';
 
-// ============================================
-// Constants
-// ============================================
-
-/**
- * Sentinel value for "resetting soon" state
- * Frontend should map this to a localized string via i18n
- */
-export const RESETTING_SOON = '__RESETTING_SOON__' as const;
+// Re-export for convenience
+export { RESETTING_SOON };
 
 // ============================================
 // Provider Detection

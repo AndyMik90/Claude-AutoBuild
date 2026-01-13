@@ -3,6 +3,17 @@
  */
 
 // ============================================
+// Constants
+// ============================================
+
+/**
+ * Sentinel value for "resetting soon" state
+ * Used in usage snapshots when the reset time has passed
+ * Frontend should map this to a localized string via i18n
+ */
+export const RESETTING_SOON = '__RESETTING_SOON__' as const;
+
+// ============================================
 // Claude Profile Types (Multi-Account Support)
 // ============================================
 
