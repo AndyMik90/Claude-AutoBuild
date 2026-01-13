@@ -1,0 +1,56 @@
+<a
+    href="/projects/{{ project.id }}/specs/{{ spec.id }}"
+    class="flex items-center justify-between px-6 py-4 hover:bg-gray-700 transition-colors"
+>
+    <div class="flex items-center gap-4">
+        <!-- Status Icon -->
+        {% if spec.status == 'completed' or spec.status == 'merged' %}
+            <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+        {% elif spec.status == 'building' %}
+            <svg class="w-5 h-5 text-yellow-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+        {% elif spec.status == 'failed' %}
+            <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        {% else %}
+            <div class="w-5 h-5 border-2 border-gray-500 rounded-full"></div>
+        {% endif %}
+
+        <div>
+            <div class="font-medium">{{ spec.name }}</div>
+            <div class="text-sm text-gray-400">{{ spec.id }}</div>
+        </div>
+    </div>
+
+    <div class="flex items-center gap-4">
+        <!-- Badges -->
+        {% if spec.has_implementation_plan %}
+            <span class="px-2 py-1 bg-blue-600/20 text-blue-400 text-xs rounded">Plan</span>
+        {% endif %}
+        {% if spec.has_qa_report %}
+            <span class="px-2 py-1 bg-green-600/20 text-green-400 text-xs rounded">QA</span>
+        {% endif %}
+
+        <!-- Status Badge -->
+        {% set status_colors = {
+            'draft': 'bg-gray-600 text-gray-300',
+            'ready': 'bg-blue-600 text-blue-100',
+            'building': 'bg-yellow-600 text-yellow-100',
+            'completed': 'bg-green-600 text-green-100',
+            'failed': 'bg-red-600 text-red-100',
+            'merged': 'bg-purple-600 text-purple-100'
+        } %}
+        <span class="px-2 py-1 rounded text-xs {{ status_colors.get(spec.status, 'bg-gray-600') }}">
+            {{ spec.status.title() }}
+        </span>
+
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+    </div>
+</a>

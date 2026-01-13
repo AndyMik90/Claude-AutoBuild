@@ -1,0 +1,16 @@
+// Re-export all components
+export * from './Sidebar';
+export * from './KanbanBoard';
+export * from './TaskCard';
+export * from './TaskDetailPanel';
+export * from './TaskCreationWizard';
+export * from './TaskEditDialog';
+// Note: ProjectSettings modal is deprecated - use unified AppSettings instead
+export * from './AppSettings';
+export * from './Context';
+export * from './Ideation';
+export * from './GitHubIssues';
+export * from './Changelog';
+export * from './WelcomeScreen';
+export * from './EnvConfigModal';
+export * from './AddProjectModal';

@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} - Auto-Claude{% endblock %}
+{% block header %}{{ project.name }}{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+    <button
+        hx-post="/api/projects/{{ project.id }}/pull"
+        hx-target="#toast-container"
+        hx-swap="beforeend"
+        class="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+    >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Pull
+    </button>
+    <button
+        onclick="document.getElementById('createSpecModal').showModal()"
+        class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+    >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Create Spec
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="{ showCreateModal: false }">
+    <!-- Breadcrumb -->
+    <nav class="mb-6">
+        <ol class="flex items-center gap-2 text-sm text-gray-400">
+            <li><a href="/" class="hover:text-white">Dashboard</a></li>
+            <li>/</li>
+            <li class="text-white">{{ project.name }}</li>
+        </ol>
+    </nav>
+
+    <!-- Project Info -->
+    <div class="bg-gray-800 rounded-xl p-6 mb-6">
+        <div class="flex items-start justify-between">
+            <div>
+                <h2 class="text-lg font-medium mb-2">{{ project.name }}</h2>
+                <p class="text-gray-400 text-sm mb-4">{{ project.repo_url }}</p>
+                <div class="flex items-center gap-4 text-sm text-gray-500">
+                    <span>Created: {{ project.created_at.strftime('%Y-%m-%d') if project.created_at else 'N/A' }}</span>
+                    <span>Last accessed: {{ project.last_accessed.strftime('%Y-%m-%d %H:%M') if project.last_accessed else 'N/A' }}</span>
+                </div>
+            </div>
+            <div x-data="{ confirmDelete: false }">
+                <button
+                    x-show="!confirmDelete"
+                    @click="confirmDelete = true"
+                    class="p-2 text-gray-400 hover:text-red-500 hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+                <div x-show="confirmDelete" class="flex items-center gap-2">
+                    <span class="text-sm text-gray-400">Delete?</span>
+                    <button
+                        hx-delete="/api/projects/htmx/{{ project.id }}"
+                        hx-target="#toast-container"
+                        hx-swap="beforeend"
+                        @htmx:after-request="window.location.href = '/'"
+                        class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm"
+                    >
+                        Yes
+                    </button>
+                    <button
+                        @click="confirmDelete = false"
+                        class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm"
+                    >
+                        No
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Specs List -->
+    <div class="bg-gray-800 rounded-xl">
+        <div class="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
+            <h3 class="text-lg font-medium">Specs</h3>
+            <span class="text-sm text-gray-400">{{ specs|length }} spec{% if specs|length != 1 %}s{% endif %}</span>
+        </div>
+
+        <div id="specs-list"
+             hx-trigger="specCreated from:body"
+             hx-get="/api/projects/{{ project.id }}/specs/htmx/list"
+             hx-swap="innerHTML">
+            {% if specs %}
+                <div class="divide-y divide-gray-700">
+                    {% for spec in specs %}
+                        {% include "partials/_spec_row.html" %}
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="p-12 text-center">
+                    <svg class="w-12 h-12 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h4 class="text-lg font-medium text-gray-400 mb-2">No specs yet</h4>
+                    <p class="text-gray-500 mb-4">Create a spec to start building features</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Create Spec Modal -->
+    <dialog
+        id="createSpecModal"
+        class="bg-gray-800 rounded-xl p-6 w-full max-w-lg backdrop:bg-black/50"
+    >
+        <form
+            hx-post="/api/projects/{{ project.id }}/specs/htmx/create"
+            hx-target="#toast-container"
+            hx-swap="beforeend"
+            @htmx:after-request="if(event.detail.successful) document.getElementById('createSpecModal').close()"
+            class="space-y-4"
+        >
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">Create Spec</h2>
+                <button
+                    type="button"
+                    onclick="document.getElementById('createSpecModal').close()"
+                    class="p-1 hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div>
+                <label for="task" class="block text-sm font-medium text-gray-300 mb-1">
+                    Task Description
+                </label>
+                <textarea
+                    id="task"
+                    name="task"
+                    rows="4"
+                    placeholder="Describe what you want to build..."
+                    required
+                    class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg
+                           focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                           placeholder-gray-400 resize-none"
+                ></textarea>
+            </div>
+
+            <div>
+                <label for="complexity" class="block text-sm font-medium text-gray-300 mb-1">
+                    Complexity (optional)
+                </label>
+                <select
+                    id="complexity"
+                    name="complexity"
+                    class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg
+                           focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="">Auto-detect</option>
+                    <option value="simple">Simple (3 phases)</option>
+                    <option value="standard">Standard (6-7 phases)</option>
+                    <option value="complex">Complex (8 phases)</option>
+                </select>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4">
+                <button
+                    type="button"
+                    onclick="document.getElementById('createSpecModal').close()"
+                    class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                >
+                    Create Spec
+                </button>
+            </div>
+        </form>
+    </dialog>
+</div>
+{% endblock %}

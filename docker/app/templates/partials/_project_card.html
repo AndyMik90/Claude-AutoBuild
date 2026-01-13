@@ -1,0 +1,79 @@
+<div class="bg-gray-800 rounded-xl p-6 hover:bg-gray-750 transition-colors group"
+     x-data="{ showDeleteConfirm: false }"
+     id="project-card-{{ project.id }}">
+    <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-gray-700 rounded-lg">
+                <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+            </div>
+            <div>
+                <h3 class="font-medium">{{ project.name }}</h3>
+                <p class="text-sm text-gray-400 truncate max-w-xs">{{ project.repo_url }}</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            {% set status_colors = {
+                'active': 'bg-green-500',
+                'building': 'bg-yellow-500',
+                'error': 'bg-red-500'
+            } %}
+            <span class="w-2 h-2 rounded-full {{ status_colors.get(project.status, 'bg-green-500') }}"></span>
+
+            <!-- Delete button (visible on hover) -->
+            <button
+                @click="showDeleteConfirm = true"
+                class="p-1 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                title="Delete project"
+            >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation -->
+    <div x-show="showDeleteConfirm"
+         x-transition
+         class="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg">
+        <p class="text-sm text-red-300 mb-2">Delete "{{ project.name }}"?</p>
+        <p class="text-xs text-gray-400 mb-3">This will remove the project and all its files.</p>
+        <div class="flex gap-2">
+            <button
+                @click="showDeleteConfirm = false"
+                class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+            >
+                Cancel
+            </button>
+            <button
+                hx-delete="/api/projects/htmx/{{ project.id }}"
+                hx-target="#project-card-{{ project.id }}"
+                hx-swap="outerHTML"
+                class="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 rounded transition-colors"
+            >
+                Delete
+            </button>
+        </div>
+    </div>
+
+    <div class="flex items-center justify-between">
+        <span class="text-sm text-gray-500">
+            Last accessed: {{ project.last_accessed.strftime('%Y-%m-%d') if project.last_accessed else 'Never' }}
+        </span>
+
+        <a
+            href="/projects/{{ project.id }}"
+            class="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm transition-colors"
+        >
+            Open
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </a>
+    </div>
+</div>

@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}{{ spec.name }} - {{ project.name }} - Auto-Claude{% endblock %}
+{% block header %}{{ spec.name }}{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2" x-data="{ building: false }">
+    <!-- Build Controls -->
+    <template x-if="!building">
+        <button
+            hx-post="/api/projects/{{ project.id }}/specs/{{ spec.id }}/htmx/build"
+            hx-target="#toast-container"
+            hx-swap="beforeend"
+            @htmx:before-request="building = true"
+            class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+        >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Start Build
+        </button>
+    </template>
+
+    <!-- Merge/Discard (show after build) -->
+    {% if spec.status == 'completed' %}
+    <button
+        hx-post="/api/projects/{{ project.id }}/specs/{{ spec.id }}/htmx/merge"
+        hx-target="#toast-container"
+        hx-swap="beforeend"
+        hx-confirm="Are you sure you want to merge these changes?"
+        class="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+    >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </svg>
+        Merge
+    </button>
+    <button
+        hx-post="/api/projects/{{ project.id }}/specs/{{ spec.id }}/htmx/discard"
+        hx-target="#toast-container"
+        hx-swap="beforeend"
+        hx-confirm="Are you sure you want to discard these changes?"
+        class="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+    >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+        Discard
+    </button>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="{ activeTab: 'spec' }">
+    <!-- Breadcrumb -->
+    <nav class="mb-6">
+        <ol class="flex items-center gap-2 text-sm text-gray-400">
+            <li><a href="/" class="hover:text-white">Dashboard</a></li>
+            <li>/</li>
+            <li><a href="/projects/{{ project.id }}" class="hover:text-white">{{ project.name }}</a></li>
+            <li>/</li>
+            <li class="text-white">{{ spec.name }}</li>
+        </ol>
+    </nav>
+
+    <!-- Status Badge -->
+    <div class="mb-6">
+        {% set status_colors = {
+            'draft': 'bg-gray-600',
+            'ready': 'bg-blue-600',
+            'building': 'bg-yellow-600',
+            'completed': 'bg-green-600',
+            'failed': 'bg-red-600',
+            'merged': 'bg-purple-600'
+        } %}
+        <span class="px-3 py-1 rounded-full text-sm {{ status_colors.get(spec.status, 'bg-gray-600') }}">
+            {{ spec.status.title() }}
+        </span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="border-b border-gray-700 mb-6">
+        <nav class="flex gap-4">
+            <button
+                @click="activeTab = 'spec'"
+                :class="activeTab === 'spec' ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-white'"
+                class="px-4 py-2 border-b-2 transition-colors"
+            >
+                Spec
+            </button>
+            <button
+                @click="activeTab = 'plan'"
+                :class="activeTab === 'plan' ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-white'"
+                class="px-4 py-2 border-b-2 transition-colors"
+            >
+                Implementation Plan
+            </button>
+            <button
+                @click="activeTab = 'logs'"
+                :class="activeTab === 'logs' ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-white'"
+                class="px-4 py-2 border-b-2 transition-colors"
+            >
+                Build Logs
+            </button>
+        </nav>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="bg-gray-800 rounded-xl p-6">
+        <!-- Spec Content -->
+        <div x-show="activeTab === 'spec'">
+            {% if spec_content %}
+                <div class="prose prose-invert max-w-none">
+                    <pre class="whitespace-pre-wrap text-gray-300 text-sm leading-relaxed">{{ spec_content }}</pre>
+                </div>
+            {% else %}
+                <p class="text-gray-500">No spec content available yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- Implementation Plan -->
+        <div x-show="activeTab === 'plan'" x-cloak>
+            {% if implementation_plan %}
+                <div class="space-y-4">
+                    {% if implementation_plan.subtasks %}
+                        {% for subtask in implementation_plan.subtasks %}
+                            <div class="flex items-start gap-3 p-4 bg-gray-700 rounded-lg">
+                                {% set subtask_status = subtask.status | default('pending') %}
+                                {% if subtask_status == 'completed' %}
+                                    <svg class="w-5 h-5 text-green-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                {% elif subtask_status == 'in_progress' %}
+                                    <svg class="w-5 h-5 text-yellow-500 mt-0.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                    </svg>
+                                {% else %}
+                                    <div class="w-5 h-5 border-2 border-gray-500 rounded-full mt-0.5"></div>
+                                {% endif %}
+                                <div class="flex-1">
+                                    <h4 class="font-medium">{{ subtask.title | default(subtask.name | default('Untitled')) }}</h4>
+                                    {% if subtask.description %}
+                                        <p class="text-sm text-gray-400 mt-1">{{ subtask.description }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-gray-500">No subtasks defined in the implementation plan.</p>
+                    {% endif %}
+                </div>
+            {% else %}
+                <p class="text-gray-500">No implementation plan available yet. Start a build to generate one.</p>
+            {% endif %}
+        </div>
+
+        <!-- Build Logs -->
+        <div x-show="activeTab === 'logs'" x-cloak>
+            <div
+                id="log-viewer"
+                class="log-viewer bg-gray-900 rounded-lg p-4 h-96 overflow-auto text-green-400"
+                hx-ext="ws"
+                ws-connect="/ws/logs/{{ project.id }}/{{ spec.id }}"
+            >
+                <div class="text-gray-500">Connecting to log stream...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Setup WebSocket for log streaming when logs tab is active
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('logViewer', () => ({
+            init() {
+                const viewer = document.getElementById('log-viewer');
+                const wsUrl = `ws://${window.location.host}/ws/logs/{{ project.id }}/{{ spec.id }}`;
+
+                const ws = new WebSocket(wsUrl);
+                ws.onmessage = (event) => {
+                    viewer.innerHTML += event.data;
+                    viewer.scrollTop = viewer.scrollHeight;
+                };
+                ws.onclose = () => {
+                    viewer.innerHTML += '\n[Connection closed]\n';
+                };
+                ws.onerror = () => {
+                    viewer.innerHTML = '<span class="text-red-500">Failed to connect to log stream</span>';
+                };
+            }
+        }));
+    });
+</script>
+{% endblock %}

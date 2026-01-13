@@ -1,0 +1,849 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Auto-Build UI Design System - Oscura Midnight Theme */
+/* A modern, professional design system with deep dark mode and warm yellow accents */
+
+/* Define custom theme colors for Tailwind CSS v4 */
+@theme {
+  /* Font families */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+
+  /* Colors - using CSS variables for theme switching */
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  /* Semantic colors */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  /* Border radius - from design system */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-full: 9999px;
+
+  /* Animations */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-fade-in: fade-in 0.25s cubic-bezier(0, 0, 0.2, 1);
+  --animate-slide-up: slide-up 0.25s cubic-bezier(0, 0, 0.2, 1);
+  --animate-scale-in: scale-in 0.2s cubic-bezier(0, 0, 0.2, 1);
+
+  @keyframes accordion-down {
+    from { height: 0 }
+    to { height: var(--radix-accordion-content-height) }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height) }
+    to { height: 0 }
+  }
+  @keyframes fade-in {
+    from { opacity: 0 }
+    to { opacity: 1 }
+  }
+  @keyframes slide-up {
+    from { transform: translateY(8px); opacity: 0 }
+    to { transform: translateY(0); opacity: 1 }
+  }
+  @keyframes scale-in {
+    from { transform: scale(0.95); opacity: 0 }
+    to { transform: scale(1); opacity: 1 }
+  }
+}
+
+/* CSS variables for light mode (secondary consideration per design system) */
+:root {
+  /* Light Mode - Warm off-white tones */
+  --background: #F2F2ED;
+  --foreground: #0B0B0F;
+
+  --card: #FFFFFF;
+  --card-foreground: #0B0B0F;
+
+  /* Accent - Muted olive/yellow for light mode */
+  --primary: #A5A66A;
+  --primary-foreground: #0B0B0F;
+
+  --secondary: #E8E8E3;
+  --secondary-foreground: #0B0B0F;
+
+  --muted: #EDEDE8;
+  --muted-foreground: #5C6974;
+
+  --accent: #EFEFE0;
+  --accent-foreground: #A5A66A;
+
+  --destructive: #D84F68;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #DEDED9;
+  --input: #DEDED9;
+  --ring: #A5A66A;
+
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0B0B0F;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #0B0B0F;
+
+  /* Semantic colors */
+  --success: #4EBE96;
+  --success-foreground: #FFFFFF;
+  --success-light: #E0F5ED;
+  --warning: #D2D714;
+  --warning-foreground: #0B0B0F;
+  --warning-light: #F5F5D0;
+  --info: #479FFA;
+  --info-foreground: #FFFFFF;
+  --info-light: #E8F4FF;
+  --error: #D84F68;
+  --error-light: #FCE8EC;
+
+  /* Shadows - soft and diffused for light mode */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  --shadow-focus: 0 0 0 3px rgba(165, 166, 106, 0.2);
+
+  /* Border radius */
+  --radius: 12px;
+}
+
+/* Dark Mode - Oscura Midnight (Default/Primary theme per design system) */
+.dark {
+  /* Near-black backgrounds - OLED optimized */
+  --background: #0B0B0F;
+  --foreground: #E6E6E6;
+
+  /* Card surfaces - subtle elevation */
+  --card: #121216;
+  --card-foreground: #E6E6E6;
+
+  /* Accent - Saturated yellow for vibrant contrast */
+  --primary: #D6D876;
+  --primary-foreground: #0B0B0F;
+
+  --secondary: #1A1A1F;
+  --secondary-foreground: #E6E6E6;
+
+  --muted: #1A1A1F;
+  --muted-foreground: #868F97;
+
+  --accent: #2A2A1F;
+  --accent-foreground: #D6D876;
+
+  --destructive: #FF5C5C;
+  --destructive-foreground: #0B0B0F;
+
+  /* Subtle dark borders for card definition */
+  --border: #232323;
+  --input: #232323;
+  --ring: #D6D876;
+
+  --sidebar: #0E0E12;
+  --sidebar-foreground: #E6E6E6;
+
+  --popover: #1A1A1F;
+  --popover-foreground: #E6E6E6;
+
+  /* Semantic colors - muted for dark mode */
+  --success: #4EBE96;
+  --success-foreground: #0B0B0F;
+  --success-light: #1A2924;
+  --warning: #D2D714;
+  --warning-foreground: #0B0B0F;
+  --warning-light: #262618;
+  --info: #479FFA;
+  --info-foreground: #0B0B0F;
+  --info-light: #1A2230;
+  --error: #FF5C5C;
+  --error-light: #2A1A1A;
+
+  /* Shadows - deeper for dark mode, but cards use borders primarily */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.8);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.9);
+  --shadow-focus: 0 0 0 2px rgba(214, 216, 118, 0.2);
+}
+
+/* Base styles */
+* {
+  border-color: var(--border);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography utilities */
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Card styles - following design system card-based modularity */
+.card-surface {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+
+.dark .card-surface {
+  /* In dark mode, cards use borders instead of shadows */
+  box-shadow: none;
+}
+
+:root .card-surface {
+  /* Light mode can use subtle shadows */
+  box-shadow: var(--shadow-md);
+}
+
+/* Interactive card hover state */
+.card-interactive {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-interactive:hover {
+  border-color: var(--primary);
+}
+
+.dark .card-interactive:hover {
+  border-color: rgba(214, 216, 118, 0.5);
+}
+
+/* Surface elevated - for dropdowns, popovers */
+.surface-elevated {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.dark .surface-elevated {
+  background-color: #1A1A1F;
+}
+
+/* Custom scrollbar - following design system */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  opacity: 0.3;
+  border-radius: var(--radius-full);
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  opacity: 0.5;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(134, 143, 151, 0.3);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(134, 143, 151, 0.5);
+}
+
+/* Electron window dragging area */
+.electron-drag {
+  -webkit-app-region: drag;
+}
+
+.electron-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Focus visible styles - following accessibility guidelines */
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Column status colors for Kanban */
+.column-backlog {
+  border-top-color: var(--muted-foreground);
+}
+
+.column-in-progress {
+  border-top-color: var(--info);
+}
+
+.column-ai-review {
+  border-top-color: var(--warning);
+}
+
+.column-human-review {
+  border-top-color: #A855F7;
+}
+
+.column-done {
+  border-top-color: var(--success);
+}
+
+/* Progress bar working animation - subtle glow sweep */
+@keyframes progress-glow-sweep {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.progress-working {
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-working::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(214, 216, 118, 0.4) 25%,
+    rgba(214, 216, 118, 0.7) 50%,
+    rgba(214, 216, 118, 0.4) 75%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: progress-glow-sweep 2s ease-in-out infinite;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Light mode variant */
+:root .progress-working::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(165, 166, 106, 0.3) 25%,
+    rgba(165, 166, 106, 0.6) 50%,
+    rgba(165, 166, 106, 0.3) 75%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* ============================================
+   Task Card Enhanced Styles
+   ============================================ */
+
+/* Task card hover glow effect */
+.task-card-glow {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.task-card-glow:hover {
+  box-shadow: 0 0 0 1px var(--primary), 0 4px 12px -2px rgba(214, 216, 118, 0.15);
+}
+
+:root .task-card-glow:hover {
+  box-shadow: 0 0 0 1px var(--primary), var(--shadow-lg);
+}
+
+/* Progress bar working animation */
+.progress-working {
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-working::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.15) 50%,
+    transparent 100%
+  );
+  animation: progress-sweep 2s ease-in-out infinite;
+}
+
+@keyframes progress-sweep {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(200%); }
+}
+
+/* Status badge pulse for running tasks */
+.status-running {
+  animation: status-pulse 2s ease-in-out infinite;
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Drag overlay shadow */
+.drag-overlay-shadow {
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.25),
+    0 10px 10px -5px rgba(0, 0, 0, 0.15),
+    0 0 0 1px var(--primary);
+}
+
+/* Drop zone highlight */
+.drop-zone-active {
+  background: linear-gradient(
+    to bottom,
+    rgba(214, 216, 118, 0.08),
+    transparent
+  );
+  border-color: var(--primary);
+}
+
+/* Column empty state animation */
+.empty-state-bounce {
+  animation: empty-bounce 3s ease-in-out infinite;
+}
+
+@keyframes empty-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Badge overflow indicator */
+.badge-overflow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 9999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+/* Subtask indicator dot with tooltip support */
+.subtask-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  transition: transform 0.15s ease;
+  cursor: help;
+}
+
+.subtask-dot:hover {
+  transform: scale(1.5);
+}
+
+/* Task title truncation with fade */
+.title-truncate {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Section divider with label */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+}
+
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   Enhanced Task Card Styling
+   ============================================ */
+
+/* Task card enhanced hover effect */
+.task-card-enhanced {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.task-card-enhanced:hover {
+  border-color: rgba(214, 216, 118, 0.4);
+  box-shadow: 0 0 0 1px rgba(214, 216, 118, 0.1), 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.dark .task-card-enhanced:hover {
+  box-shadow: 0 0 0 1px rgba(214, 216, 118, 0.15), 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Running task pulse animation */
+.task-running-pulse {
+  animation: task-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes task-pulse {
+  0%, 100% {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0 rgba(214, 216, 118, 0.4);
+  }
+  50% {
+    border-color: rgba(214, 216, 118, 0.8);
+    box-shadow: 0 0 0 4px rgba(214, 216, 118, 0.1);
+  }
+}
+
+/* Stuck task warning pulse */
+.task-stuck-pulse {
+  animation: stuck-pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes stuck-pulse {
+  0%, 100% {
+    border-color: var(--warning);
+    box-shadow: 0 0 0 0 rgba(210, 215, 20, 0.3);
+  }
+  50% {
+    border-color: rgba(210, 215, 20, 0.8);
+    box-shadow: 0 0 8px rgba(210, 215, 20, 0.2);
+  }
+}
+
+/* Progress bar animated shimmer for active state */
+.progress-animated-fill {
+  background: linear-gradient(
+    90deg,
+    var(--primary) 0%,
+    rgba(214, 216, 118, 0.7) 50%,
+    var(--primary) 100%
+  );
+  background-size: 200% 100%;
+  animation: progress-shimmer 2s linear infinite;
+}
+
+@keyframes progress-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Subtask status dot styling */
+.subtask-dot {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.subtask-dot:hover {
+  transform: scale(1.5);
+}
+
+.subtask-dot-active {
+  animation: subtask-dot-pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes subtask-dot-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.2);
+  }
+}
+
+/* Empty column drop zone state */
+.empty-column-dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.empty-column-dropzone:hover,
+.empty-column-dropzone.active {
+  border-color: rgba(214, 216, 118, 0.4);
+  background-color: rgba(214, 216, 118, 0.05);
+}
+
+/* Drag overlay card styling */
+.drag-overlay-card {
+  opacity: 0.95;
+  transform: rotate(2deg) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  cursor: grabbing;
+}
+
+.dark .drag-overlay-card {
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+/* Dragging source placeholder effect */
+.dragging-placeholder {
+  opacity: 0.4;
+  transform: scale(0.98);
+  border-style: dashed;
+}
+
+/* Drop zone highlight when dragging over */
+.drop-zone-highlight {
+  border-color: var(--primary) !important;
+  background-color: rgba(214, 216, 118, 0.08) !important;
+}
+
+/* Column count badge styling */
+.column-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.375rem;
+  border-radius: var(--radius-full);
+  background: var(--secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  transition: all 0.2s ease;
+}
+
+/* Phase progress indicator bar */
+.phase-indicator {
+  display: flex;
+  gap: 2px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.phase-indicator-segment {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.phase-indicator-segment.active {
+  filter: brightness(1.2);
+}
+
+/* Badge priority ordering */
+.badge-priority-urgent {
+  order: -3;
+}
+
+.badge-priority-high {
+  order: -2;
+}
+
+.badge-priority-medium {
+  order: -1;
+}
+
+/* Review section styling */
+.review-section-highlight {
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.08) 0%,
+    rgba(168, 85, 247, 0.02) 100%
+  );
+  border-radius: var(--radius-xl);
+  padding: 1rem;
+}
+
+/* Success completion state */
+.completion-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--success);
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: rgba(78, 190, 150, 0.1);
+}
+
+/* Section divider with gradient */
+.section-divider-gradient {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--border) 20%,
+    var(--border) 80%,
+    transparent 100%
+  );
+  margin: 1rem 0;
+}
+
+/* Section divider with icon label */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+:root .section-divider {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Status badge running animation */
+.status-running {
+  animation: status-running-pulse 2s ease-in-out infinite;
+}
+
+@keyframes status-running-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Metadata list styling */
+.metadata-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.metadata-list-item:last-child {
+  border-bottom: none;
+}
+
+/* Tooltip enhanced styling */
+.tooltip-enhanced {
+  max-width: 250px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.dark .tooltip-enhanced {
+  background: #1A1A1F;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================
+   Full Screen Dialog Animations
+   ============================================ */
+
+/* Zoom in/out animations for full-screen dialogs */
+@keyframes zoom-in-98 {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes zoom-out-98 {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+/* Apply animations via data attributes (Radix UI pattern) */
+[data-state="open"].animate-in.zoom-in-98 {
+  animation: zoom-in-98 0.2s ease-out;
+}
+
+[data-state="closed"].animate-out.zoom-out-98 {
+  animation: zoom-out-98 0.2s ease-in;
+}

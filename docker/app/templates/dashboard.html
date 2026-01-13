@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Auto-Claude{% endblock %}
+{% block header %}Dashboard{% endblock %}
+
+{% block header_actions %}
+<button
+    onclick="document.getElementById('addProjectModal').showModal()"
+    class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+>
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+    </svg>
+    Add Project
+</button>
+{% endblock %}
+
+{% block content %}
+<div x-data="{ showAddModal: false }">
+    <!-- Projects Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+         id="projects-grid"
+         hx-get="/api/projects/htmx/list"
+         hx-trigger="projectAdded from:body, projectDeleted from:body">
+
+        {% if projects %}
+            {% for project in projects %}
+                {% include "partials/_project_card.html" %}
+            {% endfor %}
+        {% else %}
+            <div class="col-span-full text-center py-12">
+                <svg class="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                <h3 class="text-xl font-medium text-gray-400 mb-2">No projects yet</h3>
+                <p class="text-gray-500 mb-4">Add a project by cloning a repository</p>
+                <button
+                    onclick="document.getElementById('addProjectModal').showModal()"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                >
+                    Add Your First Project
+                </button>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Add Project Modal -->
+    <dialog
+        id="addProjectModal"
+        class="bg-gray-800 rounded-xl p-6 w-full max-w-md backdrop:bg-black/50"
+    >
+        <form
+            hx-post="/api/projects/htmx/add"
+            hx-target="#toast-container"
+            hx-swap="beforeend"
+            @htmx:after-request="if(event.detail.successful) document.getElementById('addProjectModal').close()"
+            class="space-y-4"
+        >
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">Add Project</h2>
+                <button
+                    type="button"
+                    onclick="document.getElementById('addProjectModal').close()"
+                    class="p-1 hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div>
+                <label for="repo_url" class="block text-sm font-medium text-gray-300 mb-1">
+                    Repository URL
+                </label>
+                <input
+                    type="url"
+                    id="repo_url"
+                    name="repo_url"
+                    placeholder="https://github.com/user/repo"
+                    required
+                    class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg
+                           focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                           placeholder-gray-400"
+                >
+            </div>
+
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-300 mb-1">
+                    Project Name (optional)
+                </label>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    placeholder="Leave empty to use repo name"
+                    class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg
+                           focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                           placeholder-gray-400"
+                >
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4">
+                <button
+                    type="button"
+                    onclick="document.getElementById('addProjectModal').close()"
+                    class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors
+                           flex items-center gap-2"
+                >
+                    <svg class="w-5 h-5 htmx-indicator animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    Clone Repository
+                </button>
+            </div>
+        </form>
+    </dialog>
+</div>
+{% endblock %}

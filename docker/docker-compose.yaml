@@ -1,0 +1,218 @@
+# Auto-Claude Docker Stack
+# Full deployment with web UI, PostgreSQL database, optional Graphiti memory services
+
+name: auto-claude-web
+
+services:
+  # Main web application
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: auto-claude-web
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    volumes:
+      - repos:/repos              # Per-user project repositories
+      - data:/data                # App data (settings, logs)
+      # For local repos, create docker-compose.override.yaml with:
+      # services:
+      #   web:
+      #     volumes:
+      #       - /path/to/local/repos:/repos/local:rw
+    # ============================================================================
+    # SECURITY PRIVILEGE ESCALATIONS
+    # ============================================================================
+    # Required for bubblewrap sandbox isolation in Claude Code terminal sessions.
+    # Bubblewrap (bwrap) creates lightweight containers using Linux namespaces
+    # to isolate untrusted code execution from the host system.
+    #
+    # Why these are needed:
+    # - SYS_ADMIN: Required for bubblewrap to create user/mount/pid namespaces
+    # - seccomp:unconfined: Allows namespace-related syscalls (clone, unshare)
+    # - apparmor:unconfined: Permits namespace operations blocked by default profile
+    #
+    # Security note: These privileges are scoped to the container only.
+    # The bubblewrap sandbox provides defense-in-depth by isolating each
+    # terminal session, preventing lateral movement if compromised.
+    # ============================================================================
+    cap_add:
+      - SYS_ADMIN                 # Required for bubblewrap namespace creation
+    security_opt:
+      - seccomp:unconfined        # Required for bubblewrap syscalls (clone, unshare)
+      - apparmor:unconfined       # Required for bubblewrap namespace operations
+    environment:
+      # Database
+      - DATABASE_URL=postgresql+asyncpg://autoclaude:${POSTGRES_PASSWORD:-autoclaude}@postgres:5432/autoclaude
+
+      # JWT Authentication
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-changeme-generate-a-secure-key}
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - JWT_REFRESH_TOKEN_EXPIRE_DAYS=${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-30}
+
+      # Encryption key for stored credentials
+      - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY:-}
+
+      # Claude Authentication (required - one of these)
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+
+      # GitHub Authentication (for cloning private repos)
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+
+      # Repos to clone on startup (comma-separated URLs)
+      - CLONE_REPOS=${CLONE_REPOS:-}
+
+      # Auto-Claude Settings
+      - DEFAULT_BRANCH=${DEFAULT_BRANCH:-main}
+      - DEBUG=${DEBUG:-false}
+      - AUTO_BUILD_MODEL=${AUTO_BUILD_MODEL:-}
+
+      # Electron MCP Integration
+      - ELECTRON_MCP_ENABLED=${ELECTRON_MCP_ENABLED:-false}
+      - ELECTRON_DEBUG_PORT=${ELECTRON_DEBUG_PORT:-9222}
+
+      # Graphiti Memory Integration - Core Settings
+      - GRAPHITI_ENABLED=${GRAPHITI_ENABLED:-false}
+      - GRAPHITI_FALKORDB_HOST=falkordb
+      - GRAPHITI_FALKORDB_PORT=6379
+      - GRAPHITI_MCP_URL=http://graphiti-mcp:8000/mcp/
+      - GRAPHITI_DATABASE=${GRAPHITI_DATABASE:-auto_claude_memory}
+      - GRAPHITI_TELEMETRY_ENABLED=${GRAPHITI_TELEMETRY_ENABLED:-false}
+
+      # Graphiti Provider Selection
+      - GRAPHITI_LLM_PROVIDER=${GRAPHITI_LLM_PROVIDER:-openai}
+      - GRAPHITI_EMBEDDER_PROVIDER=${GRAPHITI_EMBEDDER_PROVIDER:-openai}
+
+      # OpenAI (default provider for Graphiti)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GRAPHITI_MODEL_NAME=${GRAPHITI_MODEL_NAME:-gpt-4o-mini}
+      - GRAPHITI_EMBEDDING_MODEL=${GRAPHITI_EMBEDDING_MODEL:-text-embedding-3-small}
+
+      # Anthropic for Graphiti (LLM only - uses ANTHROPIC_API_KEY above)
+      - GRAPHITI_ANTHROPIC_MODEL=${GRAPHITI_ANTHROPIC_MODEL:-claude-sonnet-4-5-latest}
+
+      # Voyage AI (embeddings only)
+      - VOYAGE_API_KEY=${VOYAGE_API_KEY:-}
+      - VOYAGE_EMBEDDING_MODEL=${VOYAGE_EMBEDDING_MODEL:-voyage-3}
+
+      # Google AI (Gemini)
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GOOGLE_LLM_MODEL=${GOOGLE_LLM_MODEL:-gemini-2.0-flash}
+      - GOOGLE_EMBEDDING_MODEL=${GOOGLE_EMBEDDING_MODEL:-text-embedding-004}
+
+      # Azure OpenAI
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
+      - AZURE_OPENAI_BASE_URL=${AZURE_OPENAI_BASE_URL:-}
+      - AZURE_OPENAI_LLM_DEPLOYMENT=${AZURE_OPENAI_LLM_DEPLOYMENT:-}
+      - AZURE_OPENAI_EMBEDDING_DEPLOYMENT=${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:-}
+
+      # Ollama (local/offline)
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_LLM_MODEL=${OLLAMA_LLM_MODEL:-}
+      - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-}
+      - OLLAMA_EMBEDDING_DIM=${OLLAMA_EMBEDDING_DIM:-}
+
+      # Linear Integration
+      - LINEAR_API_KEY=${LINEAR_API_KEY:-}
+      - LINEAR_TEAM_ID=${LINEAR_TEAM_ID:-}
+      - LINEAR_PROJECT_ID=${LINEAR_PROJECT_ID:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      falkordb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - auto-claude-net
+
+  # PostgreSQL - Primary database for users, projects, settings
+  postgres:
+    image: postgres:16-alpine
+    container_name: auto-claude-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=autoclaude
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-autoclaude}
+      - POSTGRES_DB=autoclaude
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autoclaude -d autoclaude"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - auto-claude-net
+
+  # FalkorDB - Graph database for Graphiti memory
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: auto-claude-falkordb
+    ports:
+      - "${FALKORDB_PORT:-6380}:6379"
+    volumes:
+      - falkordb_data:/data
+    environment:
+      - FALKORDB_ARGS=--appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - auto-claude-net
+
+  # Graphiti MCP Server (optional - for enhanced memory)
+  graphiti-mcp:
+    image: falkordb/graphiti-knowledge-graph-mcp:latest
+    container_name: auto-claude-graphiti-mcp
+    platform: linux/amd64
+    ports:
+      - "${GRAPHITI_MCP_PORT:-8000}:8000"
+    environment:
+      - DATABASE_TYPE=falkordb
+      - FALKORDB_HOST=falkordb
+      - FALKORDB_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - MODEL_NAME=${GRAPHITI_MODEL_NAME:-gpt-4o-mini}
+      - EMBEDDING_MODEL=${GRAPHITI_EMBEDDING_MODEL:-text-embedding-3-small}
+    depends_on:
+      falkordb:
+        condition: service_healthy
+    healthcheck:
+      # SSE transport doesn't have /health endpoint, check if port is listening
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/sse --max-time 1 --head 2>/dev/null || exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    profiles:
+      - graphiti
+    restart: unless-stopped
+    networks:
+      - auto-claude-net
+
+volumes:
+  repos:
+    driver: local
+  data:
+    driver: local
+  postgres_data:
+    driver: local
+  falkordb_data:
+    driver: local
+
+networks:
+  auto-claude-net:
+    driver: bridge
