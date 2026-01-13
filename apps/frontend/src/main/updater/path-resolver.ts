@@ -18,18 +18,39 @@ export function getBundledSourcePath(): string {
 
   // Development mode - look for backend in various locations
   const possiblePaths = [
+    // Starting from current working directory (most reliable for npm run dev)
+    path.join(process.cwd(), 'apps', 'backend'),
+    // From frontend folder to backend folder
+    path.join(process.cwd(), '..', 'backend'),
+    // From out/main to apps/backend (electron-vite output structure)
+    path.join(__dirname, '..', '..', '..', 'apps', 'backend'),
     // New structure: apps/frontend -> apps/backend
     path.join(app.getAppPath(), '..', 'backend'),
-    path.join(app.getAppPath(), '..', '..', 'apps', 'backend'),
-    path.join(process.cwd(), 'apps', 'backend'),
-    path.join(process.cwd(), '..', 'backend')
+    path.join(app.getAppPath(), '..', '..', 'apps', 'backend')
   ];
 
   for (const p of possiblePaths) {
+    const normalized = path.resolve(p);
     // Validate it's a proper backend source (must have runners/spec_runner.py)
-    const markerPath = path.join(p, 'runners', 'spec_runner.py');
-    if (existsSync(p) && existsSync(markerPath)) {
-      return p;
+    const markerPath = path.join(normalized, 'runners', 'spec_runner.py');
+
+    if (existsSync(normalized) && existsSync(markerPath)) {
+      // HIGH PRIORITY FIX: In dev mode, skip paths that look like packaged apps
+      if (!app.isPackaged) {
+        const isPackagedAppPath =
+          normalized.includes('/Applications/') ||
+          normalized.includes('/Contents/Resources/') ||
+          normalized.includes('\\Program Files\\') ||
+          normalized.includes('\\WindowsApps\\');
+
+        if (isPackagedAppPath) {
+          console.log('[path-resolver] Skipping packaged app path candidate:', normalized);
+          continue; // Try next path
+        }
+      }
+
+      console.log(`[path-resolver] Found backend at: ${normalized}`);
+      return normalized;
     }
   }
 
@@ -56,6 +77,7 @@ export function getUpdateCachePath(): string {
  */
 export function getEffectiveSourcePath(): string {
   // First, check user settings for configured autoBuildPath
+  // BUT: In dev mode, ignore settings that point to packaged app locations
   try {
     const settingsPath = path.join(app.getPath('userData'), 'settings.json');
     if (existsSync(settingsPath)) {
@@ -63,13 +85,34 @@ export function getEffectiveSourcePath(): string {
       if (settings.autoBuildPath && existsSync(settings.autoBuildPath)) {
         // Validate it's a proper backend source (must have runners/spec_runner.py)
         const markerPath = path.join(settings.autoBuildPath, 'runners', 'spec_runner.py');
+
         if (existsSync(markerPath)) {
-          return settings.autoBuildPath;
+          // CRITICAL FIX: In development mode, ignore paths that point to packaged apps
+          if (!app.isPackaged) {
+            const normalizedPath = path.resolve(settings.autoBuildPath);
+            const isPackagedAppPath =
+              normalizedPath.includes('/Applications/') ||
+              normalizedPath.includes('/Contents/Resources/') ||
+              normalizedPath.includes('\\Program Files\\') ||
+              normalizedPath.includes('\\WindowsApps\\');
+
+            if (isPackagedAppPath) {
+              console.log('[path-resolver] Ignoring packaged app path in dev mode:', normalizedPath);
+              // Fall through to getBundledSourcePath()
+            } else {
+              // Return normalized path for consistency
+              return normalizedPath;
+            }
+          } else {
+            // Return normalized path for consistency
+            return path.resolve(settings.autoBuildPath);
+          }
+        } else {
+          // Invalid path - log warning and fall through to auto-detection
+          console.warn(
+            `[path-resolver] Configured autoBuildPath "${settings.autoBuildPath}" is missing runners/spec_runner.py, falling back to bundled source`
+          );
         }
-        // Invalid path - log warning and fall through to auto-detection
-        console.warn(
-          `[path-resolver] Configured autoBuildPath "${settings.autoBuildPath}" is missing runners/spec_runner.py, falling back to bundled source`
-        );
       }
     }
   } catch {
