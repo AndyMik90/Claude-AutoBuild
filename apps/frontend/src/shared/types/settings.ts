@@ -202,7 +202,7 @@ export interface FeatureThinkingConfig {
 
 // Terminal font settings
 export interface TerminalFontSettings {
-  fontFamily: string;
+  fontFamily: TerminalFontFamily;
   fontSize: number;
   lineHeight: number;
   letterSpacing: number;

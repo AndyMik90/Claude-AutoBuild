@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Terminal, Type, Minus, Plus, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
@@ -52,25 +51,18 @@ export function TerminalSettings({ settings, onSettingsChange }: TerminalSetting
 
   const currentFontSettings = settings.terminalFont ?? DEFAULT_TERMINAL_FONT_SETTINGS;
 
-  // Derive selected font family from current font stack
-  // Default to 'system' if no match found
-  const selectedFontFamily = (() => {
-    const fontStack = currentFontSettings.fontFamily;
-    const match = Object.entries(FONT_FAMILY_OPTIONS).find(
-      ([, option]) => option.fontStack === fontStack
-    );
-    return (match?.[0] as TerminalFontFamily) ?? 'system';
-  })();
+  // fontFamily is now a TerminalFontFamily key (e.g., 'system', 'jetbrainsMono')
+  const selectedFontFamily = currentFontSettings.fontFamily;
 
   // Update font settings immediately (applies to all open terminals)
-  const updateFontSettings = (updates: Partial<typeof DEFAULT_TERMINAL_FONT_SETTINGS>) => {
+  const updateFontSettings = (updates: Partial<typeof DEFAULT_TERMINAL_FONT_SETTINGS> & { fontFamily?: TerminalFontFamily }) => {
     const newFontSettings = { ...currentFontSettings, ...updates };
     onSettingsChange({ ...settings, terminalFont: newFontSettings });
     updateStoreSettings({ terminalFont: newFontSettings });
   };
 
   const handleFontFamilyChange = (fontFamily: TerminalFontFamily) => {
-    updateFontSettings({ fontFamily: FONT_FAMILY_OPTIONS[fontFamily].fontStack });
+    updateFontSettings({ fontFamily });
   };
 
   const handleFontSizeChange = (fontSize: number) => {
@@ -92,10 +84,14 @@ export function TerminalSettings({ settings, onSettingsChange }: TerminalSetting
     updateFontSettings(DEFAULT_TERMINAL_FONT_SETTINGS);
   };
 
+  // Epsilon-based comparison for floating-point values
+  // Slider interactions can introduce tiny precision errors
+  const approxEqual = (a: number, b: number, eps = 0.0001): boolean => Math.abs(a - b) < eps;
+
   const isDefault =
     currentFontSettings.fontSize === DEFAULT_TERMINAL_FONT_SETTINGS.fontSize &&
-    currentFontSettings.lineHeight === DEFAULT_TERMINAL_FONT_SETTINGS.lineHeight &&
-    currentFontSettings.letterSpacing === DEFAULT_TERMINAL_FONT_SETTINGS.letterSpacing &&
+    approxEqual(currentFontSettings.lineHeight, DEFAULT_TERMINAL_FONT_SETTINGS.lineHeight) &&
+    approxEqual(currentFontSettings.letterSpacing, DEFAULT_TERMINAL_FONT_SETTINGS.letterSpacing) &&
     selectedFontFamily === 'system';
 
   return (

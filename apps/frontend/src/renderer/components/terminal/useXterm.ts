@@ -6,6 +6,21 @@ import { SerializeAddon } from '@xterm/addon-serialize';
 import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
 import { useSettingsStore } from '../../stores/settings-store';
 import { DEFAULT_TERMINAL_FONT_SETTINGS } from '../../../shared/constants';
+import type { TerminalFontFamily } from '../../../shared/types';
+
+// Map TerminalFontFamily to CSS font stacks for xterm.js
+const TERMINAL_FONT_FAMILY_MAP: Record<TerminalFontFamily, string> = {
+  system: 'var(--font-mono), "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+  jetbrainsMono: '"JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+  firaCode: '"Fira Code", "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+  cascadiaCode: '"Cascadia Code", "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+  consolas: 'Consolas, "Courier New", monospace',
+  monaco: 'Monaco, "Courier New", monospace',
+  sfMono: '"SF Mono", Monaco, "Courier New", monospace',
+  sourceCodePro: '"Source Code Pro", "Courier New", monospace',
+  ubuntuMono: '"Ubuntu Mono", "Courier New", monospace',
+  dejaVuSansMono: '"DejaVu Sans Mono", "Courier New", monospace'
+};
 
 // Type augmentation for navigator.userAgentData (modern User-Agent Client Hints API)
 interface NavigatorUAData {
@@ -54,7 +69,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       cursorBlink: true,
       cursorStyle: 'block',
       fontSize: terminalFont.fontSize,
-      fontFamily: terminalFont.fontFamily,
+      fontFamily: TERMINAL_FONT_FAMILY_MAP[terminalFont.fontFamily as TerminalFontFamily],
       lineHeight: terminalFont.lineHeight,
       letterSpacing: terminalFont.letterSpacing,
       theme: {
@@ -325,7 +340,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     const timeoutId = setTimeout(() => {
       if (xtermRef.current && fitAddonRef.current) {
         xtermRef.current.options.fontSize = terminalFont.fontSize;
-        xtermRef.current.options.fontFamily = terminalFont.fontFamily;
+        xtermRef.current.options.fontFamily = TERMINAL_FONT_FAMILY_MAP[terminalFont.fontFamily as TerminalFontFamily];
         xtermRef.current.options.lineHeight = terminalFont.lineHeight;
         xtermRef.current.options.letterSpacing = terminalFont.letterSpacing;
 

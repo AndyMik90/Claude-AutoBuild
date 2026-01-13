@@ -3,6 +3,8 @@
  * Default settings, file paths, and project structure
  */
 
+import type { TerminalFontSettings } from '../types/settings';
+
 // ============================================
 // UI Scale Constants
 // ============================================
@@ -31,8 +33,8 @@ export const TERMINAL_LETTER_SPACING_MAX = 2;
 export const TERMINAL_LETTER_SPACING_DEFAULT = 0;
 export const TERMINAL_LETTER_SPACING_STEP = 0.5;
 
-export const DEFAULT_TERMINAL_FONT_SETTINGS = {
-  fontFamily: 'var(--font-mono), "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+export const DEFAULT_TERMINAL_FONT_SETTINGS: TerminalFontSettings = {
+  fontFamily: 'system',
   fontSize: TERMINAL_FONT_SIZE_DEFAULT,
   lineHeight: TERMINAL_LINE_HEIGHT_DEFAULT,
   letterSpacing: TERMINAL_LETTER_SPACING_DEFAULT
