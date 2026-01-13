@@ -258,6 +258,11 @@
       "customPath": "Chemin terminal personnalisé",
       "customPathPlaceholder": "/chemin/vers/votre/terminal"
     },
+    "terminalFont": {
+      "label": "Police du terminal",
+      "description": "Police pour le terminal intégré. Utilisez Nerd Fonts pour le support des icônes.",
+      "placeholder": "JetBrains Mono Nerd Font, monospace"
+    },
     "detected": "Détecté",
     "notInstalled": "Non installé",
     "detectedSummary": "Détecté sur votre système :",

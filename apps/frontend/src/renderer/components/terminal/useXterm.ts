@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
+import { useSettingsStore } from '../../stores/settings-store';
 
 // Type augmentation for navigator.userAgentData (modern User-Agent Client Hints API)
 interface NavigatorUAData {
@@ -31,6 +32,9 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T 
   }) as T;
 }
 
+// Default font family for terminal
+const DEFAULT_TERMINAL_FONT = 'var(--font-mono), "JetBrains Mono", Menlo, Monaco, "Courier New", monospace';
+
 export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsReady }: UseXtermOptions) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
@@ -41,6 +45,9 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
   const dimensionsReadyCalledRef = useRef<boolean>(false);
   const [dimensions, setDimensions] = useState<{ cols: number; rows: number }>({ cols: 80, rows: 24 });
 
+  // Get terminal font from settings
+  const terminalFontFamily = useSettingsStore((state) => state.settings.terminalFontFamily);
+
   // Initialize xterm.js UI
   useEffect(() => {
     if (!terminalRef.current || xtermRef.current) return;
@@ -49,7 +56,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       cursorBlink: true,
       cursorStyle: 'block',
       fontSize: 13,
-      fontFamily: 'var(--font-mono), "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+      fontFamily: terminalFontFamily || DEFAULT_TERMINAL_FONT,
       lineHeight: 1.2,
       letterSpacing: 0,
       theme: {
@@ -283,6 +290,15 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       // Cleanup handled by parent component
     };
   }, [terminalId, onCommandEnter, onResize, onDimensionsReady]);
+
+  // Update terminal font when settings change
+  useEffect(() => {
+    if (xtermRef.current) {
+      xtermRef.current.options.fontFamily = terminalFontFamily || DEFAULT_TERMINAL_FONT;
+      // Refit to adjust for potential font size differences
+      fitAddonRef.current?.fit();
+    }
+  }, [terminalFontFamily]);
 
   // Handle resize on container resize with debouncing
   useEffect(() => {
