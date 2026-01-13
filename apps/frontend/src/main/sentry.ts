@@ -23,34 +23,41 @@ import {
   type SentryErrorEvent
 } from '../shared/utils/sentry-privacy';
 
+/**
+ * Build-time constants defined in electron.vite.config.ts
+ * These are replaced at build time with actual values from environment variables.
+ * In development, they come from .env file. In CI builds, from GitHub secrets.
+ */
+declare const __SENTRY_DSN__: string;
+declare const __SENTRY_TRACES_SAMPLE_RATE__: string;
+declare const __SENTRY_PROFILES_SAMPLE_RATE__: string;
+
 // In-memory state for current setting (updated via IPC when user toggles)
 let sentryEnabledState = true;
 
 /**
- * Get Sentry DSN from environment variable
+ * Get Sentry DSN from build-time constant
  *
- * For local development/testing:
- *   - Add SENTRY_DSN to your .env file, or
- *   - Run: SENTRY_DSN=your-dsn npm start
- *
- * For CI/CD releases:
- *   - Set SENTRY_DSN as a GitHub Actions secret
- *
- * For forks:
- *   - Without SENTRY_DSN, Sentry is disabled (safe for forks)
+ * The DSN is embedded at build time via Vite's `define` option.
+ * - In local development: comes from .env file (loaded by dotenv)
+ * - In CI builds: comes from GitHub secrets
+ * - For forks: without SENTRY_DSN, Sentry is disabled (safe for forks)
  */
 function getSentryDsn(): string {
-  return process.env.SENTRY_DSN || '';
+  // __SENTRY_DSN__ is replaced at build time with the actual value
+  // Falls back to runtime env var for development flexibility
+  return __SENTRY_DSN__ || process.env.SENTRY_DSN || '';
 }
 
 /**
- * Get trace sample rate from environment variable
+ * Get trace sample rate from build-time constant
  * Controls performance monitoring sampling (0.0 to 1.0)
  * Default: 0.1 (10%) in production, 0 in development
  */
 function getTracesSampleRate(): number {
-  const envValue = process.env.SENTRY_TRACES_SAMPLE_RATE;
-  if (envValue !== undefined) {
+  // Try build-time constant first, then runtime env var
+  const envValue = __SENTRY_TRACES_SAMPLE_RATE__ || process.env.SENTRY_TRACES_SAMPLE_RATE;
+  if (envValue) {
     const parsed = parseFloat(envValue);
     if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
       return parsed;
@@ -61,13 +68,14 @@ function getTracesSampleRate(): number {
 }
 
 /**
- * Get profile sample rate from environment variable
+ * Get profile sample rate from build-time constant
  * Controls profiling sampling relative to traces (0.0 to 1.0)
  * Default: 0.1 (10%) in production, 0 in development
  */
 function getProfilesSampleRate(): number {
-  const envValue = process.env.SENTRY_PROFILES_SAMPLE_RATE;
-  if (envValue !== undefined) {
+  // Try build-time constant first, then runtime env var
+  const envValue = __SENTRY_PROFILES_SAMPLE_RATE__ || process.env.SENTRY_PROFILES_SAMPLE_RATE;
+  if (envValue) {
     const parsed = parseFloat(envValue);
     if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
       return parsed;
@@ -164,4 +172,29 @@ export function isSentryEnabled(): boolean {
 export function setSentryEnabled(enabled: boolean): void {
   sentryEnabledState = enabled;
   console.log(`[Sentry] Error reporting ${enabled ? 'enabled' : 'disabled'} (programmatic)`);
+}
+
+/**
+ * Get Sentry environment variables for passing to Python subprocesses
+ *
+ * This returns the build-time embedded values so that Python backends
+ * can also report errors to Sentry in packaged apps.
+ *
+ * Usage:
+ * ```typescript
+ * const env = { ...getAugmentedEnv(), ...getSentryEnvForSubprocess() };
+ * spawn(pythonPath, args, { env });
+ * ```
+ */
+export function getSentryEnvForSubprocess(): Record<string, string> {
+  const dsn = getSentryDsn();
+  if (!dsn) {
+    return {};
+  }
+
+  return {
+    SENTRY_DSN: dsn,
+    SENTRY_TRACES_SAMPLE_RATE: String(getTracesSampleRate()),
+    SENTRY_PROFILES_SAMPLE_RATE: String(getProfilesSampleRate()),
+  };
 }
