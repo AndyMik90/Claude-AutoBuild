@@ -588,6 +588,27 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     dragStartScrollLeft.current = scrollContainerRef.current?.scrollLeft || 0;
   };
 
+  /**
+   * Handle mouse move for click-and-drag horizontal scrolling
+   * Calculates drag distance and scrolls the container horizontally
+   */
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isScrollDragging || !scrollContainerRef.current) return;
+
+    e.preventDefault();
+    const x = e.clientX - dragStartX.current;
+    const scrollLeft = dragStartScrollLeft.current - x;
+    scrollContainerRef.current.scrollLeft = scrollLeft;
+  };
+
+  /**
+   * Handle mouse up for click-and-drag horizontal scrolling
+   * Resets the dragging state
+   */
+  const handleMouseUp = () => {
+    setIsScrollDragging(false);
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Kanban header with refresh button */}
@@ -613,7 +634,17 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+        <div
+          ref={scrollContainerRef}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          className={cn(
+            "flex flex-1 gap-4 overflow-x-auto p-6",
+            isScrollDragging && "cursor-grabbing active:cursor-grabbing"
+          )}
+        >
           {TASK_STATUS_COLUMNS.map((status) => (
             <DroppableColumn
               key={status}
