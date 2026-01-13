@@ -423,13 +423,26 @@ export function registerTaskExecutionHandlers(
                   console.warn('[TASK_REVIEW] Skipping image with no data:', image.filename);
                   continue;
                 }
-                // Remove data URL prefix if present (e.g., "data:image/png;base64,")
-                const base64Data = image.data.replace(/^data:image\/\w+;base64,/, '');
+                // Sanitize filename to prevent path traversal attacks
+                const sanitizedFilename = path.basename(image.filename);
+                if (!sanitizedFilename || sanitizedFilename === '.' || sanitizedFilename === '..') {
+                  console.warn('[TASK_REVIEW] Skipping image with invalid filename:', image.filename);
+                  continue;
+                }
+                // Remove data URL prefix if present (e.g., "data:image/png;base64," or "data:image/svg+xml;base64,")
+                const base64Data = image.data.replace(/^data:image\/[^;]+;base64,/, '');
                 const imageBuffer = Buffer.from(base64Data, 'base64');
-                const imagePath = path.join(imagesDir, image.filename);
+                const imagePath = path.join(imagesDir, sanitizedFilename);
+                // Verify the resolved path is within the images directory (defense in depth)
+                const resolvedPath = path.resolve(imagePath);
+                const resolvedImagesDir = path.resolve(imagesDir);
+                if (!resolvedPath.startsWith(resolvedImagesDir + path.sep)) {
+                  console.warn('[TASK_REVIEW] Skipping image with path outside target directory:', image.filename);
+                  continue;
+                }
                 writeFileSync(imagePath, imageBuffer);
-                savedImages.push(`feedback_images/${image.filename}`);
-                console.log('[TASK_REVIEW] Saved image:', image.filename);
+                savedImages.push(`feedback_images/${sanitizedFilename}`);
+                console.log('[TASK_REVIEW] Saved image:', sanitizedFilename);
               } catch (imgError) {
                 console.error('[TASK_REVIEW] Failed to save image:', image.filename, imgError);
               }
