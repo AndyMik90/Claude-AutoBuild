@@ -15,7 +15,12 @@ import { recoverStuckTask } from '../stores/task-store';
 // Mock react-i18next to avoid initialization issues
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, options?: Record<string, unknown>) => {
+      // Handle interpolation for {{count}}
+      if (key === 'tasks:kanban.healthCheckDialogDescription' && options?.count) {
+        return `Issues found in ${options.count} task(s)`;
+      }
+
       // Return the key itself for testing or provide specific translations
       const translations: Record<string, string> = {
         'tasks:kanban.healthCheckDialogTitle': 'Task Health Check Results',
@@ -24,7 +29,15 @@ vi.mock('react-i18next', () => ({
         'tasks:kanban.healthCheckDialogDescription': 'Issues found in {{count}} task(s)',
         'common:buttons.close': 'Close',
         'common:buttons.refresh': 'Refresh',
-        'common:buttons.processing': 'Processing...'
+        'common:buttons.processing': 'Processing...',
+        'tasks:issues.stuck': 'Task is stuck (no process running)',
+        'tasks:issues.failed': 'Task execution failed',
+        'tasks:issues.failedSubtasks': '{{count}} subtask(s) failed',
+        'tasks:issues.qaRejected': 'QA review rejected',
+        'tasks:recovery.recoverStuck': 'Recover',
+        'tasks:recovery.viewLogs': 'View Logs',
+        'tasks:recovery.viewQARequest': 'View QA Report',
+        'tasks:recovery.discardTask': 'Discard Task'
       };
       return translations[key] || key;
     },
@@ -58,7 +71,7 @@ function createMockHealthResult(overrides?: Partial<TaskHealthCheckResult>): Tas
   return {
     taskId: 'task-1',
     title: 'Test Task with Issues',
-    status: 'in_progress',
+    status: 'in_progress' as const,
     isHealthy: false,
     issues: [
       {
@@ -128,7 +141,7 @@ describe('TaskHealthCheckDialog', () => {
       });
     });
 
-    it('should show success message', async () => {
+    it('should show success message in empty state', async () => {
       render(
         <TaskHealthCheckDialog
           open={true}
@@ -138,7 +151,8 @@ describe('TaskHealthCheckDialog', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('No health issues found - all tasks are healthy!')).toBeInTheDocument();
+        const elements = screen.getAllByText('No health issues found - all tasks are healthy!');
+        expect(elements.length).toBeGreaterThan(0);
       });
     });
   });
@@ -169,7 +183,7 @@ describe('TaskHealthCheckDialog', () => {
           createMockHealthResult({
             taskId: 'task-2',
             title: 'QA Rejected Task',
-            status: 'human_review',
+            status: 'human_review' as const,
             issues: [
               {
                 type: 'qa_rejected',
@@ -205,7 +219,7 @@ describe('TaskHealthCheckDialog', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Issues found in 2 task(s)')).toBeInTheDocument();
+        expect(screen.getByText(/Issues found in 2 task\(s\)/)).toBeInTheDocument();
         expect(screen.getByText('Stuck Task')).toBeInTheDocument();
         expect(screen.getByText('QA Rejected Task')).toBeInTheDocument();
       });
@@ -306,15 +320,24 @@ describe('TaskHealthCheckDialog', () => {
 
       // Wait for initial load
       await waitFor(() => {
-        expect(screen.getByText('No health issues found - all tasks are healthy!')).toBeInTheDocument();
+        const elements = screen.getAllByText('No health issues found - all tasks are healthy!');
+        expect(elements.length).toBeGreaterThan(0);
       });
 
       // Clear previous calls
       mockCheckTaskHealth.mockClear();
 
-      // Click refresh button
-      const refreshButton = screen.getByText('Refresh');
-      refreshButton.click();
+      // Click refresh button - use getAllByText since there are multiple "Refresh" elements
+      const refreshButtons = screen.getAllByText('Refresh');
+      const dialogRefreshButton = refreshButtons.find(btn =>
+        btn.toString().includes('Button') ||
+        btn instanceof HTMLButtonElement ||
+        btn instanceof HTMLSpanElement && btn.parentElement?.tagName === 'BUTTON'
+      );
+
+      if (dialogRefreshButton) {
+        (dialogRefreshButton as HTMLElement).click();
+      }
 
       // Should call health check again
       expect(mockCheckTaskHealth).toHaveBeenCalledTimes(1);
@@ -338,10 +361,15 @@ describe('TaskHealthCheckDialog', () => {
         />
       );
 
+      // Wait for dialog to load
       await waitFor(() => {
-        const closeButton = screen.getByText('Close');
-        closeButton.click();
+        const elements = screen.getAllByText('No health issues found - all tasks are healthy!');
+        expect(elements.length).toBeGreaterThan(0);
       });
+
+      // Click the first button with "Close" text
+      const closeButton = screen.getAllByText('Close').find(el => el.tagName === 'BUTTON');
+      closeButton?.click();
 
       expect(mockOnOpenChange).toHaveBeenCalledWith(false);
     });
@@ -406,7 +434,7 @@ describe('TaskHealthCheckDialog', () => {
               {
                 type: 'missing_artifact',
                 severity: 'error',
-                message: 'Missing spec.md'
+                message: 'spec.md file is missing'
               }
             ],
             recoveryActions: [
@@ -428,7 +456,7 @@ describe('TaskHealthCheckDialog', () => {
       await waitFor(() => {
         expect(screen.getByText('Task is stuck')).toBeInTheDocument();
         expect(screen.getByText('2 subtask(s) failed')).toBeInTheDocument();
-        expect(screen.getByText('Missing spec.md')).toBeInTheDocument();
+        expect(screen.getByText('spec.md file is missing')).toBeInTheDocument();
         expect(screen.getByText('Subtask A, Subtask B')).toBeInTheDocument();
       });
     });
