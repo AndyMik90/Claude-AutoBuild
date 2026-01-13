@@ -294,6 +294,15 @@ class MergeOrchestrator:
                             result.merged_content = worktree_file.read_text(
                                 encoding="utf-8", errors="replace"
                             )
+                    else:
+                        logger.warning(
+                            f"DIRECT_COPY: Worktree file not found: {worktree_file}"
+                        )
+                        debug_warning(
+                            MODULE,
+                            f"DIRECT_COPY: Worktree file not found",
+                            file=str(worktree_file),
+                        )
 
                 report.file_results[file_path] = result
                 self._update_stats(report.stats, result)
@@ -394,6 +403,45 @@ class MergeOrchestrator:
                     task_snapshots=snapshots,
                     target_branch=target_branch,
                 )
+
+                # Handle DIRECT_COPY: read file directly from worktree
+                # For multi-task merges, use the first task's worktree that modified this file
+                if result.decision == MergeDecision.DIRECT_COPY:
+                    # Find the worktree path from the first task that modified this file
+                    worktree_path = None
+                    for tid in modifying_tasks:
+                        for req in requests:
+                            if req.task_id == tid and req.worktree_path:
+                                worktree_path = req.worktree_path
+                                break
+                        if worktree_path:
+                            break
+
+                    if worktree_path:
+                        worktree_file = worktree_path / file_path
+                        if worktree_file.exists():
+                            try:
+                                result.merged_content = worktree_file.read_text(
+                                    encoding="utf-8"
+                                )
+                                debug_detailed(
+                                    MODULE,
+                                    f"Read file from worktree for direct copy: {file_path}",
+                                )
+                            except UnicodeDecodeError:
+                                result.merged_content = worktree_file.read_text(
+                                    encoding="utf-8", errors="replace"
+                                )
+                        else:
+                            logger.warning(
+                                f"DIRECT_COPY: Worktree file not found: {worktree_file}"
+                            )
+                            debug_warning(
+                                MODULE,
+                                f"DIRECT_COPY: Worktree file not found",
+                                file=str(worktree_file),
+                            )
+
                 report.file_results[file_path] = result
                 self._update_stats(report.stats, result)
 
