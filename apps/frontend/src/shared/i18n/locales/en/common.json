@@ -340,6 +340,53 @@
     "viewErrorDetails": "View details",
     "hideErrorDetails": "Hide details"
   },
+  "worktrees": {
+    "title": "Worktrees",
+    "description": "Manage isolated workspaces for your Auto Claude tasks",
+    "noWorktrees": "No Worktrees",
+    "noWorktreesDescription": "Worktrees are created automatically when Auto Claude builds features. You can also create terminal worktrees from the Agent Terminals tab.",
+    "selectProject": "Select a project to view worktrees",
+    "taskWorktrees": "Task Worktrees",
+    "terminalWorktrees": "Terminal Worktrees",
+    "errorLoading": "Error loading worktrees",
+    "errorDeleting": "Failed to delete worktree",
+    "errorDeletingTerminal": "Failed to delete terminal worktree",
+    "errorMerging": "Merge failed",
+    "taskNotFound": "Task not found for this worktree",
+    "stats": {
+      "filesChanged": "files changed",
+      "commitsAhead": "commits ahead"
+    },
+    "actions": {
+      "mergeTo": "Merge to {{branch}}",
+      "copyPath": "Copy Path"
+    },
+    "mergeDialog": {
+      "title": "Merge Worktree",
+      "description": "Merge changes from this worktree into the base branch.",
+      "sourceBranch": "Source Branch",
+      "targetBranch": "Target Branch",
+      "changes": "Changes",
+      "commitsFiles": "{{commits}} commits, {{files}} files",
+      "merging": "Merging...",
+      "merge": "Merge"
+    },
+    "mergeResult": {
+      "success": "Merge Successful",
+      "failed": "Merge Failed",
+      "conflictingFiles": "Conflicting files:"
+    },
+    "deleteDialog": {
+      "title": "Delete Worktree?",
+      "titleTerminal": "Delete Terminal Worktree?",
+      "description": "This will permanently delete the worktree and all uncommitted changes.",
+      "descriptionTerminal": "This will permanently delete the worktree and its branch. Any uncommitted changes will be lost.",
+      "cannotUndo": "This action cannot be undone.",
+      "deleting": "Deleting...",
+      "delete": "Delete"
+    },
+    "createdAt": "Created {{date}}"
+  },
   "downloads": {
     "toggleExpand": "Toggle download details",
     "downloading": "Downloading {{count}} model",

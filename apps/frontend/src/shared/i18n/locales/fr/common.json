@@ -352,5 +352,52 @@
     "done": "Terminé",
     "failedLabel": "Échoué",
     "starting": "Démarrage..."
+  },
+  "worktrees": {
+    "title": "Worktrees",
+    "description": "Gérez les espaces de travail isolés pour vos tâches Auto Claude",
+    "noWorktrees": "Aucun Worktree",
+    "noWorktreesDescription": "Les worktrees sont créés automatiquement lorsque Auto Claude construit des fonctionnalités. Vous pouvez également créer des worktrees de terminal depuis l'onglet Terminaux Agent.",
+    "selectProject": "Sélectionnez un projet pour voir les worktrees",
+    "taskWorktrees": "Worktrees de tâches",
+    "terminalWorktrees": "Worktrees de terminal",
+    "errorLoading": "Erreur lors du chargement des worktrees",
+    "errorDeleting": "Échec de la suppression du worktree",
+    "errorDeletingTerminal": "Échec de la suppression du worktree de terminal",
+    "errorMerging": "Échec de la fusion",
+    "taskNotFound": "Tâche non trouvée pour ce worktree",
+    "stats": {
+      "filesChanged": "fichiers modifiés",
+      "commitsAhead": "commits ahead"
+    },
+    "actions": {
+      "mergeTo": "Fusionner vers {{branch}}",
+      "copyPath": "Copier le chemin"
+    },
+    "mergeDialog": {
+      "title": "Fusionner le Worktree",
+      "description": "Fusionnez les modifications de ce worktree dans la branche de base.",
+      "sourceBranch": "Branche source",
+      "targetBranch": "Branche cible",
+      "changes": "Modifications",
+      "commitsFiles": "{{commits}} commits, {{files}} fichiers",
+      "merging": "Fusion...",
+      "merge": "Fusionner"
+    },
+    "mergeResult": {
+      "success": "Fusion réussie",
+      "failed": "Échec de la fusion",
+      "conflictingFiles": "Fichiers en conflit :"
+    },
+    "deleteDialog": {
+      "title": "Supprimer le Worktree ?",
+      "titleTerminal": "Supprimer le Worktree de terminal ?",
+      "description": "Ceci supprimera définitivement le worktree et toutes les modifications non commitées.",
+      "descriptionTerminal": "Ceci supprimera définitivement le worktree et sa branche. Toutes les modifications non commitées seront perdues.",
+      "cannotUndo": "Cette action est irréversible.",
+      "deleting": "Suppression...",
+      "delete": "Supprimer"
+    },
+    "createdAt": "Créé le {{date}}"
   }
 }
