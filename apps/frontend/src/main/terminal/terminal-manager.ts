@@ -210,7 +210,7 @@ export class TerminalManager {
       terminal,
       profileId,
       this.getWindow,
-      async (terminalId, cwd, profileId) => this.invokeClaudeAsync(terminalId, cwd, profileId),
+      async (terminalId, cwd, profileId, dangerouslySkipPermissions) => this.invokeClaudeAsync(terminalId, cwd, profileId, dangerouslySkipPermissions),
       (terminalId) => this.lastNotifiedRateLimitReset.delete(terminalId)
     );
   }

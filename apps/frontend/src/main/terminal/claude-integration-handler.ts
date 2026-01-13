@@ -26,6 +26,12 @@ function normalizePathForBash(envPath: string): string {
   return process.platform === 'win32' ? envPath.replace(/;/g, ':') : envPath;
 }
 
+/**
+ * Flag for YOLO mode (skip all permission prompts)
+ * Extracted as constant to ensure consistency across invokeClaude and invokeClaudeAsync
+ */
+const YOLO_MODE_FLAG = ' --dangerously-skip-permissions';
+
 // ============================================================================
 // SHARED HELPERS - Used by both sync and async invokeClaude
 // ============================================================================
@@ -384,9 +390,11 @@ export function invokeClaude(
   debugLog('[ClaudeIntegration:invokeClaude] Dangerously skip permissions:', dangerouslySkipPermissions);
 
   // Compute extra flags for YOLO mode
-  const extraFlags = dangerouslySkipPermissions ? ' --dangerously-skip-permissions' : undefined;
+  const extraFlags = dangerouslySkipPermissions ? YOLO_MODE_FLAG : undefined;
 
   terminal.isClaudeMode = true;
+  // Store YOLO mode setting so it persists across profile switches
+  terminal.dangerouslySkipPermissions = dangerouslySkipPermissions;
   SessionHandler.releaseSessionId(terminal.id);
   terminal.claudeSessionId = undefined;
 
@@ -558,9 +566,11 @@ export async function invokeClaudeAsync(
   debugLog('[ClaudeIntegration:invokeClaudeAsync] Dangerously skip permissions:', dangerouslySkipPermissions);
 
   // Compute extra flags for YOLO mode
-  const extraFlags = dangerouslySkipPermissions ? ' --dangerously-skip-permissions' : undefined;
+  const extraFlags = dangerouslySkipPermissions ? YOLO_MODE_FLAG : undefined;
 
   terminal.isClaudeMode = true;
+  // Store YOLO mode setting so it persists across profile switches
+  terminal.dangerouslySkipPermissions = dangerouslySkipPermissions;
   SessionHandler.releaseSessionId(terminal.id);
   terminal.claudeSessionId = undefined;
 
@@ -807,7 +817,7 @@ export async function switchClaudeProfile(
   terminal: TerminalProcess,
   profileId: string,
   getWindow: WindowGetter,
-  invokeClaudeCallback: (terminalId: string, cwd: string | undefined, profileId: string) => Promise<void>,
+  invokeClaudeCallback: (terminalId: string, cwd: string | undefined, profileId: string, dangerouslySkipPermissions?: boolean) => Promise<void>,
   clearRateLimitCallback: (terminalId: string) => void
 ): Promise<{ success: boolean; error?: string }> {
   // Always-on tracing
@@ -888,13 +898,15 @@ export async function switchClaudeProfile(
   clearRateLimitCallback(terminal.id);
 
   const projectPath = terminal.projectPath || terminal.cwd;
-  console.warn('[ClaudeIntegration:switchClaudeProfile] Invoking Claude with profile:', profileId, '| cwd:', projectPath);
+  console.warn('[ClaudeIntegration:switchClaudeProfile] Invoking Claude with profile:', profileId, '| cwd:', projectPath, '| YOLO:', terminal.dangerouslySkipPermissions);
   debugLog('[ClaudeIntegration:switchClaudeProfile] Invoking Claude with new profile:', {
     terminalId: terminal.id,
     projectPath,
-    profileId
+    profileId,
+    dangerouslySkipPermissions: terminal.dangerouslySkipPermissions
   });
-  await invokeClaudeCallback(terminal.id, projectPath, profileId);
+  // Pass the stored dangerouslySkipPermissions value to preserve YOLO mode across profile switches
+  await invokeClaudeCallback(terminal.id, projectPath, profileId, terminal.dangerouslySkipPermissions);
 
   debugLog('[ClaudeIntegration:switchClaudeProfile] Setting active profile in profile manager');
   profileManager.setActiveProfile(profileId);
