@@ -41,6 +41,7 @@
     "missing": "Not installed",
     "current": "Current",
     "latest": "Latest",
+    "path": "Path",
     "lastChecked": "Last checked",
     "learnMore": "Learn more about Claude Code",
     "learnMoreAriaLabel": "Learn more about Claude Code (opens in new window)",
@@ -48,6 +49,24 @@
     "viewChangelogAriaLabel": "View Claude Code Changelog (opens in new window)",
     "updateWarningTitle": "Update Claude Code?",
     "updateWarningDescription": "Updating will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding.",
-    "updateAnyway": "Update Anyway"
+    "updateAnyway": "Update Anyway",
+    "switchVersion": "Switch Version",
+    "selectVersion": "Select version",
+    "loadingVersions": "Loading versions...",
+    "failedToLoadVersions": "Failed to load versions",
+    "installingVersion": "Installing version {{version}}...",
+    "rollbackWarningTitle": "Switch to version {{version}}?",
+    "rollbackWarningDescription": "Switching versions will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding.",
+    "switchAnyway": "Switch Anyway",
+    "currentVersion": "Current",
+    "switchInstallation": "Switch Installation",
+    "selectInstallation": "Select installation",
+    "loadingInstallations": "Loading installations...",
+    "failedToLoadInstallations": "Failed to load installations",
+    "activeInstallation": "Active",
+    "pathChangeWarningTitle": "Switch CLI installation?",
+    "pathChangeWarningDescription": "Switching CLI installations will use a different Claude Code binary. Any running sessions will continue using the previous installation until restarted.",
+    "switchInstallationConfirm": "Switch",
+    "versionUnknown": "version unknown"
   }
 }

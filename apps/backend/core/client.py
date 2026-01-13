@@ -17,6 +17,8 @@ import json
 import logging
 import os
 import platform
+import shutil
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -119,6 +121,290 @@ def invalidate_project_cache(project_dir: Path | None = None) -> None:
             if key in _PROJECT_INDEX_CACHE:
                 del _PROJECT_INDEX_CACHE[key]
                 logger.debug(f"Invalidated project index cache for {project_dir}")
+
+
+# =============================================================================
+# Claude CLI Path Detection
+# =============================================================================
+# Cross-platform detection of Claude Code CLI binary.
+# This mirrors the frontend's cli-tool-manager.ts logic to ensure consistency.
+
+_CLAUDE_CLI_CACHE: dict[str, str | None] = {}
+_CLI_CACHE_LOCK = threading.Lock()
+
+
+def _get_claude_detection_paths() -> dict[str, list[str]]:
+    """
+    Get all candidate paths for Claude CLI detection.
+
+    Returns platform-specific paths where Claude CLI might be installed.
+
+    IMPORTANT: This function mirrors the frontend's getClaudeDetectionPaths()
+    in apps/frontend/src/main/cli-tool-manager.ts. Both implementations MUST
+    be kept in sync to ensure consistent detection behavior across the
+    Python backend and Electron frontend.
+
+    When adding new detection paths, update BOTH:
+    1. This function (_get_claude_detection_paths in client.py)
+    2. getClaudeDetectionPaths() in cli-tool-manager.ts
+
+    Returns:
+        Dict with 'homebrew', 'platform', and 'nvm' path lists
+    """
+    home_dir = Path.home()
+    is_windows = platform.system() == "Windows"
+
+    homebrew_paths = [
+        "/opt/homebrew/bin/claude",  # Apple Silicon
+        "/usr/local/bin/claude",  # Intel Mac
+    ]
+
+    if is_windows:
+        platform_paths = [
+            str(home_dir / "AppData" / "Local" / "Programs" / "claude" / "claude.exe"),
+            str(home_dir / "AppData" / "Roaming" / "npm" / "claude.cmd"),
+            str(home_dir / ".local" / "bin" / "claude.exe"),
+            "C:\\Program Files\\Claude\\claude.exe",
+            "C:\\Program Files (x86)\\Claude\\claude.exe",
+        ]
+    else:
+        platform_paths = [
+            str(home_dir / ".local" / "bin" / "claude"),
+            str(home_dir / "bin" / "claude"),
+        ]
+
+    nvm_versions_dir = str(home_dir / ".nvm" / "versions" / "node")
+
+    return {
+        "homebrew": homebrew_paths,
+        "platform": platform_paths,
+        "nvm_versions_dir": nvm_versions_dir,
+    }
+
+
+def _is_secure_path(path_str: str) -> bool:
+    """
+    Validate that a path doesn't contain dangerous characters.
+
+    Prevents command injection attacks by rejecting paths with shell metacharacters,
+    directory traversal patterns, or environment variable expansion.
+
+    Args:
+        path_str: Path to validate
+
+    Returns:
+        True if the path is safe, False otherwise
+    """
+    import re
+
+    dangerous_patterns = [
+        r'[;&|`${}[\]<>!"^]',  # Shell metacharacters
+        r"%[^%]+%",  # Windows environment variable expansion
+        r"\.\./",  # Unix directory traversal
+        r"\.\.\\",  # Windows directory traversal
+        r"[\r\n]",  # Newlines (command injection)
+    ]
+
+    for pattern in dangerous_patterns:
+        if re.search(pattern, path_str):
+            return False
+
+    return True
+
+
+def _validate_claude_cli(cli_path: str) -> tuple[bool, str | None]:
+    """
+    Validate that a Claude CLI path is executable and returns a version.
+
+    Includes security validation to prevent command injection attacks.
+
+    Args:
+        cli_path: Path to the Claude CLI executable
+
+    Returns:
+        Tuple of (is_valid, version_string or None)
+
+    Note:
+        Cross-references with frontend's validateClaudeCliAsync() in
+        apps/frontend/src/main/ipc-handlers/claude-code-handlers.ts
+        Both should be kept in sync for consistent behavior.
+    """
+    import re
+
+    # Security validation: reject paths with shell metacharacters or directory traversal
+    if not _is_secure_path(cli_path):
+        logger.warning(f"Rejecting insecure Claude CLI path: {cli_path}")
+        return False, None
+
+    try:
+        is_windows = platform.system() == "Windows"
+
+        # Augment PATH with the CLI directory for proper resolution
+        env = os.environ.copy()
+        cli_dir = os.path.dirname(cli_path)
+        if cli_dir:
+            env["PATH"] = cli_dir + os.pathsep + env.get("PATH", "")
+
+        # For Windows .cmd/.bat files, use cmd.exe with proper quoting
+        # /d = disable AutoRun registry commands
+        # /s = strip first and last quotes, preserving inner quotes
+        # /c = run command then terminate
+        if is_windows and cli_path.lower().endswith((".cmd", ".bat")):
+            # Get cmd.exe path from environment or use default
+            cmd_exe = os.environ.get("ComSpec") or os.path.join(
+                os.environ.get("SystemRoot", "C:\\Windows"), "System32", "cmd.exe"
+            )
+            # Use double-quoted command line for paths with spaces
+            cmd_line = f'""{cli_path}" --version"'
+            result = subprocess.run(
+                [cmd_exe, "/d", "/s", "/c", cmd_line],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                env=env,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+        else:
+            result = subprocess.run(
+                [cli_path, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                env=env,
+                creationflags=subprocess.CREATE_NO_WINDOW if is_windows else 0,
+            )
+
+        if result.returncode == 0:
+            # Extract version from output (e.g., "claude-code version 1.0.0")
+            output = result.stdout.strip()
+            match = re.search(r"(\d+\.\d+\.\d+)", output)
+            version = match.group(1) if match else output.split("\n")[0]
+            return True, version
+
+        return False, None
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        logger.debug(f"Claude CLI validation failed for {cli_path}: {e}")
+        return False, None
+
+
+def find_claude_cli() -> str | None:
+    """
+    Find the Claude Code CLI binary path.
+
+    Uses cross-platform detection with the following priority:
+    1. CLAUDE_CLI_PATH environment variable (user override)
+    2. shutil.which() - system PATH lookup
+    3. Homebrew paths (macOS)
+    4. NVM paths (Unix - checks Node.js version manager)
+    5. Platform-specific standard locations
+
+    Returns:
+        Path to Claude CLI if found and valid, None otherwise
+    """
+    # Check cache first
+    cache_key = "claude_cli"
+    with _CLI_CACHE_LOCK:
+        if cache_key in _CLAUDE_CLI_CACHE:
+            cached = _CLAUDE_CLI_CACHE[cache_key]
+            logger.debug(f"Using cached Claude CLI path: {cached}")
+            return cached
+
+    is_windows = platform.system() == "Windows"
+    paths = _get_claude_detection_paths()
+
+    # 1. Check environment variable override
+    env_path = os.environ.get("CLAUDE_CLI_PATH")
+    if env_path:
+        if Path(env_path).exists():
+            valid, version = _validate_claude_cli(env_path)
+            if valid:
+                logger.info(f"Using CLAUDE_CLI_PATH: {env_path} (v{version})")
+                with _CLI_CACHE_LOCK:
+                    _CLAUDE_CLI_CACHE[cache_key] = env_path
+                return env_path
+        logger.warning(f"CLAUDE_CLI_PATH is set but invalid: {env_path}")
+
+    # 2. Try shutil.which() - most reliable cross-platform PATH lookup
+    which_path = shutil.which("claude")
+    if which_path:
+        valid, version = _validate_claude_cli(which_path)
+        if valid:
+            logger.info(f"Found Claude CLI in PATH: {which_path} (v{version})")
+            with _CLI_CACHE_LOCK:
+                _CLAUDE_CLI_CACHE[cache_key] = which_path
+            return which_path
+
+    # 3. Homebrew paths (macOS)
+    if platform.system() == "Darwin":
+        for hb_path in paths["homebrew"]:
+            if Path(hb_path).exists():
+                valid, version = _validate_claude_cli(hb_path)
+                if valid:
+                    logger.info(f"Found Claude CLI (Homebrew): {hb_path} (v{version})")
+                    with _CLI_CACHE_LOCK:
+                        _CLAUDE_CLI_CACHE[cache_key] = hb_path
+                    return hb_path
+
+    # 4. NVM paths (Unix only) - check Node.js version manager installations
+    if not is_windows:
+        nvm_dir = Path(paths["nvm_versions_dir"])
+        if nvm_dir.exists():
+            try:
+                # Get all version directories and sort by version (newest first)
+                version_dirs = []
+                for entry in nvm_dir.iterdir():
+                    if entry.is_dir() and entry.name.startswith("v"):
+                        # Parse version: v20.0.0 -> (20, 0, 0)
+                        try:
+                            parts = entry.name[1:].split(".")
+                            if len(parts) == 3:
+                                version_dirs.append(
+                                    (tuple(int(p) for p in parts), entry.name)
+                                )
+                        except ValueError:
+                            continue
+
+                # Sort by version descending (newest first)
+                version_dirs.sort(reverse=True)
+
+                for _, version_name in version_dirs:
+                    nvm_claude = nvm_dir / version_name / "bin" / "claude"
+                    if nvm_claude.exists():
+                        valid, version = _validate_claude_cli(str(nvm_claude))
+                        if valid:
+                            logger.info(
+                                f"Found Claude CLI (NVM): {nvm_claude} (v{version})"
+                            )
+                            with _CLI_CACHE_LOCK:
+                                _CLAUDE_CLI_CACHE[cache_key] = str(nvm_claude)
+                            return str(nvm_claude)
+            except OSError as e:
+                logger.debug(f"Error scanning NVM directory: {e}")
+
+    # 5. Platform-specific standard locations
+    for plat_path in paths["platform"]:
+        if Path(plat_path).exists():
+            valid, version = _validate_claude_cli(plat_path)
+            if valid:
+                logger.info(f"Found Claude CLI: {plat_path} (v{version})")
+                with _CLI_CACHE_LOCK:
+                    _CLAUDE_CLI_CACHE[cache_key] = plat_path
+                return plat_path
+
+    # Not found
+    logger.warning(
+        "Claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code"
+    )
+    with _CLI_CACHE_LOCK:
+        _CLAUDE_CLI_CACHE[cache_key] = None
+    return None
+
+
+def clear_claude_cli_cache() -> None:
+    """Clear the Claude CLI path cache, forcing re-detection on next call."""
+    with _CLI_CACHE_LOCK:
+        _CLAUDE_CLI_CACHE.clear()
+    logger.debug("Claude CLI cache cleared")
 
 
 from agents.tools_pkg import (
@@ -780,8 +1066,16 @@ def create_client(
         print("   - CLAUDE.md: disabled by project settings")
     print()
 
+    # Find Claude CLI path for SDK
+    # This ensures the SDK can find the Claude Code binary even if it's not in PATH
+    cli_path = find_claude_cli()
+    if cli_path:
+        print(f"   - Claude CLI: {cli_path}")
+    else:
+        print("   - Claude CLI: using SDK default detection")
+
     # Build options dict, conditionally including output_format
-    options_kwargs = {
+    options_kwargs: dict[str, Any] = {
         "model": model,
         "system_prompt": base_prompt,
         "allowed_tools": allowed_tools_list,
@@ -803,6 +1097,10 @@ def create_client(
         # This prevents "File has not been read yet" errors in recovery sessions
         "enable_file_checkpointing": True,
     }
+
+    # Add CLI path if found (helps SDK find Claude Code in non-standard locations)
+    if cli_path:
+        options_kwargs["cli_path"] = cli_path
 
     # Add structured output format if specified
     # See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs

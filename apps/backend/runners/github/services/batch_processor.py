@@ -12,8 +12,10 @@ from pathlib import Path
 
 try:
     from ..models import AutoFixState, AutoFixStatus, GitHubRunnerConfig
+    from .io_utils import safe_print
 except (ImportError, ValueError, SystemError):
     from models import AutoFixState, AutoFixStatus, GitHubRunnerConfig
+    from services.io_utils import safe_print
 
 
 class BatchProcessor:
@@ -76,10 +78,10 @@ class BatchProcessor:
 
         try:
             if not issues:
-                print("[BATCH] No issues to batch", flush=True)
+                safe_print("[BATCH] No issues to batch")
                 return []
 
-            print(
+            safe_print(
                 f"[BATCH] Analyzing {len(issues)} issues for similarity...", flush=True
             )
 
@@ -123,7 +125,7 @@ class BatchProcessor:
             # Create batches (includes AI validation)
             batches = await batcher.create_batches(issues, exclude_issues)
 
-            print(f"[BATCH] Created {len(batches)} validated batches", flush=True)
+            safe_print(f"[BATCH] Created {len(batches)} validated batches")
 
             self._report_progress("batching", 60, f"Created {len(batches)} batches")
 
@@ -137,7 +139,7 @@ class BatchProcessor:
                     f"Processing batch {i + 1}/{len(batches)} ({len(issue_nums)} issues)...",
                 )
 
-                print(
+                safe_print(
                     f"[BATCH] Batch {batch.batch_id}: {len(issue_nums)} issues - {issue_nums}",
                     flush=True,
                 )
@@ -164,7 +166,7 @@ class BatchProcessor:
             return batches
 
         except Exception as e:
-            print(f"[BATCH] Error batching issues: {e}", flush=True)
+            safe_print(f"[BATCH] Error batching issues: {e}")
             import traceback
 
             traceback.print_exc()
@@ -204,7 +206,7 @@ class BatchProcessor:
 
             issues = issues[:max_issues]
 
-            print(
+            safe_print(
                 f"[PREVIEW] Analyzing {len(issues)} issues for grouping...", flush=True
             )
             self._report_progress("analyzing", 20, f"Analyzing {len(issues)} issues...")
@@ -343,7 +345,7 @@ class BatchProcessor:
                         reasoning = result.reasoning
                         refined_theme = result.common_theme or refined_theme
                     except Exception as e:
-                        print(f"[PREVIEW] Validation error: {e}", flush=True)
+                        safe_print(f"[PREVIEW] Validation error: {e}")
                         validated = True
                         confidence = 0.5
                         reasoning = "Validation skipped due to error"
@@ -380,7 +382,7 @@ class BatchProcessor:
         except Exception as e:
             import traceback
 
-            print(f"[PREVIEW] Error: {e}", flush=True)
+            safe_print(f"[PREVIEW] Error: {e}")
             traceback.print_exc()
             return {
                 "success": False,

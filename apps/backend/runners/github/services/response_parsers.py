@@ -21,6 +21,7 @@ try:
         TriageCategory,
         TriageResult,
     )
+    from .io_utils import safe_print
 except (ImportError, ValueError, SystemError):
     from models import (
         AICommentTriage,
@@ -32,6 +33,7 @@ except (ImportError, ValueError, SystemError):
         TriageCategory,
         TriageResult,
     )
+    from services.io_utils import safe_print
 
 # Evidence-based validation replaces confidence scoring
 # Findings without evidence are filtered out instead of using confidence thresholds
@@ -57,10 +59,10 @@ class ResponseParser:
             )
             if json_match:
                 result = json.loads(json_match.group(1))
-                print(f"[AI] Quick scan result: {result}", flush=True)
+                safe_print(f"[AI] Quick scan result: {result}")
                 return result
         except (json.JSONDecodeError, ValueError) as e:
-            print(f"[AI] Failed to parse scan result: {e}", flush=True)
+            safe_print(f"[AI] Failed to parse scan result: {e}")
 
         return default_result
 
@@ -87,7 +89,7 @@ class ResponseParser:
 
                     # Apply evidence-based validation
                     if require_evidence and len(evidence.strip()) < MIN_EVIDENCE_LENGTH:
-                        print(
+                        safe_print(
                             f"[AI] Dropped finding '{f.get('title', 'unknown')}': "
                             f"insufficient evidence ({len(evidence.strip())} chars < {MIN_EVIDENCE_LENGTH})",
                             flush=True,
@@ -117,7 +119,7 @@ class ResponseParser:
                         )
                     )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
-            print(f"Failed to parse findings: {e}")
+            safe_print(f"Failed to parse findings: {e}")
 
         return findings
 
@@ -147,7 +149,7 @@ class ResponseParser:
                         )
                     )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
-            print(f"Failed to parse structural issues: {e}")
+            safe_print(f"Failed to parse structural issues: {e}")
 
         return issues
 
@@ -180,7 +182,7 @@ class ResponseParser:
                         )
                     )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
-            print(f"Failed to parse AI comment triages: {e}")
+            safe_print(f"Failed to parse AI comment triages: {e}")
 
         return triages
 
@@ -218,6 +220,6 @@ class ResponseParser:
                 result.comment = data.get("comment")
 
         except (json.JSONDecodeError, KeyError, ValueError) as e:
-            print(f"Failed to parse triage result: {e}")
+            safe_print(f"Failed to parse triage result: {e}")
 
         return result

@@ -288,6 +288,28 @@ def main() -> None:
     # Set up environment first
     setup_environment()
 
+    # Initialize Sentry early to capture any startup errors
+    from core.sentry import capture_exception, init_sentry
+
+    init_sentry(component="cli")
+
+    try:
+        _run_cli()
+    except KeyboardInterrupt:
+        # Clean exit on Ctrl+C
+        sys.exit(130)
+    except Exception as e:
+        # Capture unexpected errors to Sentry
+        capture_exception(e)
+        print(f"\nUnexpected error: {e}")
+        sys.exit(1)
+
+
+def _run_cli() -> None:
+    """Run the CLI logic (extracted for error handling)."""
+    # Import here to avoid import errors during startup
+    from core.sentry import set_context
+
     # Parse arguments
     args = parse_args()
 
@@ -357,6 +379,15 @@ def main() -> None:
         sys.exit(1)
 
     debug_success("run.py", "Spec found", spec_dir=str(spec_dir))
+
+    # Set Sentry context for error tracking
+    set_context(
+        "spec",
+        {
+            "name": spec_dir.name,
+            "project": str(project_dir),
+        },
+    )
 
     # Handle build management commands
     if args.merge_preview:
