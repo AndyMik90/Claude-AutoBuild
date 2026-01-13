@@ -568,6 +568,7 @@ export function getClaudeProfileManager(): ClaudeProfileManager {
  * Initialize and get the singleton Claude profile manager instance (async)
  * This ensures the profile manager is fully initialized before use.
  * Uses promise caching to prevent concurrent initialization.
+ * The cached promise is reset on failure to allow retries after transient errors.
  */
 export async function initializeClaudeProfileManager(): Promise<ClaudeProfileManager> {
   if (!profileManager) {
@@ -581,9 +582,16 @@ export async function initializeClaudeProfileManager(): Promise<ClaudeProfileMan
 
   // If initialization is in progress, wait for it (promise caching)
   if (!initPromise) {
-    initPromise = profileManager.initialize().then(() => {
-      return profileManager!;
-    });
+    initPromise = profileManager.initialize()
+      .then(() => {
+        return profileManager!;
+      })
+      .catch((error) => {
+        // Reset cached promise on failure so retries can succeed
+        // This allows recovery from transient errors (e.g., disk full, permission issues)
+        initPromise = null;
+        throw error;
+      });
   }
 
   return initPromise;

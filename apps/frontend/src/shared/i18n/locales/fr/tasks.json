@@ -162,6 +162,14 @@
       "createFailed": "Échec de la création de la tâche. Veuillez réessayer."
     }
   },
+  "feedback": {
+    "dragDropHint": "Glissez-déposez des images ou collez des captures d'écran",
+    "imageAdded": "Image ajoutée avec succès",
+    "maxImagesError": "Maximum de {{count}} images autorisées",
+    "invalidTypeError": "Type d'image invalide. Autorisés : {{types}}",
+    "removeImage": "Supprimer l'image",
+    "processingError": "Échec du traitement de l'image"
+  },
   "review": {
     "mergeTooltip": "Fusionne les changements de la branche worktree de la tâche vers votre branche de base. L'IA résoudra les conflits éventuels. Vous pourrez ensuite choisir de conserver ou de supprimer le worktree."
   },
