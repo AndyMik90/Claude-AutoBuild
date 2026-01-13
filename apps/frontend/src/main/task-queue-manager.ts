@@ -357,7 +357,10 @@ export class TaskQueueManager {
           return priorityDiff;
         }
         // Within same priority, sort by creation date (oldest first = FIFO)
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        // Handle both Date and string createdAt fields defensively
+        const timestampA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+        const timestampB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+        return timestampA - timestampB;
       });
 
     if (backlogTasks.length === 0) {
