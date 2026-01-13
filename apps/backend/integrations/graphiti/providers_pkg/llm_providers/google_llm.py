@@ -3,9 +3,13 @@ Google AI LLM Provider
 ======================
 
 Google Gemini LLM client implementation for Graphiti.
-Uses the google-generativeai SDK.
+Uses the new unified Google GenAI SDK (google-genai).
+
+Migration note: The legacy google-generativeai package was deprecated Nov 30, 2025.
+This implementation uses the new google-genai SDK with client-based API.
 """
 
+import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -26,6 +30,7 @@ class GoogleLLMClient:
     Google AI LLM Client using the Gemini API.
 
     Implements the LLMClient interface expected by graphiti-core.
+    Uses the new unified Google GenAI SDK with native async support.
     """
 
     def __init__(self, api_key: str, model: str = DEFAULT_GOOGLE_LLM_MODEL):
@@ -37,21 +42,21 @@ class GoogleLLMClient:
             model: Model name (default: gemini-2.0-flash)
         """
         try:
-            import google.generativeai as genai
+            from google import genai
+            from google.genai import types
         except ImportError as e:
             raise ProviderNotInstalled(
-                f"Google LLM requires google-generativeai. "
-                f"Install with: pip install google-generativeai\n"
+                f"Google LLM requires google-genai. "
+                f"Install with: pip install google-genai\n"
                 f"Error: {e}"
             )
 
         self.api_key = api_key
         self.model = model
 
-        # Configure the Google AI client
-        genai.configure(api_key=api_key)
-        self._genai = genai
-        self._model = genai.GenerativeModel(model)
+        # Create the Google GenAI client
+        self._client = genai.Client(api_key=api_key)
+        self._types = types
 
     async def generate_response(
         self,
@@ -70,66 +75,75 @@ class GoogleLLMClient:
         Returns:
             Generated response (string or structured object)
         """
-        import asyncio
-
-        # Convert messages to Google format
-        # Google uses 'user' and 'model' roles
-        google_messages = []
+        # Extract system instruction and build contents
         system_instruction = None
+        contents = []
 
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content", "")
 
             if role == "system":
-                # Google handles system messages as system_instruction
+                # Google handles system messages as system_instruction in config
                 system_instruction = content
             elif role == "assistant":
-                google_messages.append({"role": "model", "parts": [content]})
+                # Google uses 'model' role for assistant messages
+                contents.append(
+                    self._types.Content(
+                        role="model",
+                        parts=[self._types.Part.from_text(text=content)],
+                    )
+                )
             else:
-                google_messages.append({"role": "user", "parts": [content]})
+                contents.append(
+                    self._types.Content(
+                        role="user",
+                        parts=[self._types.Part.from_text(text=content)],
+                    )
+                )
 
-        # Create model with system instruction if provided
+        # Build generation config
+        config_kwargs = {}
         if system_instruction:
-            model = self._genai.GenerativeModel(
-                self.model, system_instruction=system_instruction
-            )
-        else:
-            model = self._model
+            config_kwargs["system_instruction"] = system_instruction
 
-        # Generate response
-        loop = asyncio.get_running_loop()
+        if not contents:
+            raise ProviderError("No user or assistant messages provided for generation")
 
         if response_model:
             # For structured output, use JSON mode
-            generation_config = self._genai.GenerationConfig(
-                response_mime_type="application/json"
-            )
+            config_kwargs["response_mime_type"] = "application/json"
 
-            response = await loop.run_in_executor(
-                None,
-                lambda: model.generate_content(
-                    google_messages, generation_config=generation_config
-                ),
-            )
+        config = (
+            self._types.GenerateContentConfig(**config_kwargs)
+            if config_kwargs
+            else None
+        )
 
+        # Use async API for better performance
+        response = await self._client.aio.models.generate_content(
+            model=self.model,
+            contents=contents,
+            config=config,
+        )
+
+        if response_model:
             # Parse JSON response into the model
-            import json
-
             try:
                 data = json.loads(response.text)
+            except json.JSONDecodeError as e:
+                raise ProviderError(
+                    f"Failed to parse structured response from Google AI. "
+                    f"Expected JSON for {response_model.__name__}, got: {response.text[:100]}..."
+                ) from e
+            try:
                 return response_model(**data)
-            except json.JSONDecodeError:
-                # If JSON parsing fails, return raw text
-                logger.warning(
-                    "Failed to parse JSON response from Google AI, returning raw text"
-                )
-                return response.text
+            except Exception as e:
+                raise ProviderError(
+                    f"Failed to validate structured response from Google AI. "
+                    f"Model {response_model.__name__} validation failed: {e}"
+                ) from e
         else:
-            response = await loop.run_in_executor(
-                None, lambda: model.generate_content(google_messages)
-            )
-
             return response.text
 
     async def generate_response_with_tools(
@@ -171,7 +185,7 @@ def create_google_llm_client(config: "GraphitiConfig") -> Any:
         Google LLM client instance
 
     Raises:
-        ProviderNotInstalled: If google-generativeai is not installed
+        ProviderNotInstalled: If google-genai is not installed
         ProviderError: If API key is missing
     """
     if not config.google_api_key:
