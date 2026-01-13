@@ -26,6 +26,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TypedDict, TypeVar
 
+from core.gh_executable import get_gh_executable
 from core.git_executable import get_git_executable, run_git
 from debug import debug_warning
 
@@ -961,7 +962,7 @@ class WorktreeManager:
 
         # Build gh pr create command
         gh_args = [
-            "gh",
+            get_gh_executable(),
             "pr",
             "create",
             "--base",
@@ -1123,7 +1124,7 @@ class WorktreeManager:
 
         try:
             result = subprocess.run(
-                ["gh", "pr", "view", info.branch, "--json", "url", "--jq", ".url"],
+                [get_gh_executable(), "pr", "view", info.branch, "--json", "url", "--jq", ".url"],
                 cwd=info.path,
                 capture_output=True,
                 text=True,
