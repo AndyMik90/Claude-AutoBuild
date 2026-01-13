@@ -647,7 +647,8 @@ function fixPywin32(sitePackagesDir) {
 
   // 2. Copy _win32sysloader.pyd from win32/ to root
   // This is required by pywintypes.py to locate and load the DLLs
-  const sysloaderFiles = fs.readdirSync(win32Dir).filter(f => f.startsWith('_win32sysloader'));
+  // Filter for .pyd extension to avoid matching unrelated files
+  const sysloaderFiles = fs.readdirSync(win32Dir).filter(f => f.startsWith('_win32sysloader') && f.endsWith('.pyd'));
   for (const sysloader of sysloaderFiles) {
     const srcPath = path.join(win32Dir, sysloader);
     const destPath = path.join(sitePackagesDir, sysloader);
@@ -677,7 +678,19 @@ __path__ = [os.path.dirname(__file__)]
     }
   }
 
-  // 4. Copy DLLs to win32/ directory as well (backup location for DLL loading)
+  // 4. Copy DLLs to multiple locations for maximum compatibility
+  //
+  // Why we copy DLLs to pywin32_system32/, win32/, AND site-packages root:
+  // - pywin32_system32/: Primary location, used by os.add_dll_directory() in bootstrap
+  // - win32/: Fallback for pywintypes.py's __file__-relative search
+  // - site-packages root: Fallback when other search mechanisms fail
+  //
+  // Trade-off: This duplicates DLLs ~3x (~2MB extra), but ensures pywin32 works
+  // regardless of which DLL search mechanism succeeds. The alternative (single
+  // location) caused intermittent failures depending on Python version and how
+  // the process was spawned. Bundle size trade-off is acceptable for reliability.
+  //
+  // See: https://github.com/AndyMik90/Auto-Claude/issues/810
   const dllFiles = fs.readdirSync(pywin32System32).filter(f => f.endsWith('.dll'));
   for (const dll of dllFiles) {
     const srcPath = path.join(pywin32System32, dll);
@@ -710,6 +723,10 @@ __path__ = [os.path.dirname(__file__)]
   // - PYTHONPATH doesn't process .pth files, so pywin32_bootstrap.py never runs
   // - Python 3.8+ requires os.add_dll_directory() for DLL search paths
   // - PATH environment variable no longer works for DLL loading in Python 3.8+
+  //
+  // IMPORTANT: This script content must stay synchronized with ensurePywin32StartupScript()
+  // in apps/frontend/src/main/python-env-manager.ts (which creates the script at runtime
+  // if it doesn't exist in bundled packages).
   //
   // See: https://github.com/AndyMik90/Auto-Claude/issues/810
   // See: https://github.com/AndyMik90/Auto-Claude/issues/861

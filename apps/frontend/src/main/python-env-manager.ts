@@ -744,6 +744,11 @@ if sys.version_info >= (3, 12):
         this.ensurePywin32StartupScript(this.sitePackagesPath);
         if (existsSync(startupScript)) {
           windowsEnv['PYTHONSTARTUP'] = startupScript;
+        } else {
+          // Script creation failed and file still doesn't exist
+          // Log warning so users know the pywin32 fix may not work
+          console.warn('[PythonEnvManager] Could not set PYTHONSTARTUP - pywin32 DLL loading may fail. ' +
+            'The PATH fallback will be used, but this may not work on Python 3.8+.');
         }
       }
     }
@@ -770,6 +775,9 @@ if sys.version_info >= (3, 12):
    * The script:
    * 1. Uses site.addsitedir() to process .pth files (including pywin32.pth)
    * 2. Explicitly calls os.add_dll_directory() for pywin32_system32 as backup
+   *
+   * IMPORTANT: This script content must stay synchronized with fixPywin32()
+   * in apps/frontend/scripts/download-python.cjs (which creates the script at build time).
    *
    * @see https://github.com/mhammond/pywin32/blob/main/win32/Lib/pywin32_bootstrap.py
    */

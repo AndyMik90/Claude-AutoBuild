@@ -54,32 +54,36 @@ describe('PythonEnvManager', () => {
     });
 
     it('should exclude PYTHONHOME from environment', () => {
-      const originalEnv = process.env;
-      process.env = { ...originalEnv, PYTHONHOME: '/some/python/home' };
+      // Use vi.stubEnv for cleaner environment variable mocking
+      vi.stubEnv('PYTHONHOME', '/some/python/home');
 
-      try {
-        const env = manager.getPythonEnv();
-        expect(env.PYTHONHOME).toBeUndefined();
-      } finally {
-        process.env = originalEnv;
-      }
+      const env = manager.getPythonEnv();
+      expect(env.PYTHONHOME).toBeUndefined();
+
+      vi.unstubAllEnvs();
     });
 
     it('should exclude PYTHONSTARTUP from environment on Windows', () => {
-      const originalEnv = process.env;
       const originalPlatform = process.platform;
 
       // Mock Windows platform
       Object.defineProperty(process, 'platform', { value: 'win32' });
-      process.env = { ...originalEnv, PYTHONSTARTUP: '/some/startup.py' };
+
+      // Use vi.stubEnv for cleaner environment variable mocking
+      vi.stubEnv('PYTHONSTARTUP', '/some/external/startup.py');
 
       try {
         const env = manager.getPythonEnv();
-        // Should not inherit the external PYTHONSTARTUP
-        expect(env.PYTHONSTARTUP).not.toBe('/some/startup.py');
+        // Should not inherit the external PYTHONSTARTUP value
+        // It should either be undefined (no sitePackagesPath) or our bootstrap script path
+        expect(env.PYTHONSTARTUP).not.toBe('/some/external/startup.py');
+
+        // More explicit: without sitePackagesPath, PYTHONSTARTUP should be undefined
+        // (because Windows-specific env vars are only set when sitePackagesPath exists)
+        expect(env.PYTHONSTARTUP).toBeUndefined();
       } finally {
-        process.env = originalEnv;
         Object.defineProperty(process, 'platform', { value: originalPlatform });
+        vi.unstubAllEnvs();
       }
     });
   });
@@ -253,43 +257,41 @@ describe('PythonEnvManager', () => {
 });
 
 describe('pywin32 bootstrap script integration', () => {
-  it('should handle import errors gracefully in bootstrap script', () => {
-    // This test verifies that the bootstrap script Python code
-    // won't crash if there are import errors
+  it('should generate bootstrap script with proper error handling', () => {
+    // This test verifies that the generated bootstrap script contains
+    // critical elements for safe pywin32 initialization.
+    // We test the actual generated content rather than duplicating the script,
+    // ensuring tests stay in sync with implementation.
 
-    const bootstrapScript = `
-import os
-import sys
+    const manager = new PythonEnvManager();
+    const sitePackagesPath = 'C:\\test\\site-packages';
 
-def _bootstrap_pywin32():
-    site_packages = os.path.dirname(os.path.abspath(__file__))
-    pywin32_system32 = os.path.join(site_packages, 'pywin32_system32')
+    // Mock fs to capture written content
+    let writtenContent = '';
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+    vi.mocked(fs.writeFileSync).mockImplementation(
+      (filePath: any, content: any) => {
+        writtenContent = content as string;
+      }
+    );
 
-    if os.path.isdir(pywin32_system32):
-        if hasattr(os, 'add_dll_directory'):
-            try:
-                os.add_dll_directory(pywin32_system32)
-            except OSError:
-                pass
+    // Trigger script generation
+    (manager as any).ensurePywin32StartupScript(sitePackagesPath);
 
-        current_path = os.environ.get('PATH', '')
-        if pywin32_system32 not in current_path:
-            os.environ['PATH'] = pywin32_system32 + os.pathsep + current_path
+    // Verify critical safety markers in the generated script:
+    // 1. Check for add_dll_directory availability (Python 3.8+ only)
+    expect(writtenContent).toContain("hasattr(os, 'add_dll_directory')");
 
-    try:
-        import site
-        if site_packages not in sys.path:
-            site.addsitedir(site_packages)
-    except Exception:
-        pass
+    // 2. Proper error handling for DLL directory addition
+    expect(writtenContent).toContain('except OSError:');
 
-_bootstrap_pywin32()
-`;
+    // 3. Proper error handling for site module operations
+    expect(writtenContent).toContain('except Exception:');
 
-    // Verify the script structure is correct
-    expect(bootstrapScript).toContain('hasattr(os, \'add_dll_directory\')');
-    expect(bootstrapScript).toContain('try:');
-    expect(bootstrapScript).toContain('except OSError:');
-    expect(bootstrapScript).toContain('except Exception:');
+    // 4. Uses site.addsitedir for .pth file processing
+    expect(writtenContent).toContain('site.addsitedir');
+
+    // 5. References pywin32_system32 directory
+    expect(writtenContent).toContain('pywin32_system32');
   });
 });
