@@ -12,7 +12,8 @@ import {
   PointerSensor,
   KeyboardSensor,
   useSensor,
-  useSensors
+  useSensors,
+  closestCenter,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -292,17 +293,22 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
 
     // Handle file drop on terminal
     const overId = over.id.toString();
-    if (overId.startsWith('terminal-')) {
-      const terminalId = overId.replace('terminal-', '');
+    let terminalId: string | null = null;
 
-      if (activeData?.path) {
-        // Quote the path if it contains spaces
-        const quotedPath = activeData.path.includes(' ') ? `"${activeData.path}"` : activeData.path;
-        // Insert the file path into the terminal with a trailing space
-        window.electronAPI.sendTerminalInput(terminalId, quotedPath + ' ');
-      }
+    if (overId.startsWith('terminal-')) {
+      terminalId = overId.replace('terminal-', '');
+    } else if (terminals.some(t => t.id === overId)) {
+      // closestCenter might return the sortable ID instead of droppable ID
+      terminalId = overId;
     }
-  }, [reorderTerminals]);
+
+    if (terminalId && activeData?.path) {
+      // Quote the path if it contains spaces
+      const quotedPath = activeData.path.includes(' ') ? `"${activeData.path}"` : activeData.path;
+      // Insert the file path into the terminal with a trailing space
+      window.electronAPI.sendTerminalInput(terminalId, quotedPath + ' ');
+    }
+  }, [reorderTerminals, terminals]);
 
   // Calculate grid layout based on number of terminals
   const gridLayout = useMemo(() => {
@@ -358,6 +364,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >

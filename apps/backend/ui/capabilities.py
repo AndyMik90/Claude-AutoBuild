@@ -28,7 +28,6 @@ def enable_windows_ansi_support() -> bool:
 
     try:
         import ctypes
-        from ctypes import wintypes
 
         # Windows constants
         STD_OUTPUT_HANDLE = -11
@@ -44,7 +43,7 @@ def enable_windows_ansi_support() -> bool:
                 continue
 
             # Get current console mode
-            mode = wintypes.DWORD()
+            mode = ctypes.wintypes.DWORD()
             if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
                 continue
 

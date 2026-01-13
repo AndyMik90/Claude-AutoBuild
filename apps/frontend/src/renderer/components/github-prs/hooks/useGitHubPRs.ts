@@ -30,9 +30,9 @@ interface UseGitHubPRsResult {
   selectedPRNumber: number | null;
   reviewResult: PRReviewResult | null;
   reviewProgress: PRReviewProgress | null;
+  startedAt: string | null;
   isReviewing: boolean;
   previousReviewResult: PRReviewResult | null;
-  startedAt: string | null;
   isConnected: boolean;
   repoFullName: string | null;
   activePRReviews: number[]; // PR numbers currently being reviewed
@@ -506,9 +506,9 @@ export function useGitHubPRs(
     selectedPRNumber,
     reviewResult,
     reviewProgress,
+    startedAt,
     isReviewing,
     previousReviewResult,
-    startedAt,
     isConnected,
     repoFullName,
     activePRReviews,

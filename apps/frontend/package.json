@@ -1,6 +1,6 @@
 {
   "name": "auto-claude-ui",
-  "version": "2.7.2",
+  "version": "2.7.3",
   "type": "module",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
   "homepage": "https://github.com/AndyMik90/Auto-Claude",
@@ -159,10 +159,6 @@
       "package.json"
     ],
     "extraResources": [
-      {
-        "from": "node_modules/@lydell/node-pty",
-        "to": "node_modules/@lydell/node-pty"
-      },
       {
         "from": "resources/icon.ico",
         "to": "icon.ico"

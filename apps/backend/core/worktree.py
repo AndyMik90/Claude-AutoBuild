@@ -614,11 +614,27 @@ class WorktreeManager:
         else:
             print(f"Merging {info.branch} into {self.base_branch}...")
 
-        # Switch to base branch in main project
-        result = self._run_git(["checkout", self.base_branch])
-        if result.returncode != 0:
-            print(f"Error: Could not checkout base branch: {result.stderr}")
-            return False
+        # Switch to base branch in main project, but skip if already on it
+        # This avoids triggering git hooks unnecessarily
+        current_branch = self._get_current_branch()
+        if current_branch != self.base_branch:
+            result = self._run_git(["checkout", self.base_branch])
+            if result.returncode != 0:
+                # Check if this is a hook failure vs actual checkout failure
+                # Hook failures still change the branch but return non-zero
+                new_branch = self._get_current_branch()
+                if new_branch == self.base_branch:
+                    # Branch did change - likely a hook failure, continue with merge
+                    stderr_msg = result.stderr[:100] if result.stderr else "<no stderr>"
+                    debug_warning(
+                        "worktree",
+                        f"Checkout succeeded but hook returned non-zero: {stderr_msg}",
+                    )
+                else:
+                    # Actual checkout failure
+                    stderr_msg = result.stderr[:100] if result.stderr else "<no stderr>"
+                    print(f"Error: Could not checkout base branch: {stderr_msg}")
+                    return False
 
         # Merge the spec branch
         merge_args = ["merge", "--no-ff", info.branch]
@@ -631,7 +647,29 @@ class WorktreeManager:
         result = self._run_git(merge_args)
 
         if result.returncode != 0:
-            print("Merge conflict! Aborting merge...")
+            # Check if it's "already up to date" - not an error
+            output = (result.stdout + result.stderr).lower()
+            if "already up to date" in output or "already up-to-date" in output:
+                print(f"Branch {info.branch} is already up to date.")
+                if no_commit:
+                    print("No changes to stage.")
+                if delete_after:
+                    self.remove_worktree(spec_name, delete_branch=True)
+                return True
+            # Check for actual conflicts
+            if "conflict" in output:
+                print("Merge conflict! Aborting merge...")
+                self._run_git(["merge", "--abort"])
+                return False
+            # Other error - show details
+            stderr_msg = (
+                result.stderr[:200]
+                if result.stderr
+                else result.stdout[:200]
+                if result.stdout
+                else "<no output>"
+            )
+            print(f"Merge failed: {stderr_msg}")
             self._run_git(["merge", "--abort"])
             return False
 
