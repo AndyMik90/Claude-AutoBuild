@@ -13,7 +13,6 @@ import { I18nextProvider } from 'react-i18next';
 import i18n from '../../../shared/i18n';
 import { UsageIndicator } from '../UsageIndicator';
 import type { ClaudeUsageSnapshot } from '../../../shared/types/agent';
-import { RESETTING_SOON } from '../../../shared/types/agent';
 
 // Wrapper component for i18n
 function I18nWrapper({ children }: { children: React.ReactNode }) {
