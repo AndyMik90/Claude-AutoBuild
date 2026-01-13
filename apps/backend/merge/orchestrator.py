@@ -300,7 +300,7 @@ class MergeOrchestrator:
                         )
                         debug_warning(
                             MODULE,
-                            f"DIRECT_COPY: Worktree file not found",
+                            "DIRECT_COPY: Worktree file not found",
                             file=str(worktree_file),
                         )
 
@@ -438,7 +438,7 @@ class MergeOrchestrator:
                             )
                             debug_warning(
                                 MODULE,
-                                f"DIRECT_COPY: Worktree file not found",
+                                "DIRECT_COPY: Worktree file not found",
                                 file=str(worktree_file),
                             )
 
