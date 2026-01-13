@@ -815,9 +815,11 @@ export function registerTaskExecutionHandlers(
             const expectedBranch = `auto-claude/${task.specId}`;
             const cleanupResult = cleanupOrphanedWorktree(project.path, worktreePath, expectedBranch);
             if (!cleanupResult.success) {
-              // Orphaned cleanup failed - notify user but don't block marking as done
+              // Orphaned cleanup failed - return error so UI can show "Skip Cleanup" option
+              // This prevents silent accumulation of orphaned directories that can cause
+              // "already exists" errors on future task creations
               console.warn(`[TASK_UPDATE_STATUS] Orphaned worktree cleanup failed: ${cleanupResult.error}`);
-              // Continue to mark as done - orphaned worktree cleanup failure is non-blocking
+              return cleanupResult;
             }
           } else if (branchResult.valid && options?.forceCleanup) {
             // Valid worktree exists and user confirmed cleanup
