@@ -577,6 +577,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             variant="ghost"
             size="sm"
             onClick={() => setHealthCheckDialogOpen(true)}
+            disabled={tasks.length === 0}
             className="gap-2 text-muted-foreground hover:text-foreground"
           >
             <Activity className="h-4 w-4" />
@@ -646,11 +647,13 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       />
 
       {/* Health check dialog (ACS-241) */}
-      <TaskHealthCheckDialog
-        open={healthCheckDialogOpen}
-        onOpenChange={setHealthCheckDialogOpen}
-        projectId={tasks[0]?.projectId || ''}
-      />
+      {tasks[0]?.projectId && (
+        <TaskHealthCheckDialog
+          open={healthCheckDialogOpen}
+          onOpenChange={setHealthCheckDialogOpen}
+          projectId={tasks[0].projectId}
+        />
+      )}
     </div>
   );
 }

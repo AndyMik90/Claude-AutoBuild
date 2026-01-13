@@ -50,6 +50,21 @@ function getButtonVariant(variant?: RecoveryAction['variant']): 'default' | 'des
 }
 
 /**
+ * Get translation key for recovery action label
+ */
+function getRecoveryActionLabel(actionType: RecoveryAction['actionType']): string {
+  const labelMap: Record<RecoveryAction['actionType'], string> = {
+    recover_stuck: 'tasks:kanban.recovery.recoverStuck',
+    view_logs: 'tasks:kanban.recovery.viewLogs',
+    view_qa_report: 'tasks:kanban.recovery.viewQARequest',
+    recreate_spec: 'tasks:kanban.recovery.recreateSpec',
+    discard_task: 'tasks:kanban.recovery.discardTask',
+    retry: 'common:buttons.retry'
+  };
+  return labelMap[actionType];
+}
+
+/**
  * Handle recovery action
  */
 async function handleRecoveryAction(action: RecoveryAction, taskId: string, onRefresh?: () => void) {
@@ -124,25 +139,22 @@ export function TaskHealthCheckDialog({ open, onOpenChange, projectId }: TaskHea
   }, [open, projectId]);
 
   // Refresh health check
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsLoading(true);
     setError(null);
 
-    window.electronAPI
-      .checkTaskHealth(projectId)
-      .then((response) => {
-        if (response.success && response.data) {
-          setResults(response.data);
-        } else {
-          setError(response.error || 'Health check failed');
-        }
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
+    try {
+      const response = await window.electronAPI.checkTaskHealth(projectId);
+      if (response.success && response.data) {
+        setResults(response.data);
+      } else {
+        setError(response.error || 'Health check failed');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle recovery action with loading state
@@ -208,7 +220,7 @@ export function TaskHealthCheckDialog({ open, onOpenChange, projectId }: TaskHea
                   <div className="flex items-center gap-2 text-sm font-medium text-destructive">
                     <AlertCircle className="h-4 w-4" />
                     <span>
-                      {errorIssues.length} {errorIssues.length === 1 ? 'task' : 'tasks'} with critical issues
+                      {t('tasks:kanban.criticalIssuesCount', { count: errorIssues.length })}
                     </span>
                   </div>
                   {errorIssues.map((result) => (
@@ -228,7 +240,7 @@ export function TaskHealthCheckDialog({ open, onOpenChange, projectId }: TaskHea
                   <div className="flex items-center gap-2 text-sm font-medium text-yellow-600 dark:text-yellow-500">
                     <AlertTriangle className="h-4 w-4" />
                     <span>
-                      {warningIssues.length} {warningIssues.length === 1 ? 'task' : 'tasks'} with warnings
+                      {t('tasks:kanban.warningIssuesCount', { count: warningIssues.length })}
                     </span>
                   </div>
                   {warningIssues.map((result) => (
@@ -326,7 +338,7 @@ function TaskIssueCard({ result, isRecovering, onAction }: TaskIssueCardProps) {
                   {t('common:buttons.processing')}
                 </>
               ) : (
-                action.label
+                t(getRecoveryActionLabel(action.actionType))
               )}
             </Button>
           ))}

@@ -106,8 +106,13 @@
       "recoverStuck": "Recover",
       "viewLogs": "View Logs",
       "viewQARequest": "View QA Report",
-      "discardTask": "Discard Task"
-    }
+      "discardTask": "Discard Task",
+      "recreateSpec": "Recreate Spec"
+    },
+    "criticalIssuesCount": "{{count}} task with critical issues",
+    "criticalIssuesCount_plural": "{{count}} tasks with critical issues",
+    "warningIssuesCount": "{{count}} task with warnings",
+    "warningIssuesCount_plural": "{{count}} tasks with warnings"
   },
   "execution": {
     "phases": {

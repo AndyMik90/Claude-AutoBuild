@@ -23,7 +23,7 @@ import type {
   RecoveryAction
 } from '../../../shared/types';
 import path from 'path';
-import { existsSync, readFileSync } from 'fs';
+import { promises as fs } from 'fs';
 import { AgentManager } from '../../agent';
 import { projectStore } from '../../project-store';
 
@@ -91,25 +91,27 @@ function checkFailedSubtasks(task: Task): HealthIssue | null {
 }
 
 /**
- * Check if QA rejected the task
+ * Check if QA rejected the task (async)
  */
-function checkQARejected(specDir: string): HealthIssue | null {
+async function checkQARejected(specDir: string): Promise<HealthIssue | null> {
   const qaReportPath = path.join(specDir, AUTO_BUILD_PATHS.QA_REPORT);
 
-  if (existsSync(qaReportPath)) {
-    try {
-      const content = readFileSync(qaReportPath, 'utf-8');
-      // Check for rejected status in QA report
-      if (content.includes('REJECTED') || content.includes('FAILED')) {
-        return {
-          type: 'qa_rejected',
-          severity: 'warning',
-          message: 'QA review rejected the task',
-          details: 'See QA_FIX_REQUEST.md for required fixes'
-        };
-      }
-    } catch {
-      // Can't read QA report, ignore
+  try {
+    const content = await fs.readFile(qaReportPath, 'utf-8');
+    const upperContent = content.toUpperCase();
+    // Check for rejected status in QA report (case-insensitive)
+    if (upperContent.includes('REJECTED') || upperContent.includes('FAILED')) {
+      return {
+        type: 'qa_rejected',
+        severity: 'warning',
+        message: 'QA review rejected the task',
+        details: 'See QA_FIX_REQUEST.md for required fixes'
+      };
+    }
+  } catch (err) {
+    // File doesn't exist or can't be read - not a QA rejection issue
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.debug('[checkQARejected] Could not read QA report:', err);
     }
   }
 
@@ -117,12 +119,15 @@ function checkQARejected(specDir: string): HealthIssue | null {
 }
 
 /**
- * Check if spec.md file exists
+ * Check if spec.md file exists (async)
  */
-function checkMissingSpec(specDir: string): HealthIssue | null {
+async function checkMissingSpec(specDir: string): Promise<HealthIssue | null> {
   const specPath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
 
-  if (!existsSync(specPath)) {
+  try {
+    await fs.access(specPath);
+  } catch {
+    // File doesn't exist
     return {
       type: 'missing_artifact',
       severity: 'error',
@@ -135,23 +140,28 @@ function checkMissingSpec(specDir: string): HealthIssue | null {
 }
 
 /**
- * Check if implementation plan is corrupted
+ * Check if implementation plan is corrupted (async)
  */
-function checkCorruptedPlan(specDir: string): HealthIssue | null {
+async function checkCorruptedPlan(specDir: string): Promise<HealthIssue | null> {
   const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
 
-  if (existsSync(planPath)) {
-    try {
-      const content = readFileSync(planPath, 'utf-8');
-      JSON.parse(content); // Will throw if invalid JSON
-    } catch {
-      return {
-        type: 'corrupted',
-        severity: 'error',
-        message: 'implementation_plan.json exists but contains invalid JSON',
-        details: 'File may be corrupted or partially written'
-      };
-    }
+  try {
+    await fs.access(planPath);
+  } catch {
+    // File doesn't exist - not a corruption issue
+    return null;
+  }
+
+  try {
+    const content = await fs.readFile(planPath, 'utf-8');
+    JSON.parse(content); // Will throw if invalid JSON
+  } catch {
+    return {
+      type: 'corrupted',
+      severity: 'error',
+      message: 'implementation_plan.json exists but contains invalid JSON',
+      details: 'File may be corrupted or partially written'
+    };
   }
 
   return null;
@@ -245,11 +255,11 @@ function buildRecoveryActions(task: Task, issues: HealthIssue[]): RecoveryAction
 /**
  * Run all health checks on a task
  */
-function runHealthChecks(
+async function runHealthChecks(
   task: Task,
   specDir: string,
   agentManager: AgentManager
-): HealthIssue[] {
+): Promise<HealthIssue[]> {
   const issues: HealthIssue[] = [];
 
   // Check 1: Failed task (higher priority - check before stuck)
@@ -264,16 +274,16 @@ function runHealthChecks(
   const subtasksIssue = checkFailedSubtasks(task);
   if (subtasksIssue) issues.push(subtasksIssue);
 
-  // Check 4: QA rejected
-  const qaIssue = checkQARejected(specDir);
+  // Check 4: QA rejected (async)
+  const qaIssue = await checkQARejected(specDir);
   if (qaIssue) issues.push(qaIssue);
 
-  // Check 5: Missing spec (on-disk check)
-  const specIssue = checkMissingSpec(specDir);
+  // Check 5: Missing spec (async)
+  const specIssue = await checkMissingSpec(specDir);
   if (specIssue) issues.push(specIssue);
 
-  // Check 6: Corrupted plan (on-disk check)
-  const planIssue = checkCorruptedPlan(specDir);
+  // Check 6: Corrupted plan (async)
+  const planIssue = await checkCorruptedPlan(specDir);
   if (planIssue) issues.push(planIssue);
 
   // Check 7: No progress
@@ -310,7 +320,7 @@ export function registerTaskHealthHandlers(agentManager: AgentManager): void {
 
         for (const task of tasks) {
           const specDir = path.join(project.path, specsBaseDir, task.specId);
-          const issues = runHealthChecks(task, specDir, agentManager);
+          const issues = await runHealthChecks(task, specDir, agentManager);
 
           // Build recovery actions
           const recoveryActions = buildRecoveryActions(task, issues);

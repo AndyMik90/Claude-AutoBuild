@@ -27,6 +27,8 @@ vi.mock('react-i18next', () => ({
         'tasks:kanban.checkingHealth': 'Checking task health...',
         'tasks:kanban.noHealthIssues': 'No health issues found - all tasks are healthy!',
         'tasks:kanban.healthCheckDialogDescription': 'Issues found in {{count}} task(s)',
+        'tasks:kanban.criticalIssuesCount': '{{count}} task with critical issues',
+        'tasks:kanban.warningIssuesCount': '{{count}} task with warnings',
         'common:buttons.close': 'Close',
         'common:buttons.refresh': 'Refresh',
         'common:buttons.processing': 'Processing...',
@@ -34,10 +36,11 @@ vi.mock('react-i18next', () => ({
         'tasks:issues.failed': 'Task execution failed',
         'tasks:issues.failedSubtasks': '{{count}} subtask(s) failed',
         'tasks:issues.qaRejected': 'QA review rejected',
-        'tasks:recovery.recoverStuck': 'Recover',
-        'tasks:recovery.viewLogs': 'View Logs',
-        'tasks:recovery.viewQARequest': 'View QA Report',
-        'tasks:recovery.discardTask': 'Discard Task'
+        'tasks:kanban.recovery.recoverStuck': 'Recover',
+        'tasks:kanban.recovery.viewLogs': 'View Logs',
+        'tasks:kanban.recovery.viewQARequest': 'View QA Report',
+        'tasks:kanban.recovery.recreateSpec': 'Recreate Spec',
+        'tasks:kanban.recovery.discardTask': 'Discard Task'
       };
       return translations[key] || key;
     },

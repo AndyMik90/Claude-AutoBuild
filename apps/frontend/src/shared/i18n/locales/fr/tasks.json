@@ -106,8 +106,13 @@
       "recoverStuck": "Récupérer",
       "viewLogs": "Voir les Journaux",
       "viewQARequest": "Voir le Rapport QA",
-      "discardTask": "Abandonner la Tâche"
-    }
+      "discardTask": "Abandonner la Tâche",
+      "recreateSpec": "Recréer la Spec"
+    },
+    "criticalIssuesCount": "{{count}} tâche avec problèmes critiques",
+    "criticalIssuesCount_plural": "{{count}} tâches avec problèmes critiques",
+    "warningIssuesCount": "{{count}} tâche avec avertissements",
+    "warningIssuesCount_plural": "{{count}} tâches avec avertissements"
   },
   "execution": {
     "phases": {
