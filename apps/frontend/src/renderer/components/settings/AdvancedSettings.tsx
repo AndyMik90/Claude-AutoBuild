@@ -83,15 +83,24 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
   // Check for updates on mount, including any already-downloaded updates
   useEffect(() => {
     if (section === 'updates') {
-      // First check if an update was already downloaded (e.g., auto-downloaded in background)
-      checkForDownloadedUpdate();
-      // Then check for available updates
-      checkForAppUpdates();
+      // First check if an update was already downloaded, then check for new updates
+      // Use async IIFE to properly await and avoid race condition
+      (async () => {
+        // Check if an update was already downloaded (e.g., auto-downloaded in background)
+        const hasDownloadedUpdate = await checkForDownloadedUpdate();
+        // Only check for available updates if no update is already downloaded
+        // (electron-updater reports no available update when one is already downloaded,
+        // which would clear our appUpdateInfo and lose the version metadata)
+        if (!hasDownloadedUpdate) {
+          checkForAppUpdates();
+        }
+      })();
     }
   }, [section]);
 
   // Check if an update was already downloaded before the Settings page opened
-  const checkForDownloadedUpdate = async () => {
+  // Returns true if a downloaded update was found, false otherwise
+  const checkForDownloadedUpdate = async (): Promise<boolean> => {
     try {
       const result = await window.electronAPI.getDownloadedAppUpdate();
       if (result.success && result.data) {
@@ -99,9 +108,12 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
         setAppUpdateInfo(result.data);
         setIsAppUpdateDownloaded(true);
         console.log('[AdvancedSettings] Found already-downloaded update:', result.data.version);
+        return true;
       }
+      return false;
     } catch (err) {
       console.error('Failed to check for downloaded update:', err);
+      return false;
     }
   };
 

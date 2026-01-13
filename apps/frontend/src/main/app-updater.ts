@@ -111,9 +111,10 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
   autoUpdater.on('update-downloaded', (info) => {
     console.warn('[app-updater] Update downloaded:', info.version);
     // Store downloaded update info so it persists across Settings page navigations
+    // releaseNotes can be string | ReleaseNoteInfo[] | null | undefined, only use if string
     downloadedUpdateInfo = {
       version: info.version,
-      releaseNotes: info.releaseNotes as string | undefined,
+      releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
       releaseDate: info.releaseDate
     };
     if (mainWindow) {
@@ -224,9 +225,10 @@ export async function checkForUpdates(): Promise<AppUpdateInfo | null> {
       return null;
     }
 
+    // releaseNotes can be string | ReleaseNoteInfo[] | null | undefined, only use if string
     return {
       version: result.updateInfo.version,
-      releaseNotes: result.updateInfo.releaseNotes as string | undefined,
+      releaseNotes: typeof result.updateInfo.releaseNotes === 'string' ? result.updateInfo.releaseNotes : undefined,
       releaseDate: result.updateInfo.releaseDate
     };
   } catch (error) {
