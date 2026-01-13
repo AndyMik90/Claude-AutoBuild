@@ -220,7 +220,9 @@ class MergeOrchestrator:
             and the caller should mark the merge as FAILED.
         """
         if not worktree_path:
-            logger.warning(f"DIRECT_COPY: No worktree path provided for file: {file_path}")
+            logger.warning(
+                f"DIRECT_COPY: No worktree path provided for file: {file_path}"
+            )
             debug_warning(
                 MODULE,
                 "DIRECT_COPY: No worktree path provided",
