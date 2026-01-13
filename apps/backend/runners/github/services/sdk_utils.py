@@ -15,7 +15,10 @@ import os
 from collections.abc import Callable
 from typing import Any
 
-from .io_utils import safe_print
+try:
+    from .io_utils import safe_print
+except (ImportError, ValueError, SystemError):
+    from core.io_utils import safe_print
 
 logger = logging.getLogger(__name__)
 

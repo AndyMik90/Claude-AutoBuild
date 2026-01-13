@@ -55,8 +55,8 @@ def _get_version() -> str:
             with open(package_json) as f:
                 data = json.load(f)
                 return data.get("version", "0.0.0")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Version detection failed: {e}")
 
     return "0.0.0"
 
@@ -269,7 +269,9 @@ def capture_exception(error: Exception, **kwargs) -> None:
 
         with sentry_sdk.push_scope() as scope:
             for key, value in kwargs.items():
-                scope.set_extra(key, value)
+                # Apply defensive path masking for extra data
+                masked_value = _mask_object_paths(value) if isinstance(value, (str, dict, list)) else value
+                scope.set_extra(key, masked_value)
             sentry_sdk.capture_exception(error)
     except ImportError:
         logger.error(f"[Sentry] SDK not installed, exception not captured: {error}")
@@ -319,11 +321,13 @@ def set_context(name: str, data: dict) -> None:
 
     try:
         import sentry_sdk
-        sentry_sdk.set_context(name, data)
+        # Apply path masking to context data before sending to Sentry
+        masked_data = _mask_object_paths(data)
+        sentry_sdk.set_context(name, masked_data)
     except ImportError:
         pass
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Failed to set context '{name}': {e}")
 
 
 def set_tag(key: str, value: str) -> None:
@@ -341,11 +345,13 @@ def set_tag(key: str, value: str) -> None:
 
     try:
         import sentry_sdk
-        sentry_sdk.set_tag(key, value)
+        # Apply path masking to tag value
+        masked_value = _mask_user_paths(value) if isinstance(value, str) else value
+        sentry_sdk.set_tag(key, masked_value)
     except ImportError:
         pass
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Failed to set tag '{key}': {e}")
 
 
 def is_enabled() -> bool:

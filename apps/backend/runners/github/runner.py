@@ -66,7 +66,7 @@ if env_file.exists():
     load_dotenv(env_file)
 
 # Initialize Sentry early to capture any startup errors
-from core.sentry import init_sentry, capture_exception, set_context
+from core.sentry import capture_exception, init_sentry, set_context
 
 init_sentry(component="github-runner")
 
