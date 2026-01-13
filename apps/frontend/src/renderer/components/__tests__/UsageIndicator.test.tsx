@@ -406,7 +406,7 @@ describe('UsageIndicator', () => {
       const resettingSoonUsage = createUsageSnapshot({
         sessionPercent: 95,
         weeklyPercent: 30,
-        sessionResetTimestamp: RESETTING_SOON as any,
+        sessionResetTimestamp: undefined,
         sessionResetTime: RESETTING_SOON,
         limitType: 'session'
       });

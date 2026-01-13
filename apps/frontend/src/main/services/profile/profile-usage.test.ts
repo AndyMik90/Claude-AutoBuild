@@ -8,7 +8,8 @@ import {
   detectProvider,
   fetchZaiUsage,
   fetchAnthropicOAuthUsage,
-  fetchUsageForProfile
+  fetchUsageForProfile,
+  ApiAuthError
 } from './profile-usage';
 import type { ClaudeUsageSnapshot } from '../../../shared/types/agent';
 
@@ -347,6 +348,30 @@ describe('profile-usage service', () => {
       const result = await fetchAnthropicOAuthUsage('token', 'profile-1', 'Profile');
 
       expect(result?.limitType).toBe('weekly');
+    });
+
+    it('should throw ApiAuthError when throwOnAuthFailure is true and API returns 401', async () => {
+      (global.fetch as any).mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized'
+      });
+
+      await expect(
+        fetchAnthropicOAuthUsage('invalid-token', 'profile-1', 'Profile', true)
+      ).rejects.toThrow(ApiAuthError);
+    });
+
+    it('should throw ApiAuthError when throwOnAuthFailure is true and API returns 403', async () => {
+      (global.fetch as any).mockResolvedValue({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden'
+      });
+
+      await expect(
+        fetchAnthropicOAuthUsage('invalid-token', 'profile-1', 'Profile', true)
+      ).rejects.toThrow(ApiAuthError);
     });
   });
 

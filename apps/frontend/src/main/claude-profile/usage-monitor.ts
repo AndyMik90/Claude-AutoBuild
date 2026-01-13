@@ -21,7 +21,7 @@ import { ClaudeUsageSnapshot } from '../../shared/types/agent';
 import { loadProfilesFile, detectProvider, fetchUsageForProfile, fetchAnthropicOAuthUsage } from '../services/profile';
 import { getClaudeCliInvocationAsync } from '../claude-cli-utils';
 import { getSpawnCommand, getSpawnOptions } from '../env-utils';
-import { parseUsageOutput } from './usage-parser';
+import { parseUsageOutput, parseResetTime } from './usage-parser';
 
 export class UsageMonitor extends EventEmitter {
   private static instance: UsageMonitor;
@@ -385,7 +385,6 @@ export class UsageMonitor extends EventEmitter {
           if (code === 0 && stdout) {
             try {
               const usageData = parseUsageOutput(stdout);
-              const { parseResetTime } = require('./usage-parser');
 
               // Parse reset time strings into timestamps for countdown timer
               const sessionResetTimestamp = usageData.sessionResetTime
