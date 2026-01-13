@@ -105,7 +105,8 @@ export function buildClaudeShellCommand(
     switch (config.method) {
       case 'temp-file':
         // On Windows, use 'call' to execute the batch file that sets env var, then run claude
-        return `cls && ${cwdCommand}call ${config.escapedTempFile} && del ${config.escapedTempFile} && ${fullCmd}\r`;
+        // Use del /Q for quiet (no confirmation prompt) deletion
+        return `cls && ${cwdCommand}call ${config.escapedTempFile} && del /Q ${config.escapedTempFile} && ${fullCmd}\r`;
 
       case 'config-dir':
         // On Windows, use 'set "VAR=value"' syntax to handle paths with spaces correctly

@@ -111,7 +111,7 @@ describe('claude-integration-handler', () => {
     expect(profileManager.markProfileUsed).toHaveBeenCalledWith('default');
   });
 
-  it('converts Windows PATH separators to colons for bash invocations', async () => {
+  it('skips PATH prefix on Windows (PTY has correct PATH)', async () => {
     const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
     Object.defineProperty(process, 'platform', { value: 'win32' });
 
@@ -134,8 +134,10 @@ describe('claude-integration-handler', () => {
       invokeClaude(terminal, '/tmp/project', undefined, () => null, vi.fn());
 
       const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
-      expect(written).toContain("PATH='C:\\Tools\\claude:C:\\Windows' ");
-      expect(written).not.toContain('C:\\Tools\\claude;C:\\Windows');
+      // On Windows, PATH prefix is skipped - the PTY already has the correct PATH
+      expect(written).not.toContain('PATH=');
+      // Should use Windows cmd.exe syntax with double quotes
+      expect(written).toContain('"C:\\Tools\\claude\\claude.exe"');
     } finally {
       if (originalPlatform) {
         Object.defineProperty(process, 'platform', originalPlatform);
