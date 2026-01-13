@@ -32,7 +32,44 @@ export function registerTerminalHandlers(
   ipcMain.handle(
     IPC_CHANNELS.TERMINAL_CREATE,
     async (_, options: TerminalCreateOptions): Promise<IPCResult> => {
-      return terminalManager.create(options);
+      console.warn('[terminal-handlers:TERMINAL_CREATE] ========== TERMINAL CREATE START ==========');
+      console.warn('[terminal-handlers:TERMINAL_CREATE] ⚠️ HYPOTHESIS 3 CHECK - Terminal creation requested');
+      debugLog('[terminal-handlers:TERMINAL_CREATE] Request options:', {
+        id: options.id,
+        cwd: options.cwd,
+        hasId: !!options.id,
+        timestamp: Date.now()
+      });
+
+      try {
+        debugLog('[terminal-handlers:TERMINAL_CREATE] Calling terminalManager.create...');
+        const result = await terminalManager.create(options);
+
+        console.warn('[terminal-handlers:TERMINAL_CREATE] ⚠️ HYPOTHESIS 3 CHECK - Terminal creation result:', {
+          success: result.success,
+          hasError: !!result.error,
+          error: result.error,
+          hasOutputBuffer: !!result.outputBuffer
+        });
+
+        debugLog('[terminal-handlers:TERMINAL_CREATE] Full result:', result);
+
+        if (!result.success) {
+          debugError('[terminal-handlers:TERMINAL_CREATE] Terminal creation FAILED:', result.error);
+        } else {
+          debugLog('[terminal-handlers:TERMINAL_CREATE] Terminal created successfully');
+        }
+
+        console.warn('[terminal-handlers:TERMINAL_CREATE] ========== TERMINAL CREATE COMPLETE ==========');
+        return result;
+      } catch (error) {
+        console.error('[terminal-handlers:TERMINAL_CREATE] ⚠️⚠️⚠️ HYPOTHESIS 3 CHECK - EXCEPTION CAUGHT ⚠️⚠️⚠️');
+        debugError('[terminal-handlers:TERMINAL_CREATE] Exception during terminal creation:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to create terminal (exception)'
+        };
+      }
     }
   );
 
