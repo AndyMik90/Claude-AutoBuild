@@ -143,19 +143,22 @@ export class AgentEvents {
     let phase = currentPhase;
     let progress = currentProgress;
 
-    if (log.includes('PROJECT INDEX') || log.includes('PROJECT ANALYSIS')) {
+    // Use case-insensitive matching since backend logs may use mixed case
+    const lowerLog = log.toLowerCase();
+
+    if (lowerLog.includes('project index') || lowerLog.includes('project analysis')) {
       phase = 'analyzing';
       progress = 10;
-    } else if (log.includes('CONTEXT GATHERING')) {
+    } else if (lowerLog.includes('context gathering')) {
       phase = 'discovering';
       progress = 20;
-    } else if (log.includes('GENERATING IDEAS (PARALLEL)') || (log.includes('Starting') && log.includes('ideation agents in parallel'))) {
+    } else if (lowerLog.includes('generating ideas (parallel)') || (lowerLog.includes('starting') && lowerLog.includes('ideation agents in parallel'))) {
       phase = 'generating';
       progress = 30;
-    } else if (log.includes('MERGE') || log.includes('FINALIZE')) {
+    } else if (lowerLog.includes('merge') || lowerLog.includes('finalize')) {
       phase = 'finalizing';
       progress = 90;
-    } else if (log.includes('IDEATION COMPLETE')) {
+    } else if (lowerLog.includes('ideation complete')) {
       phase = 'complete';
       progress = 100;
     }
@@ -176,16 +179,19 @@ export class AgentEvents {
     let phase = currentPhase;
     let progress = currentProgress;
 
-    if (log.includes('PROJECT ANALYSIS')) {
+    // Use case-insensitive matching since backend logs may use mixed case
+    const lowerLog = log.toLowerCase();
+
+    if (lowerLog.includes('project analysis')) {
       phase = 'analyzing';
       progress = 20;
-    } else if (log.includes('PROJECT DISCOVERY')) {
+    } else if (lowerLog.includes('project discovery')) {
       phase = 'discovering';
       progress = 40;
-    } else if (log.includes('FEATURE GENERATION')) {
+    } else if (lowerLog.includes('feature generation')) {
       phase = 'generating';
       progress = 70;
-    } else if (log.includes('ROADMAP GENERATED')) {
+    } else if (lowerLog.includes('roadmap generated')) {
       phase = 'complete';
       progress = 100;
     }

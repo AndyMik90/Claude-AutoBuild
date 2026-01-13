@@ -528,5 +528,58 @@ describe('AgentEvents', () => {
       expect(result.phase).toBe('analyzing');
       expect(result.progress).toBe(25);
     });
+
+    it('should match mixed-case log messages (case insensitive)', () => {
+      // Backend logs may use "Project Analysis" instead of "PROJECT ANALYSIS"
+      const result = agentEvents.parseRoadmapProgress(
+        'Project Analysis starting',
+        'idle',
+        0
+      );
+
+      expect(result.phase).toBe('analyzing');
+      expect(result.progress).toBe(20);
+    });
+
+    it('should match lowercase log messages (case insensitive)', () => {
+      const result = agentEvents.parseRoadmapProgress(
+        'project discovery in progress',
+        'analyzing',
+        20
+      );
+
+      expect(result.phase).toBe('discovering');
+      expect(result.progress).toBe(40);
+    });
+  });
+
+  describe('parseIdeationProgress - case insensitivity', () => {
+    it('should match mixed-case log messages', () => {
+      const completedTypes = new Set<string>();
+      const result = agentEvents.parseIdeationProgress(
+        'Project Analysis starting',
+        'idle',
+        0,
+        completedTypes,
+        5
+      );
+
+      expect(result.phase).toBe('analyzing');
+      expect(result.progress).toBe(10);
+    });
+
+    it('should match lowercase log messages', () => {
+      const completedTypes = new Set<string>();
+      const result = agentEvents.parseIdeationProgress(
+        'context gathering in progress',
+        'analyzing',
+        10,
+        completedTypes,
+        5
+      );
+
+      expect(result.phase).toBe('discovering');
+      expect(result.progress).toBe(20);
+    });
   });
 });

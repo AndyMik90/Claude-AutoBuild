@@ -3,6 +3,12 @@ import type { BrowserWindow } from 'electron';
 import type { TerminalWorktreeConfig } from '../../shared/types';
 
 /**
+ * Shell types for command generation
+ * Used to generate shell-specific command syntax (PowerShell, cmd, bash, etc.)
+ */
+export type ShellType = 'bash' | 'zsh' | 'powershell' | 'pwsh' | 'cmd' | 'unknown';
+
+/**
  * Terminal process tracking
  */
 export interface TerminalProcess {
@@ -19,6 +25,8 @@ export interface TerminalProcess {
   worktreeConfig?: TerminalWorktreeConfig;
   /** Whether this terminal has a pending Claude resume that should be triggered on activation */
   pendingClaudeResume?: boolean;
+  /** The shell type for this terminal (used for shell-specific command generation) */
+  shellType?: ShellType;
 }
 
 /**

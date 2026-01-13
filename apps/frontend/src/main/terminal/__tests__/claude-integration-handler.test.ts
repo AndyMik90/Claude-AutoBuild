@@ -40,6 +40,7 @@ const createMockTerminal = (overrides: Partial<TerminalProcess> = {}): TerminalP
   title: 'Claude',
   cwd: '/tmp/project',
   projectPath: '/tmp/project',
+  shellType: 'bash',  // Explicit shell type for consistent command generation
   ...overrides,
 });
 
@@ -100,6 +101,8 @@ describe('claude-integration-handler', () => {
     invokeClaude(terminal, '/tmp/project', undefined, () => null, vi.fn());
 
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
+    // Default method now includes clear command at the start
+    expect(written).toContain("clear && ");
     expect(written).toContain("cd '/tmp/project' && ");
     expect(written).toContain("PATH='/opt/claude/bin:/usr/bin' ");
     expect(written).toContain("'/opt/claude bin/claude'\\''s'");
@@ -233,8 +236,8 @@ describe('claude-integration-handler', () => {
 
     const tokenPath = vi.mocked(writeFileSync).mock.calls[0]?.[0] as string;
     const tokenContents = vi.mocked(writeFileSync).mock.calls[0]?.[1] as string;
-    const tmpDir = escapeForRegex(tmpdir());
-    expect(tokenPath).toMatch(new RegExp(`^${tmpDir}/\\.claude-token-1234-[0-9a-f]{16}$`));
+    // On Windows, path.join normalizes /tmp to \tmp, so check for the filename pattern
+    expect(tokenPath).toMatch(/[/\\]\.claude-token-1234-[0-9a-f]{16}$/);
     expect(tokenContents).toBe("export CLAUDE_CODE_OAUTH_TOKEN='token-value'\n");
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
     expect(written).toContain("HISTFILE= HISTCONTROL=ignorespace ");
@@ -276,8 +279,8 @@ describe('claude-integration-handler', () => {
 
     const tokenPath = vi.mocked(writeFileSync).mock.calls[0]?.[0] as string;
     const tokenContents = vi.mocked(writeFileSync).mock.calls[0]?.[1] as string;
-    const tmpDir = escapeForRegex(tmpdir());
-    expect(tokenPath).toMatch(new RegExp(`^${tmpDir}/\\.claude-token-5678-[0-9a-f]{16}$`));
+    // On Windows, path.join normalizes /tmp to \tmp, so check for the filename pattern
+    expect(tokenPath).toMatch(/[/\\]\.claude-token-5678-[0-9a-f]{16}$/);
     expect(tokenContents).toBe("export CLAUDE_CODE_OAUTH_TOKEN='token-value'\n");
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
     expect(written).toContain(`source '${tokenPath}'`);
@@ -427,25 +430,32 @@ describe('claude-integration-handler', () => {
  */
 describe('claude-integration-handler - Helper Functions', () => {
   describe('buildClaudeShellCommand', () => {
-    it('should build default command without cwd or PATH prefix', async () => {
+    it('should build default command with clear for bash', async () => {
       const { buildClaudeShellCommand } = await import('../claude-integration-handler');
-      const result = buildClaudeShellCommand('', '', "'/opt/bin/claude'", { method: 'default' });
+      const result = buildClaudeShellCommand('', '', "'/opt/bin/claude'", { method: 'default', shellType: 'bash' });
 
-      expect(result).toBe("'/opt/bin/claude'\r");
+      expect(result).toBe("clear && '/opt/bin/claude'\r");
+    });
+
+    it('should build default command with cls for powershell', async () => {
+      const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+      const result = buildClaudeShellCommand('', '', "& 'C:/bin/claude'", { method: 'default', shellType: 'powershell' });
+
+      expect(result).toBe("cls; & 'C:/bin/claude'\r");
     });
 
     it('should build command with cwd', async () => {
       const { buildClaudeShellCommand } = await import('../claude-integration-handler');
-      const result = buildClaudeShellCommand("cd '/tmp/project' && ", '', "'/opt/bin/claude'", { method: 'default' });
+      const result = buildClaudeShellCommand("cd '/tmp/project' && ", '', "'/opt/bin/claude'", { method: 'default', shellType: 'bash' });
 
-      expect(result).toBe("cd '/tmp/project' && '/opt/bin/claude'\r");
+      expect(result).toBe("clear && cd '/tmp/project' && '/opt/bin/claude'\r");
     });
 
     it('should build command with PATH prefix', async () => {
       const { buildClaudeShellCommand } = await import('../claude-integration-handler');
-      const result = buildClaudeShellCommand('', "PATH='/custom/path' ", "'/opt/bin/claude'", { method: 'default' });
+      const result = buildClaudeShellCommand('', "PATH='/custom/path' ", "'/opt/bin/claude'", { method: 'default', shellType: 'bash' });
 
-      expect(result).toBe("PATH='/custom/path' '/opt/bin/claude'\r");
+      expect(result).toBe("clear && PATH='/custom/path' '/opt/bin/claude'\r");
     });
 
     it('should build temp-file method command with history-safe prefixes', async () => {
@@ -610,6 +620,68 @@ describe('claude-integration-handler - Helper Functions', () => {
           vi.fn()
         );
       }).not.toThrow();
+    });
+  });
+
+  describe('isBashCompatibleShell', () => {
+    it('should return true for bash', async () => {
+      const { isBashCompatibleShell } = await import('../claude-integration-handler');
+      expect(isBashCompatibleShell('bash')).toBe(true);
+    });
+
+    it('should return true for zsh', async () => {
+      const { isBashCompatibleShell } = await import('../claude-integration-handler');
+      expect(isBashCompatibleShell('zsh')).toBe(true);
+    });
+
+    it('should return false for powershell', async () => {
+      const { isBashCompatibleShell } = await import('../claude-integration-handler');
+      expect(isBashCompatibleShell('powershell')).toBe(false);
+    });
+
+    it('should return false for pwsh', async () => {
+      const { isBashCompatibleShell } = await import('../claude-integration-handler');
+      expect(isBashCompatibleShell('pwsh')).toBe(false);
+    });
+
+    it('should return false for cmd', async () => {
+      const { isBashCompatibleShell } = await import('../claude-integration-handler');
+      expect(isBashCompatibleShell('cmd')).toBe(false);
+    });
+
+    it('should return false for unknown', async () => {
+      const { isBashCompatibleShell } = await import('../claude-integration-handler');
+      expect(isBashCompatibleShell('unknown')).toBe(false);
+    });
+  });
+
+  describe('buildClaudeShellCommand - shell type variations', () => {
+    it('should use cls for cmd shell', async () => {
+      const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+      const result = buildClaudeShellCommand('', '', '"claude"', { method: 'default', shellType: 'cmd' });
+
+      expect(result).toBe('cls && "claude"\r');
+    });
+
+    it('should use cls; for pwsh shell', async () => {
+      const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+      const result = buildClaudeShellCommand('', '', "& 'claude'", { method: 'default', shellType: 'pwsh' });
+
+      expect(result).toBe("cls; & 'claude'\r");
+    });
+
+    it('should use clear && for zsh shell', async () => {
+      const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+      const result = buildClaudeShellCommand('', '', "'claude'", { method: 'default', shellType: 'zsh' });
+
+      expect(result).toBe("clear && 'claude'\r");
+    });
+
+    it('should use clear && for unknown shell (default)', async () => {
+      const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+      const result = buildClaudeShellCommand('', '', "'claude'", { method: 'default', shellType: 'unknown' });
+
+      expect(result).toBe("clear && 'claude'\r");
     });
   });
 });

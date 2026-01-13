@@ -6,12 +6,82 @@
 import * as pty from '@lydell/node-pty';
 import * as os from 'os';
 import { existsSync } from 'fs';
-import type { TerminalProcess, WindowGetter } from './types';
+import type { TerminalProcess, WindowGetter, ShellType } from './types';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { readSettingsFile } from '../settings-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import type { SupportedTerminal } from '../../shared/types/settings';
+
+/**
+ * Result of spawning a PTY process
+ */
+export interface SpawnResult {
+  pty: pty.IPty;
+  shellType: ShellType;
+}
+
+/**
+ * Detect shell type from executable path.
+ *
+ * Uses precise matching to avoid false positives (e.g., a path containing 'cmd'
+ * as a substring should not match as cmd.exe).
+ *
+ * @param shellPath - The path to the shell executable
+ * @returns The detected shell type
+ */
+export function detectShellType(shellPath: string): ShellType {
+  const normalized = shellPath.toLowerCase();
+
+  // Check for PowerShell Core (pwsh) first - more specific match
+  // Matches: pwsh.exe, pwsh, /usr/bin/pwsh
+  // Using endsWith() for precise path boundary matching to avoid false positives
+  // (e.g., /usr/local/pwsh-tools/bash should NOT match as pwsh)
+  if (normalized.endsWith('pwsh.exe') || normalized.endsWith('pwsh') || normalized.endsWith('/pwsh')) {
+    return 'pwsh';
+  }
+
+  // Check for Windows PowerShell
+  // Matches: powershell.exe, powershell, /powershell
+  // Using endsWith() for precise path boundary matching to avoid false positives
+  // (e.g., /opt/powershell-scripts/zsh should NOT match as powershell)
+  if (normalized.endsWith('powershell.exe') || normalized.endsWith('powershell') || normalized.endsWith('/powershell')) {
+    return 'powershell';
+  }
+
+  // Check for cmd.exe - use precise matching to avoid false positives
+  // A path like 'C:\Documents\mycmdtool\bash.exe' should NOT match as cmd
+  // Only match: cmd.exe, \cmd.exe, /cmd.exe, or just 'cmd'
+  if (
+    normalized.endsWith('cmd.exe') ||
+    normalized.endsWith('\\cmd') ||
+    normalized.endsWith('/cmd') ||
+    normalized === 'cmd'
+  ) {
+    return 'cmd';
+  }
+
+  // Check for bash (includes Git Bash, Cygwin, MSYS2)
+  // Matches: bash.exe, bash, /bin/bash, /usr/bin/bash
+  // Using endsWith() for precise path boundary matching to avoid false positives
+  // (e.g., /path/to/bash-tools/zsh should NOT match as bash)
+  if (normalized.endsWith('bash.exe') || normalized.endsWith('bash') || normalized.endsWith('/bash')) {
+    return 'bash';
+  }
+
+  // Check for zsh
+  // Matches: zsh, /bin/zsh, /usr/bin/zsh
+  // Using endsWith() for precise path boundary matching to avoid false positives
+  // (e.g., /path/to/zsh-plugin/bash should NOT match as zsh)
+  if (normalized.endsWith('zsh') || normalized.endsWith('/zsh')) {
+    return 'zsh';
+  }
+
+  // Unix fallback based on platform
+  if (process.platform !== 'win32') return 'bash';
+
+  return 'unknown';
+}
 
 /**
  * Windows shell paths for different terminal preferences
@@ -68,13 +138,14 @@ function getWindowsShell(preferredTerminal: SupportedTerminal | undefined): stri
 
 /**
  * Spawn a new PTY process with appropriate shell and environment
+ * Returns both the PTY process and the detected shell type for command generation
  */
 export function spawnPtyProcess(
   cwd: string,
   cols: number,
   rows: number,
   profileEnv?: Record<string, string>
-): pty.IPty {
+): SpawnResult {
   // Read user's preferred terminal setting
   const settings = readSettingsFile();
   const preferredTerminal = settings?.preferredTerminal as SupportedTerminal | undefined;
@@ -83,9 +154,10 @@ export function spawnPtyProcess(
     ? getWindowsShell(preferredTerminal)
     : process.env.SHELL || '/bin/zsh';
 
+  const shellType = detectShellType(shell);
   const shellArgs = process.platform === 'win32' ? [] : ['-l'];
 
-  debugLog('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ')');
+  debugLog('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ', type:', shellType, ')');
 
   // Create a clean environment without DEBUG to prevent Claude Code from
   // enabling debug mode when the Electron app is run in development mode.
@@ -95,7 +167,7 @@ export function spawnPtyProcess(
   // show "Claude API" instead of "Claude Max" when ANTHROPIC_API_KEY is set.
   const { DEBUG: _DEBUG, ANTHROPIC_API_KEY: _ANTHROPIC_API_KEY, ...cleanEnv } = process.env;
 
-  return pty.spawn(shell, shellArgs, {
+  const ptyProcess = pty.spawn(shell, shellArgs, {
     name: 'xterm-256color',
     cols,
     rows,
@@ -107,6 +179,8 @@ export function spawnPtyProcess(
       COLORTERM: 'truecolor',
     },
   });
+
+  return { pty: ptyProcess, shellType };
 }
 
 /**
