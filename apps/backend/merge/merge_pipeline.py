@@ -75,6 +75,18 @@ class MergePipeline:
         # If only one task modified the file, no conflict possible
         if len(task_snapshots) == 1:
             snapshot = task_snapshots[0]
+
+            # Check if file has modifications but semantic analysis returned empty
+            # This happens for: function body changes, unsupported file types (Rust, Go, etc.)
+            # In this case, signal that the caller should use the worktree version directly
+            if snapshot.has_modifications and not snapshot.semantic_changes:
+                return MergeResult(
+                    decision=MergeDecision.DIRECT_COPY,
+                    file_path=file_path,
+                    merged_content=None,  # Caller must read from worktree
+                    explanation=f"File modified by {snapshot.task_id} but no semantic changes detected - use worktree version",
+                )
+
             merged = apply_single_task_changes(baseline_content, snapshot, file_path)
             return MergeResult(
                 decision=MergeDecision.AUTO_MERGED,

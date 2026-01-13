@@ -65,6 +65,11 @@ env_file = Path(__file__).parent.parent.parent / ".env"
 if env_file.exists():
     load_dotenv(env_file)
 
+# Initialize Sentry early to capture any startup errors
+from core.sentry import capture_exception, init_sentry, set_context
+
+init_sentry(component="github-runner")
+
 from debug import debug_error
 
 # Add github runner directory to path for direct imports
@@ -73,6 +78,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 # Now import models and orchestrator directly (they use relative imports internally)
 from models import GitHubRunnerConfig
 from orchestrator import GitHubOrchestrator, ProgressCallback
+from services.io_utils import safe_print
 
 
 def print_progress(callback: ProgressCallback) -> None:
@@ -83,7 +89,7 @@ def print_progress(callback: ProgressCallback) -> None:
     elif callback.issue_number:
         prefix = f"[Issue #{callback.issue_number}] "
 
-    print(f"{prefix}[{callback.progress:3d}%] {callback.message}", flush=True)
+    safe_print(f"{prefix}[{callback.progress:3d}%] {callback.message}")
 
 
 def get_config(args) -> GitHubRunnerConfig:
@@ -110,8 +116,8 @@ def get_config(args) -> GitHubRunnerConfig:
                 break
 
     if os.environ.get("DEBUG"):
-        print(f"[DEBUG] gh CLI path: {gh_path}", flush=True)
-        print(
+        safe_print(f"[DEBUG] gh CLI path: {gh_path}")
+        safe_print(
             f"[DEBUG] PATH env: {os.environ.get('PATH', 'NOT SET')[:200]}...",
             flush=True,
         )
@@ -149,16 +155,20 @@ def get_config(args) -> GitHubRunnerConfig:
             if result.returncode == 0:
                 repo = result.stdout.strip()
             elif os.environ.get("DEBUG"):
-                print(f"[DEBUG] gh repo view failed: {result.stderr}", flush=True)
+                safe_print(f"[DEBUG] gh repo view failed: {result.stderr}")
         except FileNotFoundError:
             pass  # gh not installed or not in PATH
 
     if not token:
-        print("Error: No GitHub token found. Set GITHUB_TOKEN or run 'gh auth login'")
+        safe_print(
+            "Error: No GitHub token found. Set GITHUB_TOKEN or run 'gh auth login'"
+        )
         sys.exit(1)
 
     if not repo:
-        print("Error: No GitHub repo found. Set GITHUB_REPO or run from a git repo.")
+        safe_print(
+            "Error: No GitHub repo found. Set GITHUB_REPO or run from a git repo."
+        )
         sys.exit(1)
 
     return GitHubRunnerConfig(
@@ -185,18 +195,18 @@ async def cmd_review_pr(args) -> int:
 
     debug = os.environ.get("DEBUG")
     if debug:
-        print(f"[DEBUG] Starting PR review for PR #{args.pr_number}", flush=True)
-        print(f"[DEBUG] Project directory: {args.project}", flush=True)
-        print("[DEBUG] Building config...", flush=True)
+        safe_print(f"[DEBUG] Starting PR review for PR #{args.pr_number}")
+        safe_print(f"[DEBUG] Project directory: {args.project}")
+        safe_print("[DEBUG] Building config...")
 
     config = get_config(args)
 
     if debug:
-        print(
+        safe_print(
             f"[DEBUG] Config built: repo={config.repo}, model={config.model}",
             flush=True,
         )
-        print("[DEBUG] Creating orchestrator...", flush=True)
+        safe_print("[DEBUG] Creating orchestrator...")
 
     orchestrator = GitHubOrchestrator(
         project_dir=args.project,
@@ -205,8 +215,8 @@ async def cmd_review_pr(args) -> int:
     )
 
     if debug:
-        print("[DEBUG] Orchestrator created", flush=True)
-        print(
+        safe_print("[DEBUG] Orchestrator created")
+        safe_print(
             f"[DEBUG] Calling orchestrator.review_pr({args.pr_number})...", flush=True
         )
 
@@ -215,27 +225,27 @@ async def cmd_review_pr(args) -> int:
     result = await orchestrator.review_pr(args.pr_number, force_review=force_review)
 
     if debug:
-        print(f"[DEBUG] review_pr returned, success={result.success}", flush=True)
+        safe_print(f"[DEBUG] review_pr returned, success={result.success}")
 
     if result.success:
-        print(f"\n{'=' * 60}")
-        print(f"PR #{result.pr_number} Review Complete")
-        print(f"{'=' * 60}")
-        print(f"Status: {result.overall_status}")
-        print(f"Summary: {result.summary}")
-        print(f"Findings: {len(result.findings)}")
+        safe_print(f"\n{'=' * 60}")
+        safe_print(f"PR #{result.pr_number} Review Complete")
+        safe_print(f"{'=' * 60}")
+        safe_print(f"Status: {result.overall_status}")
+        safe_print(f"Summary: {result.summary}")
+        safe_print(f"Findings: {len(result.findings)}")
 
         if result.findings:
-            print("\nFindings by severity:")
+            safe_print("\nFindings by severity:")
             for f in result.findings:
                 emoji = {"critical": "!", "high": "*", "medium": "-", "low": "."}
-                print(
+                safe_print(
                     f"  {emoji.get(f.severity.value, '?')} [{f.severity.value.upper()}] {f.title}"
                 )
-                print(f"    File: {f.file}:{f.line}")
+                safe_print(f"    File: {f.file}:{f.line}")
         return 0
     else:
-        print(f"\nReview failed: {result.error}")
+        safe_print(f"\nReview failed: {result.error}")
         return 1
 
 
@@ -251,18 +261,18 @@ async def cmd_followup_review_pr(args) -> int:
 
     debug = os.environ.get("DEBUG")
     if debug:
-        print(f"[DEBUG] Starting follow-up review for PR #{args.pr_number}", flush=True)
-        print(f"[DEBUG] Project directory: {args.project}", flush=True)
-        print("[DEBUG] Building config...", flush=True)
+        safe_print(f"[DEBUG] Starting follow-up review for PR #{args.pr_number}")
+        safe_print(f"[DEBUG] Project directory: {args.project}")
+        safe_print("[DEBUG] Building config...")
 
     config = get_config(args)
 
     if debug:
-        print(
+        safe_print(
             f"[DEBUG] Config built: repo={config.repo}, model={config.model}",
             flush=True,
         )
-        print("[DEBUG] Creating orchestrator...", flush=True)
+        safe_print("[DEBUG] Creating orchestrator...")
 
     orchestrator = GitHubOrchestrator(
         project_dir=args.project,
@@ -271,8 +281,8 @@ async def cmd_followup_review_pr(args) -> int:
     )
 
     if debug:
-        print("[DEBUG] Orchestrator created", flush=True)
-        print(
+        safe_print("[DEBUG] Orchestrator created")
+        safe_print(
             f"[DEBUG] Calling orchestrator.followup_review_pr({args.pr_number})...",
             flush=True,
         )
@@ -280,43 +290,43 @@ async def cmd_followup_review_pr(args) -> int:
     try:
         result = await orchestrator.followup_review_pr(args.pr_number)
     except ValueError as e:
-        print(f"\nFollow-up review failed: {e}")
+        safe_print(f"\nFollow-up review failed: {e}")
         return 1
 
     if debug:
-        print(
+        safe_print(
             f"[DEBUG] followup_review_pr returned, success={result.success}", flush=True
         )
 
     if result.success:
-        print(f"\n{'=' * 60}")
-        print(f"PR #{result.pr_number} Follow-up Review Complete")
-        print(f"{'=' * 60}")
-        print(f"Status: {result.overall_status}")
-        print(f"Is Follow-up: {result.is_followup_review}")
+        safe_print(f"\n{'=' * 60}")
+        safe_print(f"PR #{result.pr_number} Follow-up Review Complete")
+        safe_print(f"{'=' * 60}")
+        safe_print(f"Status: {result.overall_status}")
+        safe_print(f"Is Follow-up: {result.is_followup_review}")
 
         if result.resolved_findings:
-            print(f"Resolved: {len(result.resolved_findings)} finding(s)")
+            safe_print(f"Resolved: {len(result.resolved_findings)} finding(s)")
         if result.unresolved_findings:
-            print(f"Still Open: {len(result.unresolved_findings)} finding(s)")
+            safe_print(f"Still Open: {len(result.unresolved_findings)} finding(s)")
         if result.new_findings_since_last_review:
-            print(
+            safe_print(
                 f"New Issues: {len(result.new_findings_since_last_review)} finding(s)"
             )
 
-        print(f"\nSummary:\n{result.summary}")
+        safe_print(f"\nSummary:\n{result.summary}")
 
         if result.findings:
-            print("\nRemaining Findings:")
+            safe_print("\nRemaining Findings:")
             for f in result.findings:
                 emoji = {"critical": "!", "high": "*", "medium": "-", "low": "."}
-                print(
+                safe_print(
                     f"  {emoji.get(f.severity.value, '?')} [{f.severity.value.upper()}] {f.title}"
                 )
-                print(f"    File: {f.file}:{f.line}")
+                safe_print(f"    File: {f.file}:{f.line}")
         return 0
     else:
-        print(f"\nFollow-up review failed: {result.error}")
+        safe_print(f"\nFollow-up review failed: {result.error}")
         return 1
 
 
@@ -335,9 +345,9 @@ async def cmd_triage(args) -> int:
         apply_labels=args.apply_labels,
     )
 
-    print(f"\n{'=' * 60}")
-    print(f"Triaged {len(results)} issues")
-    print(f"{'=' * 60}")
+    safe_print(f"\n{'=' * 60}")
+    safe_print(f"Triaged {len(results)} issues")
+    safe_print(f"{'=' * 60}")
 
     for r in results:
         flags = []
@@ -349,12 +359,12 @@ async def cmd_triage(args) -> int:
             flags.append("CREEP")
 
         flag_str = f" [{', '.join(flags)}]" if flags else ""
-        print(
+        safe_print(
             f"  #{r.issue_number}: {r.category.value} (confidence: {r.confidence:.0%}){flag_str}"
         )
 
         if r.labels_to_add:
-            print(f"    + Labels: {', '.join(r.labels_to_add)}")
+            safe_print(f"    + Labels: {', '.join(r.labels_to_add)}")
 
     return 0
 
@@ -371,16 +381,16 @@ async def cmd_auto_fix(args) -> int:
 
     state = await orchestrator.auto_fix_issue(args.issue_number)
 
-    print(f"\n{'=' * 60}")
-    print(f"Auto-Fix State for Issue #{state.issue_number}")
-    print(f"{'=' * 60}")
-    print(f"Status: {state.status.value}")
+    safe_print(f"\n{'=' * 60}")
+    safe_print(f"Auto-Fix State for Issue #{state.issue_number}")
+    safe_print(f"{'=' * 60}")
+    safe_print(f"Status: {state.status.value}")
     if state.spec_id:
-        print(f"Spec ID: {state.spec_id}")
+        safe_print(f"Spec ID: {state.spec_id}")
     if state.pr_number:
-        print(f"PR: #{state.pr_number}")
+        safe_print(f"PR: #{state.pr_number}")
     if state.error:
-        print(f"Error: {state.error}")
+        safe_print(f"Error: {state.error}")
 
     return 0
 
@@ -398,11 +408,11 @@ async def cmd_check_labels(args) -> int:
     issues = await orchestrator.check_auto_fix_labels()
 
     if issues:
-        print(f"Found {len(issues)} issues with auto-fix labels:")
+        safe_print(f"Found {len(issues)} issues with auto-fix labels:")
         for num in issues:
-            print(f"  #{num}")
+            safe_print(f"  #{num}")
     else:
-        print("No issues with auto-fix labels found.")
+        safe_print("No issues with auto-fix labels found.")
 
     return 0
 
@@ -419,8 +429,8 @@ async def cmd_check_new(args) -> int:
 
     issues = await orchestrator.check_new_issues()
 
-    print("JSON Output")
-    print(json.dumps(issues))
+    safe_print("JSON Output")
+    safe_print(json.dumps(issues))
 
     return 0
 
@@ -435,12 +445,12 @@ async def cmd_queue(args) -> int:
 
     queue = await orchestrator.get_auto_fix_queue()
 
-    print(f"\n{'=' * 60}")
-    print(f"Auto-Fix Queue ({len(queue)} items)")
-    print(f"{'=' * 60}")
+    safe_print(f"\n{'=' * 60}")
+    safe_print(f"Auto-Fix Queue ({len(queue)} items)")
+    safe_print(f"{'=' * 60}")
 
     if not queue:
-        print("Queue is empty.")
+        safe_print("Queue is empty.")
         return 0
 
     for state in queue:
@@ -455,11 +465,11 @@ async def cmd_queue(args) -> int:
             "failed": "ERR",
         }
         emoji = status_emoji.get(state.status.value, "???")
-        print(f"  [{emoji}] #{state.issue_number}: {state.status.value}")
+        safe_print(f"  [{emoji}] #{state.issue_number}: {state.status.value}")
         if state.pr_number:
-            print(f"       PR: #{state.pr_number}")
+            safe_print(f"       PR: #{state.pr_number}")
         if state.error:
-            print(f"       Error: {state.error[:50]}...")
+            safe_print(f"       Error: {state.error[:50]}...")
 
     return 0
 
@@ -477,22 +487,24 @@ async def cmd_batch_issues(args) -> int:
     issue_numbers = args.issues if args.issues else None
     batches = await orchestrator.batch_and_fix_issues(issue_numbers)
 
-    print(f"\n{'=' * 60}")
-    print(f"Created {len(batches)} batches from similar issues")
-    print(f"{'=' * 60}")
+    safe_print(f"\n{'=' * 60}")
+    safe_print(f"Created {len(batches)} batches from similar issues")
+    safe_print(f"{'=' * 60}")
 
     if not batches:
-        print("No batches created. Either no issues found or all issues are unique.")
+        safe_print(
+            "No batches created. Either no issues found or all issues are unique."
+        )
         return 0
 
     for batch in batches:
         issue_nums = ", ".join(f"#{i.issue_number}" for i in batch.issues)
-        print(f"\n  Batch: {batch.batch_id}")
-        print(f"    Issues: {issue_nums}")
-        print(f"    Theme: {batch.theme}")
-        print(f"    Status: {batch.status.value}")
+        safe_print(f"\n  Batch: {batch.batch_id}")
+        safe_print(f"    Issues: {issue_nums}")
+        safe_print(f"    Theme: {batch.theme}")
+        safe_print(f"    Status: {batch.status.value}")
         if batch.spec_id:
-            print(f"    Spec: {batch.spec_id}")
+            safe_print(f"    Spec: {batch.spec_id}")
 
     return 0
 
@@ -507,14 +519,14 @@ async def cmd_batch_status(args) -> int:
 
     status = await orchestrator.get_batch_status()
 
-    print(f"\n{'=' * 60}")
-    print("Batch Status")
-    print(f"{'=' * 60}")
-    print(f"Total batches: {status.get('total_batches', 0)}")
-    print(f"Pending: {status.get('pending', 0)}")
-    print(f"Processing: {status.get('processing', 0)}")
-    print(f"Completed: {status.get('completed', 0)}")
-    print(f"Failed: {status.get('failed', 0)}")
+    safe_print(f"\n{'=' * 60}")
+    safe_print("Batch Status")
+    safe_print(f"{'=' * 60}")
+    safe_print(f"Total batches: {status.get('total_batches', 0)}")
+    safe_print(f"Pending: {status.get('pending', 0)}")
+    safe_print(f"Processing: {status.get('processing', 0)}")
+    safe_print(f"Completed: {status.get('completed', 0)}")
+    safe_print(f"Failed: {status.get('failed', 0)}")
 
     return 0
 
@@ -543,47 +555,47 @@ async def cmd_analyze_preview(args) -> int:
     )
 
     if not result.get("success"):
-        print(f"Error: {result.get('error', 'Unknown error')}")
+        safe_print(f"Error: {result.get('error', 'Unknown error')}")
         return 1
 
-    print(f"\n{'=' * 60}")
-    print("Issue Analysis Preview")
-    print(f"{'=' * 60}")
-    print(f"Total issues: {result.get('total_issues', 0)}")
-    print(f"Analyzed: {result.get('analyzed_issues', 0)}")
-    print(f"Already batched: {result.get('already_batched', 0)}")
-    print(f"Proposed batches: {len(result.get('proposed_batches', []))}")
-    print(f"Single issues: {len(result.get('single_issues', []))}")
+    safe_print(f"\n{'=' * 60}")
+    safe_print("Issue Analysis Preview")
+    safe_print(f"{'=' * 60}")
+    safe_print(f"Total issues: {result.get('total_issues', 0)}")
+    safe_print(f"Analyzed: {result.get('analyzed_issues', 0)}")
+    safe_print(f"Already batched: {result.get('already_batched', 0)}")
+    safe_print(f"Proposed batches: {len(result.get('proposed_batches', []))}")
+    safe_print(f"Single issues: {len(result.get('single_issues', []))}")
 
     proposed_batches = result.get("proposed_batches", [])
     if proposed_batches:
-        print(f"\n{'=' * 60}")
-        print("Proposed Batches (for human review)")
-        print(f"{'=' * 60}")
+        safe_print(f"\n{'=' * 60}")
+        safe_print("Proposed Batches (for human review)")
+        safe_print(f"{'=' * 60}")
 
         for i, batch in enumerate(proposed_batches, 1):
             confidence = batch.get("confidence", 0)
             validated = "" if batch.get("validated") else "[NEEDS REVIEW] "
-            print(
+            safe_print(
                 f"\n  Batch {i}: {validated}{batch.get('theme', 'No theme')} ({confidence:.0%} confidence)"
             )
-            print(f"    Primary issue: #{batch.get('primary_issue')}")
-            print(f"    Issue count: {batch.get('issue_count', 0)}")
-            print(f"    Reasoning: {batch.get('reasoning', 'N/A')}")
-            print("    Issues:")
+            safe_print(f"    Primary issue: #{batch.get('primary_issue')}")
+            safe_print(f"    Issue count: {batch.get('issue_count', 0)}")
+            safe_print(f"    Reasoning: {batch.get('reasoning', 'N/A')}")
+            safe_print("    Issues:")
             for item in batch.get("issues", []):
                 similarity = item.get("similarity_to_primary", 0)
-                print(
+                safe_print(
                     f"      - #{item['issue_number']}: {item.get('title', '?')} ({similarity:.0%})"
                 )
 
     # Output JSON for programmatic use
     if getattr(args, "json", False):
-        print(f"\n{'=' * 60}")
-        print("JSON Output")
-        print(f"{'=' * 60}")
+        safe_print(f"\n{'=' * 60}")
+        safe_print("JSON Output")
+        safe_print(f"{'=' * 60}")
         # Print JSON on single line to avoid corruption from line-by-line stdout prefixes
-        print(json.dumps(result))
+        safe_print(json.dumps(result))
 
     return 0
 
@@ -608,24 +620,24 @@ async def cmd_approve_batches(args) -> int:
         with open(args.batch_file) as f:
             approved_batches = json.load(f)
     except (json.JSONDecodeError, FileNotFoundError) as e:
-        print(f"Error loading batch file: {e}")
+        safe_print(f"Error loading batch file: {e}")
         return 1
 
     if not approved_batches:
-        print("No batches in file to approve.")
+        safe_print("No batches in file to approve.")
         return 0
 
-    print(f"Approving and executing {len(approved_batches)} batches...")
+    safe_print(f"Approving and executing {len(approved_batches)} batches...")
 
     created_batches = await orchestrator.approve_and_execute_batches(approved_batches)
 
-    print(f"\n{'=' * 60}")
-    print(f"Created {len(created_batches)} batches")
-    print(f"{'=' * 60}")
+    safe_print(f"\n{'=' * 60}")
+    safe_print(f"Created {len(created_batches)} batches")
+    safe_print(f"{'=' * 60}")
 
     for batch in created_batches:
         issue_nums = ", ".join(f"#{i.issue_number}" for i in batch.issues)
-        print(f"  {batch.batch_id}: {issue_nums}")
+        safe_print(f"  {batch.batch_id}: {issue_nums}")
 
     return 0
 
@@ -800,20 +812,33 @@ def main():
 
     handler = commands.get(args.command)
     if not handler:
-        print(f"Unknown command: {args.command}")
+        safe_print(f"Unknown command: {args.command}")
         sys.exit(1)
 
     try:
+        # Set context for Sentry
+        set_context(
+            "command",
+            {
+                "name": args.command,
+                "project": str(args.project),
+                "repo": args.repo or "auto-detect",
+            },
+        )
+
         exit_code = asyncio.run(handler(args))
         sys.exit(exit_code)
     except KeyboardInterrupt:
-        print("\nInterrupted.")
+        safe_print("\nInterrupted.")
         sys.exit(1)
     except Exception as e:
         import traceback
 
+        # Capture exception with Sentry
+        capture_exception(e, command=args.command)
+
         debug_error("github_runner", "Command failed", error=str(e))
-        print(f"Error: {e}")
+        safe_print(f"Error: {e}")
         traceback.print_exc()
         sys.exit(1)
 

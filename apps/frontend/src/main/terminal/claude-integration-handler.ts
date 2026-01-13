@@ -330,6 +330,40 @@ export function handleClaudeSessionId(
 }
 
 /**
+ * Handle Claude exit detection (user closed Claude, returned to shell)
+ *
+ * This is called when we detect that Claude has exited and the terminal
+ * has returned to a shell prompt. This resets the Claude mode state
+ * and notifies the renderer to update the UI.
+ */
+export function handleClaudeExit(
+  terminal: TerminalProcess,
+  getWindow: WindowGetter
+): void {
+  // Only handle if we're actually in Claude mode
+  if (!terminal.isClaudeMode) {
+    return;
+  }
+
+  console.warn('[ClaudeIntegration] Claude exit detected, resetting mode for terminal:', terminal.id);
+
+  // Reset Claude mode state
+  terminal.isClaudeMode = false;
+  terminal.claudeSessionId = undefined;
+
+  // Persist the session state change
+  if (terminal.projectPath) {
+    SessionHandler.persistSession(terminal);
+  }
+
+  // Notify renderer to update UI
+  const win = getWindow();
+  if (win) {
+    win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_EXIT, terminal.id);
+  }
+}
+
+/**
  * Invoke Claude with optional profile override
  */
 export function invokeClaude(

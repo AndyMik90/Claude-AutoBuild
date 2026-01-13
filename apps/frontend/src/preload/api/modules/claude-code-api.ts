@@ -9,7 +9,7 @@
  */
 
 import { IPC_CHANNELS } from '../../../shared/constants';
-import type { ClaudeCodeVersionInfo, ClaudeCodeVersionList } from '../../../shared/types/cli';
+import type { ClaudeCodeVersionInfo, ClaudeCodeVersionList, ClaudeInstallationList } from '../../../shared/types/cli';
 import { invokeIpc } from './ipc-utils';
 
 /**
@@ -54,6 +54,26 @@ export interface ClaudeCodeInstallVersionResult {
 }
 
 /**
+ * Result of getting installations
+ */
+export interface ClaudeCodeInstallationsResult {
+  success: boolean;
+  data?: ClaudeInstallationList;
+  error?: string;
+}
+
+/**
+ * Result of setting active path
+ */
+export interface ClaudeCodeSetActivePathResult {
+  success: boolean;
+  data?: {
+    path: string;
+  };
+  error?: string;
+}
+
+/**
  * Claude Code API interface exposed to renderer
  */
 export interface ClaudeCodeAPI {
@@ -80,6 +100,18 @@ export interface ClaudeCodeAPI {
    * Opens the user's terminal with the install command for the specified version
    */
   installClaudeCodeVersion: (version: string) => Promise<ClaudeCodeInstallVersionResult>;
+
+  /**
+   * Get all Claude CLI installations found on the system
+   * Returns list of installations with paths, versions, and sources
+   */
+  getClaudeCodeInstallations: () => Promise<ClaudeCodeInstallationsResult>;
+
+  /**
+   * Set the active Claude CLI path
+   * Updates settings and CLI tool manager cache
+   */
+  setClaudeCodeActivePath: (cliPath: string) => Promise<ClaudeCodeSetActivePathResult>;
 }
 
 /**
@@ -96,5 +128,11 @@ export const createClaudeCodeAPI = (): ClaudeCodeAPI => ({
     invokeIpc(IPC_CHANNELS.CLAUDE_CODE_GET_VERSIONS),
 
   installClaudeCodeVersion: (version: string): Promise<ClaudeCodeInstallVersionResult> =>
-    invokeIpc(IPC_CHANNELS.CLAUDE_CODE_INSTALL_VERSION, version)
+    invokeIpc(IPC_CHANNELS.CLAUDE_CODE_INSTALL_VERSION, version),
+
+  getClaudeCodeInstallations: (): Promise<ClaudeCodeInstallationsResult> =>
+    invokeIpc(IPC_CHANNELS.CLAUDE_CODE_GET_INSTALLATIONS),
+
+  setClaudeCodeActivePath: (cliPath: string): Promise<ClaudeCodeSetActivePathResult> =>
+    invokeIpc(IPC_CHANNELS.CLAUDE_CODE_SET_ACTIVE_PATH, cliPath),
 });

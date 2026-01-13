@@ -133,6 +133,7 @@ class MergeDecision(Enum):
     AI_MERGED = "ai_merged"  # AI resolved the conflict
     NEEDS_HUMAN_REVIEW = "needs_human_review"  # Flagged for human
     FAILED = "failed"  # Could not merge
+    DIRECT_COPY = "direct_copy"  # Use worktree version directly (no semantic merge)
 
 
 @dataclass
@@ -414,6 +415,34 @@ class TaskSnapshot:
             raw_diff=data.get("raw_diff"),
         )
 
+    @property
+    def has_modifications(self) -> bool:
+        """
+        Check if this snapshot represents actual file modifications.
+
+        Returns True if the file was modified, using content hash comparison
+        as the source of truth. This handles cases where the semantic analyzer
+        couldn't detect changes (e.g., function body modifications, unsupported
+        file types like Rust) but the file was actually changed.
+
+        Also returns True for newly created files (where content_hash_before
+        is empty but content_hash_after is set).
+        """
+        # If we have semantic changes, the file was definitely modified
+        if self.semantic_changes:
+            return True
+
+        # Handle new files: if before is empty but after has content, it's a new file
+        if not self.content_hash_before and self.content_hash_after:
+            return True
+
+        # Fall back to content hash comparison for files where semantic
+        # analysis returned empty (body modifications, unsupported languages)
+        if self.content_hash_before and self.content_hash_after:
+            return self.content_hash_before != self.content_hash_after
+
+        return False
+
 
 @dataclass
 class FileEvolution:
@@ -534,7 +563,11 @@ class MergeResult:
     @property
     def success(self) -> bool:
         """Check if merge was successful."""
-        return self.decision in {MergeDecision.AUTO_MERGED, MergeDecision.AI_MERGED}
+        return self.decision in {
+            MergeDecision.AUTO_MERGED,
+            MergeDecision.AI_MERGED,
+            MergeDecision.DIRECT_COPY,
+        }
 
     @property
     def needs_human_review(self) -> bool:

@@ -4,6 +4,34 @@
     "openInbuilt": "Open in Inbuilt Terminal",
     "openExternal": "Open in External Terminal"
   },
+  "merge": {
+    "branchHasNewCommits": "{{branch}} branch has {{count}} new commit.",
+    "branchHasNewCommits_other": "{{branch}} branch has {{count}} new commits.",
+    "branchHasNewCommitsSinceWorktree": "The {{branch}} branch has {{count}} new commit since this worktree was created.",
+    "branchHasNewCommitsSinceWorktree_other": "The {{branch}} branch has {{count}} new commits since this worktree was created.",
+    "filesNeedMerging": "{{count}} file needs merging.",
+    "filesNeedMerging_other": "{{count}} files need merging.",
+    "filesNeedIntelligentMerging": "{{count}} file will need intelligent merging:",
+    "filesNeedIntelligentMerging_other": "{{count}} files will need intelligent merging:",
+    "branchHasNewCommitsSinceBuild": "{{branch}} branch has {{count}} new commit since this build started.",
+    "branchHasNewCommitsSinceBuild_other": "{{branch}} branch has {{count}} new commits since this build started.",
+    "filesNeedAIMergeDueToRenames": "{{count}} file needs AI merge due to {{renameCount}} file rename.",
+    "filesNeedAIMergeDueToRenames_other": "{{count}} files need AI merge due to {{renameCount}} file renames.",
+    "filesNeedAIMergeDueToRenamesPlural": "{{count}} file needs AI merge due to {{renameCount}} file renames.",
+    "filesNeedAIMergeDueToRenamesPlural_other": "{{count}} files need AI merge due to {{renameCount}} file renames.",
+    "fileRenamesDetected": "{{count}} file rename detected - AI will handle the merge.",
+    "fileRenamesDetected_other": "{{count}} file renames detected - AI will handle the merge.",
+    "filesRenamedOrMoved": "Files may have been renamed or moved - AI will handle the merge.",
+    "buttons": {
+      "stageWithAIMerge": "Stage with AI Merge",
+      "mergeWithAI": "Merge with AI",
+      "stageTo": "Stage to {{branch}}",
+      "mergeTo": "Merge to {{branch}}",
+      "resolving": "Resolving...",
+      "staging": "Staging...",
+      "merging": "Merging..."
+    }
+  },
   "pr": {
     "title": "Create Pull Request",
     "description": "Push branch and create a pull request for \"{{taskTitle}}\"",

@@ -4,6 +4,34 @@
     "openInbuilt": "Ouvrir dans le terminal intégré",
     "openExternal": "Ouvrir dans le terminal externe"
   },
+  "merge": {
+    "branchHasNewCommits": "La branche {{branch}} a {{count}} nouveau commit.",
+    "branchHasNewCommits_other": "La branche {{branch}} a {{count}} nouveaux commits.",
+    "branchHasNewCommitsSinceWorktree": "La branche {{branch}} a {{count}} nouveau commit depuis la création de ce worktree.",
+    "branchHasNewCommitsSinceWorktree_other": "La branche {{branch}} a {{count}} nouveaux commits depuis la création de ce worktree.",
+    "filesNeedMerging": "{{count}} fichier nécessite une fusion.",
+    "filesNeedMerging_other": "{{count}} fichiers nécessitent une fusion.",
+    "filesNeedIntelligentMerging": "{{count}} fichier nécessitera une fusion intelligente :",
+    "filesNeedIntelligentMerging_other": "{{count}} fichiers nécessiteront une fusion intelligente :",
+    "branchHasNewCommitsSinceBuild": "La branche {{branch}} a {{count}} nouveau commit depuis le début de ce build.",
+    "branchHasNewCommitsSinceBuild_other": "La branche {{branch}} a {{count}} nouveaux commits depuis le début de ce build.",
+    "filesNeedAIMergeDueToRenames": "{{count}} fichier nécessite une fusion IA en raison de {{renameCount}} renommage de fichier.",
+    "filesNeedAIMergeDueToRenames_other": "{{count}} fichiers nécessitent une fusion IA en raison de {{renameCount}} renommage de fichier.",
+    "filesNeedAIMergeDueToRenamesPlural": "{{count}} fichier nécessite une fusion IA en raison de {{renameCount}} renommages de fichiers.",
+    "filesNeedAIMergeDueToRenamesPlural_other": "{{count}} fichiers nécessitent une fusion IA en raison de {{renameCount}} renommages de fichiers.",
+    "fileRenamesDetected": "{{count}} renommage de fichier détecté - l'IA gérera la fusion.",
+    "fileRenamesDetected_other": "{{count}} renommages de fichiers détectés - l'IA gérera la fusion.",
+    "filesRenamedOrMoved": "Des fichiers ont peut-être été renommés ou déplacés - l'IA gérera la fusion.",
+    "buttons": {
+      "stageWithAIMerge": "Préparer avec fusion IA",
+      "mergeWithAI": "Fusionner avec IA",
+      "stageTo": "Préparer vers {{branch}}",
+      "mergeTo": "Fusionner vers {{branch}}",
+      "resolving": "Résolution...",
+      "staging": "Préparation...",
+      "merging": "Fusion..."
+    }
+  },
   "pr": {
     "title": "Créer une Pull Request",
     "description": "Pousser la branche et créer une pull request pour \"{{taskTitle}}\"",
