@@ -18,7 +18,7 @@ import { EventEmitter } from 'events';
 import { spawn } from 'child_process';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { ClaudeUsageSnapshot } from '../../shared/types/agent';
-import { loadProfilesFile, detectProvider, fetchUsageForProfile, RESETTING_SOON } from '../services/profile';
+import { loadProfilesFile, detectProvider, fetchUsageForProfile, fetchAnthropicOAuthUsage, RESETTING_SOON } from '../services/profile';
 import { getClaudeCliInvocationAsync } from '../claude-cli-utils';
 import { getSpawnCommand, getSpawnOptions } from '../env-utils';
 import { parseUsageOutput } from './usage-parser';
@@ -306,6 +306,7 @@ export class UsageMonitor extends EventEmitter {
 
   /**
    * Fetch usage via OAuth API endpoint
+   * Uses shared fetchAnthropicOAuthUsage from profile-usage service
    * Endpoint: https://api.anthropic.com/api/oauth/usage
    */
   private async fetchUsageViaAPI(
@@ -314,63 +315,7 @@ export class UsageMonitor extends EventEmitter {
     profileName: string
   ): Promise<ClaudeUsageSnapshot | null> {
     try {
-      const response = await fetch('https://api.anthropic.com/api/oauth/usage', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${oauthToken}`,
-          'Content-Type': 'application/json',
-          'anthropic-version': '2023-06-01'
-        }
-      });
-
-      if (!response.ok) {
-        console.error('[UsageMonitor] API error:', response.status, response.statusText);
-        // Throw specific error for auth failures so we can trigger a swap
-        if (response.status === 401 || response.status === 403) {
-          const error = new Error(`API Auth Failure: ${response.status}`);
-          (error as any).statusCode = response.status;
-          throw error;
-        }
-        return null;
-      }
-
-      const data = await response.json() as {
-        five_hour_utilization?: number;
-        seven_day_utilization?: number;
-        five_hour_reset_at?: string;
-        seven_day_reset_at?: string;
-      };
-
-      // Expected response format:
-      // {
-      //   "five_hour_utilization": 0.72,  // 0.0-1.0
-      //   "seven_day_utilization": 0.45,  // 0.0-1.0
-      //   "five_hour_reset_at": "2025-01-17T15:00:00Z",
-      //   "seven_day_reset_at": "2025-01-20T12:00:00Z"
-      // }
-
-      const fiveHourResetTimestamp = data.five_hour_reset_at
-        ? new Date(data.five_hour_reset_at).getTime()
-        : undefined;
-      const sevenDayResetTimestamp = data.seven_day_reset_at
-        ? new Date(data.seven_day_reset_at).getTime()
-        : undefined;
-
-      return {
-        sessionPercent: Math.round((data.five_hour_utilization || 0) * 100),
-        weeklyPercent: Math.round((data.seven_day_utilization || 0) * 100),
-        sessionResetTime: this.formatResetTime(data.five_hour_reset_at),
-        weeklyResetTime: this.formatResetTime(data.seven_day_reset_at),
-        sessionResetTimestamp: fiveHourResetTimestamp,
-        weeklyResetTimestamp: sevenDayResetTimestamp,
-        profileId,
-        profileName,
-        fetchedAt: new Date(),
-        limitType: (data.seven_day_utilization || 0) > (data.five_hour_utilization || 0)
-          ? 'weekly'
-          : 'session',
-        provider: 'anthropic-oauth'
-      };
+      return await fetchAnthropicOAuthUsage(oauthToken, profileId, profileName, true);
     } catch (error: any) {
       // Re-throw auth failures to be handled by checkUsageAndSwap
       if (error?.statusCode === 401 || error?.statusCode === 403) {
@@ -400,8 +345,19 @@ export class UsageMonitor extends EventEmitter {
         let timedOut = false;
         let timeoutId: NodeJS.Timeout;
 
+        // Build env object without undefined values (NodeJS.ProcessEnv allows string | undefined)
+        const env: NodeJS.ProcessEnv = { ...process.env };
+        for (const key in env) {
+          if (env[key] === undefined) {
+            delete env[key];
+          }
+        }
+
+        // Cast to Record<string, string> since we filtered out undefined values
+        const cleanEnv = env as Record<string, string>;
+
         const proc = spawn(getSpawnCommand(claudeCmd), ['/usage'], getSpawnOptions(claudeCmd, {
-          env: process.env as Record<string, string>
+          env: cleanEnv
         }));
 
         // Handle spawn errors (e.g., command not found)
@@ -465,34 +421,6 @@ export class UsageMonitor extends EventEmitter {
     } catch (error) {
       console.error('[UsageMonitor] CLI fetch failed:', error);
       return null;
-    }
-  }
-
-  /**
-   * Format ISO timestamp to human-readable reset time
-   */
-  private formatResetTime(isoTimestamp?: string): string {
-    if (!isoTimestamp) return 'Unknown';
-
-    try {
-      const date = new Date(isoTimestamp);
-      const now = new Date();
-      const diffMs = date.getTime() - now.getTime();
-
-      if (diffMs <= 0) return RESETTING_SOON;
-
-      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-      const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-      if (diffHours < 24) {
-        return `${diffHours}h ${diffMins}m`;
-      }
-
-      const diffDays = Math.floor(diffHours / 24);
-      const remainingHours = diffHours % 24;
-      return `${diffDays}d ${remainingHours}h`;
-    } catch (_error) {
-      return isoTimestamp;
     }
   }
 

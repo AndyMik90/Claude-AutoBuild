@@ -166,11 +166,17 @@ export async function fetchZaiUsage(
 /**
  * Fetch usage from Anthropic OAuth API endpoint
  * Endpoint: https://api.anthropic.com/api/oauth/usage
+ *
+ * @param oauthToken - OAuth bearer token
+ * @param profileId - Profile ID for the snapshot
+ * @param profileName - Profile name for display
+ * @param throwOnAuthFailure - If true, throw error on 401/403 instead of returning null
  */
 export async function fetchAnthropicOAuthUsage(
   oauthToken: string,
   profileId: string,
-  profileName: string
+  profileName: string,
+  throwOnAuthFailure = false
 ): Promise<ClaudeUsageSnapshot | null> {
   try {
     const response = await fetch('https://api.anthropic.com/api/oauth/usage', {
@@ -184,6 +190,12 @@ export async function fetchAnthropicOAuthUsage(
 
     if (!response.ok) {
       console.error('[profile-usage] Anthropic OAuth API error:', response.status, response.statusText);
+      // Throw specific error for auth failures if requested
+      if (throwOnAuthFailure && (response.status === 401 || response.status === 403)) {
+        const error = new Error(`API Auth Failure: ${response.status}`);
+        (error as any).statusCode = response.status;
+        throw error;
+      }
       return null;
     }
 
@@ -212,7 +224,11 @@ export async function fetchAnthropicOAuthUsage(
         : 'session',
       provider: 'anthropic-oauth'
     };
-  } catch (error) {
+  } catch (error: any) {
+    // Re-throw auth failures if they were explicitly thrown
+    if (error?.statusCode === 401 || error?.statusCode === 403) {
+      throw error;
+    }
     console.error('[profile-usage] Anthropic OAuth fetch failed:', error);
     return null;
   }

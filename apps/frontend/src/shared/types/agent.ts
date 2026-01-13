@@ -61,7 +61,7 @@ export interface ClaudeUsageSnapshot {
   /** Which limit is closest to threshold ('session' or 'weekly') */
   limitType?: 'session' | 'weekly';
   /** Provider type for usage display */
-  provider?: 'anthropic-oauth' | 'anthropic-api' | 'zai' | 'other';
+  provider?: 'anthropic-oauth' | 'zai' | 'other';
 }
 
 /**

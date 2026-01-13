@@ -74,7 +74,7 @@ export function UsageIndicator() {
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [usage, calculateCountdown, usage?.limitType, usage?.weeklyResetTimestamp, usage?.sessionResetTimestamp]);
+  }, [usage, calculateCountdown]);
 
   useEffect(() => {
     // Listen for usage updates from main process

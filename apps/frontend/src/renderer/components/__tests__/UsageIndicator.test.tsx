@@ -251,8 +251,14 @@ describe('UsageIndicator', () => {
       const usage = createUsageSnapshot({ sessionPercent: 72, weeklyPercent: 30 });
       mockRequestUsageUpdate.mockResolvedValue({ success: true, data: usage });
 
-      renderWithI18n(<UsageIndicator />);
+      const { container } = renderWithI18n(<UsageIndicator />);
 
+      // Wait for badge to render
+      const badge = await waitFor(() => container.querySelector('button'));
+      expect(badge).toBeInTheDocument();
+
+      // Tooltip content should be present (rendered but hidden until hover)
+      // The tooltip text '72%' will appear in the DOM
       await waitFor(() => {
         expect(screen.getByText('72%')).toBeInTheDocument();
       });
@@ -262,8 +268,14 @@ describe('UsageIndicator', () => {
       const usage = createUsageSnapshot({ sessionPercent: 30, weeklyPercent: 45 });
       mockRequestUsageUpdate.mockResolvedValue({ success: true, data: usage });
 
-      renderWithI18n(<UsageIndicator />);
+      const { container } = renderWithI18n(<UsageIndicator />);
 
+      // Wait for badge to render
+      const badge = await waitFor(() => container.querySelector('button'));
+      expect(badge).toBeInTheDocument();
+
+      // Tooltip content should be present (rendered but hidden until hover)
+      // The tooltip text '45%' will appear in the DOM
       await waitFor(() => {
         expect(screen.getByText('45%')).toBeInTheDocument();
       });
