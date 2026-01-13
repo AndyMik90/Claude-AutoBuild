@@ -33,11 +33,6 @@ export const projectMock = {
     data: { success: true, version: '1.0.0', wasUpdate: false }
   }),
 
-  updateProjectAutoBuild: async () => ({
-    success: true,
-    data: { success: true, version: '1.0.0', wasUpdate: true }
-  }),
-
   checkProjectVersion: async () => ({
     success: true,
     data: {
@@ -80,6 +75,11 @@ export const projectMock = {
   listDirectory: async () => ({
     success: true,
     data: []
+  }),
+
+  readFile: async () => ({
+    success: true,
+    data: ''
   }),
 
   // Git operations

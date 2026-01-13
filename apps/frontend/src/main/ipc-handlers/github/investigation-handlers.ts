@@ -110,7 +110,8 @@ export function registerInvestigateIssue(
         ) as GitHubAPIComment[];
 
         // Filter comments based on selection (if provided)
-        const comments = selectedCommentIds && selectedCommentIds.length > 0
+        // Use Array.isArray to handle empty array case (all comments deselected)
+        const comments = Array.isArray(selectedCommentIds)
           ? allComments.filter(c => selectedCommentIds.includes(c.id))
           : allComments;
 
@@ -147,7 +148,8 @@ export function registerInvestigateIssue(
           issue.title,
           taskDescription,
           issue.html_url,
-          labels
+          labels,
+          project.settings?.mainBranch  // Pass project's configured main branch
         );
 
         // NOTE: We intentionally do NOT call agentManager.startSpecCreation() here

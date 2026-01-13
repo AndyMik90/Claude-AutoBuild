@@ -92,6 +92,6 @@ export default tseslint.config(
     }
   },
   {
-    ignores: ['out/**', 'dist/**', '.eslintrc.cjs', 'eslint.config.mjs', 'node_modules/**']
+    ignores: ['out/**', 'dist/**', '.eslintrc.cjs', 'eslint.config.mjs', 'node_modules/**', 'python-runtime/**']
   }
 );

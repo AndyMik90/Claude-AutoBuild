@@ -12,8 +12,12 @@ interface PRReviewState {
   prNumber: number;
   projectId: string;
   isReviewing: boolean;
+  /** Timestamp when the review was started (ISO 8601 string) */
+  startedAt: string | null;
   progress: PRReviewProgress | null;
   result: PRReviewResult | null;
+  /** Previous review result - preserved during follow-up review for continuity */
+  previousResult: PRReviewResult | null;
   error: string | null;
   /** Cached result of new commits check - updated when detail view checks */
   newCommitsCheck: NewCommitsCheck | null;
@@ -26,8 +30,9 @@ interface PRReviewStoreState {
 
   // Actions
   startPRReview: (projectId: string, prNumber: number) => void;
+  startFollowupReview: (projectId: string, prNumber: number) => void;
   setPRReviewProgress: (projectId: string, progress: PRReviewProgress) => void;
-  setPRReviewResult: (projectId: string, result: PRReviewResult) => void;
+  setPRReviewResult: (projectId: string, result: PRReviewResult, options?: { preserveNewCommitsCheck?: boolean }) => void;
   setPRReviewError: (projectId: string, prNumber: number, error: string) => void;
   setNewCommitsCheck: (projectId: string, prNumber: number, check: NewCommitsCheck) => void;
   clearPRReview: (projectId: string, prNumber: number) => void;
@@ -52,8 +57,40 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber,
           projectId,
           isReviewing: true,
+          startedAt: new Date().toISOString(),
           progress: null,
           result: null,
+          previousResult: null,
+          error: null,
+          newCommitsCheck: existing?.newCommitsCheck ?? null
+        }
+      }
+    };
+  }),
+
+  startFollowupReview: (projectId: string, prNumber: number) => set((state) => {
+    const key = `${projectId}:${prNumber}`;
+    const existing = state.prReviews[key];
+
+    // Log warning if starting follow-up without a previous result
+    if (!existing?.result) {
+      console.warn(
+        `[PRReviewStore] Starting follow-up review for PR #${prNumber} without a previous result. ` +
+        `This may indicate the follow-up was triggered incorrectly.`
+      );
+    }
+
+    return {
+      prReviews: {
+        ...state.prReviews,
+        [key]: {
+          prNumber,
+          projectId,
+          isReviewing: true,
+          startedAt: new Date().toISOString(),
+          progress: null,
+          result: null,
+          previousResult: existing?.result ?? null,  // Preserve for follow-up continuity
           error: null,
           newCommitsCheck: existing?.newCommitsCheck ?? null
         }
@@ -71,8 +108,10 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber: progress.prNumber,
           projectId,
           isReviewing: true,
+          startedAt: existing?.startedAt ?? null,
           progress,
           result: existing?.result ?? null,
+          previousResult: existing?.previousResult ?? null,
           error: null,
           newCommitsCheck: existing?.newCommitsCheck ?? null
         }
@@ -80,8 +119,9 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
     };
   }),
 
-  setPRReviewResult: (projectId: string, result: PRReviewResult) => set((state) => {
+  setPRReviewResult: (projectId: string, result: PRReviewResult, options?: { preserveNewCommitsCheck?: boolean }) => set((state) => {
     const key = `${projectId}:${result.prNumber}`;
+    const existing = state.prReviews[key];
     return {
       prReviews: {
         ...state.prReviews,
@@ -89,11 +129,14 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber: result.prNumber,
           projectId,
           isReviewing: false,
+          startedAt: existing?.startedAt ?? null,
           progress: null,
           result,
+          previousResult: existing?.previousResult ?? null,
           error: result.error ?? null,
           // Clear new commits check when review completes (it was just reviewed)
-          newCommitsCheck: null
+          // BUT preserve it during preload/refresh to avoid race condition
+          newCommitsCheck: options?.preserveNewCommitsCheck ? (existing?.newCommitsCheck ?? null) : null
         }
       }
     };
@@ -109,8 +152,10 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber,
           projectId,
           isReviewing: false,
+          startedAt: existing?.startedAt ?? null,
           progress: null,
           result: existing?.result ?? null,
+          previousResult: existing?.previousResult ?? null,
           error,
           newCommitsCheck: existing?.newCommitsCheck ?? null
         }
@@ -130,8 +175,10 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
             prNumber,
             projectId,
             isReviewing: false,
+            startedAt: null,
             progress: null,
             result: null,
+            previousResult: null,
             error: null,
             newCommitsCheck: check
           }
@@ -219,9 +266,10 @@ export function startPRReview(projectId: string, prNumber: number): void {
 
 /**
  * Start a follow-up PR review and track it in the store
+ * Uses startFollowupReview action to preserve previous result for continuity
  */
 export function startFollowupReview(projectId: string, prNumber: number): void {
   const store = usePRReviewStore.getState();
-  store.startPRReview(projectId, prNumber);
+  store.startFollowupReview(projectId, prNumber);
   window.electronAPI.github.runFollowupReview(projectId, prNumber);
 }

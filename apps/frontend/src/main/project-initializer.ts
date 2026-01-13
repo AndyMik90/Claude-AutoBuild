@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
+import { getToolPath } from './cli-tool-manager';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -31,9 +32,11 @@ export interface GitStatus {
  * Check if a directory is a git repository and has at least one commit
  */
 export function checkGitStatus(projectPath: string): GitStatus {
+  const git = getToolPath('git');
+
   try {
     // Check if it's a git repository
-    execSync('git rev-parse --git-dir', {
+    execFileSync(git, ['rev-parse', '--git-dir'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -50,7 +53,7 @@ export function checkGitStatus(projectPath: string): GitStatus {
   // Check if there are any commits
   let hasCommits = false;
   try {
-    execSync('git rev-parse HEAD', {
+    execFileSync(git, ['rev-parse', 'HEAD'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -64,7 +67,7 @@ export function checkGitStatus(projectPath: string): GitStatus {
   // Get current branch
   let currentBranch: string | null = null;
   try {
-    currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+    currentBranch = execFileSync(git, ['rev-parse', '--abbrev-ref', 'HEAD'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -98,12 +101,13 @@ export function initializeGit(projectPath: string): InitializationResult {
 
   // Check current git status
   const status = checkGitStatus(projectPath);
+  const git = getToolPath('git');
 
   try {
     // Step 1: Initialize git if needed
     if (!status.isGitRepo) {
       debug('Initializing git repository');
-      execSync('git init', {
+      execFileSync(git, ['init'], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe']
@@ -111,7 +115,7 @@ export function initializeGit(projectPath: string): InitializationResult {
     }
 
     // Step 2: Check if there are files to commit
-    const statusOutput = execSync('git status --porcelain', {
+    const statusOutput = execFileSync(git, ['status', '--porcelain'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -122,14 +126,14 @@ export function initializeGit(projectPath: string): InitializationResult {
       debug('Adding files and creating initial commit');
 
       // Add all files
-      execSync('git add -A', {
+      execFileSync(git, ['add', '-A'], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe']
       });
 
       // Create initial commit
-      execSync('git commit -m "Initial commit" --allow-empty', {
+      execFileSync(git, ['commit', '-m', 'Initial commit', '--allow-empty'], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe']
@@ -228,13 +232,13 @@ export interface InitializationResult {
 }
 
 /**
- * Check if the project has a local auto-claude source directory
- * This indicates it's the auto-claude development project itself
+ * Check if the project has a local backend source directory
+ * This indicates it's the development project itself
  */
 export function hasLocalSource(projectPath: string): boolean {
-  const localSourcePath = path.join(projectPath, 'auto-claude');
-  // Use requirements.txt as marker - it always exists in auto-claude source
-  const markerFile = path.join(localSourcePath, 'requirements.txt');
+  const localSourcePath = path.join(projectPath, 'apps', 'backend');
+  // Use runners/spec_runner.py as marker - ensures valid backend
+  const markerFile = path.join(localSourcePath, 'runners', 'spec_runner.py');
   return existsSync(localSourcePath) && existsSync(markerFile);
 }
 
@@ -242,7 +246,7 @@ export function hasLocalSource(projectPath: string): boolean {
  * Get the local source path for a project (if it exists)
  */
 export function getLocalSourcePath(projectPath: string): string | null {
-  const localSourcePath = path.join(projectPath, 'auto-claude');
+  const localSourcePath = path.join(projectPath, 'apps', 'backend');
   if (hasLocalSource(projectPath)) {
     return localSourcePath;
   }

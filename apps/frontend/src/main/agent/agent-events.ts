@@ -1,17 +1,45 @@
 import { ExecutionProgressData } from './types';
+import { parsePhaseEvent } from './phase-event-parser';
+import {
+  wouldPhaseRegress,
+  isTerminalPhase,
+  isValidExecutionPhase,
+  type ExecutionPhase
+} from '../../shared/constants/phase-protocol';
+import { EXECUTION_PHASE_WEIGHTS } from '../../shared/constants/task';
 
-/**
- * Event handling and progress parsing logic
- */
 export class AgentEvents {
-  /**
-   * Parse log output to detect execution phase transitions
-   */
   parseExecutionPhase(
     log: string,
     currentPhase: ExecutionProgressData['phase'],
     isSpecRunner: boolean
   ): { phase: ExecutionProgressData['phase']; message?: string; currentSubtask?: string } | null {
+    const structuredEvent = parsePhaseEvent(log);
+    if (structuredEvent) {
+      return {
+        phase: structuredEvent.phase as ExecutionProgressData['phase'],
+        message: structuredEvent.message,
+        currentSubtask: structuredEvent.subtask
+      };
+    }
+
+    // Terminal states can't be changed by fallback matching
+    if (isTerminalPhase(currentPhase as ExecutionPhase)) {
+      return null;
+    }
+
+    // Ignore internal task logger events - they're not phase transitions
+    if (log.includes('__TASK_LOG_')) {
+      return null;
+    }
+
+    const checkRegression = (newPhase: string): boolean => {
+      if (!isValidExecutionPhase(currentPhase) || !isValidExecutionPhase(newPhase)) {
+        return true;
+      }
+      return wouldPhaseRegress(currentPhase, newPhase);
+    };
+
     const lowerLog = log.toLowerCase();
 
     // Spec runner phase detection (all part of "planning")
@@ -34,24 +62,23 @@ export class AgentEvents {
     }
 
     // Run.py phase detection
-    // Planner agent running
-    if (lowerLog.includes('planner agent') || lowerLog.includes('creating implementation plan')) {
+    if (!checkRegression('planning') && (lowerLog.includes('planner agent') || lowerLog.includes('creating implementation plan'))) {
       return { phase: 'planning', message: 'Creating implementation plan...' };
     }
 
-    // Coder agent running
-    if (lowerLog.includes('coder agent') || lowerLog.includes('starting coder')) {
+    // Coder agent running - don't regress from QA phases
+    if (!checkRegression('coding') && (lowerLog.includes('coder agent') || lowerLog.includes('starting coder'))) {
       return { phase: 'coding', message: 'Implementing code changes...' };
     }
 
-    // Subtask progress detection
+    // Subtask progress detection - only when in coding phase
     const subtaskMatch = log.match(/subtask[:\s]+(\d+(?:\/\d+)?|\w+[-_]\w+)/i);
     if (subtaskMatch && currentPhase === 'coding') {
       return { phase: 'coding', currentSubtask: subtaskMatch[1], message: `Working on subtask ${subtaskMatch[1]}...` };
     }
 
-    // Subtask completion detection
-    if (lowerLog.includes('subtask completed') || lowerLog.includes('subtask done')) {
+    // Subtask completion detection - don't regress from QA phases
+    if (!checkRegression('coding') && (lowerLog.includes('subtask completed') || lowerLog.includes('subtask done'))) {
       const completedSubtask = log.match(/subtask[:\s]+"?([^"]+)"?\s+completed/i);
       return {
         phase: 'coding',
@@ -60,61 +87,47 @@ export class AgentEvents {
       };
     }
 
+    // QA phases require at least coding phase first (prevents false positives from early logs)
+    const canEnterQAPhase = currentPhase === 'coding' || currentPhase === 'qa_review' || currentPhase === 'qa_fixing';
+
     // QA Review phase
-    if (lowerLog.includes('qa reviewer') || lowerLog.includes('qa_reviewer') || lowerLog.includes('starting qa')) {
+    if (canEnterQAPhase && (lowerLog.includes('qa reviewer') || lowerLog.includes('qa_reviewer') || lowerLog.includes('starting qa'))) {
       return { phase: 'qa_review', message: 'Running QA review...' };
     }
 
     // QA Fixer phase
-    if (lowerLog.includes('qa fixer') || lowerLog.includes('qa_fixer') || lowerLog.includes('fixing issues')) {
+    if (canEnterQAPhase && (lowerLog.includes('qa fixer') || lowerLog.includes('qa_fixer') || lowerLog.includes('fixing issues'))) {
       return { phase: 'qa_fixing', message: 'Fixing QA issues...' };
     }
 
-    // Completion detection - be conservative, require explicit success markers
-    // The AI agent prints "=== BUILD COMPLETE ===" when truly done (from coder.md)
-    // Only trust this pattern, not generic "all subtasks completed" which could be false positive
-    if (lowerLog.includes('=== build complete ===') || lowerLog.includes('qa passed')) {
-      return { phase: 'complete', message: 'Build completed successfully' };
-    }
+    // IMPORTANT: Don't set 'complete' phase via fallback text matching!
+    // The "=== BUILD COMPLETE ===" banner is printed when SUBTASKS finish,
+    // but QA hasn't run yet. Only the structured emit_phase(COMPLETE) from
+    // QA approval (in qa/loop.py) should set the complete phase.
+    // Removing this prevents the brief "Completed" flash before QA review.
 
-    // "All subtasks completed" is informational - don't change phase based on this alone
-    // The coordinator may print this even when subtasks are blocked, so we stay in coding phase
-    // and let the actual implementation_plan.json status drive the UI
-    if (lowerLog.includes('all subtasks completed')) {
-      return { phase: 'coding', message: 'Subtasks marked complete' };
-    }
-
-    // Incomplete build detection - when coordinator exits with pending subtasks
-    if (lowerLog.includes('build incomplete') || lowerLog.includes('subtasks still pending')) {
+    // Incomplete build detection - don't regress from QA phases
+    if (!checkRegression('coding') && (lowerLog.includes('build incomplete') || lowerLog.includes('subtasks still pending'))) {
       return { phase: 'coding', message: 'Build paused - subtasks still pending' };
     }
 
-    // Error/failure detection
-    if (lowerLog.includes('build failed') || lowerLog.includes('error:') || lowerLog.includes('fatal')) {
+    // Error/failure detection - be specific to avoid false positives from tool errors
+    const isToolError = lowerLog.includes('tool error') || lowerLog.includes('tool_use_error');
+    if (!isToolError && (lowerLog.includes('build failed') || lowerLog.includes('fatal error') || lowerLog.includes('agent failed'))) {
       return { phase: 'failed', message: log.trim().substring(0, 200) };
     }
 
     return null;
   }
 
-  /**
-   * Calculate overall progress based on phase and phase progress
-   */
   calculateOverallProgress(phase: ExecutionProgressData['phase'], phaseProgress: number): number {
-    // Phase weight ranges (same as in constants.ts)
-    const weights: Record<string, { start: number; end: number }> = {
-      idle: { start: 0, end: 0 },
-      planning: { start: 0, end: 20 },
-      coding: { start: 20, end: 80 },
-      qa_review: { start: 80, end: 95 },
-      qa_fixing: { start: 80, end: 95 },
-      complete: { start: 100, end: 100 },
-      failed: { start: 0, end: 0 }
-    };
-
-    const phaseWeight = weights[phase] || { start: 0, end: 0 };
+    const phaseWeight = EXECUTION_PHASE_WEIGHTS[phase];
+    if (!phaseWeight) {
+      console.warn(`[AgentEvents] Unknown phase "${phase}" in calculateOverallProgress - defaulting to 0%`);
+      return 0;
+    }
     const phaseRange = phaseWeight.end - phaseWeight.start;
-    return Math.round(phaseWeight.start + (phaseRange * phaseProgress / 100));
+    return Math.round(phaseWeight.start + ((phaseRange * phaseProgress) / 100));
   }
 
   /**

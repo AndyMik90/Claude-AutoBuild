@@ -25,6 +25,11 @@ from .process_validators import (
     validate_killall_command,
     validate_pkill_command,
 )
+from .shell_validators import (
+    validate_bash_command,
+    validate_sh_command,
+    validate_zsh_command,
+)
 from .validation_models import ValidatorFunction
 
 # Map command names to their validation functions
@@ -39,6 +44,10 @@ VALIDATORS: dict[str, ValidatorFunction] = {
     "init.sh": validate_init_script,
     # Git
     "git": validate_git_commit,
+    # Shell interpreters (validate commands inside -c)
+    "bash": validate_bash_command,
+    "sh": validate_sh_command,
+    "zsh": validate_zsh_command,
     # Database - PostgreSQL
     "dropdb": validate_dropdb_command,
     "dropuser": validate_dropuser_command,

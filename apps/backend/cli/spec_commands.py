@@ -19,18 +19,17 @@ from workspace import get_existing_build_worktree
 from .utils import get_specs_dir
 
 
-def list_specs(project_dir: Path, dev_mode: bool = False) -> list[dict]:
+def list_specs(project_dir: Path) -> list[dict]:
     """
     List all specs in the project.
 
     Args:
         project_dir: Project root directory
-        dev_mode: If True, use dev/auto-claude/specs/
 
     Returns:
         List of spec info dicts with keys: number, name, path, status, progress
     """
-    specs_dir = get_specs_dir(project_dir, dev_mode)
+    specs_dir = get_specs_dir(project_dir)
     specs = []
 
     if not specs_dir.exists():
@@ -93,19 +92,16 @@ def list_specs(project_dir: Path, dev_mode: bool = False) -> list[dict]:
     return specs
 
 
-def print_specs_list(
-    project_dir: Path, dev_mode: bool = False, auto_create: bool = True
-) -> None:
+def print_specs_list(project_dir: Path, auto_create: bool = True) -> None:
     """Print a formatted list of all specs.
 
     Args:
         project_dir: Project root directory
-        dev_mode: If True, use dev/auto-claude/specs/
         auto_create: If True and no specs exist, automatically launch spec creation
     """
     import subprocess
 
-    specs = list_specs(project_dir, dev_mode)
+    specs = list_specs(project_dir)
 
     if not specs:
         print("\nNo specs found.")

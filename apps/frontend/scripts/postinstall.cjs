@@ -43,12 +43,35 @@ To install:
 `;
 
 /**
+ * Get electron version from package.json
+ */
+function getElectronVersion() {
+  const pkgPath = path.join(__dirname, '..', 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+  const electronVersion = pkg.devDependencies?.electron || pkg.dependencies?.electron;
+  if (!electronVersion) {
+    return null;
+  }
+  // Strip leading ^ or ~ from version
+  return electronVersion.replace(/^[\^~]/, '');
+}
+
+/**
  * Run electron-rebuild
  */
 function runElectronRebuild() {
   return new Promise((resolve, reject) => {
     const npx = isWindows ? 'npx.cmd' : 'npx';
-    const child = spawn(npx, ['electron-rebuild'], {
+    const electronVersion = getElectronVersion();
+    const args = ['electron-rebuild'];
+
+    // Explicitly pass electron version if detected
+    if (electronVersion) {
+      args.push('-v', electronVersion);
+      console.log(`[postinstall] Using Electron version: ${electronVersion}`);
+    }
+
+    const child = spawn(npx, args, {
       stdio: 'inherit',
       shell: isWindows,
       cwd: path.join(__dirname, '..'),
@@ -70,12 +93,40 @@ function runElectronRebuild() {
  * Check if node-pty is already built
  */
 function isNodePtyBuilt() {
-  const buildDir = path.join(__dirname, '..', 'node_modules', 'node-pty', 'build', 'Release');
-  if (!fs.existsSync(buildDir)) return false;
+  // Check traditional node-pty build location (local node_modules)
+  const localBuildDir = path.join(__dirname, '..', 'node_modules', 'node-pty', 'build', 'Release');
+  if (fs.existsSync(localBuildDir)) {
+    const files = fs.readdirSync(localBuildDir);
+    if (files.some((f) => f.endsWith('.node'))) return true;
+  }
 
-  // Check for the main .node file
-  const files = fs.readdirSync(buildDir);
-  return files.some((f) => f.endsWith('.node'));
+  // Check root node_modules (for npm workspaces)
+  const rootBuildDir = path.join(__dirname, '..', '..', '..', 'node_modules', 'node-pty', 'build', 'Release');
+  if (fs.existsSync(rootBuildDir)) {
+    const files = fs.readdirSync(rootBuildDir);
+    if (files.some((f) => f.endsWith('.node'))) return true;
+  }
+
+  // Check for @lydell/node-pty with platform-specific prebuilts
+  const arch = os.arch();
+  const platform = os.platform();
+  const platformPkg = `@lydell/node-pty-${platform}-${arch}`;
+
+  // Check local node_modules
+  const localLydellDir = path.join(__dirname, '..', 'node_modules', platformPkg);
+  if (fs.existsSync(localLydellDir)) {
+    const files = fs.readdirSync(localLydellDir);
+    if (files.some((f) => f.endsWith('.node'))) return true;
+  }
+
+  // Check root node_modules (for npm workspaces)
+  const rootLydellDir = path.join(__dirname, '..', '..', '..', 'node_modules', platformPkg);
+  if (fs.existsSync(rootLydellDir)) {
+    const files = fs.readdirSync(rootLydellDir);
+    if (files.some((f) => f.endsWith('.node'))) return true;
+  }
+
+  return false;
 }
 
 /**

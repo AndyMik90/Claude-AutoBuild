@@ -113,6 +113,10 @@ class StackDetector:
         if self.parser.file_exists("Package.swift", "*.swift", "**/*.swift"):
             self.stack.languages.append("swift")
 
+        # Dart/Flutter
+        if self.parser.file_exists("pubspec.yaml", "*.dart", "**/*.dart"):
+            self.stack.languages.append("dart")
+
     def detect_package_managers(self) -> None:
         """Detect package managers used."""
         # Node.js package managers
@@ -122,7 +126,7 @@ class StackDetector:
             self.stack.package_managers.append("yarn")
         if self.parser.file_exists("pnpm-lock.yaml"):
             self.stack.package_managers.append("pnpm")
-        if self.parser.file_exists("bun.lockb"):
+        if self.parser.file_exists("bun.lockb", "bun.lock"):
             self.stack.package_managers.append("bun")
         if self.parser.file_exists("deno.json", "deno.jsonc"):
             self.stack.package_managers.append("deno")
@@ -159,6 +163,12 @@ class StackDetector:
             self.stack.package_managers.append("maven")
         if self.parser.file_exists("build.gradle", "build.gradle.kts"):
             self.stack.package_managers.append("gradle")
+
+        # Dart/Flutter package managers
+        if self.parser.file_exists("pubspec.yaml", "pubspec.lock"):
+            self.stack.package_managers.append("pub")
+        if self.parser.file_exists("melos.yaml"):
+            self.stack.package_managers.append("melos")
 
     def detect_databases(self) -> None:
         """Detect databases from config files and dependencies."""
@@ -354,3 +364,6 @@ class StackDetector:
             self.stack.version_managers.append("rbenv")
         if self.parser.file_exists("rust-toolchain.toml", "rust-toolchain"):
             self.stack.version_managers.append("rustup")
+        # Flutter Version Manager
+        if self.parser.file_exists(".fvm", ".fvmrc", "fvm_config.json"):
+            self.stack.version_managers.append("fvm")

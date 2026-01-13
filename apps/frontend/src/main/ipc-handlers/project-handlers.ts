@@ -1,7 +1,7 @@
 import { ipcMain, app } from 'electron';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { is } from '@electron-toolkit/utils';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
@@ -23,6 +23,7 @@ import {
 import { PythonEnvManager, type PythonEnvStatus } from '../python-env-manager';
 import { AgentManager } from '../agent';
 import { changelogService } from '../changelog-service';
+import { getToolPath } from '../cli-tool-manager';
 import { insightsService } from '../insights-service';
 import { titleGenerator } from '../title-generator';
 import type { BrowserWindow } from 'electron';
@@ -33,16 +34,56 @@ import { getEffectiveSourcePath } from '../updater/path-resolver';
 // ============================================
 
 /**
- * Get list of git branches for a directory
+ * Get list of git branches for a directory (both local and remote)
  */
 function getGitBranches(projectPath: string): string[] {
   try {
-    const result = execSync('git branch --list --format="%(refname:short)"', {
+    // First fetch to ensure we have latest remote refs
+    try {
+      execFileSync(getToolPath('git'), ['fetch', '--prune'], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 10000 // 10 second timeout for fetch
+      });
+    } catch {
+      // Fetch may fail if offline or no remote, continue with local refs
+    }
+
+    // Get all branches (local + remote) using --all flag
+    const result = execFileSync(getToolPath('git'), ['branch', '--all', '--format=%(refname:short)'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
     });
-    return result.trim().split('\n').filter(b => b.trim());
+
+    const branches = result.trim().split('\n')
+      .filter(b => b.trim())
+      .map(b => {
+        // Remote branches come as "origin/branch-name", keep the full name
+        // but remove the "origin/" prefix for display while keeping it usable
+        return b.trim();
+      })
+      // Remove HEAD pointer entries like "origin/HEAD"
+      .filter(b => !b.endsWith('/HEAD'))
+      // Remove duplicates (local branch may exist alongside remote)
+      .filter((branch, index, self) => {
+        // If it's a remote branch (origin/x) and local version exists, keep local
+        if (branch.startsWith('origin/')) {
+          const localName = branch.replace('origin/', '');
+          return !self.includes(localName);
+        }
+        return self.indexOf(branch) === index;
+      });
+
+    // Sort: local branches first, then remote branches
+    return branches.sort((a, b) => {
+      const aIsRemote = a.startsWith('origin/');
+      const bIsRemote = b.startsWith('origin/');
+      if (aIsRemote && !bIsRemote) return 1;
+      if (!aIsRemote && bIsRemote) return -1;
+      return a.localeCompare(b);
+    });
   } catch {
     return [];
   }
@@ -53,7 +94,7 @@ function getGitBranches(projectPath: string): string[] {
  */
 function getCurrentGitBranch(projectPath: string): string | null {
   try {
-    const result = execSync('git rev-parse --abbrev-ref HEAD', {
+    const result = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -82,7 +123,7 @@ function detectMainBranch(projectPath: string): string | null {
 
   // If none of the common names found, check for origin/HEAD reference
   try {
-    const result = execSync('git symbolic-ref refs/remotes/origin/HEAD', {
+    const result = execFileSync(getToolPath('git'), ['symbolic-ref', 'refs/remotes/origin/HEAD'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -131,8 +172,10 @@ const initializePythonEnvironment = async (
     return {
       ready: false,
       pythonPath: null,
+      sitePackagesPath: null,
       venvExists: false,
       depsInstalled: false,
+      usingBundledPackages: false,
       error: 'Auto-build source not found'
     };
   }
@@ -309,29 +352,6 @@ export function registerProjectHandlers(
         }
 
         return { success: result.success, data: result, error: result.error };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        };
-      }
-    }
-  );
-
-  // PROJECT_UPDATE_AUTOBUILD is deprecated - .auto-claude only contains data, no code to update
-  // Kept for API compatibility, returns success immediately
-  ipcMain.handle(
-    IPC_CHANNELS.PROJECT_UPDATE_AUTOBUILD,
-    async (_, projectId: string): Promise<IPCResult<InitializationResult>> => {
-      try {
-        const project = projectStore.getProject(projectId);
-        if (!project) {
-          return { success: false, error: 'Project not found' };
-        }
-
-        // Nothing to update - .auto-claude only contains data directories
-        // The framework runs from the source repo
-        return { success: true, data: { success: true } };
       } catch (error) {
         return {
           success: false,

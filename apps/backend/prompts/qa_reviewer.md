@@ -35,8 +35,8 @@ cat project_index.json
 # 4. Check build progress
 cat build-progress.txt
 
-# 5. See what files were changed
-git diff main --name-only
+# 5. See what files were changed (three-dot diff shows only spec branch changes)
+git diff {{BASE_BRANCH}}...HEAD --name-status
 
 # 6. Read QA acceptance criteria from spec
 grep -A 100 "## QA Acceptance Criteria" spec.md
@@ -427,17 +427,9 @@ cat > qa_report.md << 'EOF'
 [QA Report content]
 EOF
 
-git add qa_report.md implementation_plan.json
-git commit -m "qa: Sign off - all verification passed
-
-- Unit tests: X/Y passing
-- Integration tests: X/Y passing
-- E2E tests: X/Y passing
-- Browser verification: complete
-- Security review: passed
-- No regressions found
-
-🤖 QA Agent Session [N]"
+# Note: qa_report.md and implementation_plan.json are in .auto-claude/specs/ (gitignored)
+# Do NOT commit them - the framework tracks QA status automatically
+# Only commit actual code changes to the project
 ```
 
 ### If REJECTED:
@@ -472,16 +464,9 @@ Once fixes are complete:
 
 EOF
 
-git add QA_FIX_REQUEST.md implementation_plan.json
-git commit -m "qa: Rejected - fixes required
-
-Issues found:
-- [Issue 1]
-- [Issue 2]
-
-See QA_FIX_REQUEST.md for details.
-
-🤖 QA Agent Session [N]"
+# Note: QA_FIX_REQUEST.md and implementation_plan.json are in .auto-claude/specs/ (gitignored)
+# Do NOT commit them - the framework tracks QA status automatically
+# Only commit actual code fixes to the project
 ```
 
 Update `implementation_plan.json`:
@@ -529,7 +514,7 @@ All acceptance criteria verified:
 The implementation is production-ready.
 Sign-off recorded in implementation_plan.json.
 
-Ready for merge to main.
+Ready for merge to {{BASE_BRANCH}}.
 ```
 
 ### If Rejected:

@@ -26,11 +26,11 @@ The AI considers:
 - Risk factors and edge cases
 
 Usage:
-    python auto-claude/spec_runner.py --task "Add user authentication"
-    python auto-claude/spec_runner.py --interactive
-    python auto-claude/spec_runner.py --continue 001-feature
-    python auto-claude/spec_runner.py --task "Fix button color" --complexity simple
-    python auto-claude/spec_runner.py --task "Simple fix" --no-ai-assessment
+    python runners/spec_runner.py --task "Add user authentication"
+    python runners/spec_runner.py --interactive
+    python runners/spec_runner.py --continue 001-feature
+    python runners/spec_runner.py --task "Fix button color" --complexity simple
+    python runners/spec_runner.py --task "Simple fix" --no-ai-assessment
 """
 
 import sys
@@ -81,8 +81,10 @@ if sys.platform == "win32":
 # Add auto-claude to path (parent of runners/)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Load .env file
-from dotenv import load_dotenv
+# Load .env file with centralized error handling
+from cli.utils import import_dotenv
+
+load_dotenv = import_dotenv()
 
 env_file = Path(__file__).parent.parent / ".env"
 dev_env_file = Path(__file__).parent.parent.parent / "dev" / "auto-claude" / ".env"
@@ -91,11 +93,16 @@ if env_file.exists():
 elif dev_env_file.exists():
     load_dotenv(dev_env_file)
 
+# Initialize Sentry early to capture any startup errors
+from core.sentry import capture_exception, init_sentry
+
+init_sentry(component="spec-runner")
+
 from debug import debug, debug_error, debug_section, debug_success
 from phase_config import resolve_model_id
 from review import ReviewState
 from spec import SpecOrchestrator
-from ui import Icons, highlight, icon, muted, print_section, print_status
+from ui import Icons, highlight, muted, print_section, print_status
 
 
 def main():
@@ -178,11 +185,6 @@ Examples:
         help="Use heuristic complexity assessment instead of AI (faster but less accurate)",
     )
     parser.add_argument(
-        "--dev",
-        action="store_true",
-        help="[Deprecated] No longer has any effect - kept for compatibility",
-    )
-    parser.add_argument(
         "--no-build",
         action="store_true",
         help="Don't automatically start the build after spec creation (default: auto-start build)",
@@ -197,8 +199,26 @@ Examples:
         action="store_true",
         help="Skip human review checkpoint and automatically approve spec for building",
     )
+    parser.add_argument(
+        "--base-branch",
+        type=str,
+        default=None,
+        help="Base branch for creating worktrees (default: auto-detect or current branch)",
+    )
+    parser.add_argument(
+        "--direct",
+        action="store_true",
+        help="Build directly in project without worktree isolation (default: use isolated worktree)",
+    )
 
     args = parser.parse_args()
+
+    # Warn user about direct mode risks
+    if args.direct:
+        print_status(
+            "Direct mode: Building in project directory without worktree isolation",
+            "warning",
+        )
 
     # Handle task from file if provided
     task_description = args.task
@@ -236,12 +256,6 @@ Examples:
                 project_dir = parent
                 break
 
-    # Note: --dev flag is deprecated but kept for API compatibility
-    if args.dev:
-        print(
-            f"\n{icon(Icons.GEAR)} Note: --dev flag is deprecated. All specs now go to .auto-claude/specs/\n"
-        )
-
     # Resolve model shorthand to full model ID
     resolved_model = resolve_model_id(args.model)
 
@@ -267,7 +281,6 @@ Examples:
         thinking_level=args.thinking_level,
         complexity_override=args.complexity,
         use_ai_assessment=not args.no_ai_assessment,
-        dev_mode=args.dev,
     )
 
     try:
@@ -330,9 +343,13 @@ Examples:
                 "--auto-continue",  # Non-interactive mode for chained execution
             ]
 
-            # Pass through dev mode
-            if args.dev:
-                run_cmd.append("--dev")
+            # Pass base branch if specified (for worktree creation)
+            if args.base_branch:
+                run_cmd.extend(["--base-branch", args.base_branch])
+
+            # Pass --direct flag if specified (skip worktree isolation)
+            if args.direct:
+                run_cmd.append("--direct")
 
             # Note: Model configuration for subsequent phases (planning, coding, qa)
             # is read from task_metadata.json by run.py, so we don't pass it here.
@@ -357,6 +374,14 @@ Examples:
         print(
             f"To continue: python auto-claude/spec_runner.py --continue {orchestrator.spec_dir.name}"
         )
+        sys.exit(1)
+    except Exception as e:
+        # Capture unexpected errors to Sentry
+        capture_exception(
+            e, spec_dir=str(orchestrator.spec_dir) if orchestrator else None
+        )
+        debug_error("spec_runner", f"Unexpected error: {e}")
+        print(f"\n\nUnexpected error: {e}")
         sys.exit(1)
 
 

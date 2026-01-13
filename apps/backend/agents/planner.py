@@ -9,7 +9,8 @@ import logging
 from pathlib import Path
 
 from core.client import create_client
-from phase_config import get_phase_thinking_budget
+from phase_config import get_phase_model, get_phase_thinking_budget
+from phase_event import ExecutionPhase, emit_phase
 from task_logger import (
     LogPhase,
     get_task_logger,
@@ -67,6 +68,7 @@ async def run_followup_planner(
     # Initialize status manager for ccstatusline
     status_manager = StatusManager(project_dir)
     status_manager.set_active(spec_dir.name, BuildState.PLANNING)
+    emit_phase(ExecutionPhase.PLANNING, "Follow-up planning")
 
     # Initialize task logger for persistent logging
     task_logger = get_task_logger(spec_dir)
@@ -89,12 +91,14 @@ async def run_followup_planner(
         task_logger.start_phase(LogPhase.PLANNING, "Starting follow-up planning...")
         task_logger.set_session(1)
 
-    # Create client (fresh context) with planning phase thinking budget
+    # Create client with phase-specific model and thinking budget
+    # Respects task_metadata.json configuration when no CLI override
+    planning_model = get_phase_model(spec_dir, "planning", model)
     planning_thinking_budget = get_phase_thinking_budget(spec_dir, "planning")
     client = create_client(
         project_dir,
         spec_dir,
-        model,
+        planning_model,
         max_thinking_tokens=planning_thinking_budget,
     )
 
@@ -137,7 +141,7 @@ async def run_followup_planner(
             if pending_subtasks:
                 # Reset the plan status to in_progress (in case planner didn't)
                 plan.reset_for_followup()
-                plan.save(plan_file)
+                await plan.async_save(plan_file)
 
                 print()
                 content = [

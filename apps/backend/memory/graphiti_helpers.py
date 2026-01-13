@@ -10,9 +10,12 @@ Handles checking if Graphiti is available and managing async operations.
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from graphiti_memory import GraphitiMemory
 
 
 def is_graphiti_memory_enabled() -> bool:
@@ -34,7 +37,9 @@ def is_graphiti_memory_enabled() -> bool:
         return False
 
 
-def get_graphiti_memory(spec_dir: Path, project_dir: Path | None = None):
+def get_graphiti_memory(
+    spec_dir: Path, project_dir: Path | None = None
+) -> "GraphitiMemory | None":
     """
     Get a GraphitiMemory instance if available.
 
@@ -49,11 +54,12 @@ def get_graphiti_memory(spec_dir: Path, project_dir: Path | None = None):
         return None
 
     try:
-        from graphiti_memory import GraphitiMemory
+        from graphiti_memory import GraphitiMemory, GroupIdMode
 
         if project_dir is None:
             project_dir = spec_dir.parent.parent
-        return GraphitiMemory(spec_dir, project_dir)
+        # Use project-wide shared memory for cross-spec learning
+        return GraphitiMemory(spec_dir, project_dir, group_id_mode=GroupIdMode.PROJECT)
     except ImportError:
         return None
 
@@ -100,7 +106,7 @@ async def save_to_graphiti_async(
         True if save succeeded, False otherwise
     """
     graphiti = get_graphiti_memory(spec_dir, project_dir)
-    if not graphiti:
+    if graphiti is None:
         return False
 
     try:
@@ -120,13 +126,17 @@ async def save_to_graphiti_async(
         for gotcha in discoveries.get("gotchas_encountered", []):
             await graphiti.save_gotcha(gotcha)
 
-        await graphiti.close()
         return result
 
     except Exception as e:
         logger.warning(f"Failed to save to Graphiti: {e}")
-        try:
-            await graphiti.close()
-        except Exception:
-            pass
         return False
+    finally:
+        # Always close the graphiti connection (swallow exceptions to avoid overriding)
+        if graphiti is not None:
+            try:
+                await graphiti.close()
+            except Exception as e:
+                logger.debug(
+                    "Failed to close Graphiti memory connection", exc_info=True
+                )

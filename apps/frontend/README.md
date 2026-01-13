@@ -10,6 +10,29 @@ This project requires **Node.js v24.12.0 LTS** (Latest LTS version as of Decembe
 
 **Download:** https://nodejs.org/en/download/
 
+**Or install via command line:**
+
+**Windows:**
+```bash
+winget install OpenJS.NodeJS.LTS
+```
+
+**macOS:**
+```bash
+brew install node@24
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+**Linux (Fedora):**
+```bash
+sudo dnf install nodejs npm
+```
+
 > **IMPORTANT:** When installing Node.js on Windows, make sure to check:
 > - "Add to PATH"
 > - "npm package manager"

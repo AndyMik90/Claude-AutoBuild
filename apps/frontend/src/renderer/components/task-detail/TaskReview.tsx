@@ -1,4 +1,4 @@
-import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo } from '../../../shared/types';
+import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, WorktreeCreatePRResult } from '../../../shared/types';
 import {
   StagedSuccessMessage,
   WorkspaceStatus,
@@ -8,7 +8,8 @@ import {
   ConflictDetailsDialog,
   LoadingMessage,
   NoWorkspaceMessage,
-  StagedInProjectMessage
+  StagedInProjectMessage,
+  CreatePRDialog
 } from './task-review';
 
 interface TaskReviewProps {
@@ -40,6 +41,14 @@ interface TaskReviewProps {
   onShowConflictDialog: (show: boolean) => void;
   onLoadMergePreview: () => void;
   onClose?: () => void;
+  onSwitchToTerminals?: () => void;
+  onOpenInbuiltTerminal?: (id: string, cwd: string) => void;
+  onReviewAgain?: () => void;
+  // PR creation
+  showPRDialog: boolean;
+  isCreatingPR: boolean;
+  onShowPRDialog: (show: boolean) => void;
+  onCreatePR: (options: { targetBranch?: string; title?: string; draft?: boolean }) => Promise<WorktreeCreatePRResult | null>;
 }
 
 /**
@@ -79,7 +88,14 @@ export function TaskReview({
   onStageOnlyChange,
   onShowConflictDialog,
   onLoadMergePreview,
-  onClose
+  onClose,
+  onSwitchToTerminals,
+  onOpenInbuiltTerminal,
+  onReviewAgain,
+  showPRDialog,
+  isCreatingPR,
+  onShowPRDialog,
+  onCreatePR
 }: TaskReviewProps) {
   return (
     <div className="space-y-4">
@@ -90,18 +106,28 @@ export function TaskReview({
       {stagedSuccess && (
         <StagedSuccessMessage
           stagedSuccess={stagedSuccess}
-          stagedProjectPath={stagedProjectPath}
-          task={task}
           suggestedCommitMessage={suggestedCommitMessage}
         />
       )}
 
-      {/* Workspace Status - hide if staging was successful (worktree is deleted after staging) */}
+      {/* Workspace Status - priority: loading > fresh staging success > already staged (persisted) > worktree exists > no workspace */}
       {isLoadingWorktree ? (
         <LoadingMessage />
-      ) : worktreeStatus?.exists && !stagedSuccess ? (
-        <WorkspaceStatus
+      ) : stagedSuccess ? (
+        /* Fresh staging just completed - StagedSuccessMessage is rendered above */
+        null
+      ) : task.stagedInMainProject ? (
+        /* Task was previously staged (persisted state) - show even if worktree still exists */
+        <StagedInProjectMessage
           task={task}
+          projectPath={stagedProjectPath}
+          hasWorktree={worktreeStatus?.exists || false}
+          onClose={onClose}
+          onReviewAgain={onReviewAgain}
+        />
+      ) : worktreeStatus?.exists ? (
+        /* Worktree exists but not yet staged - show staging UI */
+        <WorkspaceStatus
           worktreeStatus={worktreeStatus}
           workspaceError={workspaceError}
           stageOnly={stageOnly}
@@ -109,19 +135,17 @@ export function TaskReview({
           isLoadingPreview={isLoadingPreview}
           isMerging={isMerging}
           isDiscarding={isDiscarding}
+          isCreatingPR={isCreatingPR}
           onShowDiffDialog={onShowDiffDialog}
           onShowDiscardDialog={onShowDiscardDialog}
           onShowConflictDialog={onShowConflictDialog}
           onLoadMergePreview={onLoadMergePreview}
           onStageOnlyChange={onStageOnlyChange}
           onMerge={onMerge}
-        />
-      ) : task.stagedInMainProject && !stagedSuccess ? (
-        <StagedInProjectMessage
-          task={task}
-          projectPath={stagedProjectPath}
-          hasWorktree={worktreeStatus?.exists || false}
+          onShowPRDialog={onShowPRDialog}
           onClose={onClose}
+          onSwitchToTerminals={onSwitchToTerminals}
+          onOpenInbuiltTerminal={onOpenInbuiltTerminal}
         />
       ) : (
         <NoWorkspaceMessage task={task} onClose={onClose} />
@@ -159,6 +183,15 @@ export function TaskReview({
         stageOnly={stageOnly}
         onOpenChange={onShowConflictDialog}
         onMerge={onMerge}
+      />
+
+      {/* Create PR Dialog */}
+      <CreatePRDialog
+        open={showPRDialog}
+        task={task}
+        worktreeStatus={worktreeStatus}
+        onOpenChange={onShowPRDialog}
+        onCreatePR={onCreatePR}
       />
     </div>
   );

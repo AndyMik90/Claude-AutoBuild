@@ -1,4 +1,4 @@
-import { ipcMain, app } from 'electron';
+import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
@@ -21,7 +21,8 @@ import {
   buildMemoryStatus
 } from './memory-status-handlers';
 import { loadFileBasedMemories } from './memory-data-handlers';
-import { findPythonCommand, parsePythonCommand } from '../../python-detector';
+import { parsePythonCommand } from '../../python-detector';
+import { getConfiguredPythonPath } from '../../python-env-manager';
 import { getAugmentedEnv } from '../../env-utils';
 
 /**
@@ -159,20 +160,10 @@ export function registerProjectContextHandlers(
         const analyzerPath = path.join(autoBuildSource, 'analyzer.py');
         const indexOutputPath = path.join(project.path, AUTO_BUILD_PATHS.PROJECT_INDEX);
 
-        // Get Python command directly from settings file (not pythonEnvManager which creates NEW venv)
-        let pythonCmd = findPythonCommand() || 'python3';
-        try {
-          const settingsPath = path.join(app.getPath('userData'), 'settings.json');
-          if (existsSync(settingsPath)) {
-            const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-            if (settings.pythonPath && existsSync(settings.pythonPath)) {
-              pythonCmd = settings.pythonPath;
-              console.log('[project-context] Using Python from settings:', pythonCmd);
-            }
-          }
-        } catch (err) {
-          console.warn('[project-context] Could not read Python from settings:', err);
-        }
+        // Get configured Python path (venv if ready, otherwise bundled/system)
+        // This ensures we use the venv Python which has dependencies installed
+        const pythonCmd = getConfiguredPythonPath();
+        console.log('[project-context] Using Python:', pythonCmd);
 
         const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonCmd);
 

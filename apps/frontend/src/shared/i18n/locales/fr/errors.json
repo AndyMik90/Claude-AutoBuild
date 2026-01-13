@@ -1,0 +1,5 @@
+{
+  "task": {
+    "parseImplementationPlan": "Échec de l'analyse du fichier implementation_plan.json pour {{specId}} : {{error}}"
+  }
+}

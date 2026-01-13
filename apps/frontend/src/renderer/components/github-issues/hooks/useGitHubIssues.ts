@@ -1,12 +1,12 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useMemo } from "react";
 import {
   useIssuesStore,
   useSyncStatusStore,
   loadGitHubIssues,
   checkGitHubConnection,
-  type IssueFilterState
-} from '../../../stores/github';
-import type { FilterState } from '../types';
+  type IssueFilterState,
+} from "../../../stores/github";
+import type { FilterState } from "../types";
 
 export function useGitHubIssues(projectId: string | undefined) {
   const {
@@ -18,7 +18,7 @@ export function useGitHubIssues(projectId: string | undefined) {
     selectIssue,
     setFilterState,
     getFilteredIssues,
-    getOpenIssuesCount
+    getOpenIssuesCount,
   } = useIssuesStore();
 
   const { syncStatus } = useSyncStatusStore();
@@ -50,12 +50,20 @@ export function useGitHubIssues(projectId: string | undefined) {
     }
   }, [projectId, filterState]);
 
-  const handleFilterChange = useCallback((state: FilterState) => {
-    setFilterState(state);
-    if (projectId) {
-      loadGitHubIssues(projectId, state);
-    }
-  }, [projectId, setFilterState]);
+  const handleFilterChange = useCallback(
+    (state: FilterState) => {
+      setFilterState(state);
+      if (projectId) {
+        loadGitHubIssues(projectId, state);
+      }
+    },
+    [projectId, setFilterState]
+  );
+
+  // Compute selectedIssue from issues array
+  const selectedIssue = useMemo(() => {
+    return issues.find((i) => i.number === selectedIssueNumber) || null;
+  }, [issues, selectedIssueNumber]);
 
   return {
     issues,
@@ -63,11 +71,12 @@ export function useGitHubIssues(projectId: string | undefined) {
     isLoading,
     error,
     selectedIssueNumber,
+    selectedIssue,
     filterState,
     selectIssue,
     getFilteredIssues,
     getOpenIssuesCount,
     handleRefresh,
-    handleFilterChange
+    handleFilterChange,
   };
 }

@@ -1,9 +1,14 @@
 import { EventEmitter } from 'events';
 import * as path from 'path';
-import * as os from 'os';
+import { fileURLToPath } from 'url';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { app } from 'electron';
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { AUTO_BUILD_PATHS, DEFAULT_CHANGELOG_PATH } from '../../shared/constants';
+import { getToolPath } from '../cli-tool-manager';
 import type {
   ChangelogTask,
   TaskSpecContent,
@@ -27,16 +32,17 @@ import {
   getCommits,
   getBranchDiffCommits
 } from './git-integration';
-import { findPythonCommand } from '../python-detector';
+import { getValidatedPythonPath } from '../python-detector';
+import { getConfiguredPythonPath } from '../python-env-manager';
 
 /**
  * Main changelog service - orchestrates all changelog operations
  * Delegates to specialized modules for specific concerns
  */
 export class ChangelogService extends EventEmitter {
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
-  private claudePath: string = 'claude';
+  // Python path will be configured by pythonEnvManager after venv is ready
+  private _pythonPath: string | null = null;
+  private claudePath: string;
   private autoBuildSourcePath: string = '';
   private cachedEnv: Record<string, string> | null = null;
   private debugEnabled: boolean | null = null;
@@ -45,48 +51,9 @@ export class ChangelogService extends EventEmitter {
 
   constructor() {
     super();
-    this.detectClaudePath();
-    this.debug('ChangelogService initialized');
-  }
-
-  /**
-   * Detect the full path to the claude CLI
-   * Electron apps don't inherit shell PATH, so we need to find it explicitly
-   */
-  private detectClaudePath(): void {
-    const homeDir = os.homedir();
-
-    // Platform-specific possible paths
-    const possiblePaths = process.platform === 'win32'
-      ? [
-          // Windows paths
-          path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
-          path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
-          path.join(homeDir, '.local', 'bin', 'claude.exe'),
-          'C:\\Program Files\\Claude\\claude.exe',
-          'C:\\Program Files (x86)\\Claude\\claude.exe',
-          // Also check if claude is in system PATH
-          'claude'
-        ]
-      : [
-          // Unix paths (macOS/Linux)
-          '/usr/local/bin/claude',
-          '/opt/homebrew/bin/claude',
-          path.join(homeDir, '.local/bin/claude'),
-          path.join(homeDir, 'bin/claude'),
-          // Also check if claude is in system PATH
-          'claude'
-        ];
-
-    for (const claudePath of possiblePaths) {
-      if (claudePath === 'claude' || existsSync(claudePath)) {
-        this.claudePath = claudePath;
-        this.debug('Claude CLI found at:', claudePath);
-        return;
-      }
-    }
-
-    this.debug('Claude CLI not found in common locations, using default');
+    // Use centralized CLI tool manager for Claude detection
+    this.claudePath = getToolPath('claude');
+    this.debug('ChangelogService initialized with Claude CLI:', this.claudePath);
   }
 
   /**
@@ -125,16 +92,25 @@ export class ChangelogService extends EventEmitter {
     }
   }
 
-  /**
-   * Configure paths for Python and auto-claude source
-   */
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     if (pythonPath) {
-      this.pythonPath = pythonPath;
+      this._pythonPath = getValidatedPythonPath(pythonPath, 'ChangelogService');
     }
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
     }
+  }
+
+  /**
+   * Get the configured Python path.
+   * Returns explicitly configured path, or falls back to getConfiguredPythonPath()
+   * which uses the venv Python if ready.
+   */
+  private get pythonPath(): string {
+    if (this._pythonPath) {
+      return this._pythonPath;
+    }
+    return getConfiguredPythonPath();
   }
 
   /**
@@ -146,19 +122,14 @@ export class ChangelogService extends EventEmitter {
     }
 
     const possiblePaths = [
-      // New apps structure: from out/main -> apps/backend
+      // Apps structure: from out/main -> apps/backend
       path.resolve(__dirname, '..', '..', '..', 'backend'),
       path.resolve(app.getAppPath(), '..', 'backend'),
-      path.resolve(process.cwd(), 'apps', 'backend'),
-      // Legacy paths for backwards compatibility
-      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),
-      path.resolve(app.getAppPath(), '..', 'auto-claude'),
-      path.resolve(process.cwd(), 'auto-claude')
+      path.resolve(process.cwd(), 'apps', 'backend')
     ];
 
     for (const p of possiblePaths) {
-      // Use requirements.txt as marker - it always exists in auto-claude source
-      if (existsSync(p) && existsSync(path.join(p, 'requirements.txt'))) {
+      if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
         return p;
       }
     }

@@ -24,6 +24,7 @@ from graphiti_config import get_graphiti_status, is_graphiti_enabled
 # Import from parent memory package
 # Now safe since this module is named memory_manager (not memory)
 from memory import save_session_insights as save_file_based_memory
+from memory.graphiti_helpers import get_graphiti_memory
 
 logger = logging.getLogger(__name__)
 
@@ -113,24 +114,20 @@ async def get_graphiti_context(
             debug("memory", "Graphiti not enabled, skipping context retrieval")
         return None
 
+    memory = None
     try:
-        from graphiti_memory import GraphitiMemory
-
-        # Create memory manager
-        memory = GraphitiMemory(spec_dir, project_dir)
-
-        if not memory.is_enabled:
+        # Use centralized helper for GraphitiMemory instantiation
+        memory = get_graphiti_memory(spec_dir, project_dir)
+        if memory is None:
             if is_debug_enabled():
-                debug_warning("memory", "GraphitiMemory.is_enabled=False")
+                debug_warning("memory", "GraphitiMemory not available")
             return None
-
         # Build search query from subtask description
         subtask_desc = subtask.get("description", "")
         subtask_id = subtask.get("id", "")
         query = f"{subtask_desc} {subtask_id}".strip()
 
         if not query:
-            await memory.close()
             if is_debug_enabled():
                 debug_warning("memory", "Empty query, skipping context retrieval")
             return None
@@ -146,20 +143,26 @@ async def get_graphiti_context(
         # Get relevant context
         context_items = await memory.get_relevant_context(query, num_results=5)
 
+        # Get patterns and gotchas specifically (THE FIX for learning loop!)
+        # This retrieves PATTERN and GOTCHA episode types for cross-session learning
+        patterns, gotchas = await memory.get_patterns_and_gotchas(
+            query, num_results=3, min_score=0.5
+        )
+
         # Also get recent session history
         session_history = await memory.get_session_history(limit=3)
-
-        await memory.close()
 
         if is_debug_enabled():
             debug(
                 "memory",
                 "Graphiti context retrieval complete",
                 context_items_found=len(context_items) if context_items else 0,
+                patterns_found=len(patterns) if patterns else 0,
+                gotchas_found=len(gotchas) if gotchas else 0,
                 session_history_found=len(session_history) if session_history else 0,
             )
 
-        if not context_items and not session_history:
+        if not context_items and not session_history and not patterns and not gotchas:
             if is_debug_enabled():
                 debug("memory", "No relevant context found in Graphiti")
             return None
@@ -174,6 +177,34 @@ async def get_graphiti_context(
                 content = item.get("content", "")[:500]  # Truncate
                 item_type = item.get("type", "unknown")
                 sections.append(f"- **[{item_type}]** {content}\n")
+
+        # Add patterns section (cross-session learning)
+        if patterns:
+            sections.append("### Learned Patterns\n")
+            sections.append("_Patterns discovered in previous sessions:_\n")
+            for p in patterns:
+                pattern_text = p.get("pattern", "")
+                applies_to = p.get("applies_to", "")
+                if applies_to:
+                    sections.append(
+                        f"- **Pattern**: {pattern_text}\n  _Applies to:_ {applies_to}\n"
+                    )
+                else:
+                    sections.append(f"- **Pattern**: {pattern_text}\n")
+
+        # Add gotchas section (cross-session learning)
+        if gotchas:
+            sections.append("### Known Gotchas\n")
+            sections.append("_Pitfalls to avoid:_\n")
+            for g in gotchas:
+                gotcha_text = g.get("gotcha", "")
+                solution = g.get("solution", "")
+                if solution:
+                    sections.append(
+                        f"- **Gotcha**: {gotcha_text}\n  _Solution:_ {solution}\n"
+                    )
+                else:
+                    sections.append(f"- **Gotcha**: {gotcha_text}\n")
 
         if session_history:
             sections.append("### Recent Session Insights\n")
@@ -193,14 +224,20 @@ async def get_graphiti_context(
 
         return "\n".join(sections)
 
-    except ImportError:
-        logger.debug("Graphiti packages not installed")
-        if is_debug_enabled():
-            debug_warning("memory", "Graphiti packages not installed")
-        return None
     except Exception as e:
         logger.warning(f"Failed to get Graphiti context: {e}")
+        if is_debug_enabled():
+            debug_error("memory", "Graphiti context retrieval failed", error=str(e))
         return None
+    finally:
+        # Always close the memory connection (swallow exceptions to avoid overriding)
+        if memory is not None:
+            try:
+                await memory.close()
+            except Exception as e:
+                logger.debug(
+                    "Failed to close Graphiti memory connection", exc_info=True
+                )
 
 
 async def save_session_memory(
@@ -285,20 +322,24 @@ async def save_session_memory(
         if is_debug_enabled():
             debug("memory", "Attempting PRIMARY storage: Graphiti")
 
+        memory = None
         try:
-            from graphiti_memory import GraphitiMemory
+            # Use centralized helper for GraphitiMemory instantiation
+            memory = get_graphiti_memory(spec_dir, project_dir)
+            if memory is None:
+                if is_debug_enabled():
+                    debug_warning("memory", "GraphitiMemory not available")
+                # Continue to file-based fallback
+            else:
+                if is_debug_enabled():
+                    debug_detailed(
+                        "memory",
+                        "GraphitiMemory instance created",
+                        is_enabled=memory.is_enabled,
+                        group_id=getattr(memory, "group_id", "unknown"),
+                    )
 
-            memory = GraphitiMemory(spec_dir, project_dir)
-
-            if is_debug_enabled():
-                debug_detailed(
-                    "memory",
-                    "GraphitiMemory instance created",
-                    is_enabled=memory.is_enabled,
-                    group_id=getattr(memory, "group_id", "unknown"),
-                )
-
-            if memory.is_enabled:
+            if memory is not None and memory.is_enabled:
                 if is_debug_enabled():
                     debug("memory", "Saving to Graphiti...")
 
@@ -314,8 +355,6 @@ async def save_session_memory(
                 else:
                     # Fallback to basic session insights
                     result = await memory.save_session_insights(session_num, insights)
-
-                await memory.close()
 
                 if result:
                     logger.info(
@@ -337,23 +376,32 @@ async def save_session_memory(
                         debug_warning(
                             "memory", "Graphiti save returned False, using FALLBACK"
                         )
-            else:
-                logger.warning(
-                    "Graphiti memory not enabled, falling back to file-based"
-                )
+            elif memory is None:
                 if is_debug_enabled():
                     debug_warning(
-                        "memory", "GraphitiMemory.is_enabled=False, using FALLBACK"
+                        "memory", "GraphitiMemory not available, using FALLBACK"
                     )
+            else:
+                # memory is not None but memory.is_enabled is False
+                logger.warning(
+                    "GraphitiMemory.is_enabled=False, falling back to file-based"
+                )
+                if is_debug_enabled():
+                    debug_warning("memory", "GraphitiMemory disabled, using FALLBACK")
 
-        except ImportError as e:
-            logger.debug("Graphiti packages not installed, falling back to file-based")
-            if is_debug_enabled():
-                debug_warning("memory", "Graphiti packages not installed", error=str(e))
         except Exception as e:
             logger.warning(f"Graphiti save failed: {e}, falling back to file-based")
             if is_debug_enabled():
                 debug_error("memory", "Graphiti save failed", error=str(e))
+        finally:
+            # Always close the memory connection (swallow exceptions to avoid overriding)
+            if memory is not None:
+                try:
+                    await memory.close()
+                except Exception as e:
+                    logger.debug(
+                        "Failed to close Graphiti memory connection", exc_info=e
+                    )
     else:
         if is_debug_enabled():
             debug("memory", "Graphiti not enabled, skipping to FALLBACK")

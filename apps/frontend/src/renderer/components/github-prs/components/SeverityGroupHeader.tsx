@@ -3,6 +3,7 @@
  */
 
 import { ChevronDown, ChevronRight, CheckSquare, Square, MinusSquare } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '../../ui/badge';
 import { cn } from '../../../lib/utils';
 import type { SeverityGroup } from '../constants/severity-config';
@@ -25,6 +26,7 @@ export function SeverityGroupHeader({
   onToggle,
   onSelectAll,
 }: SeverityGroupHeaderProps) {
+  const { t } = useTranslation('common');
   const config = SEVERITY_CONFIG[severity];
   const Icon = config.icon;
   const isFullySelected = selectedCount === count && count > 0;
@@ -53,13 +55,13 @@ export function SeverityGroupHeader({
 
         <Icon className={cn("h-4 w-4", config.color)} />
         <span className={cn("font-medium text-sm", config.color)}>
-          {config.label}
+          {t(config.labelKey)}
         </span>
         <Badge variant="secondary" className="text-xs">
           {count}
         </Badge>
         <span className="text-xs text-muted-foreground hidden sm:inline">
-          {config.description}
+          {t(config.descriptionKey)}
         </span>
       </div>
       {expanded ? (

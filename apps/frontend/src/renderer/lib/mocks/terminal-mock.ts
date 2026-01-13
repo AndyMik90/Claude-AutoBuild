@@ -30,6 +30,14 @@ export const terminalMock = {
     data: 'Mock Terminal'
   }),
 
+  setTerminalTitle: () => {
+    console.warn('[Browser Mock] setTerminalTitle called');
+  },
+
+  setTerminalWorktreeConfig: () => {
+    console.warn('[Browser Mock] setTerminalWorktreeConfig called');
+  },
+
   // Terminal session management
   getTerminalSessions: async () => ({
     success: true,
@@ -48,6 +56,10 @@ export const terminalMock = {
 
   resumeClaudeInTerminal: () => {
     console.warn('[Browser Mock] resumeClaudeInTerminal called');
+  },
+
+  activateDeferredClaudeResume: () => {
+    console.warn('[Browser Mock] activateDeferredClaudeResume called');
   },
 
   getTerminalSessionDates: async () => ({
@@ -71,11 +83,21 @@ export const terminalMock = {
 
   saveTerminalBuffer: async () => {},
 
+  checkTerminalPtyAlive: async () => ({
+    success: true,
+    data: { alive: false }
+  }),
+
   // Terminal Event Listeners (no-op in browser)
   onTerminalOutput: () => () => {},
   onTerminalExit: () => () => {},
   onTerminalTitleChange: () => () => {},
+  onTerminalWorktreeConfigChange: () => () => {},
   onTerminalClaudeSession: () => () => {},
   onTerminalRateLimit: () => () => {},
-  onTerminalOAuthToken: () => () => {}
+  onTerminalOAuthToken: () => () => {},
+  onTerminalAuthCreated: () => () => {},
+  onTerminalClaudeBusy: () => () => {},
+  onTerminalClaudeExit: () => () => {},
+  onTerminalPendingResume: () => () => {}
 };

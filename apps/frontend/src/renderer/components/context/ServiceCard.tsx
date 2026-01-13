@@ -106,6 +106,34 @@ export function ServiceCard({ name, service }: ServiceCardProps) {
           )}
         </div>
 
+        {/* Apple Frameworks (iOS/Swift) */}
+        {service.apple_frameworks && service.apple_frameworks.length > 0 && (
+          <div className="pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground mb-1.5">Apple Frameworks</p>
+            <div className="flex flex-wrap gap-1">
+              {service.apple_frameworks.map((fw) => (
+                <Badge key={fw} variant="secondary" className="text-xs">
+                  {fw}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SPM Dependencies (iOS/Swift) */}
+        {service.spm_dependencies && service.spm_dependencies.length > 0 && (
+          <div className="pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground mb-1.5">SPM Dependencies</p>
+            <div className="flex flex-wrap gap-1">
+              {service.spm_dependencies.map((dep) => (
+                <Badge key={dep} variant="outline" className="text-xs font-mono">
+                  {dep}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Collapsible Sections */}
         <EnvironmentSection environment={service.environment} />
         <APIRoutesSection api={service.api} />

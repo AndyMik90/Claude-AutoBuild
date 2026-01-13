@@ -29,6 +29,8 @@ export interface TerminalSession {
   outputBuffer: string;
   createdAt: string;
   lastActiveAt: string;
+  /** Associated worktree configuration (validated on restore) */
+  worktreeConfig?: TerminalWorktreeConfig;
 }
 
 export interface TerminalRestoreResult {
@@ -131,4 +133,58 @@ export interface RetryWithProfileRequest {
   taskId?: string;
   /** Profile ID to retry with */
   profileId: string;
+}
+
+// ============================================================================
+// Terminal Worktree Types
+// ============================================================================
+
+/**
+ * Configuration for a terminal-associated git worktree
+ * Enables isolated development environments for each terminal session
+ */
+export interface TerminalWorktreeConfig {
+  /** Unique worktree name (used as directory name) */
+  name: string;
+  /** Path to the worktree directory (.auto-claude/worktrees/terminal/{name}/) */
+  worktreePath: string;
+  /** Git branch name (terminal/{name}) - empty if no branch created */
+  branchName: string;
+  /** Base branch the worktree was created from (from project settings or auto-detected) */
+  baseBranch: string;
+  /** Whether a git branch was created for this worktree */
+  hasGitBranch: boolean;
+  /** Associated task ID (optional - for task-linked worktrees) */
+  taskId?: string;
+  /** When the worktree was created */
+  createdAt: string;
+  /** Terminal ID this worktree is associated with */
+  terminalId: string;
+}
+
+/**
+ * Request to create a terminal worktree
+ */
+export interface CreateTerminalWorktreeRequest {
+  /** Terminal ID to associate with */
+  terminalId: string;
+  /** Worktree name (alphanumeric, dashes, underscores only) */
+  name: string;
+  /** Optional task ID to link */
+  taskId?: string;
+  /** Whether to create a git branch (terminal/{name}) */
+  createGitBranch: boolean;
+  /** Project path where the worktree will be created */
+  projectPath: string;
+  /** Optional base branch to create worktree from (defaults to project default) */
+  baseBranch?: string;
+}
+
+/**
+ * Result of terminal worktree creation
+ */
+export interface TerminalWorktreeResult {
+  success: boolean;
+  config?: TerminalWorktreeConfig;
+  error?: string;
 }

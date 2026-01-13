@@ -268,7 +268,7 @@ Output JSON array of structural issues:
 ```
 """,
             ReviewPass.AI_COMMENT_TRIAGE: """
-You are triaging comments from other AI code review tools (CodeRabbit, Cursor, Greptile, etc).
+You are triaging comments from other AI code review tools (CodeRabbit, Gemini Code Assist, Cursor, Greptile, etc).
 
 For each AI comment, determine:
 - CRITICAL: Genuine issue that must be addressed before merge
@@ -298,7 +298,7 @@ Output JSON array:
         """Get the main PR review prompt."""
         prompt_file = self.prompts_dir / "pr_reviewer.md"
         if prompt_file.exists():
-            return prompt_file.read_text()
+            return prompt_file.read_text(encoding="utf-8")
         return self._get_default_pr_review_prompt()
 
     def _get_default_pr_review_prompt(self) -> str:
@@ -338,7 +338,7 @@ Be specific and actionable. Focus on significant issues, not nitpicks.
         """Get the follow-up PR review prompt."""
         prompt_file = self.prompts_dir / "pr_followup.md"
         if prompt_file.exists():
-            return prompt_file.read_text()
+            return prompt_file.read_text(encoding="utf-8")
         return self._get_default_followup_review_prompt()
 
     def _get_default_followup_review_prompt(self) -> str:
@@ -380,7 +380,7 @@ Output JSON:
         """Get the issue triage prompt."""
         prompt_file = self.prompts_dir / "issue_triager.md"
         if prompt_file.exists():
-            return prompt_file.read_text()
+            return prompt_file.read_text(encoding="utf-8")
         return self._get_default_triage_prompt()
 
     def _get_default_triage_prompt(self) -> str:

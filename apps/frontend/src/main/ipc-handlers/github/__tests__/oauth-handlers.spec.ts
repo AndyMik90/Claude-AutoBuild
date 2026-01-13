@@ -10,11 +10,15 @@ const mockSpawn = vi.fn();
 const mockExecSync = vi.fn();
 const mockExecFileSync = vi.fn();
 
-vi.mock('child_process', () => ({
-  spawn: (...args: unknown[]) => mockSpawn(...args),
-  execSync: (...args: unknown[]) => mockExecSync(...args),
-  execFileSync: (...args: unknown[]) => mockExecFileSync(...args)
-}));
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return {
+    ...actual,
+    spawn: (...args: unknown[]) => mockSpawn(...args),
+    execSync: (...args: unknown[]) => mockExecSync(...args),
+    execFileSync: (...args: unknown[]) => mockExecFileSync(...args)
+  };
+});
 
 // Mock shell.openExternal
 const mockOpenExternal = vi.fn();
@@ -44,11 +48,21 @@ vi.mock('electron', () => {
     }
   })();
 
+  // Mock BrowserWindow for sendDeviceCodeToRenderer
+  const mockBrowserWindow = {
+    getAllWindows: () => [{
+      webContents: {
+        send: vi.fn()
+      }
+    }]
+  };
+
   return {
     ipcMain: mockIpcMain,
     shell: {
       openExternal: (...args: unknown[]) => mockOpenExternal(...args)
-    }
+    },
+    BrowserWindow: mockBrowserWindow
   };
 });
 
@@ -60,6 +74,23 @@ vi.mock('@electron-toolkit/utils', () => ({
     macos: process.platform === 'darwin',
     linux: process.platform === 'linux'
   }
+}));
+
+// Mock env-utils
+const mockFindExecutable = vi.fn();
+const mockGetAugmentedEnv = vi.fn();
+
+vi.mock('../../../env-utils', () => ({
+  findExecutable: mockFindExecutable,
+  getAugmentedEnv: mockGetAugmentedEnv,
+  isCommandAvailable: vi.fn((cmd: string) => mockFindExecutable(cmd) !== null)
+}));
+
+// Mock cli-tool-manager to avoid child_process import issues
+vi.mock('../../../cli-tool-manager', () => ({
+  getToolPath: vi.fn(() => '/usr/local/bin/gh'),
+  detectCLITools: vi.fn(),
+  getAllToolStatus: vi.fn()
 }));
 
 // Create mock process for spawn
@@ -89,6 +120,10 @@ describe('GitHub OAuth Handlers', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
+
+    // Set up default env-utils mocks
+    mockGetAugmentedEnv.mockReturnValue(process.env as Record<string, string>);
+    mockFindExecutable.mockReturnValue(null); // Default: executable not found
 
     // Get mocked ipcMain
     const electron = await import('electron');
@@ -413,11 +448,12 @@ describe('GitHub OAuth Handlers', () => {
 
   describe('gh CLI Check Handler', () => {
     it('should return installed: true when gh CLI is found', async () => {
-      mockExecSync.mockImplementation((cmd: string) => {
-        if (cmd.includes('which gh') || cmd.includes('where gh')) {
-          return '/usr/local/bin/gh\n';
-        }
-        if (cmd === 'gh --version') {
+      // Mock findExecutable to return gh path
+      mockFindExecutable.mockReturnValue('/usr/local/bin/gh');
+
+      // Mock execFileSync for version check
+      mockExecFileSync.mockImplementation((cmd: string, args?: string[]) => {
+        if (args && args[0] === '--version') {
           return 'gh version 2.65.0 (2024-01-15)\n';
         }
         return '';
@@ -435,9 +471,8 @@ describe('GitHub OAuth Handlers', () => {
     });
 
     it('should return installed: false when gh CLI is not found', async () => {
-      mockExecSync.mockImplementation(() => {
-        throw new Error('Command not found');
-      });
+      // Mock findExecutable to return null (not found)
+      mockFindExecutable.mockReturnValue(null);
 
       const { registerCheckGhCli } = await import('../oauth-handlers');
       registerCheckGhCli();
@@ -452,11 +487,11 @@ describe('GitHub OAuth Handlers', () => {
 
   describe('gh Auth Check Handler', () => {
     it('should return authenticated: true with username when logged in', async () => {
-      mockExecSync.mockImplementation((cmd: string) => {
-        if (cmd === 'gh auth status') {
+      mockExecFileSync.mockImplementation((cmd: string, args?: string[]) => {
+        if (args && args[0] === 'auth' && args[1] === 'status') {
           return 'Logged in to github.com as testuser\n';
         }
-        if (cmd === 'gh api user --jq .login') {
+        if (args && args[0] === 'api' && args[1] === 'user' && args[2] === '--jq' && args[3] === '.login') {
           return 'testuser\n';
         }
         return '';
@@ -474,7 +509,7 @@ describe('GitHub OAuth Handlers', () => {
     });
 
     it('should return authenticated: false when not logged in', async () => {
-      mockExecSync.mockImplementation(() => {
+      mockExecFileSync.mockImplementation(() => {
         throw new Error('You are not logged into any GitHub hosts');
       });
 

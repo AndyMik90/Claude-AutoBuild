@@ -3,6 +3,7 @@
  */
 
 import { CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '../../ui/badge';
 import { Checkbox } from '../../ui/checkbox';
 import { cn } from '../../../lib/utils';
@@ -16,8 +17,29 @@ interface FindingItemProps {
   onToggle: () => void;
 }
 
+// Helper to translate category names
+function getCategoryTranslationKey(category: string): string {
+  // Map category values to translation keys
+  const categoryMap: Record<string, string> = {
+    'security': 'prReview.category.security',
+    'logic': 'prReview.category.logic',
+    'quality': 'prReview.category.quality',
+    'performance': 'prReview.category.performance',
+    'style': 'prReview.category.style',
+    'documentation': 'prReview.category.documentation',
+    'testing': 'prReview.category.testing',
+    'other': 'prReview.category.other',
+  };
+  return categoryMap[category.toLowerCase()] || category;
+}
+
 export function FindingItem({ finding, selected, posted = false, onToggle }: FindingItemProps) {
+  const { t } = useTranslation('common');
   const CategoryIcon = getCategoryIcon(finding.category);
+
+  // Get translated category name (falls back to original if translation not found)
+  const categoryKey = getCategoryTranslationKey(finding.category);
+  const categoryLabel = t(categoryKey, { defaultValue: finding.category });
 
   return (
     <div
@@ -43,11 +65,11 @@ export function FindingItem({ finding, selected, posted = false, onToggle }: Fin
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className="text-xs shrink-0">
               <CategoryIcon className="h-3 w-3 mr-1" />
-              {finding.category}
+              {categoryLabel}
             </Badge>
             {posted && (
               <Badge variant="outline" className="text-xs shrink-0 text-success border-success/50">
-                Posted
+                {t('prReview.posted')}
               </Badge>
             )}
             <span className="font-medium text-sm break-words">
@@ -69,7 +91,7 @@ export function FindingItem({ finding, selected, posted = false, onToggle }: Fin
       {/* Suggested Fix */}
       {finding.suggestedFix && (
         <div className="ml-7 text-xs">
-          <span className="text-muted-foreground font-medium">Suggested fix:</span>
+          <span className="text-muted-foreground font-medium">{t('prReview.suggestedFix')}</span>
           <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto max-w-full whitespace-pre-wrap break-words">
             {finding.suggestedFix}
           </pre>

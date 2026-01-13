@@ -1,16 +1,18 @@
 """
-Review Confidence Scoring
-=========================
+DEPRECATED: Review Confidence Scoring
+=====================================
 
-Adds confidence scores to review findings to help users prioritize.
+This module is DEPRECATED and will be removed in a future version.
 
-Features:
-- Confidence scoring based on pattern matching, historical accuracy
-- Risk assessment (false positive likelihood)
-- Evidence tracking for transparency
-- Calibration based on outcome tracking
+The confidence scoring approach has been replaced with EVIDENCE-BASED VALIDATION:
+- Instead of assigning confidence scores (0-100), findings now require concrete
+  code evidence proving the issue exists.
+- Simple rule: If you can't show the actual problematic code, don't report it.
+- Validation is binary: either the evidence exists in the file or it doesn't.
 
-Usage:
+For new code, use evidence-based validation in pydantic_models.py and models.py instead.
+
+Legacy Usage (deprecated):
     scorer = ConfidenceScorer(learning_tracker=tracker)
 
     # Score a finding
@@ -20,9 +22,23 @@ Usage:
 
     # Get explanation
     print(scorer.explain_confidence(scored))
+
+Migration:
+    - Instead of `confidence: float`, use `evidence: str` with actual code snippets
+    - Instead of filtering by confidence threshold, verify evidence exists in file
+    - See pr_finding_validator.md for the new evidence-based approach
 """
 
 from __future__ import annotations
+
+import warnings
+
+warnings.warn(
+    "The confidence module is deprecated. Use evidence-based validation instead. "
+    "See models.py 'evidence' field and pr_finding_validator.md for the new approach.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 from dataclasses import dataclass, field
 from enum import Enum

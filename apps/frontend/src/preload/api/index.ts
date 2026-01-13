@@ -9,6 +9,11 @@ import { InsightsAPI, createInsightsAPI } from './modules/insights-api';
 import { AppUpdateAPI, createAppUpdateAPI } from './app-update-api';
 import { ScreenshotAPI, createScreenshotAPI } from './screenshot-api';
 import { GitHubAPI, createGitHubAPI } from './modules/github-api';
+import { GitLabAPI, createGitLabAPI } from './modules/gitlab-api';
+import { DebugAPI, createDebugAPI } from './modules/debug-api';
+import { ClaudeCodeAPI, createClaudeCodeAPI } from './modules/claude-code-api';
+import { McpAPI, createMcpAPI } from './modules/mcp-api';
+import { ProfileAPI, createProfileAPI } from './profile-api';
 
 export interface ElectronAPI extends
   ProjectAPI,
@@ -20,7 +25,12 @@ export interface ElectronAPI extends
   IdeationAPI,
   InsightsAPI,
   AppUpdateAPI,
-  ScreenshotAPI {
+  ScreenshotAPI,
+  GitLabAPI,
+  DebugAPI,
+  ClaudeCodeAPI,
+  McpAPI,
+  ProfileAPI {
   github: GitHubAPI;
 }
 
@@ -35,6 +45,11 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createInsightsAPI(),
   ...createAppUpdateAPI(),
   ...createScreenshotAPI(),
+  ...createGitLabAPI(),
+  ...createDebugAPI(),
+  ...createClaudeCodeAPI(),
+  ...createMcpAPI(),
+  ...createProfileAPI(),
   github: createGitHubAPI()
 });
 
@@ -50,7 +65,12 @@ export {
   createInsightsAPI,
   createAppUpdateAPI,
   createScreenshotAPI,
-  createGitHubAPI
+  createProfileAPI,
+  createGitHubAPI,
+  createGitLabAPI,
+  createDebugAPI,
+  createClaudeCodeAPI,
+  createMcpAPI
 };
 
 export type {
@@ -64,5 +84,10 @@ export type {
   InsightsAPI,
   AppUpdateAPI,
   ScreenshotAPI,
-  GitHubAPI
+  ProfileAPI,
+  GitHubAPI,
+  GitLabAPI,
+  DebugAPI,
+  ClaudeCodeAPI,
+  McpAPI
 };

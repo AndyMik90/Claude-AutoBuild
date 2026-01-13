@@ -8,6 +8,7 @@ import { AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { Project, TaskMetadata } from '../../../shared/types';
 import { withSpecNumberLock } from '../../utils/spec-number-lock';
 import { debugLog } from './utils/logger';
+import { labelMatchesWholeWord } from '../shared/label-utils';
 
 export interface SpecCreationData {
   specId: string;
@@ -55,7 +56,14 @@ function determineCategoryFromLabels(labels: string[]): 'feature' | 'bug_fix' | 
   }
 
   // Check for infrastructure labels
-  if (lowerLabels.some(l => l.includes('infrastructure') || l.includes('devops') || l.includes('deployment') || l.includes('ci') || l.includes('cd'))) {
+  // Use whole-word matching for 'ci' and 'cd' to avoid false positives like 'acid' or 'decide'
+  if (lowerLabels.some(l =>
+    l.includes('infrastructure') ||
+    l.includes('devops') ||
+    l.includes('deployment') ||
+    labelMatchesWholeWord(l, 'ci') ||
+    labelMatchesWholeWord(l, 'cd')
+  )) {
     return 'infrastructure';
   }
 
@@ -89,7 +97,8 @@ export async function createSpecForIssue(
   issueTitle: string,
   taskDescription: string,
   githubUrl: string,
-  labels: string[] = []
+  labels: string[] = [],
+  baseBranch?: string
 ): Promise<SpecCreationData> {
   const specsBaseDir = getSpecsDir(project.autoBuildPath);
   const specsDir = path.join(project.path, specsBaseDir);
@@ -144,7 +153,10 @@ export async function createSpecForIssue(
       sourceType: 'github',
       githubIssueNumber: issueNumber,
       githubUrl,
-      category
+      category,
+      // Store baseBranch for worktree creation and QA comparison
+      // This comes from project.settings.mainBranch or task-level override
+      ...(baseBranch && { baseBranch })
     };
     writeFileSync(
       path.join(specDir, 'task_metadata.json'),

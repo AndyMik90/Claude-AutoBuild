@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { X, FolderTree, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -34,6 +35,7 @@ const contentVariants = {
 };
 
 export function FileExplorerPanel({ projectPath }: FileExplorerPanelProps) {
+  const { t } = useTranslation('common');
   const { isOpen, close, clearCache, loadDirectory } = useFileExplorerStore();
 
   const handleRefresh = () => {
@@ -80,17 +82,18 @@ export function FileExplorerPanel({ projectPath }: FileExplorerPanelProps) {
                   size="icon"
                   className="h-6 w-6"
                   onClick={handleRefresh}
-                  title="Refresh"
+                  aria-label={t('buttons.refresh')}
                 >
-                  <RefreshCw className="h-3.5 w-3.5" />
+                  <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6"
                   onClick={close}
+                  aria-label={t('buttons.close')}
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
               </div>
             </div>

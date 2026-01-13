@@ -1,18 +1,26 @@
 import { ipcMain, dialog, app, shell } from 'electron';
-import { existsSync, writeFileSync, mkdirSync } from 'fs';
-import { execSync } from 'child_process';
+import { existsSync, writeFileSync, mkdirSync, statSync, readFileSync } from 'fs';
+import { execFileSync } from 'node:child_process';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { is } from '@electron-toolkit/utils';
-import { IPC_CHANNELS, DEFAULT_APP_SETTINGS } from '../../shared/constants';
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, DEFAULT_AGENT_PROFILES } from '../../shared/constants';
 import type {
   AppSettings,
-  IPCResult
+  IPCResult,
+  SourceEnvConfig,
+  SourceEnvCheckResult
 } from '../../shared/types';
 import { AgentManager } from '../agent';
 import type { BrowserWindow } from 'electron';
-import { getEffectiveVersion } from '../auto-claude-updater';
-import { setUpdateChannel } from '../app-updater';
+import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-updater';
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
+import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
+import { parseEnvFile } from './utils';
 
 const settingsPath = getSettingsPath();
 
@@ -29,33 +37,25 @@ const detectAutoBuildSourcePath = (): string | null => {
     // We need to go up to find apps/backend
     possiblePaths.push(
       path.resolve(__dirname, '..', '..', '..', 'backend'),      // From out/main -> apps/backend
-      path.resolve(process.cwd(), 'apps', 'backend'),            // From cwd (repo root)
-      // Legacy paths for backwards compatibility
-      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),  // Legacy: from out/main up 3 levels
-      path.resolve(__dirname, '..', '..', 'auto-claude'),        // Legacy: from out/main up 2 levels
-      path.resolve(process.cwd(), 'auto-claude'),                // Legacy: from cwd (project root)
-      path.resolve(process.cwd(), '..', 'auto-claude')           // Legacy: from cwd parent
+      path.resolve(process.cwd(), 'apps', 'backend')             // From cwd (repo root)
     );
   } else {
     // Production mode paths (packaged app)
-    // On Windows/Linux/macOS, the app might be installed anywhere
-    // We check common locations relative to the app bundle
+    // The backend is bundled as extraResources/backend
+    // On all platforms, it should be at process.resourcesPath/backend
+    possiblePaths.push(
+      path.resolve(process.resourcesPath, 'backend')             // Primary: extraResources/backend
+    );
+    // Fallback paths for different app structures
     const appPath = app.getAppPath();
     possiblePaths.push(
-      path.resolve(appPath, '..', 'backend'),                    // Sibling to app (new structure)
-      path.resolve(appPath, '..', '..', 'backend'),              // Up 2 from app
-      // Legacy paths for backwards compatibility
-      path.resolve(appPath, '..', 'auto-claude'),               // Sibling to app
-      path.resolve(appPath, '..', '..', 'auto-claude'),         // Up 2 from app
-      path.resolve(appPath, '..', '..', '..', 'auto-claude'),   // Up 3 from app
-      path.resolve(process.resourcesPath, '..', 'auto-claude'), // Relative to resources
-      path.resolve(process.resourcesPath, '..', '..', 'auto-claude')
+      path.resolve(appPath, '..', 'backend'),                    // Sibling to asar
+      path.resolve(appPath, '..', '..', 'Resources', 'backend')  // macOS bundle structure
     );
   }
 
   // Add process.cwd() as last resort on all platforms
   possiblePaths.push(path.resolve(process.cwd(), 'apps', 'backend'));
-  possiblePaths.push(path.resolve(process.cwd(), 'auto-claude'));
 
   // Enable debug logging with DEBUG=1
   const debug = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
@@ -70,8 +70,9 @@ const detectAutoBuildSourcePath = (): string | null => {
   }
 
   for (const p of possiblePaths) {
-    // Use requirements.txt as marker - it always exists in auto-claude source
-    const markerPath = path.join(p, 'requirements.txt');
+    // Use runners/spec_runner.py as marker - this is the file actually needed for task execution
+    // This prevents matching legacy 'auto-claude/' directories that don't have the runners
+    const markerPath = path.join(p, 'runners', 'spec_runner.py');
     const exists = existsSync(p) && existsSync(markerPath);
 
     if (debug) {
@@ -120,6 +121,35 @@ export function registerSettingsHandlers(
         needsSave = true;
       }
 
+      // Migration: Sync defaultModel with selectedAgentProfile (#414)
+      // Fixes bug where defaultModel was stuck at 'opus' regardless of profile selection
+      if (!settings._migratedDefaultModelSync) {
+        if (settings.selectedAgentProfile) {
+          const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === settings.selectedAgentProfile);
+          if (profile) {
+            settings.defaultModel = profile.model;
+          }
+        }
+        settings._migratedDefaultModelSync = true;
+        needsSave = true;
+      }
+
+      // Migration: Clear CLI tool paths that are from a different platform
+      // Fixes issue where Windows paths persisted on macOS (and vice versa)
+      // when settings were synced/transferred between platforms
+      // See: https://github.com/AndyMik90/Auto-Claude/issues/XXX
+      const pathFields = ['pythonPath', 'gitPath', 'githubCLIPath', 'claudePath', 'autoBuildPath'] as const;
+      for (const field of pathFields) {
+        const pathValue = settings[field];
+        if (pathValue && isPathFromWrongPlatform(pathValue)) {
+          console.warn(
+            `[SETTINGS_GET] Clearing ${field} - path from different platform: ${pathValue}`
+          );
+          delete settings[field];
+          needsSave = true;
+        }
+      }
+
       // If no manual autoBuildPath is set, try to auto-detect
       if (!settings.autoBuildPath) {
         const detectedPath = detectAutoBuildSourcePath();
@@ -138,6 +168,19 @@ export function registerSettingsHandlers(
         }
       }
 
+      // Configure CLI tools with current settings
+      configureTools({
+        pythonPath: settings.pythonPath,
+        gitPath: settings.gitPath,
+        githubCLIPath: settings.githubCLIPath,
+        claudePath: settings.claudePath,
+      });
+
+      // Re-warm cache asynchronously after configuring (non-blocking)
+      preWarmToolCache(['claude']).catch((error) => {
+        console.warn('[SETTINGS_GET] Failed to re-warm CLI cache:', error);
+      });
+
       return { success: true, data: settings as AppSettings };
     }
   );
@@ -150,6 +193,15 @@ export function registerSettingsHandlers(
         const savedSettings = readSettingsFile();
         const currentSettings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
         const newSettings = { ...currentSettings, ...settings };
+
+        // Sync defaultModel when agent profile changes (#414)
+        if (settings.selectedAgentProfile) {
+          const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === settings.selectedAgentProfile);
+          if (profile) {
+            newSettings.defaultModel = profile.model;
+          }
+        }
+
         writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2));
 
         // Apply Python path if changed
@@ -157,10 +209,38 @@ export function registerSettingsHandlers(
           agentManager.configure(settings.pythonPath, settings.autoBuildPath);
         }
 
+        // Configure CLI tools if any paths changed
+        if (
+          settings.pythonPath !== undefined ||
+          settings.gitPath !== undefined ||
+          settings.githubCLIPath !== undefined ||
+          settings.claudePath !== undefined
+        ) {
+          configureTools({
+            pythonPath: newSettings.pythonPath,
+            gitPath: newSettings.gitPath,
+            githubCLIPath: newSettings.githubCLIPath,
+            claudePath: newSettings.claudePath,
+          });
+
+          // Re-warm cache asynchronously after configuring (non-blocking)
+          preWarmToolCache(['claude']).catch((error) => {
+            console.warn('[SETTINGS_SAVE] Failed to re-warm CLI cache:', error);
+          });
+        }
+
         // Update auto-updater channel if betaUpdates setting changed
         if (settings.betaUpdates !== undefined) {
-          const channel = settings.betaUpdates ? 'beta' : 'latest';
-          setUpdateChannel(channel);
+          if (settings.betaUpdates) {
+            // Enabling beta updates - just switch channel
+            setUpdateChannel('beta');
+          } else {
+            // Disabling beta updates - switch to stable and check if downgrade is available
+            // This will notify the renderer if user is on a prerelease and stable version exists
+            setUpdateChannelWithDowngradeCheck('latest', true).catch((err) => {
+              console.error('[settings-handlers] Failed to check for stable downgrade:', err);
+            });
+          }
         }
 
         return { success: true };
@@ -168,6 +248,33 @@ export function registerSettingsHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to save settings'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SETTINGS_GET_CLI_TOOLS_INFO,
+    async (): Promise<IPCResult<{
+      python: ReturnType<typeof getToolInfo>;
+      git: ReturnType<typeof getToolInfo>;
+      gh: ReturnType<typeof getToolInfo>;
+      claude: ReturnType<typeof getToolInfo>;
+    }>> => {
+      try {
+        return {
+          success: true,
+          data: {
+            python: getToolInfo('python'),
+            git: getToolInfo('git'),
+            gh: getToolInfo('gh'),
+            claude: getToolInfo('claude'),
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get CLI tools info',
         };
       }
     }
@@ -236,7 +343,7 @@ export function registerSettingsHandlers(
         let gitInitialized = false;
         if (initGit) {
           try {
-            execSync('git init', { cwd: projectPath, stdio: 'ignore' });
+            execFileSync(getToolPath('git'), ['init'], { cwd: projectPath, stdio: 'ignore' });
             gitInitialized = true;
           } catch {
             // Git init failed, but folder was created - continue without git
@@ -293,8 +400,8 @@ export function registerSettingsHandlers(
   // ============================================
 
   ipcMain.handle(IPC_CHANNELS.APP_VERSION, async (): Promise<string> => {
-    // Use effective version which accounts for source updates
-    const version = getEffectiveVersion();
+    // Return the actual bundled version from package.json
+    const version = app.getVersion();
     console.log('[settings-handlers] APP_VERSION returning:', version);
     return version;
   });
@@ -306,7 +413,352 @@ export function registerSettingsHandlers(
   ipcMain.handle(
     IPC_CHANNELS.SHELL_OPEN_EXTERNAL,
     async (_, url: string): Promise<void> => {
-      await shell.openExternal(url);
+      // Validate URL scheme to prevent opening dangerous protocols
+      try {
+        const parsedUrl = new URL(url);
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+          console.warn(`[SHELL_OPEN_EXTERNAL] Blocked URL with unsafe protocol: ${parsedUrl.protocol}`);
+          throw new Error(`Unsafe URL protocol: ${parsedUrl.protocol}`);
+        }
+        await shell.openExternal(url);
+      } catch (error) {
+        if (error instanceof TypeError) {
+          // Invalid URL format
+          console.warn(`[SHELL_OPEN_EXTERNAL] Invalid URL format: ${url}`);
+          throw new Error('Invalid URL format');
+        }
+        throw error;
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SHELL_OPEN_TERMINAL,
+    async (_, dirPath: string): Promise<IPCResult<void>> => {
+      try {
+        // Validate dirPath input
+        if (!dirPath || typeof dirPath !== 'string' || dirPath.trim() === '') {
+          return {
+            success: false,
+            error: 'Directory path is required and must be a non-empty string'
+          };
+        }
+
+        // Resolve to absolute path
+        const resolvedPath = path.resolve(dirPath);
+
+        // Verify path exists
+        if (!existsSync(resolvedPath)) {
+          return {
+            success: false,
+            error: `Directory does not exist: ${resolvedPath}`
+          };
+        }
+
+        // Verify it's a directory
+        try {
+          if (!statSync(resolvedPath).isDirectory()) {
+            return {
+              success: false,
+              error: `Path is not a directory: ${resolvedPath}`
+            };
+          }
+        } catch (statError) {
+          return {
+            success: false,
+            error: `Cannot access path: ${resolvedPath}`
+          };
+        }
+
+        const platform = process.platform;
+
+        if (platform === 'darwin') {
+          // macOS: Use execFileSync with argument array to prevent injection
+          execFileSync('open', ['-a', 'Terminal', resolvedPath], { stdio: 'ignore' });
+        } else if (platform === 'win32') {
+          // Windows: Use cmd.exe directly with argument array
+          // /C tells cmd to execute the command and terminate
+          // /K keeps the window open after executing cd
+          execFileSync('cmd.exe', ['/K', 'cd', '/d', resolvedPath], {
+            stdio: 'ignore',
+            windowsHide: false,
+            shell: false  // Explicitly disable shell to prevent injection
+          });
+        } else {
+          // Linux: Try common terminal emulators with argument arrays
+          // Note: xterm uses cwd option to avoid shell injection vulnerabilities
+          const terminals: Array<{ cmd: string; args: string[]; useCwd?: boolean }> = [
+            { cmd: 'gnome-terminal', args: ['--working-directory', resolvedPath] },
+            { cmd: 'konsole', args: ['--workdir', resolvedPath] },
+            { cmd: 'xfce4-terminal', args: ['--working-directory', resolvedPath] },
+            { cmd: 'xterm', args: ['-e', 'bash'], useCwd: true }
+          ];
+
+          let opened = false;
+          for (const { cmd, args, useCwd } of terminals) {
+            try {
+              execFileSync(cmd, args, {
+                stdio: 'ignore',
+                ...(useCwd ? { cwd: resolvedPath } : {})
+              });
+              opened = true;
+              break;
+            } catch {
+              // Try next terminal
+              continue;
+            }
+          }
+
+          if (!opened) {
+            return {
+              success: false,
+              error: 'No supported terminal emulator found. Please install gnome-terminal, konsole, xfce4-terminal, or xterm.'
+            };
+          }
+        }
+
+        return { success: true };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        return {
+          success: false,
+          error: `Failed to open terminal: ${errorMsg}`
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // Auto-Build Source Environment Operations
+  // ============================================
+
+  /**
+   * Helper to get source .env path from settings
+   *
+   * In production mode, the .env file is NOT bundled (excluded in electron-builder config).
+   * We store the source .env in app userData directory instead, which is writable.
+   * The sourcePath points to the bundled backend for reference, but envPath is in userData.
+   */
+  const getSourceEnvPath = (): {
+    sourcePath: string | null;
+    envPath: string | null;
+    isProduction: boolean;
+  } => {
+    const savedSettings = readSettingsFile();
+    const settings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
+
+    // Get autoBuildPath from settings or try to auto-detect
+    let sourcePath: string | null = settings.autoBuildPath || null;
+    if (!sourcePath) {
+      sourcePath = detectAutoBuildSourcePath();
+    }
+
+    if (!sourcePath) {
+      return { sourcePath: null, envPath: null, isProduction: !is.dev };
+    }
+
+    // In production, use userData directory for .env since resources may be read-only
+    // In development, use the actual source path
+    let envPath: string;
+    if (is.dev) {
+      envPath = path.join(sourcePath, '.env');
+    } else {
+      // Production: store .env in userData/backend/.env
+      const userDataBackendDir = path.join(app.getPath('userData'), 'backend');
+      if (!existsSync(userDataBackendDir)) {
+        mkdirSync(userDataBackendDir, { recursive: true });
+      }
+      envPath = path.join(userDataBackendDir, '.env');
+    }
+
+    return {
+      sourcePath,
+      envPath,
+      isProduction: !is.dev
+    };
+  };
+
+  ipcMain.handle(
+    IPC_CHANNELS.AUTOBUILD_SOURCE_ENV_GET,
+    async (): Promise<IPCResult<SourceEnvConfig>> => {
+      try {
+        const { sourcePath, envPath } = getSourceEnvPath();
+
+        // Load global settings to check for global token fallback
+        const savedSettings = readSettingsFile();
+        const globalSettings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
+
+        if (!sourcePath) {
+          // Even without source path, check global token
+          const globalToken = globalSettings.globalClaudeOAuthToken;
+          return {
+            success: true,
+            data: {
+              hasClaudeToken: !!globalToken && globalToken.length > 0,
+              claudeOAuthToken: globalToken,
+              envExists: false
+            }
+          };
+        }
+
+        const envExists = envPath ? existsSync(envPath) : false;
+        let hasClaudeToken = false;
+        let claudeOAuthToken: string | undefined;
+
+        // First, check source .env file
+        if (envExists && envPath) {
+          const content = readFileSync(envPath, 'utf-8');
+          const vars = parseEnvFile(content);
+          claudeOAuthToken = vars['CLAUDE_CODE_OAUTH_TOKEN'];
+          hasClaudeToken = !!claudeOAuthToken && claudeOAuthToken.length > 0;
+        }
+
+        // Fallback to global settings if no token in source .env
+        if (!hasClaudeToken && globalSettings.globalClaudeOAuthToken) {
+          claudeOAuthToken = globalSettings.globalClaudeOAuthToken;
+          hasClaudeToken = true;
+        }
+
+        return {
+          success: true,
+          data: {
+            hasClaudeToken,
+            claudeOAuthToken,
+            sourcePath,
+            envExists
+          }
+        };
+      } catch (error) {
+        // Log the error for debugging in production
+        console.error('[AUTOBUILD_SOURCE_ENV_GET] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get source env'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.AUTOBUILD_SOURCE_ENV_UPDATE,
+    async (_, config: { claudeOAuthToken?: string }): Promise<IPCResult> => {
+      try {
+        const { sourcePath, envPath } = getSourceEnvPath();
+
+        if (!sourcePath || !envPath) {
+          return {
+            success: false,
+            error: 'Auto-build source path not configured. Please set it in Settings.'
+          };
+        }
+
+        // Read existing content or start fresh (avoiding TOCTOU race condition)
+        let existingVars: Record<string, string> = {};
+        try {
+          const content = readFileSync(envPath, 'utf-8');
+          existingVars = parseEnvFile(content);
+        } catch (_readError) {
+          // File doesn't exist or can't be read - start with empty vars
+          // This is expected for first-time setup
+        }
+
+        // Update with new values
+        if (config.claudeOAuthToken !== undefined) {
+          existingVars['CLAUDE_CODE_OAUTH_TOKEN'] = config.claudeOAuthToken;
+        }
+
+        // Generate content
+        const lines: string[] = [
+          '# Auto Claude Framework Environment Variables',
+          '# Managed by Auto Claude UI',
+          '',
+          '# Claude Code OAuth Token (REQUIRED)',
+          `CLAUDE_CODE_OAUTH_TOKEN=${existingVars['CLAUDE_CODE_OAUTH_TOKEN'] || ''}`,
+          ''
+        ];
+
+        // Preserve other existing variables
+        for (const [key, value] of Object.entries(existingVars)) {
+          if (key !== 'CLAUDE_CODE_OAUTH_TOKEN') {
+            lines.push(`${key}=${value}`);
+          }
+        }
+
+        writeFileSync(envPath, lines.join('\n'));
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to update source env'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.AUTOBUILD_SOURCE_ENV_CHECK_TOKEN,
+    async (): Promise<IPCResult<SourceEnvCheckResult>> => {
+      try {
+        const { sourcePath, envPath, isProduction } = getSourceEnvPath();
+
+        // Load global settings to check for global token fallback
+        const savedSettings = readSettingsFile();
+        const globalSettings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
+
+        // Check global token first as it's the primary method
+        const globalToken = globalSettings.globalClaudeOAuthToken;
+        const hasGlobalToken = !!globalToken && globalToken.length > 0;
+
+        if (!sourcePath) {
+          // In production, no source path is acceptable if global token exists
+          if (hasGlobalToken) {
+            return {
+              success: true,
+              data: {
+                hasToken: true,
+                sourcePath: isProduction ? app.getPath('userData') : undefined
+              }
+            };
+          }
+          return {
+            success: true,
+            data: {
+              hasToken: false,
+              error: isProduction
+                ? 'Please configure Claude OAuth token in Settings > API Configuration'
+                : 'Auto-build source path not configured'
+            }
+          };
+        }
+
+        // Check source .env file
+        let hasEnvToken = false;
+        if (envPath && existsSync(envPath)) {
+          const content = readFileSync(envPath, 'utf-8');
+          const vars = parseEnvFile(content);
+          const token = vars['CLAUDE_CODE_OAUTH_TOKEN'];
+          hasEnvToken = !!token && token.length > 0;
+        }
+
+        // Token exists if either source .env has it OR global settings has it
+        const hasToken = hasEnvToken || hasGlobalToken;
+
+        return {
+          success: true,
+          data: {
+            hasToken,
+            sourcePath
+          }
+        };
+      } catch (error) {
+        // Log the error for debugging in production
+        console.error('[AUTOBUILD_SOURCE_ENV_CHECK_TOKEN] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to check source token'
+        };
+      }
     }
   );
 }

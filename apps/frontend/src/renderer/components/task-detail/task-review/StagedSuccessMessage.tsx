@@ -1,14 +1,10 @@
 import { useState } from 'react';
-import { GitMerge, ExternalLink, Copy, Check, Sparkles } from 'lucide-react';
+import { GitMerge, Copy, Check, Sparkles } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
-import type { Task } from '../../../../shared/types';
-import { useTerminalHandler } from '../hooks/useTerminalHandler';
 
 interface StagedSuccessMessageProps {
   stagedSuccess: string;
-  stagedProjectPath: string | undefined;
-  task: Task;
   suggestedCommitMessage?: string;
 }
 
@@ -17,13 +13,10 @@ interface StagedSuccessMessageProps {
  */
 export function StagedSuccessMessage({
   stagedSuccess,
-  stagedProjectPath,
-  task,
   suggestedCommitMessage
 }: StagedSuccessMessageProps) {
   const [commitMessage, setCommitMessage] = useState(suggestedCommitMessage || '');
   const [copied, setCopied] = useState(false);
-  const { openTerminal, error: terminalError, isOpening } = useTerminalHandler();
 
   const handleCopy = async () => {
     if (!commitMessage) return;
@@ -86,7 +79,7 @@ export function StagedSuccessMessage({
         </div>
       )}
 
-      <div className="bg-background/50 rounded-lg p-3 mb-3">
+      <div className="bg-background/50 rounded-lg p-3">
         <p className="text-xs text-muted-foreground mb-2">Next steps:</p>
         <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
           <li>Open your project in your IDE or terminal</li>
@@ -94,25 +87,6 @@ export function StagedSuccessMessage({
           <li>Commit when ready: <code className="bg-background px-1 rounded">git commit -m "your message"</code></li>
         </ol>
       </div>
-      {stagedProjectPath && (
-        <>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => openTerminal(`project-${task.id}`, stagedProjectPath)}
-            className="w-full"
-            disabled={isOpening}
-          >
-            <ExternalLink className="mr-2 h-4 w-4" />
-            {isOpening ? 'Opening Terminal...' : 'Open Project in Terminal'}
-          </Button>
-          {terminalError && (
-            <div className="mt-2 text-sm text-red-600">
-              {terminalError}
-            </div>
-          )}
-        </>
-      )}
     </div>
   );
 }

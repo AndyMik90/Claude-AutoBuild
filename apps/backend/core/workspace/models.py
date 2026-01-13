@@ -36,6 +36,7 @@ class ParallelMergeTask:
     worktree_content: str
     base_content: str | None
     spec_name: str
+    project_dir: Path
 
 
 @dataclass
@@ -248,7 +249,7 @@ class SpecNumberLock:
         max_number = max(max_number, self._scan_specs_dir(main_specs_dir))
 
         # 2. Scan all worktree specs
-        worktrees_dir = self.project_dir / ".worktrees"
+        worktrees_dir = self.project_dir / ".auto-claude" / "worktrees" / "tasks"
         if worktrees_dir.exists():
             for worktree in worktrees_dir.iterdir():
                 if worktree.is_dir():

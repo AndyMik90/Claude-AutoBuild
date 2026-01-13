@@ -90,26 +90,53 @@ class ProjectAnalyzer:
         This allows us to know when to re-analyze.
         """
         hash_files = [
+            # JavaScript/TypeScript
             "package.json",
             "package-lock.json",
             "yarn.lock",
             "pnpm-lock.yaml",
+            # Python
             "pyproject.toml",
             "requirements.txt",
             "Pipfile",
             "poetry.lock",
+            # Rust
             "Cargo.toml",
             "Cargo.lock",
+            # Go
             "go.mod",
             "go.sum",
+            # Ruby
             "Gemfile",
             "Gemfile.lock",
+            # PHP
             "composer.json",
             "composer.lock",
+            # Dart/Flutter
+            "pubspec.yaml",
+            "pubspec.lock",
+            # Java/Kotlin/Scala
+            "pom.xml",
+            "build.gradle",
+            "build.gradle.kts",
+            "settings.gradle",
+            "settings.gradle.kts",
+            "build.sbt",
+            # Swift
+            "Package.swift",
+            # Infrastructure
             "Makefile",
             "Dockerfile",
             "docker-compose.yml",
             "docker-compose.yaml",
+        ]
+
+        # Glob patterns for project files that can be anywhere in the tree
+        glob_patterns = [
+            "*.csproj",  # C# projects
+            "*.sln",  # Visual Studio solutions
+            "*.fsproj",  # F# projects
+            "*.vbproj",  # VB.NET projects
         ]
 
         hasher = hashlib.md5(usedforsecurity=False)
@@ -123,13 +150,36 @@ class ProjectAnalyzer:
                     hasher.update(f"{filename}:{stat.st_mtime}:{stat.st_size}".encode())
                     files_found += 1
                 except OSError:
-                    pass
+                    continue
+
+        # Check glob patterns for project files that can be anywhere
+        for pattern in glob_patterns:
+            for filepath in self.project_dir.glob(f"**/{pattern}"):
+                try:
+                    stat = filepath.stat()
+                    rel_path = filepath.relative_to(self.project_dir)
+                    hasher.update(f"{rel_path}:{stat.st_mtime}:{stat.st_size}".encode())
+                    files_found += 1
+                except OSError:
+                    continue
 
         # If no config files found, hash the project directory structure
         # to at least detect when files are added/removed
         if files_found == 0:
-            # Count Python, JS, and other source files as a proxy for project structure
-            for ext in ["*.py", "*.js", "*.ts", "*.go", "*.rs"]:
+            # Count source files as a proxy for project structure
+            source_exts = [
+                "*.py",
+                "*.js",
+                "*.ts",
+                "*.go",
+                "*.rs",
+                "*.dart",
+                "*.cs",
+                "*.swift",
+                "*.kt",
+                "*.java",
+            ]
+            for ext in source_exts:
                 count = len(list(self.project_dir.glob(f"**/{ext}")))
                 hasher.update(f"{ext}:{count}".encode())
             # Also include the project directory name for uniqueness
@@ -138,9 +188,37 @@ class ProjectAnalyzer:
         return hasher.hexdigest()
 
     def should_reanalyze(self, profile: SecurityProfile) -> bool:
-        """Check if project has changed since last analysis."""
+        """Check if project has changed since last analysis.
+
+        Never re-analyzes inherited profiles (from worktrees) since they
+        came from a validated parent project with full context (e.g., node_modules).
+        """
+        # Never re-analyze inherited profiles - they came from a validated parent
+        # But validate that inherited_from points to a legitimate parent
+        if profile.inherited_from:
+            parent = Path(profile.inherited_from)
+            # Validate the inherited_from path:
+            # 1. Must exist and be a directory
+            # 2. Current project must be a descendant of the parent
+            # 3. Parent must contain a valid security profile
+            if (
+                parent.exists()
+                and parent.is_dir()
+                and self._is_descendant_of(self.project_dir, parent)
+                and (parent / self.PROFILE_FILENAME).exists()
+            ):
+                return False
+            # If validation fails, treat as non-inherited and check hash
         current_hash = self.compute_project_hash()
         return current_hash != profile.project_hash
+
+    def _is_descendant_of(self, child: Path, parent: Path) -> bool:
+        """Check if child path is a descendant of parent path."""
+        try:
+            child.resolve().relative_to(parent.resolve())
+            return True
+        except ValueError:
+            return False
 
     def analyze(self, force: bool = False) -> SecurityProfile:
         """
@@ -155,7 +233,12 @@ class ProjectAnalyzer:
         # Check for existing profile
         existing = self.load_profile()
         if existing and not force and not self.should_reanalyze(existing):
-            print(f"Using cached security profile (hash: {existing.project_hash[:8]})")
+            if existing.inherited_from:
+                print("Using inherited security profile from parent project")
+            else:
+                print(
+                    f"Using cached security profile (hash: {existing.project_hash[:8]})"
+                )
             return existing
 
         print("Analyzing project structure for security profile...")

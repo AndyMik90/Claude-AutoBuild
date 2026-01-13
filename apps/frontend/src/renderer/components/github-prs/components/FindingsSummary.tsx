@@ -2,6 +2,7 @@
  * FindingsSummary - Visual summary of finding counts by severity
  */
 
+import { useTranslation } from 'react-i18next';
 import { Badge } from '../../ui/badge';
 import type { PRReviewFinding } from '../hooks/useGitHubPRs';
 
@@ -11,6 +12,8 @@ interface FindingsSummaryProps {
 }
 
 export function FindingsSummary({ findings, selectedCount }: FindingsSummaryProps) {
+  const { t } = useTranslation('common');
+
   // Count findings by severity
   const counts = {
     critical: findings.filter(f => f.severity === 'critical').length,
@@ -25,27 +28,27 @@ export function FindingsSummary({ findings, selectedCount }: FindingsSummaryProp
       <div className="flex items-center gap-2 flex-wrap">
         {counts.critical > 0 && (
           <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/30">
-            {counts.critical} Critical
+            {counts.critical} {t('prReview.severity.critical')}
           </Badge>
         )}
         {counts.high > 0 && (
           <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/30">
-            {counts.high} High
+            {counts.high} {t('prReview.severity.high')}
           </Badge>
         )}
         {counts.medium > 0 && (
           <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/30">
-            {counts.medium} Medium
+            {counts.medium} {t('prReview.severity.medium')}
           </Badge>
         )}
         {counts.low > 0 && (
           <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/30">
-            {counts.low} Low
+            {counts.low} {t('prReview.severity.low')}
           </Badge>
         )}
       </div>
       <span className="text-xs text-muted-foreground">
-        {selectedCount}/{counts.total} selected
+        {t('prReview.selectedOfTotal', { selected: selectedCount, total: counts.total })}
       </span>
     </div>
   );

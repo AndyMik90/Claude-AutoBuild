@@ -56,15 +56,39 @@ export async function createProfileDirectory(profileName: string): Promise<strin
 
 /**
  * Check if a profile has valid authentication
- * (checks if the config directory has credential files)
+ * (checks for OAuth token or config directory credential files)
  */
 export function isProfileAuthenticated(profile: ClaudeProfile): boolean {
+  // Check for direct OAuth token first (OAuth-only profiles without configDir)
+  // This enables auto-switch to work with profiles that only have oauthToken set
+  if (hasValidToken(profile)) {
+    return true;
+  }
+
+  // Check for configDir-based credentials (legacy or CLI-authenticated profiles)
   const configDir = profile.configDir;
   if (!configDir || !existsSync(configDir)) {
     return false;
   }
 
-  // Claude stores auth in .claude/credentials or similar files
+  // Check for .claude.json with OAuth account info (modern Claude Code CLI)
+  // This is how Claude Code CLI stores OAuth authentication since v1.0
+  const claudeJsonPath = join(configDir, '.claude.json');
+  if (existsSync(claudeJsonPath)) {
+    try {
+      const content = readFileSync(claudeJsonPath, 'utf-8');
+      const data = JSON.parse(content);
+      // Check for oauthAccount which indicates successful OAuth authentication
+      if (data && typeof data === 'object' && (data.oauthAccount?.accountUuid || data.oauthAccount?.emailAddress)) {
+        return true;
+      }
+    } catch (error) {
+      // Log parse errors for debugging, but fall through to legacy checks
+      console.warn(`[profile-utils] Failed to read or parse ${claudeJsonPath}:`, error);
+    }
+  }
+
+  // Legacy: Claude stores auth in .claude/credentials or similar files
   // Check for common auth indicators
   const possibleAuthFiles = [
     join(configDir, 'credentials'),
@@ -117,7 +141,6 @@ export function hasValidToken(profile: ClaudeProfile): boolean {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     if (new Date(profile.tokenCreatedAt) < oneYearAgo) {
-      console.warn('[ProfileUtils] Token expired for profile:', profile.name);
       return false;
     }
   }

@@ -94,6 +94,9 @@ def create_ollama_embedder(config: "GraphitiConfig") -> Any:
         ProviderNotInstalled: If graphiti-core is not installed
         ProviderError: If model is not specified
     """
+    if not config.ollama_embedding_model:
+        raise ProviderError("Ollama embedder requires OLLAMA_EMBEDDING_MODEL")
+
     try:
         from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
     except ImportError as e:
@@ -102,9 +105,6 @@ def create_ollama_embedder(config: "GraphitiConfig") -> Any:
             f"Install with: pip install graphiti-core\n"
             f"Error: {e}"
         )
-
-    if not config.ollama_embedding_model:
-        raise ProviderError("Ollama embedder requires OLLAMA_EMBEDDING_MODEL")
 
     # Get embedding dimension (auto-detect for known models, or use configured value)
     embedding_dim = get_embedding_dim_for_model(

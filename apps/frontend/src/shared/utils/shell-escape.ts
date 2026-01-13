@@ -40,6 +40,7 @@ export function escapeShellPath(path: string): string {
 
 /**
  * Build a safe cd command from a path.
+ * Uses platform-appropriate quoting (double quotes on Windows, single quotes on Unix).
  *
  * @param path - The directory path
  * @returns A safe "cd '<path>' && " string, or empty string if path is undefined
@@ -48,6 +49,15 @@ export function buildCdCommand(path: string | undefined): string {
   if (!path) {
     return '';
   }
+
+  // Windows cmd.exe uses double quotes, Unix shells use single quotes
+  if (process.platform === 'win32') {
+    // On Windows, escape cmd.exe metacharacters (& | < > ^) that could enable command injection,
+    // then wrap in double quotes. Using escapeShellArgWindows for proper escaping.
+    const escaped = escapeShellArgWindows(path);
+    return `cd "${escaped}" && `;
+  }
+
   return `cd ${escapeShellPath(path)} && `;
 }
 

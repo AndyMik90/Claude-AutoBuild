@@ -16,7 +16,6 @@ Supports both:
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import re
 from datetime import datetime
@@ -27,6 +26,7 @@ if TYPE_CHECKING:
     from ..models import FollowupReviewContext, GitHubRunnerConfig
 
 try:
+    from ..gh_client import GHClient
     from ..models import (
         MergeVerdict,
         PRReviewFinding,
@@ -34,8 +34,12 @@ try:
         ReviewCategory,
         ReviewSeverity,
     )
+    from .category_utils import map_category
+    from .io_utils import safe_print
     from .prompt_manager import PromptManager
+    from .pydantic_models import FollowupReviewResponse
 except (ImportError, ValueError, SystemError):
+    from gh_client import GHClient
     from models import (
         MergeVerdict,
         PRReviewFinding,
@@ -43,20 +47,12 @@ except (ImportError, ValueError, SystemError):
         ReviewCategory,
         ReviewSeverity,
     )
+    from services.category_utils import map_category
+    from services.io_utils import safe_print
     from services.prompt_manager import PromptManager
+    from services.pydantic_models import FollowupReviewResponse
 
 logger = logging.getLogger(__name__)
-
-# Category mapping for AI responses
-_CATEGORY_MAPPING = {
-    "security": ReviewCategory.SECURITY,
-    "quality": ReviewCategory.QUALITY,
-    "logic": ReviewCategory.QUALITY,
-    "test": ReviewCategory.TEST,
-    "docs": ReviewCategory.DOCS,
-    "pattern": ReviewCategory.PATTERN,
-    "performance": ReviewCategory.PERFORMANCE,
-}
 
 # Severity mapping for AI responses
 _SEVERITY_MAPPING = {
@@ -108,7 +104,7 @@ class FollowupReviewer:
                     "pr_number": pr_number,
                 }
             )
-        print(f"[Followup] [{phase}] {message}", flush=True)
+        safe_print(f"[Followup] [{phase}] {message}")
 
     async def review_followup(
         self,
@@ -238,6 +234,27 @@ class FollowupReviewer:
             "complete", 100, "Follow-up review complete!", context.pr_number
         )
 
+        # Get file blob SHAs for rebase-resistant follow-up reviews
+        # Blob SHAs persist across rebases - same content = same blob SHA
+        file_blobs: dict[str, str] = {}
+        try:
+            gh_client = GHClient(
+                project_dir=self.project_dir,
+                default_timeout=30.0,
+                repo=self.config.repo,
+            )
+            pr_files = await gh_client.get_pr_files(context.pr_number)
+            for file in pr_files:
+                filename = file.get("filename", "")
+                blob_sha = file.get("sha", "")
+                if filename and blob_sha:
+                    file_blobs[filename] = blob_sha
+            logger.info(
+                f"Captured {len(file_blobs)} file blob SHAs for follow-up tracking"
+            )
+        except Exception as e:
+            logger.warning(f"Could not capture file blobs: {e}")
+
         return PRReviewResult(
             pr_number=context.pr_number,
             repo=self.config.repo,
@@ -251,6 +268,7 @@ class FollowupReviewer:
             reviewed_at=datetime.now().isoformat(),
             # Follow-up specific fields
             reviewed_commit_sha=context.current_commit_sha,
+            reviewed_file_blobs=file_blobs,
             is_followup_review=True,
             previous_review_id=context.previous_review.review_id,
             resolved_findings=[f.id for f in resolved],
@@ -285,16 +303,20 @@ class FollowupReviewer:
                 resolved.append(finding)
             else:
                 # File was modified but the specific line wasn't clearly changed
-                # Consider it potentially resolved (benefit of the doubt)
-                # Could be more sophisticated with AST analysis
-                resolved.append(finding)
+                # Mark as unresolved - the contributor needs to address the actual issue
+                # "Benefit of the doubt" was wrong - if the line wasn't changed, the issue persists
+                unresolved.append(finding)
 
         return resolved, unresolved
 
-    def _line_appears_changed(self, file: str, line: int, diff: str) -> bool:
+    def _line_appears_changed(self, file: str, line: int | None, diff: str) -> bool:
         """Check if a specific line appears to have been changed in the diff."""
         if not diff:
             return False
+
+        # Handle None or invalid line numbers (legacy data)
+        if line is None or line <= 0:
+            return True  # Assume changed if line unknown
 
         # Look for the file in the diff
         file_marker = f"--- a/{file}"
@@ -446,11 +468,20 @@ class FollowupReviewer:
         high_unresolved = sum(
             1 for f in unresolved_findings if f.severity == ReviewSeverity.HIGH
         )
+        medium_unresolved = sum(
+            1 for f in unresolved_findings if f.severity == ReviewSeverity.MEDIUM
+        )
+        low_unresolved = sum(
+            1 for f in unresolved_findings if f.severity == ReviewSeverity.LOW
+        )
         critical_new = sum(
             1 for f in new_findings if f.severity == ReviewSeverity.CRITICAL
         )
         high_new = sum(1 for f in new_findings if f.severity == ReviewSeverity.HIGH)
+        medium_new = sum(1 for f in new_findings if f.severity == ReviewSeverity.MEDIUM)
+        low_new = sum(1 for f in new_findings if f.severity == ReviewSeverity.LOW)
 
+        # Critical and High are always blockers
         for f in unresolved_findings:
             if f.severity in [ReviewSeverity.CRITICAL, ReviewSeverity.HIGH]:
                 blockers.append(f"Unresolved: {f.title} ({f.file}:{f.line})")
@@ -466,17 +497,25 @@ class FollowupReviewer:
                 f"Still blocked by {critical_unresolved + critical_new} critical issues "
                 f"({critical_unresolved} unresolved, {critical_new} new)"
             )
-        elif high_unresolved > 0 or high_new > 0:
+        elif (
+            high_unresolved > 0
+            or high_new > 0
+            or medium_unresolved > 0
+            or medium_new > 0
+        ):
+            # High and Medium severity findings block merge
             verdict = MergeVerdict.NEEDS_REVISION
+            total_blocking = high_unresolved + high_new + medium_unresolved + medium_new
             reasoning = (
-                f"{high_unresolved + high_new} high-priority issues "
-                f"({high_unresolved} unresolved, {high_new} new)"
+                f"{total_blocking} issue(s) must be addressed "
+                f"({high_unresolved + medium_unresolved} unresolved, {high_new + medium_new} new)"
             )
-        elif len(unresolved_findings) > 0 or len(new_findings) > 0:
-            verdict = MergeVerdict.MERGE_WITH_CHANGES
+        elif low_unresolved > 0 or low_new > 0:
+            # Only Low severity suggestions remaining - safe to merge (non-blocking)
+            verdict = MergeVerdict.READY_TO_MERGE
             reasoning = (
                 f"{resolved_count} issues resolved. "
-                f"{len(unresolved_findings)} remaining, {len(new_findings)} new minor issues."
+                f"{low_unresolved + low_new} non-blocking suggestion(s) to consider."
             )
         else:
             verdict = MergeVerdict.READY_TO_MERGE
@@ -538,21 +577,20 @@ class FollowupReviewer:
         unresolved: list[PRReviewFinding],
     ) -> dict[str, Any] | None:
         """
-        Run AI-powered follow-up review using the prompt template.
+        Run AI-powered follow-up review using structured outputs.
+
+        Uses Claude Agent SDK's native structured output support to guarantee
+        valid JSON responses matching the FollowupReviewResponse schema.
 
         Returns parsed AI response with finding resolutions and new findings,
         or None if AI review fails.
         """
-        # Use raw Anthropic client for simple message API calls
-        # (ClaudeSDKClient is for agent sessions, not direct message calls)
-        import anthropic
-
         self._report_progress(
             "analyzing", 65, "Running AI-powered review...", context.pr_number
         )
 
         # Build the context for the AI
-        prompt = self.prompt_manager.get_followup_review_prompt()
+        prompt_template = self.prompt_manager.get_followup_review_prompt()
 
         # Format previous findings for the prompt
         previous_findings_text = "\n".join(
@@ -585,9 +623,19 @@ class FollowupReviewer:
             ]
         )
 
+        # Format PR reviews (formal review submissions from Cursor, CodeRabbit, etc.)
+        # These often contain detailed findings in the body, so we include more content
+        pr_reviews_text = "\n\n".join(
+            [
+                f"**@{r.get('user', {}).get('login', 'unknown')}** ({r.get('state', 'COMMENTED')}):\n{r.get('body', '')[:2000]}"
+                for r in context.pr_reviews_since_review
+                if r.get("body", "").strip()  # Only include reviews with body content
+            ]
+        )
+
         # Build the full message
         user_message = f"""
-{prompt}
+{prompt_template}
 
 ---
 
@@ -617,118 +665,177 @@ class FollowupReviewer:
 ### AI BOT COMMENTS SINCE LAST REVIEW:
 {ai_comments_text if ai_comments_text else "No AI bot comments."}
 
+### PR REVIEWS SINCE LAST REVIEW (CodeRabbit, Gemini Code Assist, Cursor, etc.):
+{pr_reviews_text if pr_reviews_text else "No PR reviews since last review."}
+
 ---
 
-Please analyze this follow-up review context and provide your response in the JSON format specified in the prompt.
+**IMPORTANT**: Pay special attention to the PR REVIEWS section above. These are formal code reviews from AI tools like CodeRabbit, Gemini Code Assist, Cursor, Greptile, etc. that may have identified issues in the recent changes. You should:
+1. Consider their findings when evaluating the code
+2. Create new findings for valid issues they identified that haven't been addressed
+3. Note if the recent commits addressed concerns raised in these reviews
+
+Analyze this follow-up review context and provide your structured response.
 """
 
         try:
-            # Create Anthropic client for simple message API call
-            # Note: For agent sessions with tools, use ClaudeSDKClient instead
-            client = anthropic.AsyncAnthropic()
-            model = self.config.model or "claude-sonnet-4-5-20250929"
+            # Use Claude Agent SDK query() with structured outputs
+            # Reference: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
+            from claude_agent_sdk import ClaudeAgentOptions, query
+            from phase_config import get_thinking_budget
 
-            response = await client.messages.create(
-                model=model,
-                max_tokens=4096,
-                messages=[{"role": "user", "content": user_message}],
+            model = self.config.model or "claude-sonnet-4-5-20250929"
+            thinking_level = self.config.thinking_level or "medium"
+            thinking_budget = get_thinking_budget(thinking_level)
+
+            # Debug: Log the schema being sent
+            schema = FollowupReviewResponse.model_json_schema()
+            logger.debug(
+                f"[Followup] Using output_format schema: {list(schema.get('properties', {}).keys())}"
+            )
+            safe_print(f"[Followup] SDK query with output_format, model={model}")
+
+            # Iterate through messages from the query
+            # Note: max_turns=2 because structured output uses a tool call + response
+            async for message in query(
+                prompt=user_message,
+                options=ClaudeAgentOptions(
+                    model=model,
+                    system_prompt="You are a code review assistant. Analyze the provided context and provide structured feedback.",
+                    allowed_tools=[],
+                    max_turns=2,  # Need 2 turns for structured output tool call
+                    max_thinking_tokens=thinking_budget,
+                    output_format={
+                        "type": "json_schema",
+                        "schema": schema,
+                    },
+                ),
+            ):
+                msg_type = type(message).__name__
+
+                # SDK delivers structured output via ToolUseBlock named 'StructuredOutput'
+                # in an AssistantMessage
+                if msg_type == "AssistantMessage":
+                    content = getattr(message, "content", [])
+                    for block in content:
+                        block_type = type(block).__name__
+                        if block_type == "ToolUseBlock":
+                            tool_name = getattr(block, "name", "")
+                            if tool_name == "StructuredOutput":
+                                # Extract structured data from tool input
+                                structured_data = getattr(block, "input", None)
+                                if structured_data:
+                                    logger.info(
+                                        "[Followup] Found StructuredOutput tool use"
+                                    )
+                                    safe_print(
+                                        "[Followup] Using SDK structured output",
+                                        flush=True,
+                                    )
+                                    # Validate with Pydantic and convert
+                                    result = FollowupReviewResponse.model_validate(
+                                        structured_data
+                                    )
+                                    return self._convert_structured_to_internal(result)
+
+                    # Also check for direct structured_output attribute (SDK validated JSON)
+                    if (
+                        hasattr(message, "structured_output")
+                        and message.structured_output
+                    ):
+                        logger.info(
+                            "[Followup] Found structured_output attribute on message"
+                        )
+                        safe_print(
+                            "[Followup] Using SDK structured output (direct attribute)",
+                            flush=True,
+                        )
+                        result = FollowupReviewResponse.model_validate(
+                            message.structured_output
+                        )
+                        return self._convert_structured_to_internal(result)
+
+                # Handle ResultMessage for errors
+                if msg_type == "ResultMessage":
+                    subtype = getattr(message, "subtype", None)
+                    if subtype == "error_max_structured_output_retries":
+                        logger.warning(
+                            "Claude could not produce valid structured output after retries"
+                        )
+                        return None
+
+            logger.warning("No structured output received from AI")
+            return None
+
+        except ValueError as e:
+            # OAuth token not found
+            logger.warning(f"No OAuth token available for AI review: {e}")
+            safe_print("AI review failed: No OAuth token found")
+            return None
+        except Exception as e:
+            logger.error(f"AI review with structured output failed: {e}")
+            return None
+
+    def _convert_structured_to_internal(
+        self, result: FollowupReviewResponse
+    ) -> dict[str, Any]:
+        """
+        Convert Pydantic FollowupReviewResponse to internal dict format.
+
+        Converts Pydantic finding models to PRReviewFinding dataclass objects
+        for compatibility with existing codebase.
+        """
+        # Convert new_findings to PRReviewFinding objects
+        new_findings = []
+        for f in result.new_findings:
+            new_findings.append(
+                PRReviewFinding(
+                    id=f.id,
+                    severity=_SEVERITY_MAPPING.get(f.severity, ReviewSeverity.MEDIUM),
+                    category=map_category(f.category),
+                    title=f.title,
+                    description=f.description,
+                    file=f.file,
+                    line=f.line,
+                    suggested_fix=f.suggested_fix,
+                    fixable=f.fixable,
+                )
             )
 
-            # Parse the response
-            response_text = response.content[0].text
-            return self._parse_ai_response(response_text)
+        # Convert comment_findings to PRReviewFinding objects
+        comment_findings = []
+        for f in result.comment_findings:
+            comment_findings.append(
+                PRReviewFinding(
+                    id=f.id,
+                    severity=_SEVERITY_MAPPING.get(f.severity, ReviewSeverity.LOW),
+                    category=map_category(f.category),
+                    title=f.title,
+                    description=f.description,
+                    file=f.file,
+                    line=f.line,
+                    suggested_fix=f.suggested_fix,
+                    fixable=f.fixable,
+                )
+            )
 
-        except Exception as e:
-            logger.error(f"AI review failed: {e}")
-            return None
-
-    def _parse_ai_response(self, response_text: str) -> dict[str, Any] | None:
-        """Parse the AI response JSON."""
-        # Extract JSON from response (may be wrapped in markdown code blocks)
-        json_match = re.search(r"```json\s*(.*?)\s*```", response_text, re.DOTALL)
-        if json_match:
-            json_str = json_match.group(1)
-        else:
-            # Try to find raw JSON
-            json_match = re.search(r"\{[\s\S]*\}", response_text)
-            if json_match:
-                json_str = json_match.group(0)
-            else:
-                logger.warning("No JSON found in AI response")
-                return None
-
-        try:
-            data = json.loads(json_str)
-
-            # Convert new_findings to PRReviewFinding objects
-            new_findings = []
-            for f in data.get("new_findings", []):
-                try:
-                    new_findings.append(
-                        PRReviewFinding(
-                            id=f.get(
-                                "id",
-                                hashlib.md5(
-                                    f.get("title", "").encode(), usedforsecurity=False
-                                ).hexdigest()[:12],
-                            ),
-                            severity=_SEVERITY_MAPPING.get(
-                                f.get("severity", "medium").lower(),
-                                ReviewSeverity.MEDIUM,
-                            ),
-                            category=_CATEGORY_MAPPING.get(
-                                f.get("category", "quality").lower(),
-                                ReviewCategory.QUALITY,
-                            ),
-                            title=f.get("title", "Untitled finding"),
-                            description=f.get("description", ""),
-                            file=f.get("file", ""),
-                            line=f.get("line", 0),
-                            suggested_fix=f.get("suggested_fix"),
-                        )
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to parse finding: {e}")
-
-            # Convert comment_findings similarly
-            comment_findings = []
-            for f in data.get("comment_findings", []):
-                try:
-                    comment_findings.append(
-                        PRReviewFinding(
-                            id=f.get(
-                                "id",
-                                hashlib.md5(
-                                    f.get("title", "").encode(), usedforsecurity=False
-                                ).hexdigest()[:12],
-                            ),
-                            severity=_SEVERITY_MAPPING.get(
-                                f.get("severity", "low").lower(), ReviewSeverity.LOW
-                            ),
-                            category=_CATEGORY_MAPPING.get(
-                                f.get("category", "quality").lower(),
-                                ReviewCategory.QUALITY,
-                            ),
-                            title=f.get("title", "Comment needs attention"),
-                            description=f.get("description", ""),
-                            file=f.get("file", ""),
-                            line=f.get("line", 0),
-                        )
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to parse comment finding: {e}")
-
-            return {
-                "finding_resolutions": data.get("finding_resolutions", []),
-                "new_findings": new_findings,
-                "comment_findings": comment_findings,
-                "verdict": data.get("verdict"),
-                "verdict_reasoning": data.get("verdict_reasoning"),
+        # Convert finding_resolutions to dict format
+        finding_resolutions = [
+            {
+                "finding_id": r.finding_id,
+                "status": r.status,
+                "resolution_notes": r.resolution_notes,
             }
+            for r in result.finding_resolutions
+        ]
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse AI response JSON: {e}")
-            return None
+        return {
+            "finding_resolutions": finding_resolutions,
+            "new_findings": new_findings,
+            "comment_findings": comment_findings,
+            "verdict": result.verdict,
+            "verdict_reasoning": result.verdict_reasoning,
+        }
 
     def _apply_ai_resolutions(
         self,

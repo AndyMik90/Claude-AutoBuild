@@ -4,6 +4,7 @@ Thank you for your interest in contributing to Auto Claude! This document provid
 
 ## Table of Contents
 
+- [Contributor License Agreement (CLA)](#contributor-license-agreement-cla)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
 - [Development Setup](#development-setup)
@@ -23,9 +24,29 @@ Thank you for your interest in contributing to Auto Claude! This document provid
   - [Pull Request Targets](#pull-request-targets)
   - [Release Process](#release-process-maintainers)
   - [Commit Messages](#commit-messages)
+  - [PR Hygiene](#pr-hygiene)
 - [Pull Request Process](#pull-request-process)
 - [Issue Reporting](#issue-reporting)
 - [Architecture Overview](#architecture-overview)
+
+## Contributor License Agreement (CLA)
+
+All contributors must sign our Contributor License Agreement (CLA) before contributions can be accepted.
+
+### Why We Require a CLA
+
+Auto Claude is currently licensed under AGPL-3.0. The CLA ensures the project has proper licensing flexibility should we introduce additional licensing options (such as commercial/enterprise licenses) in the future.
+
+You retain full copyright ownership of your contributions.
+
+### How to Sign
+
+1. Open a Pull Request
+2. The CLA bot will automatically comment with instructions
+3. Comment on the PR with: `I have read the CLA Document and I hereby sign the CLA`
+4. Done - you only need to sign once, and it applies to all future contributions
+
+Read the full CLA here: [CLA.md](CLA.md)
 
 ## Prerequisites
 
@@ -35,6 +56,7 @@ Before contributing, ensure you have the following installed:
 - **Node.js 24+** - For the Electron frontend
 - **npm 10+** - Package manager for the frontend (comes with Node.js)
 - **uv** (recommended) or **pip** - Python package manager
+- **CMake** - Required for building native dependencies (e.g., LadybugDB)
 - **Git** - Version control
 
 ### Installing Python 3.12
@@ -52,6 +74,56 @@ brew install python@3.12
 **Linux (Ubuntu/Debian):**
 ```bash
 sudo apt install python3.12 python3.12-venv
+```
+
+**Linux (Fedora):**
+```bash
+sudo dnf install python3.12
+```
+
+### Installing Node.js 24+
+
+**Windows:**
+```bash
+winget install OpenJS.NodeJS.LTS
+```
+
+**macOS:**
+```bash
+brew install node@24
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+**Linux (Fedora):**
+```bash
+sudo dnf install nodejs npm
+```
+
+### Installing CMake
+
+**Windows:**
+```bash
+winget install Kitware.CMake
+```
+
+**macOS:**
+```bash
+brew install cmake
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt install cmake
+```
+
+**Linux (Fedora):**
+```bash
+sudo dnf install cmake
 ```
 
 ## Quick Start
@@ -595,6 +667,41 @@ git commit -m "WIP"
 - **subject**: Short description (50 chars max, imperative mood)
 - **body**: Detailed explanation if needed (wrap at 72 chars)
 - **footer**: Reference issues, breaking changes
+
+### PR Hygiene
+
+**Rebasing:**
+- **Rebase onto develop** before opening a PR and before merge to maintain linear history
+- Use `git fetch origin && git rebase origin/develop` to sync your branch
+- Use `--force-with-lease` when force-pushing rebased branches (safer than `--force`)
+- Notify reviewers after force-pushing during active review
+- **Exception:** Never rebase after PR is approved and others have reviewed specific commits
+
+**Commit organization:**
+- **Squash fixup commits** (typos, "oops", review feedback) into their parent commits
+- **Keep logically distinct changes** as separate commits that could be reverted independently
+- Each commit should compile and pass tests independently
+- No "WIP", "fix tests", or "lint" commits in final PR - squash these
+
+**Before requesting review:**
+```bash
+# Ensure up-to-date with develop
+git fetch origin && git rebase origin/develop
+
+# Clean up commit history (squash fixups, reword messages)
+git rebase -i origin/develop
+
+# Force push with safety check
+git push --force-with-lease
+
+# Verify everything works
+npm run test:backend
+cd apps/frontend && npm test && npm run lint && npm run typecheck
+```
+
+**PR size:**
+- Keep PRs small (<400 lines changed ideally)
+- Split large features into stacked PRs if possible
 
 ## Pull Request Process
 

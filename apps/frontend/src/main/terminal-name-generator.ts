@@ -1,7 +1,12 @@
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { existsSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
 import { app } from 'electron';
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { EventEmitter } from 'events';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
 import { parsePythonCommand } from './python-detector';
@@ -46,20 +51,32 @@ export class TerminalNameGenerator extends EventEmitter {
       return this.autoBuildSourcePath;
     }
 
+    // In packaged app, check userData override first (consistent with path-resolver.ts)
+    if (app.isPackaged) {
+      // Check for user-updated backend source first (takes priority over bundled)
+      const overridePath = path.join(app.getPath('userData'), 'backend-source');
+      if (existsSync(overridePath) && existsSync(path.join(overridePath, 'runners', 'spec_runner.py'))) {
+        debug('Using user-updated backend from userData:', overridePath);
+        return overridePath;
+      }
+      // Fall back to bundled backend in resources
+      const resourcesPath = path.join(process.resourcesPath, 'backend');
+      if (existsSync(resourcesPath) && existsSync(path.join(resourcesPath, 'runners', 'spec_runner.py'))) {
+        debug('Using bundled backend from resources:', resourcesPath);
+        return resourcesPath;
+      }
+    }
+
+    // Development mode paths
     const possiblePaths = [
-      // New apps structure: from out/main -> apps/backend
+      // Apps structure: from out/main -> apps/backend
       path.resolve(__dirname, '..', '..', '..', 'backend'),
       path.resolve(app.getAppPath(), '..', 'backend'),
-      path.resolve(process.cwd(), 'apps', 'backend'),
-      // Legacy paths for backwards compatibility
-      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),
-      path.resolve(app.getAppPath(), '..', 'auto-claude'),
-      path.resolve(process.cwd(), 'auto-claude')
+      path.resolve(process.cwd(), 'apps', 'backend')
     ];
 
     for (const p of possiblePaths) {
-      // Use requirements.txt as marker - it always exists in auto-claude source
-      if (existsSync(p) && existsSync(path.join(p, 'requirements.txt'))) {
+      if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
         return p;
       }
     }

@@ -435,9 +435,7 @@ async def run_ai_complexity_assessment(
         return None
 
 
-def save_assessment(
-    spec_dir: Path, assessment: ComplexityAssessment, dev_mode: bool = False
-) -> Path:
+def save_assessment(spec_dir: Path, assessment: ComplexityAssessment) -> Path:
     """Save complexity assessment to file."""
     assessment_file = spec_dir / "complexity_assessment.json"
     phases = assessment.phases_to_run()
@@ -456,7 +454,6 @@ def save_assessment(
                 "phases_to_run": phases,
                 "needs_research": assessment.needs_research,
                 "needs_self_critique": assessment.needs_self_critique,
-                "dev_mode": dev_mode,
                 "created_at": datetime.now().isoformat(),
             },
             f,

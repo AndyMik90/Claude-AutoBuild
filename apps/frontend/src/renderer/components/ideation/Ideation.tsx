@@ -9,6 +9,7 @@ import { GenerationProgressScreen } from './GenerationProgressScreen';
 import { IdeaCard } from './IdeaCard';
 import { IdeaDetailPanel } from './IdeaDetailPanel';
 import { useIdeation } from './hooks/useIdeation';
+import { useViewState } from '../../contexts/ViewStateContext';
 import { ALL_IDEATION_TYPES } from './constants';
 
 interface IdeationProps {
@@ -17,6 +18,10 @@ interface IdeationProps {
 }
 
 export function Ideation({ projectId, onGoToTask }: IdeationProps) {
+  // Get showArchived from shared context for cross-page sync
+  const { showArchived } = useViewState();
+
+  // Pass showArchived directly to the hook to avoid render lag from useEffect sync
   const {
     session,
     generationStatus,
@@ -28,7 +33,6 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
     activeTab,
     showConfigDialog,
     showDismissed,
-    showArchived,
     showEnvConfigModal,
     showAddMoreDialog,
     typesToAdd,
@@ -41,7 +45,6 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
     setActiveTab,
     setShowConfigDialog,
     setShowDismissed,
-    setShowArchived,
     setShowEnvConfigModal,
     setShowAddMoreDialog,
     setTypesToAdd,
@@ -63,7 +66,7 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
     toggleSelectIdea,
     clearSelection,
     getIdeasByType
-  } = useIdeation(projectId, { onGoToTask });
+  } = useIdeation(projectId, { onGoToTask, showArchived });
 
   // Show generation progress with streaming ideas (use isGenerating flag for reliable state)
   if (isGenerating) {
@@ -130,10 +133,8 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
         totalIdeas={summary.totalIdeas}
         ideaCountByType={summary.byType}
         showDismissed={showDismissed}
-        showArchived={showArchived}
         selectedCount={selectedIds.size}
         onToggleShowDismissed={() => setShowDismissed(!showDismissed)}
-        onToggleShowArchived={() => setShowArchived(!showArchived)}
         onOpenConfig={() => setShowConfigDialog(true)}
         onOpenAddMore={() => {
           setTypesToAdd([]);

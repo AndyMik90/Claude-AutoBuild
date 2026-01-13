@@ -1,24 +1,26 @@
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
-import { app } from 'electron';
 import { getProfileEnv } from '../rate-limit-detector';
-import { findPythonCommand } from '../python-detector';
+import { getAPIProfileEnv } from '../services/profile';
+import { getOAuthModeClearVars } from '../agent/env-utils';
+import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
+import { getValidatedPythonPath } from '../python-detector';
+import { getAugmentedEnv } from '../env-utils';
+import { getEffectiveSourcePath } from '../updater/path-resolver';
 
 /**
  * Configuration manager for insights service
  * Handles path detection and environment variable loading
  */
 export class InsightsConfig {
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
+  // Python path will be configured by pythonEnvManager after venv is ready
+  // Use getter to always get current configured path
+  private _pythonPath: string | null = null;
   private autoBuildSourcePath: string = '';
 
-  /**
-   * Configure paths for Python and auto-claude source
-   */
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     if (pythonPath) {
-      this.pythonPath = pythonPath;
+      this._pythonPath = getValidatedPythonPath(pythonPath, 'InsightsConfig');
     }
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
@@ -26,37 +28,38 @@ export class InsightsConfig {
   }
 
   /**
-   * Get configured Python path
+   * Get configured Python path.
+   * Returns explicitly configured path, or falls back to getConfiguredPythonPath()
+   * which uses the venv Python if ready.
    */
   getPythonPath(): string {
-    return this.pythonPath;
+    // If explicitly configured (by pythonEnvManager), use that
+    if (this._pythonPath) {
+      return this._pythonPath;
+    }
+    // Otherwise use the global configured path (venv if ready, else bundled/system)
+    return getConfiguredPythonPath();
   }
 
   /**
    * Get the auto-claude source path (detects automatically if not configured)
+   * Uses getEffectiveSourcePath() which handles userData override for user-updated backend
    */
   getAutoBuildSourcePath(): string | null {
     if (this.autoBuildSourcePath && existsSync(this.autoBuildSourcePath)) {
       return this.autoBuildSourcePath;
     }
 
-    const possiblePaths = [
-      // New apps structure: from out/main -> apps/backend
-      path.resolve(__dirname, '..', '..', '..', 'backend'),
-      path.resolve(app.getAppPath(), '..', 'backend'),
-      path.resolve(process.cwd(), 'apps', 'backend'),
-      // Legacy paths for backwards compatibility
-      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),
-      path.resolve(app.getAppPath(), '..', 'auto-claude'),
-      path.resolve(process.cwd(), 'auto-claude')
-    ];
-
-    for (const p of possiblePaths) {
-      // Use requirements.txt as marker - it always exists in auto-claude source
-      if (existsSync(p) && existsSync(path.join(p, 'requirements.txt'))) {
-        return p;
-      }
+    // Use shared path resolver which handles:
+    // 1. User settings (autoBuildPath)
+    // 2. userData override (backend-source) for user-updated backend
+    // 3. Bundled backend (process.resourcesPath/backend)
+    // 4. Development paths
+    const effectivePath = getEffectiveSourcePath();
+    if (existsSync(effectivePath) && existsSync(path.join(effectivePath, 'runners', 'spec_runner.py'))) {
+      return effectivePath;
     }
+
     return null;
   }
 
@@ -103,17 +106,51 @@ export class InsightsConfig {
    * Get complete environment for process execution
    * Includes system env, auto-claude env, and active Claude profile
    */
-  getProcessEnv(): Record<string, string> {
+  async getProcessEnv(): Promise<Record<string, string>> {
     const autoBuildEnv = this.loadAutoBuildEnv();
     const profileEnv = getProfileEnv();
+    const apiProfileEnv = await getAPIProfileEnv();
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
+    const pythonEnv = pythonEnvManager.getPythonEnv();
+    const autoBuildSource = this.getAutoBuildSourcePath();
+    const pythonPathParts = (pythonEnv.PYTHONPATH ?? '')
+      .split(path.delimiter)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => path.resolve(entry));
+
+    if (autoBuildSource) {
+      const normalizedAutoBuildSource = path.resolve(autoBuildSource);
+      const autoBuildComparator = process.platform === 'win32'
+        ? normalizedAutoBuildSource.toLowerCase()
+        : normalizedAutoBuildSource;
+      const hasAutoBuildSource = pythonPathParts.some((entry) => {
+        const candidate = process.platform === 'win32' ? entry.toLowerCase() : entry;
+        return candidate === autoBuildComparator;
+      });
+
+      if (!hasAutoBuildSource) {
+        pythonPathParts.push(normalizedAutoBuildSource);
+      }
+    }
+
+    const combinedPythonPath = pythonPathParts.join(path.delimiter);
+
+    // Use getAugmentedEnv() to ensure common tool paths (claude, dotnet, etc.)
+    // are available even when app is launched from Finder/Dock.
+    const augmentedEnv = getAugmentedEnv();
 
     return {
-      ...process.env as Record<string, string>,
+      ...augmentedEnv,
+      ...pythonEnv, // Include PYTHONPATH for bundled site-packages
       ...autoBuildEnv,
+      ...oauthModeClearVars,
       ...profileEnv,
+      ...apiProfileEnv,
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
-      PYTHONUTF8: '1'
+      PYTHONUTF8: '1',
+      ...(combinedPythonPath ? { PYTHONPATH: combinedPythonPath } : {})
     };
   }
 }

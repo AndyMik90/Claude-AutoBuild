@@ -1,0 +1,208 @@
+{
+  "title": "GitLab Issues",
+  "states": {
+    "opened": "Open",
+    "closed": "Closed"
+  },
+  "complexity": {
+    "simple": "Simple",
+    "standard": "Standard",
+    "complex": "Complex"
+  },
+  "header": {
+    "open": "open",
+    "searchPlaceholder": "Search issues..."
+  },
+  "filters": {
+    "opened": "Open",
+    "closed": "Closed",
+    "all": "All"
+  },
+  "empty": {
+    "noMatch": "No issues match your search",
+    "selectIssue": "Select an issue to view details"
+  },
+  "notConnected": {
+    "title": "GitLab Not Connected",
+    "description": "Configure your GitLab token and project in project settings to sync issues.",
+    "openSettings": "Open Settings"
+  },
+  "detail": {
+    "notes": "notes",
+    "viewTask": "View Task",
+    "createTask": "Create Task",
+    "taskLinked": "Task Linked",
+    "taskId": "Task ID",
+    "description": "Description",
+    "noDescription": "No description provided.",
+    "assignees": "Assignees",
+    "milestone": "Milestone"
+  },
+  "investigation": {
+    "title": "Create Task from Issue",
+    "issuePrefix": "Issue",
+    "description": "Create a task from this GitLab issue. The task will be added to your Kanban board in the Backlog column.",
+    "selectNotes": "Select Notes to Include",
+    "deselectAll": "Deselect All",
+    "selectAll": "Select All",
+    "willInclude": "The task will include:",
+    "includeTitle": "Issue title and description",
+    "includeLink": "Link back to the GitLab issue",
+    "includeLabels": "Labels and metadata from the issue",
+    "noNotes": "No notes (this issue has no notes)",
+    "failedToLoadNotes": "Failed to load notes",
+    "taskCreated": "Task created! View it in your Kanban board.",
+    "creating": "Creating...",
+    "cancel": "Cancel",
+    "done": "Done",
+    "close": "Close"
+  },
+  "settings": {
+    "enableIssues": "Enable GitLab Issues",
+    "enableIssuesDescription": "Sync issues from GitLab and create tasks automatically",
+    "instance": "GitLab Instance",
+    "instanceDescription": "Use https://gitlab.com or your self-hosted instance URL",
+    "connectedVia": "Connected via GitLab CLI",
+    "authenticatedAs": "Authenticated as",
+    "useDifferentToken": "Use Different Token",
+    "authentication": "GitLab Authentication",
+    "useManualToken": "Use Manual Token",
+    "authenticating": "Authenticating with glab CLI...",
+    "browserWindow": "A browser window should open for you to log in.",
+    "personalAccessToken": "Personal Access Token",
+    "useOAuth": "Use OAuth Instead",
+    "tokenScope": "Create a token with",
+    "scopeApi": "api",
+    "scopeFrom": "scope from",
+    "gitlabSettings": "GitLab Settings",
+    "project": "Project",
+    "enterManually": "Enter Manually",
+    "loadingProjects": "Loading projects...",
+    "selectProject": "Select a project...",
+    "searchProjects": "Search projects...",
+    "noMatchingProjects": "No matching projects",
+    "noProjectsFound": "No projects found",
+    "selected": "Selected",
+    "projectFormat": "Format:",
+    "projectFormatExample": "(e.g., gitlab-org/gitlab)",
+    "connectionStatus": "Connection Status",
+    "checking": "Checking...",
+    "connectedTo": "Connected to",
+    "notConnected": "Not connected",
+    "issuesAvailable": "Issues Available",
+    "issuesAvailableDescription": "Access GitLab Issues from the sidebar to view, investigate, and create tasks from issues.",
+    "defaultBranch": "Default Branch",
+    "defaultBranchDescription": "Base branch for creating task worktrees",
+    "loadingBranches": "Loading branches...",
+    "autoDetect": "Auto-detect (main/master)",
+    "searchBranches": "Search branches...",
+    "noMatchingBranches": "No matching branches",
+    "noBranchesFound": "No branches found",
+    "branchFromNote": "All new tasks will branch from",
+    "autoSyncOnLoad": "Auto-Sync on Load",
+    "autoSyncDescription": "Automatically fetch issues when the project loads",
+    "cli": {
+      "required": "GitLab CLI Required",
+      "notInstalled": "The GitLab CLI (glab) is required for OAuth authentication. Install it to use the 'Use OAuth' option.",
+      "installButton": "Install glab",
+      "installing": "Installing...",
+      "installSuccess": "Installation started in your terminal. Complete it and click Refresh.",
+      "refresh": "Refresh",
+      "learnMore": "Learn more",
+      "installed": "GitLab CLI installed:"
+    }
+  },
+  "mergeRequests": {
+    "title": "GitLab Merge Requests",
+    "newMR": "New Merge Request",
+    "selectMR": "Select a merge request to view details",
+    "states": {
+      "opened": "Open",
+      "closed": "Closed",
+      "merged": "Merged",
+      "locked": "Locked"
+    },
+    "filters": {
+      "opened": "Open",
+      "closed": "Closed",
+      "merged": "Merged",
+      "all": "All"
+    }
+  },
+  "mrReview": {
+    "runReview": "Run AI Review",
+    "reviewing": "Reviewing...",
+    "followupReview": "Follow-up Review",
+    "newCommits": "new commit",
+    "newCommitsPlural": "new commits",
+    "cancel": "Cancel",
+    "postFindings": "Post Findings",
+    "posting": "Posting...",
+    "postedTo": "Posted to GitLab",
+    "approve": "Approve",
+    "approving": "Approving...",
+    "merge": "Merge MR",
+    "merging": "Merging...",
+    "aiReviewResult": "AI Review Result",
+    "followupReviewResult": "Follow-up Review",
+    "description": "Description",
+    "noDescription": "No description provided.",
+    "labels": "Labels",
+    "status": {
+      "notReviewed": "Not Reviewed",
+      "notReviewedDesc": "Run an AI review to analyze this MR",
+      "reviewComplete": "Review Complete",
+      "reviewCompleteDesc": "finding(s) found. Select and post to GitLab.",
+      "waitingForChanges": "Waiting for Changes",
+      "waitingForChangesDesc": "finding(s) posted. Waiting for contributor to address issues.",
+      "readyToMerge": "Ready to Merge",
+      "readyToMergeDesc": "No blocking issues found. This MR can be merged.",
+      "needsAttention": "Needs Attention",
+      "needsAttentionDesc": "finding(s) need to be posted to GitLab.",
+      "readyForFollowup": "Ready for Follow-up",
+      "readyForFollowupDesc": "since review. Run follow-up to check if issues are resolved.",
+      "blockingIssues": "Blocking Issues",
+      "blockingIssuesDesc": "blocking issue(s) still open."
+    },
+    "overallStatus": {
+      "approve": "Approve",
+      "requestChanges": "Changes Requested",
+      "comment": "Comment"
+    },
+    "resolution": {
+      "resolved": "resolved",
+      "stillOpen": "still open",
+      "newIssue": "new issue",
+      "newIssues": "new issues"
+    }
+  },
+  "findings": {
+    "summary": "selected",
+    "selectCriticalHigh": "Select Blocker/Required",
+    "selectAll": "Select All",
+    "clear": "Clear",
+    "noIssues": "No issues found! The code looks good.",
+    "suggestedFix": "Suggested fix:",
+    "posted": "Posted",
+    "severity": {
+      "critical": "Blocker",
+      "criticalDesc": "Must fix",
+      "high": "Required",
+      "highDesc": "Should fix",
+      "medium": "Recommended",
+      "mediumDesc": "Improve quality",
+      "low": "Suggestion",
+      "lowDesc": "Consider"
+    },
+    "category": {
+      "security": "Security",
+      "quality": "Quality",
+      "style": "Style",
+      "test": "Test",
+      "docs": "Documentation",
+      "pattern": "Pattern",
+      "performance": "Performance",
+      "logic": "Logic"
+    }
+  }
+}
