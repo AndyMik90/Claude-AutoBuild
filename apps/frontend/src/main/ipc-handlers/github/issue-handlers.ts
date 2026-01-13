@@ -65,21 +65,38 @@ export function registerGetIssues(): void {
           };
         }
 
-        const issues = await githubFetch(
-          config.token,
-          `/repos/${normalizedRepo}/issues?state=${state}&per_page=100&sort=updated`
-        );
+        // Pagination loop to fetch all pages
+        let page = 1;
+        let hasMore = true;
+        let allIssues: GitHubAPIIssue[] = [];
 
-        // Ensure issues is an array
-        if (!Array.isArray(issues)) {
-          return {
-            success: false,
-            error: 'Unexpected response format from GitHub API'
-          };
+        while (hasMore) {
+          const issues = await githubFetch(
+            config.token,
+            `/repos/${normalizedRepo}/issues?state=${state}&per_page=100&page=${page}&sort=updated`
+          );
+
+          // Ensure issues is an array
+          if (!Array.isArray(issues)) {
+            return {
+              success: false,
+              error: 'Unexpected response format from GitHub API'
+            };
+          }
+
+          // Add this page's issues to the collection
+          allIssues.push(...issues);
+
+          // Check if we should continue pagination
+          if (issues.length < 100) {
+            hasMore = false;
+          } else {
+            page++;
+          }
         }
 
-        // Filter out pull requests
-        const issuesOnly = issues.filter((issue: GitHubAPIIssue) => !issue.pull_request);
+        // Filter out pull requests AFTER all pages are merged
+        const issuesOnly = allIssues.filter((issue: GitHubAPIIssue) => !issue.pull_request);
 
         const result: GitHubIssue[] = issuesOnly.map((issue: GitHubAPIIssue) =>
           transformIssue(issue, normalizedRepo)
