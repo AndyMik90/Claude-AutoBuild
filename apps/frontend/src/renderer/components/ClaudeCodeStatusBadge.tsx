@@ -23,6 +23,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { cn } from "../lib/utils";
 import type { ClaudeCodeVersionInfo } from "../../shared/types/cli";
 
@@ -34,6 +41,8 @@ type StatusType = "loading" | "installed" | "outdated" | "not-found" | "error";
 
 // Check every 24 hours
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+// Delay before re-checking version after install/update
+const VERSION_RECHECK_DELAY_MS = 5000;
 
 /**
  * Claude Code CLI status badge for the sidebar.
@@ -47,6 +56,14 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [showUpdateWarning, setShowUpdateWarning] = useState(false);
+
+  // Version rollback state
+  const [availableVersions, setAvailableVersions] = useState<string[]>([]);
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+  const [showRollbackWarning, setShowRollbackWarning] = useState(false);
+  const [installError, setInstallError] = useState<string | null>(null);
 
   // Check Claude Code version
   const checkVersion = useCallback(async () => {
@@ -78,6 +95,30 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
     }
   }, []);
 
+  // Fetch available versions
+  const fetchVersions = useCallback(async () => {
+    if (!window.electronAPI?.getClaudeCodeVersions) {
+      return;
+    }
+
+    setIsLoadingVersions(true);
+    setVersionsError(null);
+
+    try {
+      const result = await window.electronAPI.getClaudeCodeVersions();
+      if (result.success && result.data) {
+        setAvailableVersions(result.data.versions);
+      } else {
+        setVersionsError(result.error || "Failed to load versions");
+      }
+    } catch (err) {
+      console.error("Failed to fetch versions:", err);
+      setVersionsError("Failed to load versions");
+    } finally {
+      setIsLoadingVersions(false);
+    }
+  }, []);
+
   // Initial check and periodic re-check
   useEffect(() => {
     checkVersion();
@@ -90,12 +131,21 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
     return () => clearInterval(interval);
   }, [checkVersion]);
 
+  // Fetch versions when popover opens and Claude is installed
+  useEffect(() => {
+    if (isOpen && versionInfo?.installed && availableVersions.length === 0) {
+      fetchVersions();
+    }
+  }, [isOpen, versionInfo?.installed, availableVersions.length, fetchVersions]);
+
   // Perform the actual install/update
   const performInstall = async () => {
     setIsInstalling(true);
     setShowUpdateWarning(false);
+    setInstallError(null);
     try {
       if (!window.electronAPI?.installClaudeCode) {
+        setInstallError("Installation not available");
         return;
       }
 
@@ -105,12 +155,48 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
         // Re-check after a delay
         setTimeout(() => {
           checkVersion();
-        }, 5000);
+        }, VERSION_RECHECK_DELAY_MS);
+      } else {
+        setInstallError(result.error || "Installation failed");
       }
     } catch (err) {
       console.error("Failed to install Claude Code:", err);
+      setInstallError(err instanceof Error ? err.message : "Installation failed");
     } finally {
       setIsInstalling(false);
+    }
+  };
+
+  // Perform version rollback/switch
+  const performVersionSwitch = async () => {
+    if (!selectedVersion) return;
+
+    setIsInstalling(true);
+    setShowRollbackWarning(false);
+    setInstallError(null);
+
+    try {
+      if (!window.electronAPI?.installClaudeCodeVersion) {
+        setInstallError("Version switching not available");
+        return;
+      }
+
+      const result = await window.electronAPI.installClaudeCodeVersion(selectedVersion);
+
+      if (result.success) {
+        // Re-check after a delay
+        setTimeout(() => {
+          checkVersion();
+        }, VERSION_RECHECK_DELAY_MS);
+      } else {
+        setInstallError(result.error || "Failed to switch version");
+      }
+    } catch (err) {
+      console.error("Failed to switch Claude Code version:", err);
+      setInstallError(err instanceof Error ? err.message : "Failed to switch version");
+    } finally {
+      setIsInstalling(false);
+      setSelectedVersion(null);
     }
   };
 
@@ -123,6 +209,22 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
       // Fresh install - no warning needed
       performInstall();
     }
+  };
+
+  // Normalize version string by removing 'v' prefix for comparison
+  const normalizeVersion = (v: string) => v.replace(/^v/, '');
+
+  // Handle version selection
+  const handleVersionSelect = (version: string) => {
+    // Don't do anything if it's the currently installed version (normalize both for comparison)
+    const normalizedSelected = normalizeVersion(version);
+    const normalizedInstalled = versionInfo?.installed ? normalizeVersion(versionInfo.installed) : '';
+    if (normalizedSelected === normalizedInstalled) {
+      return;
+    }
+    setInstallError(null);
+    setSelectedVersion(version);
+    setShowRollbackWarning(true);
   };
 
   // Get status indicator color
@@ -292,6 +394,60 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
             </Button>
           </div>
 
+          {/* Install/Update error display */}
+          {installError && (
+            <div className="text-xs p-2 bg-destructive/10 text-destructive rounded-md flex items-center gap-2">
+              <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+              <span>{installError}</span>
+            </div>
+          )}
+
+          {/* Version selector - only show when Claude is installed */}
+          {versionInfo?.installed && (
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">
+                {t("navigation:claudeCode.switchVersion", "Switch Version")}
+              </label>
+              <Select
+                value={selectedVersion || ""}
+                onValueChange={handleVersionSelect}
+                disabled={isLoadingVersions || isInstalling}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue
+                    placeholder={
+                      isLoadingVersions
+                        ? t("navigation:claudeCode.loadingVersions", "Loading versions...")
+                        : versionsError
+                          ? t("navigation:claudeCode.failedToLoadVersions", "Failed to load versions")
+                          : t("navigation:claudeCode.selectVersion", "Select version")
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableVersions.map((version) => {
+                    const isCurrentVersion = normalizeVersion(version) === normalizeVersion(versionInfo.installed || '');
+                    return (
+                      <SelectItem
+                        key={version}
+                        value={version}
+                        className="text-xs"
+                        disabled={isCurrentVersion}
+                      >
+                        <span className="font-mono">{version}</span>
+                        {isCurrentVersion && (
+                          <span className="ml-2 text-muted-foreground">
+                            ({t("navigation:claudeCode.currentVersion", "Current")})
+                          </span>
+                        )}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Learn more link */}
           <Button
             variant="link"
@@ -346,6 +502,33 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
             <AlertDialogCancel>{t("common:cancel", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={performInstall}>
               {t("navigation:claudeCode.updateAnyway", "Update Anyway")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Version rollback warning dialog */}
+      <AlertDialog open={showRollbackWarning} onOpenChange={setShowRollbackWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("navigation:claudeCode.rollbackWarningTitle", "Switch to version {{version}}?", {
+                version: selectedVersion,
+              })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                "navigation:claudeCode.rollbackWarningDescription",
+                "Switching versions will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding."
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSelectedVersion(null)}>
+              {t("common:cancel", "Cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={performVersionSwitch}>
+              {t("navigation:claudeCode.switchAnyway", "Switch Anyway")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
