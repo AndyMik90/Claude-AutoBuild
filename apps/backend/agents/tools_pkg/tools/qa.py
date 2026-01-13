@@ -105,16 +105,15 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
                 "tests_passed": tests_passed,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "ready_for_qa_revalidation": status == "fixes_applied",
+                # validation_complete is set to False here - only the QA loop
+                # completion handler should set it to True to prevent race conditions
+                "validation_complete": False,
             }
 
-            # Update plan status to match QA result
-            # This ensures the UI shows the correct column after QA
-            if status == "approved":
-                plan["status"] = "human_review"
-                plan["planStatus"] = "review"
-            elif status == "rejected":
-                plan["status"] = "human_review"
-                plan["planStatus"] = "review"
+            # Note: Do NOT set plan['status'] or plan['planStatus'] here.
+            # The transition to human_review is controlled by update_status_from_subtasks()
+            # which checks all three conditions: subtasks complete + QA approved + validation_complete.
+            # This prevents premature status transitions during the validation loop.
 
             plan["last_updated"] = datetime.now(timezone.utc).isoformat()
 

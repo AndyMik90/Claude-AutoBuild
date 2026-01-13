@@ -33,6 +33,8 @@ from .criteria import (
     get_qa_iteration_count,
     get_qa_signoff_status,
     is_qa_approved,
+    load_implementation_plan,
+    save_implementation_plan,
 )
 from .fixer import run_qa_fixer_session
 from .report import (
@@ -291,6 +293,25 @@ async def run_qa_validation_loop(
             if linear_task and linear_task.task_id:
                 await linear_qa_approved(spec_dir)
                 print("\nLinear: Task marked as QA approved, awaiting human review")
+
+            # Set validation_complete flag to enable transition to human_review
+            # This is the final step that triggers update_status_from_subtasks()
+            # to transition from ai_review to human_review
+            plan = load_implementation_plan(spec_dir)
+            if plan and plan.get("qa_signoff"):
+                plan["qa_signoff"]["validation_complete"] = True
+                if not save_implementation_plan(spec_dir, plan):
+                    debug_error(
+                        "qa_loop",
+                        "Failed to save validation_complete flag to implementation_plan.json",
+                        spec_dir=str(spec_dir),
+                    )
+                    # Continue anyway - QA is approved, save failure is non-fatal
+                else:
+                    debug_success(
+                        "qa_loop",
+                        "QA validation loop completed successfully, set validation_complete=True",
+                    )
 
             return True
 
