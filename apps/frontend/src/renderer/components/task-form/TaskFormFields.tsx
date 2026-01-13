@@ -7,11 +7,12 @@
  * - Agent profile selector
  * - Classification fields (collapsible)
  * - Image thumbnails
+ * - Screenshot capture button (when onScreenshotCapture prop is provided)
  * - Review requirement checkbox
  */
-import { useRef, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp, Image as ImageIcon, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Image as ImageIcon, X, Camera } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
@@ -73,6 +74,9 @@ interface TaskFormFieldsProps {
   images: ImageAttachment[];
   onImagesChange: (images: ImageAttachment[]) => void;
 
+  // Screenshot capture (optional)
+  onScreenshotCapture?: () => void;
+
   // Review requirement
   requireReviewBeforeCoding: boolean;
   onRequireReviewChange: (require: boolean) => void;
@@ -119,6 +123,7 @@ export function TaskFormFields({
   onShowClassificationChange,
   images,
   onImagesChange,
+  onScreenshotCapture,
   requireReviewBeforeCoding,
   onRequireReviewChange,
   disabled = false,
@@ -192,44 +197,54 @@ export function TaskFormFields({
         </p>
 
         {/* Image Thumbnails - displayed inline below description */}
-        {images.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3">
-            {images.map((image) => (
-              <div
-                key={image.id}
-                className="relative group rounded-md border border-border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
-                style={{ width: '72px', height: '72px' }}
-                title={image.filename}
-              >
-                {image.thumbnail ? (
-                  <img
-                    src={image.thumbnail}
-                    alt={image.filename}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-muted">
-                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                )}
-                {/* Remove button */}
-                {!disabled && (
-                  <button
-                    type="button"
-                    className="absolute top-0.5 right-0.5 h-5 w-5 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeImage(image.id);
-                    }}
-                    aria-label={t('images.removeImageAriaLabel', { filename: image.filename })}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        <div className={cn('flex flex-wrap gap-2 mt-3', images.length === 0 && 'hidden')}>
+          {images.map((image) => (
+            <div
+              key={image.id}
+              className="relative group rounded-md border border-border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+              style={{ width: '72px', height: '72px' }}
+              title={image.filename}
+            >
+              {image.thumbnail ? (
+                <img
+                  src={image.thumbnail}
+                  alt={image.filename}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-muted">
+                  <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                </div>
+              )}
+              {/* Remove button */}
+              {!disabled && (
+                <button
+                  type="button"
+                  className="absolute top-0.5 right-0.5 h-5 w-5 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeImage(image.id);
+                  }}
+                  aria-label={t('images.removeImageAriaLabel', { filename: image.filename })}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ))}
+          {/* Screenshot Capture Button */}
+          {!disabled && onScreenshotCapture && (
+            <button
+              type="button"
+              onClick={onScreenshotCapture}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-dashed border-border hover:border-primary hover:bg-primary/5 transition-colors text-sm text-muted-foreground hover:text-foreground"
+              title={t('tooltips.addTask')}
+            >
+              <Camera className="h-3.5 w-3.5" />
+              Capture
+            </button>
+          )}
+        </div>
 
         {/* Optional children (e.g., @ mention autocomplete) */}
         {children}

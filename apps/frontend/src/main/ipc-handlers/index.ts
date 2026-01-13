@@ -28,6 +28,7 @@ import { registerChangelogHandlers } from './changelog-handlers';
 import { registerInsightsHandlers } from './insights-handlers';
 import { registerMemoryHandlers } from './memory-handlers';
 import { registerAppUpdateHandlers } from './app-update-handlers';
+import { registerScreenshotHandlers } from './screenshot-handlers';
 import { registerDebugHandlers } from './debug-handlers';
 import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
@@ -106,6 +107,9 @@ export function setupIpcHandlers(
   // App auto-update handlers
   registerAppUpdateHandlers();
 
+  // Screenshot capture handlers
+  registerScreenshotHandlers();
+
   // Debug handlers (logs, debug info, etc.)
   registerDebugHandlers();
 
@@ -141,6 +145,7 @@ export {
   registerInsightsHandlers,
   registerMemoryHandlers,
   registerAppUpdateHandlers,
+  registerScreenshotHandlers,
   registerDebugHandlers,
   registerClaudeCodeHandlers,
   registerMcpHandlers,

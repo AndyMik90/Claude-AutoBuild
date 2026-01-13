@@ -12,7 +12,7 @@
  */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch, Camera } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import {
@@ -26,6 +26,7 @@ import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { FileAutocomplete } from './FileAutocomplete';
+import { ScreenshotCapture } from './ScreenshotCapture';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
@@ -66,6 +67,7 @@ export function TaskCreationWizard({
   const [showClassification, setShowClassification] = useState(false);
   const [showFileExplorer, setShowFileExplorer] = useState(false);
   const [showGitOptions, setShowGitOptions] = useState(false);
+  const [showScreenshotCapture, setShowScreenshotCapture] = useState(false);
 
   // Git options state
   const [branches, setBranches] = useState<string[]>([]);
@@ -449,6 +451,7 @@ export function TaskCreationWizard({
   );
 
   return (
+    <>
     <TaskModalLayout
       open={open}
       onOpenChange={handleClose}
@@ -556,6 +559,7 @@ export function TaskCreationWizard({
           onShowClassificationChange={setShowClassification}
           images={images}
           onImagesChange={setImages}
+          onScreenshotCapture={() => setShowScreenshotCapture(true)}
           requireReviewBeforeCoding={requireReviewBeforeCoding}
           onRequireReviewChange={setRequireReviewBeforeCoding}
           disabled={isCreating}
@@ -643,5 +647,15 @@ export function TaskCreationWizard({
         )}
       </div>
     </TaskModalLayout>
+
+    {/* Screenshot Capture Dialog */}
+    <ScreenshotCapture
+      open={showScreenshotCapture}
+      onOpenChange={setShowScreenshotCapture}
+      onCapture={(imageData) => {
+        setImages((prev) => [...prev, imageData]);
+      }}
+    />
+    </>
   );
 }

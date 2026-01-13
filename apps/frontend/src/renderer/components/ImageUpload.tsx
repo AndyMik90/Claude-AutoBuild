@@ -99,9 +99,26 @@ export async function createThumbnail(dataUrl: string, maxSize = 200): Promise<s
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx?.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.8));
+      const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+      // Clean up canvas to prevent memory leaks
+      canvas.width = 0;
+      canvas.height = 0;
+
+      // Clean up image object to prevent memory leaks
+      img.onload = null;
+      img.onerror = null;
+      img.src = '';
+
+      resolve(thumbnailDataUrl);
     };
-    img.onerror = () => resolve(dataUrl); // Return original if thumbnail fails
+    img.onerror = () => {
+      // Clean up on error as well
+      img.onload = null;
+      img.onerror = null;
+      img.src = '';
+      resolve(dataUrl); // Return original if thumbnail fails
+    };
     img.src = dataUrl;
   });
 }
