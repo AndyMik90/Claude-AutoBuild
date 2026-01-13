@@ -48,6 +48,15 @@
     "viewChangelogAriaLabel": "View Claude Code Changelog (opens in new window)",
     "updateWarningTitle": "Update Claude Code?",
     "updateWarningDescription": "Updating will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding.",
-    "updateAnyway": "Update Anyway"
+    "updateAnyway": "Update Anyway",
+    "switchVersion": "Switch Version",
+    "selectVersion": "Select version",
+    "loadingVersions": "Loading versions...",
+    "failedToLoadVersions": "Failed to load versions",
+    "installingVersion": "Installing version {{version}}...",
+    "rollbackWarningTitle": "Switch to version {{version}}?",
+    "rollbackWarningDescription": "Switching versions will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding.",
+    "switchAnyway": "Switch Anyway",
+    "currentVersion": "Current"
   }
 }

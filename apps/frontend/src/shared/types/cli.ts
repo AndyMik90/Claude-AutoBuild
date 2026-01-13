@@ -40,3 +40,12 @@ export interface ClaudeCodeVersionInfo {
   /** Full detection result with source information */
   detectionResult: ToolDetectionResult;
 }
+
+/**
+ * Available Claude Code CLI versions
+ * Used for version rollback feature
+ */
+export interface ClaudeCodeVersionList {
+  /** List of available versions, sorted newest first */
+  versions: string[];
+}
