@@ -20,7 +20,7 @@
  * - Graceful fallbacks when tools not found
  */
 
-import { execFileSync, execFile, execSync, exec } from 'child_process';
+import { execFileSync, execFile } from 'child_process';
 import { existsSync, readdirSync, promises as fsPromises } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -30,7 +30,6 @@ import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAs
 import type { ToolDetectionResult } from '../shared/types';
 
 const execFileAsync = promisify(execFile);
-const execAsync = promisify(exec);
 import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 import {
   getWindowsExecutablePaths,
@@ -927,17 +926,28 @@ class CLIToolManager {
   private validateClaude(claudeCmd: string): ToolValidation {
     try {
       const needsShell = shouldUseShell(claudeCmd);
+      const env = getAugmentedEnv([path.dirname(claudeCmd)]);
 
       let version: string;
 
       if (needsShell) {
-        // For .cmd/.bat files on Windows, use cmd.exe with argument array
-        // This avoids shell command injection while handling spaces in paths
-        version = execFileSync('cmd.exe', ['/c', claudeCmd, '--version'], {
+        // For .cmd/.bat files on Windows, use cmd.exe with a quoted command line
+        // /s preserves quotes so paths with spaces are handled correctly.
+        if (process.platform === 'win32' && !isSecurePath(claudeCmd)) {
+          return {
+            valid: false,
+            message: `Claude CLI path failed security validation: ${claudeCmd}`,
+          };
+        }
+        const cmdExe = process.env.ComSpec
+          || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+        const cmdLine = `""${claudeCmd}" --version"`;
+        version = execFileSync(cmdExe, ['/d', '/s', '/c', cmdLine], {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,
-          env: getAugmentedEnv(),
+          windowsVerbatimArguments: true,
+          env,
         }).trim();
       } else {
         // For .exe files and non-Windows, use execFileSync
@@ -946,7 +956,7 @@ class CLIToolManager {
           timeout: 5000,
           windowsHide: true,
           shell: false,
-          env: getAugmentedEnv(),
+          env,
         }).trim();
       }
 
@@ -1043,17 +1053,28 @@ class CLIToolManager {
   private async validateClaudeAsync(claudeCmd: string): Promise<ToolValidation> {
     try {
       const needsShell = shouldUseShell(claudeCmd);
+      const env = await getAugmentedEnvAsync([path.dirname(claudeCmd)]);
 
       let stdout: string;
 
       if (needsShell) {
-        // For .cmd/.bat files on Windows, use cmd.exe with argument array
-        // This avoids shell command injection while handling spaces in paths
-        const result = await execFileAsync('cmd.exe', ['/c', claudeCmd, '--version'], {
+        // For .cmd/.bat files on Windows, use cmd.exe with a quoted command line
+        // /s preserves quotes so paths with spaces are handled correctly.
+        if (process.platform === 'win32' && !isSecurePath(claudeCmd)) {
+          return {
+            valid: false,
+            message: `Claude CLI path failed security validation: ${claudeCmd}`,
+          };
+        }
+        const cmdExe = process.env.ComSpec
+          || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+        const cmdLine = `""${claudeCmd}" --version"`;
+        const result = await execFileAsync(cmdExe, ['/d', '/s', '/c', cmdLine], {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,
-          env: await getAugmentedEnvAsync(),
+          windowsVerbatimArguments: true,
+          env,
         });
         stdout = result.stdout;
       } else {
@@ -1063,7 +1084,7 @@ class CLIToolManager {
           timeout: 5000,
           windowsHide: true,
           shell: false,
-          env: await getAugmentedEnvAsync(),
+          env,
         });
         stdout = result.stdout;
       }
