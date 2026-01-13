@@ -426,10 +426,10 @@ export function GitHubSetupModal({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Github className="h-5 w-5" />
-                Confirm Repository
+                {t('githubSetup.confirmRepoTitle')}
               </DialogTitle>
               <DialogDescription>
-                We detected a GitHub repository for this project. Please confirm or change it.
+                {t('githubSetup.confirmRepoDescription')}
               </DialogDescription>
             </DialogHeader>
 
@@ -438,7 +438,7 @@ export function GitHubSetupModal({
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="h-6 w-6 text-green-500" />
                   <div>
-                    <p className="font-medium">Repository Detected</p>
+                    <p className="font-medium">{t('githubSetup.repoDetected')}</p>
                     <p className="text-sm text-muted-foreground font-mono">
                       {detectedRepo}
                     </p>
@@ -459,11 +459,11 @@ export function GitHubSetupModal({
 
             <DialogFooter>
               <Button variant="outline" onClick={handleChangeRepo}>
-                Use Different Repository
+                {t('githubSetup.useDifferentRepo')}
               </Button>
               <Button onClick={handleConfirmRepo}>
                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                Confirm & Continue
+                {t('githubSetup.confirmContinue')}
               </Button>
             </DialogFooter>
           </>
@@ -475,10 +475,10 @@ export function GitHubSetupModal({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Github className="h-5 w-5" />
-                Connect to GitHub
+                {t('githubSetup.connectToGitHub')}
               </DialogTitle>
               <DialogDescription>
-                Your project needs a GitHub repository. Create a new one or link to an existing repository.
+                {t('githubSetup.connectToGitHubDescription')}
               </DialogDescription>
             </DialogHeader>
 
@@ -492,9 +492,9 @@ export function GitHubSetupModal({
                     aria-label={t('githubSetup.createRepoAriaLabel')}
                   >
                     <Plus className="h-8 w-8 text-muted-foreground" />
-                    <span className="text-sm font-medium">Create New Repo</span>
-                    <span className="text-xs text-muted-foreground text-center">
-                      Create a new repository on GitHub
+                     <span className="text-sm font-medium">{t('githubSetup.createNewRepo')}</span>
+                     <span className="text-xs text-muted-foreground text-center">
+                       {t('githubSetup.createNewRepoDescription')}
                     </span>
                   </button>
                   <button
@@ -503,9 +503,9 @@ export function GitHubSetupModal({
                     aria-label={t('githubSetup.linkRepoAriaLabel')}
                   >
                     <Link className="h-8 w-8 text-muted-foreground" />
-                    <span className="text-sm font-medium">Link Existing</span>
-                    <span className="text-xs text-muted-foreground text-center">
-                      Connect to an existing repository
+                     <span className="text-sm font-medium">{t('githubSetup.linkExisting')}</span>
+                     <span className="text-xs text-muted-foreground text-center">
+                       {t('githubSetup.linkExistingDescription')}
                     </span>
                   </button>
                 </div>
@@ -519,20 +519,20 @@ export function GitHubSetupModal({
                       onClick={() => setRepoAction(null)}
                       className="text-primary hover:underline"
                       aria-label={t('githubSetup.goBackAriaLabel')}
-                    >
-                      ← Back
-                    </button>
-                    <span>Create a new repository</span>
+                     >
+                       {t('githubSetup.back')}
+                     </button>
+                     <span>{t('githubSetup.createNewRepoNav')}</span>
                   </div>
 
                   {/* Owner selection */}
-                  <div className="space-y-2">
-                    <Label>Owner</Label>
-                    {isLoadingOrgs ? (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading accounts...
-                      </div>
+                   <div className="space-y-2">
+                     <Label>{t('githubSetup.owner')}</Label>
+                     {isLoadingOrgs ? (
+                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                         <Loader2 className="h-4 w-4 animate-spin" />
+                         {t('githubSetup.loadingAccounts')}
+                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('common:accessibility.repositoryOwnerAriaLabel')}>
                         {/* Personal account */}
@@ -574,15 +574,15 @@ export function GitHubSetupModal({
                         ))}
                       </div>
                     )}
-                    {organizations.length > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Select your personal account or an organization
-                      </p>
-                    )}
+                     {organizations.length > 0 && (
+                       <p className="text-xs text-muted-foreground">
+                         {t('githubSetup.selectAccountOrOrg')}
+                       </p>
+                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="repo-name">Repository Name</Label>
+                   <div className="space-y-2">
+                     <Label htmlFor="repo-name">{t('githubSetup.repositoryName')}</Label>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">
                         {selectedOwner || '...'} /
@@ -598,8 +598,8 @@ export function GitHubSetupModal({
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Visibility</Label>
+                   <div className="space-y-2">
+                     <Label>{t('githubSetup.visibility')}</Label>
                     <div className="flex gap-2" role="radiogroup" aria-label={t('common:accessibility.repositoryVisibilityAriaLabel')}>
                       <button
                         onClick={() => setIsPrivateRepo(true)}
@@ -613,23 +613,23 @@ export function GitHubSetupModal({
                         aria-checked={isPrivateRepo}
                         aria-label={t('githubSetup.selectVisibilityAriaLabel', { visibility: 'private' })}
                       >
-                        <Lock className="h-4 w-4" />
-                        <span className="text-sm">Private</span>
-                      </button>
-                      <button
-                        onClick={() => setIsPrivateRepo(false)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-md border ${
-                          !isPrivateRepo
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-muted hover:border-primary/50'
-                        }`}
-                        disabled={isCreatingRepo}
-                        role="radio"
-                        aria-checked={!isPrivateRepo}
-                        aria-label={t('githubSetup.selectVisibilityAriaLabel', { visibility: 'public' })}
-                      >
-                        <Globe className="h-4 w-4" />
-                        <span className="text-sm">Public</span>
+                         <Lock className="h-4 w-4" />
+                         <span className="text-sm">{t('githubSetup.private')}</span>
+                       </button>
+                       <button
+                         onClick={() => setIsPrivateRepo(false)}
+                         className={`flex items-center gap-2 px-3 py-2 rounded-md border ${
+                           !isPrivateRepo
+                             ? 'border-primary bg-primary/10 text-primary'
+                             : 'border-muted hover:border-primary/50'
+                         }`}
+                         disabled={isCreatingRepo}
+                         role="radio"
+                         aria-checked={!isPrivateRepo}
+                         aria-label={t('githubSetup.selectVisibilityAriaLabel', { visibility: 'public' })}
+                       >
+                         <Globe className="h-4 w-4" />
+                         <span className="text-sm">{t('githubSetup.public')}</span>
                       </button>
                     </div>
                   </div>
@@ -644,14 +644,14 @@ export function GitHubSetupModal({
                       onClick={() => setRepoAction(null)}
                       className="text-primary hover:underline"
                       aria-label={t('githubSetup.goBackAriaLabel')}
-                    >
-                      ← Back
-                    </button>
-                    <span>Link to existing repository</span>
+                     >
+                       {t('githubSetup.back')}
+                     </button>
+                     <span>{t('githubSetup.linkExistingNav')}</span>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="existing-repo">Repository</Label>
+                   <div className="space-y-2">
+                     <Label htmlFor="existing-repo">{t('githubSetup.repository')}</Label>
                     <Input
                       id="existing-repo"
                       value={existingRepoName}
@@ -660,7 +660,7 @@ export function GitHubSetupModal({
                       disabled={isCreatingRepo}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Enter the full repository path (e.g., octocat/hello-world)
+                      {t('githubSetup.repoPathHelp')}
                     </p>
                   </div>
                 </div>
@@ -676,7 +676,7 @@ export function GitHubSetupModal({
             <DialogFooter>
               {onSkip && (
                 <Button variant="outline" onClick={onSkip} disabled={isCreatingRepo}>
-                  Skip for now
+                  {t('githubSetup.skipForNow')}
                 </Button>
               )}
               {repoAction === 'create' && (
@@ -684,12 +684,12 @@ export function GitHubSetupModal({
                   {isCreatingRepo ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
+                      {t('githubSetup.creating')}
                     </>
                   ) : (
                     <>
                       <Plus className="mr-2 h-4 w-4" />
-                      Create Repository
+                      {t('githubSetup.createRepository')}
                     </>
                   )}
                 </Button>
@@ -699,12 +699,12 @@ export function GitHubSetupModal({
                   {isCreatingRepo ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Linking...
+                      {t('githubSetup.linking')}
                     </>
                   ) : (
                     <>
                       <Link className="mr-2 h-4 w-4" />
-                      Link Repository
+                      {t('githubSetup.linkRepository')}
                     </>
                   )}
                 </Button>
@@ -714,10 +714,10 @@ export function GitHubSetupModal({
                   {isLoadingRepo ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Checking...
+                      {t('githubSetup.checking')}
                     </>
                   ) : (
-                    'Retry Detection'
+                    t('githubSetup.retryDetection')
                   )}
                 </Button>
               )}
@@ -731,19 +731,19 @@ export function GitHubSetupModal({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <GitBranch className="h-5 w-5" />
-                Select Base Branch
+                {t('githubSetup.selectBranch')}
               </DialogTitle>
               <DialogDescription>
-                Choose which branch Auto Claude should use as the base for creating task branches.
+                {t('githubSetup.branchDescription')}
               </DialogDescription>
             </DialogHeader>
 
             <div className="py-4 space-y-4">
               {/* Show detected repo */}
               {detectedRepo && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Github className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Repository:</span>
+               <div className="flex items-center gap-2 text-sm">
+                   <Github className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">{t('githubSetup.repositoryLabel')}</span>
                   <code className="px-2 py-0.5 bg-muted rounded font-mono text-xs">
                     {detectedRepo}
                   </code>
@@ -752,8 +752,8 @@ export function GitHubSetupModal({
               )}
 
               {/* Branch selector */}
-              <div className="space-y-2">
-                <Label>Base Branch</Label>
+               <div className="space-y-2">
+                 <Label>{t('githubSetup.baseBranch')}</Label>
                 <Select
                   value={selectedBranch || ''}
                   onValueChange={setSelectedBranch}
@@ -761,50 +761,49 @@ export function GitHubSetupModal({
                 >
                   <SelectTrigger>
                     {isLoadingBranches ? (
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <span>Loading branches...</span>
-                      </div>
-                    ) : (
-                      <SelectValue placeholder="Select a branch" />
-                    )}
+                       <div className="flex items-center gap-2">
+                         <Loader2 className="h-3 w-3 animate-spin" />
+                         <span>{t('githubSetup.loadingBranches')}</span>
+                       </div>
+                     ) : (
+                       <SelectValue placeholder={t('githubSetup.selectBranchPlaceholder')} />
+                     )}
                   </SelectTrigger>
                   <SelectContent>
                     {branches.map((branch) => (
                       <SelectItem key={branch} value={branch}>
                         <div className="flex items-center gap-2">
                           <span>{branch}</span>
-                          {branch === recommendedBranch && (
-                            <span className="flex items-center gap-1 text-xs text-success">
-                              <Sparkles className="h-3 w-3" />
-                              Recommended
-                            </span>
-                          )}
+                           {branch === recommendedBranch && (
+                             <span className="flex items-center gap-1 text-xs text-success">
+                               <Sparkles className="h-3 w-3" />
+                               {t('githubSetup.recommended')}
+                             </span>
+                           )}
                         </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  All tasks will be created from branches like{' '}
-                  <code className="px-1 bg-muted rounded">auto-claude/task-name</code>
-                  {selectedBranch && (
-                    <> based on <code className="px-1 bg-muted rounded">{selectedBranch}</code></>
-                  )}
-                </p>
+                 <p className="text-xs text-muted-foreground">
+                   {t('githubSetup.branchNamingHint')}{' '}
+                   <code className="px-1 bg-muted rounded">auto-claude/task-name</code>
+                   {selectedBranch && (
+                     <> {t('githubSetup.basedOn')} <code className="px-1 bg-muted rounded">{selectedBranch}</code></>
+                   )}
+                 </p>
               </div>
 
               {/* Info about branch selection */}
               <div className="rounded-lg border border-info/30 bg-info/5 p-3">
                 <div className="flex items-start gap-2">
                   <Sparkles className="h-4 w-4 text-info mt-0.5" />
-                  <div className="text-xs text-muted-foreground">
-                    <p className="font-medium text-foreground">Why select a branch?</p>
-                    <p className="mt-1">
-                      Auto Claude creates isolated workspaces for each task. Selecting the right base branch ensures
-                      your tasks start with the latest code from your main development line.
-                    </p>
-                  </div>
+                   <div className="text-xs text-muted-foreground">
+                     <p className="font-medium text-foreground">{t('githubSetup.whyBranch')}</p>
+                     <p className="mt-1">
+                       {t('githubSetup.branchExplanation')}
+                     </p>
+                   </div>
                 </div>
               </div>
 
@@ -818,7 +817,7 @@ export function GitHubSetupModal({
             <DialogFooter>
               {onSkip && (
                 <Button variant="outline" onClick={onSkip}>
-                  Skip for now
+                  {t('githubSetup.skipForNow')}
                 </Button>
               )}
               <Button
@@ -826,7 +825,7 @@ export function GitHubSetupModal({
                 disabled={!selectedBranch || isLoadingBranches}
               >
                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                Complete Setup
+                {t('githubSetup.completeSetup')}
               </Button>
             </DialogFooter>
           </>
@@ -838,7 +837,7 @@ export function GitHubSetupModal({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-success" />
-                Setup Complete
+                {t('githubSetup.setupComplete')}
               </DialogTitle>
             </DialogHeader>
 
@@ -847,8 +846,7 @@ export function GitHubSetupModal({
                 <CheckCircle2 className="h-8 w-8 text-success" />
               </div>
               <p className="text-sm text-muted-foreground text-center">
-                Auto Claude is ready to use! You can now create tasks that will be
-                automatically based on <code className="px-1 bg-muted rounded">{selectedBranch}</code>.
+                {t('githubSetup.setupCompleteDescription')} <code className="px-1 bg-muted rounded">{selectedBranch}</code>.
               </p>
             </div>
           </>
@@ -859,8 +857,8 @@ export function GitHubSetupModal({
   // Progress indicator
   const renderProgress = () => {
     const steps: { label: string }[] = [
-      { label: 'Authenticate' },
-      { label: 'Configure' },
+      { label: t('githubSetup.progressAuthenticate') },
+      { label: t('githubSetup.progressConfigure') },
     ];
 
     // Don't show progress on complete step
