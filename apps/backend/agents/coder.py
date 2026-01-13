@@ -136,6 +136,25 @@ async def run_autonomous_agent(
     # Track which phase we're in for logging
     current_log_phase = LogPhase.CODING
     is_planning_phase = False
+    planning_retry_context: str | None = None
+    planning_validation_failures = 0
+    max_planning_validation_retries = 3
+
+    def _validate_and_fix_implementation_plan() -> tuple[bool, list[str]]:
+        from spec.validate_pkg import SpecValidator, auto_fix_plan
+
+        spec_validator = SpecValidator(spec_dir)
+        result = spec_validator.validate_implementation_plan()
+        if result.valid:
+            return True, []
+
+        fixed = auto_fix_plan(spec_dir)
+        if fixed:
+            result = spec_validator.validate_implementation_plan()
+            if result.valid:
+                return True, []
+
+        return False, result.errors
 
     if first_run:
         print_status(
@@ -223,8 +242,8 @@ async def run_autonomous_agent(
             print("To continue, run the script again without --max-iterations")
             break
 
-        # Get the next subtask to work on
-        next_subtask = get_next_subtask(spec_dir)
+        # Get the next subtask to work on (planner sessions shouldn't bind to a subtask)
+        next_subtask = None if first_run else get_next_subtask(spec_dir)
         subtask_id = next_subtask.get("id") if next_subtask else None
         phase_name = next_subtask.get("phase_name") if next_subtask else None
 
@@ -275,6 +294,8 @@ async def run_autonomous_agent(
         # Generate appropriate prompt
         if first_run:
             prompt = generate_planner_prompt(spec_dir, project_dir)
+            if planning_retry_context:
+                prompt += "\n\n" + planning_retry_context
 
             # Retrieve Graphiti memory context for planning phase
             # This gives the planner knowledge of previous patterns, gotchas, and insights
@@ -311,6 +332,10 @@ async def run_autonomous_agent(
                     task_logger.start_phase(
                         LogPhase.CODING, "Starting implementation..."
                     )
+                # In worktree mode, the UI prefers planning logs from the main spec dir.
+                # Ensure the planning->coding transition is immediately reflected there.
+                if sync_spec_to_source(spec_dir, source_spec_dir):
+                    print_status("Phase transition synced to main project", "success")
 
             if not next_subtask:
                 print("No pending subtasks found - build may be complete!")
@@ -369,8 +394,46 @@ async def run_autonomous_agent(
                 client, prompt, spec_dir, verbose, phase=current_log_phase
             )
 
+        plan_validated = False
+        if is_planning_phase and status != "error":
+            valid, errors = _validate_and_fix_implementation_plan()
+            if valid:
+                plan_validated = True
+                planning_retry_context = None
+            else:
+                planning_validation_failures += 1
+                if planning_validation_failures >= max_planning_validation_retries:
+                    print_status(
+                        "implementation_plan.json validation failed too many times",
+                        "error",
+                    )
+                    for err in errors:
+                        print(f"  - {err}")
+                    status_manager.update(state=BuildState.ERROR)
+                    return
+
+                print_status(
+                    "implementation_plan.json invalid - retrying planner", "warning"
+                )
+                for err in errors:
+                    print(f"  - {err}")
+
+                planning_retry_context = (
+                    "## IMPLEMENTATION PLAN VALIDATION ERRORS\n\n"
+                    "The previous `implementation_plan.json` is INVALID.\n"
+                    "You MUST rewrite it to match the required schema:\n"
+                    "- Top-level: `feature`, `workflow_type`, `phases`\n"
+                    "- Each phase: `id` (or `phase`) and `name`, and `subtasks`\n"
+                    "- Each subtask: `id`, `description`, `status` (use `pending` for not started)\n\n"
+                    "Validation errors:\n" + "\n".join(f"- {e}" for e in errors)
+                )
+                # Stay in planning mode for the next iteration
+                first_run = True
+                status = "continue"
+
         # === POST-SESSION PROCESSING (100% reliable) ===
-        if subtask_id and not first_run:
+        # Only run post-session processing for coding sessions.
+        if subtask_id and current_log_phase == LogPhase.CODING:
             linear_is_enabled = (
                 linear_task is not None and linear_task.task_id is not None
             )
@@ -408,7 +471,7 @@ async def run_autonomous_agent(
                         attempt_count=attempt_count,
                     )
                     print_status("Linear notified of stuck subtask", "info")
-        elif is_planning_phase and source_spec_dir:
+        elif plan_validated and source_spec_dir:
             # After planning phase, sync the newly created implementation plan back to source
             if sync_spec_to_source(spec_dir, source_spec_dir):
                 print_status("Implementation plan synced to main project", "success")
@@ -442,7 +505,9 @@ async def run_autonomous_agent(
             print_progress_summary(spec_dir)
 
             # Update state back to building
-            status_manager.update(state=BuildState.BUILDING)
+            status_manager.update(
+                state=BuildState.PLANNING if is_planning_phase else BuildState.BUILDING
+            )
 
             # Show next subtask info
             next_subtask = get_next_subtask(spec_dir)

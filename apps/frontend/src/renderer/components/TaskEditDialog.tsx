@@ -3,7 +3,9 @@
  *
  * Allows users to modify all task properties including title, description,
  * classification fields, images, and review settings.
- * Follows the same dialog pattern as TaskCreationWizard for consistency.
+ *
+ * Now uses the shared TaskModalLayout for consistent styling with other task modals,
+ * and TaskFormFields for the form content.
  *
  * Features:
  * - Pre-populates form with current task values
@@ -24,48 +26,15 @@
  * />
  * ```
  */
-import { useState, useEffect, useCallback, useRef, type ClipboardEvent, type DragEvent } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Image as ImageIcon, ChevronDown, ChevronUp, X } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from './ui/dialog';
+import { Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
-import { Label } from './ui/label';
-import { Checkbox } from './ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from './ui/select';
-import {
-  ImageUpload,
-  generateImageId,
-  blobToBase64,
-  createThumbnail,
-  isValidImageMimeType,
-  resolveFilename
-} from './ImageUpload';
-import { AgentProfileSelector } from './AgentProfileSelector';
+import { TaskModalLayout } from './task-form/TaskModalLayout';
+import { TaskFormFields } from './task-form/TaskFormFields';
 import { persistUpdateTask } from '../stores/task-store';
-import { cn } from '../lib/utils';
 import type { Task, ImageAttachment, TaskCategory, TaskPriority, TaskComplexity, TaskImpact, ModelType, ThinkingLevel } from '../../shared/types';
 import {
-  TASK_CATEGORY_LABELS,
-  TASK_PRIORITY_LABELS,
-  TASK_COMPLEXITY_LABELS,
-  TASK_IMPACT_LABELS,
-  MAX_IMAGES_PER_TASK,
-  ALLOWED_IMAGE_TYPES_DISPLAY,
   DEFAULT_AGENT_PROFILES,
   DEFAULT_PHASE_MODELS,
   DEFAULT_PHASE_THINKING
@@ -88,20 +57,19 @@ interface TaskEditDialogProps {
 }
 
 export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDialogProps) {
-  const { t } = useTranslation('tasks');
+  const { t } = useTranslation(['tasks', 'common']);
   // Get selected agent profile from settings for defaults
   const { settings } = useSettingsStore();
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
     p => p.id === settings.selectedAgentProfile
   ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
 
+  // Form state
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [showImages, setShowImages] = useState(false);
-  const [pasteSuccess, setPasteSuccess] = useState(false);
+  const [showClassification, setShowClassification] = useState(false);
 
   // Classification fields
   const [category, setCategory] = useState<TaskCategory | ''>(task.metadata?.category || '');
@@ -111,15 +79,12 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
 
   // Agent profile / model configuration
   const [profileId, setProfileId] = useState<string>(() => {
-    // Check if task uses Auto profile
     if (task.metadata?.isAutoProfile) {
       return 'auto';
     }
-    // Determine profile ID from task metadata or default to 'auto'
     const taskModel = task.metadata?.model;
     const taskThinking = task.metadata?.thinkingLevel;
     if (taskModel && taskThinking) {
-      // Check if it matches a known profile
       const matchingProfile = DEFAULT_AGENT_PROFILES.find(
         p => p.model === taskModel && p.thinkingLevel === taskThinking && !p.isAutoProfile
       );
@@ -131,7 +96,6 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | ''>(
     task.metadata?.thinkingLevel || selectedProfile.thinkingLevel
   );
-  // Auto profile - per-phase configuration
   const [phaseModels, setPhaseModels] = useState<PhaseModelConfig | undefined>(
     task.metadata?.phaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS
   );
@@ -146,12 +110,6 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const [requireReviewBeforeCoding, setRequireReviewBeforeCoding] = useState(
     task.metadata?.requireReviewBeforeCoding ?? false
   );
-
-  // Ref for the textarea to handle paste events
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
-
-  // Drag-and-drop state for images over textarea
-  const [isDragOverTextarea, setIsDragOverTextarea] = useState(false);
 
   // Reset form when task changes or dialog opens
   useEffect(() => {
@@ -181,8 +139,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         setProfileId(matchingProfile?.id || 'custom');
         setModel(taskModel);
         setThinkingLevel(taskThinking);
-        setPhaseModels(DEFAULT_PHASE_MODELS);
-        setPhaseThinking(DEFAULT_PHASE_THINKING);
+        setPhaseModels(task.metadata?.phaseModels || DEFAULT_PHASE_MODELS);
+        setPhaseThinking(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING);
       } else {
         setProfileId(settings.selectedAgentProfile || 'auto');
         setModel(selectedProfile.model);
@@ -195,199 +153,19 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       setRequireReviewBeforeCoding(task.metadata?.requireReviewBeforeCoding ?? false);
       setError(null);
 
-      // Auto-expand sections if they have content
+      // Auto-expand classification if it has content
       if (task.metadata?.category || task.metadata?.priority || task.metadata?.complexity || task.metadata?.impact) {
-        setShowAdvanced(true);
-      }
-      // Auto-expand images section if task has images
-      setShowImages((task.metadata?.attachedImages || []).length > 0);
-      setPasteSuccess(false);
-    }
-  }, [open, task, settings.selectedAgentProfile, selectedProfile.model, selectedProfile.thinkingLevel]);
-
-  /**
-   * Handle paste event for screenshot support
-   */
-  const handlePaste = useCallback(async (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    const clipboardItems = e.clipboardData?.items;
-    if (!clipboardItems) return;
-
-    // Find image items in clipboard
-    const imageItems: DataTransferItem[] = [];
-    for (let i = 0; i < clipboardItems.length; i++) {
-      const item = clipboardItems[i];
-      if (item.type.startsWith('image/')) {
-        imageItems.push(item);
+        setShowClassification(true);
+      } else {
+        setShowClassification(false);
       }
     }
-
-    // If no images, allow normal paste behavior
-    if (imageItems.length === 0) return;
-
-    // Prevent default paste when we have images
-    e.preventDefault();
-
-    // Check if we can add more images
-    const remainingSlots = MAX_IMAGES_PER_TASK - images.length;
-    if (remainingSlots <= 0) {
-      setError(`Maximum of ${MAX_IMAGES_PER_TASK} images allowed`);
-      return;
-    }
-
-    setError(null);
-
-    // Process image items
-    const newImages: ImageAttachment[] = [];
-    const existingFilenames = images.map(img => img.filename);
-
-    for (const item of imageItems.slice(0, remainingSlots)) {
-      const file = item.getAsFile();
-      if (!file) continue;
-
-      // Validate image type
-      if (!isValidImageMimeType(file.type)) {
-        setError(`Invalid image type. Allowed: ${ALLOWED_IMAGE_TYPES_DISPLAY}`);
-        continue;
-      }
-
-      try {
-        const dataUrl = await blobToBase64(file);
-        const thumbnail = await createThumbnail(dataUrl);
-
-        // Generate filename for pasted images (screenshot-timestamp.ext)
-        const extension = file.type.split('/')[1] || 'png';
-        const baseFilename = `screenshot-${Date.now()}.${extension}`;
-        const resolvedFilename = resolveFilename(baseFilename, [
-          ...existingFilenames,
-          ...newImages.map(img => img.filename)
-        ]);
-
-        newImages.push({
-          id: generateImageId(),
-          filename: resolvedFilename,
-          mimeType: file.type,
-          size: file.size,
-          data: dataUrl.split(',')[1], // Store base64 without data URL prefix
-          thumbnail
-        });
-      } catch {
-        setError('Failed to process pasted image');
-      }
-    }
-
-    if (newImages.length > 0) {
-      setImages(prev => [...prev, ...newImages]);
-      // Auto-expand images section
-      setShowImages(true);
-      // Show success feedback
-      setPasteSuccess(true);
-      setTimeout(() => setPasteSuccess(false), 2000);
-    }
-  }, [images]);
-
-  /**
-   * Handle drag over textarea for image drops
-   */
-  const handleTextareaDragOver = useCallback((e: DragEvent<HTMLTextAreaElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOverTextarea(true);
-  }, []);
-
-  /**
-   * Handle drag leave from textarea
-   */
-  const handleTextareaDragLeave = useCallback((e: DragEvent<HTMLTextAreaElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOverTextarea(false);
-  }, []);
-
-  /**
-   * Handle drop on textarea for image files
-   */
-  const handleTextareaDrop = useCallback(
-    async (e: DragEvent<HTMLTextAreaElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragOverTextarea(false);
-
-      if (isSaving) return;
-
-      const files = e.dataTransfer?.files;
-      if (!files || files.length === 0) return;
-
-      // Filter for image files
-      const imageFiles: File[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.type.startsWith('image/')) {
-          imageFiles.push(file);
-        }
-      }
-
-      if (imageFiles.length === 0) return;
-
-      // Check if we can add more images
-      const remainingSlots = MAX_IMAGES_PER_TASK - images.length;
-      if (remainingSlots <= 0) {
-        setError(`Maximum of ${MAX_IMAGES_PER_TASK} images allowed`);
-        return;
-      }
-
-      setError(null);
-
-      // Process image files
-      const newImages: ImageAttachment[] = [];
-      const existingFilenames = images.map(img => img.filename);
-
-      for (const file of imageFiles.slice(0, remainingSlots)) {
-        // Validate image type
-        if (!isValidImageMimeType(file.type)) {
-          setError(`Invalid image type. Allowed: ${ALLOWED_IMAGE_TYPES_DISPLAY}`);
-          continue;
-        }
-
-        try {
-          const dataUrl = await blobToBase64(file);
-          const thumbnail = await createThumbnail(dataUrl);
-
-          // Use original filename or generate one
-          const baseFilename = file.name || `dropped-image-${Date.now()}.${file.type.split('/')[1] || 'png'}`;
-          const resolvedFilename = resolveFilename(baseFilename, [
-            ...existingFilenames,
-            ...newImages.map(img => img.filename)
-          ]);
-
-          newImages.push({
-            id: generateImageId(),
-            filename: resolvedFilename,
-            mimeType: file.type,
-            size: file.size,
-            data: dataUrl.split(',')[1], // Store base64 without data URL prefix
-            thumbnail
-          });
-        } catch {
-          setError('Failed to process dropped image');
-        }
-      }
-
-      if (newImages.length > 0) {
-        setImages(prev => [...prev, ...newImages]);
-        // Auto-expand images section
-        setShowImages(true);
-        // Show success feedback
-        setPasteSuccess(true);
-        setTimeout(() => setPasteSuccess(false), 2000);
-      }
-    },
-    [images, isSaving]
-  );
+  }, [open, task, settings.selectedAgentProfile, selectedProfile.model, selectedProfile.thinkingLevel, selectedProfile.phaseModels, selectedProfile.phaseThinking]);
 
   const handleSave = async () => {
-    // Validate input - only description is required
+    // Validate input
     if (!description.trim()) {
-      setError('Description is required');
+      setError(t('tasks:form.errors.descriptionRequired'));
       return;
     }
 
@@ -404,10 +182,11 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       model !== (task.metadata?.model || '') ||
       thinkingLevel !== (task.metadata?.thinkingLevel || '') ||
       requireReviewBeforeCoding !== (task.metadata?.requireReviewBeforeCoding ?? false) ||
-      JSON.stringify(images) !== JSON.stringify(task.metadata?.attachedImages || []);
+      JSON.stringify(images) !== JSON.stringify(task.metadata?.attachedImages || []) ||
+      JSON.stringify(phaseModels) !== JSON.stringify(task.metadata?.phaseModels || DEFAULT_PHASE_MODELS) ||
+      JSON.stringify(phaseThinking) !== JSON.stringify(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING);
 
     if (!hasChanges) {
-      // No changes, just close
       onOpenChange(false);
       return;
     }
@@ -423,17 +202,15 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     if (impact) metadataUpdates.impact = impact;
     if (model) metadataUpdates.model = model as ModelType;
     if (thinkingLevel) metadataUpdates.thinkingLevel = thinkingLevel as ThinkingLevel;
-    // All profiles now support per-phase configuration
-    // isAutoProfile indicates task uses phase-specific models/thinking
     if (phaseModels && phaseThinking) {
-      metadataUpdates.isAutoProfile = true;
+      metadataUpdates.isAutoProfile = profileId === 'auto';
       metadataUpdates.phaseModels = phaseModels;
       metadataUpdates.phaseThinking = phaseThinking;
     }
-    if (images.length > 0) metadataUpdates.attachedImages = images;
+    // Always set attachedImages to persist removal when all images are deleted
+    metadataUpdates.attachedImages = images.length > 0 ? images : [];
     metadataUpdates.requireReviewBeforeCoding = requireReviewBeforeCoding;
 
-    // Title is optional - if empty, it will be auto-generated by the backend
     const success = await persistUpdateTask(task.id, {
       title: trimmedTitle,
       description: trimmedDescription,
@@ -444,319 +221,77 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       onOpenChange(false);
       onSaved?.();
     } else {
-      setError('Failed to update task. Please try again.');
+      setError(t('tasks:edit.errors.updateFailed'));
     }
 
     setIsSaving(false);
   };
 
-  const handleClose = () => {
-    if (!isSaving) {
-      onOpenChange(false);
-    }
-  };
-
-  // Only description is required - title will be auto-generated if empty
   const isValid = description.trim().length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-foreground">Edit Task</DialogTitle>
-          <DialogDescription>
-            Update task details including title, description, classification, images, and settings. Changes will be saved to the spec files.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-5 py-4">
-          {/* Description (Primary - Required) */}
-          <div className="space-y-2">
-            <Label htmlFor="edit-description" className="text-sm font-medium text-foreground">
-              Description <span className="text-destructive">*</span>
-            </Label>
-            <Textarea
-              ref={descriptionRef}
-              id="edit-description"
-              placeholder="Describe the feature, bug fix, or improvement. Be as specific as possible about requirements, constraints, and expected behavior."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              onPaste={handlePaste}
-              onDragOver={handleTextareaDragOver}
-              onDragLeave={handleTextareaDragLeave}
-              onDrop={handleTextareaDrop}
-              rows={5}
-              disabled={isSaving}
-              aria-required="true"
-              aria-describedby="edit-description-help"
-              className={cn(
-                isDragOverTextarea && !isSaving && "border-primary bg-primary/5 ring-2 ring-primary/20"
-              )}
-            />
-            <p id="edit-description-help" className="text-xs text-muted-foreground">
-              {t('images.pasteHint', { shortcut: navigator.platform.includes('Mac') ? '⌘V' : 'Ctrl+V' })}
-            </p>
-          </div>
-
-          {/* Title (Optional - Auto-generated if empty) */}
-          <div className="space-y-2">
-            <Label htmlFor="edit-title" className="text-sm font-medium text-foreground">
-              Task Title <span className="text-muted-foreground font-normal">(optional)</span>
-            </Label>
-            <Input
-              id="edit-title"
-              placeholder="Leave empty to auto-generate from description"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              disabled={isSaving}
-            />
-            <p className="text-xs text-muted-foreground">
-              A short, descriptive title will be generated automatically if left empty.
-            </p>
-          </div>
-
-          {/* Agent Profile Selection */}
-          <AgentProfileSelector
-            profileId={profileId}
-            model={model}
-            thinkingLevel={thinkingLevel}
-            phaseModels={phaseModels}
-            phaseThinking={phaseThinking}
-            onProfileChange={(newProfileId, newModel, newThinkingLevel) => {
-              setProfileId(newProfileId);
-              setModel(newModel);
-              setThinkingLevel(newThinkingLevel);
-            }}
-            onModelChange={setModel}
-            onThinkingLevelChange={setThinkingLevel}
-            onPhaseModelsChange={setPhaseModels}
-            onPhaseThinkingChange={setPhaseThinking}
-            disabled={isSaving}
-          />
-
-          {/* Paste Success Indicator */}
-          {pasteSuccess && (
-            <div className="flex items-center gap-2 text-sm text-success animate-in fade-in slide-in-from-top-1 duration-200">
-              <ImageIcon className="h-4 w-4" />
-              Image added successfully!
-            </div>
-          )}
-
-          {/* Advanced Options Toggle */}
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className={cn(
-              'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
-              'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
-            )}
-            disabled={isSaving}
-            aria-expanded={showAdvanced}
-            aria-controls="edit-advanced-options"
-          >
-            <span>Classification (optional)</span>
-            {showAdvanced ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
-
-          {/* Advanced Options */}
-          {showAdvanced && (
-            <div id="edit-advanced-options" className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
-              <div className="grid grid-cols-2 gap-4">
-                {/* Category */}
-                <div className="space-y-2">
-                  <Label htmlFor="edit-category" className="text-xs font-medium text-muted-foreground">
-                    Category
-                  </Label>
-                  <Select
-                    value={category}
-                    onValueChange={(value) => setCategory(value as TaskCategory)}
-                    disabled={isSaving}
-                  >
-                    <SelectTrigger id="edit-category" className="h-9">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(TASK_CATEGORY_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Priority */}
-                <div className="space-y-2">
-                  <Label htmlFor="edit-priority" className="text-xs font-medium text-muted-foreground">
-                    Priority
-                  </Label>
-                  <Select
-                    value={priority}
-                    onValueChange={(value) => setPriority(value as TaskPriority)}
-                    disabled={isSaving}
-                  >
-                    <SelectTrigger id="edit-priority" className="h-9">
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(TASK_PRIORITY_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Complexity */}
-                <div className="space-y-2">
-                  <Label htmlFor="edit-complexity" className="text-xs font-medium text-muted-foreground">
-                    Complexity
-                  </Label>
-                  <Select
-                    value={complexity}
-                    onValueChange={(value) => setComplexity(value as TaskComplexity)}
-                    disabled={isSaving}
-                  >
-                    <SelectTrigger id="edit-complexity" className="h-9">
-                      <SelectValue placeholder="Select complexity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(TASK_COMPLEXITY_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Impact */}
-                <div className="space-y-2">
-                  <Label htmlFor="edit-impact" className="text-xs font-medium text-muted-foreground">
-                    Impact
-                  </Label>
-                  <Select
-                    value={impact}
-                    onValueChange={(value) => setImpact(value as TaskImpact)}
-                    disabled={isSaving}
-                  >
-                    <SelectTrigger id="edit-impact" className="h-9">
-                      <SelectValue placeholder="Select impact" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(TASK_IMPACT_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                These labels help organize and prioritize tasks. They&apos;re optional but useful for filtering.
-              </p>
-            </div>
-          )}
-
-          {/* Images Toggle */}
-          <button
-            type="button"
-            onClick={() => setShowImages(!showImages)}
-            className={cn(
-              'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
-              'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
-            )}
-            disabled={isSaving}
-            aria-expanded={showImages}
-            aria-controls="edit-images-section"
-          >
-            <span className="flex items-center gap-2">
-              <ImageIcon className="h-4 w-4" />
-              Reference Images (optional)
-              {images.length > 0 && (
-                <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                  {images.length}
-                </span>
-              )}
-            </span>
-            {showImages ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
-
-          {/* Image Upload Section */}
-          {showImages && (
-            <div id="edit-images-section" className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
-              <p className="text-xs text-muted-foreground">
-                Attach screenshots, mockups, or diagrams to provide visual context for the AI.
-              </p>
-              <ImageUpload
-                images={images}
-                onImagesChange={setImages}
-                disabled={isSaving}
-              />
-            </div>
-          )}
-
-          {/* Review Requirement Toggle */}
-          <div className="flex items-start gap-3 p-4 rounded-lg border border-border bg-muted/30">
-            <Checkbox
-              id="edit-require-review"
-              checked={requireReviewBeforeCoding}
-              onCheckedChange={(checked) => setRequireReviewBeforeCoding(checked === true)}
-              disabled={isSaving}
-              className="mt-0.5"
-            />
-            <div className="flex-1 space-y-1">
-              <Label
-                htmlFor="edit-require-review"
-                className="text-sm font-medium text-foreground cursor-pointer"
-              >
-                Require human review before coding
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                When enabled, you&apos;ll be prompted to review the spec and implementation plan before the coding phase begins. This allows you to approve, request changes, or provide feedback.
-              </p>
-            </div>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive" role="alert">
-              <X className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isSaving}>
-            Cancel
+    <TaskModalLayout
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('tasks:edit.title')}
+      description={t('tasks:edit.description')}
+      disabled={isSaving}
+      footer={
+        <div className="flex items-center justify-end gap-3">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+            {t('common:buttons.cancel')}
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={isSaving || !isValid}
-          >
+          <Button onClick={handleSave} disabled={isSaving || !isValid}>
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                {t('common:buttons.saving')}
               </>
             ) : (
-              'Save Changes'
+              t('tasks:edit.saveChanges')
             )}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      }
+    >
+      <TaskFormFields
+        description={description}
+        onDescriptionChange={setDescription}
+        title={title}
+        onTitleChange={setTitle}
+        profileId={profileId}
+        model={model}
+        thinkingLevel={thinkingLevel}
+        phaseModels={phaseModels}
+        phaseThinking={phaseThinking}
+        onProfileChange={(newProfileId, newModel, newThinkingLevel) => {
+          setProfileId(newProfileId);
+          setModel(newModel);
+          setThinkingLevel(newThinkingLevel);
+        }}
+        onModelChange={setModel}
+        onThinkingLevelChange={setThinkingLevel}
+        onPhaseModelsChange={setPhaseModels}
+        onPhaseThinkingChange={setPhaseThinking}
+        category={category}
+        priority={priority}
+        complexity={complexity}
+        impact={impact}
+        onCategoryChange={setCategory}
+        onPriorityChange={setPriority}
+        onComplexityChange={setComplexity}
+        onImpactChange={setImpact}
+        showClassification={showClassification}
+        onShowClassificationChange={setShowClassification}
+        images={images}
+        onImagesChange={setImages}
+        requireReviewBeforeCoding={requireReviewBeforeCoding}
+        onRequireReviewChange={setRequireReviewBeforeCoding}
+        disabled={isSaving}
+        error={error}
+        onError={setError}
+        idPrefix="edit"
+      />
+    </TaskModalLayout>
   );
 }

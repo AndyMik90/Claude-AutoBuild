@@ -13,7 +13,8 @@ import {
   downloadUpdate,
   downloadStableVersion,
   quitAndInstall,
-  getCurrentVersion
+  getCurrentVersion,
+  getDownloadedUpdateInfo
 } from '../app-updater';
 
 /**
@@ -119,6 +120,29 @@ export function registerAppUpdateHandlers(): void {
       } catch (error) {
         console.error('[app-update-handlers] Get version failed:', error);
         throw error;
+      }
+    }
+  );
+
+  /**
+   * APP_UPDATE_GET_DOWNLOADED: Get downloaded update info
+   * Returns info about a downloaded update that's ready to install,
+   * or null if no update has been downloaded yet.
+   * This allows the UI to show "Install and Restart" even if the user
+   * opens Settings after the download completed in the background.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.APP_UPDATE_GET_DOWNLOADED,
+    async (): Promise<IPCResult<AppUpdateInfo | null>> => {
+      try {
+        const downloadedInfo = getDownloadedUpdateInfo();
+        return { success: true, data: downloadedInfo };
+      } catch (error) {
+        console.error('[app-update-handlers] Get downloaded update info failed:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get downloaded update info'
+        };
       }
     }
   );

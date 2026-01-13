@@ -56,9 +56,16 @@ export async function createProfileDirectory(profileName: string): Promise<strin
 
 /**
  * Check if a profile has valid authentication
- * (checks if the config directory has credential files or OAuth account info)
+ * (checks for OAuth token or config directory credential files)
  */
 export function isProfileAuthenticated(profile: ClaudeProfile): boolean {
+  // Check for direct OAuth token first (OAuth-only profiles without configDir)
+  // This enables auto-switch to work with profiles that only have oauthToken set
+  if (hasValidToken(profile)) {
+    return true;
+  }
+
+  // Check for configDir-based credentials (legacy or CLI-authenticated profiles)
   const configDir = profile.configDir;
   if (!configDir || !existsSync(configDir)) {
     return false;
@@ -134,7 +141,6 @@ export function hasValidToken(profile: ClaudeProfile): boolean {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     if (new Date(profile.tokenCreatedAt) < oneYearAgo) {
-      console.warn('[ProfileUtils] Token expired for profile:', profile.name);
       return false;
     }
   }

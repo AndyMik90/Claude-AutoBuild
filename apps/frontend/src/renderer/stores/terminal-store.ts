@@ -21,6 +21,7 @@ export interface Terminal {
   projectPath?: string;  // Project this terminal belongs to (for multi-project support)
   worktreeConfig?: TerminalWorktreeConfig;  // Associated worktree for isolated development
   isClaudeBusy?: boolean;  // Whether Claude Code is actively processing (for visual indicator)
+  pendingClaudeResume?: boolean;  // Whether this terminal has a pending Claude resume (deferred until tab activated)
 }
 
 interface TerminalLayout {
@@ -52,6 +53,7 @@ interface TerminalState {
   setAssociatedTask: (id: string, taskId: string | undefined) => void;
   setWorktreeConfig: (id: string, config: TerminalWorktreeConfig | undefined) => void;
   setClaudeBusy: (id: string, isBusy: boolean) => void;
+  setPendingClaudeResume: (id: string, pending: boolean) => void;
   clearAllTerminals: () => void;
   setHasRestoredSessions: (value: boolean) => void;
   reorderTerminals: (activeId: string, overId: string) => void;
@@ -252,6 +254,14 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     set((state) => ({
       terminals: state.terminals.map((t) =>
         t.id === id ? { ...t, isClaudeBusy: isBusy } : t
+      ),
+    }));
+  },
+
+  setPendingClaudeResume: (id: string, pending: boolean) => {
+    set((state) => ({
+      terminals: state.terminals.map((t) =>
+        t.id === id ? { ...t, pendingClaudeResume: pending } : t
       ),
     }));
   },

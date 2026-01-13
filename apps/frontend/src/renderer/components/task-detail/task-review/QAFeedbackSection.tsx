@@ -121,7 +121,8 @@ export function QAFeedbackSection({
           data: dataUrl.split(',')[1], // Store base64 without data URL prefix
           thumbnail
         });
-      } catch {
+      } catch (error) {
+        console.error('[QAFeedbackSection] Failed to process pasted image:', error);
         setError(t('feedback.processingError', 'Failed to process pasted image'));
       }
     }
@@ -218,7 +219,8 @@ export function QAFeedbackSection({
             data: dataUrl.split(',')[1], // Store base64 without data URL prefix
             thumbnail
           });
-        } catch {
+        } catch (error) {
+          console.error('[QAFeedbackSection] Failed to process dropped image:', error);
           setError(t('feedback.processingError', 'Failed to process dropped image'));
         }
       }

@@ -2,7 +2,7 @@ import { app } from 'electron';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
+import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, TaskErrorInfo, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
@@ -255,13 +255,17 @@ export class ProjectStore {
       return cached.tasks;
     }
 
-    console.warn('[ProjectStore] getTasks called with projectId:', projectId, cached ? '(cache expired)' : '(cache miss)');
+    console.warn('[ProjectStore] getTasks called - will load from disk', {
+      projectId,
+      reason: cached ? 'cache expired' : 'cache miss',
+      cacheAge: cached ? now - cached.timestamp : 'N/A'
+    });
     const project = this.getProject(projectId);
     if (!project) {
       console.warn('[ProjectStore] Project not found for id:', projectId);
       return [];
     }
-    console.warn('[ProjectStore] Found project:', project.name, 'autoBuildPath:', project.autoBuildPath);
+    console.warn('[ProjectStore] Found project:', project.name, 'autoBuildPath:', project.autoBuildPath, 'path:', project.path);
 
     const allTasks: Task[] = [];
     const specsBaseDir = getSpecsDir(project.autoBuildPath);
@@ -319,7 +323,11 @@ export class ProjectStore {
     }
 
     const tasks = Array.from(taskMap.values());
-    console.warn('[ProjectStore] Returning', tasks.length, 'unique tasks (after deduplication)');
+    console.warn('[ProjectStore] Scan complete - found', tasks.length, 'unique tasks', {
+      mainTasks: allTasks.filter(t => t.location === 'main').length,
+      worktreeTasks: allTasks.filter(t => t.location === 'worktree').length,
+      deduplicated: allTasks.length - tasks.length
+    });
 
     // Update cache
     this.tasksCache.set(projectId, { tasks, timestamp: now });
@@ -376,13 +384,32 @@ export class ProjectStore {
 
         // Try to read implementation plan
         let plan: ImplementationPlan | null = null;
+        let parseError: TaskErrorInfo | null = null;
         if (existsSync(planPath)) {
+          console.warn(`[ProjectStore] Loading implementation_plan.json for spec: ${dir.name} from ${location}`);
           try {
             const content = readFileSync(planPath, 'utf-8');
             plan = JSON.parse(content);
-          } catch {
-            // Ignore parse errors
+            console.warn(`[ProjectStore] Loaded plan for ${dir.name}:`, {
+              hasDescription: !!plan?.description,
+              hasFeature: !!plan?.feature,
+              status: plan?.status,
+              phaseCount: plan?.phases?.length || 0,
+              subtaskCount: plan?.phases?.flatMap(p => p.subtasks || []).length || 0
+            });
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            parseError = {
+              key: 'errors:task.parseImplementationPlan',
+              meta: {
+                specId: dir.name,
+                error: errorMessage.slice(0, 500)
+              }
+            };
+            console.error(`[ProjectStore] Failed to parse implementation_plan.json for ${dir.name}:`, errorMessage);
           }
+        } else {
+          console.warn(`[ProjectStore] No implementation_plan.json found for spec: ${dir.name} at ${planPath}`);
         }
 
         // PRIORITY 1: Read description from implementation_plan.json (user's original)
@@ -437,7 +464,21 @@ export class ProjectStore {
         }
 
         // Determine task status and review reason from plan
-        const { status, reviewReason } = this.determineTaskStatusAndReason(plan, specPath, metadata);
+        // If there's a parse error, override to error status
+        let finalStatus: TaskStatus;
+        let finalDescription = description;
+        let finalReviewReason: ReviewReason | undefined = undefined;
+        let finalErrorInfo: TaskErrorInfo | undefined = undefined;
+
+        if (parseError) {
+          finalStatus = 'error';
+          finalErrorInfo = parseError;
+          console.error(`[ProjectStore] Creating error task for ${dir.name}:`, parseError);
+        } else {
+          const { status, reviewReason } = this.determineTaskStatusAndReason(plan, specPath, metadata);
+          finalStatus = status;
+          finalReviewReason = reviewReason;
+        }
 
         // Extract subtasks from plan (handle both 'subtasks' and 'chunks' naming)
         const subtasks = plan?.phases?.flatMap((phase) => {
@@ -480,12 +521,13 @@ export class ProjectStore {
           specId: dir.name,
           projectId,
           title,
-          description,
-          status,
-          reviewReason,
+          description: finalDescription,
+          status: finalStatus,
           subtasks,
           logs: [],
           metadata,
+          ...(finalReviewReason !== undefined && { reviewReason: finalReviewReason }),
+          ...(finalErrorInfo !== undefined && { errorInfo: finalErrorInfo }),
           stagedInMainProject,
           stagedAt,
           location, // Add location metadata (main vs worktree)
@@ -564,13 +606,25 @@ export class ProjectStore {
         'done': 'done',
         'human_review': 'human_review',
         'ai_review': 'ai_review',
-        'backlog': 'backlog'
+        'pr_created': 'pr_created', // PR has been created for this task
+        'backlog': 'backlog',
+        'error': 'error' // Preserves error status from JSON parse failures
       };
       const storedStatus = statusMap[plan.status];
 
       // If user explicitly marked as 'done', always respect that
       if (storedStatus === 'done') {
         return { status: 'done' };
+      }
+
+      // If task has a PR created, always respect that status
+      if (storedStatus === 'pr_created') {
+        return { status: 'pr_created' };
+      }
+
+      // If task has an error status, always respect that (from JSON parse failures)
+      if (storedStatus === 'error') {
+        return { status: 'error' };
       }
 
       // For other stored statuses, validate against calculated status

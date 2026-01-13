@@ -36,6 +36,17 @@ if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.scrollIntoView)
   });
 }
 
+// Mock requestAnimationFrame/cancelAnimationFrame for jsdom
+// Required by useXterm.ts which uses requestAnimationFrame for initial fit
+if (typeof global.requestAnimationFrame === 'undefined') {
+  global.requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+    return setTimeout(() => callback(Date.now()), 0) as unknown as number;
+  });
+  global.cancelAnimationFrame = vi.fn((id: number) => {
+    clearTimeout(id);
+  });
+}
+
 // Test data directory for isolated file operations
 export const TEST_DATA_DIR = '/tmp/auto-claude-ui-tests';
 

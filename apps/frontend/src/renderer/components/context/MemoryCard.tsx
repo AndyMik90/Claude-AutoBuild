@@ -92,11 +92,11 @@ function ListItem({ children, variant = 'default' }: { children: React.ReactNode
 // Check if memory content looks like a PR review
 function isPRReviewMemory(memory: MemoryEpisode): boolean {
   // Check by type first
-  if (memory.type === 'pr_review' || memory.type === 'pr_finding' || 
+  if (memory.type === 'pr_review' || memory.type === 'pr_finding' ||
       memory.type === 'pr_pattern' || memory.type === 'pr_gotcha') {
     return true;
   }
-  
+
   // Check by content structure (for session_insight type that's actually a PR review)
   try {
     const parsed = JSON.parse(memory.content);
@@ -109,7 +109,7 @@ function isPRReviewMemory(memory: MemoryEpisode): boolean {
 export function MemoryCard({ memory }: MemoryCardProps) {
   const [expanded, setExpanded] = useState(false);
   const parsed = useMemo(() => parseMemoryContent(memory.content), [memory.content]);
-  
+
   // Determine if there's meaningful content to show (must be called before early return)
   const hasContent = useMemo(() => {
     if (!parsed) return false;

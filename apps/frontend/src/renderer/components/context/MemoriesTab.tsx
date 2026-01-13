@@ -271,8 +271,8 @@ export function MemoriesTab({
                   <Icon className="h-3.5 w-3.5" />
                   <span>{config.label}</span>
                   {count > 0 && (
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className={cn(
                         'ml-1 px-1.5 py-0 text-xs',
                         isActive && 'bg-background/20'

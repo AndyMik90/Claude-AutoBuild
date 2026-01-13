@@ -56,6 +56,17 @@
     "delete": "Supprimer le worktree ?",
     "deleteDescription": "Ceci supprimera définitivement le worktree et toutes les modifications non committées. Cette action est irréversible."
   },
+  "worktreeCleanup": {
+    "title": "Terminer la tâche",
+    "hasWorktree": "La tâche <strong>\"{{taskTitle}}\"</strong> a encore un espace de travail isolé (worktree).",
+    "willDelete": "Pour marquer cette tâche comme terminée, le worktree et sa branche associée seront supprimés.",
+    "warning": "Assurez-vous d'avoir fusionné ou sauvegardé les modifications que vous souhaitez conserver avant de continuer.",
+    "confirm": "Supprimer le worktree et terminer",
+    "completing": "Finalisation...",
+    "retry": "Réessayer",
+    "errorTitle": "Échec du nettoyage",
+    "errorDescription": "Échec du nettoyage du worktree. Veuillez réessayer."
+  },
   "update": {
     "title": "Auto Claude",
     "projectInitialized": "Le projet est initialisé."
@@ -133,5 +144,20 @@
     "cancel": "Annuler",
     "remove": "Retirer",
     "error": "Échec de la suppression du projet"
+  },
+  "appUpdate": {
+    "title": "Mise à jour de l'application disponible",
+    "description": "Une nouvelle version d'Auto Claude est prête à être téléchargée",
+    "newVersion": "Nouvelle version",
+    "released": "Publiée",
+    "downloading": "Téléchargement...",
+    "downloadUpdate": "Télécharger la mise à jour",
+    "installAndRestart": "Installer et redémarrer",
+    "installLater": "Installer plus tard",
+    "remindMeLater": "Me rappeler plus tard",
+    "updateDownloaded": "Mise à jour téléchargée avec succès ! Cliquez sur Installer pour redémarrer et appliquer la mise à jour.",
+    "downloadError": "Échec du téléchargement de la mise à jour",
+    "claudeCodeChangelog": "Voir le journal des modifications Claude Code",
+    "claudeCodeChangelogAriaLabel": "Voir le journal des modifications Claude Code (s'ouvre dans une nouvelle fenêtre)"
   }
 }

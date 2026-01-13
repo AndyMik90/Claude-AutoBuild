@@ -380,6 +380,8 @@ export interface MergeReadiness {
   isDraft: boolean;
   /** GitHub's mergeable status */
   mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+  /** Branch is behind base branch (out of date) */
+  isBehind: boolean;
   /** Simplified CI status */
   ciStatus: 'passing' | 'failing' | 'pending' | 'none';
   /** List of blockers that contradict a "ready to merge" verdict */

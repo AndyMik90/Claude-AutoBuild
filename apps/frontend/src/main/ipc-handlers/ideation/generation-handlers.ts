@@ -2,25 +2,36 @@
  * Ideation generation handlers (start/stop generation)
  */
 
-import type { IpcMainEvent, IpcMainInvokeEvent, BrowserWindow } from 'electron';
-import { app } from 'electron';
-import { existsSync, readFileSync } from 'fs';
-import path from 'path';
-import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../../shared/constants';
-import type { IPCResult, IdeationConfig, IdeationGenerationStatus, AppSettings } from '../../../shared/types';
-import { projectStore } from '../../project-store';
-import type { AgentManager } from '../../agent';
-import { debugLog, debugError } from '../../../shared/utils/debug-logger';
+import type { IpcMainEvent, IpcMainInvokeEvent, BrowserWindow } from "electron";
+import { app } from "electron";
+import { existsSync, readFileSync } from "fs";
+import path from "path";
+import {
+  IPC_CHANNELS,
+  DEFAULT_APP_SETTINGS,
+  DEFAULT_FEATURE_MODELS,
+  DEFAULT_FEATURE_THINKING,
+} from "../../../shared/constants";
+import type {
+  IPCResult,
+  IdeationConfig,
+  IdeationGenerationStatus,
+  AppSettings,
+} from "../../../shared/types";
+import { projectStore } from "../../project-store";
+import type { AgentManager } from "../../agent";
+import { debugLog, debugError } from "../../../shared/utils/debug-logger";
+import { safeSendToRenderer } from "../utils";
 
 /**
  * Read ideation feature settings from the settings file
  */
 function getIdeationFeatureSettings(): { model?: string; thinkingLevel?: string } {
-  const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+  const settingsPath = path.join(app.getPath("userData"), "settings.json");
 
   try {
     if (existsSync(settingsPath)) {
-      const content = readFileSync(settingsPath, 'utf-8');
+      const content = readFileSync(settingsPath, "utf-8");
       const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(content) };
 
       // Get ideation-specific settings
@@ -29,17 +40,17 @@ function getIdeationFeatureSettings(): { model?: string; thinkingLevel?: string 
 
       return {
         model: featureModels.ideation,
-        thinkingLevel: featureThinking.ideation
+        thinkingLevel: featureThinking.ideation,
       };
     }
   } catch (error) {
-    debugError('[Ideation Handler] Failed to read feature settings:', error);
+    debugError("[Ideation Handler] Failed to read feature settings:", error);
   }
 
   // Return defaults if settings file doesn't exist or fails to parse
   return {
     model: DEFAULT_FEATURE_MODELS.ideation,
-    thinkingLevel: DEFAULT_FEATURE_THINKING.ideation
+    thinkingLevel: DEFAULT_FEATURE_THINKING.ideation,
   };
 }
 
@@ -58,50 +69,42 @@ export function startIdeationGeneration(
   const configWithSettings: IdeationConfig = {
     ...config,
     model: config.model || featureSettings.model,
-    thinkingLevel: config.thinkingLevel || featureSettings.thinkingLevel
+    thinkingLevel: config.thinkingLevel || featureSettings.thinkingLevel,
   };
 
-  debugLog('[Ideation Handler] Start generation request:', {
+  debugLog("[Ideation Handler] Start generation request:", {
     projectId,
     enabledTypes: configWithSettings.enabledTypes,
     maxIdeasPerType: configWithSettings.maxIdeasPerType,
     model: configWithSettings.model,
-    thinkingLevel: configWithSettings.thinkingLevel
+    thinkingLevel: configWithSettings.thinkingLevel,
   });
 
-  if (!mainWindow) return;
+  const getMainWindow = () => mainWindow;
 
   const project = projectStore.getProject(projectId);
   if (!project) {
-    debugLog('[Ideation Handler] Project not found:', projectId);
-    mainWindow.webContents.send(
-      IPC_CHANNELS.IDEATION_ERROR,
-      projectId,
-      'Project not found'
-    );
+    debugLog("[Ideation Handler] Project not found:", projectId);
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.IDEATION_ERROR, projectId, "Project not found");
     return;
   }
 
-  debugLog('[Ideation Handler] Starting agent manager generation:', {
+  debugLog("[Ideation Handler] Starting agent manager generation:", {
     projectId,
     projectPath: project.path,
     model: configWithSettings.model,
-    thinkingLevel: configWithSettings.thinkingLevel
+    thinkingLevel: configWithSettings.thinkingLevel,
   });
 
   // Start ideation generation via agent manager
   agentManager.startIdeationGeneration(projectId, project.path, configWithSettings, false);
 
   // Send initial progress
-  mainWindow.webContents.send(
-    IPC_CHANNELS.IDEATION_PROGRESS,
-    projectId,
-    {
-      phase: 'analyzing',
-      progress: 10,
-      message: 'Analyzing project structure...'
-    } as IdeationGenerationStatus
-  );
+  safeSendToRenderer(getMainWindow, IPC_CHANNELS.IDEATION_PROGRESS, projectId, {
+    phase: "analyzing",
+    progress: 10,
+    message: "Analyzing project structure...",
+  } as IdeationGenerationStatus);
 }
 
 /**
@@ -119,24 +122,20 @@ export function refreshIdeationSession(
   const configWithSettings: IdeationConfig = {
     ...config,
     model: config.model || featureSettings.model,
-    thinkingLevel: config.thinkingLevel || featureSettings.thinkingLevel
+    thinkingLevel: config.thinkingLevel || featureSettings.thinkingLevel,
   };
 
-  debugLog('[Ideation Handler] Refresh session request:', {
+  debugLog("[Ideation Handler] Refresh session request:", {
     projectId,
     model: configWithSettings.model,
-    thinkingLevel: configWithSettings.thinkingLevel
+    thinkingLevel: configWithSettings.thinkingLevel,
   });
 
-  if (!mainWindow) return;
+  const getMainWindow = () => mainWindow;
 
   const project = projectStore.getProject(projectId);
   if (!project) {
-    mainWindow.webContents.send(
-      IPC_CHANNELS.IDEATION_ERROR,
-      projectId,
-      'Project not found'
-    );
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.IDEATION_ERROR, projectId, "Project not found");
     return;
   }
 
@@ -144,15 +143,11 @@ export function refreshIdeationSession(
   agentManager.startIdeationGeneration(projectId, project.path, configWithSettings, true);
 
   // Send initial progress
-  mainWindow.webContents.send(
-    IPC_CHANNELS.IDEATION_PROGRESS,
-    projectId,
-    {
-      phase: 'analyzing',
-      progress: 10,
-      message: 'Refreshing ideation...'
-    } as IdeationGenerationStatus
-  );
+  safeSendToRenderer(getMainWindow, IPC_CHANNELS.IDEATION_PROGRESS, projectId, {
+    phase: "analyzing",
+    progress: 10,
+    message: "Refreshing ideation...",
+  } as IdeationGenerationStatus);
 }
 
 /**
@@ -164,15 +159,16 @@ export async function stopIdeationGeneration(
   agentManager: AgentManager,
   mainWindow: BrowserWindow | null
 ): Promise<IPCResult> {
-  debugLog('[Ideation Handler] Stop generation request:', { projectId });
+  debugLog("[Ideation Handler] Stop generation request:", { projectId });
 
   const wasStopped = agentManager.stopIdeation(projectId);
 
-  debugLog('[Ideation Handler] Stop result:', { projectId, wasStopped });
+  debugLog("[Ideation Handler] Stop result:", { projectId, wasStopped });
 
-  if (wasStopped && mainWindow) {
-    debugLog('[Ideation Handler] Sending stopped event to renderer');
-    mainWindow.webContents.send(IPC_CHANNELS.IDEATION_STOPPED, projectId);
+  if (wasStopped) {
+    debugLog("[Ideation Handler] Sending stopped event to renderer");
+    const getMainWindow = () => mainWindow;
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.IDEATION_STOPPED, projectId);
   }
 
   return { success: wasStopped };

@@ -208,7 +208,7 @@ const browserMockAPI: ElectronAPI = {
     getPRReviewsBatch: async () => ({}),
     deletePRReview: async () => true,
     checkNewCommits: async () => ({ hasNewCommits: false, newCommitCount: 0 }),
-    checkMergeReadiness: async () => ({ isDraft: false, mergeable: 'UNKNOWN' as const, ciStatus: 'none' as const, blockers: [] }),
+    checkMergeReadiness: async () => ({ isDraft: false, mergeable: 'UNKNOWN' as const, isBehind: false, ciStatus: 'none' as const, blockers: [] }),
     runFollowupReview: () => {},
     getPRLogs: async () => null,
     getWorkflowsAwaitingApproval: async () => ({ awaiting_approval: 0, workflow_runs: [], can_approve: false }),
@@ -249,6 +249,34 @@ const browserMockAPI: ElectronAPI = {
   installClaudeCode: async () => ({
     success: true,
     data: { command: 'npm install -g @anthropic-ai/claude-code' }
+  }),
+  getClaudeCodeVersions: async () => ({
+    success: true,
+    data: {
+      versions: ['1.0.5', '1.0.4', '1.0.3', '1.0.2', '1.0.1', '1.0.0']
+    }
+  }),
+  installClaudeCodeVersion: async (version: string) => ({
+    success: true,
+    data: { command: `npm install -g @anthropic-ai/claude-code@${version}`, version }
+  }),
+  getClaudeCodeInstallations: async () => ({
+    success: true,
+    data: {
+      installations: [
+        {
+          path: '/usr/local/bin/claude',
+          version: '1.0.0',
+          source: 'system-path' as const,
+          isActive: true,
+        }
+      ],
+      activePath: '/usr/local/bin/claude',
+    }
+  }),
+  setClaudeCodeActivePath: async (cliPath: string) => ({
+    success: true,
+    data: { path: cliPath }
   }),
 
   // Terminal Worktree Operations

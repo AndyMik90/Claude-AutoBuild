@@ -31,8 +31,50 @@
   "oauth": {
     "title": "Authentification Claude",
     "description": "Connectez votre compte Claude pour activer les fonctionnalités IA",
+    "configureTitle": "Configurer l'authentification Claude",
+    "addAccountsDesc": "Ajoutez vos comptes Claude pour activer les fonctionnalités IA",
+    "multiAccountInfo": "Ajoutez plusieurs abonnements Claude pour basculer automatiquement entre eux lorsque vous atteignez les limites.",
+    "noAccountsYet": "Aucun compte configuré",
+    "badges": {
+      "default": "Par défaut",
+      "active": "Actif",
+      "authenticated": "Authentifié",
+      "needsAuth": "Auth requise"
+    },
+    "buttons": {
+      "authenticate": "Authentifier",
+      "setActive": "Définir actif",
+      "rename": "Renommer",
+      "delete": "Supprimer",
+      "add": "Ajouter",
+      "adding": "Ajout...",
+      "showToken": "Afficher le jeton",
+      "hideToken": "Masquer le jeton",
+      "copyToken": "Copier le jeton",
+      "back": "Retour",
+      "continue": "Continuer",
+      "skip": "Passer"
+    },
+    "labels": {
+      "accountName": "Nom du compte",
+      "namePlaceholder": "Nom du profil (ex: Travail, Personnel)",
+      "tokenLabel": "Jeton OAuth",
+      "tokenPlaceholder": "Entrez le jeton ici",
+      "tokenHint": "Collez le jeton affiché dans votre terminal après la connexion OAuth."
+    },
     "keychainTitle": "Stockage sécurisé",
-    "keychainDescription": "Vos jetons sont chiffrés à l'aide du trousseau de clés de votre système. Une demande de mot de passe macOS peut apparaître — cliquez sur « Toujours autoriser » pour ne plus la revoir."
+    "keychainDescription": "Vos jetons sont chiffrés à l'aide du trousseau de clés de votre système. Une demande de mot de passe macOS peut apparaître — cliquez sur « Toujours autoriser » pour ne plus la revoir.",
+    "toast": {
+      "authSuccess": "Profil authentifié avec succès",
+      "authSuccessWithEmail": "Compte : {{email}}",
+      "authSuccessGeneric": "Authentification terminée. Vous pouvez maintenant utiliser ce profil.",
+      "authStartFailed": "Échec du démarrage de l'authentification",
+      "addProfileFailed": "Échec de l'ajout du profil",
+      "tokenSaved": "Jeton enregistré",
+      "tokenSavedDescription": "Votre jeton a été enregistré avec succès.",
+      "tokenSaveFailed": "Échec de l'enregistrement du jeton",
+      "tryAgain": "Veuillez réessayer."
+    }
   },
   "memory": {
     "title": "Mémoire",

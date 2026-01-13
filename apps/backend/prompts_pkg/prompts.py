@@ -58,7 +58,7 @@ def _validate_branch_name(branch: str | None) -> str | None:
     return branch
 
 
-def _get_base_branch_from_metadata(spec_dir: Path) -> str | None:
+def get_base_branch_from_metadata(spec_dir: Path) -> str | None:
     """
     Read baseBranch from task_metadata.json if it exists.
 
@@ -79,6 +79,10 @@ def _get_base_branch_from_metadata(spec_dir: Path) -> str | None:
         except (json.JSONDecodeError, OSError):
             pass
     return None
+
+
+# Alias for backwards compatibility (internal use)
+_get_base_branch_from_metadata = get_base_branch_from_metadata
 
 
 def _detect_base_branch(spec_dir: Path, project_dir: Path) -> str:
@@ -390,7 +394,7 @@ def is_first_run(spec_dir: Path) -> bool:
         return True
 
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
 
         # Check if there are any phases with subtasks

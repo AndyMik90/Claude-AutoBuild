@@ -53,7 +53,7 @@ def _find_git_executable() -> str:
                     if git_path.is_file():
                         return str(git_path)
         except (OSError, ValueError):
-            pass
+            pass  # Invalid path or permission error - try next method
 
     # 2. Try shutil.which (works if git is in PATH)
     git_path = shutil.which("git")
@@ -91,7 +91,7 @@ def _find_git_executable() -> str:
                 if found_path and os.path.isfile(found_path):
                     return found_path
         except (subprocess.TimeoutExpired, OSError):
-            pass
+            pass  # 'where' command failed - fall through to default
 
     # Default fallback - let subprocess handle it (may fail)
     return "git"

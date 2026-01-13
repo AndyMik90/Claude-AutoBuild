@@ -12,6 +12,13 @@ on:
     paths:
       - 'apps/frontend/package.json'
       - 'package.json'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force release even if version check fails (use with caution)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   check-and-tag:
@@ -54,16 +61,20 @@ jobs:
         run: |
           PACKAGE_VERSION="${{ steps.package.outputs.version }}"
           LATEST_VERSION="${{ steps.latest_tag.outputs.version }}"
+          FORCE="${{ github.event.inputs.force }}"
 
           echo "Comparing: package=$PACKAGE_VERSION vs latest_tag=$LATEST_VERSION"
 
-          # Use sort -V for version comparison
-          HIGHER=$(printf '%s\n%s' "$PACKAGE_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)
-
-          if [ "$HIGHER" = "$PACKAGE_VERSION" ] && [ "$PACKAGE_VERSION" != "$LATEST_VERSION" ]; then
+          # Use npx semver for proper semantic version comparison
+          # This correctly handles pre-release versions (2.7.3 > 2.7.3-beta.1)
+          if npx -y semver "$PACKAGE_VERSION" -r ">$LATEST_VERSION" > /dev/null 2>&1; then
             echo "should_release=true" >> $GITHUB_OUTPUT
             echo "new_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
             echo "✅ New release needed: v$PACKAGE_VERSION"
+          elif [ "$FORCE" = "true" ]; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "new_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+            echo "⚠️ Force release enabled: v$PACKAGE_VERSION"
           else
             echo "should_release=false" >> $GITHUB_OUTPUT
             echo "⏭️ No release needed (package version not newer than latest tag)"

@@ -47,6 +47,9 @@ type UpdateChannel = 'latest' | 'beta';
  */
 export function setUpdateChannel(channel: UpdateChannel): void {
   autoUpdater.channel = channel;
+  // Clear any downloaded update info when channel changes to prevent showing
+  // an Install button for an update from a different channel
+  downloadedUpdateInfo = null;
   console.warn(`[app-updater] Update channel set to: ${channel}`);
 }
 
@@ -61,6 +64,9 @@ if (DEBUG_UPDATER) {
 }
 
 let mainWindow: BrowserWindow | null = null;
+
+// Track downloaded update state so it persists across Settings page navigations
+let downloadedUpdateInfo: AppUpdateInfo | null = null;
 
 /**
  * Initialize the app updater system
@@ -107,6 +113,13 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
   // Update downloaded - ready to install
   autoUpdater.on('update-downloaded', (info) => {
     console.warn('[app-updater] Update downloaded:', info.version);
+    // Store downloaded update info so it persists across Settings page navigations
+    // releaseNotes can be string | ReleaseNoteInfo[] | null | undefined, only use if string
+    downloadedUpdateInfo = {
+      version: info.version,
+      releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
+      releaseDate: info.releaseDate
+    };
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_DOWNLOADED, {
         version: info.version,
@@ -215,9 +228,10 @@ export async function checkForUpdates(): Promise<AppUpdateInfo | null> {
       return null;
     }
 
+    // releaseNotes can be string | ReleaseNoteInfo[] | null | undefined, only use if string
     return {
       version: result.updateInfo.version,
-      releaseNotes: result.updateInfo.releaseNotes as string | undefined,
+      releaseNotes: typeof result.updateInfo.releaseNotes === 'string' ? result.updateInfo.releaseNotes : undefined,
       releaseDate: result.updateInfo.releaseDate
     };
   } catch (error) {
@@ -254,6 +268,15 @@ export function quitAndInstall(): void {
  */
 export function getCurrentVersion(): string {
   return autoUpdater.currentVersion.version;
+}
+
+/**
+ * Get downloaded update info if an update has been downloaded and is ready to install.
+ * This allows the UI to show "Install and Restart" even if the user opens Settings
+ * after the download completed in the background.
+ */
+export function getDownloadedUpdateInfo(): AppUpdateInfo | null {
+  return downloadedUpdateInfo;
 }
 
 /**
@@ -422,6 +445,9 @@ export async function setUpdateChannelWithDowngradeCheck(
   triggerDowngradeCheck = false
 ): Promise<AppUpdateInfo | null> {
   autoUpdater.channel = channel;
+  // Clear any downloaded update info when channel changes to prevent showing
+  // an Install button for an update from a different channel
+  downloadedUpdateInfo = null;
   console.warn(`[app-updater] Update channel set to: ${channel}`);
 
   // If switching to stable and downgrade check requested, look for stable version

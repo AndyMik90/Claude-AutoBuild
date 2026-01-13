@@ -173,14 +173,14 @@ export function OllamaModelSelector({
         result.data.embedding_models.forEach((m: { name: string }) => {
           const name = m.name;
           installedFullNames.add(name);
-          
+
           // Normalize :latest suffix
           if (name.endsWith(':latest')) {
             installedBaseNames.add(name.replace(':latest', ''));
           } else if (!name.includes(':')) {
             installedBaseNames.add(name);
           }
-          
+
           // Handle quantization variants (e.g., qwen3-embedding:8b-q4_K_M)
           // Extract base:version without quantization suffix
           const quantMatch = name.match(/^([^:]+:[^-]+)/);
@@ -301,7 +301,7 @@ export function OllamaModelSelector({
     */
    const handleSelect = (model: OllamaModel) => {
      if (!model.installed || disabled) return;
-     
+
      // Toggle behavior: if already selected, deselect by passing empty values
      if (selectedModel === model.name) {
        onModelSelect('', 0);

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   GitBranch,
   RefreshCw,
@@ -8,6 +9,7 @@ import {
   FolderOpen,
   FolderGit,
   GitMerge,
+  GitPullRequest,
   FileCode,
   Plus,
   Minus,
@@ -40,13 +42,15 @@ import {
 } from './ui/alert-dialog';
 import { useProjectStore } from '../stores/project-store';
 import { useTaskStore } from '../stores/task-store';
-import type { WorktreeListItem, WorktreeMergeResult, TerminalWorktreeConfig } from '../../shared/types';
+import type { WorktreeListItem, WorktreeMergeResult, TerminalWorktreeConfig, WorktreeStatus, Task, WorktreeCreatePROptions, WorktreeCreatePRResult } from '../../shared/types';
+import { CreatePRDialog } from './task-detail/task-review/CreatePRDialog';
 
 interface WorktreesProps {
   projectId: string;
 }
 
 export function Worktrees({ projectId }: WorktreesProps) {
+  const { t } = useTranslation(['common']);
   const projects = useProjectStore((state) => state.projects);
   const selectedProject = projects.find((p) => p.id === projectId);
   const tasks = useTaskStore((state) => state.tasks);
@@ -70,6 +74,11 @@ export function Worktrees({ projectId }: WorktreesProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [worktreeToDelete, setWorktreeToDelete] = useState<WorktreeListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Create PR dialog state
+  const [showCreatePRDialog, setShowCreatePRDialog] = useState(false);
+  const [prWorktree, setPrWorktree] = useState<WorktreeListItem | null>(null);
+  const [prTask, setPrTask] = useState<Task | null>(null);
 
   // Load worktrees (both task and terminal worktrees)
   const loadWorktrees = useCallback(async () => {
@@ -192,6 +201,49 @@ export function Worktrees({ projectId }: WorktreesProps) {
   const confirmDelete = (worktree: WorktreeListItem) => {
     setWorktreeToDelete(worktree);
     setShowDeleteConfirm(true);
+  };
+
+  // Convert WorktreeListItem to WorktreeStatus for the dialog
+  const worktreeToStatus = (worktree: WorktreeListItem): WorktreeStatus => ({
+    exists: true,
+    worktreePath: worktree.path,
+    branch: worktree.branch,
+    baseBranch: worktree.baseBranch,
+    commitCount: worktree.commitCount,
+    filesChanged: worktree.filesChanged,
+    additions: worktree.additions,
+    deletions: worktree.deletions
+  });
+
+  // Open Create PR dialog
+  const openCreatePRDialog = (worktree: WorktreeListItem, task: Task) => {
+    setPrWorktree(worktree);
+    setPrTask(task);
+    setShowCreatePRDialog(true);
+  };
+
+  // Handle Create PR
+  const handleCreatePR = async (options: WorktreeCreatePROptions): Promise<WorktreeCreatePRResult | null> => {
+    if (!prTask) return null;
+
+    try {
+      const result = await window.electronAPI.createWorktreePR(prTask.id, options);
+      if (result.success && result.data) {
+        if (result.data.success && result.data.prUrl && !result.data.alreadyExists) {
+          // Update task in store
+          useTaskStore.getState().updateTask(prTask.id, {
+            status: 'pr_created',
+            metadata: { ...prTask.metadata, prUrl: result.data.prUrl }
+          });
+        }
+        return result.data;
+      }
+      // Propagate IPC error; let CreatePRDialog use its i18n fallback
+      return { success: false, error: result.error, prUrl: undefined, alreadyExists: false };
+    } catch (err) {
+      // Propagate actual error message; let CreatePRDialog handle i18n fallback for undefined
+      return { success: false, error: err instanceof Error ? err.message : undefined, prUrl: undefined, alreadyExists: false };
+    }
   };
 
   // Handle terminal worktree delete
@@ -357,6 +409,26 @@ export function Worktrees({ projectId }: WorktreesProps) {
                             <GitMerge className="h-3.5 w-3.5 mr-1.5" />
                             Merge to {worktree.baseBranch}
                           </Button>
+                          {task && (
+                            <Button
+                              variant="info"
+                              size="sm"
+                              onClick={() => openCreatePRDialog(worktree, task)}
+                            >
+                              <GitPullRequest className="h-3.5 w-3.5 mr-1.5" />
+                              {t('common:buttons.createPR')}
+                            </Button>
+                          )}
+                          {task?.status === 'pr_created' && task.metadata?.prUrl && (
+                            <Button
+                              variant="info"
+                              size="sm"
+                              onClick={() => window.electronAPI?.openExternal(task.metadata?.prUrl ?? '')}
+                            >
+                              <GitPullRequest className="h-3.5 w-3.5 mr-1.5" />
+                              {t('common:buttons.openPR')}
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -646,6 +718,17 @@ export function Worktrees({ projectId }: WorktreesProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create PR Dialog */}
+      {prTask && prWorktree && (
+        <CreatePRDialog
+          open={showCreatePRDialog}
+          task={prTask}
+          worktreeStatus={worktreeToStatus(prWorktree)}
+          onOpenChange={setShowCreatePRDialog}
+          onCreatePR={handleCreatePR}
+        />
+      )}
     </div>
   );
 }

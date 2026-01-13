@@ -71,7 +71,7 @@ export function validateApiKey(apiKey: string): boolean {
 
 /**
  * Validate that profile name is unique (case-insensitive, trimmed)
- * 
+ *
  * WARNING: This is for UX feedback only. Do NOT rely on this for correctness.
  * The actual uniqueness check happens atomically inside create/update operations
  * to prevent TOCTOU race conditions.
@@ -144,7 +144,7 @@ export async function createProfile(input: CreateProfileInput): Promise<APIProfi
     const exists = file.profiles.some(
       (p) => p.name.trim().toLowerCase() === trimmed
     );
-    
+
     if (exists) {
       throw new Error('A profile with this name already exists');
     }
@@ -420,10 +420,10 @@ export async function testConnection(
           const messagesErrorName = messagesError instanceof Error ? messagesError.name : '';
           // 400/422 errors mean the endpoint is valid, just our test request was invalid
           // This is expected - we're just testing connectivity
-          if (messagesErrorName === 'BadRequestError' || 
+          if (messagesErrorName === 'BadRequestError' ||
               messagesErrorName === 'InvalidRequestError' ||
-              (messagesError instanceof Error && 'status' in messagesError && 
-               ((messagesError as { status?: number }).status === 400 || 
+              (messagesError instanceof Error && 'status' in messagesError &&
+               ((messagesError as { status?: number }).status === 400 ||
                 (messagesError as { status?: number }).status === 422))) {
             // Endpoint is valid, connection successful
             return {
@@ -452,7 +452,7 @@ export async function testConnection(
     // Map SDK errors to TestConnectionResult error types
     // Use error.name for instanceof-like checks (works with mocks that set this.name)
     const errorName = error instanceof Error ? error.name : '';
-    
+
     if (errorName === 'AuthenticationError' || error instanceof AuthenticationError) {
       return {
         success: false,
@@ -580,7 +580,7 @@ export async function discoverModels(
     // Map SDK errors to thrown errors with errorType property
     // Use error.name for instanceof-like checks (works with mocks that set this.name)
     const errorName = error instanceof Error ? error.name : '';
-    
+
     if (errorName === 'AuthenticationError' || error instanceof AuthenticationError) {
       const authError: Error & { errorType?: string } = new Error('Authentication failed. Please check your API key.');
       authError.errorType = 'auth';

@@ -31,6 +31,8 @@ try:
     from ..context_gatherer import PRContext, _validate_git_ref
     from ..gh_client import GHClient
     from ..models import (
+        BRANCH_BEHIND_BLOCKER_MSG,
+        BRANCH_BEHIND_REASONING,
         GitHubRunnerConfig,
         MergeVerdict,
         PRReviewFinding,
@@ -38,6 +40,7 @@ try:
         ReviewSeverity,
     )
     from .category_utils import map_category
+    from .io_utils import safe_print
     from .pr_worktree_manager import PRWorktreeManager
     from .pydantic_models import ParallelOrchestratorResponse
     from .sdk_utils import process_sdk_stream
@@ -46,6 +49,8 @@ except (ImportError, ValueError, SystemError):
     from core.client import create_client
     from gh_client import GHClient
     from models import (
+        BRANCH_BEHIND_BLOCKER_MSG,
+        BRANCH_BEHIND_REASONING,
         GitHubRunnerConfig,
         MergeVerdict,
         PRReviewFinding,
@@ -54,6 +59,7 @@ except (ImportError, ValueError, SystemError):
     )
     from phase_config import get_thinking_budget
     from services.category_utils import map_category
+    from services.io_utils import safe_print
     from services.pr_worktree_manager import PRWorktreeManager
     from services.pydantic_models import ParallelOrchestratorResponse
     from services.sdk_utils import process_sdk_stream
@@ -376,12 +382,12 @@ The SDK will run invoked agents in parallel automatically.
             agents: List of agent names that were invoked
         """
         if agents:
-            print(
+            safe_print(
                 f"[ParallelOrchestrator] Specialist agents invoked: {', '.join(agents)}",
                 flush=True,
             )
             for agent in agents:
-                print(f"[Agent:{agent}] Analysis complete", flush=True)
+                safe_print(f"[Agent:{agent}] Analysis complete")
 
     def _log_findings_summary(self, findings: list[PRReviewFinding]) -> None:
         """Log findings summary for verification.
@@ -390,13 +396,13 @@ The SDK will run invoked agents in parallel automatically.
             findings: List of findings to summarize
         """
         if findings:
-            print(
+            safe_print(
                 f"[ParallelOrchestrator] Parsed {len(findings)} findings from structured output",
                 flush=True,
             )
-            print("[ParallelOrchestrator] Findings summary:", flush=True)
+            safe_print("[ParallelOrchestrator] Findings summary:")
             for i, f in enumerate(findings, 1):
-                print(
+                safe_print(
                     f"  [{f.severity.value.upper()}] {i}. {f.title} ({f.file}:{f.line})",
                     flush=True,
                 )
@@ -470,15 +476,15 @@ The SDK will run invoked agents in parallel automatically.
             head_sha = context.head_sha or context.head_branch
 
             if DEBUG_MODE:
-                print(
+                safe_print(
                     f"[PRReview] DEBUG: context.head_sha='{context.head_sha}'",
                     flush=True,
                 )
-                print(
+                safe_print(
                     f"[PRReview] DEBUG: context.head_branch='{context.head_branch}'",
                     flush=True,
                 )
-                print(f"[PRReview] DEBUG: resolved head_sha='{head_sha}'", flush=True)
+                safe_print(f"[PRReview] DEBUG: resolved head_sha='{head_sha}'")
 
             # SECURITY: Validate the resolved head_sha (whether SHA or branch name)
             # This catches invalid refs early before subprocess calls
@@ -491,7 +497,7 @@ The SDK will run invoked agents in parallel automatically.
 
             if not head_sha:
                 if DEBUG_MODE:
-                    print("[PRReview] DEBUG: No head_sha - using fallback", flush=True)
+                    safe_print("[PRReview] DEBUG: No head_sha - using fallback")
                 logger.warning(
                     "[ParallelOrchestrator] No head_sha available, using current checkout"
                 )
@@ -503,7 +509,7 @@ The SDK will run invoked agents in parallel automatically.
                 )
             else:
                 if DEBUG_MODE:
-                    print(
+                    safe_print(
                         f"[PRReview] DEBUG: Creating worktree for head_sha={head_sha}",
                         flush=True,
                     )
@@ -513,14 +519,14 @@ The SDK will run invoked agents in parallel automatically.
                     )
                     project_root = worktree_path
                     if DEBUG_MODE:
-                        print(
+                        safe_print(
                             f"[PRReview] DEBUG: Using worktree as "
                             f"project_root={project_root}",
                             flush=True,
                         )
                 except (RuntimeError, ValueError) as e:
                     if DEBUG_MODE:
-                        print(
+                        safe_print(
                             f"[PRReview] DEBUG: Worktree creation FAILED: {e}",
                             flush=True,
                         )
@@ -560,7 +566,7 @@ The SDK will run invoked agents in parallel automatically.
             async with client:
                 await client.query(prompt)
 
-                print(
+                safe_print(
                     f"[ParallelOrchestrator] Running orchestrator ({model})...",
                     flush=True,
                 )
@@ -604,7 +610,7 @@ The SDK will run invoked agents in parallel automatically.
             logger.info(
                 f"[ParallelOrchestrator] Session complete. Agents invoked: {final_agents}"
             )
-            print(
+            safe_print(
                 f"[ParallelOrchestrator] Complete. Agents invoked: {final_agents}",
                 flush=True,
             )
@@ -616,9 +622,11 @@ The SDK will run invoked agents in parallel automatically.
                 f"[ParallelOrchestrator] Review complete: {len(unique_findings)} findings"
             )
 
-            # Generate verdict (includes merge conflict check)
+            # Generate verdict (includes merge conflict check and branch-behind check)
             verdict, verdict_reasoning, blockers = self._generate_verdict(
-                unique_findings, has_merge_conflicts=context.has_merge_conflicts
+                unique_findings,
+                has_merge_conflicts=context.has_merge_conflicts,
+                merge_state_status=context.merge_state_status,
             )
 
             # Generate summary
@@ -862,16 +870,23 @@ The SDK will run invoked agents in parallel automatically.
         return unique
 
     def _generate_verdict(
-        self, findings: list[PRReviewFinding], has_merge_conflicts: bool = False
+        self,
+        findings: list[PRReviewFinding],
+        has_merge_conflicts: bool = False,
+        merge_state_status: str = "",
     ) -> tuple[MergeVerdict, str, list[str]]:
-        """Generate merge verdict based on findings and merge conflict status."""
+        """Generate merge verdict based on findings, merge conflict status, and branch state."""
         blockers = []
+        is_branch_behind = merge_state_status == "BEHIND"
 
         # CRITICAL: Merge conflicts block merging - check first
         if has_merge_conflicts:
             blockers.append(
                 "Merge Conflicts: PR has conflicts with base branch that must be resolved"
             )
+        # Branch behind base is a warning, not a hard blocker
+        elif is_branch_behind:
+            blockers.append(BRANCH_BEHIND_BLOCKER_MSG)
 
         critical = [f for f in findings if f.severity == ReviewSeverity.CRITICAL]
         high = [f for f in findings if f.severity == ReviewSeverity.HIGH]
@@ -892,6 +907,12 @@ The SDK will run invoked agents in parallel automatically.
             elif critical:
                 verdict = MergeVerdict.BLOCKED
                 reasoning = f"Blocked by {len(critical)} critical issue(s)"
+            # Branch behind is a soft blocker - NEEDS_REVISION, not BLOCKED
+            elif is_branch_behind:
+                verdict = MergeVerdict.NEEDS_REVISION
+                reasoning = BRANCH_BEHIND_REASONING
+                if low:
+                    reasoning += f" {len(low)} non-blocking suggestion(s) to consider."
             else:
                 verdict = MergeVerdict.BLOCKED
                 reasoning = f"Blocked by {len(blockers)} issue(s)"

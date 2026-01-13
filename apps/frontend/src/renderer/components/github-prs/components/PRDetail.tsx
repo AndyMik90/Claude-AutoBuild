@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Bot,
@@ -16,6 +16,8 @@ import {
   ExternalLink,
   Play,
   Clock,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -39,6 +41,7 @@ interface PRDetailProps {
   reviewResult: PRReviewResult | null;
   previousReviewResult: PRReviewResult | null;
   reviewProgress: PRReviewProgress | null;
+  startedAt: string | null;
   isReviewing: boolean;
   initialNewCommitsCheck?: NewCommitsCheck | null;
   isActive?: boolean;
@@ -71,6 +74,7 @@ export function PRDetail({
   reviewResult,
   previousReviewResult,
   reviewProgress,
+  startedAt,
   isReviewing,
   initialNewCommitsCheck,
   isActive: _isActive = false,
@@ -92,6 +96,10 @@ export function PRDetail({
   const [isPostingFindings, setIsPostingFindings] = useState(false);
   const [postSuccess, setPostSuccess] = useState<{ count: number; timestamp: number } | null>(null);
   const [isPosting, setIsPosting] = useState(false);
+  const [isPostingCleanReview, setIsPostingCleanReview] = useState(false);
+  const [cleanReviewPosted, setCleanReviewPosted] = useState(false);
+  const [cleanReviewError, setCleanReviewError] = useState<string | null>(null);
+  const [showCleanReviewErrorDetails, setShowCleanReviewErrorDetails] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
   // Initialize with store value, then sync and update via local checks
   const [newCommitsCheck, setNewCommitsCheck] = useState<NewCommitsCheck | null>(initialNewCommitsCheck ?? null);
@@ -104,7 +112,7 @@ export function PRDetail({
   const [prLogs, setPrLogs] = useState<PRLogsType | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const logsLoadedRef = useRef(false);
-  
+
   // Merge readiness state (real-time validation of AI verdict freshness)
   const [mergeReadiness, setMergeReadiness] = useState<MergeReadiness | null>(null);
   const mergeReadinessAbortRef = useRef<AbortController | null>(null);
@@ -113,6 +121,9 @@ export function PRDetail({
   const [workflowsAwaiting, setWorkflowsAwaiting] = useState<WorkflowsAwaitingApprovalResult | null>(null);
   const [isApprovingWorkflow, setIsApprovingWorkflow] = useState<number | null>(null);
   const [workflowsExpanded, setWorkflowsExpanded] = useState(true);
+
+  // Generate stable IDs for accessibility
+  const cleanReviewErrorDetailsId = useId();
 
   // Sync with store's newCommitsCheck when it changes (e.g., when switching PRs or after refresh)
   // Always sync to keep local state in sync with store, including null values
@@ -255,6 +266,10 @@ export function PRDetail({
     logsLoadedRef.current = false;
     setPrLogs(null);
     setLogsExpanded(false);
+    setCleanReviewPosted(false);
+    setCleanReviewError(null);
+    setIsPostingCleanReview(false);
+    setShowCleanReviewErrorDetails(false);
   }, [pr.number]);
 
   // Check for workflows awaiting approval (fork PRs) when PR changes or review completes
@@ -379,8 +394,20 @@ export function PRDetail({
   }, [reviewResult]);
 
   // Compute the overall PR review status for visual display
-  type PRStatus = 'not_reviewed' | 'reviewed_pending_post' | 'waiting_for_changes' | 'ready_to_merge' | 'needs_attention' | 'ready_for_followup' | 'followup_issues_remain';
+  type PRStatus = 'not_reviewed' | 'reviewed_pending_post' | 'waiting_for_changes' | 'ready_to_merge' | 'needs_attention' | 'ready_for_followup' | 'followup_issues_remain' | 'reviewing';
   const prStatus: { status: PRStatus; label: string; description: string; icon: React.ReactNode; color: string } = useMemo(() => {
+    // Check for in-progress review FIRST (before checking result)
+    // This ensures the running review state is visible when switching back to a PR
+    if (isReviewing) {
+      return {
+        status: 'reviewing',
+        label: t('prReview.aiReviewInProgress'),
+        description: reviewProgress?.message || t('prReview.analysisInProgress'),
+        icon: <Bot className="h-5 w-5 animate-pulse" />,
+        color: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
+      };
+    }
+
     if (!reviewResult || !reviewResult.success) {
       return {
         status: 'not_reviewed',
@@ -523,17 +550,20 @@ export function PRDetail({
       icon: <MessageSquare className="h-5 w-5" />,
       color: 'bg-primary/20 text-primary border-primary/50',
     };
-  }, [reviewResult, postedFindingIds, isReadyToMerge, newCommitsCheck, t]);
+  }, [isReviewing, reviewProgress, reviewResult, postedFindingIds, isReadyToMerge, newCommitsCheck, t]);
 
   const handlePostReview = async () => {
     const idsToPost = Array.from(selectedFindingIds);
     if (idsToPost.length === 0) return;
 
+    // Capture current PR number to prevent state leaks across PR switches
+    const currentPr = pr.number;
+
     setIsPostingFindings(true);
     try {
       const success = await onPostReview(idsToPost);
-      if (success) {
-        // Mark these findings as posted
+      if (success && pr.number === currentPr) {
+        // Mark these findings as posted only if PR hasn't changed
         setPostedFindingIds(prev => new Set([...prev, ...idsToPost]));
         // Clear selection
         setSelectedFindingIds(new Set());
@@ -544,21 +574,30 @@ export function PRDetail({
         setTimeout(() => checkForNewCommits(), 500);
       }
     } finally {
-      setIsPostingFindings(false);
+      // Clear loading state if PR hasn't changed
+      if (pr.number === currentPr) {
+        setIsPostingFindings(false);
+      }
     }
   };
 
   const handleApprove = async () => {
     if (!reviewResult) return;
 
+    // Capture current PR number to prevent state leaks across PR switches
+    const currentPr = pr.number;
+
     setIsPosting(true);
     try {
       // Auto-assign current user (you can get from GitHub config)
       // For now, we'll just post the comment
       const approvalMessage = `## ✅ Auto Claude PR Review - APPROVED\n\n${reviewResult.summary}\n\n---\n*This approval was generated by Auto Claude.*`;
-      await onPostComment(approvalMessage);
+      await Promise.resolve(onPostComment(approvalMessage));
     } finally {
-      setIsPosting(false);
+      // Clear loading state if PR hasn't changed
+      if (pr.number === currentPr) {
+        setIsPosting(false);
+      }
     }
   };
 
@@ -568,6 +607,10 @@ export function PRDetail({
   // content is meant to be read by contributors who may have different locales.
   const handleAutoApprove = async () => {
     if (!reviewResult) return;
+
+    // Capture current PR number to prevent state leaks across PR switches
+    const currentPr = pr.number;
+
     setIsPosting(true);
     try {
       // Post approval with suggestions in a single review comment
@@ -575,12 +618,66 @@ export function PRDetail({
       const lowFindingIds = lowSeverityFindings.map(f => f.id);
 
       const success = await onPostReview(lowFindingIds, { forceApprove: true });
-      if (success && lowFindingIds.length > 0) {
-        // Mark findings as posted locally
+      if (success && lowFindingIds.length > 0 && pr.number === currentPr) {
+        // Mark findings as posted locally only if PR hasn't changed
         setPostedFindingIds(prev => new Set([...prev, ...lowFindingIds]));
       }
     } finally {
-      setIsPosting(false);
+      // Clear loading state if PR hasn't changed
+      if (pr.number === currentPr) {
+        setIsPosting(false);
+      }
+    }
+  };
+
+  // Post clean review as a comment (does not change PR review status)
+  // This is for when a review has no findings or only LOW severity findings
+  // NOTE: GitHub PR comments are intentionally in English as it's the lingua franca
+  // for code reviews and GitHub's international developer community.
+  const handlePostCleanReview = async () => {
+    if (!reviewResult) return;
+
+    // Capture current PR number to prevent state leaks across PR switches
+    const currentPr = pr.number;
+
+    setIsPostingCleanReview(true);
+    setCleanReviewError(null); // Clear previous error
+    setShowCleanReviewErrorDetails(false); // Reset error details visibility
+    try {
+      // Format the clean review comment using i18n translations
+      const cleanReviewMessage = `${t('prReview.cleanReviewMessageTitle')}
+
+${t('prReview.cleanReviewMessageStatus')}
+
+${reviewResult.summary}
+
+---
+
+${t('prReview.cleanReviewMessageFooter')}`;
+
+      // Use Promise.resolve to handle both Promise and non-Promise implementations
+      await Promise.resolve(onPostComment(cleanReviewMessage));
+
+      // Only mark as posted on success if PR hasn't changed
+      if (pr.number === currentPr) {
+        setCleanReviewPosted(true);
+        setCleanReviewError(null);
+      }
+    } catch (err) {
+      // Log full error to console for debugging before rendering
+      console.error('Failed to post clean review comment:', err);
+
+      // Set user-friendly error message using translation key
+      const fullError = err instanceof Error ? err.message : String(err);
+      if (pr.number === currentPr) {
+        setCleanReviewError(fullError);
+      }
+      // Do NOT set cleanReviewPosted on failure
+    } finally {
+      // Clear loading state if PR hasn't changed
+      if (pr.number === currentPr) {
+        setIsPostingCleanReview(false);
+      }
     }
   };
 
@@ -633,6 +730,7 @@ export function PRDetail({
         <ReviewStatusTree
           status={prStatus.status}
           isReviewing={isReviewing}
+          startedAt={startedAt}
           reviewResult={reviewResult}
           previousReviewResult={previousReviewResult}
           postedCount={new Set([...postedFindingIds, ...(reviewResult?.postedFindingIds ?? [])]).size}
@@ -662,12 +760,34 @@ export function PRDetail({
                 </Button>
              )}
 
+             {/* Post Clean Review button - shows when review is clean and no findings are selected */}
+             {selectedCount === 0 && isCleanReview && !hasPostedFindings && !cleanReviewPosted && reviewResult?.overallStatus !== 'request_changes' && (
+                <Button
+                  onClick={handlePostCleanReview}
+                  disabled={isPostingCleanReview || isPosting}
+                  variant="secondary"
+                  className="flex-1 sm:flex-none"
+                >
+                  {isPostingCleanReview ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {t('prReview.postingCleanReview')}
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      {t('prReview.postCleanReview')}
+                    </>
+                  )}
+                </Button>
+             )}
+
              {/* Approve button - consolidated logic to avoid duplicate buttons */}
              {/* Don't show when overallStatus is 'request_changes' (e.g., workflows blocked, or other issues) */}
              {isCleanReview && !hasPostedFindings && reviewResult?.overallStatus !== 'request_changes' && (
                 <Button
                   onClick={handleAutoApprove}
-                  disabled={isPosting}
+                  disabled={isPosting || isPostingCleanReview}
                   variant="default"
                   className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
@@ -729,6 +849,52 @@ export function PRDetail({
                <div className="ml-auto flex items-center gap-2 text-emerald-600 text-sm font-medium animate-pulse">
                  <CheckCircle className="h-4 w-4" />
                  {t('prReview.postedFindings', { count: postSuccess.count })}
+               </div>
+             )}
+
+             {cleanReviewPosted && !postSuccess && (
+               <div className="ml-auto flex items-center gap-2 text-emerald-600 text-sm font-medium animate-pulse">
+                 <CheckCircle className="h-4 w-4" />
+                 {t('prReview.cleanReviewPosted')}
+               </div>
+             )}
+
+             {/* Clean review error display - inline pattern for action bar context */}
+             {/* Note: Uses inline layout (not Card) to match other action bar status messages.
+                 Separate Card-based error at line 972 handles review result errors. */}
+             {cleanReviewError && (
+               <div className="ml-auto flex items-center gap-2">
+                 <div className="flex items-center gap-2 text-destructive text-sm font-medium">
+                   <XCircle className="h-4 w-4" />
+                   {t('prReview.failedPostCleanReview')}
+                 </div>
+                 <button
+                   onClick={() => setShowCleanReviewErrorDetails(!showCleanReviewErrorDetails)}
+                   aria-expanded={showCleanReviewErrorDetails}
+                   aria-controls={cleanReviewErrorDetailsId}
+                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                 >
+                   {showCleanReviewErrorDetails ? (
+                     <>
+                       {t('prReview.hideErrorDetails')}
+                       <ChevronUp className="h-3 w-3" />
+                     </>
+                   ) : (
+                     <>
+                       {t('prReview.viewErrorDetails')}
+                       <ChevronDown className="h-3 w-3" />
+                     </>
+                   )}
+                 </button>
+               </div>
+             )}
+             {cleanReviewError && showCleanReviewErrorDetails && (
+               <div
+                 id={cleanReviewErrorDetailsId}
+                 className="ml-auto text-xs text-muted-foreground max-w-md truncate"
+                 title={cleanReviewError}
+               >
+                 {cleanReviewError}
                </div>
              )}
           </div>

@@ -9,8 +9,13 @@
 
 import { spawn } from 'child_process';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import { app } from 'electron';
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { findPythonCommand, parsePythonCommand } from './python-detector';
 import { getConfiguredPythonPath, pythonEnvManager } from './python-env-manager';
 import { getMemoriesDir } from './config-paths';
@@ -139,7 +144,7 @@ function getBackendPythonPath(): string {
     const venvPython = process.platform === 'win32'
       ? path.join(backendPath, '.venv', 'Scripts', 'python.exe')
       : path.join(backendPath, '.venv', 'bin', 'python');
-    
+
     if (fs.existsSync(venvPython)) {
       console.log(`[MemoryService] Using backend venv Python: ${venvPython}`);
       return venvPython;
@@ -159,7 +164,7 @@ function getBackendPythonPath(): string {
 function getMemoryPythonEnv(): Record<string, string> {
   // Start with the standard Python environment from the manager
   const baseEnv = pythonEnvManager.getPythonEnv();
-  
+
   // For packaged apps, ensure PYTHONPATH includes bundled site-packages
   // even if the manager hasn't been fully initialized
   if (app.isPackaged) {
@@ -172,7 +177,7 @@ function getMemoryPythonEnv(): Record<string, string> {
         : bundledSitePackages;
     }
   }
-  
+
   return baseEnv;
 }
 
@@ -627,10 +632,10 @@ export class MemoryService {
 
   /**
    * Add an episode to the memory database
-   * 
+   *
    * This allows the Electron app to save memories (like PR review insights)
    * directly to LadybugDB without going through the full Graphiti system.
-   * 
+   *
    * @param name Episode name/title
    * @param content Episode content (will be JSON stringified if object)
    * @param episodeType Type of episode (session_insight, pattern, gotcha, task_outcome, pr_review)
