@@ -4,10 +4,12 @@
  * Provides access to Claude Code CLI management:
  * - Check installed vs latest version
  * - Install or update Claude Code
+ * - Get available versions for rollback
+ * - Install specific version
  */
 
 import { IPC_CHANNELS } from '../../../shared/constants';
-import type { ClaudeCodeVersionInfo } from '../../../shared/types/cli';
+import type { ClaudeCodeVersionInfo, ClaudeCodeVersionList } from '../../../shared/types/cli';
 import { invokeIpc } from './ipc-utils';
 
 /**
@@ -31,6 +33,27 @@ export interface ClaudeCodeVersionResult {
 }
 
 /**
+ * Result of fetching available versions
+ */
+export interface ClaudeCodeVersionsResult {
+  success: boolean;
+  data?: ClaudeCodeVersionList;
+  error?: string;
+}
+
+/**
+ * Result of installing a specific version
+ */
+export interface ClaudeCodeInstallVersionResult {
+  success: boolean;
+  data?: {
+    command: string;
+    version: string;
+  };
+  error?: string;
+}
+
+/**
  * Claude Code API interface exposed to renderer
  */
 export interface ClaudeCodeAPI {
@@ -45,6 +68,18 @@ export interface ClaudeCodeAPI {
    * Opens the user's terminal with the install command
    */
   installClaudeCode: () => Promise<ClaudeCodeInstallResult>;
+
+  /**
+   * Get available Claude Code CLI versions
+   * Returns list of versions sorted newest first
+   */
+  getClaudeCodeVersions: () => Promise<ClaudeCodeVersionsResult>;
+
+  /**
+   * Install a specific version of Claude Code CLI
+   * Opens the user's terminal with the install command for the specified version
+   */
+  installClaudeCodeVersion: (version: string) => Promise<ClaudeCodeInstallVersionResult>;
 }
 
 /**
@@ -55,5 +90,11 @@ export const createClaudeCodeAPI = (): ClaudeCodeAPI => ({
     invokeIpc(IPC_CHANNELS.CLAUDE_CODE_CHECK_VERSION),
 
   installClaudeCode: (): Promise<ClaudeCodeInstallResult> =>
-    invokeIpc(IPC_CHANNELS.CLAUDE_CODE_INSTALL)
+    invokeIpc(IPC_CHANNELS.CLAUDE_CODE_INSTALL),
+
+  getClaudeCodeVersions: (): Promise<ClaudeCodeVersionsResult> =>
+    invokeIpc(IPC_CHANNELS.CLAUDE_CODE_GET_VERSIONS),
+
+  installClaudeCodeVersion: (version: string): Promise<ClaudeCodeInstallVersionResult> =>
+    invokeIpc(IPC_CHANNELS.CLAUDE_CODE_INSTALL_VERSION, version)
 });

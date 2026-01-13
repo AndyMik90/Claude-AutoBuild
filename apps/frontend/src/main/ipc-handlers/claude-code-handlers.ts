@@ -20,7 +20,9 @@ import semver from 'semver';
 
 // Cache for latest version (avoid hammering npm registry)
 let cachedLatestVersion: { version: string; timestamp: number } | null = null;
+let cachedVersionList: { versions: string[]; timestamp: number } | null = null;
 const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+const VERSION_LIST_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour for version list
 
 /**
  * Fetch the latest version of Claude Code from npm registry
@@ -60,6 +62,74 @@ async function fetchLatestVersion(): Promise<string> {
       return cachedLatestVersion.version;
     }
     throw error;
+  }
+}
+
+/**
+ * Fetch available versions of Claude Code from npm registry
+ * Returns versions sorted by semver descending (newest first)
+ * Limited to last 20 versions for performance
+ */
+async function fetchAvailableVersions(): Promise<string[]> {
+  // Check cache first
+  if (cachedVersionList && Date.now() - cachedVersionList.timestamp < VERSION_LIST_CACHE_DURATION_MS) {
+    return cachedVersionList.versions;
+  }
+
+  try {
+    const response = await fetch('https://registry.npmjs.org/@anthropic-ai/claude-code', {
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal: AbortSignal.timeout(15000), // 15 second timeout
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const versions = Object.keys(data.versions || {});
+
+    if (!versions.length) {
+      throw new Error('No versions found in npm registry');
+    }
+
+    // Sort by semver descending (newest first) and take last 20
+    const sortedVersions = versions
+      .filter(v => semver.valid(v)) // Only valid semver versions
+      .sort((a, b) => semver.rcompare(a, b)) // Sort descending
+      .slice(0, 20); // Limit to 20 versions
+
+    // Validate we have versions after filtering
+    if (sortedVersions.length === 0) {
+      throw new Error('No valid semver versions found in npm registry');
+    }
+
+    // Cache the result
+    cachedVersionList = { versions: sortedVersions, timestamp: Date.now() };
+    return sortedVersions;
+  } catch (error) {
+    console.error('[Claude Code] Failed to fetch available versions:', error);
+    // Return cached versions if available, even if expired
+    if (cachedVersionList) {
+      return cachedVersionList.versions;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get the platform-specific install command for a specific version of Claude Code
+ * @param version - The version to install (e.g., "1.0.5")
+ */
+function getInstallVersionCommand(version: string): string {
+  if (process.platform === 'win32') {
+    // Windows: kill running Claude processes first, then install specific version
+    return `taskkill /IM claude.exe /F 2>nul; claude install --force ${version}`;
+  } else {
+    // macOS/Linux: kill running Claude processes first, then install specific version
+    return `pkill -x claude 2>/dev/null; sleep 1; claude install --force ${version}`;
   }
 }
 
@@ -280,7 +350,7 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
           'C:\\Program Files\\Git\\git-bash.exe',
           'C:\\Program Files (x86)\\Git\\git-bash.exe',
         ];
-        let gitBashPath = gitBashPaths.find(p => existsSync(p));
+        const gitBashPath = gitBashPaths.find(p => existsSync(p));
         if (gitBashPath) {
           await runWindowsCommand(`"${gitBashPath}" -c "${escapedBashCommand}"`);
         } else {
@@ -616,6 +686,66 @@ export function registerClaudeCodeHandlers(): void {
         return {
           success: false,
           error: `Failed to open terminal for installation: ${errorMsg}`,
+        };
+      }
+    }
+  );
+
+  // Get available Claude Code versions
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_CODE_GET_VERSIONS,
+    async (): Promise<IPCResult<{ versions: string[] }>> => {
+      try {
+        console.log('[Claude Code] Fetching available versions...');
+        const versions = await fetchAvailableVersions();
+        console.log('[Claude Code] Found', versions.length, 'versions');
+        return {
+          success: true,
+          data: { versions },
+        };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error('[Claude Code] Failed to fetch versions:', errorMsg, error);
+        return {
+          success: false,
+          error: `Failed to fetch available versions: ${errorMsg}`,
+        };
+      }
+    }
+  );
+
+  // Install a specific version of Claude Code
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_CODE_INSTALL_VERSION,
+    async (_event, version: string): Promise<IPCResult<{ command: string; version: string }>> => {
+      try {
+        // Validate version format
+        if (!version || typeof version !== 'string') {
+          throw new Error('Invalid version specified');
+        }
+
+        // Basic semver validation
+        if (!semver.valid(version)) {
+          throw new Error(`Invalid version format: ${version}`);
+        }
+
+        console.log('[Claude Code] Installing version:', version);
+        const command = getInstallVersionCommand(version);
+        console.log('[Claude Code] Install command:', command);
+        console.log('[Claude Code] Opening terminal...');
+        await openTerminalWithCommand(command);
+        console.log('[Claude Code] Terminal opened successfully');
+
+        return {
+          success: true,
+          data: { command, version },
+        };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error('[Claude Code] Install version failed:', errorMsg, error);
+        return {
+          success: false,
+          error: `Failed to install version: ${errorMsg}`,
         };
       }
     }
