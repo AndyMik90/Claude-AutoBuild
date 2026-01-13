@@ -385,6 +385,15 @@ export class UsageMonitor extends EventEmitter {
           if (code === 0 && stdout) {
             try {
               const usageData = parseUsageOutput(stdout);
+              const { parseResetTime } = require('./usage-parser');
+
+              // Parse reset time strings into timestamps for countdown timer
+              const sessionResetTimestamp = usageData.sessionResetTime
+                ? parseResetTime(usageData.sessionResetTime).getTime()
+                : undefined;
+              const weeklyResetTimestamp = usageData.weeklyResetTime
+                ? parseResetTime(usageData.weeklyResetTime).getTime()
+                : undefined;
 
               // Convert ClaudeUsageData to ClaudeUsageSnapshot
               const snapshot: ClaudeUsageSnapshot = {
@@ -392,6 +401,8 @@ export class UsageMonitor extends EventEmitter {
                 weeklyPercent: usageData.weeklyUsagePercent,
                 sessionResetTime: usageData.sessionResetTime,
                 weeklyResetTime: usageData.weeklyResetTime,
+                sessionResetTimestamp,
+                weeklyResetTimestamp,
                 profileId,
                 profileName,
                 fetchedAt: new Date(),
