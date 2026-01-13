@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, memo } from 'react';
+import { useState, useMemo, useRef, memo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
@@ -571,6 +571,29 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   };
 
   /**
+   * Handle mouse move for click-and-drag horizontal scrolling
+   * Calculates drag distance and scrolls the container horizontally
+   * Wrapped in useCallback for stable reference in window event listeners
+   */
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isScrollDragging || !scrollContainerRef.current) return;
+
+    e.preventDefault();
+    const x = e.clientX - dragStartX.current;
+    const scrollLeft = dragStartScrollLeft.current - x;
+    scrollContainerRef.current.scrollLeft = scrollLeft;
+  }, [isScrollDragging]);
+
+  /**
+   * Handle mouse up for click-and-drag horizontal scrolling
+   * Resets the dragging state
+   * Wrapped in useCallback for stable reference in window event listeners
+   */
+  const handleMouseUp = useCallback(() => {
+    setIsScrollDragging(false);
+  }, []);
+
+  /**
    * Handle mouse down for click-and-drag horizontal scrolling
    * Only activates if not clicking on a button or draggable task card
    */
@@ -589,25 +612,22 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   };
 
   /**
-   * Handle mouse move for click-and-drag horizontal scrolling
-   * Calculates drag distance and scrolls the container horizontally
+   * Setup window event listeners for drag operations
+   * Ensures drag continues even when mouse leaves the container
    */
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isScrollDragging || !scrollContainerRef.current) return;
+  useEffect(() => {
+    if (isScrollDragging) {
+      // Add window-level listeners when drag starts
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
 
-    e.preventDefault();
-    const x = e.clientX - dragStartX.current;
-    const scrollLeft = dragStartScrollLeft.current - x;
-    scrollContainerRef.current.scrollLeft = scrollLeft;
-  };
-
-  /**
-   * Handle mouse up for click-and-drag horizontal scrolling
-   * Resets the dragging state
-   */
-  const handleMouseUp = () => {
-    setIsScrollDragging(false);
-  };
+      // Cleanup: remove listeners when drag ends or component unmounts
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isScrollDragging, handleMouseMove, handleMouseUp]);
 
   return (
     <div className="flex h-full flex-col">
@@ -637,9 +657,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         <div
           ref={scrollContainerRef}
           onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
           className={cn(
             "flex flex-1 gap-4 overflow-x-auto p-6",
             isScrollDragging && "cursor-grabbing active:cursor-grabbing"
