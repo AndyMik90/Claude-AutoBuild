@@ -58,26 +58,31 @@ export function WorktreeSelector({
     if (!projectPath) return;
     setIsLoading(true);
     try {
-      // Fetch terminal worktrees
-      const terminalResult = await window.electronAPI.listTerminalWorktrees(projectPath);
+      // Fetch terminal worktrees and task worktrees in parallel
+      const [terminalResult, taskResult] = await Promise.all([
+        window.electronAPI.listTerminalWorktrees(projectPath),
+        project?.id ? window.electronAPI.listWorktrees(project.id) : Promise.resolve(null),
+      ]);
+
+      // Process terminal worktrees
       if (terminalResult.success && terminalResult.data) {
-        // Filter out the current worktree from the list
+        // Filter out the current worktree from the list using path for consistency
         const available = currentWorktree
-          ? terminalResult.data.filter((wt) => wt.name !== currentWorktree.name)
+          ? terminalResult.data.filter((wt) => wt.worktreePath !== currentWorktree.worktreePath)
           : terminalResult.data;
         setWorktrees(available);
       }
 
-      // Fetch task worktrees if we have a project ID
-      if (project?.id) {
-        const taskResult = await window.electronAPI.listWorktrees(project.id);
-        if (taskResult.success && taskResult.data?.worktrees) {
-          // Filter out current worktree if it matches a task worktree
-          const availableTaskWorktrees = currentWorktree
-            ? taskResult.data.worktrees.filter((wt) => wt.path !== currentWorktree.worktreePath)
-            : taskResult.data.worktrees;
-          setTaskWorktrees(availableTaskWorktrees);
-        }
+      // Process task worktrees
+      if (taskResult?.success && taskResult.data?.worktrees) {
+        // Filter out current worktree if it matches a task worktree
+        const availableTaskWorktrees = currentWorktree
+          ? taskResult.data.worktrees.filter((wt) => wt.path !== currentWorktree.worktreePath)
+          : taskResult.data.worktrees;
+        setTaskWorktrees(availableTaskWorktrees);
+      } else {
+        // Clear task worktrees when project is null or fetch failed
+        setTaskWorktrees([]);
       }
     } catch (err) {
       console.error('Failed to fetch worktrees:', err);
@@ -94,6 +99,7 @@ export function WorktreeSelector({
       branchName: taskWt.branch,
       baseBranch: taskWt.baseBranch,
       hasGitBranch: true,
+      // Note: This represents when the worktree was attached to this terminal, not when it was originally created
       createdAt: new Date().toISOString(),
       terminalId,
     };
