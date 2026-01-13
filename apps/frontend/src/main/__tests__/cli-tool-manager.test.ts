@@ -17,7 +17,8 @@ import {
 } from '../cli-tool-manager';
 import {
   findWindowsExecutableViaWhere,
-  findWindowsExecutableViaWhereAsync
+  findWindowsExecutableViaWhereAsync,
+  isSecurePath
 } from '../utils/windows-paths';
 import { findExecutable, findExecutableAsync } from '../env-utils';
 
@@ -364,6 +365,35 @@ describe('cli-tool-manager - Claude CLI NVM detection', () => {
       expect(result.found).toBe(true);
       expect(result.path).toMatch(/AppData[/\\]Roaming[/\\]npm[/\\]claude\.cmd/);
       expect(result.source).toBe('system-path');
+    });
+
+    it('should ignore insecure Windows Claude CLI path from where.exe', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'win32',
+        writable: true
+      });
+
+      vi.mocked(os.homedir).mockReturnValue('C:\\Users\\test');
+      vi.mocked(findExecutable).mockReturnValue(null);
+      vi.mocked(findWindowsExecutableViaWhere).mockReturnValue(
+        'D:\\Tools\\claude.cmd'
+      );
+      vi.mocked(isSecurePath).mockReturnValue(false);
+
+      vi.mocked(existsSync).mockImplementation((filePath) => {
+        const pathStr = String(filePath);
+        if (pathStr.includes('Tools') && pathStr.includes('claude.cmd')) {
+          return true;
+        }
+        return false;
+      });
+
+      const result = getToolInfo('claude');
+
+      expect(result.found).toBe(false);
+      expect(result.source).toBe('fallback');
+      expect(execFileSync).not.toHaveBeenCalled();
+      vi.mocked(isSecurePath).mockReturnValue(true);
     });
 
     it('should detect Claude CLI in Unix .local/bin path', () => {

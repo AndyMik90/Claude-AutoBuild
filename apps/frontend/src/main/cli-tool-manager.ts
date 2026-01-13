@@ -28,6 +28,7 @@ import { promisify } from 'util';
 import { app } from 'electron';
 import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell, existsAsync } from './env-utils';
 import type { ToolDetectionResult } from '../shared/types';
+import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 
 const execFileAsync = promisify(execFile);
 
@@ -40,7 +41,6 @@ type ExecFileAsyncOptionsWithVerbatim = import('child_process').ExecFileOptionsW
 
 const normalizeExecOutput = (output: string | Buffer): string =>
   typeof output === 'string' ? output : output.toString('utf-8');
-import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 import {
   getWindowsExecutablePaths,
   getWindowsExecutablePathsAsync,
