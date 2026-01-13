@@ -133,7 +133,7 @@ export function Combobox({
 
         {/* Options list */}
         <ScrollArea className="max-h-[300px]">
-          <div id={listboxId} role="listbox" className="p-1">
+          <div id={listboxId} role="listbox" aria-label={searchPlaceholder || placeholder} className="p-1">
             {filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
                 {emptyMessage}
@@ -167,3 +167,5 @@ export function Combobox({
     </Popover>
   );
 }
+
+Combobox.displayName = 'Combobox';

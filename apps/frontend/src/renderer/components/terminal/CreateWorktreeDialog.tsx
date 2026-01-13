@@ -31,22 +31,22 @@ const PROJECT_DEFAULT_BRANCH = '__project_default__';
  * Sanitizes a string into a valid worktree/branch name.
  * - Converts to lowercase
  * - Replaces spaces and invalid characters with hyphens
- * - Collapses consecutive hyphens/dots
- * - Trims leading/trailing hyphens and dots
+ * - Collapses consecutive hyphens
+ * - Trims leading/trailing hyphens
+ * - Ensures name ends with alphanumeric (matching backend WORKTREE_NAME_REGEX)
  */
 function sanitizeWorktreeName(value: string, maxLength?: number): string {
   let sanitized = value
     .toLowerCase()
     .replace(/\s+/g, '-') // Replace spaces with hyphens
-    .replace(/[^a-z0-9._-]/g, '-') // Replace other invalid chars with hyphens
+    .replace(/[^a-z0-9_-]/g, '-') // Replace invalid chars (including dots) with hyphens
     .replace(/-{2,}/g, '-') // Collapse consecutive hyphens
-    .replace(/\.{2,}/g, '.') // Collapse consecutive dots
-    .replace(/^[.-]+|[.-]+$/g, ''); // Trim leading and trailing hyphens/dots
+    .replace(/^[-_]+|[-_]+$/g, ''); // Trim leading and trailing hyphens/underscores
 
   if (maxLength) {
     sanitized = sanitized.slice(0, maxLength);
-    // Trim trailing hyphens/dots again after slicing
-    sanitized = sanitized.replace(/[.-]+$/, '');
+    // Trim trailing hyphens/underscores again after slicing
+    sanitized = sanitized.replace(/[-_]+$/, '');
   }
 
   return sanitized;
@@ -152,9 +152,9 @@ export function CreateWorktreeDialog({
       return;
     }
 
-    // Validate name format - allow letters, numbers, dashes, underscores, and dots
-    // Must start with letter or number, must not end with dot, must not contain '..' (invalid for Git)
-    if (!/^[a-z0-9][a-z0-9._-]*$/.test(name) || name.endsWith('.') || name.includes('..')) {
+    // Validate name format - allow letters, numbers, dashes, and underscores
+    // Must start and end with letter or number (matching backend WORKTREE_NAME_REGEX)
+    if (!/^[a-z0-9][a-z0-9_-]*[a-z0-9]$/.test(name) && !/^[a-z0-9]$/.test(name)) {
       setError(t('terminal:worktree.nameInvalid'));
       return;
     }
