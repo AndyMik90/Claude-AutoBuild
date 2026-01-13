@@ -570,6 +570,24 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   };
 
+  /**
+   * Handle mouse down for click-and-drag horizontal scrolling
+   * Only activates if not clicking on a button or draggable task card
+   */
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Only activate if not clicking on a button or task card
+    if (e.target instanceof HTMLElement && (
+      e.target.closest('button') ||
+      e.target.closest('[data-dnd-kit-draggable]')
+    )) {
+      return;
+    }
+
+    setIsScrollDragging(true);
+    dragStartX.current = e.clientX;
+    dragStartScrollLeft.current = scrollContainerRef.current?.scrollLeft || 0;
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Kanban header with refresh button */}
