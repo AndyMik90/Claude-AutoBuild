@@ -344,7 +344,70 @@
       "description": "Graphiti memory backend",
       "integrationTitle": "Memory",
       "integrationDescription": "Configure persistent cross-session memory for agents",
-      "syncDescription": "Configure persistent memory"
+      "syncDescription": "Configure persistent memory",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "enableMemory": "Enable Memory",
+      "enableMemoryDescription": "Persistent cross-session memory using embedded graph database",
+      "fileBasedMemory": "Using file-based memory. Session insights are stored locally in JSON files. Enable Memory for persistent cross-session context with semantic search.",
+      "enableAgentAccess": "Enable Agent Memory Access",
+      "enableAgentAccessDescription": "Allow agents to search and add to the knowledge graph via MCP",
+      "mcpServerUrl": "Graphiti MCP Server URL",
+      "mcpServerUrlDescription": "URL of the Graphiti MCP server",
+      "mcpServerUrlPlaceholder": "http://localhost:8000/mcp/",
+      "embeddingProvider": "Embedding Provider",
+      "embeddingProviderDescription": "Provider for semantic search (optional - keyword search works without)",
+      "selectEmbeddingProvider": "Select embedding provider",
+      "providers": {
+        "ollama": "Ollama (Local - Free)",
+        "openai": "OpenAI",
+        "voyage": "Voyage AI",
+        "google": "Google AI",
+        "azure": "Azure OpenAI"
+      },
+      "openai": {
+        "apiKey": "OpenAI API Key",
+        "apiKeyOverride": "OpenAI API Key (Override)",
+        "usingGlobalKey": "Using global key",
+        "usingGlobalDescription": "Using key from App Settings. Enter a project-specific key below to override.",
+        "requiredDescription": "Required for OpenAI embeddings",
+        "overridePlaceholder": "Enter to override global key..."
+      },
+      "voyage": {
+        "apiKey": "Voyage AI API Key",
+        "requiredDescription": "Required for Voyage AI embeddings",
+        "embeddingModel": "Embedding Model"
+      },
+      "google": {
+        "apiKey": "Google AI API Key",
+        "requiredDescription": "Required for Google AI embeddings"
+      },
+      "azure": {
+        "configuration": "Azure OpenAI Configuration",
+        "apiKey": "API Key",
+        "baseUrl": "Base URL",
+        "embeddingDeployment": "Embedding Deployment Name"
+      },
+      "ollama": {
+        "configuration": "Ollama Configuration",
+        "checking": "Checking...",
+        "connected": "Connected",
+        "notRunning": "Not running",
+        "baseUrl": "Base URL",
+        "embeddingModel": "Embedding Model",
+        "selectEmbeddingModel": "Select embedding model",
+        "recommendedModels": "Recommended: qwen3-embedding:4b (balanced), :8b (quality), :0.6b (fast)",
+        "embeddingDimension": "Embedding Dimension",
+        "embeddingDimensionDescription": "Required for Ollama embeddings (e.g., 768 for nomic-embed-text)"
+      },
+      "database": {
+        "name": "Database Name",
+        "nameDescription": "Name for the memory database (stored in ~/.auto-claude/memories/)",
+        "namePlaceholder": "auto_claude_memory",
+        "path": "Database Path (Optional)",
+        "pathDescription": "Custom storage location. Default: ~/.auto-claude/memories/",
+        "pathPlaceholder": "~/.auto-claude/memories"
+      }
     }
   },
   "agentProfile": {

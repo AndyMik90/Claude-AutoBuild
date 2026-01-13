@@ -344,7 +344,70 @@
       "description": "Backend mémoire Graphiti",
       "integrationTitle": "Mémoire",
       "integrationDescription": "Configurer la mémoire persistante inter-sessions pour les agents",
-      "syncDescription": "Configurer la mémoire persistante"
+      "syncDescription": "Configurer la mémoire persistante",
+      "enabled": "Activé",
+      "disabled": "Désactivé",
+      "enableMemory": "Activer la mémoire",
+      "enableMemoryDescription": "Mémoire persistante inter-sessions utilisant une base de données graphe embarquée",
+      "fileBasedMemory": "Utilisation de la mémoire basée sur fichiers. Les informations de session sont stockées localement dans des fichiers JSON. Activez la mémoire pour un contexte inter-sessions persistant avec recherche sémantique.",
+      "enableAgentAccess": "Activer l'accès mémoire agent",
+      "enableAgentAccessDescription": "Permettre aux agents de rechercher et d'ajouter au graphe de connaissances via MCP",
+      "mcpServerUrl": "URL du serveur MCP Graphiti",
+      "mcpServerUrlDescription": "URL du serveur MCP Graphiti",
+      "mcpServerUrlPlaceholder": "http://localhost:8000/mcp/",
+      "embeddingProvider": "Fournisseur d'embeddings",
+      "embeddingProviderDescription": "Fournisseur pour la recherche sémantique (optionnel - la recherche par mots-clés fonctionne sans)",
+      "selectEmbeddingProvider": "Sélectionner un fournisseur d'embeddings",
+      "providers": {
+        "ollama": "Ollama (Local - Gratuit)",
+        "openai": "OpenAI",
+        "voyage": "Voyage AI",
+        "google": "Google AI",
+        "azure": "Azure OpenAI"
+      },
+      "openai": {
+        "apiKey": "Clé API OpenAI",
+        "apiKeyOverride": "Clé API OpenAI (Remplacement)",
+        "usingGlobalKey": "Utilisation de la clé globale",
+        "usingGlobalDescription": "Utilisation de la clé des paramètres de l'app. Entrez une clé spécifique au projet ci-dessous pour remplacer.",
+        "requiredDescription": "Requise pour les embeddings OpenAI",
+        "overridePlaceholder": "Entrez pour remplacer la clé globale..."
+      },
+      "voyage": {
+        "apiKey": "Clé API Voyage AI",
+        "requiredDescription": "Requise pour les embeddings Voyage AI",
+        "embeddingModel": "Modèle d'embedding"
+      },
+      "google": {
+        "apiKey": "Clé API Google AI",
+        "requiredDescription": "Requise pour les embeddings Google AI"
+      },
+      "azure": {
+        "configuration": "Configuration Azure OpenAI",
+        "apiKey": "Clé API",
+        "baseUrl": "URL de base",
+        "embeddingDeployment": "Nom du déploiement d'embedding"
+      },
+      "ollama": {
+        "configuration": "Configuration Ollama",
+        "checking": "Vérification...",
+        "connected": "Connecté",
+        "notRunning": "Non démarré",
+        "baseUrl": "URL de base",
+        "embeddingModel": "Modèle d'embedding",
+        "selectEmbeddingModel": "Sélectionner un modèle d'embedding",
+        "recommendedModels": "Recommandé : qwen3-embedding:4b (équilibré), :8b (qualité), :0.6b (rapide)",
+        "embeddingDimension": "Dimension d'embedding",
+        "embeddingDimensionDescription": "Requise pour les embeddings Ollama (ex: 768 pour nomic-embed-text)"
+      },
+      "database": {
+        "name": "Nom de la base de données",
+        "nameDescription": "Nom de la base de données mémoire (stockée dans ~/.auto-claude/memories/)",
+        "namePlaceholder": "auto_claude_memory",
+        "path": "Chemin de la base de données (Optionnel)",
+        "pathDescription": "Emplacement de stockage personnalisé. Par défaut : ~/.auto-claude/memories/",
+        "pathPlaceholder": "~/.auto-claude/memories"
+      }
     }
   },
   "agentProfile": {
