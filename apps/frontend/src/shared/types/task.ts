@@ -438,6 +438,16 @@ export interface WorktreeCreatePRResult {
 }
 
 /**
+ * Result of worktree cleanup operations (removing worktree directory and branch)
+ */
+export interface WorktreeCleanupResult {
+  success: boolean;
+  canSkipCleanup?: boolean;
+  worktreePath?: string;
+  error?: string;
+}
+
+/**
  * Information about a single spec worktree
  * Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
  */

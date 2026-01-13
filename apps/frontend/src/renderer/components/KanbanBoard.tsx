@@ -545,7 +545,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       setWorktreeCleanupDialog(prev => ({
         ...prev,
         isProcessing: false,
-        error: result.error || t('dialogs:worktreeCleanup.errorDescription')
+        error: result.error || t('dialogs:worktreeCleanup.errorDescription'),
+        canSkipCleanup: result.canSkipCleanup || false
       }));
     }
   };
