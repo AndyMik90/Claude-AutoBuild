@@ -320,13 +320,24 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
   // Update terminal options when font settings change
   useEffect(() => {
-    if (xtermRef.current) {
+    if (xtermRef.current && fitAddonRef.current) {
       xtermRef.current.options.fontSize = terminalFont.fontSize;
       xtermRef.current.options.fontFamily = terminalFont.fontFamily;
       xtermRef.current.options.lineHeight = terminalFont.lineHeight;
       xtermRef.current.options.letterSpacing = terminalFont.letterSpacing;
+
+      // Recalculate grid dimensions based on new font metrics
+      // Font changes affect character width/height, so cols/rows may change
+      fitAddonRef.current.fit();
+
       // Refresh the terminal to apply new font settings
       xtermRef.current.refresh(0, xtermRef.current.rows);
+
+      // Update dimensions state with new grid size
+      setDimensions({
+        cols: xtermRef.current.cols,
+        rows: xtermRef.current.rows
+      });
     }
   }, [terminalFont]);
 
