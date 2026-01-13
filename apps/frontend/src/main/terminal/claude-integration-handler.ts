@@ -488,7 +488,7 @@ export function invokeClaude(
 
       // Write platform-appropriate content
       const tempFileContent = isWindows
-        ? `@echo off\r\nset CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArgWindows(token)}\r\n`  // Windows batch file
+        ? `@echo off\r\nset "CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArgWindows(token)}"\r\n`  // Windows batch file
         : `export CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArg(token)}\n`;  // Unix shell script
 
       fs.writeFileSync(tempFile, tempFileContent, { mode: 0o600 });
@@ -671,7 +671,7 @@ export async function invokeClaudeAsync(
 
       // Write platform-appropriate content
       const tempFileContent = isWindows
-        ? `@echo off\r\nset CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArgWindows(token)}\r\n`  // Windows batch file
+        ? `@echo off\r\nset "CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArgWindows(token)}"\r\n`  // Windows batch file
         : `export CLAUDE_CODE_OAUTH_TOKEN=${escapeShellArg(token)}\n`;  // Unix shell script
 
       await fsPromises.writeFile(tempFile, tempFileContent, { mode: 0o600 });
