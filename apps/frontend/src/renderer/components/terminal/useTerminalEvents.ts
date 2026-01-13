@@ -114,6 +114,18 @@ export function useTerminalEvents({
     return cleanup;
   }, [terminalId]);
 
+  // Handle worktree config change (synced from main process during restoration)
+  // This ensures the worktree label appears after terminal recovery
+  useEffect(() => {
+    const cleanup = window.electronAPI.onTerminalWorktreeConfigChange((id, config) => {
+      if (id === terminalId) {
+        useTerminalStore.getState().setWorktreeConfig(terminalId, config);
+      }
+    });
+
+    return cleanup;
+  }, [terminalId]);
+
   // Handle Claude session ID capture
   useEffect(() => {
     const cleanup = window.electronAPI.onTerminalClaudeSession((id, sessionId) => {

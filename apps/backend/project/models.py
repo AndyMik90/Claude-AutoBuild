@@ -52,6 +52,9 @@ class SecurityProfile:
     project_dir: str = ""
     created_at: str = ""
     project_hash: str = ""
+    inherited_from: str = (
+        ""  # Source project path if inherited from parent (e.g., worktree)
+    )
 
     def get_all_allowed_commands(self) -> set[str]:
         """Get the complete set of allowed commands."""
@@ -64,7 +67,7 @@ class SecurityProfile:
 
     def to_dict(self) -> dict:
         """Convert to JSON-serializable dict."""
-        return {
+        result = {
             "base_commands": sorted(self.base_commands),
             "stack_commands": sorted(self.stack_commands),
             "script_commands": sorted(self.script_commands),
@@ -75,6 +78,10 @@ class SecurityProfile:
             "created_at": self.created_at,
             "project_hash": self.project_hash,
         }
+        # Only include inherited_from if set (to keep backward compatibility)
+        if self.inherited_from:
+            result["inherited_from"] = self.inherited_from
+        return result
 
     @classmethod
     def from_dict(cls, data: dict) -> "SecurityProfile":
@@ -87,6 +94,7 @@ class SecurityProfile:
             project_dir=data.get("project_dir", ""),
             created_at=data.get("created_at", ""),
             project_hash=data.get("project_hash", ""),
+            inherited_from=data.get("inherited_from", ""),
         )
 
         if "detected_stack" in data:

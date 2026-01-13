@@ -296,6 +296,23 @@ def setup_workspace(
             f"Security config copied: {', '.join(security_files_copied)}", "success"
         )
 
+        # Mark the security profile as inherited from parent project
+        # This prevents hash-based re-analysis which would produce a broken profile
+        # (worktrees lack node_modules and other build artifacts needed for detection)
+        if PROFILE_FILENAME in security_files_copied:
+            profile_path = worktree_info.path / PROFILE_FILENAME
+            try:
+                with open(profile_path) as f:
+                    profile_data = json.load(f)
+                profile_data["inherited_from"] = str(project_dir.resolve())
+                with open(profile_path, "w") as f:
+                    json.dump(profile_data, f, indent=2)
+                debug(
+                    MODULE, f"Marked security profile as inherited from {project_dir}"
+                )
+            except (OSError, json.JSONDecodeError) as e:
+                debug_warning(MODULE, f"Failed to mark profile as inherited: {e}")
+
     # Ensure .auto-claude/ is in the worktree's .gitignore
     # This is critical because the worktree inherits .gitignore from the base branch,
     # which may not have .auto-claude/ if that change wasn't committed/pushed.
