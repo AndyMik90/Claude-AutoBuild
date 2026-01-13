@@ -352,5 +352,17 @@
     "done": "Terminé",
     "failedLabel": "Échoué",
     "starting": "Démarrage..."
+  },
+  "ideation": {
+    "converting": "Conversion...",
+    "convertToTask": "Convertir en tâche Auto-Build",
+    "dismissIdea": "Ignorer l'idée",
+    "description": "Description",
+    "rationale": "Justification",
+    "goToTask": "Aller à la tâche",
+    "conversionFailed": "Échec de la conversion",
+    "conversionFailedDescription": "Impossible de convertir l'idée en tâche",
+    "conversionError": "Erreur de conversion",
+    "conversionErrorDescription": "Une erreur s'est produite lors de la conversion de l'idée"
   }
 }
