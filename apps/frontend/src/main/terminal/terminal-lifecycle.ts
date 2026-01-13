@@ -189,6 +189,9 @@ export async function restoreTerminal(
   const win = getWindow();
   if (win) {
     win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, session.title);
+    // Always sync worktreeConfig to renderer (even if undefined) to ensure correct state
+    // This handles both: showing labels after recovery AND clearing stale labels when worktrees are deleted
+    win.webContents.send(IPC_CHANNELS.TERMINAL_WORKTREE_CONFIG_CHANGE, session.id, terminal.worktreeConfig);
   }
 
   // Defer Claude resume until terminal becomes active (is viewed by user)

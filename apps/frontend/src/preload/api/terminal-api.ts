@@ -69,6 +69,7 @@ export interface TerminalAPI {
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;
   onTerminalTitleChange: (callback: (id: string, title: string) => void) => () => void;
+  onTerminalWorktreeConfigChange: (callback: (id: string, config: TerminalWorktreeConfig | undefined) => void) => () => void;
   onTerminalClaudeSession: (callback: (id: string, sessionId: string) => void) => () => void;
   onTerminalRateLimit: (callback: (info: RateLimitInfo) => void) => () => void;
   onTerminalOAuthToken: (
@@ -224,6 +225,22 @@ export const createTerminalAPI = (): TerminalAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, handler);
+    };
+  },
+
+  onTerminalWorktreeConfigChange: (
+    callback: (id: string, config: TerminalWorktreeConfig | undefined) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      id: string,
+      config: TerminalWorktreeConfig | undefined
+    ): void => {
+      callback(id, config);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TERMINAL_WORKTREE_CONFIG_CHANGE, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_WORKTREE_CONFIG_CHANGE, handler);
     };
   },
 

@@ -219,6 +219,8 @@ export interface ElectronAPI {
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;
   onTerminalTitleChange: (callback: (id: string, title: string) => void) => () => void;
+  /** Listen for worktree config changes (synced from main process during restoration) */
+  onTerminalWorktreeConfigChange: (callback: (id: string, config: TerminalWorktreeConfig | undefined) => void) => () => void;
   onTerminalClaudeSession: (callback: (id: string, sessionId: string) => void) => () => void;
   onTerminalRateLimit: (callback: (info: RateLimitInfo) => void) => () => void;
   /** Listen for OAuth authentication completion (token is auto-saved to profile, never exposed to frontend) */
