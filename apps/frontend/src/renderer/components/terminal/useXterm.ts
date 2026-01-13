@@ -347,7 +347,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
         fitAddonRef.current.fit();
 
         // Refresh the terminal to apply new font settings
-        xtermRef.current.refresh(0, xtermRef.current.rows);
+        xtermRef.current.refresh(0, xtermRef.current.rows - 1);
 
         // Update dimensions state with new grid size
         setDimensions({
