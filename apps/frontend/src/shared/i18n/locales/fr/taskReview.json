@@ -4,6 +4,16 @@
     "openInbuilt": "Ouvrir dans le terminal intégré",
     "openExternal": "Ouvrir dans le terminal externe"
   },
+  "merge": {
+    "branchHasNewCommits": "La branche {{branch}} a {{count}} nouveau commit.",
+    "branchHasNewCommits_other": "La branche {{branch}} a {{count}} nouveaux commits.",
+    "branchHasNewCommitsSinceWorktree": "La branche {{branch}} a {{count}} nouveau commit depuis la création de ce worktree.",
+    "branchHasNewCommitsSinceWorktree_other": "La branche {{branch}} a {{count}} nouveaux commits depuis la création de ce worktree.",
+    "filesNeedMerging": "{{count}} fichier nécessite une fusion.",
+    "filesNeedMerging_other": "{{count}} fichiers nécessitent une fusion.",
+    "filesNeedIntelligentMerging": "{{count}} fichier nécessitera une fusion intelligente :",
+    "filesNeedIntelligentMerging_other": "{{count}} fichiers nécessiteront une fusion intelligente :"
+  },
   "pr": {
     "title": "Créer une Pull Request",
     "description": "Pousser la branche et créer une pull request pour \"{{taskTitle}}\"",

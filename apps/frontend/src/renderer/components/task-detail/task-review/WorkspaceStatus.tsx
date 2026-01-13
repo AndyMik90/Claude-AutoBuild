@@ -346,10 +346,10 @@ export function WorkspaceStatus({
         {/* Git Conflicts Details */}
         {hasGitConflicts && mergePreview?.gitConflicts && (
           <div className="text-xs text-muted-foreground pl-6">
-            {mergePreview.gitConflicts.baseBranch} branch has {mergePreview.gitConflicts.commitsBehind} new commit{mergePreview.gitConflicts.commitsBehind !== 1 ? 's' : ''}.
+            {t('taskReview:merge.branchHasNewCommits', { branch: mergePreview.gitConflicts.baseBranch, count: mergePreview.gitConflicts.commitsBehind })}
             {mergePreview.gitConflicts.conflictingFiles.length > 0 && (
               <span className="text-warning">
-                {' '}{mergePreview.gitConflicts.conflictingFiles.length} file{mergePreview.gitConflicts.conflictingFiles.length !== 1 ? 's' : ''} need merging.
+                {' '}{t('taskReview:merge.filesNeedMerging', { count: mergePreview.gitConflicts.conflictingFiles.length })}
               </span>
             )}
           </div>
