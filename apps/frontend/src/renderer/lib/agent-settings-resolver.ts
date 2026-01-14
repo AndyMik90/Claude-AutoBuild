@@ -85,24 +85,27 @@ export function useResolvedAgentSettings(settings: AppSettings): ResolvedAgentSe
     [selectedProfileId]
   );
 
-  // Profile defaults (used when no custom overrides exist)
-  const profilePhaseModels = selectedProfile.phaseModels || DEFAULT_PHASE_MODELS;
-  const profilePhaseThinking = selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING;
+  // Memoize the resolved settings to avoid unnecessary re-renders
+  return useMemo(() => {
+    // Profile defaults (used when no custom overrides exist)
+    const profilePhaseModels = selectedProfile.phaseModels || DEFAULT_PHASE_MODELS;
+    const profilePhaseThinking = selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING;
 
-  // Effective phase config: custom overrides take priority over profile defaults
-  const phaseModels = settings.customPhaseModels || profilePhaseModels;
-  const phaseThinking = settings.customPhaseThinking || profilePhaseThinking;
+    // Effective phase config: custom overrides take priority over profile defaults
+    const phaseModels = settings.customPhaseModels || profilePhaseModels;
+    const phaseThinking = settings.customPhaseThinking || profilePhaseThinking;
 
-  // Feature settings (not tied to profiles, use custom or defaults)
-  const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
-  const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+    // Feature settings (not tied to profiles, use custom or defaults)
+    const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
+    const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
 
-  return {
-    phaseModels,
-    phaseThinking,
-    featureModels,
-    featureThinking,
-  };
+    return {
+      phaseModels,
+      phaseThinking,
+      featureModels,
+      featureThinking,
+    };
+  }, [selectedProfile, settings.customPhaseModels, settings.customPhaseThinking, settings.featureModels, settings.featureThinking]);
 }
 
 /**
