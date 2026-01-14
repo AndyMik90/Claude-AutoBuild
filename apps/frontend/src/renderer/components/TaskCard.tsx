@@ -153,12 +153,22 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
       return;
     }
 
+    // If we have ANY execution progress (coding, validation, planning, etc.),
+    // trust that the process is active - worktree setup is done
+    if (currentPhase && currentPhase !== 'idle') {
+      setIsStuck(false);
+      return;
+    }
+
     // Use requestIdleCallback for non-blocking check when available
     const doCheck = () => {
       checkTaskRunning(task.id).then((actuallyRunning) => {
         // Double-check the phase again in case it changed while waiting
         const latestPhase = task.executionProgress?.phase;
         if (latestPhase === 'complete' || latestPhase === 'failed') {
+          setIsStuck(false);
+        } else if (latestPhase && latestPhase !== 'idle') {
+          // Phase changed - process is active
           setIsStuck(false);
         } else {
           setIsStuck(!actuallyRunning);
@@ -190,8 +200,8 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
       return;
     }
 
-    // Initial check after 5s grace period (increased from 2s)
-    stuckCheckRef.current.timeout = setTimeout(performStuckCheck, 5000);
+    // Initial check after 15s grace period (increased to allow worktree setup)
+    stuckCheckRef.current.timeout = setTimeout(performStuckCheck, 15000);
 
     // Periodic re-check every 30 seconds (reduced frequency from 15s)
     stuckCheckRef.current.interval = setInterval(performStuckCheck, 30000);

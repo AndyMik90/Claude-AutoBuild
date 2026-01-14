@@ -554,11 +554,13 @@ export class ProjectStore {
         }
 
         // Extract QA report from plan's qa_signoff
+        // Note: issues_found can be either an array OR an object with { details: [...] }
+        type IssueItem = { title?: string; severity?: string; description?: string; file?: string; line?: number };
         const planWithQA = plan as unknown as {
           qa_signoff?: {
             status?: string;
             timestamp?: string;
-            issues_found?: Array<{ title?: string; severity?: string; description?: string; file?: string; line?: number }>;
+            issues_found?: IssueItem[] | { details?: IssueItem[]; critical?: number; major?: number; minor?: number };
             screenshots?: string[];
           };
         } | null;
@@ -566,9 +568,19 @@ export class ProjectStore {
         let qaReport: QAReport | undefined;
 
         if (qaSignoff && qaSignoff.status && ['approved', 'rejected'].includes(qaSignoff.status)) {
+          // Handle both array and object formats for issues_found
+          let issuesArray: IssueItem[] = [];
+          if (qaSignoff.issues_found) {
+            if (Array.isArray(qaSignoff.issues_found)) {
+              issuesArray = qaSignoff.issues_found;
+            } else if (qaSignoff.issues_found.details && Array.isArray(qaSignoff.issues_found.details)) {
+              issuesArray = qaSignoff.issues_found.details;
+            }
+          }
+
           qaReport = {
             status: qaSignoff.status === 'approved' ? 'passed' : 'failed',
-            issues: (qaSignoff.issues_found || []).map((issue, idx) => ({
+            issues: issuesArray.map((issue, idx) => ({
               id: `qa-${idx}`,
               severity: (issue.severity as 'critical' | 'major' | 'minor') || 'minor',
               description: issue.description || issue.title || 'No description',
