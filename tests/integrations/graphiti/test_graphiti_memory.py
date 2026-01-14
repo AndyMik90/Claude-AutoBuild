@@ -22,13 +22,13 @@ Usage:
 
     # Run the test:
     cd auto-claude
-    python integrations/graphiti/test_graphiti_memory.py
+    python tests/integrations/graphiti/test_graphiti_memory.py
 
     # Or run specific tests:
-    python integrations/graphiti/test_graphiti_memory.py --test connection
-    python integrations/graphiti/test_graphiti_memory.py --test save
-    python integrations/graphiti/test_graphiti_memory.py --test search
-    python integrations/graphiti/test_graphiti_memory.py --test ollama
+    python tests/integrations/graphiti/test_graphiti_memory.py --test connection
+    python tests/integrations/graphiti/test_graphiti_memory.py --test save
+    python tests/integrations/graphiti/test_graphiti_memory.py --test search
+    python tests/integrations/graphiti/test_graphiti_memory.py --test ollama
 """
 
 import argparse
@@ -39,8 +39,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Add auto-claude to path
-auto_claude_dir = Path(__file__).parent.parent.parent
+# Add apps/backend to path
+auto_claude_dir = Path(__file__).parent.parent.parent.parent / "apps" / "backend"
 sys.path.insert(0, str(auto_claude_dir))
 
 # Load .env file
@@ -83,13 +83,13 @@ def print_header(title: str):
 
 def print_result(label: str, value: str, success: bool = True):
     """Print a result line."""
-    status = "✅" if success else "❌"
-    print(f"  {status} {label}: {value}")
+    status = "PASS" if success else "FAIL"
+    print(f"  [{status}] {label}: {value}")
 
 
 def print_info(message: str):
     """Print an info line."""
-    print(f"  ℹ️  {message}")
+    print(f"  INFO: {message}")
 
 
 async def test_ladybugdb_connection(db_path: str, database: str) -> bool:
@@ -704,14 +704,14 @@ async def main():
     print()
     print("  Quick commands:")
     print("    # Run all tests:")
-    print("    python integrations/graphiti/test_graphiti_memory.py")
+    print("    python tests/integrations/graphiti/test_graphiti_memory.py")
     print()
     print("    # Test just Ollama embeddings:")
-    print("    python integrations/graphiti/test_graphiti_memory.py --test ollama")
+    print("    python tests/integrations/graphiti/test_graphiti_memory.py --test ollama")
     print()
     print("    # Test with production database:")
     print(
-        "    python integrations/graphiti/test_graphiti_memory.py --database auto_claude_memory"
+        "    python tests/integrations/graphiti/test_graphiti_memory.py --database auto_claude_memory"
     )
     print()
 

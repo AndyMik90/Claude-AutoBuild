@@ -4,14 +4,18 @@ Quick test to demonstrate provider-specific database naming.
 
 Shows how Auto Claude automatically generates provider-specific database names
 to prevent embedding dimension mismatches.
+
+Usage:
+    cd auto-claude
+    python tests/integrations/graphiti/test_provider_naming.py
 """
 
 import os
 import sys
 from pathlib import Path
 
-# Add auto-claude to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Add apps/backend to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "apps" / "backend"))
 
 from integrations.graphiti.config import GraphitiConfig
 
@@ -57,10 +61,10 @@ def test_provider_naming():
 
     print("=" * 70)
     print("\nKey Benefits:")
-    print("  ✅ No dimension mismatch errors")
-    print("  ✅ Each provider uses its own database")
-    print("  ✅ Can switch providers without conflicts")
-    print("  ✅ Migration utility available for data transfer")
+    print("  - No dimension mismatch errors")
+    print("  - Each provider uses its own database")
+    print("  - Can switch providers without conflicts")
+    print("  - Migration utility available for data transfer")
     print()
 
 

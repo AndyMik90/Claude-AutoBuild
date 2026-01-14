@@ -11,7 +11,7 @@ The test covers:
 1. Ollama embedding generation (direct API test)
 2. Creating memories with Ollama embeddings via GraphitiMemory
 3. Retrieving memories via semantic search
-4. Verifying the full create → store → retrieve cycle
+4. Verifying the full create -> store -> retrieve cycle
 
 Prerequisites:
     1. Install Ollama: https://ollama.ai/
@@ -35,14 +35,14 @@ NOTE: graphiti-core internally uses an OpenAI reranker for search ranking.
       For production, use OpenAI API key for best search quality.
 
 Usage:
-    cd apps/backend
-    python integrations/graphiti/test_ollama_embedding_memory.py
+    cd auto-claude
+    python tests/integrations/graphiti/test_ollama_embedding_memory.py
 
     # Run specific tests:
-    python integrations/graphiti/test_ollama_embedding_memory.py --test embeddings
-    python integrations/graphiti/test_ollama_embedding_memory.py --test create
-    python integrations/graphiti/test_ollama_embedding_memory.py --test retrieve
-    python integrations/graphiti/test_ollama_embedding_memory.py --test full-cycle
+    python tests/integrations/graphiti/test_ollama_embedding_memory.py --test embeddings
+    python tests/integrations/graphiti/test_ollama_embedding_memory.py --test create
+    python tests/integrations/graphiti/test_ollama_embedding_memory.py --test retrieve
+    python tests/integrations/graphiti/test_ollama_embedding_memory.py --test full-cycle
 """
 
 import argparse
@@ -54,8 +54,8 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-# Add auto-claude to path
-auto_claude_dir = Path(__file__).parent.parent.parent
+# Add apps/backend to path
+auto_claude_dir = Path(__file__).parent.parent.parent.parent / "apps" / "backend"
 sys.path.insert(0, str(auto_claude_dir))
 
 # Load .env file
@@ -531,7 +531,7 @@ async def test_memory_retrieval(spec_dir: Path, project_dir: Path) -> bool:
 
 
 # ============================================================================
-# Test 4: Full Create → Store → Retrieve Cycle
+# Test 4: Full Create -> Store -> Retrieve Cycle
 # ============================================================================
 
 
@@ -843,18 +843,18 @@ async def main():
     print()
     print("  Commands:")
     print("    # Run all tests:")
-    print("    python integrations/graphiti/test_ollama_embedding_memory.py")
+    print("    python tests/integrations/graphiti/test_ollama_embedding_memory.py")
     print()
     print("    # Run specific test:")
     print(
-        "    python integrations/graphiti/test_ollama_embedding_memory.py --test embeddings"
+        "    python tests/integrations/graphiti/test_ollama_embedding_memory.py --test embeddings"
     )
     print(
-        "    python integrations/graphiti/test_ollama_embedding_memory.py --test full-cycle"
+        "    python tests/integrations/graphiti/test_ollama_embedding_memory.py --test full-cycle"
     )
     print()
     print("    # Keep database for inspection:")
-    print("    python integrations/graphiti/test_ollama_embedding_memory.py --keep-db")
+    print("    python tests/integrations/graphiti/test_ollama_embedding_memory.py --keep-db")
     print()
 
 
