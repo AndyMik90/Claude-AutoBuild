@@ -32,8 +32,8 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T 
 }
 
 // Terminal font - must match @font-face declaration in globals.css
-const TERMINAL_FONT = 'JetBrains Mono';
-const TERMINAL_FONT_FALLBACK = 'MesloLGS NF';
+const TERMINAL_FONT = 'MesloLGS NF';
+const TERMINAL_FONT_FALLBACK = 'JetBrains Mono';
 
 export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsReady }: UseXtermOptions) {
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -50,11 +50,22 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
   useEffect(() => {
     const loadFonts = async () => {
       try {
-        // Load primary and fallback terminal fonts
-        await Promise.all([
-          document.fonts.load(`13px "${TERMINAL_FONT}"`),
-          document.fonts.load(`13px "${TERMINAL_FONT_FALLBACK}"`),
-        ]);
+        // Wait for all fonts to be ready first
+        await document.fonts.ready;
+
+        // Check which fonts are available
+        const primaryLoaded = document.fonts.check(`14px "${TERMINAL_FONT}"`);
+        const fallbackLoaded = document.fonts.check(`14px "${TERMINAL_FONT_FALLBACK}"`);
+
+        console.log(`[useXterm] Font check - ${TERMINAL_FONT}: ${primaryLoaded}, ${TERMINAL_FONT_FALLBACK}: ${fallbackLoaded}`);
+
+        // If primary isn't loaded, try to load it explicitly
+        if (!primaryLoaded) {
+          console.log(`[useXterm] Attempting to load ${TERMINAL_FONT}...`);
+          const loaded = await document.fonts.load(`14px "${TERMINAL_FONT}"`);
+          console.log(`[useXterm] Loaded fonts:`, loaded.map(f => f.family));
+        }
+
         setFontsLoaded(true);
       } catch (err) {
         console.warn('[useXterm] Font loading failed, using fallback:', err);
@@ -71,10 +82,10 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     const xterm = new XTerm({
       cursorBlink: true,
       cursorStyle: 'block',
-      fontSize: 13,
-      fontFamily: '"JetBrains Mono", "MesloLGS NF", var(--font-mono), Menlo, Monaco, monospace',
-      lineHeight: 1.2,
-      letterSpacing: 0,
+      fontSize: 14,
+      fontFamily: '"MesloLGS NF", "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+      lineHeight: 2.0,
+      letterSpacing: 0, // 110% ≈ minimal extra spacing
       theme: {
         background: '#0B0B0F',
         foreground: '#E8E6E3',
@@ -112,6 +123,14 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     xterm.loadAddon(serializeAddon);
 
     xterm.open(terminalRef.current);
+
+    // Force font refresh after terminal opens
+    // xterm.js sometimes doesn't pick up custom fonts on first render
+    // Re-setting fontFamily forces it to re-measure character widths
+    requestAnimationFrame(() => {
+      xterm.options.fontFamily = '"MesloLGS NF", "JetBrains Mono", Menlo, Monaco, "Courier New", monospace';
+      xterm.refresh(0, xterm.rows - 1);
+    });
 
     // Platform detection for copy/paste shortcuts
     // macOS uses system Cmd+V, no custom handler needed
