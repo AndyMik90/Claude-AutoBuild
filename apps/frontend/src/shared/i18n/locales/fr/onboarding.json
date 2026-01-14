@@ -64,6 +64,34 @@
     },
     "keychainTitle": "Stockage sécurisé",
     "keychainDescription": "Vos jetons sont chiffrés à l'aide du trousseau de clés de votre système. Une demande de mot de passe macOS peut apparaître — cliquez sur « Toujours autoriser » pour ne plus la revoir.",
+    "errors": {
+      "failedToLoadProfiles": "Échec du chargement des profils",
+      "invalidProfileName": "Le nom du profil doit contenir au moins une lettre ou un chiffre",
+      "failedToAddProfile": "Échec de l'ajout du profil",
+      "failedToDeleteProfile": "Échec de la suppression du profil",
+      "failedToRenameProfile": "Échec du renommage du profil",
+      "failedToSetActiveProfile": "Échec de la définition du profil actif",
+      "failedToAuthenticateProfile": "Échec de l'authentification du profil",
+      "failedToSaveToken": "Échec de l'enregistrement du jeton"
+    },
+    "manualTokenEntry": {
+      "title": "Entrée manuelle du jeton",
+      "hint": "Exécutez",
+      "command": "claude setup-token",
+      "toGetToken": "pour obtenir votre jeton",
+      "tokenPlaceholder": "sk-ant-oat01-...",
+      "emailPlaceholder": "Email (facultatif, pour l'affichage)",
+      "saveToken": "Enregistrer le jeton",
+      "cancel": "Annuler"
+    },
+    "accountNamePlaceholder": "Nom du compte (ex: Travail, Personnel)",
+    "successMessage": "Vous avez au moins un compte Claude authentifié. Vous pouvez passer à l'étape suivante.",
+    "tooltip": {
+      "hideTokenEntry": "Masquer la saisie du jeton",
+      "showTokenEntry": "Entrer le jeton manuellement",
+      "renameProfile": "Renommer le profil",
+      "deleteProfile": "Supprimer le profil"
+    },
     "toast": {
       "authSuccess": "Profil authentifié avec succès",
       "authSuccessWithEmail": "Compte : {{email}}",
@@ -154,6 +182,10 @@
     },
     "error": {
       "title": "Échec de l'authentification",
+      "saveFailed": "Échec de l'enregistrement du jeton OAuth",
+      "profilesFailed": "Échec de l'obtention des profils Claude",
+      "startFailed": "Échec du démarrage de l'authentification",
+      "authFailed": "Échec de l'authentification",
       "retry": "Réessayer",
       "cancel": "Annuler"
     },
@@ -199,12 +231,18 @@
     "error": {
       "title": "Échec de l'authentification",
       "titleTimeout": "Expiration de l'authentification",
+      "timeoutMessage": "L'authentification a expiré. La fenêtre d'authentification était ouverte depuis trop longtemps. Veuillez réessayer.",
+      "checkFailed": "Échec de la vérification du GitHub CLI",
+      "unknownError": "Erreur inconnue",
+      "tokenFailed": "Échec de l'obtention du jeton",
+      "authFailed": "Échec de l'authentification",
       "retry": "Réessayer",
       "cancel": "Annuler"
     },
     "fallback": {
       "title": "Compléter l'authentification manuellement",
       "description": "Le navigateur n'a pas pu être ouvert automatiquement. Veuillez visiter l'URL ci-dessous pour compléter l'authentification :",
+      "openUrl": "Ouvrir {{url}}",
       "openBrowser": "Ouvrir l'URL dans le navigateur",
       "enterCode": "Lorsqu'on vous le demande, entrez ce code :"
     }

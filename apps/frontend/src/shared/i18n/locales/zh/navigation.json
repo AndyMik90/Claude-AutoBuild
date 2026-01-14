@@ -16,7 +16,8 @@
     "gitlabIssues": "GitLab 问题",
     "gitlabMRs": "GitLab MR",
     "worktrees": "工作树",
-    "agentTools": "MCP 概览"
+    "agentTools": "MCP 概览",
+    "claudeCode": "Claude Code"
   },
   "context": {
     "projectIndex": "项目索引",
@@ -63,6 +64,22 @@
     "failedToLoadInstallations": "加载安装失败",
     "activeInstallation": "激活",
     "installingVersion": "正在安装版本 {{version}}...",
-    "rollbackWarningDescription": "切换版本将关闭所有正在运行的 Claude Code 会话。这些会话中未保存的工作可能会丢失。请确保在继续之前保存您的工作。"
+    "rollbackWarningDescription": "切换版本将关闭所有正在运行的 Claude Code 会话。这些会话中未保存的工作可能会丢失。请确保在继续之前保存您的工作。",
+    "switchVersion": "切换版本",
+    "loadingInstallations": "正在加载安装...",
+    "rollbackWarningTitle": "切换到版本 {{version}}？",
+    "currentVersion": "当前",
+    "switchInstallation": "切换安装",
+    "pathChangeWarningTitle": "切换 CLI 安装？",
+    "versionUnknown": "版本未知",
+    "path": "路径",
+    "lastChecked": "最后检查时间",
+    "installationNotAvailable": "安装不可用",
+    "installationFailed": "安装失败",
+    "versionSwitchingNotAvailable": "版本切换不可用",
+    "failedToSwitchVersion": "切换版本失败",
+    "pathSwitchingNotAvailable": "路径切换不可用",
+    "failedToSwitchPath": "切换 CLI 路径失败",
+    "cliLabel": "Claude Code CLI"
   }
 }

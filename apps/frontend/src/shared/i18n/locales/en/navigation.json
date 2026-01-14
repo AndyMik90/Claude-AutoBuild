@@ -16,7 +16,8 @@
     "gitlabIssues": "GitLab Issues",
     "gitlabMRs": "GitLab MRs",
     "worktrees": "Worktrees",
-    "agentTools": "MCP Overview"
+    "agentTools": "MCP Overview",
+    "claudeCode": "Claude Code"
   },
   "context": {
     "projectIndex": "Project Index",
@@ -71,6 +72,13 @@
     "pathChangeWarningTitle": "Switch CLI installation?",
     "pathChangeWarningDescription": "Switching CLI installations will use a different Claude Code binary. Any running sessions will continue using the previous installation until restarted.",
     "switchInstallationConfirm": "Switch",
-    "versionUnknown": "version unknown"
+    "versionUnknown": "version unknown",
+    "installationNotAvailable": "Installation not available",
+    "installationFailed": "Installation failed",
+    "versionSwitchingNotAvailable": "Version switching not available",
+    "failedToSwitchVersion": "Failed to switch version",
+    "pathSwitchingNotAvailable": "Path switching not available",
+    "failedToSwitchPath": "Failed to switch CLI path",
+    "cliLabel": "Claude Code CLI"
   }
 }

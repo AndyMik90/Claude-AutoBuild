@@ -670,5 +670,12 @@
       "loadingImage": "加载图片中...",
       "imageNotFound": "未找到图片"
     }
+  },
+  "usage": {
+    "ariaLabel": "Claude 使用状态",
+    "sessionUsage": "会话使用量",
+    "weeklyUsage": "每周使用量",
+    "resets": "重置：",
+    "activeAccount": "活动账户"
   }
 }

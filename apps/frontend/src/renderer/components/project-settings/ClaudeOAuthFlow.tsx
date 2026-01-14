@@ -56,7 +56,7 @@ export function ClaudeOAuthFlow({ onSuccess, onCancel }: ClaudeOAuthFlowProps) {
           onSuccess();
         }, 1500);
       } else {
-        setError(info.message || 'Failed to save OAuth token');
+        setError(info.message || t('claudeOauth.error.saveFailed'));
         setStatus('error');
       }
     });
@@ -87,7 +87,7 @@ export function ClaudeOAuthFlow({ onSuccess, onCancel }: ClaudeOAuthFlowProps) {
       const profilesResult = await window.electronAPI.getClaudeProfiles();
 
       if (!profilesResult.success || !profilesResult.data) {
-        throw new Error('Failed to get Claude profiles');
+        throw new Error(t('claudeOauth.error.profilesFailed'));
       }
 
       const activeProfileId = profilesResult.data.activeProfileId;
@@ -97,14 +97,14 @@ export function ClaudeOAuthFlow({ onSuccess, onCancel }: ClaudeOAuthFlowProps) {
       const result = await window.electronAPI.initializeClaudeProfile(activeProfileId);
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to start authentication');
+        throw new Error(result.error || t('claudeOauth.error.startFailed'));
       }
 
       console.warn('[ClaudeOAuth] Authentication started, waiting for token...');
       // Status will be updated by the event listener when token is detected
     } catch (err) {
       console.error('[ClaudeOAuth] Authentication failed:', err);
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      setError(err instanceof Error ? err.message : t('claudeOauth.error.authFailed'));
       setStatus('error');
       hasStartedRef.current = false;
     }

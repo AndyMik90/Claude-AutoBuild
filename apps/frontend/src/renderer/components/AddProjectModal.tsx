@@ -118,7 +118,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
       );
 
       if (!result.success || !result.data) {
-        setError(result.error || 'Failed to create project folder');
+        setError(result.error || t('addProject.createFolderFailed'));
         return;
       }
 

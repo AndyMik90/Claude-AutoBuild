@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, GitPullRequest } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -30,6 +31,7 @@ export function CreateMergeRequestDialog({
   defaultTargetBranch = 'main',
   onSuccess
 }: CreateMergeRequestDialogProps) {
+  const { t } = useTranslation('gitlab');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [sourceBranch, setSourceBranch] = useState(defaultSourceBranch);
@@ -39,7 +41,7 @@ export function CreateMergeRequestDialog({
 
   const handleCreate = async () => {
     if (!title.trim() || !sourceBranch.trim() || !targetBranch.trim()) {
-      setError('Title, source branch, and target branch are required');
+      setError(t('mergeRequests.create.errorRequired'));
       return;
     }
 
@@ -63,10 +65,10 @@ export function CreateMergeRequestDialog({
         setSourceBranch(defaultSourceBranch);
         setTargetBranch(defaultTargetBranch);
       } else {
-        setError(result.error || 'Failed to create merge request');
+        setError(result.error || t('mergeRequests.create.errorFailed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create merge request');
+      setError(err instanceof Error ? err.message : t('mergeRequests.create.errorFailed'));
     } finally {
       setIsCreating(false);
     }
@@ -78,19 +80,19 @@ export function CreateMergeRequestDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitPullRequest className="h-5 w-5" />
-            Create Merge Request
+            {t('mergeRequests.create.title')}
           </DialogTitle>
           <DialogDescription>
-            Create a new merge request in GitLab
+            {t('mergeRequests.create.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">{t('mergeRequests.create.titleLabel')}</Label>
             <Input
               id="title"
-              placeholder="Merge request title"
+              placeholder={t('mergeRequests.create.titlePlaceholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
@@ -98,19 +100,19 @@ export function CreateMergeRequestDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="source">Source Branch</Label>
+              <Label htmlFor="source">{t('mergeRequests.create.sourceBranchLabel')}</Label>
               <Input
                 id="source"
-                placeholder="feature/my-feature"
+                placeholder={t('mergeRequests.create.sourceBranchPlaceholder')}
                 value={sourceBranch}
                 onChange={(e) => setSourceBranch(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="target">Target Branch</Label>
+              <Label htmlFor="target">{t('mergeRequests.create.targetBranchLabel')}</Label>
               <Input
                 id="target"
-                placeholder="main"
+                placeholder={t('mergeRequests.create.targetBranchPlaceholder')}
                 value={targetBranch}
                 onChange={(e) => setTargetBranch(e.target.value)}
               />
@@ -118,10 +120,10 @@ export function CreateMergeRequestDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description (optional)</Label>
+            <Label htmlFor="description">{t('mergeRequests.create.descriptionLabel')}</Label>
             <Textarea
               id="description"
-              placeholder="Describe the changes in this merge request..."
+              placeholder={t('mergeRequests.create.descriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
@@ -137,16 +139,16 @@ export function CreateMergeRequestDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('mergeRequests.create.cancel')}
           </Button>
           <Button onClick={handleCreate} disabled={isCreating}>
             {isCreating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating...
+                {t('mergeRequests.create.creating')}
               </>
             ) : (
-              'Create Merge Request'
+              t('mergeRequests.create.submit')
             )}
           </Button>
         </DialogFooter>

@@ -64,6 +64,34 @@
     },
     "keychainTitle": "Secure Storage",
     "keychainDescription": "Your tokens are encrypted using your system's keychain. You may see a password prompt from macOS — click \"Always Allow\" to avoid seeing it again.",
+    "errors": {
+      "failedToLoadProfiles": "Failed to load profiles",
+      "invalidProfileName": "Profile name must contain at least one letter or number",
+      "failedToAddProfile": "Failed to add profile",
+      "failedToDeleteProfile": "Failed to delete profile",
+      "failedToRenameProfile": "Failed to rename profile",
+      "failedToSetActiveProfile": "Failed to set active profile",
+      "failedToAuthenticateProfile": "Failed to authenticate profile",
+      "failedToSaveToken": "Failed to save token"
+    },
+    "manualTokenEntry": {
+      "title": "Manual Token Entry",
+      "hint": "Run",
+      "command": "claude setup-token",
+      "toGetToken": "to get your token",
+      "tokenPlaceholder": "sk-ant-oat01-...",
+      "emailPlaceholder": "Email (optional, for display)",
+      "saveToken": "Save Token",
+      "cancel": "Cancel"
+    },
+    "accountNamePlaceholder": "Account name (e.g., Work, Personal)",
+    "successMessage": "You have at least one authenticated Claude account. You can continue to the next step.",
+    "tooltip": {
+      "hideTokenEntry": "Hide token entry",
+      "showTokenEntry": "Enter token manually",
+      "renameProfile": "Rename profile",
+      "deleteProfile": "Delete profile"
+    },
     "toast": {
       "authSuccess": "Profile authenticated successfully",
       "authSuccessWithEmail": "Account: {{email}}",
@@ -154,6 +182,10 @@
     },
     "error": {
       "title": "Authentication Failed",
+      "saveFailed": "Failed to save OAuth token",
+      "profilesFailed": "Failed to get Claude profiles",
+      "startFailed": "Failed to start authentication",
+      "authFailed": "Authentication failed",
       "retry": "Retry",
       "cancel": "Cancel"
     },
@@ -199,12 +231,18 @@
     "error": {
       "title": "Authentication Failed",
       "titleTimeout": "Authentication Timed Out",
+      "timeoutMessage": "Authentication timed out. The authentication window was open for too long. Please try again.",
+      "checkFailed": "Failed to check GitHub CLI",
+      "unknownError": "Unknown error",
+      "tokenFailed": "Failed to get token",
+      "authFailed": "Authentication failed",
       "retry": "Retry",
       "cancel": "Cancel"
     },
     "fallback": {
       "title": "Complete Authentication Manually",
       "description": "The browser couldn't be opened automatically. Please visit the URL below to complete authentication:",
+      "openUrl": "Open {{url}}",
       "openBrowser": "Open URL in Browser",
       "enterCode": "When prompted, enter this code:"
     }

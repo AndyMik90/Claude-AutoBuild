@@ -92,10 +92,10 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
   const handleAuthTimeout = useCallback(() => {
     debugLog('Authentication timeout triggered after 5 minutes');
     setIsTimeout(true);
-    setError('Authentication timed out. The authentication window was open for too long. Please try again.');
+    setError(t('githubOauth.error.timeoutMessage'));
     setStatus('error');
     authTimeoutRef.current = null;
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (hasCheckedRef.current) {
@@ -158,7 +158,7 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
 
       if (!cliResult.success) {
         debugLog('checkGitHubCli failed:', cliResult.error);
-        setError(cliResult.error || 'Failed to check GitHub CLI');
+        setError(cliResult.error || t('githubOauth.error.checkFailed'));
         setStatus('error');
         return;
       }
@@ -190,7 +190,7 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
       }
     } catch (err) {
       debugLog('Error in checkGitHubStatus:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : t('githubOauth.error.unknownError'));
       setStatus('error');
     }
   };
@@ -213,12 +213,12 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
         onSuccess(tokenResult.data.token, username);
       } else {
         debugLog('Failed to get token:', tokenResult.error);
-        setError(tokenResult.error || 'Failed to get token');
+        setError(tokenResult.error || t('githubOauth.error.tokenFailed'));
         setStatus('error');
       }
     } catch (err) {
       debugLog('Error in fetchAndNotifyToken:', err);
-      setError(err instanceof Error ? err.message : 'Failed to get token');
+      setError(err instanceof Error ? err.message : t('githubOauth.error.tokenFailed'));
       setStatus('error');
     }
   };
@@ -270,7 +270,7 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
       } else {
         debugLog('Auth failed:', result.error);
         // Include fallback URL info in error message if available
-        const errorMessage = result.error || 'Authentication failed';
+        const errorMessage = result.error || t('githubOauth.error.authFailed');
         setError(errorMessage);
         // Keep authUrl from response for fallback display
         if (result.data?.fallbackUrl) {
@@ -282,7 +282,7 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
       // Clear timeout on error
       clearAuthTimeout();
       debugLog('Error in handleStartAuth:', err);
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      setError(err instanceof Error ? err.message : t('githubOauth.error.authFailed'));
       setStatus('error');
     }
   };
@@ -479,7 +479,7 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
                         className="text-info hover:text-info/80 p-0 h-auto gap-1"
                       >
                         <ExternalLink className="h-4 w-4" />
-                        Open {authUrl}
+                        {t('githubOauth.fallback.openUrl', { url: authUrl })}
                       </Button>
                     )}
                   </div>

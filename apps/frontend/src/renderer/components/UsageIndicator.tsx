@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Activity, TrendingUp, AlertCircle } from 'lucide-react';
 import {
   Tooltip,
@@ -16,6 +17,7 @@ import {
 import type { ClaudeUsageSnapshot } from '../../shared/types/agent';
 
 export function UsageIndicator() {
+  const { t } = useTranslation('common');
   const [usage, setUsage] = useState<ClaudeUsageSnapshot | null>(null);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -63,7 +65,7 @@ export function UsageIndicator() {
         <TooltipTrigger asChild>
           <button
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all hover:opacity-80 ${colorClasses}`}
-            aria-label="Claude usage status"
+            aria-label={t('usage.ariaLabel')}
           >
             <Icon className="h-3.5 w-3.5" />
             <span className="text-xs font-semibold font-mono">
@@ -76,12 +78,12 @@ export function UsageIndicator() {
             {/* Session usage */}
             <div>
               <div className="flex items-center justify-between gap-4 mb-1">
-                <span className="text-muted-foreground font-medium">Session Usage</span>
+                <span className="text-muted-foreground font-medium">{t('usage.sessionUsage')}</span>
                 <span className="font-semibold tabular-nums">{Math.round(usage.sessionPercent)}%</span>
               </div>
               {usage.sessionResetTime && (
                 <div className="text-[10px] text-muted-foreground">
-                  Resets: {usage.sessionResetTime}
+                  {t('usage.resets')} {usage.sessionResetTime}
                 </div>
               )}
               {/* Progress bar */}
@@ -103,12 +105,12 @@ export function UsageIndicator() {
             {/* Weekly usage */}
             <div>
               <div className="flex items-center justify-between gap-4 mb-1">
-                <span className="text-muted-foreground font-medium">Weekly Usage</span>
+                <span className="text-muted-foreground font-medium">{t('usage.weeklyUsage')}</span>
                 <span className="font-semibold tabular-nums">{Math.round(usage.weeklyPercent)}%</span>
               </div>
               {usage.weeklyResetTime && (
                 <div className="text-[10px] text-muted-foreground">
-                  Resets: {usage.weeklyResetTime}
+                  {t('usage.resets')} {usage.weeklyResetTime}
                 </div>
               )}
               {/* Progress bar */}
@@ -129,7 +131,7 @@ export function UsageIndicator() {
 
             {/* Active profile */}
             <div className="flex items-center justify-between gap-4 pt-1">
-              <span className="text-muted-foreground text-[10px] uppercase tracking-wide">Active Account</span>
+              <span className="text-muted-foreground text-[10px] uppercase tracking-wide">{t('usage.activeAccount')}</span>
               <span className="font-semibold text-primary">{usage.profileName}</span>
             </div>
           </div>

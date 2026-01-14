@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { IssueListItem } from './IssueListItem';
@@ -12,6 +13,8 @@ export function IssueList({
   onSelectIssue,
   onInvestigate
 }: IssueListProps) {
+  const { t } = useTranslation('github');
+
   if (error) {
     return (
       <div className="p-4 bg-destructive/10 border-b border-destructive/30">
@@ -32,7 +35,7 @@ export function IssueList({
   }
 
   if (issues.length === 0) {
-    return <EmptyState message="No issues found" />;
+    return <EmptyState message={t('issuesList.noIssuesFound')} />;
   }
 
   return (

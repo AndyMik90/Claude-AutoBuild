@@ -20,6 +20,7 @@
   },
   "empty": {
     "noMatch": "No issues match your search",
+    "noIssues": "No issues found",
     "selectIssue": "Select an issue to view details"
   },
   "notConnected": {
@@ -114,7 +115,10 @@
     }
   },
   "mergeRequests": {
-    "title": "GitLab Merge Requests",
+    "title": "Merge Requests",
+    "searchPlaceholder": "Search merge requests...",
+    "noMatch": "No matching merge requests",
+    "noRequests": "No merge requests found",
     "newMR": "New Merge Request",
     "selectMR": "Select a merge request to view details",
     "states": {
@@ -128,6 +132,23 @@
       "closed": "Closed",
       "merged": "Merged",
       "all": "All"
+    },
+    "create": {
+      "title": "Create Merge Request",
+      "description": "Create a new merge request in GitLab",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Merge request title",
+      "sourceBranchLabel": "Source Branch",
+      "sourceBranchPlaceholder": "feature/my-feature",
+      "targetBranchLabel": "Target Branch",
+      "targetBranchPlaceholder": "main",
+      "descriptionLabel": "Description (optional)",
+      "descriptionPlaceholder": "Describe the changes in this merge request...",
+      "errorRequired": "Title, source branch, and target branch are required",
+      "errorFailed": "Failed to create merge request",
+      "cancel": "Cancel",
+      "creating": "Creating...",
+      "submit": "Create Merge Request"
     }
   },
   "mrReview": {

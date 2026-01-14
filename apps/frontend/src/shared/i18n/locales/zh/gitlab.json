@@ -20,6 +20,7 @@
   },
   "empty": {
     "noMatch": "没有问题匹配您的搜索",
+    "noIssues": "未找到问题",
     "selectIssue": "选择一个问题以查看详情"
   },
   "notConnected": {
@@ -114,7 +115,10 @@
     }
   },
   "mergeRequests": {
-    "title": "GitLab 合并请求",
+    "title": "合并请求",
+    "searchPlaceholder": "搜索合并请求...",
+    "noMatch": "没有匹配的合并请求",
+    "noRequests": "未找到合并请求",
     "newMR": "新合并请求",
     "selectMR": "选择一个合并请求以查看详情",
     "states": {
@@ -128,6 +132,23 @@
       "closed": "已关闭",
       "merged": "已合并",
       "all": "全部"
+    },
+    "create": {
+      "title": "创建合并请求",
+      "description": "在 GitLab 中创建新的合并请求",
+      "titleLabel": "标题",
+      "titlePlaceholder": "合并请求标题",
+      "sourceBranchLabel": "源分支",
+      "sourceBranchPlaceholder": "feature/我的功能",
+      "targetBranchLabel": "目标分支",
+      "targetBranchPlaceholder": "main",
+      "descriptionLabel": "描述（可选）",
+      "descriptionPlaceholder": "描述此合并请求的更改...",
+      "errorRequired": "标题、源分支和目标分支为必填项",
+      "errorFailed": "创建合并请求失败",
+      "cancel": "取消",
+      "creating": "创建中...",
+      "submit": "创建合并请求"
     }
   },
   "mrReview": {

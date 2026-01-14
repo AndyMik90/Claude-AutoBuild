@@ -64,6 +64,34 @@
     },
     "keychainTitle": "安全存储",
     "keychainDescription": "您的令牌使用系统的钥匙串加密。您可能会看到 macOS 的密码提示 — 点击「始终允许」以避免再次看到它。",
+    "errors": {
+      "failedToLoadProfiles": "加载配置文件失败",
+      "invalidProfileName": "配置文件名称必须至少包含一个字母或数字",
+      "failedToAddProfile": "添加配置文件失败",
+      "failedToDeleteProfile": "删除配置文件失败",
+      "failedToRenameProfile": "重命名配置文件失败",
+      "failedToSetActiveProfile": "设置活动配置文件失败",
+      "failedToAuthenticateProfile": "认证配置文件失败",
+      "failedToSaveToken": "保存令牌失败"
+    },
+    "manualTokenEntry": {
+      "title": "手动输入令牌",
+      "hint": "运行",
+      "command": "claude setup-token",
+      "toGetToken": "以获取您的令牌",
+      "tokenPlaceholder": "sk-ant-oat01-...",
+      "emailPlaceholder": "电子邮件（可选，用于显示）",
+      "saveToken": "保存令牌",
+      "cancel": "取消"
+    },
+    "accountNamePlaceholder": "账户名称（例如：工作、个人）",
+    "successMessage": "您至少有一个已认证的 Claude 账户。您可以继续下一步。",
+    "tooltip": {
+      "hideTokenEntry": "隐藏令牌输入",
+      "showTokenEntry": "手动输入令牌",
+      "renameProfile": "重命名配置文件",
+      "deleteProfile": "删除配置文件"
+    },
     "toast": {
       "authSuccess": "配置文件认证成功",
       "authSuccessWithEmail": "账户：{{email}}",
@@ -154,6 +182,10 @@
     },
     "error": {
       "title": "认证失败",
+      "saveFailed": "保存 OAuth 令牌失败",
+      "profilesFailed": "获取 Claude 配置文件失败",
+      "startFailed": "启动认证失败",
+      "authFailed": "认证失败",
       "retry": "重试",
       "cancel": "取消"
     },
@@ -199,12 +231,18 @@
     "error": {
       "title": "认证失败",
       "titleTimeout": "认证超时",
+      "timeoutMessage": "认证超时。认证窗口打开时间过长。请重试。",
+      "checkFailed": "检查 GitHub CLI 失败",
+      "unknownError": "未知错误",
+      "tokenFailed": "获取令牌失败",
+      "authFailed": "认证失败",
       "retry": "重试",
       "cancel": "取消"
     },
     "fallback": {
       "title": "手动完成认证",
       "description": "无法自动打开浏览器。请访问下面的 URL 以完成认证：",
+      "openUrl": "打开 {{url}}",
       "openBrowser": "在浏览器中打开 URL",
       "enterCode": "出现提示时，输入此代码："
     }

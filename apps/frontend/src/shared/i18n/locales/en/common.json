@@ -681,5 +681,12 @@
       "loadingImage": "Loading image...",
       "imageNotFound": "Image not found"
     }
+  },
+  "usage": {
+    "ariaLabel": "Claude usage status",
+    "sessionUsage": "Session Usage",
+    "weeklyUsage": "Weekly Usage",
+    "resets": "Resets:",
+    "activeAccount": "Active Account"
   }
 }

@@ -50,6 +50,7 @@
   },
   "issuesList": {
     "moduleNotInstalled": "Module d'automatisation GitHub non installé",
-    "selectIssue": "Sélectionnez une issue pour voir les détails"
+    "selectIssue": "Sélectionnez une issue pour voir les détails",
+    "noIssuesFound": "Aucune issue trouvée"
   }
 }

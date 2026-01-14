@@ -20,6 +20,7 @@
   },
   "empty": {
     "noMatch": "Aucune issue ne correspond à votre recherche",
+    "noIssues": "Aucune issue trouvée",
     "selectIssue": "Sélectionnez une issue pour voir les détails"
   },
   "notConnected": {
@@ -114,7 +115,10 @@
     }
   },
   "mergeRequests": {
-    "title": "Merge Requests GitLab",
+    "title": "Merge Requests",
+    "searchPlaceholder": "Rechercher des merge requests...",
+    "noMatch": "Aucune merge request correspondante",
+    "noRequests": "Aucune merge request trouvée",
     "newMR": "Nouvelle Merge Request",
     "selectMR": "Sélectionnez une merge request pour voir les détails",
     "states": {
@@ -128,6 +132,23 @@
       "closed": "Fermées",
       "merged": "Fusionnées",
       "all": "Toutes"
+    },
+    "create": {
+      "title": "Créer une Merge Request",
+      "description": "Créer une nouvelle merge request sur GitLab",
+      "titleLabel": "Titre",
+      "titlePlaceholder": "Titre de la merge request",
+      "sourceBranchLabel": "Branche source",
+      "sourceBranchPlaceholder": "feature/ma-fonctionnalite",
+      "targetBranchLabel": "Branche cible",
+      "targetBranchPlaceholder": "main",
+      "descriptionLabel": "Description (facultatif)",
+      "descriptionPlaceholder": "Décrivez les modifications de cette merge request...",
+      "errorRequired": "Le titre, la branche source et la branche cible sont requis",
+      "errorFailed": "Échec de la création de la merge request",
+      "cancel": "Annuler",
+      "creating": "Création...",
+      "submit": "Créer la Merge Request"
     }
   },
   "mrReview": {

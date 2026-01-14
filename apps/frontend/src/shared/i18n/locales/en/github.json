@@ -50,6 +50,7 @@
   },
   "issuesList": {
     "moduleNotInstalled": "GitHub automation module not installed",
-    "selectIssue": "Select an issue to view details"
+    "selectIssue": "Select an issue to view details",
+    "noIssuesFound": "No issues found"
   }
 }

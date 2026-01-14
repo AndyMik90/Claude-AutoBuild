@@ -50,6 +50,7 @@
   },
   "issuesList": {
     "moduleNotInstalled": "GitHub 自动化模块未安装",
-    "selectIssue": "选择一个问题以查看详情"
+    "selectIssue": "选择一个问题以查看详情",
+    "noIssuesFound": "未找到问题"
   }
 }

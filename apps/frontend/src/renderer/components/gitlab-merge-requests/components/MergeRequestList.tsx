@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, RefreshCw, GitPullRequest } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -25,6 +26,7 @@ export function MergeRequestList({
   stateFilter,
   onStateFilterChange
 }: MergeRequestListProps) {
+  const { t } = useTranslation('gitlab');
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredMrs = mergeRequests.filter((mr) => {
@@ -44,7 +46,7 @@ export function MergeRequestList({
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
             <GitPullRequest className="h-4 w-4" />
-            Merge Requests
+            {t('mergeRequests.title')}
           </h3>
           <Button
             variant="ghost"
@@ -58,7 +60,7 @@ export function MergeRequestList({
         </div>
 
         <Input
-          placeholder="Search merge requests..."
+          placeholder={t('mergeRequests.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="h-8 text-sm"
@@ -73,7 +75,7 @@ export function MergeRequestList({
               onClick={() => onStateFilterChange(state)}
               className="h-7 text-xs capitalize"
             >
-              {state}
+              {t(`mergeRequests.filters.${state}`)}
             </Button>
           ))}
         </div>
@@ -87,7 +89,7 @@ export function MergeRequestList({
           </div>
         ) : filteredMrs.length === 0 ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
-            {searchQuery ? 'No matching merge requests' : 'No merge requests found'}
+            {searchQuery ? t('mergeRequests.noMatch') : t('mergeRequests.noRequests')}
           </div>
         ) : (
           <div className="p-2 space-y-1">
