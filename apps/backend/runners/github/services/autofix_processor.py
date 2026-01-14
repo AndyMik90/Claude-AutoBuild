@@ -8,7 +8,10 @@ Handles automatic issue fixing workflow including permissions and state manageme
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 try:
     from ..models import AutoFixState, AutoFixStatus, GitHubRunnerConfig
@@ -163,7 +166,13 @@ class AutoFixProcessor:
                 state = AutoFixState.load(self.github_dir, issue_number)
                 if state:
                     queue.append(state)
-            except (ValueError, json.JSONDecodeError):
+            except ValueError as e:
+                # Invalid issue number format in filename - log and skip
+                logger.warning(f"Invalid autofix file format {f.name}: {e}")
+                continue
+            except json.JSONDecodeError as e:
+                # Corrupted autofix state file - log and skip
+                logger.warning(f"Corrupted autofix state file {f.name}: {e}")
                 continue
 
         return sorted(queue, key=lambda s: s.created_at, reverse=True)

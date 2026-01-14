@@ -132,11 +132,16 @@ async def save_to_graphiti_async(
         logger.warning(f"Failed to save to Graphiti: {e}")
         return False
     finally:
-        # Always close the graphiti connection (swallow exceptions to avoid overriding)
+        # Always close the graphiti connection
         if graphiti is not None:
             try:
                 await graphiti.close()
+            except (ConnectionError, OSError, RuntimeError) as e:
+                # Connection-related errors when closing are generally non-fatal
+                # but should be logged for debugging production issues
+                logger.warning(f"Failed to close Graphiti memory connection: {e}")
             except Exception as e:
-                logger.debug(
-                    "Failed to close Graphiti memory connection", exc_info=True
+                # Unexpected exceptions during close - log for investigation
+                logger.warning(
+                    f"Unexpected error closing Graphiti connection: {type(e).__name__}: {e}"
                 )
