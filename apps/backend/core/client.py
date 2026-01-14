@@ -27,6 +27,20 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # =============================================================================
+# Language Preference Support
+# =============================================================================
+# Language instruction mapping for AI responses
+# Maps user language preference to AI response instructions
+
+LANGUAGE_INSTRUCTIONS: dict[str, str] = {
+    "en": "Respond in English. Write code comments and documentation in English unless specifically requested otherwise.",
+    "zh": "请用中文回复所有消息。代码注释和文档也应使用中文，除非另有要求。Please respond in Chinese. Write code comments and documentation in Chinese unless specifically requested otherwise.",
+    "fr": "Répondez en français. Rédigez les commentaires de code et la documentation en français sauf demande contraire.",
+}
+
+DEFAULT_LANGUAGE = "en"
+
+# =============================================================================
 # Project Index Cache
 # =============================================================================
 # Caches project index and capabilities to avoid reloading on every create_client() call.
@@ -691,6 +705,49 @@ def is_electron_mcp_enabled() -> bool:
     return os.environ.get("ELECTRON_MCP_ENABLED", "").lower() == "true"
 
 
+def get_user_language_preference() -> str:
+    """
+    Get the user's language preference from the frontend settings.
+
+    Reads the language setting from the Electron app's settings.json file.
+    This allows AI agents to respond in the user's preferred language.
+
+    Returns:
+        Language code ('en', 'zh', 'fr', etc.) - defaults to 'en' if not found
+    """
+    try:
+        # Try to get the path from environment variable first (set by Electron)
+        if app_data_path := os.environ.get("AUTO_CLAude_APP_DATA"):
+            settings_file = Path(app_data_path) / "settings.json"
+        else:
+            # Fallback to platform-specific default paths for Electron app "Auto Claude"
+            # Electron uses the app.name for the userData directory
+            app_name = "Auto Claude"
+            if platform.system() == "Windows":
+                app_data = os.environ.get("APPDATA", "")
+                settings_file = Path(app_data) / app_name / "settings.json"
+            elif platform.system() == "Darwin":  # macOS
+                app_data = os.environ.get("HOME", "")
+                settings_file = Path(app_data) / "Library" / "Application Support" / app_name / "settings.json"
+            else:  # Linux
+                # Linux uses XDG config home, with fallback to ~/.config
+                config_home = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+                settings_file = Path(config_home) / app_name / "settings.json"
+
+        if settings_file.exists():
+            with open(settings_file, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+                language = settings.get("language")
+                if language and language in LANGUAGE_INSTRUCTIONS:
+                    logger.debug(f"User language preference: {language}")
+                    return language
+
+        return DEFAULT_LANGUAGE
+    except Exception as e:
+        logger.debug(f"Could not read user language preference: {e}")
+        return DEFAULT_LANGUAGE
+
+
 def get_electron_debug_port() -> int:
     """Get the Electron remote debugging port (default: 9222)."""
     return int(os.environ.get("ELECTRON_DEBUG_PORT", "9222"))
@@ -1054,6 +1111,11 @@ def create_client(
         f"and build-progress.txt updates."
     )
 
+    # Add user language preference to system prompt
+    user_language = get_user_language_preference()
+    language_instruction = LANGUAGE_INSTRUCTIONS.get(user_language, LANGUAGE_INSTRUCTIONS[DEFAULT_LANGUAGE])
+    base_prompt = f"{base_prompt}\n\n# Language Preference\n\n{language_instruction}"
+
     # Include CLAUDE.md if enabled and present
     if should_use_claude_md():
         claude_md_content = load_claude_md(project_dir)
@@ -1064,6 +1126,10 @@ def create_client(
             print("   - CLAUDE.md: not found in project root")
     else:
         print("   - CLAUDE.md: disabled by project settings")
+
+    # Log language preference
+    if user_language != DEFAULT_LANGUAGE:
+        print(f"   - Language: {user_language} (AI will respond in user's preferred language)")
     print()
 
     # Find Claude CLI path for SDK
