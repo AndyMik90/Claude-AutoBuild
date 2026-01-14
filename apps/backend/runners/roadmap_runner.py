@@ -37,7 +37,7 @@ if env_file.exists():
 
 from debug import debug, debug_error, debug_warning
 
-# Import from refactored roadmap package (relative import - roadmap is a subpackage of runners)
+# Import from refactored roadmap package (now a subpackage of runners)
 from runners.roadmap import RoadmapOrchestrator
 
 
