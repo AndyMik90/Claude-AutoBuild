@@ -1,0 +1,240 @@
+{
+  "refreshTasks": "刷新任务",
+  "status": {
+    "backlog": "待办",
+    "todo": "待做",
+    "in_progress": "进行中",
+    "review": "审查中",
+    "prCreated": "已创建 PR",
+    "complete": "已完成",
+    "archived": "已归档"
+  },
+  "actions": {
+    "start": "开始",
+    "stop": "停止",
+    "recover": "恢复",
+    "resume": "继续",
+    "archive": "归档",
+    "delete": "删除",
+    "view": "查看详情",
+    "viewPR": "查看 PR",
+    "moveTo": "移动到",
+    "taskActions": "任务操作"
+  },
+  "labels": {
+    "running": "运行中",
+    "aiReview": "AI 审查",
+    "needsReview": "需要审查",
+    "pending": "等待中",
+    "stuck": "卡住",
+    "incomplete": "未完成",
+    "recovering": "恢复中...",
+    "needsRecovery": "需要恢复",
+    "needsResume": "需要继续"
+  },
+  "reviewReason": {
+    "completed": "已完成",
+    "hasErrors": "有错误",
+    "qaIssues": "QA 问题",
+    "approvePlan": "批准计划"
+  },
+  "tooltips": {
+    "archiveTask": "归档任务",
+    "archiveAllDone": "归档所有已完成的任务",
+    "viewPR": "在浏览器中打开拉取请求"
+  },
+  "creation": {
+    "title": "创建新任务",
+    "description": "描述您想要构建的内容",
+    "placeholder": "描述您的任务..."
+  },
+  "empty": {
+    "title": "暂无任务",
+    "description": "创建您的第一个任务以开始"
+  },
+  "columns": {
+    "error": "错误",
+    "backlog": "计划中",
+    "in_progress": "进行中",
+    "ai_review": "AI 审查",
+    "human_review": "人工审查",
+    "done": "完成",
+    "pr_created": "已创建 PR"
+  },
+  "kanban": {
+    "emptyBacklog": "没有计划的任务",
+    "emptyBacklogHint": "添加一个任务以开始",
+    "emptyInProgress": "没有运行中的任务",
+    "emptyInProgressHint": "从计划中开始一个任务",
+    "emptyAiReview": "没有审查中的任务",
+    "emptyAiReviewHint": "AI 将审查已完成的任务",
+    "emptyHumanReview": "没有需要审查的任务",
+    "emptyHumanReviewHint": "任务等待您在此批准",
+    "emptyDone": "没有已完成的任务",
+    "emptyDoneHint": "已批准的任务会出现在这里",
+    "emptyError": "没有错误任务",
+    "emptyErrorHint": "解析失败时错误任务会出现在这里",
+    "emptyDefault": "没有任务",
+    "dropHere": "拖放到这里",
+    "showArchived": "显示已归档",
+    "addTaskAriaLabel": "添加新任务到计划",
+    "closeTaskDetailsAriaLabel": "关闭任务详情",
+    "editTask": "编辑任务",
+    "cannotEditWhileRunning": "任务运行时无法编辑",
+    "worktreeCleanupTitle": "工作树清理",
+    "worktreeCleanupStaged": "此任务已暂存并具有工作树。您想要清理工作树吗？",
+    "worktreeCleanupNotStaged": "此任务有一个工作树，其更改尚未合并。删除工作树以标记为完成，或取消以首先查看更改。",
+    "keepWorktree": "保留工作树",
+    "deleteWorktree": "删除工作树并标记完成",
+    "refreshTasks": "刷新任务"
+  },
+  "execution": {
+    "phases": {
+      "idle": "空闲",
+      "planning": "计划中",
+      "coding": "编码中",
+      "reviewing": "审查中",
+      "fixing": "修复中",
+      "complete": "完成",
+      "failed": "失败"
+    },
+    "labels": {
+      "interrupted": "已中断",
+      "progress": "进度",
+      "entry": "条目",
+      "entries": "条目"
+    },
+    "shortPhases": {
+      "plan": "计划",
+      "code": "编码",
+      "qa": "质量检查"
+    }
+  },
+  "files": {
+    "title": "文件",
+    "tab": "文件",
+    "noSpecPath": "没有可用的规格文件",
+    "noFiles": "未找到文件",
+    "loading": "加载文件中...",
+    "loadingContent": "加载内容中...",
+    "errorLoading": "加载文件失败",
+    "errorLoadingContent": "加载文件内容失败",
+    "retry": "重试",
+    "selectFile": "选择一个文件以查看其内容",
+    "openInIDE": "在 IDE 中打开"
+  },
+  "metadata": {
+    "severity": "严重性",
+    "pullRequest": "拉取请求"
+  },
+  "images": {
+    "removeImageAriaLabel": "移除图片 {{filename}}",
+    "pasteHint": "提示：使用 {{shortcut}} 直接粘贴截图以添加参考图片。"
+  },
+  "notifications": {
+    "backgroundTaskTitle": "任务在后台继续",
+    "backgroundTaskDescription": "任务仍在运行。您可以重新打开此对话框以监控进度。"
+  },
+  "feedback": {
+    "dragDropHint": "拖放图片或粘贴截图",
+    "imageAdded": "图片添加成功",
+    "maxImagesError": "最多允许 {{count}} 张图片",
+    "invalidTypeError": "无效的图片类型。允许：{{types}}",
+    "removeImage": "移除图片",
+    "processingError": "处理图片失败"
+  },
+  "review": {
+    "mergeTooltip": "将任务工作树分支的更改合并回您的目标分支。AI 将解决任何冲突。然后您可以选择保留或删除工作树。"
+  },
+  "wizard": {
+    "createTitle": "创建新任务",
+    "createDescription": "描述您想要构建的内容。AI 将分析您的请求并创建详细的规格说明。",
+    "descriptionPlaceholder": "描述您想要实现的功能、错误修复或改进。尽可能具体地说明要求、约束和预期行为。输入 @ 以引用文件。",
+    "draftRestored": "草稿已恢复",
+    "startFresh": "重新开始",
+    "hideFiles": "隐藏文件",
+    "browseFiles": "浏览文件",
+    "creating": "创建中...",
+    "createTask": "创建任务",
+    "gitOptions": {
+      "title": "Git 选项（可选）",
+      "baseBranchLabel": "基础分支（可选）",
+      "useProjectDefault": "使用项目默认值",
+      "useProjectDefaultWithBranch": "使用项目默认值（{{branch}}）",
+      "helpText": "覆盖此任务工作树将基于创建的分支。留空以使用项目配置的默认分支。",
+      "useWorktreeLabel": "使用独立工作区（推荐）",
+      "useWorktreeDescription": "在单独的 git 工作树中创建更改，以便在合并前进行安全审查。禁用以直接在项目中构建（更快但有风险）。"
+    },
+    "errors": {
+      "createFailed": "创建任务失败。请重试。"
+    }
+  },
+  "edit": {
+    "title": "编辑任务",
+    "description": "更新任务详情，包括标题、描述、分类、图片和设置。更改将保存到规格文件。",
+    "saveChanges": "保存更改",
+    "errors": {
+      "updateFailed": "更新任务失败。请重试。"
+    }
+  },
+  "form": {
+    "description": "描述",
+    "descriptionPlaceholder": "描述您想要实现的功能、错误修复或改进。尽可能具体地说明要求、约束和预期行为。",
+    "imageAddedSuccess": "图片添加成功！",
+    "taskTitle": "任务标题",
+    "titlePlaceholder": "留空以从描述自动生成",
+    "titleHelpText": "如果留空，将自动生成一个简短的描述性标题。",
+    "classificationOptional": "分类（可选）",
+    "requireReviewLabel": "编码前需要人工审查",
+    "requireReviewDescription": "启用后，您将在编码阶段开始之前被提示审查规格和实施计划。这允许您批准、请求更改或提供反馈。",
+    "errors": {
+      "descriptionRequired": "请提供描述",
+      "maxImagesReached": "最多允许 5 张图片",
+      "invalidImageType": "无效的图片类型。允许：PNG、JPEG、GIF、WebP",
+      "processPasteFailed": "处理粘贴的图片失败",
+      "processDropFailed": "处理拖放的图片失败"
+    },
+    "classification": {
+      "category": "类别",
+      "selectCategory": "选择类别",
+      "priority": "优先级",
+      "selectPriority": "选择优先级",
+      "complexity": "复杂度",
+      "selectComplexity": "选择复杂度",
+      "impact": "影响",
+      "selectImpact": "选择影响",
+      "helpText": "这些标签有助于组织和优先排序任务。它们是可选的，但对筛选有用。",
+      "values": {
+        "category": {
+          "feature": "功能",
+          "bug_fix": "错误修复",
+          "refactoring": "重构",
+          "documentation": "文档",
+          "security": "安全性"
+        },
+        "priority": {
+          "low": "低",
+          "medium": "中",
+          "high": "高",
+          "urgent": "紧急"
+        },
+        "complexity": {
+          "trivial": "简单",
+          "small": "小",
+          "medium": "中",
+          "large": "大",
+          "complex": "复杂"
+        },
+        "impact": {
+          "low": "低影响",
+          "medium": "中等影响",
+          "high": "高影响",
+          "critical": "严重影响"
+        }
+      }
+    }
+  },
+  "subtasks": {
+    "untitled": "未命名的子任务"
+  }
+}

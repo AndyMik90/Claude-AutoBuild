@@ -76,6 +76,20 @@
       "tryAgain": "Veuillez réessayer."
     }
   },
+  "authChoice": {
+    "title": "Choisissez votre méthode d'authentification",
+    "description": "Sélectionnez la manière dont vous souhaitez vous authentifier avec Claude. Vous pourrez modifier cela plus tard dans les paramètres.",
+    "oauth": {
+      "title": "Se connecter avec Anthropic",
+      "description": "Utilisez votre compte Anthropic pour vous authentifier. Flux OAuth simple et sécurisé."
+    },
+    "apiKey": {
+      "title": "Utiliser une clé API personnalisée",
+      "description": "Apportez votre propre clé API d'Anthropic ou d'un fournisseur d'API compatible. ⚠️ Très expérimental — peut entraîner des coûts importants."
+    },
+    "infoText": "Les deux options offrent un accès complet aux fonctionnalités de Claude Code. Choisissez selon vos préférences.",
+    "skipButton": "Passer pour maintenant"
+  },
   "memory": {
     "title": "Mémoire",
     "description": "Configurer la mémoire persistante entre sessions pour les agents",
