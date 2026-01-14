@@ -316,6 +316,16 @@
     "general": {
       "title": "Général",
       "description": "Auto-Build et configuration de l'agent",
+      "autoBuildIntegration": "Intégration Auto-Build",
+      "notInitialized": "Non initialisé",
+      "notInitializedDescription": "Initialisez Auto-Build pour activer la création de tâches et les workflows d'agents.",
+      "initializing": "Initialisation...",
+      "initializeAutoBuild": "Initialiser Auto-Build",
+      "initialized": "Initialisé",
+      "checkingStatus": "Vérification du statut...",
+      "agentConfiguration": "Configuration de l'agent",
+      "model": "Modèle",
+      "notifications": "Notifications",
       "useClaudeMd": "Utiliser CLAUDE.md",
       "useClaudeMdDescription": "Inclure les instructions CLAUDE.md dans le contexte de l'agent"
     },

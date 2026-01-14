@@ -310,6 +310,16 @@
 		"general": {
 			"title": "通用",
 			"description": "自动构建和代理配置",
+			"autoBuildIntegration": "自动构建集成",
+			"notInitialized": "未初始化",
+			"notInitializedDescription": "初始化自动构建以启用任务创建和代理工作流。",
+			"initializing": "初始化中...",
+			"initializeAutoBuild": "初始化自动构建",
+			"initialized": "已初始化",
+			"checkingStatus": "检查状态中...",
+			"agentConfiguration": "代理配置",
+			"model": "模型",
+			"notifications": "通知",
 			"useClaudeMd": "使用 CLAUDE.md",
 			"useClaudeMdDescription": "在代理上下文中包含 CLAUDE.md 指令"
 		},

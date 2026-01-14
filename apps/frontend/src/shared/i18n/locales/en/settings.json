@@ -316,6 +316,16 @@
     "general": {
       "title": "General",
       "description": "Auto-Build and agent config",
+      "autoBuildIntegration": "Auto-Build Integration",
+      "notInitialized": "Not Initialized",
+      "notInitializedDescription": "Initialize Auto-Build to enable task creation and agent workflows.",
+      "initializing": "Initializing...",
+      "initializeAutoBuild": "Initialize Auto-Build",
+      "initialized": "Initialized",
+      "checkingStatus": "Checking status...",
+      "agentConfiguration": "Agent Configuration",
+      "model": "Model",
+      "notifications": "Notifications",
       "useClaudeMd": "Use CLAUDE.md",
       "useClaudeMdDescription": "Include CLAUDE.md instructions in agent context"
     },
