@@ -129,6 +129,36 @@
       "azure": "Azure OpenAI"
     }
   },
+  "claudeOauth": {
+    "title": "Authenticate with Claude",
+    "description": "Auto Claude requires Claude AI authentication for AI-powered features like Roadmap generation, Task automation, and Ideation.",
+    "browserFlow": "This will open a browser window to authenticate with your Claude account. Your credentials are stored securely and are valid for 1 year.",
+    "button": "Authenticate with Claude",
+    "authenticating": {
+      "title": "Authenticating...",
+      "description": "A terminal window has opened. Please complete the authentication in your browser."
+    },
+    "whatsHappening": {
+      "title": "What's happening:",
+      "step1": "A terminal opened and ran",
+      "step2": "Your browser should open to authenticate with Claude",
+      "step3": "Complete the OAuth flow in your browser",
+      "step4": "The terminal will display your token (starts with sk-ant-oat01-...)",
+      "step5": "Auto Claude will automatically detect and save it"
+    },
+    "success": {
+      "title": "Successfully Authenticated!",
+      "connectedAs": "Connected as {{email}}",
+      "credentialsSaved": "Your Claude credentials have been saved",
+      "readyToUse": "You can now use all Auto Claude AI features"
+    },
+    "error": {
+      "title": "Authentication Failed",
+      "retry": "Retry",
+      "cancel": "Cancel"
+    },
+    "skipForNow": "Skip for now"
+  },
   "completion": {
     "title": "You're All Set!",
     "subtitle": "Auto Claude is ready to help you build amazing software",

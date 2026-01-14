@@ -129,6 +129,36 @@
       "azure": "Azure OpenAI"
     }
   },
+  "claudeOauth": {
+    "title": "使用 Claude 认证",
+    "description": "Auto Claude 需要 Claude AI 认证才能使用 AI 驱动的功能，如路线图生成、任务自动化和创意构思。",
+    "browserFlow": "这将打开一个浏览器窗口来使用您的 Claude 账户进行认证。您的凭据将被安全存储，有效期为 1 年。",
+    "button": "使用 Claude 认证",
+    "authenticating": {
+      "title": "认证中...",
+      "description": "已打开一个终端窗口。请在浏览器中完成认证。"
+    },
+    "whatsHappening": {
+      "title": "正在发生的事情：",
+      "step1": "已打开终端并运行",
+      "step2": "您的浏览器应该会打开以使用 Claude 认证",
+      "step3": "在浏览器中完成 OAuth 流程",
+      "step4": "终端将显示您的令牌（以 sk-ant-oat01-... 开头）",
+      "step5": "Auto Claude 将自动检测并保存它"
+    },
+    "success": {
+      "title": "认证成功！",
+      "connectedAs": "已连接为 {{email}}",
+      "credentialsSaved": "您的 Claude 凭据已保存",
+      "readyToUse": "您现在可以使用所有 Auto Claude AI 功能"
+    },
+    "error": {
+      "title": "认证失败",
+      "retry": "重试",
+      "cancel": "取消"
+    },
+    "skipForNow": "暂时跳过"
+  },
   "completion": {
     "title": "全部完成！",
     "subtitle": "Auto Claude 已准备好帮助您构建出色的软件",

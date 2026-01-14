@@ -129,6 +129,36 @@
       "azure": "Azure OpenAI"
     }
   },
+  "claudeOauth": {
+    "title": "Authentifier avec Claude",
+    "description": "Auto Claude nécessite une authentification Claude AI pour les fonctionnalités alimentées par l'IA comme la génération de Roadmap, l'automatisation des tâches et l'idéation.",
+    "browserFlow": "Cela ouvrira une fenêtre de navigateur pour vous authentifier avec votre compte Claude. Vos identifiants sont stockés en toute sécurité et sont valides pendant 1 an.",
+    "button": "Authentifier avec Claude",
+    "authenticating": {
+      "title": "Authentification...",
+      "description": "Une fenêtre de terminal s'est ouverte. Veuillez compléter l'authentification dans votre navigateur."
+    },
+    "whatsHappening": {
+      "title": "Ce qui se passe :",
+      "step1": "Un terminal s'est ouvert et a exécuté",
+      "step2": "Votre navigateur devrait s'ouvrir pour s'authentifier avec Claude",
+      "step3": "Complétez le flux OAuth dans votre navigateur",
+      "step4": "Le terminal affichera votre jeton (commence par sk-ant-oat01-...)",
+      "step5": "Auto Claude le détectera et l'enregistrera automatiquement"
+    },
+    "success": {
+      "title": "Authentifié avec succès !",
+      "connectedAs": "Connecté en tant que {{email}}",
+      "credentialsSaved": "Vos identifiants Claude ont été enregistrés",
+      "readyToUse": "Vous pouvez maintenant utiliser toutes les fonctionnalités IA d'Auto Claude"
+    },
+    "error": {
+      "title": "Échec de l'authentification",
+      "retry": "Réessayer",
+      "cancel": "Annuler"
+    },
+    "skipForNow": "Passer pour maintenant"
+  },
   "completion": {
     "title": "Vous êtes prêt !",
     "subtitle": "Auto Claude est prêt à vous aider à construire des logiciels incroyables",
