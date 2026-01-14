@@ -405,5 +405,43 @@
   "fileExplorer": {
     "title": "Project Files",
     "dragHint": "Drag files into a terminal to insert the path"
+  },
+  "worktrees": {
+    "title": "Worktrees",
+    "subtitle": "Manage isolated workspaces for your Auto Claude tasks",
+    "selectProject": "Select a project to view worktrees",
+    "refresh": "Refresh",
+    "error": "Error",
+    "noWorktrees": "No Worktrees",
+    "noWorktreesDescription": "Worktrees are created automatically when Auto Claude builds features. You can also create terminal worktrees from the Agent Terminals tab.",
+    "taskWorktrees": "Task Worktrees",
+    "terminalWorktrees": "Terminal Worktrees",
+    "filesChanged": "files changed",
+    "commitsAhead": "commits ahead",
+    "mergeTo": "Merge to {{branch}}",
+    "copyPath": "Copy Path",
+    "delete": "Delete",
+    "deleteWorktree": "Delete Worktree?",
+    "deleteWorktreeDescription": "This will permanently delete the worktree and all uncommitted changes.",
+    "deleteTerminalWorktree": "Delete Terminal Worktree?",
+    "deleteTerminalWorktreeDescription": "This will permanently delete the worktree and its branch. Any uncommitted changes will be lost.",
+    "cannotBeUndone": "This action cannot be undone.",
+    "mergeDialog": {
+      "title": "Merge Worktree",
+      "description": "Merge changes from this worktree into the base branch.",
+      "sourceBranch": "Source Branch",
+      "targetBranch": "Target Branch",
+      "changes": "Changes",
+      "changesCount": "{{commits}} commits, {{files}} files",
+      "mergeSuccessful": "Merge Successful",
+      "mergeFailed": "Merge Failed",
+      "conflictingFiles": "Conflicting files:",
+      "close": "Close",
+      "cancel": "Cancel",
+      "merging": "Merging...",
+      "merge": "Merge"
+    },
+    "createdAt": "Created {{date}}",
+    "branchWithName": "({{branch}})"
   }
 }

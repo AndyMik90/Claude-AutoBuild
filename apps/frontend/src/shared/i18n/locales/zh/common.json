@@ -400,5 +400,43 @@
   "fileExplorer": {
     "title": "项目文件",
     "dragHint": "将文件拖放到终端中以插入路径"
+  },
+  "worktrees": {
+    "title": "工作树",
+    "subtitle": "管理您的 Auto Claude 任务的独立工作空间",
+    "selectProject": "选择项目以查看工作树",
+    "refresh": "刷新",
+    "error": "错误",
+    "noWorktrees": "没有工作树",
+    "noWorktreesDescription": "工作树会在 Auto Claude 构建功能时自动创建。您也可以从代理终端选项卡创建终端工作树。",
+    "taskWorktrees": "任务工作树",
+    "terminalWorktrees": "终端工作树",
+    "filesChanged": "个文件已更改",
+    "commitsAhead": "个提交领先",
+    "mergeTo": "合并到 {{branch}}",
+    "copyPath": "复制路径",
+    "delete": "删除",
+    "deleteWorktree": "删除工作树？",
+    "deleteWorktreeDescription": "这将永久删除工作树和所有未提交的更改。",
+    "deleteTerminalWorktree": "删除终端工作树？",
+    "deleteTerminalWorktreeDescription": "这将永久删除工作树及其分支。任何未提交的更改都将丢失。",
+    "cannotBeUndone": "此操作无法撤销。",
+    "mergeDialog": {
+      "title": "合并工作树",
+      "description": "将此工作树的更改合并到基础分支。",
+      "sourceBranch": "源分支",
+      "targetBranch": "目标分支",
+      "changes": "更改",
+      "changesCount": "{{commits}} 个提交，{{files}} 个文件",
+      "mergeSuccessful": "合并成功",
+      "mergeFailed": "合并失败",
+      "conflictingFiles": "冲突文件：",
+      "close": "关闭",
+      "cancel": "取消",
+      "merging": "合并中...",
+      "merge": "合并"
+    },
+    "createdAt": "创建于 {{date}}",
+    "branchWithName": "({{branch}})"
   }
 }

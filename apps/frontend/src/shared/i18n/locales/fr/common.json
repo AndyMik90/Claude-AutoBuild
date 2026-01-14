@@ -405,5 +405,43 @@
   "fileExplorer": {
     "title": "Fichiers du projet",
     "dragHint": "Faites glisser des fichiers dans un terminal pour insérer le chemin"
+  },
+  "worktrees": {
+    "title": "Worktrees",
+    "subtitle": "Gérez les espaces de travail isolés pour vos tâches Auto Claude",
+    "selectProject": "Sélectionnez un projet pour voir les worktrees",
+    "refresh": "Actualiser",
+    "error": "Erreur",
+    "noWorktrees": "Aucun worktree",
+    "noWorktreesDescription": "Les worktrees sont créés automatiquement lorsque Auto Claude construit des fonctionnalités. Vous pouvez également créer des worktrees de terminal à partir de l'onglet Terminaux d'agent.",
+    "taskWorktrees": "Worktrees de tâche",
+    "terminalWorktrees": "Worktrees de terminal",
+    "filesChanged": "fichiers modifiés",
+    "commitsAhead": "commits en avance",
+    "mergeTo": "Fusionner dans {{branch}}",
+    "copyPath": "Copier le chemin",
+    "delete": "Supprimer",
+    "deleteWorktree": "Supprimer le worktree ?",
+    "deleteWorktreeDescription": "Cela supprimera définitivement le worktree et toutes les modifications non committées.",
+    "deleteTerminalWorktree": "Supprimer le worktree de terminal ?",
+    "deleteTerminalWorktreeDescription": "Cela supprimera définitivement le worktree et sa branche. Toutes les modifications non committées seront perdues.",
+    "cannotBeUndone": "Cette action est irréversible.",
+    "mergeDialog": {
+      "title": "Fusionner le worktree",
+      "description": "Fusionner les modifications de ce worktree dans la branche de base.",
+      "sourceBranch": "Branche source",
+      "targetBranch": "Branche cible",
+      "changes": "Modifications",
+      "changesCount": "{{commits}} commits, {{files}} fichiers",
+      "mergeSuccessful": "Fusion réussie",
+      "mergeFailed": "Fusion échouée",
+      "conflictingFiles": "Fichiers en conflit :",
+      "close": "Fermer",
+      "cancel": "Annuler",
+      "merging": "Fusion en cours...",
+      "merge": "Fusionner"
+    },
+    "createdAt": "Créé le {{date}}",
+    "branchWithName": "({{branch}})"
   }
 }
