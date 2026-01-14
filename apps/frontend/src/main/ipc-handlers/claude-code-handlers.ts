@@ -29,6 +29,15 @@ let cachedVersionList: { versions: string[]; timestamp: number } | null = null;
 const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 const VERSION_LIST_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour for version list
 
+function stripWrappingQuotes(value: string): string {
+  const trimmed = value.trim();
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"'))
+    || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
 /**
  * Validate a Claude CLI path and get its version
  * @param cliPath - Path to the Claude CLI executable
@@ -37,9 +46,10 @@ const VERSION_LIST_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour for version lis
 async function validateClaudeCliAsync(cliPath: string): Promise<[boolean, string | null]> {
   try {
     const isWindows = process.platform === 'win32';
+    const unquotedPath = stripWrappingQuotes(cliPath);
 
     // Augment PATH with the CLI directory for proper resolution
-    const cliDir = path.dirname(cliPath);
+    const cliDir = path.dirname(unquotedPath);
     const env = {
       ...process.env,
       PATH: cliDir ? `${cliDir}${path.delimiter}${process.env.PATH || ''}` : process.env.PATH,
@@ -50,21 +60,22 @@ async function validateClaudeCliAsync(cliPath: string): Promise<[boolean, string
     // /d = disable AutoRun registry commands
     // /s = strip first and last quotes, preserving inner quotes
     // /c = run command then terminate
-    if (isWindows && /\.(cmd|bat)$/i.test(cliPath)) {
+    if (isWindows && /\.(cmd|bat)$/i.test(unquotedPath)) {
       // Get cmd.exe path from environment or use default
       const cmdExe = process.env.ComSpec
         || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
       // Use double-quoted command line for paths with spaces
-      const cmdLine = `""${cliPath}" --version"`;
+      const cmdLine = `""${unquotedPath}" --version"`;
       const result = await execFileAsync(cmdExe, ['/d', '/s', '/c', cmdLine], {
         encoding: 'utf-8',
         timeout: 5000,
         windowsHide: true,
+        windowsVerbatimArguments: true,
         env,
       });
       stdout = result.stdout;
     } else {
-      const result = await execFileAsync(cliPath, ['--version'], {
+      const result = await execFileAsync(unquotedPath, ['--version'], {
         encoding: 'utf-8',
         timeout: 5000,
         windowsHide: true,
@@ -101,50 +112,62 @@ async function scanClaudeInstallations(activePath: string | null): Promise<Claud
   // Get detection paths from cli-tool-manager (single source of truth)
   const detectionPaths = getClaudeDetectionPaths(homeDir);
 
+  const normalizedActivePath = activePath ? path.resolve(stripWrappingQuotes(activePath)) : null;
+  const normalizedActiveKey =
+    normalizedActivePath && isWindows ? normalizedActivePath.toLowerCase() : normalizedActivePath;
+
   const addInstallation = async (
     cliPath: string,
     source: ClaudeInstallationInfo['source']
   ) => {
-    // Normalize path for comparison
-    const normalizedPath = path.resolve(cliPath);
-    if (seenPaths.has(normalizedPath)) return;
+    const unquotedPath = stripWrappingQuotes(cliPath);
 
-    if (!existsSync(cliPath)) return;
+    // On Windows, only attempt to validate executable file types. Some package managers
+    // can create extensionless shims (e.g., "claude") that exist on disk but cannot be
+    // executed directly via CreateProcess.
+    if (isWindows && !/\.(cmd|bat|exe)$/i.test(unquotedPath)) return;
+
+    // Normalize path for comparison
+    const normalizedPath = path.resolve(unquotedPath);
+    const seenKey = isWindows ? normalizedPath.toLowerCase() : normalizedPath;
+    if (seenPaths.has(seenKey)) return;
+
+    if (!existsSync(unquotedPath)) return;
 
     // Security validation: reject paths with shell metacharacters or directory traversal
-    if (!isSecurePath(cliPath)) {
-      console.warn('[Claude Code] Rejecting insecure path:', cliPath);
+    if (!isSecurePath(unquotedPath)) {
+      console.warn('[Claude Code] Rejecting insecure path:', unquotedPath);
       return;
     }
 
-    const [isValid, version] = await validateClaudeCliAsync(cliPath);
+    const [isValid, version] = await validateClaudeCliAsync(unquotedPath);
     if (!isValid) return;
 
-    seenPaths.add(normalizedPath);
+    seenPaths.add(seenKey);
     installations.push({
       path: normalizedPath,
       version,
       source,
-      isActive: activePath ? path.resolve(activePath) === normalizedPath : false,
+      isActive: normalizedActiveKey ? seenKey === normalizedActiveKey : false,
     });
   };
 
   // 1. Check user-configured path first (if set)
-  if (activePath && existsSync(activePath)) {
+  if (activePath) {
     await addInstallation(activePath, 'user-config');
   }
 
   // 2. Check system PATH via which/where
   try {
     if (isWindows) {
-      const result = await execFileAsync('where', ['claude'], { timeout: 5000 });
-      const paths = result.stdout.trim().split('\n').filter(p => p.trim());
+      const result = await execFileAsync('where', ['claude'], { timeout: 5000, encoding: 'utf-8' });
+      const paths = result.stdout.trim().split(/\r?\n/).filter(p => p.trim());
       for (const p of paths) {
         await addInstallation(p.trim(), 'system-path');
       }
     } else {
-      const result = await execFileAsync('which', ['-a', 'claude'], { timeout: 5000 });
-      const paths = result.stdout.trim().split('\n').filter(p => p.trim());
+      const result = await execFileAsync('which', ['-a', 'claude'], { timeout: 5000, encoding: 'utf-8' });
+      const paths = result.stdout.trim().split(/\r?\n/).filter(p => p.trim());
       for (const p of paths) {
         await addInstallation(p.trim(), 'system-path');
       }
