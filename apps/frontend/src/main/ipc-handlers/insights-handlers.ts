@@ -1,8 +1,15 @@
-import { ipcMain } from "electron";
+import { ipcMain, app } from "electron";
 import type { BrowserWindow } from "electron";
-import path from "path";
-import { existsSync, readdirSync, mkdirSync, writeFileSync } from "fs";
-import { IPC_CHANNELS, getSpecsDir, AUTO_BUILD_PATHS } from "../../shared/constants";
+import pathModule from "path";
+import { existsSync, readdirSync, mkdirSync, writeFileSync, readFileSync } from "fs";
+import {
+  IPC_CHANNELS,
+  getSpecsDir,
+  AUTO_BUILD_PATHS,
+  DEFAULT_APP_SETTINGS,
+  DEFAULT_FEATURE_MODELS,
+  DEFAULT_FEATURE_THINKING,
+} from "../../shared/constants";
 import type {
   IPCResult,
   InsightsSession,
@@ -10,10 +17,47 @@ import type {
   InsightsModelConfig,
   Task,
   TaskMetadata,
+  AppSettings,
 } from "../../shared/types";
 import { projectStore } from "../project-store";
 import { insightsService } from "../insights-service";
 import { safeSendToRenderer } from "./utils";
+
+// Import path with alias to avoid conflict with path module
+const path = pathModule;
+
+/**
+ * Read insights feature settings from the settings file
+ */
+function getInsightsFeatureSettings(): InsightsModelConfig {
+  const settingsPath = path.join(app.getPath("userData"), "settings.json");
+
+  try {
+    if (existsSync(settingsPath)) {
+      const content = readFileSync(settingsPath, "utf-8");
+      const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(content) };
+
+      // Get insights-specific settings from Agent Settings
+      const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
+      const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+
+      return {
+        profileId: "balanced", // Default profile for settings-based config
+        model: featureModels.insights,
+        thinkingLevel: featureThinking.insights,
+      };
+    }
+  } catch (error) {
+    console.error("[Insights Handler] Failed to read feature settings:", error);
+  }
+
+  // Return defaults if settings file doesn't exist or fails to parse
+  return {
+    profileId: "balanced", // Default profile for settings-based config
+    model: DEFAULT_FEATURE_MODELS.insights,
+    thinkingLevel: DEFAULT_FEATURE_THINKING.insights,
+  };
+}
 
 /**
  * Register all insights-related IPC handlers
@@ -50,12 +94,26 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         return;
       }
 
+      // Get feature settings from Agent Settings and merge with provided config
+      const featureSettings = getInsightsFeatureSettings();
+      const configWithSettings: InsightsModelConfig = {
+        // Start with feature settings as defaults
+        ...featureSettings,
+        // Override with any explicitly provided config
+        ...modelConfig,
+      };
+
+      console.log("[Insights Handler] Using model config:", {
+        model: configWithSettings.model,
+        thinkingLevel: configWithSettings.thinkingLevel,
+      });
+
       // Await the async sendMessage to ensure proper error handling and
       // that all async operations (like getProcessEnv) complete before
       // the handler returns. This fixes race conditions on Windows where
       // environment setup wouldn't complete before process spawn.
       try {
-        await insightsService.sendMessage(projectId, project.path, message, modelConfig);
+        await insightsService.sendMessage(projectId, project.path, message, configWithSettings);
       } catch (error) {
         // Errors during sendMessage (executor errors) are already emitted via
         // the 'error' event, but we catch here to prevent unhandled rejection

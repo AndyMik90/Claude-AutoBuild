@@ -247,7 +247,9 @@ AGENT_CONFIGS = {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],
         "auto_claude_tools": [],
-        "thinking_default": "medium",
+        # Note: Default to "none" because insight_extractor uses Haiku which doesn't support thinking
+        # If using Sonnet/Opus models, override max_thinking_tokens in create_simple_client()
+        "thinking_default": "none",
     },
     "merge_resolver": {
         "tools": [],  # Text-only analysis
