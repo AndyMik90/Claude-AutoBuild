@@ -70,6 +70,12 @@ if sys.platform == "win32":
     if "_new_stream" in dir():
         del _new_stream
 
+# Validate platform-specific dependencies BEFORE any imports that might
+# trigger graphiti_core -> real_ladybug -> pywintypes import chain (ACS-253)
+from core.dependency_validator import validate_platform_dependencies
+
+validate_platform_dependencies()
+
 from cli import main
 
 if __name__ == "__main__":
