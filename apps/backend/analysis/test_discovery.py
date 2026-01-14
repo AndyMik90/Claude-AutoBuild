@@ -13,7 +13,7 @@ The test discovery results are used by:
 - Planner: To include correct test commands in verification strategy
 
 Usage:
-    from test_discovery import TestDiscovery
+    from analysis.test_discovery import TestDiscovery
 
     discovery = TestDiscovery()
     result = discovery.discover(project_dir)

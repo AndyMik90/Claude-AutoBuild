@@ -19,7 +19,7 @@ import pytest
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
-from service_orchestrator import (
+from services.orchestrator import (
     ServiceConfig,
     OrchestrationResult,
     ServiceOrchestrator,

@@ -24,7 +24,7 @@ from ui import (
     select_menu,
     success,
 )
-from worktree import WorktreeManager
+from core.worktree import WorktreeManager
 
 from .git_utils import has_uncommitted_changes
 from .models import WorkspaceMode

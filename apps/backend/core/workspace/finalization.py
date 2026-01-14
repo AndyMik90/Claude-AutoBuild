@@ -23,7 +23,7 @@ from ui import (
     success,
     warning,
 )
-from worktree import WorktreeInfo, WorktreeManager
+from core.worktree import WorktreeInfo, WorktreeManager
 
 from .display import show_build_summary, show_changed_files
 from .git_utils import get_existing_build_worktree

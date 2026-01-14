@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from worktree import WorktreeManager
+from core.worktree import WorktreeManager
 
 
 class TestWorktreeManagerInitialization:

@@ -13,7 +13,7 @@ from ui import (
     print_status,
     success,
 )
-from worktree import WorktreeManager
+from core.worktree import WorktreeManager
 
 
 def show_build_summary(manager: WorktreeManager, spec_name: str) -> None:

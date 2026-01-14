@@ -34,7 +34,7 @@ from ui import (
     success,
     warning,
 )
-from worktree import WorktreeManager
+from core.worktree import WorktreeManager
 
 # Import debug utilities
 try:
