@@ -1,0 +1,21 @@
+{
+  "name": "@auto-claude/convex-service",
+  "version": "1.0.0",
+  "description": "Convex service with Better Auth integration for Auto Claude",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy",
+    "typegen": "convex typegen"
+  },
+  "dependencies": {
+    "@convex-dev/better-auth": "^0.10.10",
+    "better-auth": "^1.4.0",
+    "convex": "^1.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "typescript": "^5.8.0"
+  }
+}
