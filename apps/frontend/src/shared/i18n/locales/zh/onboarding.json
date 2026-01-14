@@ -159,6 +159,56 @@
     },
     "skipForNow": "暂时跳过"
   },
+  "githubOauth": {
+    "checking": "检查中...",
+    "needInstall": {
+      "title": "需要 GitHub CLI",
+      "description": "GitHub CLI (gh) 是 OAuth 认证所必需的。这提供了一种安全的认证方式，无需手动创建令牌。",
+      "button": "安装 GitHub CLI",
+      "retry": "我已安装"
+    },
+    "installInfo": {
+      "title": "安装说明：",
+      "macos": "macOS：",
+      "windows": "Windows：",
+      "linux": "Linux：访问"
+    },
+    "needAuth": {
+      "title": "连接到 GitHub",
+      "description": "点击下面的按钮使用 GitHub 进行认证。这将打开您的浏览器，您可以在其中授权应用程序。",
+      "usingVersion": "使用 GitHub CLI {{version}}"
+    },
+    "button": "使用 GitHub 认证",
+    "authenticating": {
+      "title": "认证中...",
+      "browserOpened": "请在浏览器中完成认证。此窗口将自动更新。",
+      "waiting": "等待认证流程开始..."
+    },
+    "deviceCode": {
+      "title": "您的一次性代码",
+      "enterBrowser": "在浏览器中输入此代码以完成认证。",
+      "copyManual": "复制此代码，然后打开下面的链接进行认证。",
+      "copied": "已复制",
+      "copy": "复制"
+    },
+    "success": {
+      "title": "连接成功",
+      "connectedAs": "已连接为 {{username}}",
+      "generic": "您的 GitHub 账户现在已连接"
+    },
+    "error": {
+      "title": "认证失败",
+      "titleTimeout": "认证超时",
+      "retry": "重试",
+      "cancel": "取消"
+    },
+    "fallback": {
+      "title": "手动完成认证",
+      "description": "无法自动打开浏览器。请访问下面的 URL 以完成认证：",
+      "openBrowser": "在浏览器中打开 URL",
+      "enterCode": "出现提示时，输入此代码："
+    }
+  },
   "completion": {
     "title": "全部完成！",
     "subtitle": "Auto Claude 已准备好帮助您构建出色的软件",

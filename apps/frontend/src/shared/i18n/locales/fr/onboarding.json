@@ -159,6 +159,56 @@
     },
     "skipForNow": "Passer pour maintenant"
   },
+  "githubOauth": {
+    "checking": "Vérification...",
+    "needInstall": {
+      "title": "GitHub CLI requis",
+      "description": "Le GitHub CLI (gh) est requis pour l'authentification OAuth. Cela fournit un moyen sécurisé de s'authentifier sans créer manuellement de jetons.",
+      "button": "Installer GitHub CLI",
+      "retry": "Je l'ai installé"
+    },
+    "installInfo": {
+      "title": "Instructions d'installation :",
+      "macos": "macOS :",
+      "windows": "Windows :",
+      "linux": "Linux : Visiter"
+    },
+    "needAuth": {
+      "title": "Se connecter à GitHub",
+      "description": "Cliquez sur le bouton ci-dessous pour vous authentifier avec GitHub. Cela ouvrira votre navigateur où vous pourrez autoriser l'application.",
+      "usingVersion": "Utilisation de GitHub CLI {{version}}"
+    },
+    "button": "Authentifier avec GitHub",
+    "authenticating": {
+      "title": "Authentification...",
+      "browserOpened": "Veuillez compléter l'authentification dans votre navigateur. Cette fenêtre se mettra à jour automatiquement.",
+      "waiting": "En attente du démarrage du flux d'authentification..."
+    },
+    "deviceCode": {
+      "title": "Votre code à usage unique",
+      "enterBrowser": "Entrez ce code dans votre navigateur pour compléter l'authentification.",
+      "copyManual": "Copiez ce code, puis ouvrez le lien ci-dessous pour vous authentifier.",
+      "copied": "Copié",
+      "copy": "Copier"
+    },
+    "success": {
+      "title": "Connecté avec succès",
+      "connectedAs": "Connecté en tant que {{username}}",
+      "generic": "Votre compte GitHub est maintenant connecté"
+    },
+    "error": {
+      "title": "Échec de l'authentification",
+      "titleTimeout": "Expiration de l'authentification",
+      "retry": "Réessayer",
+      "cancel": "Annuler"
+    },
+    "fallback": {
+      "title": "Compléter l'authentification manuellement",
+      "description": "Le navigateur n'a pas pu être ouvert automatiquement. Veuillez visiter l'URL ci-dessous pour compléter l'authentification :",
+      "openBrowser": "Ouvrir l'URL dans le navigateur",
+      "enterCode": "Lorsqu'on vous le demande, entrez ce code :"
+    }
+  },
   "completion": {
     "title": "Vous êtes prêt !",
     "subtitle": "Auto Claude est prêt à vous aider à construire des logiciels incroyables",

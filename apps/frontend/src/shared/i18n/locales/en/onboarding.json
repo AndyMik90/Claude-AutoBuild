@@ -159,6 +159,56 @@
     },
     "skipForNow": "Skip for now"
   },
+  "githubOauth": {
+    "checking": "Checking...",
+    "needInstall": {
+      "title": "GitHub CLI Required",
+      "description": "The GitHub CLI (gh) is required for OAuth authentication. This provides a secure way to authenticate without manually creating tokens.",
+      "button": "Install GitHub CLI",
+      "retry": "I've Installed It"
+    },
+    "installInfo": {
+      "title": "Installation instructions:",
+      "macos": "macOS:",
+      "windows": "Windows:",
+      "linux": "Linux: Visit"
+    },
+    "needAuth": {
+      "title": "Connect to GitHub",
+      "description": "Click the button below to authenticate with GitHub. This will open your browser where you can authorize the application.",
+      "usingVersion": "Using GitHub CLI {{version}}"
+    },
+    "button": "Authenticate with GitHub",
+    "authenticating": {
+      "title": "Authenticating...",
+      "browserOpened": "Please complete the authentication in your browser. This window will update automatically.",
+      "waiting": "Waiting for authentication flow to start..."
+    },
+    "deviceCode": {
+      "title": "Your one-time code",
+      "enterBrowser": "Enter this code in your browser to complete authentication.",
+      "copyManual": "Copy this code, then open the link below to authenticate.",
+      "copied": "Copied",
+      "copy": "Copy"
+    },
+    "success": {
+      "title": "Successfully Connected",
+      "connectedAs": "Connected as {{username}}",
+      "generic": "Your GitHub account is now connected"
+    },
+    "error": {
+      "title": "Authentication Failed",
+      "titleTimeout": "Authentication Timed Out",
+      "retry": "Retry",
+      "cancel": "Cancel"
+    },
+    "fallback": {
+      "title": "Complete Authentication Manually",
+      "description": "The browser couldn't be opened automatically. Please visit the URL below to complete authentication:",
+      "openBrowser": "Open URL in Browser",
+      "enterCode": "When prompted, enter this code:"
+    }
+  },
   "completion": {
     "title": "You're All Set!",
     "subtitle": "Auto Claude is ready to help you build amazing software",
