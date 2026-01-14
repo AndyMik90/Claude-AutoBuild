@@ -27,8 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 # Add tests directory to path for test_fixtures
 sys.path.insert(0, str(Path(__file__).parent))
 
-from merge import MergeOrchestrator
-from merge.orchestrator import TaskMergeRequest
+from merge import MergeOrchestrator, TaskMergeRequest
 
 from test_fixtures import (
     SAMPLE_PYTHON_MODULE,

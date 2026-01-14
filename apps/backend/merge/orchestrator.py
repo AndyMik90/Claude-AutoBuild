@@ -31,7 +31,6 @@ from .file_evolution import FileEvolutionTracker
 from .git_utils import find_worktree, get_file_from_branch
 from .merge_pipeline import MergePipeline
 
-# Re-export models for backwards compatibility
 from .models import MergeReport, MergeStats, TaskMergeRequest
 from .semantic_analyzer import SemanticAnalyzer
 from .types import (
@@ -82,13 +81,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 MODULE = "merge.orchestrator"
 
-# Export all public classes for backwards compatibility
-__all__ = [
-    "MergeOrchestrator",
-    "MergeReport",
-    "MergeStats",
-    "TaskMergeRequest",
-]
+__all__ = ["MergeOrchestrator"]
 
 
 class MergeOrchestrator:

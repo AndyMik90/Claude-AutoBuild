@@ -15,7 +15,8 @@ from __future__ import annotations
 import logging
 
 from .ai_resolver import AIResolver
-from .auto_merger import AutoMerger, MergeContext
+from .auto_merger import AutoMerger
+from .auto_merger.context import MergeContext
 from .file_merger import apply_ai_merge, extract_location_content
 from .types import (
     ConflictRegion,
