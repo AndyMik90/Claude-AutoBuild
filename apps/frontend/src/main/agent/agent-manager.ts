@@ -6,7 +6,6 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
-import { pythonEnvManager } from '../python-env-manager';
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
@@ -86,37 +85,6 @@ export class AgentManager extends EventEmitter {
   }
 
   /**
-   * Ensure Python environment is ready before spawning processes.
-   * This prevents race condition where tasks start before venv initialization completes.
-   *
-   * Pattern copied from AgentQueueManager.ensurePythonEnvReady() for consistency.
-   *
-   * @param taskId - The task ID for error event emission
-   * @returns true if environment is ready, false if initialization failed (error already emitted)
-   */
-  private async ensurePythonEnvReady(taskId: string): Promise<boolean> {
-    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
-
-    if (!pythonEnvManager.isEnvReady()) {
-      console.log('[AgentManager] Python environment not ready, waiting for initialization...');
-      if (autoBuildSource) {
-        const status = await pythonEnvManager.initialize(autoBuildSource);
-        if (!status.ready) {
-          console.error('[AgentManager] Python environment initialization failed:', status.error);
-          this.emit('error', taskId, `Python environment not ready: ${status.error || 'initialization failed'}`);
-          return false;
-        }
-        console.log('[AgentManager] Python environment now ready');
-      } else {
-        console.error('[AgentManager] Cannot initialize Python - auto-build source not found');
-        this.emit('error', taskId, 'Python environment not ready: auto-build source not found');
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /**
    * Start spec creation process
    */
   async startSpecCreation(
@@ -143,9 +111,10 @@ export class AgentManager extends EventEmitter {
     }
 
     // Ensure Python environment is ready before spawning process (prevents exit code 127 race condition)
-    const pythonReady = await this.ensurePythonEnvReady(taskId);
-    if (!pythonReady) {
-      return; // Error already emitted by ensurePythonEnvReady
+    const pythonStatus = await this.processManager.ensurePythonEnvReady('AgentManager');
+    if (!pythonStatus.ready) {
+      this.emit('error', taskId, `Python environment not ready: ${pythonStatus.error || 'initialization failed'}`);
+      return;
     }
 
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();
@@ -235,9 +204,10 @@ export class AgentManager extends EventEmitter {
     }
 
     // Ensure Python environment is ready before spawning process (prevents exit code 127 race condition)
-    const pythonReady = await this.ensurePythonEnvReady(taskId);
-    if (!pythonReady) {
-      return; // Error already emitted by ensurePythonEnvReady
+    const pythonStatus = await this.processManager.ensurePythonEnvReady('AgentManager');
+    if (!pythonStatus.ready) {
+      this.emit('error', taskId, `Python environment not ready: ${pythonStatus.error || 'initialization failed'}`);
+      return;
     }
 
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();

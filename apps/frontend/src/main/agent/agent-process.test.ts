@@ -95,6 +95,15 @@ vi.mock('../python-detector', () => ({
   parsePythonCommand: vi.fn(() => ['python', []])
 }));
 
+// Mock python-env-manager for ensurePythonEnvReady tests
+vi.mock('../python-env-manager', () => ({
+  pythonEnvManager: {
+    isEnvReady: vi.fn(() => true),
+    initialize: vi.fn(() => Promise.resolve({ ready: true }))
+  },
+  getConfiguredPythonPath: vi.fn(() => 'python3')
+}));
+
 vi.mock('electron', () => ({
   app: {
     getAppPath: vi.fn(() => '/fake/app/path')
@@ -107,6 +116,7 @@ import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import * as profileService from '../services/profile';
 import * as rateLimitDetector from '../rate-limit-detector';
+import { pythonEnvManager } from '../python-env-manager';
 
 describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
   let processManager: AgentProcessManager;
@@ -489,6 +499,106 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       // Should have clearing vars (falls back to OAuth mode on error)
       expect(envArg.ANTHROPIC_AUTH_TOKEN).toBe('');
       expect(envArg.ANTHROPIC_BASE_URL).toBe('');
+    });
+  });
+
+  describe('ensurePythonEnvReady - Python Environment Readiness (ACS-254)', () => {
+    let testProcessManager: AgentProcessManager;
+
+    beforeEach(() => {
+      // Reset all mocks
+      vi.clearAllMocks();
+      spawnCalls.length = 0;
+
+      // Create fresh process manager for these tests
+      state = new AgentState();
+      events = new AgentEvents();
+      emitter = new EventEmitter();
+      testProcessManager = new AgentProcessManager(state, events, emitter);
+    });
+
+    it('should return ready: true when Python environment is already ready', async () => {
+      vi.mocked(pythonEnvManager.isEnvReady).mockReturnValue(true);
+
+      // Configure with valid autoBuildSource
+      testProcessManager.configure(undefined, '/fake/auto-build');
+
+      const result = await testProcessManager.ensurePythonEnvReady('TestContext');
+
+      expect(result.ready).toBe(true);
+      expect(result.error).toBeUndefined();
+      expect(pythonEnvManager.initialize).not.toHaveBeenCalled();
+    });
+
+    it('should initialize Python environment when not ready', async () => {
+      vi.mocked(pythonEnvManager.isEnvReady).mockReturnValue(false);
+      vi.mocked(pythonEnvManager.initialize).mockResolvedValue({
+        ready: true,
+        pythonPath: '/fake/python',
+        sitePackagesPath: '/fake/site-packages',
+        venvExists: true,
+        depsInstalled: true,
+        usingBundledPackages: false
+      });
+
+      testProcessManager.configure(undefined, '/fake/auto-build');
+
+      const result = await testProcessManager.ensurePythonEnvReady('TestContext');
+
+      expect(result.ready).toBe(true);
+      expect(result.error).toBeUndefined();
+      expect(pythonEnvManager.initialize).toHaveBeenCalledWith('/fake/auto-build');
+    });
+
+    it('should return error when autoBuildSource is not found', async () => {
+      vi.mocked(pythonEnvManager.isEnvReady).mockReturnValue(false);
+
+      // Don't configure - autoBuildSource will be null
+      const result = await testProcessManager.ensurePythonEnvReady('TestContext');
+
+      expect(result.ready).toBe(false);
+      expect(result.error).toBe('auto-build source not found');
+      expect(pythonEnvManager.initialize).not.toHaveBeenCalled();
+    });
+
+    it('should return error when Python initialization fails', async () => {
+      vi.mocked(pythonEnvManager.isEnvReady).mockReturnValue(false);
+      vi.mocked(pythonEnvManager.initialize).mockResolvedValue({
+        ready: false,
+        pythonPath: null,
+        sitePackagesPath: null,
+        venvExists: false,
+        depsInstalled: false,
+        usingBundledPackages: false,
+        error: 'Failed to create venv: permission denied'
+      });
+
+      testProcessManager.configure(undefined, '/fake/auto-build');
+
+      const result = await testProcessManager.ensurePythonEnvReady('TestContext');
+
+      expect(result.ready).toBe(false);
+      expect(result.error).toBe('Failed to create venv: permission denied');
+    });
+
+    it('should return error when Python initialization fails without message', async () => {
+      vi.mocked(pythonEnvManager.isEnvReady).mockReturnValue(false);
+      vi.mocked(pythonEnvManager.initialize).mockResolvedValue({
+        ready: false,
+        pythonPath: null,
+        sitePackagesPath: null,
+        venvExists: false,
+        depsInstalled: false,
+        usingBundledPackages: false
+        // No error field
+      });
+
+      testProcessManager.configure(undefined, '/fake/auto-build');
+
+      const result = await testProcessManager.ensurePythonEnvReady('TestContext');
+
+      expect(result.ready).toBe(false);
+      expect(result.error).toBe('initialization failed');
     });
   });
 });
