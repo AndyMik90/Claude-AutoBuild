@@ -14,7 +14,7 @@
  * - Edit mode: API key masked with "Change" button
  */
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -75,6 +75,9 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
 
   // API key change state (for edit mode)
   const [isChangingApiKey, setIsChangingApiKey] = useState(false);
+
+  // API key visibility toggle
+  const [showApiKey, setShowApiKey] = useState(false);
 
   // Validation errors
   const [nameError, setNameError] = useState<string | null>(null);
@@ -403,16 +406,32 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
                   </Button>
                 </div>
               ) : (
-                // Create mode or changing key: show password input
+                // Create mode or changing key: show password input with visibility toggle
                 <>
-                  <Input
-                    id="profile-key"
-                    type="password"
-                    placeholder={t('settings:apiProfiles.placeholders.apiKey')}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    className={keyError ? 'border-destructive' : ''}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="profile-key"
+                      type={showApiKey ? 'text' : 'password'}
+                      placeholder={t('settings:apiProfiles.placeholders.apiKey')}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      className={keyError ? 'border-destructive' : ''}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      tabIndex={-1}
+                    >
+                      {showApiKey ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                   {isEditMode && (
                     <Button
                       type="button"
