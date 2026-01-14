@@ -286,64 +286,6 @@ class ProjectAnalyzer:
         self.profile.script_commands = script_commands
         self.profile.custom_commands = custom_commands
 
-    # Public methods for backward compatibility with tests
-    def _detect_languages(self) -> None:
-        """Detect programming languages (backward compatibility)."""
-        detector = StackDetector(self.project_dir)
-        detector.detect_languages()
-        self.profile.detected_stack.languages = detector.stack.languages
-
-    def _detect_package_managers(self) -> None:
-        """Detect package managers (backward compatibility)."""
-        detector = StackDetector(self.project_dir)
-        detector.detect_package_managers()
-        self.profile.detected_stack.package_managers = detector.stack.package_managers
-
-    def _detect_databases(self) -> None:
-        """Detect databases (backward compatibility)."""
-        detector = StackDetector(self.project_dir)
-        detector.detect_databases()
-        self.profile.detected_stack.databases = detector.stack.databases
-
-    def _detect_infrastructure(self) -> None:
-        """Detect infrastructure (backward compatibility)."""
-        detector = StackDetector(self.project_dir)
-        detector.detect_infrastructure()
-        self.profile.detected_stack.infrastructure = detector.stack.infrastructure
-
-    def _detect_cloud_providers(self) -> None:
-        """Detect cloud providers (backward compatibility)."""
-        detector = StackDetector(self.project_dir)
-        detector.detect_cloud_providers()
-        self.profile.detected_stack.cloud_providers = detector.stack.cloud_providers
-
-    def _detect_code_quality_tools(self) -> None:
-        """Detect code quality tools (backward compatibility)."""
-        detector = StackDetector(self.project_dir)
-        detector.detect_code_quality_tools()
-        self.profile.detected_stack.code_quality_tools = (
-            detector.stack.code_quality_tools
-        )
-
-    def _detect_version_managers(self) -> None:
-        """Detect version managers (backward compatibility)."""
-        detector = StackDetector(self.project_dir)
-        detector.detect_version_managers()
-        self.profile.detected_stack.version_managers = detector.stack.version_managers
-
-    def _detect_custom_scripts(self) -> None:
-        """Detect custom scripts (backward compatibility)."""
-        analyzer = StructureAnalyzer(self.project_dir)
-        scripts, script_commands, _ = analyzer.analyze()
-        self.profile.custom_scripts = scripts
-        self.profile.script_commands = script_commands
-
-    def _load_custom_allowlist(self) -> None:
-        """Load custom allowlist (backward compatibility)."""
-        analyzer = StructureAnalyzer(self.project_dir)
-        _, _, custom_commands = analyzer.analyze()
-        self.profile.custom_commands = custom_commands
-
     def _build_stack_commands(self) -> None:
         """Build the set of allowed commands from detected stack."""
         stack = self.profile.detected_stack

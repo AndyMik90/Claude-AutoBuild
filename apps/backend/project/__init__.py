@@ -22,6 +22,8 @@ Public API:
 from .analyzer import ProjectAnalyzer
 from .command_registry import BASE_COMMANDS, VALIDATED_COMMANDS
 from .models import CustomScripts, SecurityProfile, TechnologyStack
+from .stack_detector import StackDetector
+from .structure_analyzer import StructureAnalyzer
 
 __all__ = [
     # Main classes
@@ -29,6 +31,9 @@ __all__ = [
     "SecurityProfile",
     "TechnologyStack",
     "CustomScripts",
+    # Detection classes
+    "StackDetector",
+    "StructureAnalyzer",
     # Utility functions
     "get_or_create_profile",
     "is_command_allowed",

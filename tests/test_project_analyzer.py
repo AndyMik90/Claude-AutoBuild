@@ -20,6 +20,8 @@ from project import (
     CustomScripts,
     ProjectAnalyzer,
     SecurityProfile,
+    StackDetector,
+    StructureAnalyzer,
     TechnologyStack,
     get_or_create_profile,
     is_command_allowed,
@@ -68,20 +70,20 @@ class TestLanguageDetection:
         (temp_dir / "app.py").write_text("print('hello')")
         (temp_dir / "requirements.txt").write_text("flask\n")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_languages()
+        detector = StackDetector(temp_dir)
+        detector.detect_languages()
 
-        assert "python" in analyzer.profile.detected_stack.languages
+        assert "python" in detector.stack.languages
 
     def test_detects_javascript(self, temp_dir: Path):
         """Detects JavaScript projects."""
         (temp_dir / "package.json").write_text('{"name": "test"}')
         (temp_dir / "index.js").write_text("console.log('hello');")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_languages()
+        detector = StackDetector(temp_dir)
+        detector.detect_languages()
 
-        assert "javascript" in analyzer.profile.detected_stack.languages
+        assert "javascript" in detector.stack.languages
 
     def test_detects_typescript(self, temp_dir: Path):
         """Detects TypeScript projects."""
@@ -89,10 +91,10 @@ class TestLanguageDetection:
         (temp_dir / "src").mkdir()
         (temp_dir / "src" / "index.ts").write_text("export const x = 1;")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_languages()
+        detector = StackDetector(temp_dir)
+        detector.detect_languages()
 
-        assert "typescript" in analyzer.profile.detected_stack.languages
+        assert "typescript" in detector.stack.languages
 
     def test_detects_rust(self, temp_dir: Path):
         """Detects Rust projects."""
@@ -100,31 +102,31 @@ class TestLanguageDetection:
         (temp_dir / "src").mkdir()
         (temp_dir / "src" / "main.rs").write_text("fn main() {}")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_languages()
+        detector = StackDetector(temp_dir)
+        detector.detect_languages()
 
-        assert "rust" in analyzer.profile.detected_stack.languages
+        assert "rust" in detector.stack.languages
 
     def test_detects_go(self, temp_dir: Path):
         """Detects Go projects."""
         (temp_dir / "go.mod").write_text("module test")
         (temp_dir / "main.go").write_text("package main")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_languages()
+        detector = StackDetector(temp_dir)
+        detector.detect_languages()
 
-        assert "go" in analyzer.profile.detected_stack.languages
+        assert "go" in detector.stack.languages
 
     def test_detects_multiple_languages(self, temp_dir: Path):
         """Detects multiple languages in same project."""
         (temp_dir / "app.py").write_text("print('hello')")
         (temp_dir / "package.json").write_text('{"name": "test"}')
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_languages()
+        detector = StackDetector(temp_dir)
+        detector.detect_languages()
 
-        assert "python" in analyzer.profile.detected_stack.languages
-        assert "javascript" in analyzer.profile.detected_stack.languages
+        assert "python" in detector.stack.languages
+        assert "javascript" in detector.stack.languages
 
 
 class TestPackageManagerDetection:
@@ -135,39 +137,39 @@ class TestPackageManagerDetection:
         (temp_dir / "package.json").write_text('{"name": "test"}')
         (temp_dir / "package-lock.json").write_text("{}")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_package_managers()
+        detector = StackDetector(temp_dir)
+        detector.detect_package_managers()
 
-        assert "npm" in analyzer.profile.detected_stack.package_managers
+        assert "npm" in detector.stack.package_managers
 
     def test_detects_yarn(self, temp_dir: Path):
         """Detects yarn from yarn.lock."""
         (temp_dir / "package.json").write_text('{"name": "test"}')
         (temp_dir / "yarn.lock").write_text("")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_package_managers()
+        detector = StackDetector(temp_dir)
+        detector.detect_package_managers()
 
-        assert "yarn" in analyzer.profile.detected_stack.package_managers
+        assert "yarn" in detector.stack.package_managers
 
     def test_detects_pnpm(self, temp_dir: Path):
         """Detects pnpm from pnpm-lock.yaml."""
         (temp_dir / "package.json").write_text('{"name": "test"}')
         (temp_dir / "pnpm-lock.yaml").write_text("")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_package_managers()
+        detector = StackDetector(temp_dir)
+        detector.detect_package_managers()
 
-        assert "pnpm" in analyzer.profile.detected_stack.package_managers
+        assert "pnpm" in detector.stack.package_managers
 
     def test_detects_pip(self, temp_dir: Path):
         """Detects pip from requirements.txt."""
         (temp_dir / "requirements.txt").write_text("flask\n")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_package_managers()
+        detector = StackDetector(temp_dir)
+        detector.detect_package_managers()
 
-        assert "pip" in analyzer.profile.detected_stack.package_managers
+        assert "pip" in detector.stack.package_managers
 
     def test_detects_poetry(self, temp_dir: Path):
         """Detects poetry from pyproject.toml."""
@@ -177,19 +179,19 @@ version = "0.1.0"
 """
         (temp_dir / "pyproject.toml").write_text(pyproject)
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_package_managers()
+        detector = StackDetector(temp_dir)
+        detector.detect_package_managers()
 
-        assert "poetry" in analyzer.profile.detected_stack.package_managers
+        assert "poetry" in detector.stack.package_managers
 
     def test_detects_cargo(self, temp_dir: Path):
         """Detects cargo from Cargo.toml."""
         (temp_dir / "Cargo.toml").write_text('[package]\nname = "test"')
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_package_managers()
+        detector = StackDetector(temp_dir)
+        detector.detect_package_managers()
 
-        assert "cargo" in analyzer.profile.detected_stack.package_managers
+        assert "cargo" in detector.stack.package_managers
 
 
 class TestFrameworkDetection:
@@ -264,19 +266,19 @@ class TestDatabaseDetection:
         """Detects PostgreSQL from .env file."""
         (temp_dir / ".env").write_text("DATABASE_URL=postgresql://localhost/test\n")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_databases()
+        detector = StackDetector(temp_dir)
+        detector.detect_databases()
 
-        assert "postgresql" in analyzer.profile.detected_stack.databases
+        assert "postgresql" in detector.stack.databases
 
     def test_detects_mongodb_from_env(self, temp_dir: Path):
         """Detects MongoDB from .env file."""
         (temp_dir / ".env").write_text("MONGODB_URI=mongodb://localhost/test\n")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_databases()
+        detector = StackDetector(temp_dir)
+        detector.detect_databases()
 
-        assert "mongodb" in analyzer.profile.detected_stack.databases
+        assert "mongodb" in detector.stack.databases
 
     def test_detects_redis_from_docker_compose(self, temp_dir: Path):
         """Detects Redis from docker-compose.yml."""
@@ -286,10 +288,10 @@ class TestDatabaseDetection:
 """
         (temp_dir / "docker-compose.yml").write_text(compose)
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_databases()
+        detector = StackDetector(temp_dir)
+        detector.detect_databases()
 
-        assert "redis" in analyzer.profile.detected_stack.databases
+        assert "redis" in detector.stack.databases
 
     def test_detects_postgres_from_prisma(self, temp_dir: Path):
         """Detects PostgreSQL from Prisma schema."""
@@ -301,10 +303,10 @@ class TestDatabaseDetection:
 """
         (temp_dir / "prisma" / "schema.prisma").write_text(schema)
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_databases()
+        detector = StackDetector(temp_dir)
+        detector.detect_databases()
 
-        assert "postgresql" in analyzer.profile.detected_stack.databases
+        assert "postgresql" in detector.stack.databases
 
 
 class TestInfrastructureDetection:
@@ -314,38 +316,38 @@ class TestInfrastructureDetection:
         """Detects Docker from Dockerfile."""
         (temp_dir / "Dockerfile").write_text("FROM python:3.11")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_infrastructure()
+        detector = StackDetector(temp_dir)
+        detector.detect_infrastructure()
 
-        assert "docker" in analyzer.profile.detected_stack.infrastructure
+        assert "docker" in detector.stack.infrastructure
 
     def test_detects_docker_compose(self, temp_dir: Path):
         """Detects Docker from docker-compose.yml."""
         (temp_dir / "docker-compose.yml").write_text("services:\n  app:\n    build: .")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_infrastructure()
+        detector = StackDetector(temp_dir)
+        detector.detect_infrastructure()
 
-        assert "docker" in analyzer.profile.detected_stack.infrastructure
+        assert "docker" in detector.stack.infrastructure
 
     def test_detects_terraform(self, temp_dir: Path):
         """Detects Terraform from .tf files."""
         (temp_dir / "infra").mkdir()
         (temp_dir / "infra" / "main.tf").write_text('resource "aws_instance" "web" {}')
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_infrastructure()
+        detector = StackDetector(temp_dir)
+        detector.detect_infrastructure()
 
-        assert "terraform" in analyzer.profile.detected_stack.infrastructure
+        assert "terraform" in detector.stack.infrastructure
 
     def test_detects_helm(self, temp_dir: Path):
         """Detects Helm from Chart.yaml."""
         (temp_dir / "Chart.yaml").write_text("name: myapp\nversion: 1.0.0")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_infrastructure()
+        detector = StackDetector(temp_dir)
+        detector.detect_infrastructure()
 
-        assert "helm" in analyzer.profile.detected_stack.infrastructure
+        assert "helm" in detector.stack.infrastructure
 
 
 class TestCloudProviderDetection:
@@ -355,28 +357,28 @@ class TestCloudProviderDetection:
         """Detects Vercel from vercel.json."""
         (temp_dir / "vercel.json").write_text('{"buildCommand": "npm run build"}')
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_cloud_providers()
+        detector = StackDetector(temp_dir)
+        detector.detect_cloud_providers()
 
-        assert "vercel" in analyzer.profile.detected_stack.cloud_providers
+        assert "vercel" in detector.stack.cloud_providers
 
     def test_detects_netlify(self, temp_dir: Path):
         """Detects Netlify from netlify.toml."""
         (temp_dir / "netlify.toml").write_text('[build]\ncommand = "npm run build"')
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_cloud_providers()
+        detector = StackDetector(temp_dir)
+        detector.detect_cloud_providers()
 
-        assert "netlify" in analyzer.profile.detected_stack.cloud_providers
+        assert "netlify" in detector.stack.cloud_providers
 
     def test_detects_fly(self, temp_dir: Path):
         """Detects Fly.io from fly.toml."""
         (temp_dir / "fly.toml").write_text('app = "myapp"')
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_cloud_providers()
+        detector = StackDetector(temp_dir)
+        detector.detect_cloud_providers()
 
-        assert "fly" in analyzer.profile.detected_stack.cloud_providers
+        assert "fly" in detector.stack.cloud_providers
 
 
 class TestCustomScriptDetection:
@@ -393,12 +395,12 @@ class TestCustomScriptDetection:
         }
         (temp_dir / "package.json").write_text(json.dumps(pkg))
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_custom_scripts()
+        analyzer = StructureAnalyzer(temp_dir)
+        scripts, _, _ = analyzer.analyze()
 
-        assert "dev" in analyzer.profile.custom_scripts.npm_scripts
-        assert "build" in analyzer.profile.custom_scripts.npm_scripts
-        assert "test" in analyzer.profile.custom_scripts.npm_scripts
+        assert "dev" in scripts.npm_scripts
+        assert "build" in scripts.npm_scripts
+        assert "test" in scripts.npm_scripts
 
     def test_detects_makefile_targets(self, temp_dir: Path):
         """Detects Makefile targets."""
@@ -412,22 +414,22 @@ test:
 """
         (temp_dir / "Makefile").write_text(makefile)
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_custom_scripts()
+        analyzer = StructureAnalyzer(temp_dir)
+        scripts, _, _ = analyzer.analyze()
 
-        assert "build" in analyzer.profile.custom_scripts.make_targets
-        assert "test" in analyzer.profile.custom_scripts.make_targets
+        assert "build" in scripts.make_targets
+        assert "test" in scripts.make_targets
 
     def test_detects_shell_scripts(self, temp_dir: Path):
         """Detects shell scripts in root."""
         (temp_dir / "setup.sh").write_text("#!/bin/bash\necho 'setup'")
         (temp_dir / "deploy.sh").write_text("#!/bin/bash\necho 'deploy'")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_custom_scripts()
+        analyzer = StructureAnalyzer(temp_dir)
+        scripts, _, _ = analyzer.analyze()
 
-        assert "setup.sh" in analyzer.profile.custom_scripts.shell_scripts
-        assert "deploy.sh" in analyzer.profile.custom_scripts.shell_scripts
+        assert "setup.sh" in scripts.shell_scripts
+        assert "deploy.sh" in scripts.shell_scripts
 
 
 class TestCustomAllowlist:
@@ -441,11 +443,11 @@ another-command
 """
         (temp_dir / ".auto-claude-allowlist").write_text(allowlist)
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._load_custom_allowlist()
+        analyzer = StructureAnalyzer(temp_dir)
+        _, _, custom_commands = analyzer.analyze()
 
-        assert "my-custom-tool" in analyzer.profile.custom_commands
-        assert "another-command" in analyzer.profile.custom_commands
+        assert "my-custom-tool" in custom_commands
+        assert "another-command" in custom_commands
 
 
 class TestSecurityProfileGeneration:
@@ -639,20 +641,20 @@ environment:
 """
         (temp_dir / "pubspec.yaml").write_text(pubspec)
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_languages()
+        detector = StackDetector(temp_dir)
+        detector.detect_languages()
 
-        assert "dart" in analyzer.profile.detected_stack.languages
+        assert "dart" in detector.stack.languages
 
     def test_detects_dart_from_files(self, temp_dir: Path):
         """Detects Dart from .dart files."""
         (temp_dir / "lib").mkdir()
         (temp_dir / "lib" / "main.dart").write_text("void main() {}")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_languages()
+        detector = StackDetector(temp_dir)
+        detector.detect_languages()
 
-        assert "dart" in analyzer.profile.detected_stack.languages
+        assert "dart" in detector.stack.languages
 
     def test_detects_flutter_framework(self, temp_dir: Path):
         """Detects Flutter framework from pubspec.yaml."""
@@ -680,19 +682,19 @@ version: 1.0.0
 """
         (temp_dir / "pubspec.yaml").write_text(pubspec)
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_package_managers()
+        detector = StackDetector(temp_dir)
+        detector.detect_package_managers()
 
-        assert "pub" in analyzer.profile.detected_stack.package_managers
+        assert "pub" in detector.stack.package_managers
 
     def test_detects_pub_from_lock_file(self, temp_dir: Path):
         """Detects pub package manager from pubspec.lock."""
         (temp_dir / "pubspec.lock").write_text("packages:\n")
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_package_managers()
+        detector = StackDetector(temp_dir)
+        detector.detect_package_managers()
 
-        assert "pub" in analyzer.profile.detected_stack.package_managers
+        assert "pub" in detector.stack.package_managers
 
 
 class TestMelosMonorepoDetection:
@@ -706,10 +708,10 @@ packages:
 """
         (temp_dir / "melos.yaml").write_text(melos_config)
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_package_managers()
+        detector = StackDetector(temp_dir)
+        detector.detect_package_managers()
 
-        assert "melos" in analyzer.profile.detected_stack.package_managers
+        assert "melos" in detector.stack.package_managers
 
     def test_melos_commands_allowed(self, temp_dir: Path):
         """Melos commands are allowed when detected."""
@@ -731,29 +733,29 @@ class TestFvmVersionManagerDetection:
         """Detects FVM from .fvm directory."""
         (temp_dir / ".fvm").mkdir()
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_version_managers()
+        detector = StackDetector(temp_dir)
+        detector.detect_version_managers()
 
-        assert "fvm" in analyzer.profile.detected_stack.version_managers
+        assert "fvm" in detector.stack.version_managers
 
     def test_detects_fvm_from_config(self, temp_dir: Path):
         """Detects FVM from fvm_config.json."""
         fvm_config = '{"flutterSdkVersion": "3.19.0"}'
         (temp_dir / "fvm_config.json").write_text(fvm_config)
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_version_managers()
+        detector = StackDetector(temp_dir)
+        detector.detect_version_managers()
 
-        assert "fvm" in analyzer.profile.detected_stack.version_managers
+        assert "fvm" in detector.stack.version_managers
 
     def test_detects_fvm_from_fvmrc(self, temp_dir: Path):
         """Detects FVM from .fvmrc file."""
         (temp_dir / ".fvmrc").write_text('{"flutter": "3.19.0"}')
 
-        analyzer = ProjectAnalyzer(temp_dir)
-        analyzer._detect_version_managers()
+        detector = StackDetector(temp_dir)
+        detector.detect_version_managers()
 
-        assert "fvm" in analyzer.profile.detected_stack.version_managers
+        assert "fvm" in detector.stack.version_managers
 
     def test_fvm_commands_allowed(self, temp_dir: Path):
         """FVM commands are allowed when detected."""
