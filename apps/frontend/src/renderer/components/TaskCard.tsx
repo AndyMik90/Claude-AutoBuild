@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, FileText, Search, FolderSearch, Terminal, Pencil } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, FileText, Search, FolderSearch, Terminal, Pencil, Globe } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -45,6 +45,7 @@ const CategoryIcon: Record<TaskCategory, typeof Zap> = {
 };
 
 // Data-driven tool styles for live action status
+// Order matters: more specific patterns must come before general ones (first match wins)
 const TOOL_STYLES: Array<{
   patterns: string[];
   icon: typeof FileText;
@@ -52,7 +53,9 @@ const TOOL_STYLES: Array<{
 }> = [
   { patterns: ['reading'], icon: FileText, color: 'text-blue-500 bg-blue-500/10' },
   { patterns: ['searching files', 'globbing'], icon: FolderSearch, color: 'text-amber-500 bg-amber-500/10' },
-  { patterns: ['searching code', 'grep'], icon: Search, color: 'text-green-500 bg-green-500/10' },
+  { patterns: ['searching web'], icon: Globe, color: 'text-indigo-500 bg-indigo-500/10' },
+  { patterns: ['searching'], icon: Search, color: 'text-green-500 bg-green-500/10' },
+  { patterns: ['fetching'], icon: Globe, color: 'text-indigo-500 bg-indigo-500/10' },
   { patterns: ['editing'], icon: Pencil, color: 'text-purple-500 bg-purple-500/10' },
   { patterns: ['writing'], icon: FileCode, color: 'text-cyan-500 bg-cyan-500/10' },
   { patterns: ['running', 'executing'], icon: Terminal, color: 'text-orange-500 bg-orange-500/10' },
