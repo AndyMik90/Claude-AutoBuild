@@ -25,6 +25,7 @@ import {
 import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
 import { ExecutionModeTabs, type ExecutionMode } from './task-form/ExecutionModeTabs';
+import { ComplexitySelector, type ExecutionComplexity } from './task-form/ComplexitySelector';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { FileAutocomplete } from './FileAutocomplete';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
@@ -110,6 +111,9 @@ export function TaskCreationWizard({
   // Execution mode - default to full_auto
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('full_auto');
 
+  // Execution complexity - default to auto (AI-assessed)
+  const [executionComplexity, setExecutionComplexity] = useState<ExecutionComplexity>('auto');
+
   // Draft state
   const [isDraftRestored, setIsDraftRestored] = useState(false);
 
@@ -142,6 +146,7 @@ export function TaskCreationWizard({
         setReferencedFiles(draft.referencedFiles ?? []);
         setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
         setExecutionMode(draft.executionMode ?? 'full_auto');
+        setExecutionComplexity(draft.executionComplexity ?? 'auto');
         setIsDraftRestored(true);
 
         if (draft.category || draft.priority || draft.complexity || draft.impact) {
@@ -224,8 +229,9 @@ export function TaskCreationWizard({
     referencedFiles,
     requireReviewBeforeCoding,
     executionMode,
+    executionComplexity,
     savedAt: new Date()
-  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding, executionMode]);
+  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding, executionMode, executionComplexity]);
 
   /**
    * Detect @ mention being typed and show autocomplete
@@ -356,6 +362,8 @@ export function TaskCreationWizard({
       if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
       // Always include execution mode - it determines checkpoint behavior
       metadata.executionMode = executionMode;
+      // Always include execution complexity - it determines planning effort
+      metadata.executionComplexity = executionComplexity;
       // Always include baseBranch - resolve PROJECT_DEFAULT_BRANCH to actual branch name
       // This ensures the backend always knows which branch to use for worktree creation
       if (baseBranch === PROJECT_DEFAULT_BRANCH) {
@@ -398,6 +406,7 @@ export function TaskCreationWizard({
     setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);
     setExecutionMode('full_auto');
+    setExecutionComplexity('auto');
     setBaseBranch(PROJECT_DEFAULT_BRANCH);
     setUseWorktree(true);
     setError(null);
@@ -535,6 +544,14 @@ export function TaskCreationWizard({
           value={executionMode}
           onChange={setExecutionMode}
           disabled={isCreating}
+        />
+
+        {/* Execution Complexity Selector */}
+        <ComplexitySelector
+          value={executionComplexity}
+          onChange={setExecutionComplexity}
+          disabled={isCreating}
+          idPrefix="create"
         />
 
         {/* Worktree isolation info banner */}

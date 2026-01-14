@@ -255,5 +255,25 @@
         "validation": "After validation - Review QA results"
       }
     }
+  },
+  "executionComplexity": {
+    "label": "Task Complexity",
+    "helpText": "Choose how much planning and effort the AI should invest in this task.",
+    "auto": {
+      "label": "Auto-detect",
+      "description": "Let AI assess the task complexity"
+    },
+    "quick": {
+      "label": "Quick",
+      "description": "Simple tasks with minimal planning"
+    },
+    "standard": {
+      "label": "Standard",
+      "description": "Normal tasks with full planning"
+    },
+    "complex": {
+      "label": "Complex",
+      "description": "Large features with extensive research"
+    }
   }
 }

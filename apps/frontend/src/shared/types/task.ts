@@ -152,11 +152,15 @@ export interface TaskDraft {
   referencedFiles: ReferencedFile[];
   requireReviewBeforeCoding?: boolean;
   executionMode?: ExecutionMode;
+  executionComplexity?: ExecutionComplexity;
   savedAt: Date;
 }
 
 // Execution mode for task execution
 export type ExecutionMode = 'full_auto' | 'semi_auto';
+
+// Execution complexity - how much planning/effort to invest
+export type ExecutionComplexity = 'auto' | 'quick' | 'standard' | 'complex';
 
 // Task metadata from ideation or manual entry
 export type TaskComplexity = 'trivial' | 'small' | 'medium' | 'large' | 'complex';
@@ -228,6 +232,7 @@ export interface TaskMetadata {
 
   // Execution mode
   executionMode?: ExecutionMode;  // Full auto (no interruption) or semi-auto (checkpoints)
+  executionComplexity?: ExecutionComplexity;  // How much planning/effort to invest (auto, quick, standard, complex)
 
   // Agent configuration (from agent profile or manual selection)
   model?: ModelType;  // Claude model to use (haiku, sonnet, opus) - used when not auto profile

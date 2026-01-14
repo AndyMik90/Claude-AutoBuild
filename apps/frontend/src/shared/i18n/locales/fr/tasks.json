@@ -255,5 +255,25 @@
         "validation": "Après la validation - Révisez les résultats QA"
       }
     }
+  },
+  "executionComplexity": {
+    "label": "Complexité de la tâche",
+    "helpText": "Choisissez le niveau de planification et d'effort que l'IA doit investir dans cette tâche.",
+    "auto": {
+      "label": "Auto-détection",
+      "description": "Laisser l'IA évaluer la complexité"
+    },
+    "quick": {
+      "label": "Rapide",
+      "description": "Tâches simples avec planification minimale"
+    },
+    "standard": {
+      "label": "Standard",
+      "description": "Tâches normales avec planification complète"
+    },
+    "complex": {
+      "label": "Complexe",
+      "description": "Grandes fonctionnalités avec recherche approfondie"
+    }
   }
 }
