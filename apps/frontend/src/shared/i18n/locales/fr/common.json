@@ -613,6 +613,45 @@
       "saved": "Changelog enregistré !",
       "savedDesc": "La version {{tag}} a été ajoutée à CHANGELOG.md",
       "done": "Terminé"
+    },
+    "config": {
+      "backToSelection": "Retour à la sélection",
+      "including_one": "Inclusion de {{count}} {{label}}",
+      "including_other": "Inclusion de {{count}} {{label}}s",
+      "releaseInfo": "Informations de version",
+      "version": "Version",
+      "versionPlaceholder": "1.0.0",
+      "date": "Date",
+      "previous": "Précédent : {{version}}",
+      "outputStyle": "Style de sortie",
+      "format": "Format",
+      "audience": "Public",
+      "emojis": "Emojis",
+      "advancedOptions": "Options avancées",
+      "customInstructions": "Instructions personnalisées",
+      "customInstructionsPlaceholder": "Ajoutez des instructions spéciales pour l'IA...",
+      "customInstructionsHint": "Optionnel. Guidez l'IA sur le ton, les détails spécifiques à inclure, etc.",
+      "generating": "Génération...",
+      "generateChangelog": "Générer le changelog"
+    },
+    "preview": {
+      "title": "Aperçu",
+      "markdown": "Markdown",
+      "viewPreview": "Aperçu",
+      "copy": "Copier",
+      "copied": "Copié !",
+      "copyTooltip": "Copier dans le presse-papiers",
+      "save": "Enregistrer dans CHANGELOG.md",
+      "saved": "Enregistré !",
+      "saveTooltip": "Ajouter au début de CHANGELOG.md à la racine du projet",
+      "dropImages": "Déposez des images ici pour les ajouter au changelog",
+      "pasteImagesHint": "Collez des images dans la description pour les enregistrer dans le changelog",
+      "placeholder": "Le changelog généré apparaîtra ici...",
+      "emptyState": "Cliquez sur « Générer le changelog » pour créer des notes de version.",
+      "loadImageError": "Impossible de charger l'image locale : aucun chemin de projet",
+      "loadImageFailed": "Échec du chargement de l'image",
+      "loadingImage": "Chargement de l'image...",
+      "imageNotFound": "Image non trouvée"
     }
   }
 }

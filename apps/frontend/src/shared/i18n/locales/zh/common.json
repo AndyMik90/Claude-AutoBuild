@@ -602,6 +602,45 @@
       "saved": "更新日志已保存！",
       "savedDesc": "版本 {{tag}} 已添加到 CHANGELOG.md",
       "done": "完成"
+    },
+    "config": {
+      "backToSelection": "返回选择",
+      "including_one": "包含 {{count}} 个{{label}}",
+      "including_other": "包含 {{count}} 个{{label}}",
+      "releaseInfo": "发布信息",
+      "version": "版本",
+      "versionPlaceholder": "1.0.0",
+      "date": "日期",
+      "previous": "上一个：{{version}}",
+      "outputStyle": "输出风格",
+      "format": "格式",
+      "audience": "受众",
+      "emojis": "表情符号",
+      "advancedOptions": "高级选项",
+      "customInstructions": "自定义指令",
+      "customInstructionsPlaceholder": "为 AI 添加特殊指令...",
+      "customInstructionsHint": "可选。指导 AI 的语气、包含的具体细节等。",
+      "generating": "生成中...",
+      "generateChangelog": "生成更新日志"
+    },
+    "preview": {
+      "title": "预览",
+      "markdown": "Markdown",
+      "viewPreview": "预览",
+      "copy": "复制",
+      "copied": "已复制！",
+      "copyTooltip": "复制到剪贴板",
+      "save": "保存到 CHANGELOG.md",
+      "saved": "已保存！",
+      "saveTooltip": "添加到项目根目录的 CHANGELOG.md 顶部",
+      "dropImages": "将图片拖放到此处以添加到更新日志",
+      "pasteImagesHint": "将图片粘贴到描述中以保存到更新日志",
+      "placeholder": "生成的更新日志将显示在这里...",
+      "emptyState": "点击「生成更新日志」创建发布说明。",
+      "loadImageError": "无法加载本地图片：没有项目路径",
+      "loadImageFailed": "加载图片失败",
+      "loadingImage": "加载图片中...",
+      "imageNotFound": "未找到图片"
     }
   }
 }

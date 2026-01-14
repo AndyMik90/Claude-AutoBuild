@@ -613,6 +613,45 @@
       "saved": "Changelog Saved!",
       "savedDesc": "Version {{tag}} has been added to CHANGELOG.md",
       "done": "Done"
+    },
+    "config": {
+      "backToSelection": "Back to Selection",
+      "including_one": "Including {{count}} {{label}}",
+      "including_other": "Including {{count}} {{label}}s",
+      "releaseInfo": "Release Info",
+      "version": "Version",
+      "versionPlaceholder": "1.0.0",
+      "date": "Date",
+      "previous": "Previous: {{version}}",
+      "outputStyle": "Output Style",
+      "format": "Format",
+      "audience": "Audience",
+      "emojis": "Emojis",
+      "advancedOptions": "Advanced Options",
+      "customInstructions": "Custom Instructions",
+      "customInstructionsPlaceholder": "Add any special instructions for the AI...",
+      "customInstructionsHint": "Optional. Guide the AI on tone, specific details to include, etc.",
+      "generating": "Generating...",
+      "generateChangelog": "Generate Changelog"
+    },
+    "preview": {
+      "title": "Preview",
+      "markdown": "Markdown",
+      "viewPreview": "Preview",
+      "copy": "Copy",
+      "copied": "Copied!",
+      "copyTooltip": "Copy to clipboard",
+      "save": "Save to CHANGELOG.md",
+      "saved": "Saved!",
+      "saveTooltip": "Prepend to CHANGELOG.md in project root",
+      "dropImages": "Drop images here to add to changelog",
+      "pasteImagesHint": "Paste images into the description to save them to the changelog",
+      "placeholder": "Generated changelog will appear here...",
+      "emptyState": "Click \"Generate Changelog\" to create release notes.",
+      "loadImageError": "Cannot load local image: no project path",
+      "loadImageFailed": "Failed to load image",
+      "loadingImage": "Loading image...",
+      "imageNotFound": "Image not found"
     }
   }
 }
