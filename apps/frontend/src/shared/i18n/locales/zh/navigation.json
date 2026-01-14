@@ -18,6 +18,10 @@
     "worktrees": "工作树",
     "agentTools": "MCP 概览"
   },
+  "context": {
+    "projectIndex": "项目索引",
+    "memories": "记忆"
+  },
   "actions": {
     "settings": "设置",
     "help": "帮助与反馈",

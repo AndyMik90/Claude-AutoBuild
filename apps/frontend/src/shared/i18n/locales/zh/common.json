@@ -368,6 +368,9 @@
     "noIdeasYet": "尚无创意",
     "emptyDescription": "根据您的项目上下文、现有模式和目标受众生成 AI 驱动的功能创意。",
     "tokenNotConfigured": "Claude 令牌未配置。生成时系统将提示您输入令牌。",
+    "noIdeasToDisplay": "没有可显示的创意",
+    "authRequired": "需要 Claude 认证",
+    "authRequiredDescription": "需要 Claude Code OAuth 令牌来生成 AI 驱动的功能创意。",
     "filters": {
       "all": "全部",
       "codeImprovements": "代码",

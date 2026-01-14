@@ -47,5 +47,9 @@
     "selectPlaceholder": "Sélectionner la branche principale",
     "loadingBranches": "Chargement des branches...",
     "taskBranchDescription": "Les tâches seront créées sur des branches comme {{example}} à partir de {{baseBranch}}"
+  },
+  "issuesList": {
+    "moduleNotInstalled": "Module d'automatisation GitHub non installé",
+    "selectIssue": "Sélectionnez une issue pour voir les détails"
   }
 }

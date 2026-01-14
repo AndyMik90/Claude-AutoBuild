@@ -47,5 +47,9 @@
     "selectPlaceholder": "Select main branch",
     "loadingBranches": "Loading branches...",
     "taskBranchDescription": "Tasks will be created on branches like {{example}} from {{baseBranch}}"
+  },
+  "issuesList": {
+    "moduleNotInstalled": "GitHub automation module not installed",
+    "selectIssue": "Select an issue to view details"
   }
 }

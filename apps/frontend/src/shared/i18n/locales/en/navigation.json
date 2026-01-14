@@ -18,6 +18,10 @@
     "worktrees": "Worktrees",
     "agentTools": "MCP Overview"
   },
+  "context": {
+    "projectIndex": "Project Index",
+    "memories": "Memories"
+  },
   "actions": {
     "settings": "Settings",
     "help": "Help & Feedback",

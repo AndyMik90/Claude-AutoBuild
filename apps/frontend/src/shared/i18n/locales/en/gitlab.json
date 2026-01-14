@@ -108,6 +108,7 @@
       "installing": "Installing...",
       "installSuccess": "Installation started in your terminal. Complete it and click Refresh.",
       "refresh": "Refresh",
+      "tryAgain": "Try Again",
       "learnMore": "Learn more",
       "installed": "GitLab CLI installed:"
     }

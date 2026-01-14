@@ -108,6 +108,7 @@
       "installing": "安装中...",
       "installSuccess": "安装已在您的终端中启动。完成安装并点击刷新。",
       "refresh": "刷新",
+      "tryAgain": "重试",
       "learnMore": "了解更多",
       "installed": "GitLab CLI 已安装："
     }

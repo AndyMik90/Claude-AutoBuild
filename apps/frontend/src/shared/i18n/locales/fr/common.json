@@ -373,6 +373,9 @@
     "noIdeasYet": "Aucune idée pour le moment",
     "emptyDescription": "Générez des idées de fonctionnalités alimentées par l'IA basées sur le contexte de votre projet, les modèles existants et votre public cible.",
     "tokenNotConfigured": "Jeton Claude non configuré. Il vous sera demandé de le saisir lors de la génération.",
+    "noIdeasToDisplay": "Aucune idée à afficher",
+    "authRequired": "Authentification Claude requise",
+    "authRequiredDescription": "Un jeton OAuth Claude Code est requis pour générer des idées de fonctionnalités alimentées par l'IA.",
     "filters": {
       "all": "Toutes",
       "codeImprovements": "Code",

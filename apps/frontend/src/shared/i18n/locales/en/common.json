@@ -373,6 +373,9 @@
     "noIdeasYet": "No Ideas Yet",
     "emptyDescription": "Generate AI-powered feature ideas based on your project's context, existing patterns, and target audience.",
     "tokenNotConfigured": "Claude token not configured. You'll be prompted to enter it when generating.",
+    "noIdeasToDisplay": "No ideas to display",
+    "authRequired": "Claude Authentication Required",
+    "authRequiredDescription": "A Claude Code OAuth token is required to generate AI-powered feature ideas.",
     "filters": {
       "all": "All",
       "codeImprovements": "Code",

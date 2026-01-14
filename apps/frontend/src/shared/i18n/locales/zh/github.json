@@ -47,5 +47,9 @@
     "selectPlaceholder": "选择主分支",
     "loadingBranches": "加载分支中...",
     "taskBranchDescription": "任务将在像 {{example}} 这样的分支上创建，从 {{baseBranch}} 分出"
+  },
+  "issuesList": {
+    "moduleNotInstalled": "GitHub 自动化模块未安装",
+    "selectIssue": "选择一个问题以查看详情"
   }
 }
