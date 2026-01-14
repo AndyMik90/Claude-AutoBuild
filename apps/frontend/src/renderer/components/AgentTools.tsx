@@ -58,8 +58,8 @@ import {
   DEFAULT_FEATURE_THINKING,
   AVAILABLE_MODELS,
   THINKING_LEVELS,
-  DEFAULT_AGENT_PROFILES
 } from '../../shared/constants/models';
+import { useResolvedAgentSettings, resolveAgentSettings as resolveAgentModelConfig } from '../lib/agent-settings-resolver';
 import type { ModelTypeShort, ThinkingLevel } from '../../shared/types/settings';
 
 // Agent configuration data - mirrors AGENT_CONFIGS from backend
@@ -972,25 +972,9 @@ export function AgentTools() {
     }
   }, []);
 
-  // Get phase and feature settings with proper profile resolution
+  // Resolve agent settings using the centralized utility
   // Resolution order: custom overrides -> selected profile's config -> global defaults
-  const selectedProfileId = settings.selectedAgentProfile || 'auto';
-  const selectedProfile = useMemo(() =>
-    DEFAULT_AGENT_PROFILES.find(p => p.id === selectedProfileId) || DEFAULT_AGENT_PROFILES[0],
-    [selectedProfileId]
-  );
-
-  // Profile defaults (used when no custom overrides exist)
-  const profilePhaseModels = selectedProfile.phaseModels || DEFAULT_PHASE_MODELS;
-  const profilePhaseThinking = selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING;
-
-  // Effective phase config: custom overrides take priority over profile defaults
-  const phaseModels = settings.customPhaseModels || profilePhaseModels;
-  const phaseThinking = settings.customPhaseThinking || profilePhaseThinking;
-
-  // Feature settings (not tied to profiles, use custom or defaults)
-  const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
-  const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+  const { phaseModels, phaseThinking, featureModels, featureThinking } = useResolvedAgentSettings(settings);
 
   // Get MCP server states for display
   const mcpServers = envConfig?.mcpServers || {};
@@ -1006,27 +990,9 @@ export function AgentTools() {
   ].filter(Boolean).length;
 
   // Resolve model and thinking for an agent based on its settings source
-  const resolveAgentSettings = useMemo(() => {
+  const getAgentModelConfig = useMemo(() => {
     return (config: AgentConfig): { model: ModelTypeShort; thinking: ThinkingLevel } => {
-      const source = config.settingsSource;
-
-      if (source.type === 'phase') {
-        return {
-          model: phaseModels[source.phase],
-          thinking: phaseThinking[source.phase],
-        };
-      } else if (source.type === 'feature') {
-        return {
-          model: featureModels[source.feature],
-          thinking: featureThinking[source.feature],
-        };
-      } else {
-        // Fixed settings
-        return {
-          model: source.model,
-          thinking: source.thinking,
-        };
-      }
+      return resolveAgentModelConfig(config.settingsSource, { phaseModels, phaseThinking, featureModels, featureThinking });
     };
   }, [phaseModels, phaseThinking, featureModels, featureThinking]);
 
@@ -1386,7 +1352,7 @@ export function AgentTools() {
                 {isExpanded && (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pl-6">
                     {agents.map(({ id, config }) => {
-                      const { model, thinking } = resolveAgentSettings(config);
+                      const { model, thinking } = getAgentModelConfig(config);
                       return (
                         <AgentCard
                           key={id}
