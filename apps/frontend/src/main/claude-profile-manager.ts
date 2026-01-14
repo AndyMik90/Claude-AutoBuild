@@ -69,12 +69,6 @@ export class ClaudeProfileManager {
     // DON'T do file I/O here - defer to async initialize()
     // Start with default data until initialized
     this.data = this.createDefaultData();
-
-    console.warn('[ClaudeProfileManager] Constructor called', {
-      configDir: this.configDir,
-      storePath: this.storePath,
-      initialized: this.initialized
-    });
   }
 
   /**
@@ -83,41 +77,19 @@ export class ClaudeProfileManager {
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
-      console.warn('[ClaudeProfileManager] Already initialized, skipping');
       return;
     }
 
-    console.warn('[ClaudeProfileManager] Starting async initialization...', {
-      configDir: this.configDir,
-      storePath: this.storePath
-    });
-
     // Ensure directory exists (async) - mkdir with recursive:true is idempotent
     await mkdir(this.configDir, { recursive: true });
-    console.warn('[ClaudeProfileManager] Config directory created/verified:', this.configDir);
 
     // Load existing data asynchronously
     const loadedData = await loadProfileStoreAsync(this.storePath);
     if (loadedData) {
       this.data = loadedData;
-      console.warn('[ClaudeProfileManager] Loaded existing profile data:', {
-        profileCount: this.data.profiles.length,
-        activeProfileId: this.data.activeProfileId,
-        profiles: this.data.profiles.map(p => ({ id: p.id, name: p.name, isDefault: p.isDefault }))
-      });
-    } else {
-      console.warn('[ClaudeProfileManager] No existing data found, using defaults:', {
-        profileCount: this.data.profiles.length,
-        activeProfileId: this.data.activeProfileId
-      });
     }
 
     this.initialized = true;
-    console.warn('[ClaudeProfileManager] ✓ Initialization complete', {
-      initialized: this.initialized,
-      profileCount: this.data.profiles.length,
-      activeProfile: this.getActiveProfile().name
-    });
   }
 
   /**
@@ -255,13 +227,11 @@ export class ClaudeProfileManager {
 
     // Cannot delete default profile
     if (profile.isDefault) {
-      console.warn('[ClaudeProfileManager] Cannot delete default profile');
       return false;
     }
 
     // Cannot delete if it's the only profile
     if (this.data.profiles.length <= 1) {
-      console.warn('[ClaudeProfileManager] Cannot delete last profile');
       return false;
     }
 
@@ -289,13 +259,11 @@ export class ClaudeProfileManager {
 
     // Cannot rename to empty name
     if (!newName.trim()) {
-      console.warn('[ClaudeProfileManager] Cannot rename to empty name');
       return false;
     }
 
     profile.name = newName.trim();
     this.save();
-    console.warn('[ClaudeProfileManager] Renamed profile:', profileId, 'to:', newName);
     return true;
   }
 
@@ -370,13 +338,6 @@ export class ClaudeProfileManager {
     profile.rateLimitEvents = [];
 
     this.save();
-
-    const isEncrypted = profile.oauthToken.startsWith('enc:');
-    console.warn('[ClaudeProfileManager] Set OAuth token for profile:', profile.name, {
-      email: email || '(not captured)',
-      encrypted: isEncrypted,
-      tokenLength: token.length
-    });
     return true;
   }
 
@@ -405,14 +366,10 @@ export class ClaudeProfileManager {
       const decryptedToken = decryptToken(profile.oauthToken);
       if (decryptedToken) {
         env.CLAUDE_CODE_OAUTH_TOKEN = decryptedToken;
-        console.warn('[ClaudeProfileManager] Using OAuth token for profile:', profile.name);
-      } else {
-        console.warn('[ClaudeProfileManager] Failed to decrypt token for profile:', profile.name);
       }
     } else if (profile?.configDir && !profile.isDefault) {
       // Fallback to configDir for backward compatibility
       env.CLAUDE_CONFIG_DIR = profile.configDir;
-      console.warn('[ClaudeProfileManager] Using configDir for profile:', profile.name);
     }
 
     return env;
@@ -430,8 +387,6 @@ export class ClaudeProfileManager {
     const usage = parseUsageOutput(usageOutput);
     profile.usage = usage;
     this.save();
-
-    console.warn('[ClaudeProfileManager] Updated usage for', profile.name, ':', usage);
     return usage;
   }
 
@@ -446,8 +401,6 @@ export class ClaudeProfileManager {
 
     const event = recordRateLimitEventImpl(profile, resetTimeStr);
     this.save();
-
-    console.warn('[ClaudeProfileManager] Recorded rate limit event for', profile.name, ':', event);
     return event;
   }
 
@@ -599,36 +552,27 @@ export function getClaudeProfileManager(): ClaudeProfileManager {
  * The cached promise is reset on failure to allow retries after transient errors.
  */
 export async function initializeClaudeProfileManager(): Promise<ClaudeProfileManager> {
-  console.warn('[initializeClaudeProfileManager] Called');
-
   if (!profileManager) {
-    console.warn('[initializeClaudeProfileManager] Creating new ClaudeProfileManager instance');
     profileManager = new ClaudeProfileManager();
   }
 
   // If already initialized, return immediately
   if (profileManager.isInitialized()) {
-    console.warn('[initializeClaudeProfileManager] Already initialized, returning existing instance');
     return profileManager;
   }
 
   // If initialization is in progress, wait for it (promise caching)
   if (!initPromise) {
-    console.warn('[initializeClaudeProfileManager] Starting initialization...');
     initPromise = profileManager.initialize()
       .then(() => {
-        console.warn('[initializeClaudeProfileManager] Initialization promise resolved successfully');
         return profileManager!;
       })
       .catch((error) => {
         // Reset cached promise on failure so retries can succeed
         // This allows recovery from transient errors (e.g., disk full, permission issues)
-        console.error('[initializeClaudeProfileManager] Initialization failed:', error);
         initPromise = null;
         throw error;
       });
-  } else {
-    console.warn('[initializeClaudeProfileManager] Initialization in progress, waiting for existing promise');
   }
 
   return initPromise;

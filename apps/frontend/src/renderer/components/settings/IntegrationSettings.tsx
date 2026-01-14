@@ -30,7 +30,6 @@ import { SettingsSection } from './SettingsSection';
 import { loadClaudeProfiles as loadGlobalClaudeProfiles } from '../../stores/claude-profile-store';
 import { useClaudeLoginTerminal } from '../../hooks/useClaudeLoginTerminal';
 import { useToast } from '../../hooks/use-toast';
-import { debugLog, debugError } from '../../../shared/utils/debug-logger';
 import type { AppSettings, ClaudeProfile, ClaudeAutoSwitchSettings } from '../../../shared/types';
 
 interface IntegrationSettingsProps {
@@ -133,18 +132,14 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         await loadGlobalClaudeProfiles();
       }
     } catch (err) {
-      debugError('[IntegrationSettings] Failed to load Claude profiles:', err);
+      // Silently handle errors
     } finally {
       setIsLoadingProfiles(false);
     }
   };
 
   const handleAddProfile = async () => {
-    debugLog('[IntegrationSettings] handleAddProfile called');
-    debugLog('[IntegrationSettings] newProfileName value:', newProfileName);
-
     if (!newProfileName.trim()) {
-      debugLog('[IntegrationSettings] newProfileName is empty, returning early');
       return;
     }
 
@@ -152,11 +147,6 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
     try {
       const profileName = newProfileName.trim();
       const profileSlug = profileName.toLowerCase().replace(/\s+/g, '-');
-
-      debugLog('[IntegrationSettings] Calling saveClaudeProfile IPC with:', {
-        name: profileName,
-        configDir: `~/.claude-profiles/${profileSlug}`
-      });
 
       const result = await window.electronAPI.saveClaudeProfile({
         id: `profile-${Date.now()}`,
@@ -166,13 +156,9 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         createdAt: new Date()
       });
 
-      debugLog('[IntegrationSettings] saveClaudeProfile IPC returned:', result);
-
       if (result.success && result.data) {
         // Initialize the profile
-        debugLog('[IntegrationSettings] Calling initializeClaudeProfile IPC for:', result.data.id);
         const initResult = await window.electronAPI.initializeClaudeProfile(result.data.id);
-        debugLog('[IntegrationSettings] initializeClaudeProfile IPC returned:', initResult);
 
         if (initResult.success) {
           await loadClaudeProfiles();
@@ -212,14 +198,12 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         }
       }
     } catch (err) {
-      debugError('[IntegrationSettings] Failed to add profile:', err);
       toast({
         variant: 'destructive',
         title: t('integrations.toast.addProfileFailed'),
         description: t('integrations.toast.tryAgain'),
       });
     } finally {
-      debugLog('[IntegrationSettings] finally block - clearing isAddingProfile');
       setIsAddingProfile(false);
     }
   };
@@ -232,7 +216,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         await loadClaudeProfiles();
       }
     } catch (err) {
-      debugError('[IntegrationSettings] Failed to delete profile:', err);
+      // Silently handle errors
     } finally {
       setDeletingProfileId(null);
     }
@@ -257,7 +241,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         await loadClaudeProfiles();
       }
     } catch (err) {
-      debugError('[IntegrationSettings] Failed to rename profile:', err);
+      // Silently handle errors
     } finally {
       setEditingProfileId(null);
       setEditingProfileName('');
@@ -272,17 +256,14 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         await loadGlobalClaudeProfiles();
       }
     } catch (err) {
-      debugError('[IntegrationSettings] Failed to set active profile:', err);
+      // Silently handle errors
     }
   };
 
   const handleAuthenticateProfile = async (profileId: string) => {
-    debugLog('[IntegrationSettings] handleAuthenticateProfile called for:', profileId);
     setAuthenticatingProfileId(profileId);
     try {
-      debugLog('[IntegrationSettings] Calling initializeClaudeProfile IPC...');
       const initResult = await window.electronAPI.initializeClaudeProfile(profileId);
-      debugLog('[IntegrationSettings] IPC returned:', initResult);
       if (!initResult.success) {
         // Provide specific error messages based on error type
         const errorMessage = initResult.error || '';
@@ -315,14 +296,12 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       // Note: If successful, the terminal is now visible in the UI via the onTerminalAuthCreated event
       // Users can see the 'claude setup-token' output and complete OAuth flow directly
     } catch (err) {
-      debugError('[IntegrationSettings] Failed to authenticate profile:', err);
       toast({
         variant: 'destructive',
         title: t('integrations.toast.authStartFailed'),
         description: t('integrations.toast.tryAgain'),
       });
     } finally {
-      debugLog('[IntegrationSettings] finally block - clearing authenticatingProfileId');
       setAuthenticatingProfileId(null);
     }
   };
@@ -369,7 +348,6 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         });
       }
     } catch (err) {
-      debugError('[IntegrationSettings] Failed to save token:', err);
       toast({
         variant: 'destructive',
         title: t('integrations.toast.tokenSaveFailed'),
@@ -389,7 +367,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         setAutoSwitchSettings(result.data);
       }
     } catch (err) {
-      debugError('[IntegrationSettings] Failed to load auto-switch settings:', err);
+      // Silently handle errors
     } finally {
       setIsLoadingAutoSwitch(false);
     }
@@ -410,7 +388,6 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         });
       }
     } catch (err) {
-      debugError('[IntegrationSettings] Failed to update auto-switch settings:', err);
       toast({
         variant: 'destructive',
         title: t('integrations.toast.settingsUpdateFailed'),
