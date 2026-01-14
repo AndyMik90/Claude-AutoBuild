@@ -16,13 +16,20 @@ import copy
 import json
 import logging
 import os
-import platform
 import shutil
 import subprocess
 import threading
 import time
 from pathlib import Path
 from typing import Any
+
+from core.platform import (
+    is_windows,
+    is_macos,
+    get_claude_detection_paths,
+    get_comspec_path,
+    validate_cli_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -152,14 +159,13 @@ def _get_claude_detection_paths() -> dict[str, list[str]]:
         Dict with 'homebrew', 'platform', and 'nvm' path lists
     """
     home_dir = Path.home()
-    is_windows = platform.system() == "Windows"
 
     homebrew_paths = [
         "/opt/homebrew/bin/claude",  # Apple Silicon
         "/usr/local/bin/claude",  # Intel Mac
     ]
 
-    if is_windows:
+    if is_windows():
         platform_paths = [
             str(home_dir / "AppData" / "Local" / "Programs" / "claude" / "claude.exe"),
             str(home_dir / "AppData" / "Roaming" / "npm" / "claude.cmd"),
@@ -182,36 +188,6 @@ def _get_claude_detection_paths() -> dict[str, list[str]]:
     }
 
 
-def _is_secure_path(path_str: str) -> bool:
-    """
-    Validate that a path doesn't contain dangerous characters.
-
-    Prevents command injection attacks by rejecting paths with shell metacharacters,
-    directory traversal patterns, or environment variable expansion.
-
-    Args:
-        path_str: Path to validate
-
-    Returns:
-        True if the path is safe, False otherwise
-    """
-    import re
-
-    dangerous_patterns = [
-        r'[;&|`${}[\]<>!"^]',  # Shell metacharacters
-        r"%[^%]+%",  # Windows environment variable expansion
-        r"\.\./",  # Unix directory traversal
-        r"\.\.\\",  # Windows directory traversal
-        r"[\r\n]",  # Newlines (command injection)
-    ]
-
-    for pattern in dangerous_patterns:
-        if re.search(pattern, path_str):
-            return False
-
-    return True
-
-
 def _validate_claude_cli(cli_path: str) -> tuple[bool, str | None]:
     """
     Validate that a Claude CLI path is executable and returns a version.
@@ -232,13 +208,11 @@ def _validate_claude_cli(cli_path: str) -> tuple[bool, str | None]:
     import re
 
     # Security validation: reject paths with shell metacharacters or directory traversal
-    if not _is_secure_path(cli_path):
+    if not validate_cli_path(cli_path):
         logger.warning(f"Rejecting insecure Claude CLI path: {cli_path}")
         return False, None
 
     try:
-        is_windows = platform.system() == "Windows"
-
         # Augment PATH with the CLI directory for proper resolution
         env = os.environ.copy()
         cli_dir = os.path.dirname(cli_path)
@@ -249,11 +223,9 @@ def _validate_claude_cli(cli_path: str) -> tuple[bool, str | None]:
         # /d = disable AutoRun registry commands
         # /s = strip first and last quotes, preserving inner quotes
         # /c = run command then terminate
-        if is_windows and cli_path.lower().endswith((".cmd", ".bat")):
-            # Get cmd.exe path from environment or use default
-            cmd_exe = os.environ.get("ComSpec") or os.path.join(
-                os.environ.get("SystemRoot", "C:\\Windows"), "System32", "cmd.exe"
-            )
+        if is_windows() and cli_path.lower().endswith((".cmd", ".bat")):
+            # Get cmd.exe path from platform module
+            cmd_exe = get_comspec_path()
             # Use double-quoted command line for paths with spaces
             cmd_line = f'""{cli_path}" --version"'
             result = subprocess.run(
@@ -271,7 +243,7 @@ def _validate_claude_cli(cli_path: str) -> tuple[bool, str | None]:
                 text=True,
                 timeout=5,
                 env=env,
-                creationflags=subprocess.CREATE_NO_WINDOW if is_windows else 0,
+                creationflags=subprocess.CREATE_NO_WINDOW if is_windows() else 0,
             )
 
         if result.returncode == 0:
@@ -309,7 +281,6 @@ def find_claude_cli() -> str | None:
             logger.debug(f"Using cached Claude CLI path: {cached}")
             return cached
 
-    is_windows = platform.system() == "Windows"
     paths = _get_claude_detection_paths()
 
     # 1. Check environment variable override
@@ -335,7 +306,7 @@ def find_claude_cli() -> str | None:
             return which_path
 
     # 3. Homebrew paths (macOS)
-    if platform.system() == "Darwin":
+    if is_macos():
         for hb_path in paths["homebrew"]:
             if Path(hb_path).exists():
                 valid, version = _validate_claude_cli(hb_path)
@@ -346,7 +317,7 @@ def find_claude_cli() -> str | None:
                     return hb_path
 
     # 4. NVM paths (Unix only) - check Node.js version manager installations
-    if not is_windows:
+    if not is_windows():
         nvm_dir = Path(paths["nvm_versions_dir"])
         if nvm_dir.exists():
             try:
@@ -778,7 +749,7 @@ def create_client(
     # Debug: Log git-bash path detection on Windows
     if "CLAUDE_CODE_GIT_BASH_PATH" in sdk_env:
         logger.info(f"Git Bash path found: {sdk_env['CLAUDE_CODE_GIT_BASH_PATH']}")
-    elif platform.system() == "Windows":
+    elif is_windows():
         logger.warning("Git Bash path not detected on Windows!")
 
     # Check if Linear integration is enabled
