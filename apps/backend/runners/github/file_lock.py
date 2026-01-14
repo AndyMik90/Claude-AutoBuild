@@ -23,26 +23,37 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 import tempfile
 import time
 import warnings
 from collections.abc import Callable
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 _IS_WINDOWS = os.name == "nt"
 _WINDOWS_LOCK_SIZE = 1024 * 1024
 
-try:
-    import fcntl  # type: ignore
-except ImportError:  # pragma: no cover
-    fcntl = None
+# Platform-specific imports with proper typing
+fcntl: ModuleType | None = None
+msvcrt: ModuleType | None = None
 
-try:
-    import msvcrt  # type: ignore
-except ImportError:  # pragma: no cover
-    msvcrt = None
+if sys.platform != "win32":
+    try:
+        import fcntl as _fcntl
+
+        fcntl = _fcntl
+    except ImportError:  # pragma: no cover
+        pass
+else:
+    try:
+        import msvcrt as _msvcrt
+
+        msvcrt = _msvcrt
+    except ImportError:  # pragma: no cover
+        pass
 
 
 def _try_lock(fd: int, exclusive: bool) -> None:

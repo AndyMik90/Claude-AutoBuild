@@ -47,7 +47,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 # Type for decorated functions
 F = TypeVar("F", bound=Callable[..., Any])
@@ -599,9 +599,9 @@ def rate_limited(
 
         # Return appropriate wrapper
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore
+            return cast(F, async_wrapper)
         else:
-            return sync_wrapper  # type: ignore
+            return cast(F, sync_wrapper)
 
     return decorator
 
