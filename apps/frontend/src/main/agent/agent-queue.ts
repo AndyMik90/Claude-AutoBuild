@@ -59,6 +59,8 @@ export class AgentQueueManager {
    * Prevents the race condition where generation starts before dependencies are installed,
    * which would cause it to fall back to system Python and fail with ModuleNotFoundError.
    *
+   * Delegates to AgentProcessManager.ensurePythonEnvReady() for the actual initialization.
+   *
    * @param projectId - The project ID for error event emission
    * @param eventType - The error event type to emit on failure
    * @returns true if environment is ready, false if initialization failed (error already emitted)
@@ -67,23 +69,10 @@ export class AgentQueueManager {
     projectId: string,
     eventType: 'ideation-error' | 'roadmap-error'
   ): Promise<boolean> {
-    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
-
-    if (!pythonEnvManager.isEnvReady()) {
-      debugLog('[Agent Queue] Python environment not ready, waiting for initialization...');
-      if (autoBuildSource) {
-        const status = await pythonEnvManager.initialize(autoBuildSource);
-        if (!status.ready) {
-          debugError('[Agent Queue] Python environment initialization failed:', status.error);
-          this.emitter.emit(eventType, projectId, `Python environment not ready: ${status.error || 'initialization failed'}`);
-          return false;
-        }
-        debugLog('[Agent Queue] Python environment now ready');
-      } else {
-        debugError('[Agent Queue] Cannot initialize Python - auto-build source not found');
-        this.emitter.emit(eventType, projectId, 'Python environment not ready: auto-build source not found');
-        return false;
-      }
+    const status = await this.processManager.ensurePythonEnvReady('AgentQueue');
+    if (!status.ready) {
+      this.emitter.emit(eventType, projectId, `Python environment not ready: ${status.error || 'initialization failed'}`);
+      return false;
     }
     return true;
   }
