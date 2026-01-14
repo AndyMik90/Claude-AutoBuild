@@ -23,17 +23,6 @@ class Phase:
     depends_on: list[int] = field(default_factory=list)
     parallel_safe: bool = False  # Can subtasks in this phase run in parallel?
 
-    # Backwards compatibility: chunks is an alias for subtasks
-    @property
-    def chunks(self) -> list[Subtask]:
-        """Alias for subtasks (backwards compatibility)."""
-        return self.subtasks
-
-    @chunks.setter
-    def chunks(self, value: list[Subtask]):
-        """Alias for subtasks (backwards compatibility)."""
-        self.subtasks = value
-
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
         result = {
@@ -41,8 +30,6 @@ class Phase:
             "name": self.name,
             "type": self.type.value,
             "subtasks": [s.to_dict() for s in self.subtasks],
-            # Also include 'chunks' for backwards compatibility
-            "chunks": [s.to_dict() for s in self.subtasks],
         }
         if self.depends_on:
             result["depends_on"] = self.depends_on
@@ -53,8 +40,7 @@ class Phase:
     @classmethod
     def from_dict(cls, data: dict, fallback_phase: int = 1) -> "Phase":
         """Create Phase from dict. Uses fallback_phase if 'phase' field is missing."""
-        # Support both 'subtasks' and 'chunks' keys for backwards compatibility
-        subtask_data = data.get("subtasks", data.get("chunks", []))
+        subtask_data = data.get("subtasks", [])
         return cls(
             phase=data.get("phase", fallback_phase),
             name=data.get("name", f"Phase {fallback_phase}"),
@@ -71,11 +57,6 @@ class Phase:
     def get_pending_subtasks(self) -> list[Subtask]:
         """Get subtasks that can be worked on."""
         return [s for s in self.subtasks if s.status == SubtaskStatus.PENDING]
-
-    # Backwards compatibility alias
-    def get_pending_chunks(self) -> list[Subtask]:
-        """Alias for get_pending_subtasks (backwards compatibility)."""
-        return self.get_pending_subtasks()
 
     def get_progress(self) -> tuple[int, int]:
         """Get (completed, total) subtask counts."""
