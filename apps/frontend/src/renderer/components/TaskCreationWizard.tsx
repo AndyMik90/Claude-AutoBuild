@@ -26,8 +26,10 @@ import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { FileAutocomplete } from './FileAutocomplete';
+import { getServiceContextPrefix } from './ServiceSelector';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
+import { useContextStore, loadProjectContext } from '../stores/context-store';
 import { cn } from '../lib/utils';
 import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile } from '../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
@@ -54,6 +56,7 @@ export function TaskCreationWizard({
 }: TaskCreationWizardProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { settings } = useSettingsStore();
+  const { projectIndex } = useContextStore();
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
     p => p.id === settings.selectedAgentProfile
   ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
@@ -106,6 +109,9 @@ export function TaskCreationWizard({
   // Review setting
   const [requireReviewBeforeCoding, setRequireReviewBeforeCoding] = useState(false);
 
+  // Service selector (folder to work in)
+  const [serviceId, setServiceId] = useState<string>('');
+
   // Draft state
   const [isDraftRestored, setIsDraftRestored] = useState(false);
 
@@ -152,6 +158,13 @@ export function TaskCreationWizard({
       }
     }
   }, [open, projectId, settings.selectedAgentProfile, settings.customPhaseModels, settings.customPhaseThinking, selectedProfile.model, selectedProfile.thinkingLevel, selectedProfile.phaseModels, selectedProfile.phaseThinking]);
+
+  // Load project context (including services index) when dialog opens
+  useEffect(() => {
+    if (open && projectId) {
+      loadProjectContext(projectId);
+    }
+  }, [open, projectId]);
 
   // Fetch branches when dialog opens
   useEffect(() => {
@@ -333,6 +346,10 @@ export function TaskCreationWizard({
     try {
       const allReferencedFiles = parseFileMentions(description, referencedFiles);
 
+      // Add service context prefix if a service is selected
+      const serviceContextPrefix = getServiceContextPrefix(serviceId, projectIndex);
+      const descriptionWithContext = serviceContextPrefix + description.trim();
+
       const metadata: TaskMetadata = { sourceType: 'manual' };
       if (category) metadata.category = category;
       if (priority) metadata.priority = priority;
@@ -359,7 +376,7 @@ export function TaskCreationWizard({
       // Pass worktree preference - false means use --direct mode
       if (!useWorktree) metadata.useWorktree = false;
 
-      const task = await createTask(projectId, title.trim(), description.trim(), metadata);
+      const task = await createTask(projectId, title.trim(), descriptionWithContext, metadata);
       if (task) {
         clearDraft(projectId);
         resetForm();
@@ -389,6 +406,7 @@ export function TaskCreationWizard({
     setImages([]);
     setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);
+    setServiceId('');
     setBaseBranch(PROJECT_DEFAULT_BRANCH);
     setUseWorktree(true);
     setError(null);
@@ -571,6 +589,9 @@ export function TaskCreationWizard({
           onImagesChange={setImages}
           requireReviewBeforeCoding={requireReviewBeforeCoding}
           onRequireReviewChange={setRequireReviewBeforeCoding}
+          serviceId={serviceId}
+          onServiceIdChange={setServiceId}
+          projectIndex={projectIndex}
           disabled={isCreating}
           error={error}
           onError={setError}

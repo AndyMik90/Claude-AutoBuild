@@ -19,6 +19,7 @@ import { Checkbox } from '../ui/checkbox';
 import { AgentProfileSelector } from '../AgentProfileSelector';
 import { ClassificationFields } from './ClassificationFields';
 import { useImageUpload } from './useImageUpload';
+import { ServiceSelector } from '../ServiceSelector';
 import { cn } from '../../lib/utils';
 import type {
   TaskCategory,
@@ -30,6 +31,7 @@ import type {
   ThinkingLevel
 } from '../../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../../shared/types/settings';
+import type { ProjectIndex } from '../../../shared/types';
 
 interface TaskFormFieldsProps {
   // Description field
@@ -77,6 +79,11 @@ interface TaskFormFieldsProps {
   requireReviewBeforeCoding: boolean;
   onRequireReviewChange: (require: boolean) => void;
 
+  // Service selector (optional - for specifying which folder to work in)
+  serviceId: string;
+  onServiceIdChange: (serviceId: string) => void;
+  projectIndex: ProjectIndex | null;
+
   // Form state
   disabled?: boolean;
   error?: string | null;
@@ -121,6 +128,9 @@ export function TaskFormFields({
   onImagesChange,
   requireReviewBeforeCoding,
   onRequireReviewChange,
+  serviceId,
+  onServiceIdChange,
+  projectIndex,
   disabled = false,
   error,
   onError,
@@ -272,6 +282,14 @@ export function TaskFormFields({
         onThinkingLevelChange={onThinkingLevelChange}
         onPhaseModelsChange={onPhaseModelsChange}
         onPhaseThinkingChange={onPhaseThinkingChange}
+        disabled={disabled}
+      />
+
+      {/* Service/Folder Selector */}
+      <ServiceSelector
+        value={serviceId}
+        onChange={onServiceIdChange}
+        projectIndex={projectIndex}
         disabled={disabled}
       />
 

@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, AlertCircle } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, AlertCircle, Sparkles } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -42,6 +42,7 @@ interface KanbanBoardProps {
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   onNewTaskClick?: () => void;
+  onAISplitClick?: () => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
 }
@@ -53,6 +54,7 @@ interface DroppableColumnProps {
   onStatusChange: (taskId: string, newStatus: TaskStatus) => unknown;
   isOver: boolean;
   onAddClick?: () => void;
+  onAISplitClick?: () => void;
   onArchiveAll?: () => void;
   archivedCount?: number;
   showArchived?: boolean;
@@ -96,6 +98,7 @@ function droppableColumnPropsAreEqual(
   if (prevProps.onTaskClick !== nextProps.onTaskClick) return false;
   if (prevProps.onStatusChange !== nextProps.onStatusChange) return false;
   if (prevProps.onAddClick !== nextProps.onAddClick) return false;
+  if (prevProps.onAISplitClick !== nextProps.onAISplitClick) return false;
   if (prevProps.onArchiveAll !== nextProps.onArchiveAll) return false;
   if (prevProps.archivedCount !== nextProps.archivedCount) return false;
   if (prevProps.showArchived !== nextProps.showArchived) return false;
@@ -159,7 +162,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onAISplitClick, onArchiveAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -241,6 +244,24 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
           </span>
         </div>
         <div className="flex items-center gap-1">
+          {status === 'backlog' && onAISplitClick && (
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-purple-500/10 hover:text-purple-500 transition-colors"
+                  onClick={onAISplitClick}
+                  aria-label={t('kanban.aiSplitAriaLabel')}
+                >
+                  <Sparkles className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t('aiSplitter.buttonLabel')}
+              </TooltipContent>
+            </Tooltip>
+          )}
           {status === 'backlog' && onAddClick && (
             <Button
               variant="ghost"
@@ -340,7 +361,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
   );
 }, droppableColumnPropsAreEqual);
 
-export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onAISplitClick, onRefresh, isRefreshing }: KanbanBoardProps) {
   const { t } = useTranslation(['tasks', 'dialogs', 'common']);
   const { toast } = useToast();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -599,6 +620,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               onStatusChange={handleStatusChange}
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
+              onAISplitClick={status === 'backlog' ? onAISplitClick : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
               archivedCount={status === 'done' ? archivedCount : undefined}
               showArchived={status === 'done' ? showArchived : undefined}

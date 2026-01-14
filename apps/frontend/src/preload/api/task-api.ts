@@ -16,6 +16,11 @@ import type {
   WorktreeCreatePRResult
 } from '../../shared/types';
 
+export interface SplitTask {
+  title: string;
+  description: string;
+}
+
 export interface TaskAPI {
   // Task Operations
   getTasks: (projectId: string) => Promise<IPCResult<Task[]>>;
@@ -26,6 +31,7 @@ export interface TaskAPI {
     metadata?: TaskMetadata
   ) => Promise<IPCResult<Task>>;
   deleteTask: (taskId: string) => Promise<IPCResult>;
+  splitIntoTasks: (projectId: string, text: string) => Promise<IPCResult<SplitTask[]>>;
   updateTask: (
     taskId: string,
     updates: { title?: string; description?: string }
@@ -96,6 +102,9 @@ export const createTaskAPI = (): TaskAPI => ({
 
   deleteTask: (taskId: string): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_DELETE, taskId),
+
+  splitIntoTasks: (projectId: string, text: string): Promise<IPCResult<SplitTask[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_SPLIT_INTO_TASKS, projectId, text),
 
   updateTask: (
     taskId: string,
