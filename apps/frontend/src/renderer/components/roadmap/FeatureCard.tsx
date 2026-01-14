@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ExternalLink, Play, TrendingUp } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -18,6 +19,8 @@ export function FeatureCard({
   onGoToTask,
   hasCompetitorInsight = false,
 }: FeatureCardProps) {
+  const { t } = useTranslation('common');
+
   return (
     <Card className="p-4 hover:bg-muted/50 cursor-pointer transition-colors" onClick={onClick}>
       <div className="flex items-start justify-between">
@@ -36,17 +39,17 @@ export function FeatureCard({
               variant="outline"
               className={`text-xs ${ROADMAP_IMPACT_COLORS[feature.impact]}`}
             >
-              {feature.impact} impact
+              {feature.impact} {t('roadmap.impact')}
             </Badge>
             {hasCompetitorInsight && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge variant="outline" className="text-xs text-primary border-primary/50">
                     <TrendingUp className="h-3 w-3 mr-1" />
-                    Competitor Insight
+                    {t('roadmap.insight')}
                   </Badge>
                 </TooltipTrigger>
-                <TooltipContent>This feature addresses competitor pain points</TooltipContent>
+                <TooltipContent>{t('roadmap.addressesPainPoints')}</TooltipContent>
               </Tooltip>
             )}
           </div>
@@ -63,7 +66,7 @@ export function FeatureCard({
             }}
           >
             <ExternalLink className="h-3 w-3 mr-1" />
-            Go to Task
+            {t('roadmap.goToTask')}
           </Button>
         ) : (
           feature.status !== 'done' && (
@@ -76,7 +79,7 @@ export function FeatureCard({
               }}
             >
               <Play className="h-3 w-3 mr-1" />
-              Build
+              {t('roadmap.build')}
             </Button>
           )
         )}
