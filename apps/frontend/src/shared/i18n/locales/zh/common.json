@@ -393,7 +393,7 @@
       "addMoreTitle": "添加更多创意",
       "addMoreDescription": "选择其他创意类型进行生成。您现有的创意将被保留。",
       "allTypesGenerated": "您已经生成了所有创意类型！",
-      "useRegenerateToRefresh": "使用"重新生成"来刷新现有创意。",
+      "useRegenerateToRefresh": "使用「重新生成」来刷新现有创意。",
       "selectedCount": "已选择 {{count}} 项",
       "generateTypes": "生成 {{count}} 种类型",
       "generateIdeas": "生成创意"
