@@ -372,7 +372,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
             {/* Main content */}
             <div className="flex-1 overflow-hidden">
               <ScrollArea className="h-full">
-                <div className="p-8 max-w-2xl">
+                <div className={`p-8 ${appSection === 'templates' ? 'max-w-6xl' : 'max-w-2xl'}`}>
                   {renderContent()}
                 </div>
               </ScrollArea>
