@@ -369,5 +369,31 @@
     "conversionFailedDescription": "Impossible de convertir l'idée en tâche",
     "conversionError": "Erreur de conversion",
     "conversionErrorDescription": "Une erreur s'est produite lors de la conversion de l'idée"
+  },
+  "chatHistory": {
+    "title": "Historique des discussions",
+    "noConversations": "Aucune discussion pour le moment",
+    "deleteConfirmTitle": "Supprimer la discussion ?",
+    "deleteConfirmDescription": "Cela supprimera définitivement cette conversation et tous ses messages. Cette action est irréversible.",
+    "rename": "Renommer",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "daysAgo": "Il y a {{count}} jours",
+    "message": "message",
+    "messages": "messages"
+  },
+  "terminal": {
+    "title": "Terminaux d'agent",
+    "emptyStateDescription": "Générez plusieurs terminaux pour exécuter des agents Claude en parallèle.",
+    "emptyStateShortcut": "Utilisez <kbd>Ctrl+T</kbd> pour créer un nouveau terminal.",
+    "newTerminal": "Nouveau terminal",
+    "terminalCount": "{{count}} / 12 terminaux",
+    "history": "Historique",
+    "restoreFrom": "Restaurer les sessions de...",
+    "session": "session",
+    "sessions": "sessions",
+    "invokeClaudeAll": "Invoquer Claude tous",
+    "files": "Fichiers",
+    "terminal": "Terminal"
   }
 }

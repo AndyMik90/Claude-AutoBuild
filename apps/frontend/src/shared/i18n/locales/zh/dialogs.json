@@ -159,5 +159,39 @@
     "downloadError": "下载更新失败",
     "claudeCodeChangelog": "查看 Claude Code 更新日志",
     "claudeCodeChangelogAriaLabel": "查看 Claude Code 更新日志（在新窗口中打开）"
+  },
+  "addWorkspace": {
+    "title": "创建工作区",
+    "description": "将相关项目分组在一起，以便进行跨仓库规格和验证。",
+    "name": "名称",
+    "description": "描述（可选）",
+    "projects": "项目",
+    "addProject": "添加项目...",
+    "allProjectsAdded": "所有项目已添加",
+    "noProjectsAvailable": "没有可用项目",
+    "cancel": "取消",
+    "create": "创建工作区",
+    "creating": "创建中...",
+    "errors": {
+      "nameRequired": "工作区名称为必填项",
+      "apiNotAvailable": "工作区 API 不可用",
+      "createFailed": "创建工作区失败"
+    },
+    "roles": {
+      "backend": "后端",
+      "backendDescription": "API 服务器、服务",
+      "frontend": "前端",
+      "frontendDescription": "Web 应用程序",
+      "mobile": "移动端",
+      "mobileDescription": "移动应用程序",
+      "shared": "共享",
+      "sharedDescription": "共享类型/工具",
+      "api": "API 网关",
+      "apiDescription": "网关、BFF",
+      "worker": "Worker",
+      "workerDescription": "后台任务",
+      "other": "其他",
+      "otherDescription": "其他项目类型"
+    }
   }
 }

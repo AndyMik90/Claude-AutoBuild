@@ -364,5 +364,31 @@
     "conversionFailedDescription": "无法将想法转换为任务",
     "conversionError": "转换错误",
     "conversionErrorDescription": "转换想法时发生错误"
+  },
+  "chatHistory": {
+    "title": "聊天历史",
+    "noConversations": "暂无对话",
+    "deleteConfirmTitle": "删除对话？",
+    "deleteConfirmDescription": "这将永久删除此对话及其所有消息。此操作无法撤销。",
+    "rename": "重命名",
+    "today": "今天",
+    "yesterday": "昨天",
+    "daysAgo": "{{count}} 天前",
+    "message": "条消息",
+    "messages": "条消息"
+  },
+  "terminal": {
+    "title": "代理终端",
+    "emptyStateDescription": "生成多个终端以并行运行 Claude 代理。",
+    "emptyStateShortcut": "使用 <kbd>Ctrl+T</kbd> 创建新终端。",
+    "newTerminal": "新建终端",
+    "terminalCount": "{{count}} / 12 个终端",
+    "history": "历史记录",
+    "restoreFrom": "从以下位置恢复会话...",
+    "session": "个会话",
+    "sessions": "个会话",
+    "invokeClaudeAll": "全部调用 Claude",
+    "files": "文件",
+    "terminal": "终端"
   }
 }

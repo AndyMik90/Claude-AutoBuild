@@ -159,5 +159,39 @@
     "downloadError": "Échec du téléchargement de la mise à jour",
     "claudeCodeChangelog": "Voir le journal des modifications Claude Code",
     "claudeCodeChangelogAriaLabel": "Voir le journal des modifications Claude Code (s'ouvre dans une nouvelle fenêtre)"
+  },
+  "addWorkspace": {
+    "title": "Créer un espace de travail",
+    "description": "Regroupez des projets connexes pour les spécifications et la validation inter-dépôts.",
+    "name": "Nom",
+    "description": "Description (facultatif)",
+    "projects": "Projets",
+    "addProject": "Ajouter un projet...",
+    "allProjectsAdded": "Tous les projets ont été ajoutés",
+    "noProjectsAvailable": "Aucun projet disponible",
+    "cancel": "Annuler",
+    "create": "Créer l'espace de travail",
+    "creating": "Création en cours...",
+    "errors": {
+      "nameRequired": "Le nom de l'espace de travail est requis",
+      "apiNotAvailable": "API d'espace de travail non disponible",
+      "createFailed": "Échec de la création de l'espace de travail"
+    },
+    "roles": {
+      "backend": "Backend",
+      "backendDescription": "Serveur API, services",
+      "frontend": "Frontend",
+      "frontendDescription": "Application web",
+      "mobile": "Mobile",
+      "mobileDescription": "Application mobile",
+      "shared": "Partagé",
+      "sharedDescription": "Types/utils partagés",
+      "api": "Passerelle API",
+      "apiDescription": "Passerelle, BFF",
+      "worker": "Worker",
+      "workerDescription": "Tâches d'arrière-plan",
+      "other": "Autre",
+      "otherDescription": "Autre type de projet"
+    }
   }
 }

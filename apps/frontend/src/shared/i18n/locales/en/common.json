@@ -369,5 +369,31 @@
     "conversionFailedDescription": "Failed to convert idea to task",
     "conversionError": "Conversion error",
     "conversionErrorDescription": "An error occurred while converting the idea"
+  },
+  "chatHistory": {
+    "title": "Chat History",
+    "noConversations": "No conversations yet",
+    "deleteConfirmTitle": "Delete conversation?",
+    "deleteConfirmDescription": "This will permanently delete this conversation and all its messages. This action cannot be undone.",
+    "rename": "Rename",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "daysAgo": "{{count}} days ago",
+    "message": "message",
+    "messages": "messages"
+  },
+  "terminal": {
+    "title": "Agent Terminals",
+    "emptyStateDescription": "Spawn multiple terminals to run Claude agents in parallel.",
+    "emptyStateShortcut": "Use <kbd>Ctrl+T</kbd> to create a new terminal.",
+    "newTerminal": "New Terminal",
+    "terminalCount": "{{count}} / 12 terminals",
+    "history": "History",
+    "restoreFrom": "Restore sessions from...",
+    "session": "session",
+    "sessions": "sessions",
+    "invokeClaudeAll": "Invoke Claude All",
+    "files": "Files",
+    "terminal": "Terminal"
   }
 }
