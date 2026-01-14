@@ -43,7 +43,7 @@
     "installed": "已安装",
     "outdated": "有可用更新",
     "missing": "未安装",
-    "current": "当前版本",
+    "current": "当前",
     "latest": "最新版本",
     "lastChecked": "最后检查时间",
     "learnMore": "了解 Claude Code 更多信息",
@@ -52,6 +52,17 @@
     "viewChangelogAriaLabel": "查看 Claude Code 更新日志（在新窗口中打开）",
     "updateWarningTitle": "更新 Claude Code？",
     "updateWarningDescription": "更新将关闭所有正在运行的 Claude Code 会话。这些会话中未保存的工作可能会丢失。请确保在继续之前保存您的工作。",
-    "updateAnyway": "仍然更新"
+    "updateAnyway": "仍然更新",
+    "switchAnyway": "仍然切换",
+    "pathChangeWarningDescription": "切换 CLI 安装将使用不同的 Claude Code 二进制文件。任何正在运行的会话将继续使用之前的安装，直到重启。",
+    "switchInstallationConfirm": "切换",
+    "selectVersion": "选择版本",
+    "selectInstallation": "选择安装",
+    "loadingVersions": "正在加载版本...",
+    "failedToLoadVersions": "加载版本失败",
+    "failedToLoadInstallations": "加载安装失败",
+    "activeInstallation": "激活",
+    "installingVersion": "正在安装版本 {{version}}...",
+    "rollbackWarningDescription": "切换版本将关闭所有正在运行的 Claude Code 会话。这些会话中未保存的工作可能会丢失。请确保在继续之前保存您的工作。"
   }
 }
