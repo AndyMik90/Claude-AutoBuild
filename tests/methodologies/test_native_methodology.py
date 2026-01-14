@@ -282,8 +282,8 @@ class TestNativeManifestValidation:
         manifest = load_manifest(manifest_path)
         assert manifest.entry_point == "methodology.NativeRunner"
 
-    def test_manifest_has_nine_phases(self):
-        """Test that manifest defines exactly 9 phases (6 spec + 3 implementation)."""
+    def test_manifest_has_eight_phases(self):
+        """Test that manifest defines exactly 8 phases (5 spec + 3 implementation)."""
         from apps.backend.methodologies.manifest import load_manifest
 
         manifest_path = NATIVE_METHODOLOGY_DIR / "manifest.yaml"
@@ -449,7 +449,7 @@ class TestNativeRunnerInitialization:
 
         # Should not raise after initialization
         phases = runner.get_phases()
-        assert len(phases) == 8  # 6 spec + 3 implementation phases (Story 2.5)
+        assert len(phases) == 8  # 5 spec + 3 implementation phases (Story 2.5)
 
     def test_runner_cannot_initialize_twice(self, mock_context, mock_workspace_manager):
         """Test runner raises error if initialized twice."""
@@ -487,8 +487,8 @@ class TestNativeRunnerPhases:
         phases = initialized_runner.get_phases()
         assert isinstance(phases, list)
 
-    def test_get_phases_returns_nine_phases(self, initialized_runner):
-        """Test get_phases returns exactly 9 phases (6 spec + 3 implementation)."""
+    def test_get_phases_returns_eight_phases(self, initialized_runner):
+        """Test get_phases returns exactly 8 phases (5 spec + 3 implementation)."""
         phases = initialized_runner.get_phases()
         assert len(phases) == 8
 

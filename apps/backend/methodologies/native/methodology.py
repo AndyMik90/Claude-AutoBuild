@@ -139,8 +139,8 @@ class NativeRunner:
         """Return all phase definitions for the Native methodology.
 
         Returns:
-            List of Phase objects defining the 6-phase pipeline:
-            discovery, requirements, context, spec, plan, validate
+            List of Phase objects defining the 8-phase pipeline:
+            discovery, requirements, context, spec, validate, planning, coding, qa_validation
 
         Raises:
             RuntimeError: If runner has not been initialized
