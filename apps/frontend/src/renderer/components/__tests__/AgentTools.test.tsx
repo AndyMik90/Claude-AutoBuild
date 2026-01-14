@@ -5,7 +5,7 @@
  * Tests for AgentTools component
  * Specifically tests agent profile resolution for phase-based and feature-based agents
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { DEFAULT_AGENT_PROFILES, DEFAULT_PHASE_MODELS } from '../../../shared/constants/models';
 
 // Mock electronAPI
