@@ -10,10 +10,9 @@ Tests cover:
 - No validation on Python < 3.12
 """
 
-import ast
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -279,6 +278,7 @@ class TestImportOrderPreventsEarlyFailure:
 
         # Verify that graphiti_config IS imported inside validate_environment()
         validate_env_lineno = None
+        validate_env_end_lineno = len(lines)  # Initialize to end of file
         for node in tree.body:
             if isinstance(node, ast.FunctionDef) and node.name == "validate_environment":
                 validate_env_lineno = node.lineno
@@ -287,8 +287,6 @@ class TestImportOrderPreventsEarlyFailure:
                 if node_index + 1 < len(tree.body):
                     next_node = tree.body[node_index + 1]
                     validate_env_end_lineno = next_node.lineno
-                else:
-                    validate_env_end_lineno = len(lines)
                 break
 
         assert validate_env_lineno is not None, "Could not find validate_environment function"
