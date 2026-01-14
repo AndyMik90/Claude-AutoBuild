@@ -31,6 +31,10 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T 
   }) as T;
 }
 
+// Terminal font - must match @font-face declaration in globals.css
+const TERMINAL_FONT = 'JetBrains Mono';
+const TERMINAL_FONT_FALLBACK = 'MesloLGS NF';
+
 export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsReady }: UseXtermOptions) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
@@ -40,10 +44,29 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
   const isDisposedRef = useRef<boolean>(false);
   const dimensionsReadyCalledRef = useRef<boolean>(false);
   const [dimensions, setDimensions] = useState<{ cols: number; rows: number }>({ cols: 80, rows: 24 });
+  const [fontsLoaded, setFontsLoaded] = useState(false);
 
-  // Initialize xterm.js UI
+  // Load fonts before initializing terminal
   useEffect(() => {
-    if (!terminalRef.current || xtermRef.current) return;
+    const loadFonts = async () => {
+      try {
+        // Load primary and fallback terminal fonts
+        await Promise.all([
+          document.fonts.load(`13px "${TERMINAL_FONT}"`),
+          document.fonts.load(`13px "${TERMINAL_FONT_FALLBACK}"`),
+        ]);
+        setFontsLoaded(true);
+      } catch (err) {
+        console.warn('[useXterm] Font loading failed, using fallback:', err);
+        setFontsLoaded(true); // Continue with system fonts
+      }
+    };
+    loadFonts();
+  }, []);
+
+  // Initialize xterm.js UI after fonts are loaded
+  useEffect(() => {
+    if (!terminalRef.current || xtermRef.current || !fontsLoaded) return;
 
     const xterm = new XTerm({
       cursorBlink: true,
@@ -282,7 +305,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     return () => {
       // Cleanup handled by parent component
     };
-  }, [terminalId, onCommandEnter, onResize, onDimensionsReady]);
+  }, [terminalId, onCommandEnter, onResize, onDimensionsReady, fontsLoaded]);
 
   // Handle resize on container resize with debouncing
   useEffect(() => {
