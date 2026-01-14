@@ -404,6 +404,26 @@
       "selectedCount": "已选择 {{count}} 项",
       "generateTypes": "生成 {{count}} 种类型",
       "generateIdeas": "生成创意"
+    },
+    "generation": {
+      "generatingIdeas": "正在生成创意",
+      "complete": "完成",
+      "showLogs": "显示日志",
+      "hideLogs": "隐藏日志",
+      "stop": "停止",
+      "stopping": "停止中...",
+      "stopGeneration": "停止生成",
+      "waitingToStart": "等待开始...",
+      "failedToGenerate": "此类别生成创意失败",
+      "noIdeasGenerated": "此类别未生成创意"
+    },
+    "types": {
+      "codeImprovements": "代码改进",
+      "uiUxImprovements": "UI/UX 改进",
+      "documentation": "文档",
+      "security": "安全性",
+      "performance": "性能",
+      "codeQuality": "代码质量"
     }
   },
   "chatHistory": {
@@ -547,7 +567,13 @@
     "milestones": "里程碑",
     "viewTask": "查看任务",
     "build": "构建",
-    "moreFeatures": "+{{count}} 个更多功能"
+    "moreFeatures": "+{{count}} 个更多功能",
+    "generation": {
+      "inProgress": "路线图生成中...",
+      "starting": "正在开始生成路线图...",
+      "refreshing": "正在刷新路线图...",
+      "stopped": "生成已停止"
+    }
   },
   "changelog": {
     "list": {

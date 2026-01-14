@@ -242,7 +242,7 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
 }));
 
 // Helper functions for loading roadmap
-export async function loadRoadmap(projectId: string): Promise<void> {
+export async function loadRoadmap(projectId: string, message?: string): Promise<void> {
   const store = useRoadmapStore.getState();
 
   // Always set current project ID first - this ensures event handlers
@@ -258,7 +258,7 @@ export async function loadRoadmap(projectId: string): Promise<void> {
     store.setGenerationStatus({
       phase: 'analyzing',
       progress: 0,
-      message: 'Roadmap generation in progress...'
+      message: message || 'Roadmap generation in progress...'
     });
   } else {
     // Generation is not running - reset to idle
@@ -297,7 +297,8 @@ export async function loadRoadmap(projectId: string): Promise<void> {
 export function generateRoadmap(
   projectId: string,
   enableCompetitorAnalysis?: boolean,
-  refreshCompetitorAnalysis?: boolean
+  refreshCompetitorAnalysis?: boolean,
+  message?: string
 ): void {
   // Debug logging
   if (window.DEBUG) {
@@ -307,7 +308,7 @@ export function generateRoadmap(
   useRoadmapStore.getState().setGenerationStatus({
     phase: 'analyzing',
     progress: 0,
-    message: 'Starting roadmap generation...'
+    message: message || 'Starting roadmap generation...'
   });
   window.electronAPI.generateRoadmap(projectId, enableCompetitorAnalysis, refreshCompetitorAnalysis);
 }
@@ -315,7 +316,8 @@ export function generateRoadmap(
 export function refreshRoadmap(
   projectId: string,
   enableCompetitorAnalysis?: boolean,
-  refreshCompetitorAnalysis?: boolean
+  refreshCompetitorAnalysis?: boolean,
+  message?: string
 ): void {
   // Debug logging
   if (window.DEBUG) {
@@ -325,12 +327,12 @@ export function refreshRoadmap(
   useRoadmapStore.getState().setGenerationStatus({
     phase: 'analyzing',
     progress: 0,
-    message: 'Refreshing roadmap...'
+    message: message || 'Refreshing roadmap...'
   });
   window.electronAPI.refreshRoadmap(projectId, enableCompetitorAnalysis, refreshCompetitorAnalysis);
 }
 
-export async function stopRoadmap(projectId: string): Promise<boolean> {
+export async function stopRoadmap(projectId: string, message?: string): Promise<boolean> {
   const store = useRoadmapStore.getState();
 
   // Debug logging
@@ -343,7 +345,7 @@ export async function stopRoadmap(projectId: string): Promise<boolean> {
   store.setGenerationStatus({
     phase: 'idle',
     progress: 0,
-    message: 'Generation stopped'
+    message: message || 'Generation stopped'
   });
 
   const result = await window.electronAPI.stopRoadmap(projectId);

@@ -409,6 +409,26 @@
       "selectedCount": "{{count}} selected",
       "generateTypes": "Generate {{count}} Types",
       "generateIdeas": "Generate Ideas"
+    },
+    "generation": {
+      "generatingIdeas": "Generating Ideas",
+      "complete": "complete",
+      "showLogs": "Show Logs",
+      "hideLogs": "Hide Logs",
+      "stop": "Stop",
+      "stopping": "Stopping...",
+      "stopGeneration": "Stop generation",
+      "waitingToStart": "Waiting to start...",
+      "failedToGenerate": "Failed to generate ideas for this category",
+      "noIdeasGenerated": "No ideas generated for this category"
+    },
+    "types": {
+      "codeImprovements": "Code Improvements",
+      "uiUxImprovements": "UI/UX Improvements",
+      "documentation": "Documentation",
+      "security": "Security",
+      "performance": "Performance",
+      "codeQuality": "Code Quality"
     }
   },
   "chatHistory": {
@@ -552,7 +572,13 @@
     "milestones": "Milestones",
     "viewTask": "View Task",
     "build": "Build",
-    "moreFeatures": "+{{count}} more features"
+    "moreFeatures": "+{{count}} more features",
+    "generation": {
+      "inProgress": "Roadmap generation in progress...",
+      "starting": "Starting roadmap generation...",
+      "refreshing": "Refreshing roadmap...",
+      "stopped": "Generation stopped"
+    }
   },
   "changelog": {
     "list": {
