@@ -493,7 +493,24 @@
     "allFeatures": "所有功能",
     "byPriority": "按优先级",
     "insight": "洞察",
-    "impact": "影响"
+    "impact": "影响",
+    "description": "描述",
+    "rationale": "基本原理",
+    "complexity": "复杂度",
+    "dependencies": "依赖项",
+    "userStories": "用户故事",
+    "acceptanceCriteria": "验收标准",
+    "addressesPainPoints": "解决竞品痛点",
+    "severity": "严重程度",
+    "goToTask": "前往任务",
+    "convertToTask": "转换为自动构建任务",
+    "deleteFeature": "删除功能？",
+    "deleteFeatureWarning": "这将永久从您的路线图中删除「{{title}}」。",
+    "progress": "进度",
+    "milestones": "里程碑",
+    "viewTask": "查看任务",
+    "build": "构建",
+    "moreFeatures": "+{{count}} 个更多功能"
   },
   "changelog": {
     "list": {

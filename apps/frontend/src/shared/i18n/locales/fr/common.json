@@ -498,7 +498,24 @@
     "allFeatures": "Toutes les fonctionnalités",
     "byPriority": "Par priorité",
     "insight": "Perspective",
-    "impact": "impact"
+    "impact": "impact",
+    "description": "Description",
+    "rationale": "Raison d'être",
+    "complexity": "Complexité",
+    "dependencies": "Dépendances",
+    "userStories": "User Stories",
+    "acceptanceCriteria": "Critères d'acceptation",
+    "addressesPainPoints": "Répond aux points de douleur des concurrents",
+    "severity": "gravité",
+    "goToTask": "Aller à la tâche",
+    "convertToTask": "Convertir en tâche Auto-Build",
+    "deleteFeature": "Supprimer la fonctionnalité ?",
+    "deleteFeatureWarning": "Cela supprimera définitivement \"{{title}}\" de votre roadmap.",
+    "progress": "Progrès",
+    "milestones": "Jalons",
+    "viewTask": "Voir la tâche",
+    "build": "Construire",
+    "moreFeatures": "+{{count}} autres fonctionnalités"
   },
   "changelog": {
     "list": {

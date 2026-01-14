@@ -498,7 +498,24 @@
     "allFeatures": "All Features",
     "byPriority": "By Priority",
     "insight": "Insight",
-    "impact": "impact"
+    "impact": "impact",
+    "description": "Description",
+    "rationale": "Rationale",
+    "complexity": "Complexity",
+    "dependencies": "Dependencies",
+    "userStories": "User Stories",
+    "acceptanceCriteria": "Acceptance Criteria",
+    "addressesPainPoints": "Addresses Competitor Pain Points",
+    "severity": "severity",
+    "goToTask": "Go to Task",
+    "convertToTask": "Convert to Auto-Build Task",
+    "deleteFeature": "Delete Feature?",
+    "deleteFeatureWarning": "This will permanently remove \"{{title}}\" from your roadmap.",
+    "progress": "Progress",
+    "milestones": "Milestones",
+    "viewTask": "View Task",
+    "build": "Build",
+    "moreFeatures": "+{{count}} more features"
   },
   "changelog": {
     "list": {
