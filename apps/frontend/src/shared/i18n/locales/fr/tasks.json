@@ -264,7 +264,9 @@
       "invalidJson": "Fichier JSON invalide",
       "noTasks": "Aucune tâche valide trouvée",
       "missingFields": "Champs requis manquants",
-      "importFailed": "Certaines tâches n'ont pas pu être importées"
+      "importFailed": "Certaines tâches n'ont pas pu être importées",
+      "failedCount": ", {{count}} échoué(s)",
+      "moreErrors": "...et {{count}} de plus"
     }
   }
 }

@@ -69,11 +69,7 @@ export function useTaskFileImportModal(options: UseTaskFileImportModalOptions): 
   }, [clearParsedTasks, resetImportState, parseFiles]);
 
   // Handle file select (same as drop)
-  const handleFileSelect = useCallback(async (files: FileList) => {
-    clearParsedTasks();
-    resetImportState();
-    await parseFiles(files);
-  }, [clearParsedTasks, resetImportState, parseFiles]);
+  const handleFileSelect = handleFileDrop;
 
   // Handle import
   const handleImport = useCallback(async () => {

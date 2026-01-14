@@ -264,7 +264,9 @@
       "invalidJson": "Invalid JSON file",
       "noTasks": "No valid tasks found",
       "missingFields": "Missing required fields",
-      "importFailed": "Some tasks failed to import"
+      "importFailed": "Some tasks failed to import",
+      "failedCount": ", {{count}} failed",
+      "moreErrors": "...and {{count}} more"
     }
   }
 }

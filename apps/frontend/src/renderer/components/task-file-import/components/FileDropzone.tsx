@@ -7,7 +7,7 @@
  * - Visual feedback during drag-over
  */
 
-import { useRef, useState, useCallback, type DragEvent, type ChangeEvent } from 'react';
+import { useRef, useState, useCallback, type DragEvent, type ChangeEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Upload, FileJson, Loader2 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -73,6 +73,13 @@ export function FileDropzone({
     }
   }, [disabled, isParsing]);
 
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
+    if ((e.key === 'Enter' || e.key === ' ') && !disabled && !isParsing) {
+      e.preventDefault();
+      fileInputRef.current?.click();
+    }
+  }, [disabled, isParsing]);
+
   return (
     <div
       className={cn(
@@ -88,6 +95,7 @@ export function FileDropzone({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       role="button"
       tabIndex={0}
       aria-label={t('taskFileImport.dropzone.title')}

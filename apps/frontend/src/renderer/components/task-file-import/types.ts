@@ -5,7 +5,7 @@
  * and the internal state management types.
  */
 
-import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact } from '../../../shared/types';
+import type { TaskCategory, TaskPriority, TaskComplexity } from '../../../shared/types';
 
 /**
  * JSON file format for a single task
@@ -91,10 +91,10 @@ export interface TaskFileImportState {
 export function mapWorkflowTypeToCategory(workflowType?: string): TaskCategory | undefined {
   const mapping: Record<string, TaskCategory> = {
     feature: 'feature',
-    refactor: 'refactor',
-    investigation: 'bug',
+    refactor: 'refactoring',
+    investigation: 'bug_fix',
     migration: 'infrastructure',
-    simple: 'chore'
+    simple: 'infrastructure'
   };
   return workflowType ? mapping[workflowType] : undefined;
 }
@@ -107,7 +107,8 @@ export function mapPriority(priority?: string): TaskPriority | undefined {
     low: 'low',
     medium: 'medium',
     high: 'high',
-    critical: 'critical'
+    critical: 'urgent',
+    urgent: 'urgent'
   };
   return priority ? mapping[priority] : undefined;
 }
@@ -117,7 +118,7 @@ export function mapPriority(priority?: string): TaskPriority | undefined {
  */
 export function mapComplexity(complexity?: string): TaskComplexity | undefined {
   const mapping: Record<string, TaskComplexity> = {
-    simple: 'simple',
+    simple: 'small',
     standard: 'medium',
     complex: 'complex'
   };

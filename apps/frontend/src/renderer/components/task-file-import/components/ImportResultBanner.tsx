@@ -13,7 +13,7 @@ interface ImportResultBannerProps {
 }
 
 export function ImportResultBanner({ result, onDismiss }: ImportResultBannerProps) {
-  const { t } = useTranslation(['tasks']);
+  const { t } = useTranslation(['tasks', 'common']);
 
   const isSuccess = result.success && result.imported > 0;
   const hasErrors = result.errors && result.errors.length > 0;
@@ -45,7 +45,7 @@ export function ImportResultBanner({ result, onDismiss }: ImportResultBannerProp
         </p>
         <p className="text-sm opacity-90">
           {t('taskFileImport.success.message', { count: result.imported })}
-          {result.failed > 0 && `, ${result.failed} failed`}
+          {result.failed > 0 && t('taskFileImport.errors.failedCount', { count: result.failed })}
         </p>
 
         {/* Error details */}
@@ -58,7 +58,7 @@ export function ImportResultBanner({ result, onDismiss }: ImportResultBannerProp
             ))}
             {result.errors!.length > 3 && (
               <li className="text-xs opacity-70">
-                ...and {result.errors!.length - 3} more
+                {t('taskFileImport.errors.moreErrors', { count: result.errors!.length - 3 })}
               </li>
             )}
           </ul>
@@ -68,9 +68,10 @@ export function ImportResultBanner({ result, onDismiss }: ImportResultBannerProp
       {/* Dismiss button */}
       {onDismiss && (
         <button
+          type="button"
           onClick={onDismiss}
           className="p-1 rounded hover:bg-black/10 transition-colors"
-          aria-label="Dismiss"
+          aria-label={t('common:ariaLabels.dismissAriaLabel')}
         >
           <X className="h-4 w-4" />
         </button>

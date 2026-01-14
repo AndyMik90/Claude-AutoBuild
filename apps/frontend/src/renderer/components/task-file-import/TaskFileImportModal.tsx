@@ -66,7 +66,6 @@ export function TaskFileImportModal({
     onOpenChange(false);
   };
 
-  const validTaskCount = parsedTasks.filter(t => t.isValid).length;
   const showDropzone = parsedTasks.length === 0 && !importResult?.success;
   const showPreview = parsedTasks.length > 0 && !importResult?.success;
   const showResult = importResult !== null;

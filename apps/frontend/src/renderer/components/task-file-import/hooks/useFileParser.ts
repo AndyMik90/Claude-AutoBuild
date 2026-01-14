@@ -38,7 +38,7 @@ function readFileAsText(file: File): Promise<string> {
 /**
  * Validate a task entry against the expected schema
  */
-function validateTaskEntry(task: unknown, filename: string): { isValid: boolean; errors: string[] } {
+function validateTaskEntry(task: unknown): { isValid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   if (!task || typeof task !== 'object') {
@@ -104,7 +104,7 @@ async function parseTaskFile(file: File): Promise<ParsedTask | null> {
   try {
     const content = await readFileAsText(file);
     const parsed = JSON.parse(content) as TaskFileEntry;
-    const validation = validateTaskEntry(parsed, file.name);
+    const validation = validateTaskEntry(parsed);
 
     return {
       ...parsed,

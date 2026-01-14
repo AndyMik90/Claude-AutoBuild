@@ -444,9 +444,13 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     return grouped;
   }, [filteredTasks]);
 
+  // Get projectId from any task (more reliable than tasks[0] when array might be empty)
+  const projectId = useMemo(() =>
+    tasks.find(task => task.projectId)?.projectId,
+    [tasks]
+  );
+
   const handleArchiveAll = async () => {
-    // Get projectId from the first task (all tasks should have the same projectId)
-    const projectId = tasks[0]?.projectId;
     if (!projectId) {
       console.error('[KanbanBoard] No projectId found');
       return;
@@ -623,7 +627,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               onStatusChange={handleStatusChange}
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
-              onImportClick={status === 'backlog' ? () => setIsImportModalOpen(true) : undefined}
+              onImportClick={status === 'backlog' && projectId ? () => setIsImportModalOpen(true) : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
               archivedCount={status === 'done' ? archivedCount : undefined}
               showArchived={status === 'done' ? showArchived : undefined}
@@ -658,9 +662,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       />
 
       {/* Task file import modal */}
-      {tasks[0]?.projectId && (
+      {projectId && (
         <TaskFileImportModal
-          projectId={tasks[0].projectId}
+          projectId={projectId}
           open={isImportModalOpen}
           onOpenChange={setIsImportModalOpen}
           onImportComplete={() => onRefresh?.()}

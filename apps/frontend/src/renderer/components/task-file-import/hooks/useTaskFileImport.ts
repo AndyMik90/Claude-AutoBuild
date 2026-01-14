@@ -51,7 +51,7 @@ export function useTaskFileImport(options: UseTaskFileImportOptions): UseTaskFil
       try {
         // Build metadata from task fields
         const metadata: TaskMetadata = {
-          sourceType: 'import'
+          sourceType: 'imported'
         };
 
         // Map optional fields
