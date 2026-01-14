@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from project_analyzer import BASE_COMMANDS, SecurityProfile, is_command_allowed
+from project import BASE_COMMANDS, SecurityProfile, is_command_allowed
 
 from .parser import extract_commands, get_command_for_validation, split_command_segments
 from .profile import get_security_profile

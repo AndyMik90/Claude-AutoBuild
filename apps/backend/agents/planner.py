@@ -63,7 +63,7 @@ async def run_followup_planner(
         bool: True if planning completed successfully
     """
     from implementation_plan import ImplementationPlan
-    from prompts import get_followup_planner_prompt
+    from prompts_pkg import get_followup_planner_prompt
 
     # Initialize status manager for ccstatusline
     status_manager = StatusManager(project_dir)

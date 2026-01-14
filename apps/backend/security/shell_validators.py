@@ -14,7 +14,7 @@ import os
 import shlex
 from pathlib import Path
 
-from project_analyzer import is_command_allowed
+from project import is_command_allowed
 
 from .parser import extract_commands, split_command_segments
 from .profile import get_security_profile

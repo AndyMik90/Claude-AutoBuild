@@ -11,7 +11,7 @@ Tests the security.py module functionality including:
 """
 
 import pytest
-from project_analyzer import BASE_COMMANDS, SecurityProfile
+from project import BASE_COMMANDS, SecurityProfile
 from security import (
     extract_commands,
     get_command_for_validation,
@@ -347,7 +347,7 @@ class TestSecurityProfileIntegration:
 
     def test_profile_detects_python_commands(self, python_project):
         """Profile includes Python commands for Python projects."""
-        from project_analyzer import get_or_create_profile
+        from project import get_or_create_profile
         reset_profile_cache()
 
         profile = get_or_create_profile(python_project)
@@ -357,7 +357,7 @@ class TestSecurityProfileIntegration:
 
     def test_profile_detects_node_commands(self, node_project):
         """Profile includes Node commands for Node projects."""
-        from project_analyzer import get_or_create_profile
+        from project import get_or_create_profile
         reset_profile_cache()
 
         profile = get_or_create_profile(node_project)
@@ -367,7 +367,7 @@ class TestSecurityProfileIntegration:
 
     def test_profile_detects_docker_commands(self, docker_project):
         """Profile includes Docker commands for Docker projects."""
-        from project_analyzer import get_or_create_profile
+        from project import get_or_create_profile
         reset_profile_cache()
 
         profile = get_or_create_profile(docker_project)
@@ -377,7 +377,7 @@ class TestSecurityProfileIntegration:
 
     def test_profile_caching(self, python_project):
         """Profile is cached after first analysis."""
-        from project_analyzer import get_or_create_profile
+        from project import get_or_create_profile
         from security import get_security_profile, reset_profile_cache
         reset_profile_cache()
 

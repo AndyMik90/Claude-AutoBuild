@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 from core.progress import get_next_subtask
-from prompt_generator import generate_planner_prompt
+from prompts_pkg import generate_planner_prompt
 from spec.validate_pkg import SpecValidator, auto_fix_plan
 
 

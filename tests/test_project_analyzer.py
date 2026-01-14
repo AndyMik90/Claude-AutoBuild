@@ -15,7 +15,7 @@ Tests the project_analyzer.py module functionality including:
 import json
 from pathlib import Path
 
-from project_analyzer import (
+from project import (
     BASE_COMMANDS,
     CustomScripts,
     ProjectAnalyzer,

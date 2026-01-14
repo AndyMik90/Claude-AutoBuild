@@ -30,13 +30,13 @@ from progress import (
     print_progress_summary,
     print_session_header,
 )
-from prompt_generator import (
+from prompts_pkg import (
     format_context_for_prompt,
     generate_planner_prompt,
     generate_subtask_prompt,
+    is_first_run,
     load_subtask_context,
 )
-from prompts import is_first_run
 from recovery import RecoveryManager
 from security.constants import PROJECT_DIR_ENV_VAR
 from task_logger import (

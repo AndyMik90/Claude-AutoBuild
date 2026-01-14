@@ -27,8 +27,8 @@ Validators:
 """
 
 # Core hooks
-# Re-export from project_analyzer for convenience
-from project_analyzer import (
+# Re-export from project for convenience
+from project import (
     BASE_COMMANDS,
     SecurityProfile,
     is_command_allowed,
@@ -113,7 +113,7 @@ __all__ = [
     "validate_redis_cli_command",
     "validate_mongosh_command",
     "validate_mysqladmin_command",
-    # From project_analyzer
+    # From project module
     "SecurityProfile",
     "is_command_allowed",
     "needs_validation",
