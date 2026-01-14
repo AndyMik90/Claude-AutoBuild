@@ -424,7 +424,7 @@ describe('KanbanBoard Drag-to-Scroll Logic', () => {
       dragCount++;
       window.addEventListener('mousemove', mockMouseMove);
       window.addEventListener('mouseup', mockMouseUp);
-      expect(addSpy).toHaveBeenCalledTimes(2 + (dragCount - 1) * 2);
+      expect(addSpy).toHaveBeenCalledTimes(dragCount * 2); // 2 calls
 
       // End first drag
       isScrollDragging = false;
@@ -437,7 +437,7 @@ describe('KanbanBoard Drag-to-Scroll Logic', () => {
       dragCount++;
       window.addEventListener('mousemove', mockMouseMove);
       window.addEventListener('mouseup', mockMouseUp);
-      expect(addSpy).toHaveBeenCalledTimes(2 + dragCount * 2);
+      expect(addSpy).toHaveBeenCalledTimes(dragCount * 2); // 4 calls
 
       // End second drag
       isScrollDragging = false;
@@ -486,7 +486,6 @@ describe('KanbanBoard Drag-to-Scroll Logic', () => {
     it('should prevent default during mouse move', () => {
       let isScrollDragging = true;
       const scrollContainerRef = { current: { scrollLeft: 0 } };
-      const preventDefaultSpy = vi.fn();
 
       const handleMouseMove = (e: MouseEvent) => {
         if (!isScrollDragging || !scrollContainerRef.current) return;
@@ -496,7 +495,7 @@ describe('KanbanBoard Drag-to-Scroll Logic', () => {
       const mockEvent = createMockMouseEvent(100);
       handleMouseMove(mockEvent);
 
-      expect(preventDefaultSpy).toHaveBeenCalled();
+      expect(mockEvent.preventDefault).toHaveBeenCalled();
     });
 
     it('should update scroll position on mouse move', () => {
