@@ -22,6 +22,10 @@ class Verification:
     expect_status: int | None = None  # Expected HTTP status
     expect_contains: str | None = None  # Expected content
     scenario: str | None = None  # Description for browser/manual tests
+    # Investigation/audit task fields
+    file: str | None = None  # File path for file_exists check
+    checks: list[str] | None = None  # List of checks for code_review
+    description: str | None = None  # Description of what to verify
 
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
@@ -33,6 +37,9 @@ class Verification:
             "expect_status",
             "expect_contains",
             "scenario",
+            "file",
+            "checks",
+            "description",
         ]:
             val = getattr(self, key)
             if val is not None:
@@ -50,4 +57,7 @@ class Verification:
             expect_status=data.get("expect_status"),
             expect_contains=data.get("expect_contains"),
             scenario=data.get("scenario"),
+            file=data.get("file"),
+            checks=data.get("checks"),
+            description=data.get("description"),
         )

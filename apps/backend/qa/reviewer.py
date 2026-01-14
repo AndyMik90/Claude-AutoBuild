@@ -14,6 +14,7 @@ from pathlib import Path
 
 # Memory integration for cross-session learning
 from agents.memory_manager import get_graphiti_context, save_session_memory
+from agents.session import receive_with_timeout
 from claude_agent_sdk import ClaudeSDKClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from prompts_pkg import get_qa_reviewer_prompt
@@ -190,7 +191,7 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
 
         response_text = ""
         debug("qa_reviewer", "Starting to receive response stream...")
-        async for msg in client.receive_response():
+        async for msg in receive_with_timeout(client):
             msg_type = type(msg).__name__
             message_count += 1
             debug_detailed(

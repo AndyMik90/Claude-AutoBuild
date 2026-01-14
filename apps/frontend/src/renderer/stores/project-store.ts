@@ -433,7 +433,17 @@ export async function initializeProject(
     const result = await window.electronAPI.initializeProject(projectId);
     console.log('[ProjectStore] IPC result:', result);
 
-    if (result.success && result.data) {
+    // IPC failed (e.g., project not found)
+    if (!result.success) {
+      const errorMsg = result.error || 'Failed to initialize project';
+      console.log('[ProjectStore] IPC failed:', errorMsg);
+      store.setError(errorMsg);
+      // Return error as InitializationResult so UI can display it
+      return { success: false, error: errorMsg };
+    }
+
+    // IPC succeeded, check inner result
+    if (result.data) {
       console.log('[ProjectStore] IPC succeeded, result.data:', result.data);
       // Update the project's autoBuildPath in local state
       if (result.data.success) {
@@ -444,12 +454,16 @@ export async function initializeProject(
       }
       return result.data;
     }
-    console.log('[ProjectStore] IPC failed or no data, setting error');
-    store.setError(result.error || 'Failed to initialize project');
-    return null;
+
+    // Shouldn't reach here, but handle gracefully
+    console.log('[ProjectStore] IPC returned success but no data');
+    store.setError('Failed to initialize project');
+    return { success: false, error: 'Failed to initialize project' };
   } catch (error) {
-    console.error('[ProjectStore] Exception during initializeProject:', error);
-    store.setError(error instanceof Error ? error.message : 'Unknown error');
-    return null;
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[ProjectStore] Exception during initializeProject:', errorMsg);
+    store.setError(errorMsg);
+    // Return error as InitializationResult so UI can display it
+    return { success: false, error: errorMsg };
   }
 }

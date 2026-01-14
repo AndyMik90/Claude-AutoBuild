@@ -6,6 +6,7 @@ Handles running agent sessions and post-session processing including
 memory updates, recovery tracking, and Linear integration.
 """
 
+import asyncio
 import logging
 from pathlib import Path
 
@@ -311,6 +312,41 @@ async def post_session_processing(
         return False
 
 
+# Default timeout for receiving messages from Claude SDK (5 minutes per message)
+RECEIVE_TIMEOUT_SECONDS = 300
+
+
+async def receive_with_timeout(client: ClaudeSDKClient, timeout_seconds: int = RECEIVE_TIMEOUT_SECONDS):
+    """
+    Wrapper to add timeout to receive_response() iterations.
+
+    This prevents hanging forever if the Claude SDK stream doesn't close properly
+    or stops sending messages without ending the session.
+
+    Args:
+        client: Claude SDK client
+        timeout_seconds: Max seconds to wait for each message (default: 5 minutes)
+
+    Yields:
+        Messages from the client response stream
+
+    Raises:
+        TimeoutError: If no message received within timeout_seconds
+    """
+    response_gen = client.receive_response()
+    while True:
+        try:
+            msg = await asyncio.wait_for(response_gen.__anext__(), timeout=timeout_seconds)
+            yield msg
+        except StopAsyncIteration:
+            break
+        except asyncio.TimeoutError:
+            raise TimeoutError(
+                f"No response from Claude SDK for {timeout_seconds} seconds. "
+                "The agent session may be stuck or the API connection dropped."
+            )
+
+
 async def run_agent_session(
     client: ClaudeSDKClient,
     message: str,
@@ -360,7 +396,7 @@ async def run_agent_session(
         # Collect response text and show tool use
         response_text = ""
         debug("session", "Starting to receive response stream...")
-        async for msg in client.receive_response():
+        async for msg in receive_with_timeout(client):
             msg_type = type(msg).__name__
             message_count += 1
             debug_detailed(

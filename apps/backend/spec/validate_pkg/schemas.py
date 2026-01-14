@@ -78,6 +78,10 @@ IMPLEMENTATION_PLAN_SCHEMA = {
             "expect_contains",
             "scenario",
             "steps",
+            # Investigation/audit task fields
+            "file",
+            "checks",
+            "description",
         ],
         "verification_types": [
             "command",
@@ -87,6 +91,10 @@ IMPLEMENTATION_PLAN_SCHEMA = {
             "manual",
             "none",
             "e2e",
+            # Investigation/audit task types
+            "code_review",
+            "file_exists",
+            "documentation",
         ],
     },
 }

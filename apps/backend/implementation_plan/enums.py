@@ -51,6 +51,11 @@ class VerificationType(str, Enum):
     COMPONENT = "component"  # Component renders correctly
     MANUAL = "manual"  # Requires human verification
     NONE = "none"  # No verification needed (investigation)
+    E2E = "e2e"  # End-to-end test
+    # Investigation/audit task types
+    CODE_REVIEW = "code_review"  # Verify code patterns/logic (agent reviews code)
+    FILE_EXISTS = "file_exists"  # Verify output file was created
+    DOCUMENTATION = "documentation"  # Verify docs were created/updated
 
 
 # Backwards compatibility aliases

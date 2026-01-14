@@ -93,6 +93,14 @@ export class ProjectStore {
         existing.updatedAt = new Date();
         this.save();
       }
+      // Also check if .auto-claude was created externally after project was added
+      // If so, update autoBuildPath so UI doesn't prompt for initialization
+      else if (!existing.autoBuildPath && isInitialized(existing.path)) {
+        console.warn(`[ProjectStore] .auto-claude folder was created externally for project "${existing.name}" - setting autoBuildPath`);
+        existing.autoBuildPath = '.auto-claude';
+        existing.updatedAt = new Date();
+        this.save();
+      }
       return existing;
     }
 
@@ -191,23 +199,25 @@ export class ProjectStore {
     let hasChanges = false;
 
     for (const project of this.data.projects) {
-      // Skip projects that aren't initialized (autoBuildPath is empty)
-      if (!project.autoBuildPath) {
-        continue;
-      }
-
       // Check if the project path still exists
       if (!existsSync(project.path)) {
         console.warn(`[ProjectStore] Project path no longer exists: ${project.path}`);
         continue; // Don't reset - let user handle this case
       }
 
-      // Check if .auto-claude folder still exists
-      if (!isInitialized(project.path)) {
+      // Check if .auto-claude folder was deleted (had autoBuildPath but folder is gone)
+      if (project.autoBuildPath && !isInitialized(project.path)) {
         console.warn(`[ProjectStore] .auto-claude folder missing for project "${project.name}" at ${project.path}`);
         project.autoBuildPath = '';
         project.updatedAt = new Date();
         resetProjectIds.push(project.id);
+        hasChanges = true;
+      }
+      // Check if .auto-claude folder was created externally (no autoBuildPath but folder exists)
+      else if (!project.autoBuildPath && isInitialized(project.path)) {
+        console.warn(`[ProjectStore] .auto-claude folder found for project "${project.name}" at ${project.path} - auto-setting autoBuildPath`);
+        project.autoBuildPath = '.auto-claude';
+        project.updatedAt = new Date();
         hasChanges = true;
       }
     }

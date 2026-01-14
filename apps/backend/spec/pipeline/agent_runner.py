@@ -12,6 +12,7 @@ from ui.capabilities import configure_safe_encoding
 
 configure_safe_encoding()
 
+from agents.session import receive_with_timeout
 from core.client import create_client
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from security.tool_input_validator import get_safe_tool_input
@@ -135,7 +136,7 @@ class AgentRunner:
 
                 response_text = ""
                 debug("agent_runner", "Starting to receive response stream...")
-                async for msg in client.receive_response():
+                async for msg in receive_with_timeout(client):
                     msg_type = type(msg).__name__
                     message_count += 1
                     debug_detailed(
