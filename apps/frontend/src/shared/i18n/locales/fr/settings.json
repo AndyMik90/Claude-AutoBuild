@@ -244,7 +244,10 @@
     "autoClaudePathDescription": "Chemin relatif vers le répertoire auto-claude dans les projets",
     "autoClaudePathPlaceholder": "auto-claude (par défaut)",
     "autoNameTerminals": "Nommer automatiquement les terminaux",
-    "autoNameTerminalsDescription": "Utiliser l'IA pour générer des noms descriptifs pour les onglets de terminal en fonction de leur activité"
+    "autoNameTerminalsDescription": "Utiliser l'IA pour générer des noms descriptifs pour les onglets de terminal en fonction de leur activité",
+    "browse": "Parcourir",
+    "selectPythonExecutable": "Sélectionner l'exécutable Python",
+    "selectActivationScript": "Sélectionner le script d'activation"
   },
   "theme": {
     "title": "Apparence",
@@ -329,6 +332,7 @@
     "general": {
       "title": "Général",
       "description": "Auto-Build et configuration de l'agent",
+      "descriptionWithProject": "Configurer Auto-Build, le modèle de l'agent et les notifications pour {{projectName}}",
       "useClaudeMd": "Utiliser CLAUDE.md",
       "useClaudeMdDescription": "Inclure les instructions CLAUDE.md dans le contexte de l'agent"
     },
@@ -436,7 +440,9 @@
     "keepFiles": "Conserver les fichiers",
     "deleteEnv": "Supprimer l'environnement",
     "deleteActivationScripts": "Supprimer également les scripts d'activation",
-    "pathPlaceholder": "C:\\chemin\\vers\\conda"
+    "pathPlaceholder": "C:\\chemin\\vers\\conda",
+    "validatingEnvironment": "Validation de l'environnement Python...",
+    "validatingHint": "Cela peut prendre quelques secondes"
   },
   "condaSetup": {
     "title": "Configurer l'environnement Conda",

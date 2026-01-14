@@ -81,8 +81,8 @@ export function SectionRouter({
     case 'general':
       return (
         <SettingsSection
-          title="General"
-          description={`Configure Auto-Build, agent model, and notifications for ${project.name}`}
+          title={t('projectSections.general.title')}
+          description={t('projectSections.general.descriptionWithProject', { projectName: project.name })}
         >
           <GeneralSettings
             project={project}

@@ -319,8 +319,8 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
       {isPythonValidating && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-          <p className="text-lg font-medium text-foreground">Validating Python environment...</p>
-          <p className="text-sm text-muted-foreground mt-2">This may take a few seconds</p>
+          <p className="text-lg font-medium text-foreground">{t('python.validatingEnvironment')}</p>
+          <p className="text-sm text-muted-foreground mt-2">{t('python.validatingHint')}</p>
         </div>
       )}
 
@@ -347,7 +347,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
               onClick={async () => {
                 const isWindows = navigator.userAgent.includes('Windows');
                 const filePath = await window.electronAPI.selectFile({
-                  title: 'Select Python Executable',
+                  title: t('general.selectPythonExecutable'),
                   filters: isWindows
                     ? [{ name: 'Python Executable', extensions: ['exe'] }]
                     : []
@@ -358,7 +358,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
               }}
             >
               <FolderOpen className="h-4 w-4 mr-2" />
-              Browse
+              {t('general.browse')}
             </Button>
           </div>
           {!settings.pythonPath && (
@@ -393,7 +393,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
               onClick={async () => {
                 const isWindows = navigator.userAgent.includes('Windows');
                 const filePath = await window.electronAPI.selectFile({
-                  title: 'Select Activation Script',
+                  title: t('general.selectActivationScript'),
                   filters: isWindows
                     ? [
                         { name: 'Activation Scripts', extensions: ['bat', 'cmd', 'ps1'] },
@@ -407,7 +407,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
               }}
             >
               <FolderOpen className="h-4 w-4 mr-2" />
-              Browse
+              {t('general.browse')}
             </Button>
           </div>
           {settings.pythonActivationScript && (

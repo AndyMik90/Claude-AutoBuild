@@ -857,7 +857,7 @@ export async function validatePythonPackages(
   let installLocation = '';
   try {
     installLocation = await getPythonInstallLocation(pythonPath, activationScript);
-    console.log('[validatePythonPackages] Install location:', installLocation);
+    console.warn('[validatePythonPackages] Install location:', installLocation);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error('[validatePythonPackages] Failed to get install location:', errorMsg);
