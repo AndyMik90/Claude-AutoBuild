@@ -92,19 +92,29 @@ def print_progress(callback: ProgressCallback) -> None:
     safe_print(f"{prefix}[{callback.progress:3d}%] {callback.message}")
 
 
-def get_config(args) -> GitHubRunnerConfig:
-    """Build config from CLI args and environment."""
+def get_github_token() -> str | None:
+    """
+    Get GitHub token from environment or gh CLI.
+
+    Checks multiple sources in priority order:
+    1. GITHUB_TOKEN environment variable
+    2. gh CLI auth token (if gh is installed and authenticated)
+
+    Returns:
+        Token string if found, None otherwise
+    """
     import shutil
     import subprocess
 
-    token = args.token or os.environ.get("GITHUB_TOKEN", "")
-    bot_token = args.bot_token or os.environ.get("GITHUB_BOT_TOKEN")
-    repo = args.repo or os.environ.get("GITHUB_REPO", "")
+    # First check environment variable
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        return token
 
-    # Find gh CLI - use shutil.which for cross-platform support
+    # Fallback: try gh CLI
     gh_path = shutil.which("gh")
     if not gh_path and sys.platform == "win32":
-        # Fallback: check common Windows installation paths
+        # Check common Windows installation paths
         common_paths = [
             r"C:\Program Files\GitHub CLI\gh.exe",
             r"C:\Program Files (x86)\GitHub CLI\gh.exe",
@@ -115,15 +125,7 @@ def get_config(args) -> GitHubRunnerConfig:
                 gh_path = path
                 break
 
-    if os.environ.get("DEBUG"):
-        safe_print(f"[DEBUG] gh CLI path: {gh_path}")
-        safe_print(
-            f"[DEBUG] PATH env: {os.environ.get('PATH', 'NOT SET')[:200]}...",
-            flush=True,
-        )
-
-    if not token and gh_path:
-        # Try to get from gh CLI
+    if gh_path:
         try:
             result = subprocess.run(
                 [gh_path, "auth", "token"],
@@ -131,9 +133,72 @@ def get_config(args) -> GitHubRunnerConfig:
                 text=True,
             )
             if result.returncode == 0:
-                token = result.stdout.strip()
+                return result.stdout.strip()
         except FileNotFoundError:
             pass  # gh not installed or not in PATH
+
+    return None
+
+
+def require_github_token() -> str:
+    """
+    Get GitHub token or raise ValueError.
+
+    Raises:
+        ValueError: If no GitHub token is found in any supported source
+    """
+    token = get_github_token()
+    if not token:
+        error_msg = (
+            "No GitHub token found.\n\n"
+            "GitHub automation requires a valid GitHub token.\n\n"
+            "To authenticate:\n"
+            "  1. Run: gh auth login\n"
+            "  2. Or set GITHUB_TOKEN environment variable in your .env file\n\n"
+            "To create a personal access token:\n"
+            "  Visit: https://github.com/settings/tokens"
+        )
+        raise ValueError(error_msg)
+    return token
+
+
+def _find_gh_cli() -> str | None:
+    """Find gh CLI path for repo detection."""
+    import shutil
+
+    gh_path = shutil.which("gh")
+    if not gh_path and sys.platform == "win32":
+        # Check common Windows installation paths
+        common_paths = [
+            r"C:\Program Files\GitHub CLI\gh.exe",
+            r"C:\Program Files (x86)\GitHub CLI\gh.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\GitHub CLI\gh.exe"),
+        ]
+        for path in common_paths:
+            if os.path.exists(path):
+                return path
+    return gh_path
+
+
+def get_config(args) -> GitHubRunnerConfig:
+    """Build config from CLI args and environment."""
+    import subprocess
+
+    # Get token with proper validation
+    token = args.token if args.token else require_github_token()
+
+    bot_token = args.bot_token or os.environ.get("GITHUB_BOT_TOKEN")
+    repo = args.repo or os.environ.get("GITHUB_REPO")
+
+    # Find gh CLI for repo detection
+    gh_path = _find_gh_cli()
+
+    if os.environ.get("DEBUG"):
+        safe_print(f"[DEBUG] gh CLI path: {gh_path}")
+        safe_print(
+            f"[DEBUG] PATH env: {os.environ.get('PATH', 'NOT SET')[:200]}...",
+            flush=True,
+        )
 
     if not repo and gh_path:
         # Try to detect from git remote
@@ -158,12 +223,6 @@ def get_config(args) -> GitHubRunnerConfig:
                 safe_print(f"[DEBUG] gh repo view failed: {result.stderr}")
         except FileNotFoundError:
             pass  # gh not installed or not in PATH
-
-    if not token:
-        safe_print(
-            "Error: No GitHub token found. Set GITHUB_TOKEN or run 'gh auth login'"
-        )
-        sys.exit(1)
 
     if not repo:
         safe_print(
