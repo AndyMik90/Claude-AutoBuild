@@ -1618,8 +1618,9 @@ def _resolve_git_conflicts_with_ai(
         except Exception as e:
             print(muted(f"    Warning: Could not process {file_path}: {e}"))
 
-    # V2: Record merge completion in Evolution Tracker for future context
-    # TODO: _record_merge_completion not yet implemented - see line 141
+    # V2 Feature: Record merge completion in Evolution Tracker for future context.
+    # The _record_merge_completion function is planned but not yet implemented.
+    # See line 142 for the list of planned merge operations.
     # if resolved_files:
     #     _record_merge_completion(project_dir, spec_name, resolved_files)
 

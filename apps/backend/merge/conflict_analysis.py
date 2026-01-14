@@ -269,19 +269,19 @@ def detect_implicit_conflicts(
         List of implicit conflict regions
 
     Note:
-        These advanced checks are currently TODO.
-        The main location-based detection handles most cases.
+        Advanced implicit conflict detection (cross-reference analysis) is not yet
+        implemented. The main location-based detection in detect_conflicts() handles
+        the majority of merge conflict cases.
     """
     conflicts = []
 
-    # Check for function rename + function call changes
-    # (If task A renames a function and task B calls the old name)
-
-    # Check for import removal + usage
-    # (If task A removes an import and task B uses it)
-
-    # For now, these advanced checks are TODO
-    # The main location-based detection handles most cases
+    # Advanced checks for cross-reference conflicts:
+    # - Function rename + function call changes (task A renames, task B calls old name)
+    # - Import removal + usage (task A removes import, task B uses it)
+    # - Variable rename + references (task A renames, task B references old name)
+    #
+    # These require AST analysis or symbol table tracking. The location-based
+    # detection in detect_conflicts() handles same-location changes reliably.
 
     return conflicts
 
