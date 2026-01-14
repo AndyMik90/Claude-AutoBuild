@@ -7,6 +7,11 @@
     "terminalTitle": "Auth: {{profileName}}",
     "maxTerminalsReached": "Cannot open auth terminal: maximum terminals reached. Close a terminal first."
   },
+  "npmScripts": {
+    "title": "npm scripts",
+    "noPackageJson": "No package.json found",
+    "noScripts": "No scripts defined"
+  },
   "worktree": {
     "create": "Worktree",
     "createNew": "New Worktree",

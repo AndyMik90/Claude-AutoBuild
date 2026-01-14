@@ -106,6 +106,46 @@ export function registerTerminalHandlers(
     }
   );
 
+  // ============================================
+  // NPM Script Operations
+  // ============================================
+
+  // Get npm scripts from package.json
+  ipcMain.handle(
+    IPC_CHANNELS.TERMINAL_GET_NPM_SCRIPTS,
+    async (_, cwd: string): Promise<IPCResult<Record<string, string>>> => {
+      try {
+        const { readFile } = await import('fs/promises');
+        const { join } = await import('path');
+        const packageJsonPath = join(cwd, 'package.json');
+
+        const content = await readFile(packageJsonPath, 'utf-8');
+        const packageJson = JSON.parse(content);
+        const scripts = packageJson.scripts || {};
+
+        return { success: true, data: scripts };
+      } catch (error) {
+        // Not an error if package.json doesn't exist
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          return { success: true, data: {} };
+        }
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to read package.json'
+        };
+      }
+    }
+  );
+
+  // Run npm script in terminal
+  ipcMain.on(
+    IPC_CHANNELS.TERMINAL_RUN_NPM_SCRIPT,
+    (_, id: string, scriptName: string) => {
+      const command = `npm run ${scriptName}\r`;
+      terminalManager.write(id, command);
+    }
+  );
+
   // Claude profile management (multi-account support)
   ipcMain.handle(
     IPC_CHANNELS.CLAUDE_PROFILES_GET,

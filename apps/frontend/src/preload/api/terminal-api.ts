@@ -65,6 +65,10 @@ export interface TerminalAPI {
   listTerminalWorktrees: (projectPath: string) => Promise<IPCResult<TerminalWorktreeConfig[]>>;
   removeTerminalWorktree: (projectPath: string, name: string, deleteBranch?: boolean) => Promise<IPCResult>;
 
+  // NPM Script Operations
+  getNpmScripts: (cwd: string) => Promise<IPCResult<Record<string, string>>>;
+  runNpmScript: (terminalId: string, scriptName: string) => void;
+
   // Terminal Event Listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;
@@ -179,6 +183,13 @@ export const createTerminalAPI = (): TerminalAPI => ({
 
   removeTerminalWorktree: (projectPath: string, name: string, deleteBranch: boolean = false): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_WORKTREE_REMOVE, projectPath, name, deleteBranch),
+
+  // NPM Script Operations
+  getNpmScripts: (cwd: string): Promise<IPCResult<Record<string, string>>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_GET_NPM_SCRIPTS, cwd),
+
+  runNpmScript: (terminalId: string, scriptName: string): void =>
+    ipcRenderer.send(IPC_CHANNELS.TERMINAL_RUN_NPM_SCRIPT, terminalId, scriptName),
 
   // Terminal Event Listeners
   onTerminalOutput: (

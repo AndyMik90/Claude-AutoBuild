@@ -9,6 +9,7 @@ import { STATUS_COLORS } from './types';
 import { TerminalTitle } from './TerminalTitle';
 import { TaskSelector } from './TaskSelector';
 import { WorktreeSelector } from './WorktreeSelector';
+import { NpmScriptSelector } from './NpmScriptSelector';
 
 interface TerminalHeaderProps {
   terminalId: string;
@@ -159,6 +160,15 @@ export function TerminalHeader({
             <ExternalLink className="h-3 w-3" />
             {terminalCount < 4 && t('terminal:worktree.openInIDE')}
           </Button>
+        )}
+        {/* NPM Scripts dropdown - show when not in Claude mode and terminal is running */}
+        {!isClaudeMode && status !== 'exited' && projectPath && (
+          <NpmScriptSelector
+            terminalId={terminalId}
+            projectPath={projectPath}
+            terminalCount={terminalCount}
+            disabled={false}
+          />
         )}
         {!isClaudeMode && status !== 'exited' && (
           <Button
