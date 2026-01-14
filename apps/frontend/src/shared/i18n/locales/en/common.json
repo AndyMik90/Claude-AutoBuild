@@ -499,5 +499,29 @@
     "byPriority": "By Priority",
     "insight": "Insight",
     "impact": "impact"
+  },
+  "changelog": {
+    "list": {
+      "tasksSelected": "{{selected}} of {{total}} tasks selected",
+      "selectAll": "Select All",
+      "clear": "Clear",
+      "noCompletedTasks": "No Completed Tasks",
+      "noCompletedTasksDesc": "Complete tasks in the Kanban board and mark them as \"Done\" to include them in your changelog.",
+      "commitsFound": "{{count}} commit",
+      "commitsFound_plural": "{{count}} commits",
+      "loadingCommits": "Loading commits...",
+      "noCommitsFound": "No Commits Found",
+      "noCommitsFoundGitHistory": "Configure the history options and click \"Load Commits\" to preview.",
+      "noCommitsFoundBranchDiff": "Select both branches and click \"Load Commits\" to see the changes.",
+      "continue": "Continue",
+      "task": "task",
+      "commit": "commit",
+      "item": "item"
+    },
+    "step3": {
+      "saved": "Changelog Saved!",
+      "savedDesc": "Version {{tag}} has been added to CHANGELOG.md",
+      "done": "Done"
+    }
   }
 }

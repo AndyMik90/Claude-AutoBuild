@@ -494,5 +494,28 @@
     "byPriority": "按优先级",
     "insight": "洞察",
     "impact": "影响"
+  },
+  "changelog": {
+    "list": {
+      "tasksSelected": "已选择 {{selected}} / {{total}} 个任务",
+      "selectAll": "全选",
+      "clear": "清除",
+      "noCompletedTasks": "无已完成任务",
+      "noCompletedTasksDesc": "在看板上完成任务并将其标记为「完成」，以便将其包含在您的更新日志中。",
+      "commitsFound": "找到 {{count}} 个提交",
+      "loadingCommits": "加载提交中...",
+      "noCommitsFound": "未找到提交",
+      "noCommitsFoundGitHistory": "配置历史选项并点击「加载提交」以预览。",
+      "noCommitsFoundBranchDiff": "选择两个分支并点击「加载提交」以查看更改。",
+      "continue": "继续",
+      "task": "任务",
+      "commit": "提交",
+      "item": "项目"
+    },
+    "step3": {
+      "saved": "更新日志已保存！",
+      "savedDesc": "版本 {{tag}} 已添加到 CHANGELOG.md",
+      "done": "完成"
+    }
   }
 }

@@ -499,5 +499,29 @@
     "byPriority": "Par priorité",
     "insight": "Perspective",
     "impact": "impact"
+  },
+  "changelog": {
+    "list": {
+      "tasksSelected": "{{selected}} sur {{total}} tâches sélectionnées",
+      "selectAll": "Tout sélectionner",
+      "clear": "Effacer",
+      "noCompletedTasks": "Aucune tâche terminée",
+      "noCompletedTasksDesc": "Complétez des tâches dans le tableau Kanban et marquez-les comme « Terminé » pour les inclure dans votre changelog.",
+      "commitsFound": "{{count}} commit",
+      "commitsFound_plural": "{{count}} commits",
+      "loadingCommits": "Chargement des commits...",
+      "noCommitsFound": "Aucun commit trouvé",
+      "noCommitsFoundGitHistory": "Configurez les options d'historique et cliquez sur « Charger les commits » pour prévisualiser.",
+      "noCommitsFoundBranchDiff": "Sélectionnez les deux branches et cliquez sur « Charger les commits » pour voir les modifications.",
+      "continue": "Continuer",
+      "task": "tâche",
+      "commit": "commit",
+      "item": "élément"
+    },
+    "step3": {
+      "saved": "Changelog enregistré !",
+      "savedDesc": "La version {{tag}} a été ajoutée à CHANGELOG.md",
+      "done": "Terminé"
+    }
   }
 }
