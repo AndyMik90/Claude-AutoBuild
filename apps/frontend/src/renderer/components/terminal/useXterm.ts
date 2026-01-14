@@ -49,7 +49,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       cursorBlink: true,
       cursorStyle: 'block',
       fontSize: 13,
-      fontFamily: 'var(--font-mono), "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+      fontFamily: '"JetBrains Mono", "MesloLGS NF", var(--font-mono), Menlo, Monaco, monospace',
       lineHeight: 1.2,
       letterSpacing: 0,
       theme: {
