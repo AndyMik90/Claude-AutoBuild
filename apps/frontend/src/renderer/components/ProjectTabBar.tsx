@@ -97,10 +97,11 @@ export function ProjectTabBar({
 
   return (
     <div className={cn(
-      'flex items-center border-b border-border bg-background',
+      'flex items-center justify-between border-b border-border bg-background',
       'overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent',
       className
     )}>
+      {/* Left side: Project tabs + Add Project button */}
       <div className="flex items-center gap-2 px-2 min-w-0">
         {projects.map((project, index) => {
           const isActiveTab = activeProjectId === project.id;
@@ -122,7 +123,28 @@ export function ProjectTabBar({
           );
         })}
 
-        <UsageIndicator className="flex-shrink-0" />
+        {/* Add project button with tooltip - stays next to tabs */}
+        <Tooltip delayDuration={200}>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 flex-shrink-0"
+              onClick={onAddProject}
+              aria-label={t('projectTab.addProjectAriaLabel')}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <span>{t('projectTab.addNewProject')}</span>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+
+      {/* Right side: Usage indicator + Refresh + Show Archived - anchored to right */}
+      <div className="flex items-center gap-2 px-2 flex-shrink-0">
+        <UsageIndicator />
 
         {/* Refresh button */}
         {onRefresh && (
@@ -140,7 +162,7 @@ export function ProjectTabBar({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <span>{t('kanban.refreshTasks')}</span>
+              <span>{t('projectTab.refreshTasks')}</span>
             </TooltipContent>
           </Tooltip>
         )}
@@ -172,24 +194,6 @@ export function ProjectTabBar({
             </TooltipContent>
           </Tooltip>
         )}
-
-        {/* Add project button with tooltip */}
-        <Tooltip delayDuration={200}>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 flex-shrink-0"
-              onClick={onAddProject}
-              aria-label={t('projectTab.addProjectAriaLabel')}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <span>{t('projectTab.addNewProject')}</span>
-          </TooltipContent>
-        </Tooltip>
       </div>
     </div>
   );
