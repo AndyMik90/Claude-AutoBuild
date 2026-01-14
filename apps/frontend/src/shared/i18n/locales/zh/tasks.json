@@ -133,7 +133,27 @@
   },
   "notifications": {
     "backgroundTaskTitle": "任务在后台继续",
-    "backgroundTaskDescription": "任务仍在运行。您可以重新打开此对话框以监控进度。"
+    "backgroundTaskDescription": "任务仍在运行。您可以重新打开此对话框以监控进度。",
+    "cannotResumeTask": "无法继续任务",
+    "failedToLoadPlan": "加载实施计划失败。请重试或检查任务文件。"
+  },
+  "tabs": {
+    "overview": "概览",
+    "subtasks": "子任务",
+    "logs": "日志"
+  },
+  "actions": {
+    "loadingPlan": "加载计划中...",
+    "close": "关闭",
+    "recovering": "恢复中...",
+    "deletePermanently": "永久删除"
+  },
+  "errors": {
+    "deleteFailed": "删除任务失败",
+    "changesStaged": "更改已暂存到主项目",
+    "mergeFailed": "合并更改失败",
+    "unknownMergeError": "合并期间发生未知错误",
+    "discardFailed": "放弃更改失败"
   },
   "feedback": {
     "dragDropHint": "拖放图片或粘贴截图",

@@ -133,7 +133,27 @@
   },
   "notifications": {
     "backgroundTaskTitle": "Task continues in background",
-    "backgroundTaskDescription": "The task is still running. You can reopen this dialog to monitor progress."
+    "backgroundTaskDescription": "The task is still running. You can reopen this dialog to monitor progress.",
+    "cannotResumeTask": "Cannot Resume Task",
+    "failedToLoadPlan": "Failed to load implementation plan. Please try again or check the task files."
+  },
+  "tabs": {
+    "overview": "Overview",
+    "subtasks": "Subtasks",
+    "logs": "Logs"
+  },
+  "actions": {
+    "loadingPlan": "Loading Plan...",
+    "close": "Close",
+    "recovering": "Recovering...",
+    "deletePermanently": "Delete Permanently"
+  },
+  "errors": {
+    "deleteFailed": "Failed to delete task",
+    "changesStaged": "Changes staged in main project",
+    "mergeFailed": "Failed to merge changes",
+    "unknownMergeError": "Unknown error during merge",
+    "discardFailed": "Failed to discard changes"
   },
   "wizard": {
     "createTitle": "Create New Task",

@@ -133,7 +133,27 @@
   },
   "notifications": {
     "backgroundTaskTitle": "La tâche continue en arrière-plan",
-    "backgroundTaskDescription": "La tâche est toujours en cours. Vous pouvez rouvrir cette boîte de dialogue pour suivre la progression."
+    "backgroundTaskDescription": "La tâche est toujours en cours. Vous pouvez rouvrir cette boîte de dialogue pour suivre la progression.",
+    "cannotResumeTask": "Impossible de reprendre la tâche",
+    "failedToLoadPlan": "Échec du chargement du plan d'implémentation. Veuillez réessayer ou vérifier les fichiers de la tâche."
+  },
+  "tabs": {
+    "overview": "Aperçu",
+    "subtasks": "Sous-tâches",
+    "logs": "Journaux"
+  },
+  "actions": {
+    "loadingPlan": "Chargement du plan...",
+    "close": "Fermer",
+    "recovering": "Récupération...",
+    "deletePermanently": "Supprimer définitivement"
+  },
+  "errors": {
+    "deleteFailed": "Échec de la suppression de la tâche",
+    "changesStaged": "Modifications préparées dans le projet principal",
+    "mergeFailed": "Échec de la fusion des modifications",
+    "unknownMergeError": "Erreur inconnue lors de la fusion",
+    "discardFailed": "Échec de l'abandon des modifications"
   },
   "wizard": {
     "createTitle": "Créer une nouvelle tâche",
