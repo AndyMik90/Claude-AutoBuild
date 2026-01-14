@@ -144,7 +144,7 @@ export class AgentProcessManager {
     // Common issue: Claude CLI installed via Homebrew at /opt/homebrew/bin/claude (macOS)
     // or other non-standard locations not in subprocess PATH when app launches from Finder/Dock
     const claudeCliEnv: Record<string, string> = {};
-    if (!process.env.CLADE_CLI_PATH) {
+    if (!process.env.CLAUDE_CLI_PATH) {
       try {
         const claudeInfo = getToolInfo('claude');
         if (claudeInfo.found && claudeInfo.path) {
