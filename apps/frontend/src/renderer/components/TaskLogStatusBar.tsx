@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Terminal, ChevronRight, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTaskStore } from '../stores/task-store';
+import { useProjectStore } from '../stores/project-store';
 
 const CYCLE_INTERVAL = 3000; // Cycle through tasks every 3 seconds
 const MAX_LOG_LENGTH = 200; // Truncate long log lines
@@ -9,47 +10,78 @@ const MAX_LOG_LENGTH = 200; // Truncate long log lines
 function cleanLogContent(content: string): string {
   return content
     .replace(/\x1b\[[0-9;]*m/g, '') // Remove ANSI codes
+    .replace(/__TASK_LOG[^:]*:[^\n]*/g, '') // Remove task log markers
     .replace(/\n/g, ' ') // Replace newlines with spaces
     .trim()
     .substring(0, MAX_LOG_LENGTH);
 }
 
-function getLatestLogContent(task: {
-  logs?: string[];
-  executionProgress?: { message?: string; currentSubtask?: string }
-}): string {
-  // First try executionProgress
-  if (task.executionProgress?.message) {
-    return cleanLogContent(task.executionProgress.message);
-  }
-  if (task.executionProgress?.currentSubtask) {
-    return cleanLogContent(task.executionProgress.currentSubtask);
-  }
-
-  // Then try logs array
-  if (task.logs && task.logs.length > 0) {
-    // Get the last meaningful log line
-    for (let i = task.logs.length - 1; i >= 0; i--) {
-      const log = task.logs[i].trim();
-      if (log && log.length > 10) {
-        return cleanLogContent(log);
-      }
-    }
-    return cleanLogContent(task.logs[task.logs.length - 1] || '');
-  }
-
-  return 'Processing...';
-}
-
 export function TaskLogStatusBar() {
   const tasks = useTaskStore((state) => state.tasks);
+  const activeProjectId = useProjectStore((state) => state.activeProjectId);
+  const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
+  const projectId = activeProjectId || selectedProjectId;
+
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [streamingLogs, setStreamingLogs] = useState<Map<string, string>>(new Map());
+  const lastLogRef = useRef<string>('');
 
   // Memoize running tasks to prevent infinite re-renders
   const runningTasks = useMemo(
     () => tasks.filter((t) => t.status === 'in_progress'),
     [tasks]
   );
+
+  // Subscribe to streaming logs for all running tasks
+  useEffect(() => {
+    if (runningTasks.length === 0) return;
+
+    // Listen for streaming log chunks
+    const cleanup = window.electronAPI.onTaskLogsStream((specId, chunk) => {
+      // Parse chunk to extract meaningful content
+      let content = chunk;
+
+      // Try to parse as JSON log entry
+      try {
+        if (chunk.includes('"content"')) {
+          const match = chunk.match(/"content"\s*:\s*"([^"]+)"/);
+          if (match) {
+            content = match[1];
+          }
+        }
+      } catch {
+        // Use raw chunk
+      }
+
+      const cleaned = cleanLogContent(content);
+      if (cleaned && cleaned.length > 5 && cleaned !== lastLogRef.current) {
+        lastLogRef.current = cleaned;
+        setStreamingLogs((prev) => {
+          const next = new Map(prev);
+          next.set(specId, cleaned);
+          return next;
+        });
+      }
+    });
+
+    // Start watching logs for each running task
+    const watchCleanups: (() => void)[] = [];
+    for (const task of runningTasks) {
+      if (projectId && task.specId) {
+        window.electronAPI.watchTaskLogs(projectId, task.specId).catch(() => {
+          // Ignore errors - task may have finished
+        });
+        watchCleanups.push(() => {
+          window.electronAPI.unwatchTaskLogs(task.specId!).catch(() => {});
+        });
+      }
+    }
+
+    return () => {
+      cleanup();
+      watchCleanups.forEach((fn) => fn());
+    };
+  }, [runningTasks, projectId]);
 
   // Reset index when running tasks change
   useEffect(() => {
@@ -74,8 +106,8 @@ export function TaskLogStatusBar() {
   // No running tasks - show idle state
   if (runningTasks.length === 0) {
     return (
-      <div className="h-7 bg-muted/50 border-t border-border flex items-center px-3 gap-2">
-        <Terminal className="h-3.5 w-3.5 text-muted-foreground/50" />
+      <div className="h-9 bg-muted/50 border-t border-border flex items-center px-3 gap-2">
+        <Terminal className="h-4 w-4 text-muted-foreground/50" />
         <span className="text-xs text-muted-foreground/50 font-mono">
           No active tasks
         </span>
@@ -85,13 +117,17 @@ export function TaskLogStatusBar() {
 
   // Get current task to display
   const currentTask = runningTasks[currentIndex % runningTasks.length];
-  const logContent = getLatestLogContent(currentTask);
+
+  // Get log content: streaming > executionProgress > fallback
+  const streamingLog = streamingLogs.get(currentTask.specId || '');
+  const progressMessage = currentTask.executionProgress?.message || currentTask.executionProgress?.currentSubtask;
+  const logContent = streamingLog || (progressMessage ? cleanLogContent(progressMessage) : 'Processing...');
 
   return (
-    <div className="h-7 bg-muted/50 border-t border-border flex items-center px-3 gap-2 overflow-hidden">
+    <div className="h-9 bg-muted/50 border-t border-border flex items-center px-3 gap-2 overflow-hidden">
       {/* Activity indicator */}
       <div className="flex items-center gap-1.5 shrink-0">
-        <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+        <Loader2 className="h-4 w-4 text-primary animate-spin" />
         {runningTasks.length > 1 && (
           <span className="text-[10px] text-muted-foreground tabular-nums">
             {currentIndex + 1}/{runningTasks.length}
@@ -114,7 +150,7 @@ export function TaskLogStatusBar() {
             "text-xs font-mono text-muted-foreground truncate",
             "animate-in fade-in slide-in-from-right-2 duration-300"
           )}
-          key={`${currentTask.id}-${logContent.substring(0, 20)}`}
+          key={`${currentTask.id}-${logContent.substring(0, 30)}`}
         >
           {logContent}
         </p>
