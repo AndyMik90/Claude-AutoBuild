@@ -15,7 +15,7 @@ if str(_PARENT_DIR) not in sys.path:
     sys.path.insert(0, str(_PARENT_DIR))
 
 from progress import count_subtasks
-from qa_loop import (
+from qa import (
     is_qa_approved,
     print_qa_status,
     run_qa_validation_loop,

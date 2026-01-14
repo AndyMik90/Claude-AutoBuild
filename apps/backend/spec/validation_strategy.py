@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from risk_classifier import RiskClassifier
+from analysis.risk_classifier import RiskClassifier
 
 # =============================================================================
 # DATA CLASSES

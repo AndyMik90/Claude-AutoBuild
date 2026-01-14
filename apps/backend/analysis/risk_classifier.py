@@ -10,7 +10,7 @@ This module serves as the bridge between the AI complexity assessor prompt
 and the rest of the validation system.
 
 Usage:
-    from risk_classifier import RiskClassifier
+    from analysis.risk_classifier import RiskClassifier
 
     classifier = RiskClassifier()
     assessment = classifier.load_assessment(spec_dir)

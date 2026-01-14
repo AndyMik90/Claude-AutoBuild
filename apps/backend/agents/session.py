@@ -20,7 +20,7 @@ from progress import (
     count_subtasks_detailed,
     is_build_complete,
 )
-from recovery import RecoveryManager
+from services.recovery import RecoveryManager
 from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
     LogEntryType,

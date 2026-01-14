@@ -88,7 +88,7 @@ def handle_build_command(
     )
     from phase_config import get_phase_model
     from prompts_pkg.prompts import get_base_branch_from_metadata
-    from qa_loop import run_qa_validation_loop, should_run_qa
+    from qa import run_qa_validation_loop, should_run_qa
 
     from .utils import print_banner, validate_environment
 
