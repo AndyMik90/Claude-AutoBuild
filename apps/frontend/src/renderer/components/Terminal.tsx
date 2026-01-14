@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo, type DragEvent } from 'react';
 import { useDroppable, useDndContext } from '@dnd-kit/core';
 import '@xterm/xterm/css/xterm.css';
 import { FileDown } from 'lucide-react';
@@ -72,8 +72,52 @@ export function Terminal({
   // Check if a terminal is being dragged (vs a file)
   const { active } = useDndContext();
   const isDraggingTerminal = active?.data.current?.type === 'terminal-panel';
-  // Only show file drop overlay when dragging files, not terminals
-  const showFileDropOverlay = isOver && !isDraggingTerminal;
+
+  // Native HTML5 drag state for files dragged from FileTreeItem
+  // This is needed because FileTreeItem uses native HTML5 drag events,
+  // not @dnd-kit, so we must handle native drop events separately
+  const [isNativeDragOver, setIsNativeDragOver] = useState(false);
+
+  // Handle native drag over (for files from FileTreeItem)
+  const handleNativeDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    // Check if it's a file reference drag (from FileTreeItem)
+    if (e.dataTransfer.types.includes('application/json')) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsNativeDragOver(true);
+    }
+  }, []);
+
+  // Handle native drag leave
+  const handleNativeDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsNativeDragOver(false);
+  }, []);
+
+  // Handle native drop (for files from FileTreeItem)
+  const handleNativeDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+    setIsNativeDragOver(false);
+    const jsonData = e.dataTransfer.getData('application/json');
+    if (jsonData) {
+      try {
+        const data = JSON.parse(jsonData) as { type?: string; path?: string };
+        if (data.type === 'file-reference' && data.path) {
+          e.preventDefault();
+          e.stopPropagation();
+          // Quote the path if it contains spaces
+          const quotedPath = data.path.includes(' ') ? `"${data.path}"` : data.path;
+          // Insert the file path into the terminal with a trailing space
+          window.electronAPI.sendTerminalInput(id, quotedPath + ' ');
+        }
+      } catch {
+        // Failed to parse drag data, ignore
+      }
+    }
+  }, [id]);
+
+  // Only show file drop overlay when dragging files (via @dnd-kit or native), not terminals
+  const showFileDropOverlay = (isOver && !isDraggingTerminal) || isNativeDragOver;
 
   // Auto-naming functionality
   const { handleCommandEnter, cleanup: cleanupAutoNaming } = useAutoNaming({
@@ -359,6 +403,9 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
         showClaudeBusyIndicator && !isClaudeBusy && 'border-green-500/60 ring-1 ring-green-500/20'
       )}
       onClick={handleClick}
+      onDragOver={handleNativeDragOver}
+      onDragLeave={handleNativeDragLeave}
+      onDrop={handleNativeDrop}
     >
       {showFileDropOverlay && (
         <div className="absolute inset-0 bg-info/10 z-10 flex items-center justify-center pointer-events-none">

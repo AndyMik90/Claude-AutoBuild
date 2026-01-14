@@ -292,13 +292,25 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     }
   }, [task.id]);
 
-  // Load merge preview (conflict detection)
+  // Load merge preview (conflict detection) and refresh worktree status
   const loadMergePreview = useCallback(async () => {
     setIsLoadingPreview(true);
     try {
-      const result = await window.electronAPI.mergeWorktreePreview(task.id);
-      if (result.success && result.data?.preview) {
-        setMergePreview(result.data.preview);
+      // Fetch both merge preview and updated worktree status in parallel
+      // This ensures the branch information (currentProjectBranch) is refreshed
+      // when the user clicks the refresh button after switching branches locally
+      const [previewResult, statusResult] = await Promise.all([
+        window.electronAPI.mergeWorktreePreview(task.id),
+        window.electronAPI.getWorktreeStatus(task.id)
+      ]);
+
+      if (previewResult.success && previewResult.data?.preview) {
+        setMergePreview(previewResult.data.preview);
+      }
+
+      // Update worktree status with fresh branch information
+      if (statusResult.success && statusResult.data) {
+        setWorktreeStatus(statusResult.data);
       }
     } catch (err) {
       console.error('[useTaskDetail] Failed to load merge preview:', err);

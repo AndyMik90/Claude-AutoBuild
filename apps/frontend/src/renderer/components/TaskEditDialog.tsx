@@ -26,12 +26,13 @@
  * />
  * ```
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
+import { type FileReferenceData } from './task-form/useImageUpload';
 import { persistUpdateTask } from '../stores/task-store';
 import type { Task, ImageAttachment, TaskCategory, TaskPriority, TaskComplexity, TaskImpact, ModelType, ThinkingLevel } from '../../shared/types';
 import {
@@ -162,6 +163,16 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     }
   }, [open, task, settings.selectedAgentProfile, selectedProfile.model, selectedProfile.thinkingLevel, selectedProfile.phaseModels, selectedProfile.phaseThinking]);
 
+  /**
+   * Handle file reference drop from FileTreeItem drag
+   * Appends @filename to the end of the description (no textarea ref in edit dialog)
+   */
+  const handleFileReferenceDrop = useCallback((reference: string, _data: FileReferenceData) => {
+    // Append to description (no textarea ref available in edit dialog)
+    const separator = description.endsWith(' ') || description === '' ? '' : ' ';
+    setDescription(description + separator + reference + ' ');
+  }, [description, setDescription]);
+
   const handleSave = async () => {
     // Validate input
     if (!description.trim()) {
@@ -290,6 +301,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         disabled={isSaving}
         error={error}
         onError={setError}
+        onFileReferenceDrop={handleFileReferenceDrop}
         idPrefix="edit"
       />
     </TaskModalLayout>

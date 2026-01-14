@@ -10,7 +10,7 @@
  * - File explorer drawer sidebar
  * - Git branch selection options
  */
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch, Info } from 'lucide-react';
 import { Button } from './ui/button';
@@ -24,6 +24,7 @@ import {
 } from './ui/select';
 import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
+import { type FileReferenceData } from './task-form/useImageUpload';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { FileAutocomplete } from './FileAutocomplete';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
@@ -292,6 +293,34 @@ export function TaskCreationWizard({
       textarea.setSelectionRange(newCursorPos, newCursorPos);
     });
   }, [autocomplete, description]);
+
+  /**
+   * Handle file reference drop from FileTreeItem drag
+   * Inserts @filename at cursor position or end of description
+   */
+  const handleFileReferenceDrop = useCallback((reference: string, _data: FileReferenceData) => {
+    // Insert reference at cursor position if textarea is available
+    const textarea = descriptionRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart ?? description.length;
+      const end = textarea.selectionEnd ?? description.length;
+      const newDescription =
+        description.substring(0, start) +
+        reference + ' ' +
+        description.substring(end);
+      handleDescriptionChange(newDescription);
+      // Focus textarea and set cursor after inserted text
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = start + reference.length + 1;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+    } else {
+      // Fallback: append to end
+      const separator = description.endsWith(' ') || description === '' ? '' : ' ';
+      handleDescriptionChange(description + separator + reference + ' ');
+    }
+  }, [description, handleDescriptionChange]);
 
   /**
    * Parse @mentions from description
@@ -574,6 +603,7 @@ export function TaskCreationWizard({
           disabled={isCreating}
           error={error}
           onError={setError}
+          onFileReferenceDrop={handleFileReferenceDrop}
           idPrefix="create"
         >
           {/* File autocomplete popup - positioned relative to TaskFormFields */}
