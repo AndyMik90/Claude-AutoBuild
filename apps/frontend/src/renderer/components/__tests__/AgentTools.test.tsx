@@ -6,7 +6,7 @@
  * Specifically tests agent profile resolution for phase-based and feature-based agents
  */
 import { describe, it, expect, vi } from 'vitest';
-import { DEFAULT_AGENT_PROFILES, DEFAULT_PHASE_MODELS } from '../../../shared/constants/models';
+import { DEFAULT_AGENT_PROFILES, DEFAULT_PHASE_MODELS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../../shared/constants/models';
 
 // Mock electronAPI
 global.window.electronAPI = {
@@ -160,29 +160,45 @@ describe('AgentTools - Agent Profile Resolution', () => {
   describe('Agent Settings Resolution', () => {
     // Simulate the resolveAgentSettings function logic
     function resolveAgentSettings(
-      settingsSource: { type: 'phase'; phase: 'spec' | 'planning' | 'coding' | 'qa' } | { type: 'feature'; feature: 'insights' | 'ideation' | 'roadmap' | 'githubIssues' | 'githubPrs' | 'utility' },
+      settingsSource: { type: 'phase'; phase: 'spec' | 'planning' | 'coding' | 'qa' } | { type: 'feature'; feature: 'insights' | 'ideation' | 'roadmap' | 'githubIssues' | 'githubPrs' | 'utility' } | { type: 'fixed'; model: string; thinking: string },
       phaseModels: { spec: string; planning: string; coding: string; qa: string },
-      phaseThinking: { spec: string; planning: string; coding: string; qa: string }
+      phaseThinking: { spec: string; planning: string; coding: string; qa: string },
+      featureModels: { insights: string; ideation: string; roadmap: string; githubIssues: string; githubPrs: string; utility: string },
+      featureThinking: { insights: string; ideation: string; roadmap: string; githubIssues: string; githubPrs: string; utility: string }
     ) {
       if (settingsSource.type === 'phase') {
         return {
           model: phaseModels[settingsSource.phase],
           thinking: phaseThinking[settingsSource.phase],
         };
+      } else if (settingsSource.type === 'feature') {
+        return {
+          model: featureModels[settingsSource.feature],
+          thinking: featureThinking[settingsSource.feature],
+        };
+      } else {
+        // Fixed settings
+        return {
+          model: settingsSource.model,
+          thinking: settingsSource.thinking,
+        };
       }
-      return { model: 'sonnet', thinking: 'medium' };
     }
 
     it('should resolve phase-based agent settings correctly', () => {
       const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
       const phaseModels = profile.phaseModels!;
       const phaseThinking = profile.phaseThinking!;
+      const featureModels = DEFAULT_FEATURE_MODELS;
+      const featureThinking = DEFAULT_FEATURE_THINKING;
 
       // Spec phase agent
       const specAgent = resolveAgentSettings(
         { type: 'phase', phase: 'spec' },
         phaseModels,
-        phaseThinking
+        phaseThinking,
+        featureModels,
+        featureThinking
       );
       expect(specAgent.model).toBe('opus');
       expect(specAgent.thinking).toBe('ultrathink');
@@ -191,7 +207,9 @@ describe('AgentTools - Agent Profile Resolution', () => {
       const planningAgent = resolveAgentSettings(
         { type: 'phase', phase: 'planning' },
         phaseModels,
-        phaseThinking
+        phaseThinking,
+        featureModels,
+        featureThinking
       );
       expect(planningAgent.model).toBe('opus');
       expect(planningAgent.thinking).toBe('high');
@@ -200,7 +218,9 @@ describe('AgentTools - Agent Profile Resolution', () => {
       const codingAgent = resolveAgentSettings(
         { type: 'phase', phase: 'coding' },
         phaseModels,
-        phaseThinking
+        phaseThinking,
+        featureModels,
+        featureThinking
       );
       expect(codingAgent.model).toBe('opus');
       expect(codingAgent.thinking).toBe('low');
@@ -209,10 +229,103 @@ describe('AgentTools - Agent Profile Resolution', () => {
       const qaAgent = resolveAgentSettings(
         { type: 'phase', phase: 'qa' },
         phaseModels,
-        phaseThinking
+        phaseThinking,
+        featureModels,
+        featureThinking
       );
       expect(qaAgent.model).toBe('opus');
       expect(qaAgent.thinking).toBe('low');
+    });
+
+    it('should resolve feature-based agent settings correctly', () => {
+      const phaseModels = DEFAULT_PHASE_MODELS;
+      const phaseThinking = { spec: 'medium' as const, planning: 'medium' as const, coding: 'medium' as const, qa: 'medium' as const };
+      const featureModels = DEFAULT_FEATURE_MODELS;
+      const featureThinking = DEFAULT_FEATURE_THINKING;
+
+      // Insights feature agent (defaults to sonnet)
+      const insightsAgent = resolveAgentSettings(
+        { type: 'feature', feature: 'insights' },
+        phaseModels,
+        phaseThinking,
+        featureModels,
+        featureThinking
+      );
+      expect(insightsAgent.model).toBe('sonnet');
+      expect(insightsAgent.thinking).toBe('medium');
+
+      // Ideation feature agent (defaults to opus)
+      const ideationAgent = resolveAgentSettings(
+        { type: 'feature', feature: 'ideation' },
+        phaseModels,
+        phaseThinking,
+        featureModels,
+        featureThinking
+      );
+      expect(ideationAgent.model).toBe('opus');
+      expect(ideationAgent.thinking).toBe('high');
+
+      // Roadmap feature agent (defaults to opus)
+      const roadmapAgent = resolveAgentSettings(
+        { type: 'feature', feature: 'roadmap' },
+        phaseModels,
+        phaseThinking,
+        featureModels,
+        featureThinking
+      );
+      expect(roadmapAgent.model).toBe('opus');
+      expect(roadmapAgent.thinking).toBe('high');
+
+      // GitHub Issues feature agent (defaults to opus)
+      const githubIssuesAgent = resolveAgentSettings(
+        { type: 'feature', feature: 'githubIssues' },
+        phaseModels,
+        phaseThinking,
+        featureModels,
+        featureThinking
+      );
+      expect(githubIssuesAgent.model).toBe('opus');
+      expect(githubIssuesAgent.thinking).toBe('medium');
+
+      // GitHub PRs feature agent (defaults to opus)
+      const githubPrsAgent = resolveAgentSettings(
+        { type: 'feature', feature: 'githubPrs' },
+        phaseModels,
+        phaseThinking,
+        featureModels,
+        featureThinking
+      );
+      expect(githubPrsAgent.model).toBe('opus');
+      expect(githubPrsAgent.thinking).toBe('medium');
+
+      // Utility feature agent (defaults to haiku)
+      const utilityAgent = resolveAgentSettings(
+        { type: 'feature', feature: 'utility' },
+        phaseModels,
+        phaseThinking,
+        featureModels,
+        featureThinking
+      );
+      expect(utilityAgent.model).toBe('haiku');
+      expect(utilityAgent.thinking).toBe('low');
+    });
+
+    it('should resolve fixed settings correctly', () => {
+      const phaseModels = DEFAULT_PHASE_MODELS;
+      const phaseThinking = { spec: 'medium' as const, planning: 'medium' as const, coding: 'medium' as const, qa: 'medium' as const };
+      const featureModels = DEFAULT_FEATURE_MODELS;
+      const featureThinking = DEFAULT_FEATURE_THINKING;
+
+      // Fixed settings agent
+      const fixedAgent = resolveAgentSettings(
+        { type: 'fixed', model: 'opus', thinking: 'high' },
+        phaseModels,
+        phaseThinking,
+        featureModels,
+        featureThinking
+      );
+      expect(fixedAgent.model).toBe('opus');
+      expect(fixedAgent.thinking).toBe('high');
     });
   });
 
