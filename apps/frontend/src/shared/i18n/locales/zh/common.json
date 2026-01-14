@@ -527,8 +527,12 @@
       "continue": "继续",
       "task": "任务",
       "commit": "提交",
-      "item": "项目"
+      "item": "项目",
+      "hasSpecs": "有规格说明",
+      "files": "{{count}} 个文件"
     },
+    "noProjectSelected": "未选择项目",
+    "selectProjectDescription": "从侧边栏选择一个项目以生成更新日志。",
     "header": {
       "title": "更新日志生成器",
       "step1": "步骤 1：选择要包含的已完成任务",

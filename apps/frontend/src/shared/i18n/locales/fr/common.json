@@ -533,8 +533,13 @@
       "continue": "Continuer",
       "task": "tâche",
       "commit": "commit",
-      "item": "élément"
+      "item": "élément",
+      "hasSpecs": "A des specs",
+      "files": "{{count}} fichier",
+      "files_plural": "{{count}} fichiers"
     },
+    "noProjectSelected": "Aucun projet sélectionné",
+    "selectProjectDescription": "Sélectionnez un projet dans la barre latérale pour générer des changelogs.",
     "header": {
       "title": "Générateur de Changelog",
       "step1": "Étape 1 : Sélectionner les tâches terminées à inclure",

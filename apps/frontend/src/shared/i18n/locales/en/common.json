@@ -533,8 +533,13 @@
       "continue": "Continue",
       "task": "task",
       "commit": "commit",
-      "item": "item"
+      "item": "item",
+      "hasSpecs": "Has Specs",
+      "files": "{{count}} file",
+      "files_plural": "{{count}} files"
     },
+    "noProjectSelected": "No Project Selected",
+    "selectProjectDescription": "Select a project from the sidebar to generate changelogs.",
     "header": {
       "title": "Changelog Generator",
       "step1": "Step 1: Select completed tasks to include",
