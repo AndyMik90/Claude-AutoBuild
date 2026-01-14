@@ -130,7 +130,6 @@ export function getWindowsShellPaths(): Record<string, string[]> {
     return {};
   }
 
-  const homeDir = os.homedir();
   const systemRoot = process.env.SystemRoot || 'C:\\Windows';
 
   return {

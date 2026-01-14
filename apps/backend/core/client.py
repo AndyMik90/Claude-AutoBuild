@@ -26,7 +26,6 @@ from typing import Any
 from core.platform import (
     is_windows,
     is_macos,
-    get_claude_detection_paths,
     get_comspec_path,
     validate_cli_path,
 )

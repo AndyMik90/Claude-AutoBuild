@@ -7,9 +7,8 @@ different operating systems.
 
 import os
 import sys
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # Add backend to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'apps', 'backend'))
@@ -25,12 +24,10 @@ from core.platform import (
     with_executable_extension,
     get_binary_directories,
     get_homebrew_path,
-    find_executable,
     get_claude_detection_paths,
     get_python_commands,
     validate_cli_path,
     requires_shell,
-    get_comspec_path,
     build_windows_command,
     get_env_var,
     get_platform_description,

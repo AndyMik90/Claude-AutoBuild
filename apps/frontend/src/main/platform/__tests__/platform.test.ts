@@ -5,10 +5,8 @@
  * different operating systems.
  */
 
-import { describe, test, expect, beforeEach, afterAll, vi } from 'vitest';
-import * as os from 'os';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import * as path from 'path';
-import * as fs from 'fs';
 import {
   getCurrentOS,
   isWindows,
@@ -30,7 +28,6 @@ import {
   joinPaths,
   getPlatformDescription
 } from '../index.js';
-import { ShellType } from '../types.js';
 
 // Mock process.platform
 const originalPlatform = process.platform;

@@ -336,10 +336,10 @@ export function getEnvVar(name: string): string | undefined {
  * 2. Platform-specific binary directories
  * 3. Common installation paths
  */
-export async function findExecutable(
+export function findExecutable(
   name: string,
   additionalPaths: string[] = []
-): Promise<string | null> {
+): string | null {
   const config = getPathConfig();
   const searchPaths: string[] = [];
 
