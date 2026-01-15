@@ -5,6 +5,7 @@ import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Button } from '../../ui/button';
 import { useAuthClient } from '../../../../shared/lib/convex/auth-client';
+import { authStore } from '../../../stores/auth-store';
 
 /**
  * Account Login component for signing in or registering with Better Auth.
@@ -22,9 +23,6 @@ export function AccountLogin() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Safely get session data - prevent infinite loops when auth client not initialized
-  const { data: session, isPending } = authClient?.useSession ? authClient.useSession() : { data: null, isPending: false };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -41,8 +39,10 @@ export function AccountLogin() {
         });
         if (result?.error) {
           setError(result.error.message || 'Sign up failed');
-        } else {
+        } else if (result?.data) {
           setSuccess(true);
+          // Store the session locally
+          authStore.setSession(result.data);
           // Clear form
           setEmail('');
           setPassword('');
@@ -58,8 +58,10 @@ export function AccountLogin() {
         });
         if (result?.error) {
           setError(result.error.message || 'Sign in failed');
-        } else {
+        } else if (result?.data) {
           setSuccess(true);
+          // Store the session locally
+          authStore.setSession(result.data);
         }
       }
     } catch (err) {
@@ -75,10 +77,23 @@ export function AccountLogin() {
     setSuccess(false);
   };
 
-  if (isPending) {
+  // Get auth state from store
+  const isAuthenticated = authStore.isAuthenticated();
+  const user = authStore.getUser();
+
+  // If user is authenticated, show success state
+  if (isAuthenticated && user) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="p-6 max-w-md">
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle2 className="h-5 w-5 text-green-500" />
+            <h2 className="text-lg font-semibold">Signed in</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            You are signed in as <span className="font-medium">{user.email}</span>
+          </p>
+        </div>
       </div>
     );
   }

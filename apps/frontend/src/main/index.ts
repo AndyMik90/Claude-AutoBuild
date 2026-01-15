@@ -25,8 +25,10 @@ for (const envPath of possibleEnvPaths) {
   }
 }
 
-import { app, BrowserWindow, shell, nativeImage, session, screen } from 'electron';
+import { app, BrowserWindow, shell, nativeImage, session, screen, protocol } from 'electron';
 import { join } from 'path';
+import { readFileSync } from 'fs';
+import { URL } from 'url';
 import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { setupIpcHandlers } from './ipc-setup';
@@ -185,7 +187,10 @@ function createWindow(): void {
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
-      backgroundThrottling: false // Prevent terminal lag when window loses focus
+      backgroundThrottling: false, // Prevent terminal lag when window loses focus
+      // Enable cookie persistence for Better Auth sessions
+      partition: 'persist:session', // Persist cookies across app launches
+      webSecurity: true, // Keep web security enabled for CORS
     }
   });
 
@@ -201,10 +206,14 @@ function createWindow(): void {
   });
 
   // Load the renderer
+  // In development, use the dev server URL (http://localhost:5173)
+  // In production, use the custom app:// protocol to avoid Origin: null issues with CORS
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
+    // Load from app:// protocol instead of file:// to avoid Origin: null
+    // This allows Better Auth CORS to work properly with HttpOnly cookies
+    mainWindow.loadURL('app://-/index.html');
   }
 
   // Open DevTools in development
@@ -232,10 +241,39 @@ if (process.platform === 'win32') {
   console.log('[main] Applied Windows GPU cache fixes');
 }
 
+// Register custom app:// protocol BEFORE app.ready()
+// This prevents Origin: null issues with CORS when using Better Auth
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: {
+      secure: true,
+      standard: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
+  },
+]);
+console.log('[main] Registered custom app:// protocol for Better Auth CORS support');
+
 // Initialize the application
 app.whenReady().then(() => {
   // Set app user model id for Windows
   electronApp.setAppUserModelId('com.autoclaude.ui');
+
+  // Register the app:// protocol handler AFTER app.ready()
+  // This serves the renderer files through the custom protocol
+  protocol.registerFileProtocol('app', (request, callback) => {
+    // Remove the leading '/' from the path to get a relative path
+    const requestPath = request.url.substr('app://'.length);
+
+    // In production, __dirname is out/main, so renderer is at ../renderer
+    // In development, we might not use this protocol (see loadURL below)
+    const rendererPath = join(__dirname, '../renderer', requestPath || 'index.html');
+
+    callback({ path: rendererPath });
+  });
+  console.log('[main] Registered app:// file protocol handler');
 
   // Clear cache on Windows to prevent permission errors from stale cache
   if (process.platform === 'win32') {

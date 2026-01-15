@@ -64,7 +64,9 @@ import type { UseProjectSettingsReturn } from '../project-settings/hooks/useProj
 import { AccountProfile } from './account/AccountProfile';
 import { AccountSecurity } from './account/AccountSecurity';
 import { AccountLogin } from './account/AccountLogin';
+import { useConvexAuth } from '../../providers/convex/ConvexAuthProvider';
 import { useAuthClient } from '../../../shared/lib/convex/auth-client';
+import { authStore } from '../../stores/auth-store';
 
 interface AppSettingsDialogProps {
   open: boolean;
@@ -117,12 +119,9 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
   const { settings, setSettings, isSaving, error, saveSettings, revertTheme, commitTheme } = useSettings();
   const [version, setVersion] = useState<string>('');
 
-  // Better Auth client for authentication state
+  // Authentication state from Convex + Better Auth integration
+  const { isAuthenticated, user } = useConvexAuth();
   const authClient = useAuthClient();
-  // Only call useSession if authClient is properly initialized (has useSession method)
-  // This prevents infinite loops when Convex is not configured
-  const { data: session } = authClient?.useSession ? authClient.useSession() : { data: null };
-  const isAuthenticated = !!session?.user;
 
   // Track which top-level section is active
   const [activeTopLevel, setActiveTopLevel] = useState<'app' | 'project' | 'account'>('app');
@@ -221,6 +220,21 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
 
   const handleProjectChange = (projectId: string | null) => {
     selectProject(projectId);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      // Sign out using Better Auth
+      await authClient?.signOut?.();
+
+      // Clear local session
+      authStore.clearSession();
+
+      // Navigate to login section
+      setAccountSection('login');
+    } catch (error) {
+      console.error('[Settings] Failed to sign out:', error);
+    }
   };
 
   const renderAppSection = () => {
@@ -444,6 +458,20 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                           </button>
                         );
                       })}
+
+                      {/* Sign Out Button */}
+                      {isAuthenticated && (
+                        <button
+                          onClick={handleSignOut}
+                          className="w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all hover:bg-destructive/10 text-muted-foreground hover:text-destructive mt-2 border border-border hover:border-destructive/50"
+                        >
+                          <LogOut className="h-5 w-5 mt-0.5 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="font-medium text-sm">Sign Out</div>
+                            <div className="text-xs text-muted-foreground">Sign out of your account</div>
+                          </div>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -462,7 +490,11 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
             {/* Main content */}
             <div className="flex-1 overflow-hidden">
               <ScrollArea className="h-full">
-                <div className="p-8 max-w-2xl">
+                <div className={`p-8 ${
+                  appSection === 'templates' ? 'max-w-6xl' :
+                  activeTopLevel === 'account' ? 'max-w-full' : // Full width for account sections
+                  'max-w-2xl'
+                }`}>
                   {renderContent()}
                 </div>
               </ScrollArea>

@@ -154,7 +154,112 @@ For Linux-specific builds (Flatpak, AppImage), see [guides/linux.md](guides/linu
 
 ---
 
-## Security
+## Authentication (Optional)
+
+Auto Claude includes optional authentication using **Convex** and **Better Auth**. This allows you to:
+- Sign in with email and password
+- Manage your profile and security settings
+- Persist your session across app restarts
+
+### Setting Up Authentication
+
+Authentication is **optional** - the app works without it. To enable authentication:
+
+#### 1. Create a Convex Project
+
+1. Go to [https://dashboard.convex.dev](https://dashboard.convex.dev)
+2. Create a new account or sign in
+3. Click **"Create Project"** and choose a name
+4. Select **"Dev"** deployment (free tier)
+
+#### 2. Configure Environment Variables
+
+Navigate to the `services/convex` directory:
+
+```bash
+cd services/convex
+```
+
+Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and fill in your values:
+
+```bash
+# Your Convex deployment (from dashboard, e.g., "dev:your-project-name")
+CONVEX_DEPLOYMENT=dev:your-project-name
+
+# For Electron app development, use app:// protocol
+SITE_URL=app://-
+
+# Generate a secure secret for production (optional for dev)
+BETTER_AUTH_SECRET=your-secure-random-string-here
+```
+
+**To generate a secure secret:**
+```bash
+openssl rand -base64 32
+```
+
+#### 3. Install Dependencies and Deploy
+
+```bash
+npm install
+npm run dev
+```
+
+This will:
+- Start the Convex development server
+- Deploy your authentication backend
+- Generate TypeScript types
+
+#### 4. Enable Authentication in the App
+
+1. Open Auto Claude
+2. Go to **Settings → Account → Authentication**
+3. Toggle **"Enable Convex Authentication"**
+4. Enter your Convex deployment URL if not auto-detected
+
+You can now:
+- Sign up with email and password
+- Update your profile
+- Change your password
+- Stay signed in across app restarts
+
+### Environment Variables Reference
+
+| Variable | Description | Example | Required |
+|----------|-------------|---------|----------|
+| `CONVEX_DEPLOYMENT` | Your Convex deployment identifier | `dev:my-project` | Yes |
+| `SITE_URL` | URL where your app is hosted | `app://-` (for Electron) | Yes |
+| `BETTER_AUTH_SECRET` | Secret for session encryption | Random 32+ character string | Optional (dev) |
+
+### Troubleshooting
+
+**"Session doesn't persist between restarts"**
+- Ensure you're using `app://-` as `SITE_URL` for Electron development
+- Check that cookies are enabled in Electron (should work by default)
+
+**"401 Unauthorized on profile update"**
+- Make sure the Convex dev server is running (`npm run dev` in `services/convex`)
+- Check that your session token is valid (try signing out and signing back in)
+
+**"Can't connect to Convex"**
+- Verify your `CONVEX_DEPLOYMENT` matches your dashboard
+- Check your network connection
+- Ensure the Convex dev server is running
+
+### Security Notes
+
+⚠️ **Important for Production:**
+- Use a strong `BETTER_AUTH_SECRET` (generate with `openssl rand -base64 32`)
+- Enable HTTPS for your production site URL
+- Keep your `.env` file private (it's already in `.gitignore`)
+
+---
 
 Auto Claude uses a three-layer security model:
 
