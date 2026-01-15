@@ -73,6 +73,7 @@ def cleanup_orphaned_pending_folders(specs_dir: Path) -> None:
             if datetime.now() - folder_mtime < timedelta(minutes=10):
                 continue
         except OSError:
+            # Can't get folder modification time - skip to avoid false positives
             continue
 
         orphaned.append(folder)
@@ -290,6 +291,7 @@ def prompt_for_existing_spec_action(
                 try:
                     action = input("  Action: ").strip().upper()
                 except (EOFError, KeyboardInterrupt):
+                    # User cancelled - go back to the main selection menu
                     continue
 
                 if action == "R":
