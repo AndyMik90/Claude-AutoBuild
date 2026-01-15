@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, RefreshCw, AlertCircle, LayoutGrid, Folder, ListChecks, CheckCircle2, FolderOpen, Activity, CheckCircle, XCircle } from 'lucide-react';
+import { Download, RefreshCw, AlertCircle, LayoutGrid, Folder, ListChecks, CheckCircle2, FolderOpen, Activity, CheckCircle, XCircle, Minus } from 'lucide-react';
 import { debugLog } from '../shared/utils/debug-logger';
 import { cn } from './lib/utils';
 import { TooltipProvider } from './components/ui/tooltip';
@@ -826,21 +826,30 @@ export function App() {
                         {/* Sub-checks details */}
                         {check.checks && Object.keys(check.checks).length > 0 && (
                           <div className="px-3 py-2 space-y-1.5 bg-card">
-                            {Object.entries(check.checks).map(([subKey, passed]) => (
-                              <div key={subKey} className="flex items-center gap-2 text-sm">
-                                {passed ? (
-                                  <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                                ) : (
-                                  <XCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
-                                )}
-                                <span className={cn(
-                                  "text-muted-foreground",
-                                  !passed && "text-red-400"
-                                )}>
-                                  {subKey.replace(/_/g, ' ')}
-                                </span>
-                              </div>
-                            ))}
+                            {Object.entries(check.checks).map(([subKey, passed]) => {
+                              // Determine if this is a failure or just disabled
+                              const isFailure = !passed && !check.healthy;
+                              const isDisabled = !passed && check.healthy;
+
+                              return (
+                                <div key={subKey} className="flex items-center gap-2 text-sm">
+                                  {passed ? (
+                                    <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                                  ) : isFailure ? (
+                                    <XCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                                  ) : (
+                                    <Minus className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                                  )}
+                                  <span className={cn(
+                                    "text-muted-foreground",
+                                    isFailure && "text-red-400",
+                                    isDisabled && "text-muted-foreground/60"
+                                  )}>
+                                    {subKey.replace(/_/g, ' ')}
+                                  </span>
+                                </div>
+                              );
+                            })}
 
                             {/* Show message if available */}
                             {check.message && (
