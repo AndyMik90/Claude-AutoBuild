@@ -600,25 +600,26 @@ class FollowupReviewer:
             ]
         )
 
-        # Format commits
+        # Format commits with timestamps (for timeline correlation with AI comments)
         commits_text = "\n".join(
             [
-                f"- {c.get('sha', '')[:8]}: {c.get('commit', {}).get('message', '').split(chr(10))[0]}"
+                f"- {c.get('sha', '')[:8]} ({c.get('commit', {}).get('author', {}).get('date', 'unknown')}): {c.get('commit', {}).get('message', '').split(chr(10))[0]}"
                 for c in context.commits_since_review
             ]
         )
 
-        # Format comments
+        # Format contributor comments with timestamps
         contributor_comments_text = "\n".join(
             [
-                f"- @{c.get('user', {}).get('login', 'unknown')}: {c.get('body', '')[:200]}"
+                f"- @{c.get('user', {}).get('login', 'unknown')} ({c.get('created_at', 'unknown')}): {c.get('body', '')[:200]}"
                 for c in context.contributor_comments_since_review
             ]
         )
 
+        # Format AI comments with timestamps for timeline awareness
         ai_comments_text = "\n".join(
             [
-                f"- @{c.get('user', {}).get('login', 'unknown')}: {c.get('body', '')[:200]}"
+                f"- @{c.get('user', {}).get('login', 'unknown')} ({c.get('created_at', 'unknown')}): {c.get('body', '')[:200]}"
                 for c in context.ai_bot_comments_since_review
             ]
         )
