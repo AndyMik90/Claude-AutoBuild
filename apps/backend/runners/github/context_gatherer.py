@@ -37,6 +37,20 @@ except (ImportError, ValueError, SystemError):
 SAFE_REF_PATTERN = re.compile(r"^[a-zA-Z0-9._/\-]+$")
 SAFE_PATH_PATTERN = re.compile(r"^[a-zA-Z0-9._/\-@]+$")
 
+# Common config file names to search for in project directories
+# Used by both _find_config_files() and find_related_files_for_root()
+CONFIG_FILE_NAMES = [
+    "tsconfig.json",
+    "package.json",
+    "pyproject.toml",
+    "setup.py",
+    ".eslintrc",
+    ".prettierrc",
+    "jest.config.js",
+    "vitest.config.ts",
+    "vite.config.ts",
+]
+
 
 def _validate_git_ref(ref: str) -> bool:
     """
@@ -942,20 +956,8 @@ class PRContextGatherer:
 
     def _find_config_files(self, directory: Path) -> set[str]:
         """Find configuration files in a directory."""
-        config_names = [
-            "tsconfig.json",
-            "package.json",
-            "pyproject.toml",
-            "setup.py",
-            ".eslintrc",
-            ".prettierrc",
-            "jest.config.js",
-            "vitest.config.ts",
-            "vite.config.ts",
-        ]
-
         found = set()
-        for name in config_names:
+        for name in CONFIG_FILE_NAMES:
             config_path = directory / name
             full_path = self.project_dir / config_path
             if full_path.exists() and full_path.is_file():
@@ -973,6 +975,68 @@ class PRContextGatherer:
             return {str(type_def)}
 
         return set()
+
+    @staticmethod
+    def find_related_files_for_root(
+        changed_files: list[ChangedFile],
+        project_root: Path,
+    ) -> list[str]:
+        """
+        Find files related to the changes using a specific project root.
+
+        This static method allows finding related files AFTER a worktree
+        has been created, ensuring files exist in the worktree filesystem.
+
+        Args:
+            changed_files: List of changed files from the PR
+            project_root: Path to search for related files (e.g., worktree path)
+
+        Returns:
+            List of related file paths (relative to project root)
+        """
+        related: set[str] = set()
+
+        for changed_file in changed_files:
+            path = Path(changed_file.path)
+
+            # Find test files
+            test_patterns = [
+                # Jest/Vitest patterns
+                path.parent / f"{path.stem}.test{path.suffix}",
+                path.parent / f"{path.stem}.spec{path.suffix}",
+                path.parent / "__tests__" / f"{path.name}",
+                # Python patterns
+                path.parent / f"test_{path.stem}.py",
+                path.parent / f"{path.stem}_test.py",
+                # Go patterns
+                path.parent / f"{path.stem}_test.go",
+            ]
+
+            for test_path in test_patterns:
+                full_path = project_root / test_path
+                if full_path.exists() and full_path.is_file():
+                    related.add(str(test_path))
+
+            # Find config files in same directory
+            for name in CONFIG_FILE_NAMES:
+                config_path = path.parent / name
+                full_path = project_root / config_path
+                if full_path.exists() and full_path.is_file():
+                    related.add(str(config_path))
+
+            # Find type definition files
+            if path.suffix in [".ts", ".tsx"]:
+                type_def = path.parent / f"{path.stem}.d.ts"
+                full_path = project_root / type_def
+                if full_path.exists() and full_path.is_file():
+                    related.add(str(type_def))
+
+        # Remove files that are already in changed_files
+        changed_paths = {cf.path for cf in changed_files}
+        related = {r for r in related if r not in changed_paths}
+
+        # Limit to 20 most relevant files
+        return sorted(related)[:20]
 
 
 class FollowupContextGatherer:
