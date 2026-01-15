@@ -735,6 +735,15 @@ export async function forceCompleteTask(taskId: string): Promise<PersistStatusRe
 }
 
 /**
+ * Reset a stuck task to backlog status so it can be retried
+ * FIX (#1117): Tasks that fail before completing any work get stuck in human_review
+ * This allows users to reset them to backlog and try again
+ */
+export async function resetToBacklog(taskId: string): Promise<PersistStatusResult> {
+  return persistTaskStatus(taskId, 'backlog');
+}
+
+/**
  * Update task title/description/metadata and persist to file
  */
 export async function persistUpdateTask(

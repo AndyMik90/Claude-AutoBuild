@@ -31,7 +31,7 @@ import {
   JSON_ERROR_PREFIX,
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
-import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks } from '../stores/task-store';
+import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, resetToBacklog } from '../stores/task-store';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
 // Category icon mapping
@@ -567,15 +567,29 @@ export const TaskCard = memo(function TaskCard({
                 )}
               </Button>
             ) : isIncomplete ? (
-              <Button
-                variant="default"
-                size="sm"
-                className="h-7 px-2.5"
-                onClick={handleStartStop}
-              >
-                <Play className="mr-1.5 h-3 w-3" />
-                {t('actions.resume')}
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-7 px-2.5"
+                  onClick={handleStartStop}
+                >
+                  <Play className="mr-1.5 h-3 w-3" />
+                  {t('actions.resume')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2.5"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    await resetToBacklog(task.id);
+                  }}
+                  title={t('tooltips.resetToBacklog') || 'Reset to backlog to retry from scratch'}
+                >
+                  <RotateCcw className="h-3 w-3" />
+                </Button>
+              </div>
             ) : task.status === 'pr_created' ? (
               <div className="flex gap-1">
                 {task.metadata?.prUrl && (
