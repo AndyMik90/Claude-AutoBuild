@@ -421,6 +421,14 @@ from agents.tools_pkg import (
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from claude_agent_sdk.types import HookMatcher
 from core.auth import get_sdk_env_vars, require_auth_token
+
+# WSL support - run Claude CLI inside WSL when project is on WSL filesystem
+from core.wsl_utils import (
+    get_wsl_distro,
+    get_wsl_project_path,
+    is_wsl_mode,
+    windows_to_wsl_path,
+)
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
 from security import bash_security_hook
@@ -775,6 +783,9 @@ def create_client(
     # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, etc.)
     sdk_env = get_sdk_env_vars()
 
+    # Explicitly add OAuth token to sdk_env for WSL subprocess
+    sdk_env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
+
     # Debug: Log git-bash path detection on Windows
     if "CLAUDE_CODE_GIT_BASH_PATH" in sdk_env:
         logger.info(f"Git Bash path found: {sdk_env['CLAUDE_CODE_GIT_BASH_PATH']}")
@@ -831,6 +842,19 @@ def create_client(
     # cases where Claude uses absolute paths for file operations
     project_path_str = str(project_dir.resolve())
     spec_path_str = str(spec_dir.resolve())
+
+    # WSL support: detect if project is on WSL filesystem and translate paths
+    wsl_mode = is_wsl_mode()
+    wsl_distro = get_wsl_distro(project_path_str) if wsl_mode else None
+    wsl_project_path = get_wsl_project_path(project_path_str) if wsl_mode else None
+
+    if wsl_mode and wsl_project_path:
+        # For security settings inside WSL, use the Linux paths
+        # The Claude CLI runs inside WSL and sees Linux paths, not Windows UNC paths
+        project_path_str = wsl_project_path
+        wsl_spec_path = windows_to_wsl_path(str(spec_dir.resolve()), wsl_distro)
+        if wsl_spec_path:
+            spec_path_str = wsl_spec_path
 
     # Detect if we're running in a worktree and get the original project directory
     # Worktrees are located in either:
@@ -1043,9 +1067,13 @@ def create_client(
             mcp_servers[server_id] = server_config
 
     # Build system prompt
+    # Show WSL project path if running in WSL mode
+    working_dir_display = (
+        wsl_project_path if (wsl_mode and wsl_project_path) else str(project_dir.resolve())
+    )
     base_prompt = (
         f"You are an expert full-stack developer building production-quality software. "
-        f"Your working directory is: {project_dir.resolve()}\n"
+        f"Your working directory is: {working_dir_display}\n"
         f"Your filesystem access is RESTRICTED to this directory only. "
         f"Use relative paths (starting with ./) for all file operations. "
         f"Never use absolute paths or try to access files outside your working directory.\n\n"
@@ -1069,10 +1097,29 @@ def create_client(
     # Find Claude CLI path for SDK
     # This ensures the SDK can find the Claude Code binary even if it's not in PATH
     cli_path = find_claude_cli()
-    if cli_path:
+
+    # WSL support: use WSL wrapper instead of native Claude CLI when project is on WSL filesystem
+    # The wrapper (wsl_claude_node.cmd) runs Claude CLI inside WSL with proper pipe handling
+    if wsl_mode and wsl_project_path and platform.system() == "Windows":
+        wsl_wrapper_path = Path(__file__).parent / "wsl_claude_node.cmd"
+        if wsl_wrapper_path.exists():
+            cli_path = str(wsl_wrapper_path.resolve())
+            print(f"   - Claude CLI: {cli_path} (WSL wrapper)")
+            print(f"   - WSL mode: {wsl_distro} → {wsl_project_path}")
+        else:
+            print(f"   - Claude CLI: {cli_path}")
+            print(f"   - WSL mode: wrapper not found at {wsl_wrapper_path}")
+    elif cli_path:
         print(f"   - Claude CLI: {cli_path}")
     else:
         print("   - Claude CLI: using SDK default detection")
+
+    # WSL support: add WSL environment variables to SDK subprocess
+    # These are read by the wsl_claude.js wrapper to configure WSL execution
+    if wsl_mode and wsl_project_path and wsl_distro:
+        sdk_env["AUTO_CLAUDE_WSL_DISTRO"] = wsl_distro
+        sdk_env["AUTO_CLAUDE_WSL_PROJECT_PATH"] = wsl_project_path
+        # AUTO_CLAUDE_WSL_HOME and AUTO_CLAUDE_WSL_CLAUDE_PATH are auto-detected by wrapper
 
     # Build options dict, conditionally including output_format
     options_kwargs: dict[str, Any] = {
@@ -1088,7 +1135,7 @@ def create_client(
         "max_turns": 1000,
         "cwd": str(project_dir.resolve()),
         "settings": str(settings_file.resolve()),
-        "env": sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess
+        "env": sdk_env,  # Pass ANTHROPIC_BASE_URL, WSL env vars, etc. to subprocess
         "max_thinking_tokens": max_thinking_tokens,  # Extended thinking budget
         "max_buffer_size": 10
         * 1024

@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+/**
+ * WSL Claude CLI Wrapper (Node.js)
+ *
+ * This wrapper spawns the Claude CLI inside WSL with proper pipe handling.
+ * It's designed to be called by the Claude Agent SDK on Windows when the
+ * project is on a WSL filesystem.
+ *
+ * The Windows Claude CLI (built with Bun) crashes when watching WSL filesystem
+ * directories. This wrapper runs the Linux Claude CLI inside WSL instead.
+ *
+ * Environment variables (required):
+ *   AUTO_CLAUDE_WSL_DISTRO - WSL distribution name (e.g., "Ubuntu")
+ *
+ * Environment variables (optional):
+ *   AUTO_CLAUDE_WSL_PROJECT_PATH - Linux path to project (e.g., "/home/user/project")
+ *   AUTO_CLAUDE_WSL_HOME - WSL home directory (default: auto-detected from distro)
+ *   AUTO_CLAUDE_WSL_CLAUDE_PATH - Path to claude CLI in WSL (default: "claude" from PATH)
+ *   CLAUDE_CODE_OAUTH_TOKEN - OAuth token for Claude authentication
+ */
+
+const { spawn, execSync } = require('child_process');
+
+const distro = process.env.AUTO_CLAUDE_WSL_DISTRO;
+const projectPath = process.env.AUTO_CLAUDE_WSL_PROJECT_PATH;
+const token = process.env.CLAUDE_CODE_OAUTH_TOKEN || '';
+
+if (!distro) {
+  console.error('ERROR: AUTO_CLAUDE_WSL_DISTRO not set');
+  process.exit(1);
+}
+
+// Detect WSL home directory if not specified
+let wslHome = process.env.AUTO_CLAUDE_WSL_HOME;
+if (!wslHome) {
+  try {
+    // Get the default user's home directory from WSL
+    wslHome = execSync(`wsl.exe -d ${distro} -e sh -c "echo $HOME"`, {
+      encoding: 'utf8',
+      timeout: 5000
+    }).trim();
+  } catch {
+    // Fallback to /root if detection fails
+    wslHome = '/root';
+  }
+}
+
+// Get Claude CLI path (default: use 'claude' from PATH)
+const claudePath = process.env.AUTO_CLAUDE_WSL_CLAUDE_PATH || 'claude';
+
+// Build wsl.exe arguments
+const args = ['-d', distro];
+
+if (projectPath) {
+  args.push('--cd', projectPath);
+}
+
+// Use -e for direct execution (no shell)
+// Set HOME so Claude can find its config
+args.push('-e', '/usr/bin/env', `HOME=${wslHome}`);
+
+if (token) {
+  args.push(`CLAUDE_CODE_OAUTH_TOKEN=${token}`);
+}
+
+// Add the Claude CLI command
+args.push(claudePath);
+
+// Pass through any arguments (e.g., --output-format stream-json)
+args.push(...process.argv.slice(2));
+
+// Spawn wsl.exe with inherited stdio
+// This is the key - 'inherit' passes the pipe handles directly
+const proc = spawn('wsl.exe', args, {
+  stdio: 'inherit',
+  windowsHide: true
+});
+
+proc.on('error', (err) => {
+  console.error(`ERROR: ${err.message}`);
+  process.exit(1);
+});
+
+proc.on('exit', (code) => {
+  process.exit(code || 0);
+});

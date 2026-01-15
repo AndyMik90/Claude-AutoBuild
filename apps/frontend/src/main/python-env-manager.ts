@@ -659,6 +659,20 @@ if sys.version_info >= (3, 12):
     }
 
     // Apply our Python configuration on top
+    // Build PYTHONPATH with bundled packages and required subdirectories
+    // pywin32 requires win32 and win32/lib in path (normally via .pth files)
+    let pythonPath: string | undefined;
+    if (this.sitePackagesPath) {
+      const pathSep = process.platform === 'win32' ? ';' : ':';
+      const paths = [
+        this.sitePackagesPath,
+        path.join(this.sitePackagesPath, 'win32'),
+        path.join(this.sitePackagesPath, 'win32', 'lib'),
+        path.join(this.sitePackagesPath, 'Pythonwin'),
+      ];
+      pythonPath = paths.join(pathSep);
+    }
+
     return {
       ...baseEnv,
       // Don't write bytecode - not needed and avoids permission issues
@@ -667,8 +681,8 @@ if sys.version_info >= (3, 12):
       PYTHONIOENCODING: 'utf-8',
       // Disable user site-packages to avoid conflicts
       PYTHONNOUSERSITE: '1',
-      // Override PYTHONPATH if we have bundled packages
-      ...(this.sitePackagesPath ? { PYTHONPATH: this.sitePackagesPath } : {}),
+      // Override PYTHONPATH with bundled packages and pywin32 subdirectories
+      ...(pythonPath ? { PYTHONPATH: pythonPath } : {}),
     };
   }
 
