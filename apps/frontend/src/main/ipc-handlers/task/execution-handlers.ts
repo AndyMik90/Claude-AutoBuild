@@ -1176,7 +1176,6 @@ export function registerTaskExecutionHandlers(
     IPC_CHANNELS.TASK_DELETE_AND_RETRY,
     async (_, taskId: string, options?: { recreate?: boolean }): Promise<IPCResult<{ deleted: boolean; recreatedTask?: import('../../../shared/types').Task; cleanedUpWorktree?: boolean }>> => {
       const { rm } = await import('fs/promises');
-      const { readdirSync } = await import('fs');
 
       const { task, project } = findTaskAndProject(taskId);
       if (!task || !project) {
@@ -1242,12 +1241,10 @@ export function registerTaskExecutionHandlers(
         }
       }
 
-      // Delete the spec directory
+      // Delete the spec directory (rm with force:true handles non-existent paths)
       const specDir = task.specsPath || path.join(project.path, getSpecsDir(project.autoBuildPath), task.specId);
       try {
-        if (existsSync(specDir)) {
-          await rm(specDir, { recursive: true, force: true });
-        }
+        await rm(specDir, { recursive: true, force: true });
       } catch (error) {
         return {
           success: false,
@@ -1265,8 +1262,8 @@ export function registerTaskExecutionHandlers(
           const specsDir = path.join(project.path, getSpecsDir(project.autoBuildPath));
           let specNum = 1;
 
-          // Find next spec number
-          if (existsSync(specsDir)) {
+          // Find next spec number (readdir throws if dir doesn't exist)
+          try {
             const dirents = await readdir(specsDir, { withFileTypes: true });
             const nums = dirents
               .filter(d => d.isDirectory())
@@ -1279,6 +1276,8 @@ export function registerTaskExecutionHandlers(
             if (nums.length > 0) {
               specNum = Math.max(...nums) + 1;
             }
+          } catch {
+            // Directory doesn't exist yet, use default specNum = 1
           }
 
           // Create new spec directory
