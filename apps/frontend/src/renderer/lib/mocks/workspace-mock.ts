@@ -102,5 +102,10 @@ export const workspaceMock = {
         { id: 'system', name: 'System Terminal', path: '', installed: true }
       ]
     }
+  }),
+
+  worktreeLaunchApp: async () => ({
+    success: true,
+    data: { launched: true, command: 'npm run dev' }
   })
 };
