@@ -35,6 +35,42 @@ const PRINTABLE_CHARS_REGEX = /^[\x20-\x7E\u00A0-\uFFFF]*$/;
 const PR_CREATION_TIMEOUT_MS = 120000;
 
 /**
+ * Escape a path for use in shell commands.
+ * Prevents command injection by escaping or rejecting dangerous characters.
+ *
+ * @param filePath - The path to escape
+ * @param platform - Target platform ('win32', 'darwin', 'linux')
+ * @returns Escaped path string safe for shell use, or null if path is invalid
+ */
+function escapePathForShell(filePath: string, platform: NodeJS.Platform): string | null {
+  // Reject paths with null bytes (always dangerous)
+  if (filePath.includes('\0')) {
+    return null;
+  }
+
+  // Reject paths with newlines (can break command structure)
+  if (filePath.includes('\n') || filePath.includes('\r')) {
+    return null;
+  }
+
+  if (platform === 'win32') {
+    // Windows: Reject paths with characters that could escape cmd.exe quoting
+    // These characters can break out of double-quoted strings in cmd
+    const dangerousWinChars = /[<>|&^%!`]/;
+    if (dangerousWinChars.test(filePath)) {
+      return null;
+    }
+    // Double-quote the path (already done in caller, but escape any internal quotes)
+    return filePath.replace(/"/g, '""');
+  } else {
+    // Unix (macOS/Linux): Use single quotes and escape any internal single quotes
+    // Single-quoted strings in bash treat everything literally except single quotes
+    // Escape ' as '\'' (end quote, escaped quote, start quote)
+    return filePath.replace(/'/g, "'\\''");
+  }
+}
+
+/**
  * Read utility feature settings (for commit message, merge resolver) from settings file
  */
 function getUtilitySettings(): { model: string; modelId: string; thinkingLevel: string; thinkingBudget: number | null } {
@@ -2833,6 +2869,14 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Worktree path does not exist' };
         }
 
+        const platform = process.platform;
+
+        // Validate and escape the path to prevent command injection
+        const escapedPath = escapePathForShell(worktreePath, platform);
+        if (escapedPath === null) {
+          return { success: false, error: 'Invalid path: contains unsafe characters' };
+        }
+
         // Try to detect the dev command from package.json
         const packageJsonPath = path.join(worktreePath, 'package.json');
         let devCommand = 'npm run dev'; // Default
@@ -2860,21 +2904,22 @@ export function registerWorktreeHandlers(
         // Open a terminal and run the dev command
         // Use the user's preferred terminal
         const { spawn } = await import('child_process');
-        const platform = process.platform;
 
         if (platform === 'win32') {
           // Windows: Open Windows Terminal or cmd with the command
-          spawn('cmd.exe', ['/c', 'start', 'cmd.exe', '/k', `cd /d "${worktreePath}" && ${devCommand}`], {
+          // Use escaped path in double quotes
+          spawn('cmd.exe', ['/c', 'start', 'cmd.exe', '/k', `cd /d "${escapedPath}" && ${devCommand}`], {
             detached: true,
             stdio: 'ignore',
             shell: true
           }).unref();
         } else if (platform === 'darwin') {
           // macOS: Use osascript to open Terminal.app with the command
+          // Use escaped path with single quotes
           const script = `
             tell application "Terminal"
               activate
-              do script "cd '${worktreePath}' && ${devCommand}"
+              do script "cd '${escapedPath}' && ${devCommand}"
             end tell
           `;
           spawn('osascript', ['-e', script], {
@@ -2893,19 +2938,20 @@ export function registerWorktreeHandlers(
               // Check if the terminal is installed before spawning
               execSync(`which ${term}`, { stdio: 'ignore' });
 
-              // Terminal exists, spawn it
+              // Terminal exists, spawn it with escaped path
               if (term === 'gnome-terminal') {
-                spawn(term, ['--', 'bash', '-c', `cd '${worktreePath}' && ${devCommand}; exec bash`], {
+                spawn(term, ['--', 'bash', '-c', `cd '${escapedPath}' && ${devCommand}; exec bash`], {
                   detached: true,
                   stdio: 'ignore'
                 }).unref();
               } else if (term === 'konsole') {
+                // konsole's --workdir accepts the path directly (no shell interpolation)
                 spawn(term, ['--workdir', worktreePath, '-e', 'bash', '-c', `${devCommand}; exec bash`], {
                   detached: true,
                   stdio: 'ignore'
                 }).unref();
               } else {
-                spawn(term, ['-e', `bash -c "cd '${worktreePath}' && ${devCommand}; exec bash"`], {
+                spawn(term, ['-e', `bash -c "cd '${escapedPath}' && ${devCommand}; exec bash"`], {
                   detached: true,
                   stdio: 'ignore'
                 }).unref();
