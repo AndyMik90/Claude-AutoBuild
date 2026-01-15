@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Play, RotateCcw, Loader2, AlertOctagon, Key, Clock } from 'lucide-react';
+import { AlertTriangle, Play, RotateCcw, Loader2, AlertOctagon, Key, Clock, Terminal } from 'lucide-react';
 import { Button } from '../ui/button';
 import type { TaskErrorInfo } from '../../../shared/types/task';
 
@@ -7,20 +7,26 @@ interface TaskWarningsProps {
   isStuck: boolean;
   isIncomplete: boolean;
   isRecovering: boolean;
+  isRestarting?: boolean;
   taskProgress: { completed: number; total: number };
   errorInfo?: TaskErrorInfo;
   onRecover: () => void;
   onResume: () => void;
+  onFixAuth?: () => void;
+  onRestartTask?: () => void;
 }
 
 export function TaskWarnings({
   isStuck,
   isIncomplete,
   isRecovering,
+  isRestarting,
   taskProgress,
   errorInfo,
   onRecover,
-  onResume
+  onResume,
+  onFixAuth,
+  onRestartTask
 }: TaskWarningsProps) {
   const { t } = useTranslation(['errors', 'common']);
 
@@ -129,14 +135,73 @@ export function TaskWarnings({
                 {t(errorInfo.key, errorInfo.meta)}
               </p>
               {errorDetails.isAuthError && (
-                <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2 font-mono">
-                  claude setup-token
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5 font-mono flex-1">
+                      claude setup-token
+                    </div>
+                    {onFixAuth && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onFixAuth}
+                        className="shrink-0"
+                      >
+                        <Terminal className="mr-2 h-4 w-4" />
+                        {t('errors:task.openTerminalFix')}
+                      </Button>
+                    )}
+                  </div>
+                  {onRestartTask && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={onRestartTask}
+                      disabled={isRestarting}
+                      className="w-full"
+                    >
+                      {isRestarting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {t('errors:task.restarting')}
+                        </>
+                      ) : (
+                        <>
+                          <Play className="mr-2 h-4 w-4" />
+                          {t('errors:task.restartTask')}
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               )}
               {errorDetails.isRateLimitError && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Wait a few minutes before restarting the task.
-                </p>
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Wait a few minutes before restarting the task.
+                  </p>
+                  {onRestartTask && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={onRestartTask}
+                      disabled={isRestarting}
+                      className="w-full"
+                    >
+                      {isRestarting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {t('errors:task.restarting')}
+                        </>
+                      ) : (
+                        <>
+                          <Play className="mr-2 h-4 w-4" />
+                          {t('errors:task.restartTask')}
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </div>

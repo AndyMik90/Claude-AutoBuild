@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useToast } from '../../hooks/use-toast';
@@ -33,6 +34,7 @@ import {
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
 import { startTask, stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore } from '../../stores/task-store';
+import { useTerminalStore } from '../../stores/terminal-store';
 import { TASK_STATUS_LABELS } from '../../../shared/constants';
 import { TaskEditDialog } from '../TaskEditDialog';
 import { useTaskDetail } from './hooks/useTaskDetail';
@@ -84,6 +86,9 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   const progressPercent = calculateProgress(task.subtasks);
   const completedSubtasks = task.subtasks.filter(s => s.status === 'completed').length;
   const totalSubtasks = task.subtasks.length;
+
+  // Local state for restart operation
+  const [isRestarting, setIsRestarting] = useState(false);
 
   // Event Handlers
   const handleStartStop = async () => {
@@ -213,6 +218,48 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       });
     }
     onOpenChange(false);
+  };
+
+  const handleFixAuth = () => {
+    // Open terminal and automatically run 'claude setup-token'
+    if (onOpenInbuiltTerminal) {
+      // Use project path or home directory for cwd
+      // '~' will be expanded by shell
+      const cwd = task.project || '~';
+      onOpenInbuiltTerminal('auth-fix', cwd);
+
+      // Wait for terminal to initialize, then send the command
+      setTimeout(() => {
+        const activeTerminalId = useTerminalStore.getState().activeTerminalId;
+        if (activeTerminalId) {
+          window.electronAPI.sendTerminalInput(activeTerminalId, 'claude setup-token\r');
+        }
+      }, 500); // Give terminal time to initialize
+    }
+  };
+
+  const handleRestartTask = async () => {
+    // Restart task after fixing auth error or rate limit
+    setIsRestarting(true);
+    try {
+      // Use recoverStuckTask to clear error state and restart
+      const result = await recoverStuckTask(task.id, { autoRestart: true });
+      if (result.success) {
+        toast({
+          title: t('tasks:notifications.taskRestarted'),
+          description: t('tasks:notifications.taskRestartedDescription'),
+          duration: 3000,
+        });
+      } else {
+        // If recover fails, try direct start
+        startTask(task.id);
+      }
+    } catch {
+      // Fallback to direct start
+      startTask(task.id);
+    } finally {
+      setIsRestarting(false);
+    }
   };
 
   // Helper function to get status badge variant
@@ -446,10 +493,13 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     isStuck={state.isStuck}
                     isIncomplete={state.isIncomplete}
                     isRecovering={state.isRecovering}
+                    isRestarting={isRestarting}
                     taskProgress={state.taskProgress}
                     errorInfo={task.errorInfo}
                     onRecover={handleRecover}
                     onResume={handleStartStop}
+                    onFixAuth={handleFixAuth}
+                    onRestartTask={handleRestartTask}
                   />
                 </div>
               )}

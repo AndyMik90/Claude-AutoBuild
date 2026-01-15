@@ -139,7 +139,9 @@
   },
   "notifications": {
     "backgroundTaskTitle": "Task continues in background",
-    "backgroundTaskDescription": "The task is still running. You can reopen this dialog to monitor progress."
+    "backgroundTaskDescription": "The task is still running. You can reopen this dialog to monitor progress.",
+    "taskRestarted": "Task restarted",
+    "taskRestartedDescription": "The task has been restarted and is now running."
   },
   "wizard": {
     "createTitle": "Create New Task",

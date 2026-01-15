@@ -139,7 +139,9 @@
   },
   "notifications": {
     "backgroundTaskTitle": "La tâche continue en arrière-plan",
-    "backgroundTaskDescription": "La tâche est toujours en cours. Vous pouvez rouvrir cette boîte de dialogue pour suivre la progression."
+    "backgroundTaskDescription": "La tâche est toujours en cours. Vous pouvez rouvrir cette boîte de dialogue pour suivre la progression.",
+    "taskRestarted": "Tâche redémarrée",
+    "taskRestartedDescription": "La tâche a été redémarrée et est maintenant en cours d'exécution."
   },
   "wizard": {
     "createTitle": "Créer une nouvelle tâche",
