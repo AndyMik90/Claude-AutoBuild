@@ -285,7 +285,9 @@ function main() {
       case 2: results.push({ name: 'PR #2', ...testPR2_ErrorSurfacing() }); break;
       case 3: results.push({ name: 'PR #3', ...testPR3_WindowsPathFix() }); break;
       case 4: results.push({ name: 'PR #4', ...testPR4_TokenHotReload() }); break;
-      default: error(`Unknown PR number: ${specificPR}`);
+      default:
+        error(`Unknown PR number: ${specificPR}. Valid PR numbers are 1-4.`);
+        process.exit(1);
     }
   } else {
     // Run all quick verification tests
