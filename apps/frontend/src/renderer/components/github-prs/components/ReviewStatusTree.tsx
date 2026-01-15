@@ -182,22 +182,52 @@ export function ReviewStatusTree({
     // This prevents showing follow-up prompts when initial review was never posted to GitHub
     const hasPostedFindings = postedCount > 0 || reviewResult?.hasPostedFindings;
     if (!isReviewing && hasPostedFindings && newCommitsCheck?.hasNewCommits && newCommitsCheck?.hasCommitsAfterPosting) {
-      steps.push({
-        id: 'new_commits',
-        label: t('prReview.newCommits', { count: newCommitsCheck.newCommitCount }),
-        status: 'alert',
-        date: null
-      });
-      steps.push({
-        id: 'followup',
-        label: t('prReview.readyForFollowup'),
-        status: 'pending',
-        action: (
-          <Button size="sm" variant="outline" onClick={onRunFollowupReview} className="ml-2 h-6 text-xs px-2">
-            {t('prReview.runFollowup')}
-          </Button>
-        )
-      });
+      // Check if new commits overlap with files that had findings
+      const hasOverlap = newCommitsCheck.hasOverlapWithFindings ?? true; // Default to true for safety
+
+      if (hasOverlap) {
+        // Files with findings were modified - need verification
+        steps.push({
+          id: 'new_commits',
+          label: t('prReview.newCommitsOverlap', {
+            count: newCommitsCheck.newCommitCount,
+            files: newCommitsCheck.overlappingFiles?.length ?? 0
+          }),
+          status: 'alert',
+          date: null
+        });
+        steps.push({
+          id: 'followup',
+          label: t('prReview.verifyChanges'),
+          status: 'pending',
+          action: (
+            <Button size="sm" variant="outline" onClick={onRunFollowupReview} className="ml-2 h-6 text-xs px-2">
+              {t('prReview.runFollowup')}
+            </Button>
+          )
+        });
+      } else {
+        // No overlap - branch synced, previous review still valid
+        steps.push({
+          id: 'branch_synced',
+          label: newCommitsCheck.isMergeFromBase
+            ? t('prReview.branchSynced', { count: newCommitsCheck.newCommitCount })
+            : t('prReview.newCommitsNoOverlap', { count: newCommitsCheck.newCommitCount }),
+          status: 'completed',
+          date: null,
+          action: (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onRunFollowupReview}
+              className="ml-2 h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+              title={t('prReview.runFollowupAnyway')}
+            >
+              {t('prReview.verifyAnyway')}
+            </Button>
+          )
+        });
+      }
     }
   }
 

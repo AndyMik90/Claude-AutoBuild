@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { cn } from '../../lib/utils';
+import { ScrollArea } from '../ui/scroll-area';
 import { useProjectStore } from '../../stores/project-store';
 
 interface WorktreeSelectorProps {
@@ -169,90 +170,91 @@ export function WorktreeSelector({
           {t('terminal:worktree.createNew')}
         </DropdownMenuItem>
 
-        {/* Separator and existing worktrees */}
-        {isLoading ? (
-          <>
-            <DropdownMenuSeparator />
+        {/* Fixed separator between "Create New" and scrollable content */}
+        <DropdownMenuSeparator />
+
+        {/* Scrollable content */}
+        <ScrollArea className="max-h-[300px]">
+          {isLoading ? (
             <div className="flex items-center justify-center py-2">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
-          </>
-        ) : (
-          <>
-            {/* Terminal Worktrees Section */}
-            {worktrees.length > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                  {t('terminal:worktree.existing')}
-                </div>
-                {worktrees.map((wt) => (
-                  <DropdownMenuItem
-                    key={wt.name}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsOpen(false);
-                      onSelectWorktree(wt);
-                    }}
-                    className="text-xs group"
-                  >
-                    <FolderGit className="h-3 w-3 mr-2 text-amber-500/70 shrink-0" />
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <span className="truncate font-medium">{wt.name}</span>
-                      {wt.branchName && (
-                        <span className="text-[10px] text-muted-foreground truncate">
-                          {wt.branchName}
-                        </span>
-                      )}
-                    </div>
-                    <button
+          ) : (
+            <>
+              {/* Terminal Worktrees Section */}
+              {worktrees.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                    {t('terminal:worktree.existing')}
+                  </div>
+                  {worktrees.map((wt) => (
+                    <DropdownMenuItem
+                      key={wt.name}
                       onClick={(e) => {
                         e.stopPropagation();
-                        e.preventDefault();
-                        setDeleteWorktree(wt);
+                        setIsOpen(false);
+                        onSelectWorktree(wt);
                       }}
-                      className="ml-2 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                      title={t('common:delete')}
+                      className="text-xs group"
                     >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuItem>
-                ))}
-              </>
-            )}
+                      <FolderGit className="h-3 w-3 mr-2 text-amber-500/70 shrink-0" />
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="truncate font-medium">{wt.name}</span>
+                        {wt.branchName && (
+                          <span className="text-[10px] text-muted-foreground truncate">
+                            {wt.branchName}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setDeleteWorktree(wt);
+                        }}
+                        className="ml-2 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                        title={t('common:delete')}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
 
-            {/* Task Worktrees Section */}
-            {taskWorktrees.length > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                  {t('terminal:worktree.taskWorktrees')}
-                </div>
-                {taskWorktrees.map((wt) => (
-                  <DropdownMenuItem
-                    key={wt.specName}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsOpen(false);
-                      selectTaskWorktree(wt);
-                    }}
-                    className="text-xs group"
-                  >
-                    <ListTodo className="h-3 w-3 mr-2 text-cyan-500/70 shrink-0" />
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <span className="truncate font-medium">{wt.specName}</span>
-                      {wt.branch && (
-                        <span className="text-[10px] text-muted-foreground truncate">
-                          {wt.branch}
-                        </span>
-                      )}
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </>
-            )}
-          </>
-        )}
+              {/* Task Worktrees Section */}
+              {taskWorktrees.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                    {t('terminal:worktree.taskWorktrees')}
+                  </div>
+                  {taskWorktrees.map((wt) => (
+                    <DropdownMenuItem
+                      key={wt.specName}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsOpen(false);
+                        selectTaskWorktree(wt);
+                      }}
+                      className="text-xs group"
+                    >
+                      <ListTodo className="h-3 w-3 mr-2 text-cyan-500/70 shrink-0" />
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="truncate font-medium">{wt.specName}</span>
+                        {wt.branch && (
+                          <span className="text-[10px] text-muted-foreground truncate">
+                            {wt.branch}
+                          </span>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+            </>
+          )}
+        </ScrollArea>
       </DropdownMenuContent>
     </DropdownMenu>
 
