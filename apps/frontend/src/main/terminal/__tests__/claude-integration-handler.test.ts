@@ -111,7 +111,7 @@ describe('claude-integration-handler', () => {
     expect(profileManager.markProfileUsed).toHaveBeenCalledWith('default');
   });
 
-  it('converts Windows PATH separators to colons for bash invocations', async () => {
+  it('uses Windows cmd.exe syntax with semicolon PATH separators on Windows', async () => {
     const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
     Object.defineProperty(process, 'platform', { value: 'win32' });
 
@@ -134,8 +134,11 @@ describe('claude-integration-handler', () => {
       invokeClaude(terminal, '/tmp/project', undefined, () => null, vi.fn());
 
       const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
-      expect(written).toContain("PATH='C:\\Tools\\claude:C:\\Windows' ");
-      expect(written).not.toContain('C:\\Tools\\claude;C:\\Windows');
+      // Windows uses cmd.exe syntax: set "PATH=value" with semicolon separators
+      expect(written).toContain('set "PATH=C:\\Tools\\claude;C:\\Windows"');
+      // Should not use bash-style PATH= prefix
+      expect(written).not.toMatch(/^PATH=/);
+      expect(written).not.toContain('bash -c');
     } finally {
       if (originalPlatform) {
         Object.defineProperty(process, 'platform', originalPlatform);
@@ -284,12 +287,17 @@ describe('claude-integration-handler', () => {
       const tokenContents = vi.mocked(writeFileSync).mock.calls[0]?.[1] as string;
       const tokenPrefix = path.join(tmpdir(), '.claude-token-9999-');
       expect(tokenPath).toMatch(new RegExp(`^${escapeForRegex(tokenPrefix)}[0-9a-f]{16}\\.bat$`));
-      expect(tokenContents).toBe("@echo off\r\nset CLAUDE_CODE_OAUTH_TOKEN='windows-token-value'\r\n");
+      // Windows temp file uses double-quote syntax: set "VAR=value"
+      expect(tokenContents).toBe("@echo off\r\nset \"CLAUDE_CODE_OAUTH_TOKEN=windows-token-value\"\r\n");
       const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
       expect(written).toContain('cls && ');
-      expect(written).toContain(`call '${tokenPath}'`);
-      expect(written).toContain(`del '${tokenPath}'`);
-      expect(written).toContain(`'${command}'`);
+      // Windows call command uses the path directly (no bash-style quotes)
+      expect(written).toContain(`call ${tokenPath}`);
+      // Windows del command uses & separator to ensure cleanup even if command fails
+      expect(written).toContain(`& del ${tokenPath}`);
+      expect(written).toContain(command);
+      // Windows uses set "PATH=value" syntax
+      expect(written).toContain('set "PATH=');
       expect(written).not.toContain('bash -c');
       expect(written).not.toContain('source');
       expect(profileManager.getProfile).toHaveBeenCalledWith('prof-win');
@@ -510,7 +518,7 @@ describe('claude-integration-handler - Helper Functions', () => {
         "cd '/tmp/project' && ",
         "PATH='/opt/bin' ",
         "'/opt/bin/claude'",
-        { method: 'temp-file', escapedTempFile: "'/tmp/.token-123'" }
+        { method: 'temp-file', tempFile: '/tmp/.token-123' }
       );
 
       expect(result).toContain('clear && ');
@@ -528,7 +536,7 @@ describe('claude-integration-handler - Helper Functions', () => {
         "cd '/tmp/project' && ",
         "PATH='/opt/bin' ",
         "'/opt/bin/claude'",
-        { method: 'config-dir', escapedConfigDir: "'/home/user/.claude-work'" }
+        { method: 'config-dir', configDir: '/home/user/.claude-work' }
       );
 
       expect(result).toContain('clear && ');
@@ -545,7 +553,7 @@ describe('claude-integration-handler - Helper Functions', () => {
         '',
         '',
         "'/opt/bin/claude'",
-        { method: 'temp-file', escapedTempFile: "'/tmp/.token'" }
+        { method: 'temp-file', tempFile: '/tmp/.token' }
       );
 
       expect(result).toContain('clear && ');
@@ -571,17 +579,17 @@ describe('claude-integration-handler - Helper Functions', () => {
         const { buildClaudeShellCommand } = await import('../claude-integration-handler');
         const result = buildClaudeShellCommand(
           "cd 'C:\\Users\\test\\project' && ",
-          "PATH='C:\\Tools\\claude' ",
+          'set "PATH=C:\\Tools\\claude" && ',
           "'C:\\Tools\\claude\\claude.cmd'",
-          { method: 'temp-file', escapedTempFile: "'C:\\Users\\test\\AppData\\Local\\Temp\\token.bat'" }
+          { method: 'temp-file', tempFile: 'C:\\Users\\test\\AppData\\Local\\Temp\\token.bat' }
         );
 
         expect(result).toContain('cls && ');
         expect(result).toContain("cd 'C:\\Users\\test\\project' && ");
-        expect(result).toContain("PATH='C:\\Tools\\claude' ");
-        expect(result).toContain("call 'C:\\Users\\test\\AppData\\Local\\Temp\\token.bat'");
+        expect(result).toContain('set "PATH=C:\\Tools\\claude" && ');
+        expect(result).toContain('call C:\\Users\\test\\AppData\\Local\\Temp\\token.bat');
         expect(result).toContain("'C:\\Tools\\claude\\claude.cmd'");
-        expect(result).toContain("del 'C:\\Users\\test\\AppData\\Local\\Temp\\token.bat'");
+        expect(result).toContain('& del C:\\Users\\test\\AppData\\Local\\Temp\\token.bat');
         expect(result).not.toContain('bash -c');
         expect(result).not.toContain('source');
         expect(result).not.toContain('clear');
@@ -591,15 +599,15 @@ describe('claude-integration-handler - Helper Functions', () => {
         const { buildClaudeShellCommand } = await import('../claude-integration-handler');
         const result = buildClaudeShellCommand(
           "cd 'C:\\Users\\test\\project' && ",
-          "PATH='C:\\Tools\\claude' ",
+          'set "PATH=C:\\Tools\\claude" && ',
           "'C:\\Tools\\claude\\claude.cmd'",
-          { method: 'config-dir', escapedConfigDir: "'C:\\Users\\test\\.claude-work'" }
+          { method: 'config-dir', configDir: 'C:\\Users\\test\\.claude-work' }
         );
 
         expect(result).toContain('cls && ');
         expect(result).toContain("cd 'C:\\Users\\test\\project' && ");
-        expect(result).toContain("set CLAUDE_CONFIG_DIR='C:\\Users\\test\\.claude-work'");
-        expect(result).toContain("PATH='C:\\Tools\\claude' ");
+        expect(result).toContain('set "CLAUDE_CONFIG_DIR=C:\\Users\\test\\.claude-work"');
+        expect(result).toContain('set "PATH=C:\\Tools\\claude" && ');
         expect(result).toContain("'C:\\Tools\\claude\\claude.cmd'");
         expect(result).not.toContain('bash -c');
         expect(result).not.toContain('clear');
@@ -610,12 +618,12 @@ describe('claude-integration-handler - Helper Functions', () => {
         const { buildClaudeShellCommand } = await import('../claude-integration-handler');
         const result = buildClaudeShellCommand(
           "cd 'C:\\Users\\test\\project' && ",
-          "PATH='C:\\Tools\\claude' ",
+          'set "PATH=C:\\Tools\\claude" && ',
           "'C:\\Tools\\claude\\claude.cmd'",
           { method: 'default' }
         );
 
-        expect(result).toBe("cd 'C:\\Users\\test\\project' && PATH='C:\\Tools\\claude' 'C:\\Tools\\claude\\claude.cmd'\r");
+        expect(result).toBe("cd 'C:\\Users\\test\\project' && set \"PATH=C:\\Tools\\claude\" && 'C:\\Tools\\claude\\claude.cmd'\r");
         expect(result).not.toContain('bash');
       });
 
@@ -625,14 +633,14 @@ describe('claude-integration-handler - Helper Functions', () => {
           '',
           '',
           "'C:\\Tools\\claude\\claude.cmd'",
-          { method: 'temp-file', escapedTempFile: "'C:\\Users\\test\\AppData\\Local\\Temp\\token.bat'" }
+          { method: 'temp-file', tempFile: 'C:\\Users\\test\\AppData\\Local\\Temp\\token.bat' }
         );
 
         expect(result).toContain('cls && ');
         expect(result).not.toContain('cd ');
-        expect(result).toContain("call 'C:\\Users\\test\\AppData\\Local\\Temp\\token.bat'");
+        expect(result).toContain('call C:\\Users\\test\\AppData\\Local\\Temp\\token.bat');
         expect(result).toContain("'C:\\Tools\\claude\\claude.cmd'");
-        expect(result).toContain("del 'C:\\Users\\test\\AppData\\Local\\Temp\\token.bat'");
+        expect(result).toContain('& del C:\\Users\\test\\AppData\\Local\\Temp\\token.bat');
       });
     });
 
@@ -655,7 +663,7 @@ describe('claude-integration-handler - Helper Functions', () => {
           "cd '/tmp/project' && ",
           "PATH='/opt/bin' ",
           "'/opt/bin/claude'",
-          { method: 'temp-file', escapedTempFile: "'/tmp/.token-123'" }
+          { method: 'temp-file', tempFile: '/tmp/.token-123' }
         );
 
         expect(result).toContain('clear && ');
@@ -673,7 +681,7 @@ describe('claude-integration-handler - Helper Functions', () => {
           "cd '/tmp/project' && ",
           "PATH='/opt/bin' ",
           "'/opt/bin/claude'",
-          { method: 'config-dir', escapedConfigDir: "'/home/user/.claude-work'" }
+          { method: 'config-dir', configDir: '/home/user/.claude-work' }
         );
 
         expect(result).toContain('clear && ');
