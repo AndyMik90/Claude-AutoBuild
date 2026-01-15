@@ -137,7 +137,7 @@ def find_existing_spec_for_task(
         requirements_file = folder / "requirements.json"
         if requirements_file.exists():
             try:
-                with open(requirements_file) as f:
+                with open(requirements_file, encoding="utf-8") as f:
                     req = json.load(f)
                     existing_task = req.get("task_description", "").lower().strip()
             except (json.JSONDecodeError, OSError):
@@ -195,7 +195,7 @@ def _get_spec_status(spec_dir: Path) -> str:
 
     # Check plan progress
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
             tasks = plan.get("tasks", [])
             if not tasks:
@@ -298,8 +298,6 @@ def prompt_for_existing_spec_action(
                     return ("overwrite", matches[idx]["path"])
                 # C or anything else = go back
                 continue
-
-    return ("new", None)
 
 
 def cleanup_incomplete_pending_folders(specs_dir: Path, force: bool = False) -> int:
@@ -506,7 +504,7 @@ def rename_spec_dir_from_requirements(spec_dir: Path) -> bool:
         return False
 
     try:
-        with open(requirements_file) as f:
+        with open(requirements_file, encoding="utf-8") as f:
             req = json.load(f)
 
         task_desc = req.get("task_description", "")
