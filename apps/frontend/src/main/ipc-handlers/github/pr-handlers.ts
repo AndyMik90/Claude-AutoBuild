@@ -2073,14 +2073,18 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
         // Try to get detailed comparison
         try {
-          // Get comparison to count new commits
+          // Get comparison to count new commits and see what files changed
           const comparison = (await githubFetch(
             config.token,
             `/repos/${config.repo}/compare/${reviewedCommitSha}...${currentHeadSha}`
           )) as {
             ahead_by?: number;
             total_commits?: number;
-            commits?: Array<{ commit: { committer: { date: string } } }>;
+            commits?: Array<{
+              commit: { committer: { date: string }; message: string };
+              parents?: Array<{ sha: string }>;
+            }>;
+            files?: Array<{ filename: string }>;
           };
 
           // Check if findings have been posted and if new commits are after the posting date
@@ -2107,12 +2111,45 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             hasCommitsAfterPosting = false;
           }
 
+          // Check if this looks like a merge from base branch (develop/main)
+          const isMergeFromBase = comparison.commits?.some((c) => {
+            const hasTwoParents = (c.parents?.length ?? 0) >= 2;
+            const isMergeMessage = /merge\s+(branch|pull\s+request|remote-tracking)/i.test(
+              c.commit.message
+            );
+            return hasTwoParents && isMergeMessage;
+          }) ?? false;
+
+          // Get files that had findings from the review
+          const findingFiles = new Set<string>(
+            (review.findings || []).map((f) => f.file).filter(Boolean)
+          );
+
+          // Get files changed in the new commits
+          const newCommitFiles = (comparison.files || []).map((f) => f.filename);
+
+          // Check for overlap between new commit files and finding files
+          const overlappingFiles = newCommitFiles.filter((f) => findingFiles.has(f));
+          const hasOverlapWithFindings = overlappingFiles.length > 0;
+
+          debugLog("File overlap check", {
+            prNumber,
+            findingFilesCount: findingFiles.size,
+            newCommitFilesCount: newCommitFiles.length,
+            overlappingFiles,
+            hasOverlapWithFindings,
+            isMergeFromBase,
+          });
+
           return {
             hasNewCommits: true,
             newCommitCount: comparison.ahead_by || comparison.total_commits || 1,
             lastReviewedCommit: reviewedCommitSha,
             currentHeadCommit: currentHeadSha,
             hasCommitsAfterPosting,
+            hasOverlapWithFindings,
+            overlappingFiles: overlappingFiles.length > 0 ? overlappingFiles : undefined,
+            isMergeFromBase,
           };
         } catch (error) {
           // Comparison failed (e.g., force push made old commit unreachable)
