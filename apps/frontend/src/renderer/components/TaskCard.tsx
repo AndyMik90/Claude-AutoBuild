@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
+import { useToast } from '../hooks/use-toast';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
 import {
   TASK_CATEGORY_LABELS,
@@ -126,6 +127,7 @@ export const TaskCard = memo(function TaskCard({
   onToggleSelect
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
+  const { toast } = useToast();
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
@@ -583,7 +585,14 @@ export const TaskCard = memo(function TaskCard({
                   className="h-7 px-2.5"
                   onClick={async (e) => {
                     e.stopPropagation();
-                    await resetToBacklog(task.id);
+                    const result = await resetToBacklog(task.id);
+                    if (!result.success) {
+                      toast({
+                        title: t('errors.resetFailed') || 'Reset Failed',
+                        description: result.error || t('errors.unknownError') || 'An unknown error occurred',
+                        variant: 'destructive'
+                      });
+                    }
                   }}
                   title={t('tooltips.resetToBacklog') || 'Reset to backlog to retry from scratch'}
                 >
