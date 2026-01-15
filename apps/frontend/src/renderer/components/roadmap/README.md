@@ -160,6 +160,31 @@ import {
 6. **Reduced Cognitive Load**: Developers can focus on one piece at a time
 7. **Scalability**: Easy to add new features or modify existing ones
 
+## Dependencies Visualization
+
+Features can specify dependencies on other features. The roadmap displays these dependencies bidirectionally:
+
+### Dependencies Section
+
+Shows which features must be completed before this feature can start:
+- **Green checkmark** ✓ - Dependency is complete
+- **Yellow clock** ⏱ - Dependency is in progress
+- **Gray indicator** - Dependency is not started
+- **Red warning** ⚠ - Dependency doesn't exist in roadmap
+
+### Required By Section
+
+Shows which features depend on this feature. This helps understand the impact of changing or delaying this feature.
+
+### Validation Warnings
+
+- **Circular dependencies** - Detected and displayed with purple indicator and error banner
+- **Missing dependencies** - Shown with red dashed border and tooltip
+
+### Interaction
+
+Click any dependency chip to open the detail side panel with full feature information.
+
 ## Migration Notes
 
 - All functionality remains identical to the original implementation

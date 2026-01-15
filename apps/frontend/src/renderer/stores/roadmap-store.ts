@@ -53,6 +53,9 @@ interface RoadmapState {
   generationStatus: RoadmapGenerationStatus;
   currentProjectId: string | null;  // Track which project we're viewing/generating for
 
+  // Dependency detail panel state
+  dependencyDetailFeatureId: string | null;
+
   // Actions
   setRoadmap: (roadmap: Roadmap | null) => void;
   setCompetitorAnalysis: (analysis: CompetitorAnalysis | null) => void;
@@ -67,6 +70,9 @@ interface RoadmapState {
   reorderFeatures: (phaseId: string, featureIds: string[]) => void;
   updateFeaturePhase: (featureId: string, newPhaseId: string) => void;
   addFeature: (feature: Omit<RoadmapFeature, 'id'>) => string;
+  // Dependency detail panel actions
+  openDependencyDetail: (featureId: string) => void;
+  closeDependencyDetail: () => void;
 }
 
 const initialGenerationStatus: RoadmapGenerationStatus = {
@@ -81,6 +87,7 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
   competitorAnalysis: null,
   generationStatus: initialGenerationStatus,
   currentProjectId: null,
+  dependencyDetailFeatureId: null,
 
   // Actions
   setRoadmap: (roadmap) => set({ roadmap }),
@@ -169,7 +176,8 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
       roadmap: null,
       competitorAnalysis: null,
       generationStatus: initialGenerationStatus,
-      currentProjectId: null
+      currentProjectId: null,
+      dependencyDetailFeatureId: null
     }),
 
   // Reorder features within a phase
@@ -238,7 +246,15 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
     });
 
     return newId;
-  }
+  },
+
+  // Open dependency detail panel for a feature
+  openDependencyDetail: (featureId) =>
+    set({ dependencyDetailFeatureId: featureId }),
+
+  // Close dependency detail panel
+  closeDependencyDetail: () =>
+    set({ dependencyDetailFeatureId: null }),
 }));
 
 // Helper functions for loading roadmap

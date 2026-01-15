@@ -26,3 +26,18 @@ class RoadmapConfig:
     model: str = "sonnet"  # Changed from "opus" (fix #433)
     refresh: bool = False  # Force regeneration even if roadmap exists
     enable_competitor_analysis: bool = False  # Enable competitor analysis phase
+
+
+@dataclass
+class RoadmapFeature:
+    """A feature in the roadmap with dependencies."""
+
+    id: str
+    title: str
+    description: str
+    dependencies: list[str]  # List of feature IDs this feature depends on
+    status: str  # e.g., "planned", "in_progress", "completed"
+    reverseDependencies: list[str] | None = (
+        None  # List of feature IDs that depend on this feature
+    )
+    dependencyValidation: dict | None = None  # Validation metadata for dependencies

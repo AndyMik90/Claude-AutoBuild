@@ -118,6 +118,15 @@ export interface RoadmapFeature {
   impact: 'low' | 'medium' | 'high';
   phaseId: string;
   dependencies: string[];
+  // NEW: Reverse dependencies (which features depend on this one)
+  reverseDependencies?: string[];
+  // NEW: Validation metadata
+  dependencyValidation?: {
+    hasMissing: boolean;
+    hasCircular: boolean;
+    missingIds: string[];
+    circularPaths: string[][];
+  };
   status: RoadmapFeatureStatus;
   acceptanceCriteria: string[];
   userStories: string[];

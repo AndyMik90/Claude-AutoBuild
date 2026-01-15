@@ -6,11 +6,11 @@ import {
   Users,
   CheckCircle2,
   Circle,
-  ArrowRight,
   Zap,
   ExternalLink,
   TrendingUp,
   Trash2,
+  Link,
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -23,6 +23,7 @@ import {
   ROADMAP_IMPACT_COLORS,
 } from '../../../shared/constants';
 import type { FeatureDetailPanelProps } from './types';
+import { useRoadmapStore } from '../../stores/roadmap-store';
 
 export function FeatureDetailPanel({
   feature,
@@ -31,9 +32,19 @@ export function FeatureDetailPanel({
   onGoToTask,
   onDelete,
   competitorInsights = [],
+  onDependencyClick,
 }: FeatureDetailPanelProps) {
   const { t } = useTranslation('common');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const openDependencyDetail = useRoadmapStore(s => s.openDependencyDetail);
+
+  const handleDependencyClick = (depId: string) => {
+    if (onDependencyClick) {
+      onDependencyClick(depId);
+    } else {
+      openDependencyDetail(depId);
+    }
+  };
 
   const handleDelete = () => {
     if (onDelete) {
@@ -161,14 +172,20 @@ export function FeatureDetailPanel({
         {feature.dependencies.length > 0 && (
           <div>
             <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
-              <ArrowRight className="h-4 w-4" />
+              <Link className="h-4 w-4" />
               Dependencies
             </h3>
             <div className="flex flex-wrap gap-1">
               {feature.dependencies.map((dep) => (
-                <Badge key={dep} variant="outline" className="text-xs">
-                  {dep}
-                </Badge>
+                <button
+                  key={dep}
+                  className="px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer transition-all flex items-center gap-1"
+                  onClick={() => handleDependencyClick(dep)}
+                  title={`View dependency: ${dep}`}
+                >
+                  <span>{dep}</span>
+                  <ChevronRight className="h-3 w-3" />
+                </button>
               ))}
             </div>
           </div>
