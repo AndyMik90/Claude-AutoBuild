@@ -10,7 +10,7 @@
  * - File explorer drawer sidebar
  * - Git branch selection options
  */
-import { useState, useEffect, useCallback, useRef, useMemo, type DragEvent } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch, Info } from 'lucide-react';
 import { Button } from './ui/button';
@@ -112,12 +112,19 @@ export function TaskCreationWizard({
 
   // @ autocomplete state
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  // Ref to track latest description value (avoids stale closure in handleFileReferenceDrop)
+  const descriptionValueRef = useRef(description);
   const [autocomplete, setAutocomplete] = useState<{
     show: boolean;
     query: string;
     startPos: number;
     position: { top: number; left: number };
   } | null>(null);
+
+  // Keep description ref in sync for use in callbacks
+  useEffect(() => {
+    descriptionValueRef.current = description;
+  }, [description]);
 
   // Load draft when dialog opens
   useEffect(() => {
@@ -297,6 +304,7 @@ export function TaskCreationWizard({
   /**
    * Handle file reference drop from FileTreeItem drag
    * Inserts @filename at cursor position or end of description
+   * Uses descriptionValueRef to avoid stale closure issues with rapid consecutive drops
    */
   const handleFileReferenceDrop = useCallback((reference: string, _data: FileReferenceData) => {
     // Dismiss any active autocomplete when file is dropped
@@ -304,15 +312,18 @@ export function TaskCreationWizard({
       setAutocomplete(null);
     }
 
+    // Get latest description from ref to avoid stale closure
+    const currentDescription = descriptionValueRef.current;
+
     // Insert reference at cursor position if textarea is available
     const textarea = descriptionRef.current;
     if (textarea) {
-      const start = textarea.selectionStart ?? description.length;
-      const end = textarea.selectionEnd ?? description.length;
+      const start = textarea.selectionStart ?? currentDescription.length;
+      const end = textarea.selectionEnd ?? currentDescription.length;
       const newDescription =
-        description.substring(0, start) +
+        currentDescription.substring(0, start) +
         reference + ' ' +
-        description.substring(end);
+        currentDescription.substring(end);
       handleDescriptionChange(newDescription);
       // Focus textarea and set cursor after inserted text
       // Use queueMicrotask for consistency with handleAutocompleteSelect
@@ -323,10 +334,10 @@ export function TaskCreationWizard({
       });
     } else {
       // Fallback: append to end
-      const separator = description.endsWith(' ') || description === '' ? '' : ' ';
-      handleDescriptionChange(description + separator + reference + ' ');
+      const separator = currentDescription.endsWith(' ') || currentDescription === '' ? '' : ' ';
+      handleDescriptionChange(currentDescription + separator + reference + ' ');
     }
-  }, [description, handleDescriptionChange, autocomplete?.show]);
+  }, [handleDescriptionChange, autocomplete?.show]);
 
   /**
    * Parse @mentions from description

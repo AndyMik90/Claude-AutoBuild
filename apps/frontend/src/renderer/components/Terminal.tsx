@@ -91,6 +91,11 @@ export function Terminal({
 
   // Handle native drag leave
   const handleNativeDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    // Only reset if actually leaving the container, not just moving to a child element
+    // HTML5 drag events fire dragleave when moving from parent to child
+    if (e.currentTarget.contains(e.relatedTarget as Node)) {
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     setIsNativeDragOver(false);
