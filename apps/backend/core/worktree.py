@@ -406,22 +406,18 @@ class WorktreeManager:
 
         # Step 2: Read the tree into the worktree's index
         result = self._run_git(["read-tree", "HEAD"], cwd=worktree_path)
-        if result.returncode != 0:
-            # Cleanup on failure
-            shutil.rmtree(worktree_path, ignore_errors=True)
-            self._run_git(["worktree", "prune"])
-            return result
 
-        # Step 3: Checkout files from the index
-        result = self._run_git(["checkout-index", "-a", "-f"], cwd=worktree_path)
-        if result.returncode != 0:
-            # Try alternative: git reset followed by checkout-index
-            reset_result = self._run_git(["reset", "HEAD"], cwd=worktree_path)
-            if reset_result.returncode == 0:
-                result = self._run_git(["checkout-index", "-a", "-f"], cwd=worktree_path)
+        # Step 3: Checkout files from the index (if step 2 succeeded)
+        if result.returncode == 0:
+            result = self._run_git(["checkout-index", "-a", "-f"], cwd=worktree_path)
+            if result.returncode != 0:
+                # Try alternative: git reset followed by checkout-index
+                reset_result = self._run_git(["reset", "HEAD"], cwd=worktree_path)
+                if reset_result.returncode == 0:
+                    result = self._run_git(["checkout-index", "-a", "-f"], cwd=worktree_path)
 
+        # Single cleanup point for any failure after worktree creation
         if result.returncode != 0:
-            # Cleanup on failure
             shutil.rmtree(worktree_path, ignore_errors=True)
             self._run_git(["worktree", "prune"])
 
