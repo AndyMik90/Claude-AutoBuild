@@ -8,6 +8,13 @@ import type { IPCResult, GitHubIssue } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import { getGitHubConfig, githubFetch, normalizeRepoReference } from './utils';
 import type { GitHubAPIIssue, GitHubAPIComment } from './types';
+import { debugLog } from '../../../shared/utils/debug-logger';
+
+// Pagination constants
+const ISSUES_PER_PAGE = 50;           // Target number of issues per page (after filtering PRs)
+const GITHUB_API_PER_PAGE = 100;      // GitHub API's max items per request
+const MAX_PAGES_PAGINATED = 5;        // Max API pages to fetch in paginated mode
+const MAX_PAGES_FETCH_ALL = 30;       // Max API pages to fetch in fetchAll mode
 
 /**
  * Transform GitHub API issue to application format
@@ -66,17 +73,17 @@ export function registerGetIssues(): void {
       page: number = 1,
       fetchAll: boolean = false
     ): Promise<IPCResult<PaginatedIssuesResult>> => {
-      console.log('[GitHub Issues] getIssues handler called', { projectId, state, page, fetchAll });
+      debugLog('[GitHub Issues] getIssues handler called', { projectId, state, page, fetchAll });
 
       const project = projectStore.getProject(projectId);
       if (!project) {
-        console.log('[GitHub Issues] Project not found:', projectId);
+        debugLog('[GitHub Issues] Project not found:', projectId);
         return { success: false, error: 'Project not found' };
       }
 
       const config = getGitHubConfig(project);
       if (!config) {
-        console.log('[GitHub Issues] No GitHub config found for project');
+        debugLog('[GitHub Issues] No GitHub config found for project');
         return { success: false, error: 'No GitHub token or repository configured' };
       }
 
@@ -89,24 +96,21 @@ export function registerGetIssues(): void {
           };
         }
 
-        console.log('[GitHub Issues] Fetching issues from:', normalizedRepo, 'state:', state);
+        debugLog('[GitHub Issues] Fetching issues from:', normalizedRepo, 'state:', state);
 
-        // Target number of actual issues per page (after filtering PRs)
-        const targetIssuesPerPage = 50;
-        const maxPagesPerRequest = fetchAll ? 30 : 5; // Limit API calls per request
+        const maxPagesPerRequest = fetchAll ? MAX_PAGES_FETCH_ALL : MAX_PAGES_PAGINATED;
 
         if (fetchAll) {
           // Fetch ALL issues (for search functionality)
           const allIssues: GitHubAPIIssue[] = [];
           let apiPage = 1;
-          const maxPages = 30; // Safety limit
 
-          while (apiPage <= maxPages) {
-            console.log('[GitHub Issues] Fetching page', apiPage, '(fetchAll mode)');
+          while (apiPage <= MAX_PAGES_FETCH_ALL) {
+            debugLog('[GitHub Issues] Fetching page', apiPage, '(fetchAll mode)');
 
             const pageIssues = await githubFetch(
               config.token,
-              `/repos/${normalizedRepo}/issues?state=${state}&per_page=100&sort=updated&page=${apiPage}`
+              `/repos/${normalizedRepo}/issues?state=${state}&per_page=${GITHUB_API_PER_PAGE}&sort=updated&page=${apiPage}`
             );
 
             if (!Array.isArray(pageIssues) || pageIssues.length === 0) {
@@ -115,7 +119,7 @@ export function registerGetIssues(): void {
 
             allIssues.push(...pageIssues);
 
-            if (pageIssues.length < 100) {
+            if (pageIssues.length < GITHUB_API_PER_PAGE) {
               break;
             }
 
@@ -127,15 +131,15 @@ export function registerGetIssues(): void {
             transformIssue(issue, normalizedRepo)
           );
 
-          console.log('[GitHub Issues] fetchAll complete:', result.length, 'issues');
+          debugLog('[GitHub Issues] fetchAll complete:', result.length, 'issues');
           return { success: true, data: { issues: result, hasMore: false } };
         }
 
         // Paginated fetching - collect enough actual issues for the requested page
         // Since GitHub mixes PRs with issues, we need to fetch multiple API pages
         // to accumulate enough actual issues
-        const targetStartIndex = (page - 1) * targetIssuesPerPage;
-        const targetEndIndex = page * targetIssuesPerPage;
+        const targetStartIndex = (page - 1) * ISSUES_PER_PAGE;
+        const targetEndIndex = page * ISSUES_PER_PAGE;
 
         const collectedIssues: GitHubAPIIssue[] = [];
         let apiPage = 1;
@@ -143,15 +147,15 @@ export function registerGetIssues(): void {
 
         // Keep fetching until we have enough issues or run out of API pages
         while (collectedIssues.length < targetEndIndex && apiPage <= maxPagesPerRequest && hasMoreFromAPI) {
-          console.log('[GitHub Issues] Fetching API page', apiPage, 'collected so far:', collectedIssues.length);
+          debugLog('[GitHub Issues] Fetching API page', apiPage, 'collected so far:', collectedIssues.length);
 
           const pageItems = await githubFetch(
             config.token,
-            `/repos/${normalizedRepo}/issues?state=${state}&per_page=100&sort=updated&page=${apiPage}`
+            `/repos/${normalizedRepo}/issues?state=${state}&per_page=${GITHUB_API_PER_PAGE}&sort=updated&page=${apiPage}`
           );
 
           if (!Array.isArray(pageItems)) {
-            console.log('[GitHub Issues] Unexpected response format:', typeof pageItems);
+            debugLog('[GitHub Issues] Unexpected response format:', typeof pageItems);
             break;
           }
 
@@ -164,9 +168,9 @@ export function registerGetIssues(): void {
           const issuesFromPage = pageItems.filter((issue: GitHubAPIIssue) => !issue.pull_request);
           collectedIssues.push(...issuesFromPage);
 
-          console.log('[GitHub Issues] API page', apiPage, ':', pageItems.length, 'items,', issuesFromPage.length, 'actual issues');
+          debugLog('[GitHub Issues] API page', apiPage, ':', pageItems.length, 'items,', issuesFromPage.length, 'actual issues');
 
-          if (pageItems.length < 100) {
+          if (pageItems.length < GITHUB_API_PER_PAGE) {
             hasMoreFromAPI = false;
           }
 
@@ -175,16 +179,30 @@ export function registerGetIssues(): void {
 
         // Extract the issues for the requested page
         const pageIssues = collectedIssues.slice(targetStartIndex, targetEndIndex);
-        const hasMore = hasMoreFromAPI || collectedIssues.length > targetEndIndex;
+
+        // Improved hasMore calculation:
+        // - If we collected more than the target end index, there's definitely more
+        // - If we haven't exhausted the API (hasMoreFromAPI=true), there might be more
+        // - BUT if we returned 0 issues for this page (pageIssues.length === 0),
+        //   we've likely hit a situation where the repo has mostly PRs and we can't
+        //   find enough issues within the fetch limit - signal no more to avoid
+        //   infinite "load more" attempts
+        let hasMore = hasMoreFromAPI || collectedIssues.length > targetEndIndex;
+
+        // Edge case: If we returned empty results, don't claim there's more
+        // This prevents infinite loading when repo has mostly PRs
+        if (pageIssues.length === 0) {
+          hasMore = false;
+        }
 
         const result: GitHubIssue[] = pageIssues.map((issue: GitHubAPIIssue) =>
           transformIssue(issue, normalizedRepo)
         );
 
-        console.log('[GitHub Issues] Returning page', page, ':', result.length, 'issues, hasMore:', hasMore);
+        debugLog('[GitHub Issues] Returning page', page, ':', result.length, 'issues, hasMore:', hasMore);
         return { success: true, data: { issues: result, hasMore } };
       } catch (error) {
-        console.error('[GitHub Issues] Error fetching issues:', error);
+        debugLog('[GitHub Issues] Error fetching issues:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to fetch issues'

@@ -43,12 +43,16 @@ export function useGitHubIssues(projectId: string | undefined) {
   }, [projectId]);
 
   // Load issues when filter changes or after connection is established
+  // Note: isSearchActive is NOT in deps because handleSearchStart/handleSearchClear
+  // already handle loading issues when search state changes. Including it would cause
+  // duplicate API calls.
   useEffect(() => {
     if (projectId && syncStatus?.connected) {
       // If search is active, load all issues for complete search
       loadGitHubIssues(projectId, filterState, isSearchActive);
     }
-  }, [projectId, filterState, syncStatus?.connected, isSearchActive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, filterState, syncStatus?.connected]);
 
   const handleRefresh = useCallback(() => {
     if (projectId) {

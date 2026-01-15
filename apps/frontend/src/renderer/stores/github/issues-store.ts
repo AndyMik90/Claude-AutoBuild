@@ -163,11 +163,22 @@ export async function loadMoreGitHubIssues(
     return;
   }
 
+  // Capture filter state at request start to detect if it changes during the async call
+  const originalFilterState = store.filterState;
+  const nextPage = store.currentPage + 1;
+
   store.setLoadingMore(true);
 
   try {
-    const nextPage = store.currentPage + 1;
     const result = await window.electronAPI.getGitHubIssues(projectId, state, nextPage, false);
+
+    // Verify filter state hasn't changed during the async operation
+    // This prevents appending stale data from a different filter
+    const currentState = useIssuesStore.getState();
+    if (currentState.filterState !== originalFilterState) {
+      // Filter changed while loading - discard results
+      return;
+    }
 
     if (result.success && result.data) {
       store.appendIssues(result.data.issues);
