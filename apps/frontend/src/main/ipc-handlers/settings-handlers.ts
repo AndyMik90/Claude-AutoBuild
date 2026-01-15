@@ -779,10 +779,12 @@ export function registerSettingsHandlers(
         const reloadedFiles: string[] = [];
 
         // Reload frontend .env
+        // In dev mode, __dirname is apps/frontend/out/main/ipc-handlers
+        // So we need to go up 3 levels to reach apps/frontend/.env
+        // (ipc-handlers -> main -> out -> frontend)
         const possibleFrontendEnvPaths = [
-          path.resolve(__dirname, '../../.env'),
-          path.resolve(__dirname, '../../../.env'),
-          path.resolve(process.cwd(), 'apps/frontend/.env'),
+          path.resolve(__dirname, '../../../.env'),     // From out/main/ipc-handlers to frontend/.env (3 levels up)
+          path.resolve(process.cwd(), 'apps/frontend/.env'),  // From repo root as fallback
         ];
 
         for (const envPath of possibleFrontendEnvPaths) {
