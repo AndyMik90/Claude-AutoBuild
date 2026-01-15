@@ -13,6 +13,8 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
+from core.file_utils import safe_open
+
 
 class Complexity(Enum):
     """Task complexity tiers that determine which phases to run."""
@@ -436,11 +438,14 @@ async def run_ai_complexity_assessment(
 
 
 def save_assessment(spec_dir: Path, assessment: ComplexityAssessment) -> Path:
-    """Save complexity assessment to file."""
+    """Save complexity assessment to file.
+
+    Uses safe_open for Windows compatibility to prevent [Errno 22] errors.
+    """
     assessment_file = spec_dir / "complexity_assessment.json"
     phases = assessment.phases_to_run()
 
-    with open(assessment_file, "w") as f:
+    with safe_open(assessment_file, "w") as f:
         json.dump(
             {
                 "complexity": assessment.complexity.value,
