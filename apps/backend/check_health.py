@@ -23,11 +23,6 @@ from health_check import run_system_health_check
 def main():
     """Run health check and output JSON."""
     try:
-        # DEBUG: Log environment variables received from spawn
-        print(f"[DEBUG] GRAPHITI_ENABLED from env: {os.getenv('GRAPHITI_ENABLED')}", file=sys.stderr)
-        print(f"[DEBUG] CLAUDE_CODE_OAUTH_TOKEN present: {bool(os.getenv('CLAUDE_CODE_OAUTH_TOKEN'))}", file=sys.stderr)
-        print(f"[DEBUG] All env keys with GRAPHITI: {[k for k in os.environ.keys() if 'GRAPHITI' in k]}", file=sys.stderr)
-
         results = run_system_health_check()
         print(json.dumps(results, indent=2))
         sys.exit(0)
