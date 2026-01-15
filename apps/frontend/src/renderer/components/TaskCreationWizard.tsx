@@ -24,6 +24,7 @@ import {
 } from './ui/select';
 import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
+import { type FileReferenceData } from './task-form/useImageUpload';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { FileAutocomplete } from './FileAutocomplete';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
@@ -111,12 +112,19 @@ export function TaskCreationWizard({
 
   // @ autocomplete state
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  // Ref to track latest description value (avoids stale closure in handleFileReferenceDrop)
+  const descriptionValueRef = useRef(description);
   const [autocomplete, setAutocomplete] = useState<{
     show: boolean;
     query: string;
     startPos: number;
     position: { top: number; left: number };
   } | null>(null);
+
+  // Keep description ref in sync for use in callbacks
+  useEffect(() => {
+    descriptionValueRef.current = description;
+  }, [description]);
 
   // Load draft when dialog opens
   useEffect(() => {
@@ -292,6 +300,46 @@ export function TaskCreationWizard({
       textarea.setSelectionRange(newCursorPos, newCursorPos);
     });
   }, [autocomplete, description]);
+
+  /**
+   * Handle file reference drop from FileTreeItem drag
+   * Inserts @filename at cursor position or end of description
+   * Uses descriptionValueRef to avoid stale closure issues with rapid consecutive drops
+   */
+  const handleFileReferenceDrop = useCallback((_reference: string, data: FileReferenceData) => {
+    // Construct reference from validated data to avoid using unvalidated text/plain input
+    const reference = `@${data.name}`;
+    // Dismiss any active autocomplete when file is dropped
+    if (autocomplete?.show) {
+      setAutocomplete(null);
+    }
+
+    // Get latest description from ref to avoid stale closure
+    const currentDescription = descriptionValueRef.current;
+
+    // Insert reference at cursor position if textarea is available
+    const textarea = descriptionRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart ?? currentDescription.length;
+      const end = textarea.selectionEnd ?? currentDescription.length;
+      const newDescription =
+        currentDescription.substring(0, start) +
+        reference + ' ' +
+        currentDescription.substring(end);
+      handleDescriptionChange(newDescription);
+      // Focus textarea and set cursor after inserted text
+      // Use queueMicrotask for consistency with handleAutocompleteSelect
+      queueMicrotask(() => {
+        textarea.focus();
+        const newCursorPos = start + reference.length + 1;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      });
+    } else {
+      // Fallback: append to end
+      const separator = currentDescription.endsWith(' ') || currentDescription === '' ? '' : ' ';
+      handleDescriptionChange(currentDescription + separator + reference + ' ');
+    }
+  }, [handleDescriptionChange, autocomplete?.show]);
 
   /**
    * Parse @mentions from description
@@ -574,6 +622,7 @@ export function TaskCreationWizard({
           disabled={isCreating}
           error={error}
           onError={setError}
+          onFileReferenceDrop={handleFileReferenceDrop}
           idPrefix="create"
         >
           {/* File autocomplete popup - positioned relative to TaskFormFields */}
