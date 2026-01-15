@@ -131,13 +131,13 @@ export function ProjectTabBar({
               size="icon"
               className="h-8 w-8 flex-shrink-0"
               onClick={onAddProject}
-              aria-label={t('projectTab.addProjectAriaLabel')}
+              aria-label={t('common:projectTab.addProjectAriaLabel')}
             >
               <Plus className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            <span>{t('projectTab.addNewProject')}</span>
+            <span>{t('common:projectTab.addNewProject')}</span>
           </TooltipContent>
         </Tooltip>
       </div>
@@ -156,13 +156,13 @@ export function ProjectTabBar({
                 className="h-8 w-8 flex-shrink-0"
                 onClick={onRefresh}
                 disabled={isRefreshing}
-                aria-label={t('accessibility.refreshAriaLabel')}
+                aria-label={t('common:accessibility.refreshAriaLabel')}
               >
                 <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <span>{t('projectTab.refreshTasks')}</span>
+              <span>{t('common:projectTab.refreshTasks')}</span>
             </TooltipContent>
           </Tooltip>
         )}
@@ -182,7 +182,7 @@ export function ProjectTabBar({
                 )}
                 onClick={onToggleArchived}
                 aria-pressed={showArchived}
-                aria-label={t('accessibility.toggleShowArchivedAriaLabel')}
+                aria-label={t('common:accessibility.toggleShowArchivedAriaLabel')}
               >
                 <Archive className="h-4 w-4" />
                 <span className="absolute -top-1 -right-1 text-[10px] font-medium bg-muted rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
@@ -191,7 +191,7 @@ export function ProjectTabBar({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <span>{showArchived ? t('projectTab.hideArchived') : t('projectTab.showArchived')}</span>
+              <span>{showArchived ? t('common:projectTab.hideArchived') : t('common:projectTab.showArchived')}</span>
             </TooltipContent>
           </Tooltip>
         )}
