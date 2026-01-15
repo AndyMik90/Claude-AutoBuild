@@ -24,7 +24,6 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Any, Literal
 
-
 # Windows invalid filename characters and their safe replacements
 _WINDOWS_INVALID_CHARS_MAP = str.maketrans({
     "<": "_",
@@ -99,7 +98,8 @@ def sanitize_filename(filename: str) -> str:
         filename: The filename to sanitize (not a full path)
 
     Returns:
-        Sanitized filename safe for Windows
+        Sanitized filename safe for Windows. Returns "_unnamed" if sanitization
+        produces an empty string.
     """
     if not filename:
         return filename
@@ -109,6 +109,11 @@ def sanitize_filename(filename: str) -> str:
 
     # Remove trailing dots and spaces (Windows doesn't allow them)
     sanitized = sanitized.rstrip(". ")
+
+    # Handle edge case where sanitization produces empty string
+    # (e.g., input was "..." or "   ")
+    if not sanitized:
+        return "_unnamed"
 
     # Handle reserved names by prefixing with underscore
     name_part = sanitized.rsplit(".", 1)[0] if "." in sanitized else sanitized
@@ -120,9 +125,9 @@ def sanitize_filename(filename: str) -> str:
 
 def safe_path(filepath: str | Path) -> Path:
     """
-    Create a safe, normalized path with sanitized filename.
+    Create a safe, normalized path with sanitized components.
 
-    Combines path normalization with filename sanitization for
+    Combines path normalization with filename/directory sanitization for
     full Windows compatibility.
 
     Args:
@@ -134,11 +139,19 @@ def safe_path(filepath: str | Path) -> Path:
     path = Path(filepath)
 
     if is_windows():
-        # Sanitize just the filename part, not directory names
-        # (directory names are usually controlled by the system/user)
-        parent = path.parent
-        filename = sanitize_filename(path.name)
-        path = parent / filename
+        # Sanitize all path components (directories and filename)
+        # to handle cases where paths come from external sources
+        parts = list(path.parts)
+        sanitized_parts = []
+
+        for i, part in enumerate(parts):
+            # Don't sanitize the drive letter (e.g., "C:")
+            if i == 0 and len(part) == 2 and part[1] == ":":
+                sanitized_parts.append(part)
+            else:
+                sanitized_parts.append(sanitize_filename(part))
+
+        path = Path(*sanitized_parts) if sanitized_parts else path
 
     return normalize_path(path)
 
