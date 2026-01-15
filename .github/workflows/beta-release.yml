@@ -557,10 +557,12 @@ jobs:
         with:
           path: dist
 
-      - name: Flatten and validate artifacts
+      - name: Flatten binary artifacts
         run: |
           mkdir -p release-assets
-          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" -o -name "*.yml" \) -exec cp {} release-assets/ \;
+
+          # Copy binary artifacts (these have unique names per architecture)
+          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
 
           # Validate that at least one artifact was copied
           artifact_count=$(find release-assets -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) | wc -l)
@@ -569,8 +571,64 @@ jobs:
             exit 1
           fi
 
-          echo "Found $artifact_count artifact(s):"
+          echo "Found $artifact_count binary artifact(s):"
           ls -la release-assets/
+
+      # Merge macOS manifests from Intel and ARM64 builds
+      # See: https://github.com/electron-userland/electron-builder/issues/5592
+      # Both builds produce latest-mac.yml with only their architecture's files.
+      # We must merge them so electron-updater can find the correct architecture.
+      - name: Merge macOS manifests
+        run: |
+          echo "=== Merging macOS update manifests ==="
+
+          # Find all latest-mac.yml files from different build artifacts
+          intel_manifest=$(find dist -path "*/macos-intel-builds/latest-mac.yml" -type f 2>/dev/null | head -1)
+          arm64_manifest=$(find dist -path "*/macos-arm64-builds/latest-mac.yml" -type f 2>/dev/null | head -1)
+
+          echo "Intel manifest: ${intel_manifest:-not found}"
+          echo "ARM64 manifest: ${arm64_manifest:-not found}"
+
+          if [ -n "$intel_manifest" ] && [ -n "$arm64_manifest" ]; then
+            echo "Both architectures found - merging manifests..."
+
+            # Install yq for YAML merging
+            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            sudo chmod +x /usr/local/bin/yq
+
+            # Merge the files arrays from both manifests
+            # Start with intel manifest as base, then append arm64 files
+            cp "$intel_manifest" release-assets/latest-mac.yml
+
+            # Extract arm64 files and append to merged manifest
+            arm64_files=$(yq '.files' "$arm64_manifest")
+            yq -i ".files += $arm64_files" release-assets/latest-mac.yml
+
+            echo "Merged manifest contents:"
+            cat release-assets/latest-mac.yml
+
+          elif [ -n "$intel_manifest" ]; then
+            echo "Only Intel manifest found - using as-is"
+            cp "$intel_manifest" release-assets/latest-mac.yml
+          elif [ -n "$arm64_manifest" ]; then
+            echo "Only ARM64 manifest found - using as-is"
+            cp "$arm64_manifest" release-assets/latest-mac.yml
+          else
+            echo "::warning::No macOS manifests found"
+          fi
+
+          # Copy other manifests (Windows, Linux) - these don't have the duplicate issue
+          for manifest in latest.yml latest-linux.yml latest-linux-arm64.yml; do
+            found=$(find dist -name "$manifest" -type f 2>/dev/null | head -1)
+            if [ -n "$found" ]; then
+              echo "Copying $manifest"
+              cp "$found" release-assets/
+            fi
+          done
+
+          echo ""
+          echo "=== Manifest files in release-assets ==="
+          ls -la release-assets/*.yml 2>/dev/null || echo "No manifest files found"
 
       - name: Rename and validate beta manifests
         run: |
@@ -681,13 +739,54 @@ jobs:
         with:
           path: dist
 
-      - name: Flatten artifacts and validate manifests
+      - name: Flatten binary artifacts
         run: |
           mkdir -p release-assets
-          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" -o -name "*.yml" \) -exec cp {} release-assets/ \;
+          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
+
+      # Merge macOS manifests (same logic as real release)
+      - name: Merge macOS manifests
+        run: |
+          echo "=== Merging macOS update manifests (dry run) ==="
+
+          intel_manifest=$(find dist -path "*/macos-intel-builds/latest-mac.yml" -type f 2>/dev/null | head -1)
+          arm64_manifest=$(find dist -path "*/macos-arm64-builds/latest-mac.yml" -type f 2>/dev/null | head -1)
+
+          echo "Intel manifest: ${intel_manifest:-not found}"
+          echo "ARM64 manifest: ${arm64_manifest:-not found}"
+
+          if [ -n "$intel_manifest" ] && [ -n "$arm64_manifest" ]; then
+            echo "Both architectures found - merging manifests..."
+
+            # Install yq for YAML merging
+            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            sudo chmod +x /usr/local/bin/yq
+
+            # Merge the files arrays from both manifests
+            cp "$intel_manifest" release-assets/latest-mac.yml
+            arm64_files=$(yq '.files' "$arm64_manifest")
+            yq -i ".files += $arm64_files" release-assets/latest-mac.yml
+
+            echo "Merged manifest contents:"
+            cat release-assets/latest-mac.yml
+
+          elif [ -n "$intel_manifest" ]; then
+            cp "$intel_manifest" release-assets/latest-mac.yml
+          elif [ -n "$arm64_manifest" ]; then
+            cp "$arm64_manifest" release-assets/latest-mac.yml
+          fi
+
+          # Copy other manifests
+          for manifest in latest.yml latest-linux.yml latest-linux-arm64.yml; do
+            found=$(find dist -name "$manifest" -type f 2>/dev/null | head -1)
+            [ -n "$found" ] && cp "$found" release-assets/
+          done
+
+      - name: Validate and rename beta manifests
+        run: |
           cd release-assets
 
-          # Rename latest*.yml to beta*.yml (same as real release)
+          # Rename latest*.yml to beta*.yml
           [ -f "latest.yml" ] && mv latest.yml beta.yml
           [ -f "latest-mac.yml" ] && mv latest-mac.yml beta-mac.yml
           [ -f "latest-linux.yml" ] && mv latest-linux.yml beta-linux.yml
@@ -704,6 +803,11 @@ jobs:
             echo "MANIFEST_STATUS=FAILED" >> $GITHUB_ENV
           else
             echo "MANIFEST_STATUS=PASSED" >> $GITHUB_ENV
+
+            # Show merged manifest content for verification
+            echo ""
+            echo "=== beta-mac.yml content (should have both architectures) ==="
+            cat beta-mac.yml
           fi
 
       - name: Dry run summary
