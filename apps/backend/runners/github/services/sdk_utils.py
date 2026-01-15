@@ -26,6 +26,50 @@ logger = logging.getLogger(__name__)
 DEBUG_MODE = os.environ.get("DEBUG", "").lower() in ("true", "1", "yes")
 
 
+def _short_model_name(model: str | None) -> str:
+    """Convert full model name to a short display name for logs.
+
+    Examples:
+        claude-sonnet-4-5-20250929 -> sonnet-4.5
+        claude-opus-4-5-20251101 -> opus-4.5
+        claude-3-5-sonnet-20241022 -> sonnet-3.5
+    """
+    if not model:
+        return "unknown"
+
+    model_lower = model.lower()
+
+    # Handle new model naming (claude-{model}-{version}-{date})
+    if "opus-4-5" in model_lower or "opus-4.5" in model_lower:
+        return "opus-4.5"
+    if "sonnet-4-5" in model_lower or "sonnet-4.5" in model_lower:
+        return "sonnet-4.5"
+    if "haiku-4" in model_lower:
+        return "haiku-4"
+
+    # Handle older model naming (claude-3-5-{model})
+    if "3-5-sonnet" in model_lower or "3.5-sonnet" in model_lower:
+        return "sonnet-3.5"
+    if "3-5-haiku" in model_lower or "3.5-haiku" in model_lower:
+        return "haiku-3.5"
+    if "3-opus" in model_lower:
+        return "opus-3"
+    if "3-sonnet" in model_lower:
+        return "sonnet-3"
+    if "3-haiku" in model_lower:
+        return "haiku-3"
+
+    # Fallback: return last part before date (if matches pattern)
+    parts = model.split("-")
+    if len(parts) >= 2:
+        # Try to find model type (opus, sonnet, haiku)
+        for i, part in enumerate(parts):
+            if part.lower() in ("opus", "sonnet", "haiku"):
+                return part.lower()
+
+    return model[:20]  # Truncate if nothing else works
+
+
 async def process_sdk_stream(
     client: Any,
     on_thinking: Callable[[str], None] | None = None,
@@ -34,6 +78,7 @@ async def process_sdk_stream(
     on_text: Callable[[str], None] | None = None,
     on_structured_output: Callable[[dict[str, Any]], None] | None = None,
     context_name: str = "SDK",
+    model: str | None = None,
 ) -> dict[str, Any]:
     """
     Process SDK response stream with customizable callbacks.
@@ -53,6 +98,7 @@ async def process_sdk_stream(
         on_text: Callback for text output - receives text string
         on_structured_output: Callback for structured output - receives dict
         context_name: Name for logging (e.g., "ParallelOrchestrator", "ParallelFollowup")
+        model: Model name for logging (e.g., "claude-sonnet-4-5-20250929")
 
     Returns:
         Dictionary with:
@@ -130,7 +176,11 @@ async def process_sdk_stream(
                         agents_invoked.append(agent_name)
                         # Track this tool ID to log its result later
                         subagent_tool_ids[tool_id] = agent_name
-                        safe_print(f"[{context_name}] Invoked agent: {agent_name}")
+                        # Log with model info if available
+                        model_info = f" [{_short_model_name(model)}]" if model else ""
+                        safe_print(
+                            f"[{context_name}] Invoking agent: {agent_name}{model_info}"
+                        )
                     elif tool_name == "StructuredOutput":
                         if tool_input:
                             # Warn if overwriting existing structured output

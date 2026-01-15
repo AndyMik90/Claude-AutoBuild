@@ -531,6 +531,7 @@ The SDK will run invoked agents in parallel automatically.
                 stream_result = await process_sdk_stream(
                     client=client,
                     context_name="ParallelFollowup",
+                    model=model,
                 )
 
                 # Check for stream processing errors
