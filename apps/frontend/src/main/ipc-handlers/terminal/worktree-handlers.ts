@@ -7,7 +7,7 @@ import type {
   TerminalWorktreeResult,
 } from '../../../shared/types';
 import path from 'path';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, symlinkSync, lstatSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { minimatch } from 'minimatch';
 import { debugLog, debugError } from '../../../shared/utils/debug-logger';
@@ -193,6 +193,71 @@ function getDefaultBranch(projectPath: string): string {
   }
 }
 
+/**
+ * Symlink node_modules from project root to worktree for TypeScript and tooling support.
+ * This allows pre-commit hooks and IDE features to work without npm install in the worktree.
+ *
+ * @param projectPath - The main project directory
+ * @param worktreePath - Path to the worktree
+ * @returns Array of symlinked paths (relative to worktree)
+ */
+function symlinkNodeModulesToWorktree(projectPath: string, worktreePath: string): string[] {
+  const symlinked: string[] = [];
+
+  // Standard locations for npm/yarn/pnpm workspaces
+  const nodeModulesLocations = [
+    ['node_modules', 'node_modules'],
+    ['apps/frontend/node_modules', 'apps/frontend/node_modules'],
+  ];
+
+  for (const [sourceRel, targetRel] of nodeModulesLocations) {
+    const sourcePath = path.join(projectPath, sourceRel);
+    const targetPath = path.join(worktreePath, targetRel);
+
+    // Skip if source doesn't exist
+    if (!existsSync(sourcePath)) {
+      debugLog('[TerminalWorktree] Skipping symlink - source does not exist:', sourceRel);
+      continue;
+    }
+
+    // Skip if target already exists (don't overwrite existing node_modules)
+    if (existsSync(targetPath)) {
+      debugLog('[TerminalWorktree] Skipping symlink - target already exists:', targetRel);
+      continue;
+    }
+
+    // Also skip if target is a symlink (even if broken)
+    try {
+      lstatSync(targetPath);
+      debugLog('[TerminalWorktree] Skipping symlink - target exists (possibly broken symlink):', targetRel);
+      continue;
+    } catch {
+      // Target doesn't exist at all - good, we can create symlink
+    }
+
+    // Ensure parent directory exists
+    const targetDir = path.dirname(targetPath);
+    if (!existsSync(targetDir)) {
+      mkdirSync(targetDir, { recursive: true });
+    }
+
+    try {
+      // Use 'junction' type for Windows compatibility (no admin rights required)
+      // On macOS/Linux, the type parameter is ignored and a regular symlink is created
+      // Junctions require absolute paths on Windows, so we use the absolute sourcePath
+      symlinkSync(sourcePath, targetPath, 'junction');
+      symlinked.push(targetRel);
+      debugLog('[TerminalWorktree] Created symlink:', targetRel, '->', sourcePath);
+    } catch (error) {
+      // Symlink creation can fail on some systems (e.g., FAT32 filesystem)
+      // Log warning but don't fail - worktree is still usable, just without TypeScript checking
+      debugError('[TerminalWorktree] Could not create symlink for', targetRel, ':', error);
+    }
+  }
+
+  return symlinked;
+}
+
 function saveWorktreeConfig(projectPath: string, name: string, config: TerminalWorktreeConfig): void {
   const metadataDir = getTerminalWorktreeMetadataDir(projectPath);
   mkdirSync(metadataDir, { recursive: true });
@@ -340,6 +405,13 @@ async function createTerminalWorktree(
         stdio: ['pipe', 'pipe', 'pipe'],
       });
       debugLog('[TerminalWorktree] Created worktree in detached HEAD mode from', baseRef);
+    }
+
+    // Symlink node_modules for TypeScript and tooling support
+    // This allows pre-commit hooks to run typecheck without npm install in worktree
+    const symlinkedModules = symlinkNodeModulesToWorktree(projectPath, worktreePath);
+    if (symlinkedModules.length > 0) {
+      debugLog('[TerminalWorktree] Symlinked dependencies:', symlinkedModules.join(', '));
     }
 
     const config: TerminalWorktreeConfig = {
