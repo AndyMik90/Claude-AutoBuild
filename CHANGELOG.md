@@ -1,3 +1,15 @@
+## Unreleased
+
+### ✨ New Features
+
+- **Language Configuration**: Added centralized language configuration for LLM-generated content
+  - Set output language via `AUTO_CLAUDE_LANGUAGE` environment variable or `.auto-claude/config.json`
+  - Supported languages: Russian (ru), English (en), Spanish (es), German (de), French (fr)
+  - Applies to all generated content: roadmaps, tasks, ideas, QA reports
+  - See [Language Configuration Guide](apps/backend/docs/LANGUAGE_CONFIGURATION.md) for details
+
+---
+
 ## 2.7.4 - Terminal & Workflow Enhancements
 
 ### ✨ New Features

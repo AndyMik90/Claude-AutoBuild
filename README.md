@@ -71,6 +71,38 @@
 
 ---
 
+## Language Configuration
+
+Auto-Claude supports generating content in multiple languages. By default, all generated content (task descriptions, roadmaps, ideas) is in English.
+
+### Configure Russian Language
+
+To generate all content in Russian:
+
+```bash
+export AUTO_CLAUDE_LANGUAGE=ru
+```
+
+Or create `.auto-claude/config.json` in your project:
+
+```json
+{
+  "output_language": "ru"
+}
+```
+
+### Supported Languages
+
+- `ru` - Russian (Русский)
+- `en` - English (default)
+- `es` - Spanish (Español)
+- `de` - German (Deutsch)
+- `fr` - French (Français)
+
+📖 **Full documentation**: [Language Configuration Guide](apps/backend/docs/LANGUAGE_CONFIGURATION.md) | [Русская инструкция](apps/backend/docs/LANGUAGE_SETUP_RU.md)
+
+---
+
 ## Features
 
 | Feature | Description |

@@ -15,6 +15,8 @@ This approach:
 import json
 from pathlib import Path
 
+from core.language_config import get_language_instruction, should_inject_language_instruction
+
 
 def get_relative_spec_path(spec_dir: Path, project_dir: Path) -> str:
     """
@@ -113,6 +115,10 @@ def generate_subtask_prompt(
 
     # Build the prompt
     sections = []
+
+    # Inject language instruction at the beginning if enabled
+    if should_inject_language_instruction():
+        sections.append(get_language_instruction())
 
     # Environment context first
     sections.append(generate_environment_context(project_dir, spec_dir))

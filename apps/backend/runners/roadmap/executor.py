@@ -6,6 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from core.language_config import get_language_instruction, should_inject_language_instruction
 from debug import debug, debug_detailed, debug_error, debug_success
 
 
@@ -106,6 +107,16 @@ class AgentExecutor:
         debug_detailed(
             "roadmap_executor", "Loaded prompt file", prompt_length=len(prompt)
         )
+
+        # Inject language instruction at the beginning if enabled
+        if should_inject_language_instruction():
+            language_instruction = get_language_instruction()
+            prompt = language_instruction + prompt
+            debug_detailed(
+                "roadmap_executor",
+                "Injected language instruction",
+                instruction_length=len(language_instruction),
+            )
 
         # Add context
         prompt += f"\n\n---\n\n**Output Directory**: {self.output_dir}\n"

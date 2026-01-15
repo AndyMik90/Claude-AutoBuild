@@ -12,6 +12,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from core.language_config import get_language_instruction, should_inject_language_instruction
+
 from .project_context import (
     detect_project_capabilities,
     get_mcp_tools_for_project,
@@ -412,13 +414,13 @@ def is_first_run(spec_dir: Path) -> bool:
 
 def _load_prompt_file(filename: str) -> str:
     """
-    Load a prompt file from the prompts directory.
+    Load a prompt file from the prompts directory with language instruction.
 
     Args:
         filename: Relative path to prompt file (e.g., "qa_reviewer.md" or "mcp_tools/electron_validation.md")
 
     Returns:
-        Content of the prompt file
+        Content of the prompt file with language instruction prepended
 
     Raises:
         FileNotFoundError: If prompt file doesn't exist
@@ -426,7 +428,14 @@ def _load_prompt_file(filename: str) -> str:
     prompt_file = PROMPTS_DIR / filename
     if not prompt_file.exists():
         raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
-    return prompt_file.read_text()
+    
+    prompt = prompt_file.read_text()
+    
+    # Inject language instruction at the beginning if enabled
+    if should_inject_language_instruction():
+        prompt = get_language_instruction() + prompt
+    
+    return prompt
 
 
 def get_qa_reviewer_prompt(spec_dir: Path, project_dir: Path) -> str:
