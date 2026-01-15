@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from client import create_client
+from core.language_injection import inject_into_prompt, get_localized_prompt_path, get_user_language_preference
 from phase_config import get_thinking_budget, resolve_model_id
 from ui import print_status
 
@@ -74,27 +75,38 @@ class IdeationGenerator:
         additional_context: str = "",
     ) -> tuple[bool, str]:
         """Run an agent with the given prompt."""
-        prompt_path = self.prompts_dir / prompt_file
+        # Use localized path based on user language preference
+        prompt_path = get_localized_prompt_path(self.prompts_dir, prompt_file)
 
         if not prompt_path.exists():
             return False, f"Prompt not found: {prompt_path}"
 
         # Load prompt
+        user_lang = get_user_language_preference()
         prompt = prompt_path.read_text()
 
-        # Add context
-        prompt += f"\n\n---\n\n**Output Directory**: {self.output_dir}\n"
-        prompt += f"**Project Directory**: {self.project_dir}\n"
-        prompt += f"**Max Ideas**: {self.max_ideas_per_type}\n"
+        # Add context FIRST (before language instruction) - use localized labels
+        if user_lang == "zh":
+            prompt += f"\n\n---\n\n**输出目录**: {self.output_dir}\n"
+            prompt += f"**项目目录**: {self.project_dir}\n"
+            prompt += f"**最大想法数**: {self.max_ideas_per_type}\n"
+        else:
+            prompt += f"\n\n---\n\n**Output Directory**: {self.output_dir}\n"
+            prompt += f"**Project Directory**: {self.project_dir}\n"
+            prompt += f"**Max Ideas**: {self.max_ideas_per_type}\n"
 
         if additional_context:
             prompt += f"\n{additional_context}\n"
+
+        # Language instruction MUST be injected LAST (after all context)
+        prompt = inject_into_prompt(prompt, agent_type="ideation")
 
         # Create client with thinking budget
         client = create_client(
             self.project_dir,
             self.output_dir,
             resolve_model_id(self.model),
+            agent_type="ideation",
             max_thinking_tokens=self.thinking_budget,
         )
 
@@ -137,7 +149,58 @@ class IdeationGenerator:
         if len(current_content) > max_content_length:
             current_content = current_content[:max_content_length] + "\n... (truncated)"
 
-        recovery_prompt = f"""# Ideation Output Recovery
+        # Build recovery prompt - localized based on user language preference
+        user_lang = get_user_language_preference()
+
+        if user_lang == "zh":
+            recovery_prompt = f"""# 创意输出恢复
+
+创意输出文件验证失败。你的任务是修复它。
+
+## 错误
+{error}
+
+## 预期格式
+输出文件必须是有效的 JSON，具有以下结构：
+
+```json
+{{
+  "{ideation_type}": [
+    {{
+      "id": "...",
+      "type": "{ideation_type}",
+      "title": "...",
+      "description": "...",
+      ... 其他字段 ...
+    }}
+  ]
+}}
+```
+
+**关键**：顶级键必须是 `"{ideation_type}"`（而不是 "ideas" 或其他任何内容）。
+
+## 当前文件内容
+文件：{output_file}
+
+```json
+{current_content}
+```
+
+## 你的任务
+1. 阅读上面的当前文件内容
+2. 根据错误消息识别错误
+3. 修复 JSON 结构以匹配预期格式
+4. 将修复后的内容写入 {output_file}
+
+常见修复方法：
+- 如果键是 "ideas"，将其重命名为 "{ideation_type}"
+- 如果 JSON 无效，修复语法错误
+- 如果没有想法，确保数组至少有一个想法对象
+
+现在将修复后的 JSON 写入文件。
+"""
+        else:
+            recovery_prompt = f"""# Ideation Output Recovery
 
 The ideation output file failed validation. Your task is to fix it.
 
@@ -184,10 +247,14 @@ Common fixes:
 Write the fixed JSON to the file now.
 """
 
+        # Inject language instruction
+        recovery_prompt = inject_into_prompt(recovery_prompt, agent_type="ideation_recovery")
+
         client = create_client(
             self.project_dir,
             self.output_dir,
             resolve_model_id(self.model),
+            agent_type="ideation_recovery",
             max_thinking_tokens=self.thinking_budget,
         )
 
