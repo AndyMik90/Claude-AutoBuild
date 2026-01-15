@@ -198,10 +198,10 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
 
     it('should inject model env vars when active profile has models configured', async () => {
       const mockApiProfileEnv = {
-        ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022',
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-3-5-haiku-20241022',
-        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-3-5-sonnet-20241022',
-        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-3-5-opus-20241022'
+        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5-20251001',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-5-20251101'
       };
 
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue(mockApiProfileEnv);
@@ -210,10 +210,10 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
 
       expect(spawnCalls).toHaveLength(1);
       expect(spawnCalls[0].options.env).toMatchObject({
-        ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022',
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-3-5-haiku-20241022',
-        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-3-5-sonnet-20241022',
-        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-3-5-opus-20241022'
+        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5-20251001',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-5-20251101'
       });
     });
 
