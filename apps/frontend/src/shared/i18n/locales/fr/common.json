@@ -738,5 +738,27 @@
     "changedFiles": "Fichiers modifiés",
     "fileInsights": "Aperçus de fichiers",
     "subtasksCompleted": "Sous-tâches terminées"
+  },
+  "placeholders": {
+    "workspaceName": "Mon espace de travail",
+    "workspaceDescription": "Backend, frontend et applications mobiles pour Mon App",
+    "command": "npx",
+    "commandArgs": "-y @myorg/my-mcp-server",
+    "serverUrl": "https://mcp.example.com/mcp",
+    "linearApiKey": "lin_api_xxxxxxxx",
+    "githubToken": "ghp_xxxxxxxx ou github_pat_xxxxxxxx",
+    "pathfinderApiKey": "pa-xxxxxxxx",
+    "searchTasks": "Rechercher des tâches...",
+    "searchTasksAllStates": "Tous les états",
+    "searchProjects": "Rechercher des projets...",
+    "selectTeam": "Sélectionner une équipe",
+    "selectProject": "Sélectionner un projet...",
+    "loading": "Chargement...",
+    "selectIde": "Sélectionner un IDE...",
+    "idePath": "/chemin/vers/votre/ide",
+    "selectTerminal": "Sélectionner un terminal...",
+    "terminalPath": "/chemin/vers/votre/terminal",
+    "accountName": "Nom du compte (ex: Travail, Personnel)",
+    "doubleClickToRename": "Double-cliquez pour renommer"
   }
 }

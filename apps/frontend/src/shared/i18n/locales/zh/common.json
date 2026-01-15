@@ -727,5 +727,27 @@
     "changedFiles": "更改的文件",
     "fileInsights": "文件洞察",
     "subtasksCompleted": "已完成的子任务"
+  },
+  "placeholders": {
+    "workspaceName": "我的应用工作区",
+    "workspaceDescription": "我的应用的后端、前端和移动应用",
+    "command": "npx",
+    "commandArgs": "-y @myorg/my-mcp-server",
+    "serverUrl": "https://mcp.example.com/mcp",
+    "linearApiKey": "lin_api_xxxxxxxx",
+    "githubToken": "ghp_xxxxxxxx 或 github_pat_xxxxxxxx",
+    "pathfinderApiKey": "pa-xxxxxxxx",
+    "searchTasks": "搜索任务...",
+    "searchTasksAllStates": "所有状态",
+    "searchProjects": "搜索项目...",
+    "selectTeam": "选择团队",
+    "selectProject": "选择项目...",
+    "loading": "加载中...",
+    "selectIde": "选择 IDE...",
+    "idePath": "/your/ide/path",
+    "selectTerminal": "选择终端...",
+    "terminalPath": "/your/terminal/path",
+    "accountName": "账户名称（例如：工作、个人）",
+    "doubleClickToRename": "双击重命名"
   }
 }

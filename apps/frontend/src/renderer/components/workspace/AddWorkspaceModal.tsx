@@ -80,7 +80,7 @@ export function AddWorkspaceModal({
   projects,
   onCreated,
 }: AddWorkspaceModalProps) {
-  const { t } = useTranslation('dialogs');
+  const { t } = useTranslation(['dialogs', 'common']);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedProjects, setSelectedProjects] = useState<SelectedProject[]>([]);
@@ -205,7 +205,7 @@ export function AddWorkspaceModal({
             <Label htmlFor="name">{t('addWorkspace.name')}</Label>
             <Input
               id="name"
-              placeholder="My App Workspace"
+              placeholder={t('common:placeholders.workspaceName')}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -216,7 +216,7 @@ export function AddWorkspaceModal({
             <Label htmlFor="description">{t('addWorkspace.description')}</Label>
             <Textarea
               id="description"
-              placeholder="Backend, frontend, and mobile apps for My App"
+              placeholder={t('common:placeholders.workspaceDescription')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
