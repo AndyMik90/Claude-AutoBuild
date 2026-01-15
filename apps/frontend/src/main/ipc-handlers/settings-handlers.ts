@@ -13,8 +13,10 @@ import type {
   AppSettings,
   IPCResult,
   SourceEnvConfig,
-  SourceEnvCheckResult
+  SourceEnvCheckResult,
+  PythonEnvStatus
 } from '../../shared/types';
+import { pythonEnvManager } from '../python-env-manager';
 import { AgentManager } from '../agent';
 import type { BrowserWindow } from 'electron';
 import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-updater';
@@ -757,6 +759,69 @@ export function registerSettingsHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to check source token'
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // Python Environment Operations
+  // FIX (#1106): Expose Python environment status to UI
+  // This allows users to see Python setup status and trigger initialization
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.PYTHON_ENV_STATUS,
+    async (): Promise<IPCResult<PythonEnvStatus>> => {
+      try {
+        const status = await pythonEnvManager.getStatus();
+        return { success: true, data: status };
+      } catch (error) {
+        console.error('[PYTHON_ENV_STATUS] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get Python environment status'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.PYTHON_ENV_INITIALIZE,
+    async (): Promise<IPCResult<PythonEnvStatus>> => {
+      try {
+        // Get autoBuildPath from settings
+        const savedSettings = readSettingsFile();
+        const settings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
+
+        let autoBuildPath = settings.autoBuildPath;
+        if (!autoBuildPath) {
+          autoBuildPath = detectAutoBuildSourcePath();
+        }
+
+        if (!autoBuildPath) {
+          return {
+            success: false,
+            error: 'Auto-build source path not configured. Please set it in Settings.'
+          };
+        }
+
+        // Initialize Python environment
+        const status = await pythonEnvManager.initialize(autoBuildPath);
+
+        if (!status.ready) {
+          return {
+            success: false,
+            error: status.error || 'Failed to initialize Python environment'
+          };
+        }
+
+        return { success: true, data: status };
+      } catch (error) {
+        console.error('[PYTHON_ENV_INITIALIZE] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to initialize Python environment'
         };
       }
     }
