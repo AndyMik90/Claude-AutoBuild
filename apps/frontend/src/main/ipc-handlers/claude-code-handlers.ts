@@ -59,8 +59,10 @@ async function validateClaudeCliAsync(cliPath: string): Promise<[boolean, string
       // Get cmd.exe path from environment or use default
       const cmdExe = process.env.ComSpec
         || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
-      // Use double-quoted command line for paths with spaces
-      const cmdLine = `""${cliPath}" --version"`;
+      // Use chcp 65001 to set UTF-8 code page for proper error message encoding.
+      // Note: Using simple quoting because /s flag only strips outer quotes when
+      // command STARTS with a quote - since we prepend 'chcp', use standard quoting.
+      const cmdLine = `chcp 65001 >nul && "${cliPath}" --version`;
       const execOptions: ExecFileAsyncOptionsWithVerbatim = {
         encoding: 'utf-8',
         timeout: 5000,
@@ -147,7 +149,14 @@ async function scanClaudeInstallations(activePath: string | null): Promise<Claud
       const result = await execFileAsync('where', ['claude'], { timeout: 5000 });
       const paths = result.stdout.trim().split('\n').filter(p => p.trim());
       for (const p of paths) {
-        await addInstallation(p.trim(), 'system-path');
+        const trimmed = p.trim();
+        // On Windows, skip extensionless paths - they're not directly executable.
+        // Only consider .cmd, .exe, .bat files which are the actual executables.
+        if (!/\.(cmd|exe|bat)$/i.test(trimmed)) {
+          console.log('[Claude Code] Skipping non-executable path:', trimmed);
+          continue;
+        }
+        await addInstallation(trimmed, 'system-path');
       }
     } else {
       const result = await execFileAsync('which', ['-a', 'claude'], { timeout: 5000 });
