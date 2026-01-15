@@ -425,8 +425,8 @@ class TestCliUtilsGetProjectDir:
             os.chdir(backend_dir)
             result = get_project_dir(None)
             # Should go up 2 levels from backend to project root
-            # Use resolve() to normalize paths (symlinks on macOS, short names on Windows)
-            assert result == temp_dir.resolve()
+            # Use resolve() on both sides to normalize paths (symlinks on macOS, short names on Windows)
+            assert result.resolve() == temp_dir.resolve()
         finally:
             os.chdir(original_cwd)
 
@@ -448,8 +448,9 @@ class TestCliUtilsSetupEnvironment:
         script_dir = setup_environment()
 
         # Verify script_dir is the apps/backend directory
-        assert script_dir.name == "backend"
-        assert script_dir.parent.name == "apps"
+        # Use case-insensitive comparison for macOS (case-insensitive filesystem)
+        assert script_dir.name.lower() == "backend"
+        assert script_dir.parent.name.lower() == "apps"
 
     def test_setup_environment_adds_to_path(self):
         """Add script directory to sys.path."""
