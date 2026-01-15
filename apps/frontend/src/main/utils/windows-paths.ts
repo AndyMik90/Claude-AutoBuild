@@ -156,12 +156,13 @@ export function findWindowsExecutableViaWhere(
     }).trim();
 
     // 'where' returns multiple paths separated by newlines if found in multiple locations
-    // Prefer paths with .cmd or .exe extensions (executable files)
+    // Only consider paths with .cmd, .bat, or .exe extensions - extensionless paths
+    // on Windows are not directly executable and cause ENOENT errors.
     const paths = result.split(/\r?\n/).filter(p => p.trim());
+    const executablePaths = paths.filter(p => /\.(cmd|bat|exe)$/i.test(p));
 
-    if (paths.length > 0) {
-      // Prefer .cmd, .bat, or .exe extensions, otherwise take first path
-      const foundPath = (paths.find(p => /\.(cmd|bat|exe)$/i.test(p)) || paths[0]).trim();
+    if (executablePaths.length > 0) {
+      const foundPath = executablePaths[0].trim();
 
       // Validate the path exists and is secure
       if (existsSync(foundPath) && isSecurePath(foundPath)) {
@@ -259,12 +260,13 @@ export async function findWindowsExecutableViaWhereAsync(
     });
 
     // 'where' returns multiple paths separated by newlines if found in multiple locations
-    // Prefer paths with .cmd, .bat, or .exe extensions (executable files)
+    // Only consider paths with .cmd, .bat, or .exe extensions - extensionless paths
+    // on Windows are not directly executable and cause ENOENT errors.
     const paths = stdout.trim().split(/\r?\n/).filter(p => p.trim());
+    const executablePaths = paths.filter(p => /\.(cmd|bat|exe)$/i.test(p));
 
-    if (paths.length > 0) {
-      // Prefer .cmd, .bat, or .exe extensions, otherwise take first path
-      const foundPath = (paths.find(p => /\.(cmd|bat|exe)$/i.test(p)) || paths[0]).trim();
+    if (executablePaths.length > 0) {
+      const foundPath = executablePaths[0].trim();
 
       // Validate the path exists and is secure
       try {
