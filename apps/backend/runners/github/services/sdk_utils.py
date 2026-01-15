@@ -342,8 +342,20 @@ async def process_sdk_stream(
 
                 # Check for ResultMessage with structured output (per Anthropic SDK docs)
                 # See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
-                if hasattr(msg, "type") and msg.type == "result":
+                # Also check for ResultMessage class name as fallback (SDK may vary)
+                is_result_msg = (
+                    hasattr(msg, "type") and msg.type == "result"
+                ) or msg_type == "ResultMessage"
+                if is_result_msg:
                     subtype = getattr(msg, "subtype", None)
+                    # Log what we're seeing for diagnostics
+                    if DEBUG_MODE:
+                        msg_type_attr = getattr(msg, "type", "NO_TYPE_ATTR")
+                        safe_print(
+                            f"[DEBUG {context_name}] ResultMessage detected: "
+                            f"type={msg_type_attr}, subtype={subtype}, "
+                            f"has_structured_output={hasattr(msg, 'structured_output')}"
+                        )
                     if subtype == "success":
                         if hasattr(msg, "structured_output") and msg.structured_output:
                             # Warn if overwriting existing structured output

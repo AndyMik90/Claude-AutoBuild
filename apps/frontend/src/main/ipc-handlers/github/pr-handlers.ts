@@ -552,6 +552,8 @@ function getPhaseFromSource(source: string): PRLogPhase {
     "ParallelFollowup",
     "Followup",
     "orchestrator",
+    "PRReview", // Worktree creation and PR-specific analysis
+    "ClientCache", // SDK client cache operations
   ];
   const synthesisSources = ["PR Review Engine", "Summary", "Progress"];
 
