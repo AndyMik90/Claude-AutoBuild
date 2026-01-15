@@ -219,7 +219,7 @@ AGENT_CONFIGS = {
     "planner": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
-        "mcp_servers_optional": ["linear", "browser"],  # browser auto-enabled for frontend projects
+        "mcp_servers_optional": ["linear"],  # Removed "browser" - Electron tools scoped to QA agents only
         "auto_claude_tools": [
             TOOL_GET_BUILD_PROGRESS,
             TOOL_GET_SESSION_CONTEXT,
