@@ -148,7 +148,9 @@ def create_subtask_tools(spec_dir: Path, project_dir: Path) -> list:
                     with open(plan_file) as f:
                         plan = json.load(f)
 
-                    subtask_found = _update_subtask_in_plan(plan, subtask_id, status, notes)
+                    subtask_found = _update_subtask_in_plan(
+                        plan, subtask_id, status, notes
+                    )
 
                     if subtask_found:
                         write_json_atomic(plan_file, plan, indent=2)
@@ -161,7 +163,9 @@ def create_subtask_tools(spec_dir: Path, project_dir: Path) -> list:
                             ]
                         }
                 except Exception as retry_err:
-                    logging.warning(f"Subtask update retry failed after auto-fix: {retry_err}")
+                    logging.warning(
+                        f"Subtask update retry failed after auto-fix: {retry_err}"
+                    )
                     # Fall through to error return
 
             return {

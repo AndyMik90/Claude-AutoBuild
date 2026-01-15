@@ -177,7 +177,9 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
                         ]
                     }
                 except Exception as retry_err:
-                    logging.warning(f"QA update retry failed after auto-fix: {retry_err}")
+                    logging.warning(
+                        f"QA update retry failed after auto-fix: {retry_err}"
+                    )
                     # Fall through to error return
 
             return {

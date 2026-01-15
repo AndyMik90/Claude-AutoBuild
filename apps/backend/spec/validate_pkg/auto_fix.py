@@ -31,7 +31,7 @@ def _repair_json_syntax(content: str) -> str | None:
 
     # Remove trailing commas before closing brackets/braces
     # Match: comma followed by optional whitespace and closing bracket/brace
-    repaired = re.sub(r',(\s*[}\]])', r'\1', repaired)
+    repaired = re.sub(r",(\s*[}\]])", r"\1", repaired)
 
     # Strip string contents before counting brackets to avoid counting
     # brackets inside JSON string values (e.g., {"desc": "array[0]"})
@@ -41,41 +41,41 @@ def _repair_json_syntax(content: str) -> str | None:
     # Use stack-based approach to track bracket order for correct closing
     bracket_stack: list[str] = []
     for char in stripped:
-        if char == '{':
-            bracket_stack.append('{')
-        elif char == '[':
-            bracket_stack.append('[')
-        elif char == '}':
-            if bracket_stack and bracket_stack[-1] == '{':
+        if char == "{":
+            bracket_stack.append("{")
+        elif char == "[":
+            bracket_stack.append("[")
+        elif char == "}":
+            if bracket_stack and bracket_stack[-1] == "{":
                 bracket_stack.pop()
-        elif char == ']':
-            if bracket_stack and bracket_stack[-1] == '[':
+        elif char == "]":
+            if bracket_stack and bracket_stack[-1] == "[":
                 bracket_stack.pop()
 
     if bracket_stack:
         # Try to find a reasonable truncation point and close
         # First, strip any incomplete key-value pair at the end
         # Pattern: trailing incomplete string or number after last complete element
-        repaired = re.sub(r',\s*"[^"]*$', '', repaired)  # Incomplete key
-        repaired = re.sub(r',\s*$', '', repaired)  # Trailing comma
+        repaired = re.sub(r',\s*"[^"]*$', "", repaired)  # Incomplete key
+        repaired = re.sub(r",\s*$", "", repaired)  # Trailing comma
         repaired = re.sub(r':\s*"[^"]*$', ': ""', repaired)  # Incomplete string value
-        repaired = re.sub(r':\s*[0-9.]+$', ': 0', repaired)  # Incomplete number
+        repaired = re.sub(r":\s*[0-9.]+$", ": 0", repaired)  # Incomplete number
 
         # Close remaining open brackets in reverse order (stack-based)
         repaired = repaired.rstrip()
         for bracket in reversed(bracket_stack):
-            if bracket == '{':
-                repaired += '}'
-            elif bracket == '[':
-                repaired += ']'
+            if bracket == "{":
+                repaired += "}"
+            elif bracket == "[":
+                repaired += "]"
 
     # Fix unquoted string values (common LLM error)
     # Match: colon followed by unquoted word (not number, true, false, null, object, array)
     # This is risky, so we only do it for common status-like values
     repaired = re.sub(
-        r':\s*(pending|in_progress|completed|failed|done|backlog)\s*([,}\]])',
+        r":\s*(pending|in_progress|completed|failed|done|backlog)\s*([,}\]])",
         r': "\1"\2',
-        repaired
+        repaired,
     )
 
     # Try to parse the repaired JSON
