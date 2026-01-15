@@ -103,6 +103,27 @@ interface ProfileInfo {
 }
 
 /**
+ * Check if a terminal should be auto-renamed when Claude is invoked.
+ * Returns false if:
+ * - Terminal already has a Claude-related title (already renamed)
+ * - Terminal has a user-customized name (not "Terminal X" pattern)
+ *
+ * This prevents aggressive renaming on every Claude invocation and
+ * preserves user-customized terminal names.
+ */
+function shouldAutoRenameTerminal(currentTitle: string): boolean {
+  // Already has Claude title - don't rename again
+  if (currentTitle === 'Claude' || currentTitle.startsWith('Claude (')) {
+    return false;
+  }
+
+  // Check if it's a default terminal name (Terminal 1, Terminal 2, etc.)
+  // Only these can be auto-renamed on first Claude invocation
+  const defaultNamePattern = /^Terminal \d+$/;
+  return defaultNamePattern.test(currentTitle);
+}
+
+/**
  * Callback type for session capture
  */
 type SessionCaptureCallback = (terminalId: string, projectPath: string, startTime: number) => void;
@@ -139,16 +160,19 @@ export function finalizeClaudeInvoke(
   getWindow: WindowGetter,
   onSessionCapture: SessionCaptureCallback
 ): void {
-  // Set terminal title based on profile
-  const title = activeProfile && !activeProfile.isDefault
-    ? `Claude (${activeProfile.name})`
-    : 'Claude';
-  terminal.title = title;
+  // Only auto-rename if terminal has default name (first Claude invocation)
+  // This preserves user-customized names and prevents renaming on every invocation
+  if (shouldAutoRenameTerminal(terminal.title)) {
+    const title = activeProfile && !activeProfile.isDefault
+      ? `Claude (${activeProfile.name})`
+      : 'Claude';
+    terminal.title = title;
 
-  // Notify renderer of title change
-  const win = getWindow();
-  if (win) {
-    win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, title);
+    // Notify renderer of title change
+    const win = getWindow();
+    if (win) {
+      win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, title);
+    }
   }
 
   // Persist session if project path is available
@@ -528,14 +552,17 @@ export function resumeClaude(
 
   terminal.pty.write(`${command}\r`);
 
-  // Update terminal title in main process and notify renderer
-  terminal.title = 'Claude';
-  const win = getWindow();
-  if (win) {
-    win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
+  // Only auto-rename if terminal has default name
+  // This preserves user-customized names and prevents renaming on every resume
+  if (shouldAutoRenameTerminal(terminal.title)) {
+    terminal.title = 'Claude';
+    const win = getWindow();
+    if (win) {
+      win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
+    }
   }
 
-  // Persist session with updated title
+  // Persist session
   if (terminal.projectPath) {
     SessionHandler.persistSession(terminal);
   }
@@ -702,10 +729,14 @@ export async function resumeClaudeAsync(
 
   terminal.pty.write(`${command}\r`);
 
-  terminal.title = 'Claude';
-  const win = getWindow();
-  if (win) {
-    win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
+  // Only auto-rename if terminal has default name
+  // This preserves user-customized names and prevents renaming on every resume
+  if (shouldAutoRenameTerminal(terminal.title)) {
+    terminal.title = 'Claude';
+    const win = getWindow();
+    if (win) {
+      win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
+    }
   }
 
   if (terminal.projectPath) {
