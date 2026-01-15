@@ -3,15 +3,28 @@
 Atomic File Write Utilities
 ============================
 
-Synchronous utilities for atomic file writes to prevent corruption.
+Synchronous utilities for atomic file writes and Windows path compatibility.
 
 Uses temp file + os.replace() pattern which is atomic on POSIX systems
 and atomic on Windows when source and destination are on the same volume.
 
-Usage:
-    from core.file_utils import write_json_atomic
+For Windows compatibility, this module provides:
+- safe_path(): Normalize paths and sanitize filenames for Windows
+- safe_open(): Drop-in replacement for open() with Windows path handling
+- sanitize_filename(): Clean invalid characters from filenames
 
+RECOMMENDATION: For Windows compatibility, use safe_open() instead of open()
+when working with file paths that may contain user input or special characters.
+
+Usage:
+    from core.file_utils import write_json_atomic, safe_open
+
+    # Atomic JSON writes
     write_json_atomic("/path/to/file.json", {"key": "value"})
+
+    # Windows-safe file operations
+    with safe_open("/path/to/file.txt", "r") as f:
+        content = f.read()
 """
 
 import json
