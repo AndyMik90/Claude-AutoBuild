@@ -11,8 +11,9 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const { execSync, spawn } = require('child_process');
+const { execSync } = require('child_process');
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -39,7 +40,15 @@ function warn(msg) { log(`⚠ ${msg}`, 'yellow'); }
 function testPR1_MarketplaceInit() {
   log('\n--- PR #1: Windows Marketplace Fix ---', 'cyan');
 
-  const appDataDir = process.env.APPDATA || path.join(process.env.HOME || '', '.config');
+  // Cross-platform app data directory resolution
+  let appDataDir;
+  if (process.platform === 'win32') {
+    appDataDir = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  } else if (process.platform === 'darwin') {
+    appDataDir = path.join(os.homedir(), 'Library', 'Application Support');
+  } else {
+    appDataDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+  }
   const autoClaudeDir = path.join(appDataDir, 'auto-claude');
   const marketplaceFile = path.join(autoClaudeDir, 'known_marketplaces.json');
 
@@ -96,8 +105,11 @@ function testPR2_ErrorSurfacing() {
   if (hasStderrCollected && hasErrorPatterns) {
     success('Error surfacing code is present (stderrCollected + errorPatterns)');
     return { passed: true };
-  } else if (hasStderrCollected) {
+  } else if (hasStderrCollected && !hasErrorPatterns) {
     warn('stderrCollected present but errorPatterns missing');
+    return { passed: false };
+  } else if (!hasStderrCollected && hasErrorPatterns) {
+    warn('errorPatterns present but stderrCollected missing');
     return { passed: false };
   } else {
     info('Error surfacing code not present (PR #2 may not be merged yet)');
@@ -177,7 +189,8 @@ function testPR4_TokenHotReload() {
     if (content.includes(check.search)) {
       success(`${check.name}: Found "${check.search}"`);
     } else {
-      info(`${check.name}: "${check.search}" not found (PR #4 may not be merged yet)`);
+      error(`${check.name}: "${check.search}" not found`);
+      allPassed = false;
     }
   }
 
@@ -192,8 +205,8 @@ function testTypeScriptCompilation() {
 
   try {
     info('Running TypeScript type check (this may take a moment)...');
-    execSync('cd apps/frontend && npx tsc --noEmit', {
-      cwd: path.join(__dirname, '..'),
+    execSync('npx tsc --noEmit', {
+      cwd: path.join(__dirname, '..', 'apps', 'frontend'),
       stdio: 'pipe',
       timeout: 120000,
     });
@@ -215,8 +228,8 @@ function testFrontendTests() {
 
   try {
     info('Running frontend tests (this may take a moment)...');
-    execSync('npm test -- --run', {
-      cwd: path.join(__dirname, '..'),
+    execSync('npm test', {
+      cwd: path.join(__dirname, '..', 'apps', 'frontend'),
       stdio: 'inherit',
       timeout: 300000,
     });
@@ -242,8 +255,25 @@ function main() {
 
   const args = process.argv.slice(2);
   const runAll = args.includes('--all');
-  const prArg = args.find(a => a.startsWith('--pr'));
-  const specificPR = prArg ? parseInt(prArg.split('=')[1] || args[args.indexOf('--pr') + 1]) : null;
+
+  // Parse --pr argument with validation
+  let specificPR = null;
+  const prEqualsArg = args.find(a => /^--pr=\d+$/.test(a));
+  const prArgIndex = args.indexOf('--pr');
+
+  if (prEqualsArg) {
+    // Handle --pr=N format
+    specificPR = parseInt(prEqualsArg.split('=')[1], 10);
+  } else if (prArgIndex !== -1) {
+    // Handle --pr N format
+    const nextArg = args[prArgIndex + 1];
+    if (nextArg && /^\d+$/.test(nextArg)) {
+      specificPR = parseInt(nextArg, 10);
+    } else {
+      error('--pr requires a valid PR number (e.g., --pr 1 or --pr=1)');
+      process.exit(1);
+    }
+  }
 
   const results = [];
 
