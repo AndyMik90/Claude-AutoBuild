@@ -110,6 +110,13 @@ export class AgentManager extends EventEmitter {
       return;
     }
 
+    // Ensure Python environment is ready before spawning process (prevents exit code 127 race condition)
+    const pythonStatus = await this.processManager.ensurePythonEnvReady('AgentManager');
+    if (!pythonStatus.ready) {
+      this.emit('error', taskId, `Python environment not ready: ${pythonStatus.error || 'initialization failed'}`);
+      return;
+    }
+
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();
 
     if (!autoBuildSource) {
@@ -196,6 +203,13 @@ export class AgentManager extends EventEmitter {
       return;
     }
 
+    // Ensure Python environment is ready before spawning process (prevents exit code 127 race condition)
+    const pythonStatus = await this.processManager.ensurePythonEnvReady('AgentManager');
+    if (!pythonStatus.ready) {
+      this.emit('error', taskId, `Python environment not ready: ${pythonStatus.error || 'initialization failed'}`);
+      return;
+    }
+
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();
 
     if (!autoBuildSource) {
@@ -250,6 +264,13 @@ export class AgentManager extends EventEmitter {
     projectPath: string,
     specId: string
   ): Promise<void> {
+    // Ensure Python environment is ready before spawning process (prevents exit code 127 race condition)
+    const pythonStatus = await this.processManager.ensurePythonEnvReady('AgentManager');
+    if (!pythonStatus.ready) {
+      this.emit('error', taskId, `Python environment not ready: ${pythonStatus.error || 'initialization failed'}`);
+      return;
+    }
+
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();
 
     if (!autoBuildSource) {
