@@ -227,7 +227,10 @@ def symlink_node_modules_to_worktree(
 
         # Also skip if target is a symlink (even if broken - exists() returns False for broken symlinks)
         if target_path.is_symlink():
-            debug(MODULE, f"Skipping {target_rel} - symlink already exists (possibly broken)")
+            debug(
+                MODULE,
+                f"Skipping {target_rel} - symlink already exists (possibly broken)",
+            )
             continue
 
         # Ensure parent directory exists
@@ -255,7 +258,8 @@ def symlink_node_modules_to_worktree(
             # Log warning but don't fail - worktree is still usable, just without
             # TypeScript checking
             debug_warning(
-                MODULE, f"Could not symlink {target_rel}: {e}. TypeScript checks may fail."
+                MODULE,
+                f"Could not symlink {target_rel}: {e}. TypeScript checks may fail.",
             )
             # Warn user - pre-commit hooks may fail without dependencies
             print_status(
@@ -359,9 +363,7 @@ def setup_workspace(
         project_dir, worktree_info.path
     )
     if symlinked_modules:
-        print_status(
-            f"Dependencies linked: {', '.join(symlinked_modules)}", "success"
-        )
+        print_status(f"Dependencies linked: {', '.join(symlinked_modules)}", "success")
 
     # Copy security configuration files if they exist
     # Note: Unlike env files, security files always overwrite to ensure
