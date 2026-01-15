@@ -1,3 +1,94 @@
+## 2.7.4 - Terminal & Workflow Enhancements
+
+### ✨ New Features
+
+- Added task worktrees section in terminal with ability to invoke Claude with YOLO mode (--dangerously-skip-permissions)
+
+- Added searchable branch combobox to worktree creation dialog for easier branch selection
+
+- Added Claude Code version rollback feature to switch between installed versions
+
+- Embedded Sentry DSN at build time for better error tracking in packaged apps
+
+### 🛠️ Improvements
+
+- Made worktree isolation prominent in UI to help users understand workspace isolation
+
+- Enhanced terminal recreation logic with retry mechanism for more reliable terminal recovery
+
+- Improved worktree name input UX for better user experience
+
+- Improved Claude CLI detection with installation selector when multiple versions found
+
+- Enhanced terminal drag and drop reordering with collision detection
+
+- Synced worktree config to renderer on terminal restoration for consistency
+
+### 🐛 Bug Fixes
+
+- Fixed Windows claude.cmd validation in GUI to work reliably across different setups
+
+- Fixed profile manager initialization timing issue before auth checks
+
+- Fixed terminal recreation and label reset when user closes Claude
+
+- Fixed duplicate Kanban task creation that occurred on rapid button clicks
+
+- Fixed GitHub PR preloading to prevent loading PRs currently under review
+
+- Fixed UI to display actual base branch name instead of hardcoded "main"
+
+- Fixed Claude CLI detection to properly identify available installations
+
+- Fixed broken pipe errors in backend with Sentry integration
+
+- Fixed app update state persistence for Install button visibility
+
+- Fixed merge logic to include files with content changes even when semantic analysis is empty
+
+- Fixed security profile inheritance in worktrees and shell -c command validation
+
+- Fixed auth auto-switch on 401 errors and improved OAuth-only profile handling
+
+- Fixed "already up to date" case handling in worktree operations
+
+- Resolved circular import issues in GitHub context gatherer and services
+
+---
+
+## What's Changed
+
+- fix: validate Windows claude.cmd reliably in GUI by @Umaru in 1ae3359b
+- fix: await profile manager initialization before auth check by @StillKnotKnown in c8374bc1
+- feat: add file/screenshot upload to QA feedback interface by @Andy in 88277f84
+- feat(terminal): add task worktrees section and remove terminal limit by @Andy in 17118b07
+- fix(terminal): enhance terminal recreation logic with retry mechanism by @Andy in df1b8a3f
+- fix(terminal): improve worktree name input UX by @Andy in 54e9f228
+- feat(ui): make worktree isolation prominent in UI by @Andy in 4dbb7ee4
+- feat(terminal): add YOLO mode to invoke Claude with --dangerously-skip-permissions by @Andy in d48e5f68
+- fix(ui): prevent duplicate Kanban task creation on rapid button clicks by @Andy in 2d1d3ef1
+- feat(sentry): embed Sentry DSN at build time for packaged apps by @Andy in aed28c5f
+- fix(github): resolve circular import issues in context_gatherer and services by @Andy in 0307a4a9
+- fix(github-prs): prevent preloading of PRs currently under review by @Andy in 1babcc86
+- fix(ui): display actual base branch name instead of hardcoded main by @Andy in 5d07d5f1
+- ci(release): move VirusTotal scan to separate post-release workflow by @Andy in 553d1e8d
+- fix: improve Claude CLI detection and add installation selector by @Andy in e07a0dbd
+- fix(backend): add Sentry integration and fix broken pipe errors by @Andy in aa9fbe9d
+- fix(app-update): persist downloaded update state for Install button visibility by @Andy in 6f059bb5
+- fix(terminal): detect Claude exit and reset label when user closes Claude by @Andy in 14982e66
+- fix(merge): include files with content changes even when semantic analysis is empty by @Andy in 4736b6b6
+- fix(frontend): sync worktree config to renderer on terminal restoration by @Andy in 68fe0860
+- feat(frontend): add searchable branch combobox to worktree creation dialog by @Andy in 2a2dc3b8
+- fix(security): inherit security profiles in worktrees and validate shell -c commands by @Andy in 750ea8d1
+- feat(frontend): add Claude Code version rollback feature by @Andy in 8d21978f
+- fix(ACS-181): enable auto-switch on 401 auth errors & OAuth-only profiles by @Michael Ludlow in e7427321
+- fix(terminal): add collision detection for terminal drag and drop reordering by @Andy in 1701160b
+- fix(worktree): handle "already up to date" case correctly by @StillKnotKnown in 74ed4320
+
+## Thanks to all contributors
+
+@Umaru, @StillKnotKnown, @Andy, @Michael Ludlow, @AndyMik90
+
 ## 2.7.3 - Reliability & Stability Focus
 
 ### ✨ New Features

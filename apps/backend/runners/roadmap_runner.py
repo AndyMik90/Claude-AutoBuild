@@ -8,9 +8,10 @@ Analyzes project structure, understands target audience, and generates
 a strategic feature roadmap.
 
 Usage:
-    python auto-claude/roadmap_runner.py --project /path/to/project
-    python auto-claude/roadmap_runner.py --project /path/to/project --refresh
-    python auto-claude/roadmap_runner.py --project /path/to/project --output roadmap.json
+    cd apps/backend
+    python runners/roadmap_runner.py --project /path/to/project
+    python runners/roadmap_runner.py --project /path/to/project --refresh
+    python runners/roadmap_runner.py --project /path/to/project --output roadmap.json
 """
 
 import asyncio
@@ -19,6 +20,12 @@ from pathlib import Path
 
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Validate platform-specific dependencies BEFORE any imports that might
+# trigger graphiti_core -> real_ladybug -> pywintypes import chain (ACS-253)
+from core.dependency_validator import validate_platform_dependencies
+
+validate_platform_dependencies()
 
 # Load .env file with centralized error handling
 from cli.utils import import_dotenv
@@ -31,8 +38,8 @@ if env_file.exists():
 
 from debug import debug, debug_error, debug_warning
 
-# Import from refactored roadmap package
-from roadmap import RoadmapOrchestrator
+# Import from refactored roadmap package (now a subpackage of runners)
+from runners.roadmap import RoadmapOrchestrator
 
 
 def main():

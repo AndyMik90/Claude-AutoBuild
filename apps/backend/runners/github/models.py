@@ -84,6 +84,7 @@ class AICommentVerdict(str, Enum):
     NICE_TO_HAVE = "nice_to_have"  # Optional improvement
     TRIVIAL = "trivial"  # Can be ignored
     FALSE_POSITIVE = "false_positive"  # AI was wrong
+    ADDRESSED = "addressed"  # Valid issue that was fixed in a subsequent commit
 
 
 class TriageCategory(str, Enum):
