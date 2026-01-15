@@ -116,8 +116,13 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
         return;
       }
 
-      // Mark task as done
-      await persistTaskStatus(task.id, 'done');
+      // Mark task as done - check result since worktree is already deleted
+      const statusResult = await persistTaskStatus(task.id, 'done');
+      if (!statusResult.success) {
+        // Worktree is already deleted but status update failed - inform user of inconsistent state
+        setError('Worktree deleted but failed to update task status: ' + (statusResult.error || 'Unknown error'));
+        return;
+      }
 
       // Auto-close modal after marking as done
       onClose?.();
