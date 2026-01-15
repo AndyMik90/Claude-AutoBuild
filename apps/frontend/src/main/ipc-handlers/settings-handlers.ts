@@ -476,24 +476,21 @@ export function registerSettingsHandlers(
           if (project) {
             console.log('[settings-handlers] Loading project env for:', project.name);
 
-            // First, load from project's .auto-claude/.env file if it exists
+            // Load from project's .auto-claude/.env file if it exists
             if (project.autoBuildPath) {
               const projectEnvPath = path.join(project.path, project.autoBuildPath, '.env');
               if (existsSync(projectEnvPath)) {
-                projectEnv = parseEnvFile(projectEnvPath);
-                console.log('[settings-handlers] Loaded project .env file:', Object.keys(projectEnv));
+                const envFileContent = readFileSync(projectEnvPath, 'utf-8');
+                projectEnv = parseEnvFile(envFileContent);
+                console.log('[settings-handlers] Loaded project .env with', Object.keys(projectEnv).length, 'vars');
               }
             }
 
-            // Then, override with ProjectSettings (these take precedence)
+            // Override with ProjectSettings (these take precedence)
             if (project.settings) {
-              // Memory backend setting
               if (project.settings.memoryBackend === 'graphiti') {
                 projectEnv['GRAPHITI_ENABLED'] = 'true';
-                console.log('[settings-handlers] Set GRAPHITI_ENABLED=true from ProjectSettings');
               }
-
-              // Graphiti MCP settings
               if (project.settings.graphitiMcpEnabled) {
                 projectEnv['GRAPHITI_MCP_ENABLED'] = 'true';
                 if (project.settings.graphitiMcpUrl) {
@@ -501,8 +498,6 @@ export function registerSettingsHandlers(
                 }
               }
             }
-
-            console.log('[settings-handlers] Final project env vars:', Object.keys(projectEnv));
           }
         } catch (error) {
           console.error('[settings-handlers] Failed to load project env:', error);

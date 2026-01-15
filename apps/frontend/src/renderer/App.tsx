@@ -192,26 +192,20 @@ export function App() {
   // Run health check on mount and when active project changes
   useEffect(() => {
     // Don't run health check if no active project yet
-    if (!activeProjectId) {
-      console.log('[Health Check] Skipping - no active project yet');
-      return;
-    }
+    if (!activeProjectId) return;
 
     const runHealthCheck = async () => {
-      console.log('[Health Check] Starting health check for project:', activeProjectId);
       setHealthCheckLoading(true);
       try {
         const result = await window.electronAPI.getSystemHealthCheck(activeProjectId);
-        console.log('[Health Check] Result:', result);
         if (result.success && result.data) {
           setHealthCheck(result.data);
           setLastHealthCheckTime(new Date());
-          console.log('[Health Check] Health check completed successfully');
         } else {
-          console.error('[Health Check] Health check failed:', result.error);
+          console.error('[Health Check] Failed:', result.error);
         }
       } catch (error) {
-        console.error('[Health Check] Exception during health check:', error);
+        console.error('[Health Check] Error:', error);
       } finally {
         setHealthCheckLoading(false);
       }
@@ -221,12 +215,8 @@ export function App() {
 
   // Manual health check trigger
   const runHealthCheck = async () => {
-    if (!activeProjectId) {
-      console.log('[Health Check] Cannot refresh - no active project');
-      return;
-    }
+    if (!activeProjectId) return;
 
-    console.log('[Health Check] Manual refresh for project:', activeProjectId);
     setHealthCheckLoading(true);
     try {
       const result = await window.electronAPI.getSystemHealthCheck(activeProjectId);
@@ -235,7 +225,7 @@ export function App() {
         setLastHealthCheckTime(new Date());
       }
     } catch (error) {
-      console.error('Failed to run health check:', error);
+      console.error('[Health Check] Error:', error);
     } finally {
       setHealthCheckLoading(false);
     }
