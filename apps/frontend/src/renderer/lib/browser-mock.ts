@@ -164,7 +164,7 @@ const browserMockAPI: ElectronAPI = {
   // GitHub API
   github: {
     getGitHubRepositories: async () => ({ success: true, data: [] }),
-    getGitHubIssues: async () => ({ success: true, data: [] }),
+    getGitHubIssues: async () => ({ success: true, data: { issues: [], hasMore: false } }),
     getGitHubIssue: async () => ({ success: true, data: null as any }),
     getIssueComments: async () => ({ success: true, data: [] }),
     checkGitHubConnection: async () => ({ success: true, data: { connected: false, repoFullName: undefined, error: undefined } }),
