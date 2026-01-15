@@ -1,7 +1,8 @@
 import { ipcMain, app } from "electron";
 import type { BrowserWindow } from "electron";
-import pathModule from "path";
+import path from "path";
 import { existsSync, readdirSync, mkdirSync, writeFileSync, readFileSync } from "fs";
+import { debugError } from "../../shared/utils/debug-logger";
 import {
   IPC_CHANNELS,
   getSpecsDir,
@@ -22,9 +23,6 @@ import type {
 import { projectStore } from "../project-store";
 import { insightsService } from "../insights-service";
 import { safeSendToRenderer } from "./utils";
-
-// Import path with alias to avoid conflict with path module
-const path = pathModule;
 
 /**
  * Read insights feature settings from the settings file
@@ -48,7 +46,7 @@ function getInsightsFeatureSettings(): InsightsModelConfig {
       };
     }
   } catch (error) {
-    console.error("[Insights Handler] Failed to read feature settings:", error);
+    debugError("[Insights Handler] Failed to read feature settings:", error);
   }
 
   // Return defaults if settings file doesn't exist or fails to parse
