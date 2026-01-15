@@ -31,6 +31,7 @@ except ImportError:
     ClaudeSDKClient = None
 
 from core.auth import ensure_claude_code_oauth_token, get_auth_token
+from core.language_injection import get_localized_prompt_path
 
 # Default model for insight extraction (fast and cheap)
 DEFAULT_EXTRACTION_MODEL = "claude-3-5-haiku-latest"
@@ -274,8 +275,11 @@ def _get_attempt_history(recovery_manager: Any, subtask_id: str) -> list[dict]:
 
 
 def _build_extraction_prompt(inputs: dict) -> str:
-    """Build the prompt for insight extraction."""
-    prompt_file = Path(__file__).parent / "prompts" / "insight_extractor.md"
+    """Build the prompt for insight extraction with localization support."""
+    # Use localized path based on user language preference
+    # insight_extractor.md is in the main prompts directory
+    prompts_dir = Path(__file__).parent.parent / "prompts"
+    prompt_file = get_localized_prompt_path(prompts_dir, "insight_extractor.md")
 
     if prompt_file.exists():
         base_prompt = prompt_file.read_text()
