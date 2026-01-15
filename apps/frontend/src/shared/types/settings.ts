@@ -220,6 +220,7 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   colorTheme?: ColorTheme;
   defaultModel: string;
+  thinkingLevel?: ThinkingLevel;  // Default thinking level for task execution
   agentFramework: string;
   pythonPath?: string;
   gitPath?: string;

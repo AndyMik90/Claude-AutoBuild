@@ -27,6 +27,7 @@ export const DEFAULT_APP_SETTINGS = {
   theme: 'system' as const,
   colorTheme: 'default' as const,
   defaultModel: 'opus',
+  thinkingLevel: 'medium' as const,  // Default thinking level for task execution
   agentFramework: 'auto-claude',
   pythonPath: undefined as string | undefined,
   gitPath: undefined as string | undefined,
