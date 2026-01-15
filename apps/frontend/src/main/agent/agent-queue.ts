@@ -34,6 +34,40 @@ function formatStatusMessage(log: string): string {
 }
 
 /**
+ * Extract a meaningful error message from collected stderr output.
+ * Looks for error patterns and returns a summary suitable for display.
+ *
+ * @param stderrOutput - Collected stderr output from the process
+ * @param exitCode - Process exit code
+ * @returns Formatted error message
+ */
+function extractErrorMessage(stderrOutput: string, exitCode: number | null): string {
+  let errorMessage = `Process exited with code ${exitCode}`;
+
+  if (stderrOutput.trim()) {
+    const stderrLines = stderrOutput.trim().split('\n').filter(line => line.trim());
+    // Look for error-like patterns
+    const errorPatterns = [
+      /error[:\s]/i, /exception/i, /failed/i, /invalid/i,
+      /unauthorized/i, /forbidden/i, /timeout/i, /traceback/i
+    ];
+    const errorLines = stderrLines.filter(line =>
+      errorPatterns.some(pattern => pattern.test(line))
+    );
+    // Use error lines if found, otherwise last few lines
+    const relevantLines = errorLines.length > 0
+      ? errorLines.slice(-3)
+      : stderrLines.slice(-3);
+    if (relevantLines.length > 0) {
+      const summary = relevantLines.join('\n').trim();
+      errorMessage = summary.length > 500 ? summary.substring(0, 500) + '...' : summary;
+    }
+  }
+
+  return errorMessage;
+}
+
+/**
  * Queue management for ideation and roadmap generation
  */
 export class AgentQueueManager {
@@ -333,6 +367,8 @@ export class AgentQueueManager {
     let progressPercent = 10;
     // Collect output for rate limit detection
     let allOutput = '';
+    // Collect stderr separately for error messages
+    let stderrCollected = '';
 
     // Helper to emit logs - split multi-line output into individual log lines
     const emitLogs = (log: string) => {
@@ -442,6 +478,8 @@ export class AgentQueueManager {
       const log = data.toString('utf8');
       // Collect stderr for rate limit detection too
       allOutput = (allOutput + log).slice(-10000);
+      // Collect stderr for error messages
+      stderrCollected = (stderrCollected + log).slice(-2000);
       console.error('[Ideation STDERR]', log);
       emitLogs(log);
       this.emitter.emit('ideation-progress', projectId, {
