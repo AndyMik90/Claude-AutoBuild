@@ -121,11 +121,35 @@ async def process_sdk_stream(
     if DEBUG_MODE:
         safe_print(f"[DEBUG {context_name}] Awaiting response stream...")
 
+    # Track activity for progress logging
+    last_progress_log = 0
+    PROGRESS_LOG_INTERVAL = 10  # Log progress every N messages
+
     try:
         async for msg in client.receive_response():
             try:
                 msg_type = type(msg).__name__
                 msg_count += 1
+
+                # Log progress periodically so user knows AI is working
+                if msg_count - last_progress_log >= PROGRESS_LOG_INTERVAL:
+                    active_agents = len(subagent_tool_ids) - len(
+                        [
+                            a
+                            for a in agents_invoked
+                            if a in str(subagent_tool_ids.values())
+                        ]
+                    )
+                    if subagent_tool_ids:
+                        pending = len(subagent_tool_ids)
+                        safe_print(
+                            f"[{context_name}] Processing... ({msg_count} messages, {pending} agents working)"
+                        )
+                    else:
+                        safe_print(
+                            f"[{context_name}] Processing... ({msg_count} messages)"
+                        )
+                    last_progress_log = msg_count
 
                 if DEBUG_MODE:
                     # Log every message type for visibility
@@ -194,9 +218,9 @@ async def process_sdk_stream(
                             # Invoke callback
                             if on_structured_output:
                                 on_structured_output(tool_input)
-                    elif DEBUG_MODE:
-                        # Log other tool calls in debug mode
-                        safe_print(f"[DEBUG {context_name}] Other tool: {tool_name}")
+                    else:
+                        # Log other tool calls (Read, Grep, etc.) so user sees activity
+                        safe_print(f"[{context_name}] Using tool: {tool_name}")
 
                     # Invoke callback for all tool uses
                     if on_tool_use:
@@ -226,11 +250,17 @@ async def process_sdk_stream(
                         safe_print(
                             f"[Agent:{agent_name}] {status}: {result_preview}{'...' if len(str(result_content)) > 600 else ''}"
                         )
-                    elif DEBUG_MODE:
-                        status = "ERROR" if is_error else "OK"
-                        safe_print(
-                            f"[DEBUG {context_name}] Tool result: {tool_id} [{status}]"
+                    else:
+                        # Show tool completion for visibility (not gated by DEBUG)
+                        status = "ERROR" if is_error else "done"
+                        # Show brief preview of result for context
+                        result_preview = (
+                            str(result_content)[:100].replace("\n", " ").strip()
                         )
+                        if result_preview:
+                            safe_print(
+                                f"[{context_name}] Tool result [{status}]: {result_preview}{'...' if len(str(result_content)) > 100 else ''}"
+                            )
 
                     # Invoke callback
                     if on_tool_result:
