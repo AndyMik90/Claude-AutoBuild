@@ -2883,11 +2883,17 @@ export function registerWorktreeHandlers(
           }).unref();
         } else {
           // Linux: Try common terminal emulators
+          // First check which terminals are actually installed using 'which'
+          const { execSync } = await import('child_process');
           const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm'];
           let launched = false;
 
           for (const term of terminals) {
             try {
+              // Check if the terminal is installed before spawning
+              execSync(`which ${term}`, { stdio: 'ignore' });
+
+              // Terminal exists, spawn it
               if (term === 'gnome-terminal') {
                 spawn(term, ['--', 'bash', '-c', `cd '${worktreePath}' && ${devCommand}; exec bash`], {
                   detached: true,
@@ -2907,6 +2913,7 @@ export function registerWorktreeHandlers(
               launched = true;
               break;
             } catch {
+              // Terminal not found or spawn failed, try next one
               continue;
             }
           }
