@@ -38,20 +38,8 @@ export function TaskLogStatusBar() {
 
     // Listen for streaming log chunks
     const cleanup = window.electronAPI.onTaskLogsStream((specId, chunk) => {
-      // Parse chunk to extract meaningful content
-      let content = chunk;
-
-      // Try to parse as JSON log entry
-      try {
-        if (chunk.includes('"content"')) {
-          const match = chunk.match(/"content"\s*:\s*"([^"]+)"/);
-          if (match) {
-            content = match[1];
-          }
-        }
-      } catch {
-        // Use raw chunk
-      }
+      // Extract content from the chunk object
+      const content = chunk.content || '';
 
       const cleaned = cleanLogContent(content);
       if (cleaned && cleaned.length > 5 && cleaned !== lastLogRef.current) {
