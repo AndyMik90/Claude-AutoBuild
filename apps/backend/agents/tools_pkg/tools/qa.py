@@ -180,7 +180,14 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
                     logging.warning(
                         f"QA update retry failed after auto-fix: {retry_err}"
                     )
-                    # Fall through to error return
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Error: QA update failed after auto-fix: {retry_err}",
+                            }
+                        ]
+                    }
 
             return {
                 "content": [

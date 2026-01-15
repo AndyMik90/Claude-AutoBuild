@@ -162,11 +162,27 @@ def create_subtask_tools(spec_dir: Path, project_dir: Path) -> list:
                                 }
                             ]
                         }
+                    else:
+                        return {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": f"Error: Subtask '{subtask_id}' not found in implementation plan (after auto-fix)",
+                                }
+                            ]
+                        }
                 except Exception as retry_err:
                     logging.warning(
                         f"Subtask update retry failed after auto-fix: {retry_err}"
                     )
-                    # Fall through to error return
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Error: Subtask update failed after auto-fix: {retry_err}",
+                            }
+                        ]
+                    }
 
             return {
                 "content": [

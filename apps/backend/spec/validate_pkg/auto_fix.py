@@ -140,7 +140,7 @@ def auto_fix_plan(spec_dir: Path) -> bool:
             if repaired:
                 plan = json.loads(repaired)
                 json_repaired = True
-                print(f"JSON syntax repaired: {plan_file}")
+                logging.info(f"JSON syntax repaired: {plan_file}")
         except Exception as e:
             logging.warning(f"JSON repair attempt failed for {plan_file}: {e}")
     except OSError:
@@ -273,6 +273,6 @@ def auto_fix_plan(spec_dir: Path) -> bool:
         except OSError:
             return False
         if fixed:
-            print(f"Auto-fixed: {plan_file}")
+            logging.info(f"Auto-fixed: {plan_file}")
 
     return fixed or json_repaired
