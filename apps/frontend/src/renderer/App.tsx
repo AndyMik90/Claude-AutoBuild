@@ -751,8 +751,8 @@ export function App() {
                   </span>
                 </Badge>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-80 max-h-[600px] flex flex-col">
-                <div className="p-3 border-b border-border bg-muted/50 shrink-0">
+              <DropdownMenuContent align="start" className="w-80 p-0">
+                <div className="p-3 border-b border-border bg-muted/50">
                   <div className="flex items-center justify-between">
                     <h4 className="font-semibold text-sm flex items-center gap-2">
                       {healthCheck?.healthy ? (
@@ -782,7 +782,7 @@ export function App() {
                     </p>
                   )}
                 </div>
-                <ScrollArea className="flex-1 max-h-[400px]">
+                <div className="max-h-[500px] overflow-y-auto">
                   <div className="p-2 space-y-2">
                     {/* Debug info */}
                     {healthCheck && (
@@ -876,7 +876,7 @@ export function App() {
                       </div>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
 
