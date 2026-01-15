@@ -92,6 +92,15 @@ class SpecOrchestrator:
         # Complexity assessment (populated during run)
         self.assessment: complexity.ComplexityAssessment | None = None
 
+        # Agent runner (initialized when needed)
+        # NOTE: Must be initialized before early returns in spec directory creation
+        self._agent_runner: AgentRunner | None = None
+
+        # Phase summaries for conversation compaction
+        # Stores summaries from completed phases to provide context to subsequent phases
+        # NOTE: Must be initialized before early returns in spec directory creation
+        self._phase_summaries: dict[str, str] = {}
+
         # Create/use spec directory
         if spec_dir:
             # Use provided spec directory (from UI)
@@ -132,13 +141,6 @@ class SpecOrchestrator:
                 # Create directory inside lock to ensure atomicity
                 self.spec_dir.mkdir(parents=True, exist_ok=True)
         self.validator = SpecValidator(self.spec_dir)
-
-        # Agent runner (initialized when needed)
-        self._agent_runner: AgentRunner | None = None
-
-        # Phase summaries for conversation compaction
-        # Stores summaries from completed phases to provide context to subsequent phases
-        self._phase_summaries: dict[str, str] = {}
 
     def _get_agent_runner(self) -> AgentRunner:
         """Get or create the agent runner.
