@@ -796,7 +796,7 @@ export function registerSettingsHandlers(
 
         let autoBuildPath = settings.autoBuildPath;
         if (!autoBuildPath) {
-          autoBuildPath = detectAutoBuildSourcePath();
+          autoBuildPath = detectAutoBuildSourcePath() ?? undefined;
         }
 
         if (!autoBuildPath) {
