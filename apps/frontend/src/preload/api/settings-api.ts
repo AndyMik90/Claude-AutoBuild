@@ -26,7 +26,7 @@ export interface SettingsAPI {
   getAppVersion: () => Promise<string>;
   getAppIsPackaged: () => Promise<boolean>;
   getAppBuildHash: () => Promise<string | null>;
-  getSystemHealthCheck: () => Promise<IPCResult<SystemHealthCheck>>;
+  getSystemHealthCheck: (projectId?: string) => Promise<IPCResult<SystemHealthCheck>>;
 
   // Auto-Build Source Environment
   getSourceEnv: () => Promise<IPCResult<SourceEnvConfig>>;
@@ -66,8 +66,8 @@ export const createSettingsAPI = (): SettingsAPI => ({
   getAppBuildHash: (): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.APP_BUILD_HASH),
 
-  getSystemHealthCheck: (): Promise<IPCResult<SystemHealthCheck>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.SYSTEM_HEALTH_CHECK),
+  getSystemHealthCheck: (projectId?: string): Promise<IPCResult<SystemHealthCheck>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SYSTEM_HEALTH_CHECK, projectId),
 
   // Auto-Build Source Environment
   getSourceEnv: (): Promise<IPCResult<SourceEnvConfig>> =>

@@ -189,13 +189,13 @@ export function App() {
     }
   }, [settingsLoading, settingsHaveLoaded]);
 
-  // Run health check on mount
+  // Run health check on mount and when active project changes
   useEffect(() => {
     const runHealthCheck = async () => {
-      console.log('[Health Check] Starting initial health check...');
+      console.log('[Health Check] Starting health check for project:', activeProjectId);
       setHealthCheckLoading(true);
       try {
-        const result = await window.electronAPI.getSystemHealthCheck();
+        const result = await window.electronAPI.getSystemHealthCheck(activeProjectId || undefined);
         console.log('[Health Check] Result:', result);
         if (result.success && result.data) {
           setHealthCheck(result.data);
@@ -211,13 +211,14 @@ export function App() {
       }
     };
     runHealthCheck();
-  }, []);
+  }, [activeProjectId]); // Re-run when active project changes
 
   // Manual health check trigger
   const runHealthCheck = async () => {
+    console.log('[Health Check] Manual refresh for project:', activeProjectId);
     setHealthCheckLoading(true);
     try {
-      const result = await window.electronAPI.getSystemHealthCheck();
+      const result = await window.electronAPI.getSystemHealthCheck(activeProjectId || undefined);
       if (result.success && result.data) {
         setHealthCheck(result.data);
         setLastHealthCheckTime(new Date());

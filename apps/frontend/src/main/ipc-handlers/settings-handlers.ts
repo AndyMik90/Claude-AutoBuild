@@ -24,6 +24,7 @@ import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preW
 import { parseEnvFile } from './utils';
 import { pythonEnvManager } from '../python-env-manager';
 import { parsePythonCommand } from '../python-detector';
+import { projectStore } from '../project-store';
 
 const settingsPath = getSettingsPath();
 
@@ -435,8 +436,8 @@ export function registerSettingsHandlers(
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.SYSTEM_HEALTH_CHECK, async (): Promise<IPCResult<SystemHealthCheck>> => {
-    console.log('[settings-handlers] SYSTEM_HEALTH_CHECK invoked');
+  ipcMain.handle(IPC_CHANNELS.SYSTEM_HEALTH_CHECK, async (_event, projectId?: string): Promise<IPCResult<SystemHealthCheck>> => {
+    console.log('[settings-handlers] SYSTEM_HEALTH_CHECK invoked with projectId:', projectId);
     try {
       const settings = readSettingsFile();
       const sourcePath = settings?.autoBuildPath || detectAutoBuildSourcePath();
@@ -467,6 +468,28 @@ export function registerSettingsHandlers(
       // Get Python environment for bundled packages
       const pythonEnv = pythonEnvManager.getPythonEnv();
 
+      // Load project-specific environment variables if projectId provided
+      let projectEnv: Record<string, string> = {};
+      if (projectId) {
+        try {
+          const project = projectStore.getProject(projectId);
+          if (project && project.autoBuildPath) {
+            // Load from project's .auto-claude/.env file (same as agent-process does)
+            const projectEnvPath = path.join(project.path, project.autoBuildPath, '.env');
+            console.log('[settings-handlers] Loading project env from:', projectEnvPath);
+
+            if (existsSync(projectEnvPath)) {
+              projectEnv = parseEnvFile(projectEnvPath);
+              console.log('[settings-handlers] Loaded project env vars:', Object.keys(projectEnv));
+            } else {
+              console.log('[settings-handlers] Project .env file not found at:', projectEnvPath);
+            }
+          }
+        } catch (error) {
+          console.error('[settings-handlers] Failed to load project env:', error);
+        }
+      }
+
       // Parse Python command to handle space-separated commands like "py -3"
       const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
 
@@ -477,6 +500,7 @@ export function registerSettingsHandlers(
           env: {
             ...process.env,
             ...pythonEnv,
+            ...projectEnv, // Project-specific vars override global
             PYTHONUNBUFFERED: '1',
             PYTHONUTF8: '1',
           },
