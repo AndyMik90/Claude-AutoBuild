@@ -2102,8 +2102,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
               hasCommitsAfterPosting,
             });
           } else if (!postedAt) {
-            // If findings haven't been posted yet, any new commits should trigger follow-up
-            hasCommitsAfterPosting = true;
+            // If findings haven't been posted yet, we can't determine "after posting"
+            // Follow-up should only be available after initial review is posted to GitHub
+            hasCommitsAfterPosting = false;
           }
 
           return {
