@@ -2822,6 +2822,112 @@ export function registerWorktreeHandlers(
   );
 
   /**
+   * Launch the app dev server from a worktree directory
+   * Detects the project type and runs the appropriate dev command
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_LAUNCH_APP,
+    async (_, worktreePath: string): Promise<IPCResult<{ launched: boolean; command: string }>> => {
+      try {
+        if (!existsSync(worktreePath)) {
+          return { success: false, error: 'Worktree path does not exist' };
+        }
+
+        // Try to detect the dev command from package.json
+        const packageJsonPath = path.join(worktreePath, 'package.json');
+        let devCommand = 'npm run dev'; // Default
+
+        if (existsSync(packageJsonPath)) {
+          try {
+            const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+            const scripts = packageJson.scripts || {};
+
+            // Priority order for dev commands
+            if (scripts.dev) {
+              devCommand = 'npm run dev';
+            } else if (scripts.start) {
+              devCommand = 'npm start';
+            } else if (scripts.serve) {
+              devCommand = 'npm run serve';
+            } else if (scripts.develop) {
+              devCommand = 'npm run develop';
+            }
+          } catch {
+            // Ignore JSON parse errors, use default
+          }
+        }
+
+        // Open a terminal and run the dev command
+        // Use the user's preferred terminal
+        const { spawn } = await import('child_process');
+        const platform = process.platform;
+
+        if (platform === 'win32') {
+          // Windows: Open Windows Terminal or cmd with the command
+          spawn('cmd.exe', ['/c', 'start', 'cmd.exe', '/k', `cd /d "${worktreePath}" && ${devCommand}`], {
+            detached: true,
+            stdio: 'ignore',
+            shell: true
+          }).unref();
+        } else if (platform === 'darwin') {
+          // macOS: Use osascript to open Terminal.app with the command
+          const script = `
+            tell application "Terminal"
+              activate
+              do script "cd '${worktreePath}' && ${devCommand}"
+            end tell
+          `;
+          spawn('osascript', ['-e', script], {
+            detached: true,
+            stdio: 'ignore'
+          }).unref();
+        } else {
+          // Linux: Try common terminal emulators
+          const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm'];
+          let launched = false;
+
+          for (const term of terminals) {
+            try {
+              if (term === 'gnome-terminal') {
+                spawn(term, ['--', 'bash', '-c', `cd '${worktreePath}' && ${devCommand}; exec bash`], {
+                  detached: true,
+                  stdio: 'ignore'
+                }).unref();
+              } else if (term === 'konsole') {
+                spawn(term, ['--workdir', worktreePath, '-e', 'bash', '-c', `${devCommand}; exec bash`], {
+                  detached: true,
+                  stdio: 'ignore'
+                }).unref();
+              } else {
+                spawn(term, ['-e', `bash -c "cd '${worktreePath}' && ${devCommand}; exec bash"`], {
+                  detached: true,
+                  stdio: 'ignore'
+                }).unref();
+              }
+              launched = true;
+              break;
+            } catch {
+              continue;
+            }
+          }
+
+          if (!launched) {
+            return { success: false, error: 'No supported terminal emulator found' };
+          }
+        }
+
+        return { success: true, data: { launched: true, command: devCommand } };
+      } catch (error) {
+        console.error('Failed to launch app:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to launch app'
+        };
+      }
+    }
+  );
+
+  /**
    * Clear the staged state for a task
    * This allows the user to re-stage changes if needed
    */

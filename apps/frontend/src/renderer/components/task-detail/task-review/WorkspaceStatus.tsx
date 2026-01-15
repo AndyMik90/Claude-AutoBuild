@@ -13,7 +13,8 @@ import {
   CheckCircle,
   GitCommit,
   Code,
-  Terminal
+  Terminal,
+  Play
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
@@ -132,6 +133,18 @@ export function WorkspaceStatus({
     }
   };
 
+  const handleLaunchApp = async () => {
+    if (!worktreeStatus.worktreePath) return;
+    try {
+      const result = await window.electronAPI.worktreeLaunchApp(worktreeStatus.worktreePath);
+      if (!result.success) {
+        console.error('Failed to launch app:', result.error);
+      }
+    } catch (err) {
+      console.error('Failed to launch app:', err);
+    }
+  };
+
   const hasGitConflicts = mergePreview?.gitConflicts?.hasConflicts;
   const hasUncommittedChanges = mergePreview?.uncommittedChanges?.hasChanges;
   const uncommittedCount = mergePreview?.uncommittedChanges?.count || 0;
@@ -209,9 +222,19 @@ export function WorkspaceStatus({
           </div>
         )}
 
-        {/* Open in IDE/Terminal buttons */}
+        {/* Open in IDE/Terminal/Launch buttons */}
         {worktreeStatus.worktreePath && (
-          <div className="flex gap-2 mt-3">
+          <div className="flex gap-2 mt-3 flex-wrap">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleLaunchApp}
+              className="h-7 px-2 text-xs"
+              title="Launch dev server from worktree"
+            >
+              <Play className="h-3.5 w-3.5 mr-1" />
+              Launch App
+            </Button>
             <Button
               variant="outline"
               size="sm"
