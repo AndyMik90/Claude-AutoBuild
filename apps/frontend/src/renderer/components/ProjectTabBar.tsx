@@ -168,7 +168,7 @@ export function ProjectTabBar({
         )}
 
         {/* Show Archived button */}
-        {onToggleArchived && archivedCount !== undefined && archivedCount > 0 && (
+        {onToggleArchived && archivedCount > 0 && (
           <Tooltip delayDuration={200}>
             <TooltipTrigger asChild>
               <Button
