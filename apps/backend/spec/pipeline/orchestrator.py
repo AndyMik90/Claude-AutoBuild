@@ -128,7 +128,15 @@ class SpecOrchestrator:
                         # Overwrite existing spec - delete and reuse path
                         import shutil
 
-                        shutil.rmtree(chosen_spec)
+                        try:
+                            shutil.rmtree(chosen_spec)
+                        except OSError as e:
+                            # Log but continue - we'll try to create the directory anyway
+                            # This handles cases where directory is partially locked
+                            print_status(
+                                f"Warning: Could not fully delete {chosen_spec.name}: {e}",
+                                "warning",
+                            )
                         self.spec_dir = chosen_spec
                         self.spec_dir.mkdir(parents=True, exist_ok=True)
                         self.validator = SpecValidator(self.spec_dir)
