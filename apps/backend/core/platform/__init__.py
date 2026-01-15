@@ -22,8 +22,10 @@ from pathlib import Path
 # Type Definitions
 # ============================================================================
 
+
 class OS(Enum):
     """Supported operating systems."""
+
     WINDOWS = "Windows"
     MACOS = "Darwin"
     LINUX = "Linux"
@@ -31,6 +33,7 @@ class OS(Enum):
 
 class ShellType(Enum):
     """Available shell types."""
+
     POWERSHELL = "powershell"
     CMD = "cmd"
     BASH = "bash"
@@ -43,9 +46,10 @@ class ShellType(Enum):
 # Platform Detection
 # ============================================================================
 
+
 def get_current_os() -> OS:
     """Get the current operating system.
-    
+
     Returns the OS enum for the current platform. For unsupported Unix-like
     systems (e.g., FreeBSD, SunOS), defaults to Linux for compatibility.
     """
@@ -82,6 +86,7 @@ def is_unix() -> bool:
 # Path Configuration
 # ============================================================================
 
+
 def get_path_delimiter() -> str:
     """Get the PATH separator for environment variables."""
     return ";" if is_windows() else ":"
@@ -108,6 +113,7 @@ def with_executable_extension(base_name: str) -> str:
 # ============================================================================
 # Binary Directories
 # ============================================================================
+
 
 def get_binary_directories() -> dict[str, list[str]]:
     """
@@ -171,7 +177,7 @@ def get_homebrew_path() -> str | None:
 
     homebrew_paths = [
         "/opt/homebrew/bin",  # Apple Silicon
-        "/usr/local/bin",      # Intel
+        "/usr/local/bin",  # Intel
     ]
 
     for brew_path in homebrew_paths:
@@ -184,6 +190,7 @@ def get_homebrew_path() -> str | None:
 # ============================================================================
 # Tool Detection
 # ============================================================================
+
 
 def find_executable(name: str, additional_paths: list[str] | None = None) -> str | None:
     """
@@ -250,18 +257,29 @@ def get_claude_detection_paths() -> list[str]:
     paths = []
 
     if is_windows():
-        paths.extend([
-            str(home_dir / "AppData" / "Local" / "Programs" / "claude" / "claude.exe"),
-            str(home_dir / "AppData" / "Roaming" / "npm" / "claude.cmd"),
-            str(home_dir / ".local" / "bin" / "claude.exe"),
-            r"C:\Program Files\Claude\claude.exe",
-            r"C:\Program Files (x86)\Claude\claude.exe",
-        ])
+        paths.extend(
+            [
+                str(
+                    home_dir
+                    / "AppData"
+                    / "Local"
+                    / "Programs"
+                    / "claude"
+                    / "claude.exe"
+                ),
+                str(home_dir / "AppData" / "Roaming" / "npm" / "claude.cmd"),
+                str(home_dir / ".local" / "bin" / "claude.exe"),
+                r"C:\Program Files\Claude\claude.exe",
+                r"C:\Program Files (x86)\Claude\claude.exe",
+            ]
+        )
     else:
-        paths.extend([
-            str(home_dir / ".local" / "bin" / "claude"),
-            str(home_dir / "bin" / "claude"),
-        ])
+        paths.extend(
+            [
+                str(home_dir / ".local" / "bin" / "claude"),
+                str(home_dir / "bin" / "claude"),
+            ]
+        )
 
     # Add Homebrew path on macOS
     if is_macos():
@@ -336,6 +354,7 @@ def validate_cli_path(cli_path: str) -> bool:
 # Shell Execution
 # ============================================================================
 
+
 def requires_shell(command: str) -> bool:
     """
     Check if a command requires shell execution on Windows.
@@ -365,7 +384,9 @@ def get_comspec_path() -> str:
     if is_windows():
         return os.environ.get(
             "ComSpec",
-            os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "System32", "cmd.exe")
+            os.path.join(
+                os.environ.get("SystemRoot", "C:\\Windows"), "System32", "cmd.exe"
+            ),
         )
     return "/bin/sh"
 
@@ -397,6 +418,7 @@ def build_windows_command(cli_path: str, args: list[str]) -> list[str]:
 # Environment Variables
 # ============================================================================
 
+
 def get_env_var(name: str, default: str | None = None) -> str | None:
     """
     Get environment variable value with case-insensitive support on Windows.
@@ -422,6 +444,7 @@ def get_env_var(name: str, default: str | None = None) -> str | None:
 # Platform Description
 # ============================================================================
 
+
 def get_platform_description() -> str:
     """
     Get a human-readable platform description.
@@ -429,11 +452,9 @@ def get_platform_description() -> str:
     Returns:
         String like "Windows (AMD64)" or "macOS (arm64)"
     """
-    os_name = {
-        OS.WINDOWS: "Windows",
-        OS.MACOS: "macOS",
-        OS.LINUX: "Linux"
-    }.get(get_current_os(), platform.system())
+    os_name = {OS.WINDOWS: "Windows", OS.MACOS: "macOS", OS.LINUX: "Linux"}.get(
+        get_current_os(), platform.system()
+    )
 
     arch = platform.machine()
     return f"{os_name} ({arch})"

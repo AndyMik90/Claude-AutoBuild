@@ -405,7 +405,9 @@ class TestCliUtilsGetProjectDir:
         from cli.utils import get_project_dir
 
         result = get_project_dir(temp_dir)
-        assert result == temp_dir
+        # get_project_dir calls .resolve() which normalizes paths
+        # (resolves symlinks on macOS, short names on Windows)
+        assert result == temp_dir.resolve()
 
     def test_get_project_dir_auto_detects_backend(self, temp_dir):
         """Auto-detect when running from apps/backend directory."""
@@ -423,7 +425,8 @@ class TestCliUtilsGetProjectDir:
             os.chdir(backend_dir)
             result = get_project_dir(None)
             # Should go up 2 levels from backend to project root
-            assert result == temp_dir
+            # Use resolve() to normalize paths (symlinks on macOS, short names on Windows)
+            assert result == temp_dir.resolve()
         finally:
             os.chdir(original_cwd)
 
