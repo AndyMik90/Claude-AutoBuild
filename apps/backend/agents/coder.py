@@ -526,6 +526,9 @@ async def run_autonomous_agent(
             print_build_complete_banner(spec_dir)
             status_manager.update(state=BuildState.COMPLETE)
 
+            # Clear session errors on successful completion
+            recovery_manager.clear_session_errors()
+
             if task_logger:
                 task_logger.end_phase(
                     LogPhase.CODING,
@@ -540,6 +543,9 @@ async def run_autonomous_agent(
             break
 
         elif status == "continue":
+            # Clear session errors on successful continuation (subtask made progress)
+            recovery_manager.clear_session_errors()
+
             print(
                 muted(
                     f"\nAgent will auto-continue in {AUTO_CONTINUE_DELAY_SECONDS}s..."
@@ -571,6 +577,22 @@ async def run_autonomous_agent(
         elif status == "error":
             emit_phase(ExecutionPhase.FAILED, "Session encountered an error")
             print_status("Session encountered an error", "error")
+
+            # Record the error and check if we should stop (circuit breaker)
+            error_msg = response if response else "Unknown error"
+            recovery_manager.record_session_error(error_msg, iteration)
+
+            should_stop, stop_reason = recovery_manager.should_stop_for_session_errors(error_msg)
+            if should_stop:
+                print()
+                print_status(f"STOPPING: {stop_reason}", "error")
+                print(muted("This error cannot be recovered automatically."))
+                print(muted("Fix the issue and run again."))
+                status_manager.update(state=BuildState.ERROR)
+                if task_logger:
+                    task_logger.log_error(f"Build stopped: {stop_reason}", current_log_phase)
+                break
+
             print(muted("Will retry with a fresh session..."))
             status_manager.update(state=BuildState.ERROR)
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)

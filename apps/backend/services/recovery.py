@@ -16,7 +16,7 @@ Key Features:
 import json
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 
@@ -28,6 +28,8 @@ class FailureType(Enum):
     VERIFICATION_FAILED = "verification_failed"  # Subtask verification failed
     CIRCULAR_FIX = "circular_fix"  # Same fix attempted multiple times
     CONTEXT_EXHAUSTED = "context_exhausted"  # Ran out of context mid-subtask
+    AUTHENTICATION_ERROR = "authentication_error"  # OAuth/API key errors - unrecoverable
+    RATE_LIMIT = "rate_limit"  # API rate limiting - can retry after delay
     UNKNOWN = "unknown"
 
 
@@ -81,6 +83,7 @@ class RecoveryManager:
         initial_data = {
             "subtasks": {},
             "stuck_subtasks": [],
+            "session_errors": [],  # Track session-level errors for circuit breaker
             "metadata": {
                 "created_at": datetime.now().isoformat(),
                 "last_updated": datetime.now().isoformat(),
@@ -146,6 +149,39 @@ class RecoveryManager:
             FailureType enum value
         """
         error_lower = error.lower()
+
+        # Check for authentication errors FIRST (unrecoverable without user action)
+        auth_errors = [
+            "401",
+            "unauthorized",
+            "authentication",
+            "oauth",
+            "token expired",
+            "token invalid",
+            "invalid_api_key",
+            "invalid api key",
+            "api key",
+            "credentials",
+            "permission denied",
+            "forbidden",
+            "403",
+            "access denied",
+        ]
+        if any(ae in error_lower for ae in auth_errors):
+            return FailureType.AUTHENTICATION_ERROR
+
+        # Check for rate limiting (can retry after delay)
+        rate_limit_errors = [
+            "rate limit",
+            "rate_limit",
+            "too many requests",
+            "429",
+            "overloaded",
+            "capacity",
+            "throttl",
+        ]
+        if any(rle in error_lower for rle in rate_limit_errors):
+            return FailureType.RATE_LIMIT
 
         # Check for broken build indicators
         build_errors = [
@@ -320,7 +356,30 @@ class RecoveryManager:
         """
         attempt_count = self.get_attempt_count(subtask_id)
 
-        if failure_type == FailureType.BROKEN_BUILD:
+        if failure_type == FailureType.AUTHENTICATION_ERROR:
+            # Authentication errors are unrecoverable - stop immediately
+            return RecoveryAction(
+                action="stop",
+                target=subtask_id,
+                reason="Authentication error (OAuth token expired or invalid). Cannot continue without valid credentials.",
+            )
+
+        elif failure_type == FailureType.RATE_LIMIT:
+            # Rate limiting: retry with longer delay if < 5 attempts
+            if attempt_count < 5:
+                return RecoveryAction(
+                    action="retry_with_delay",
+                    target=subtask_id,
+                    reason=f"Rate limited, will retry with exponential backoff (attempt {attempt_count + 1}/5)",
+                )
+            else:
+                return RecoveryAction(
+                    action="stop",
+                    target=subtask_id,
+                    reason=f"Rate limited too many times ({attempt_count} attempts). Try again later.",
+                )
+
+        elif failure_type == FailureType.BROKEN_BUILD:
             # Broken build: rollback to last good state
             last_good = self.get_last_good_commit()
             if last_good:
@@ -529,6 +588,99 @@ class RecoveryManager:
             )
 
         return hints
+
+    def record_session_error(self, error: str, session_num: int) -> None:
+        """
+        Record a session-level error for circuit breaker logic.
+
+        Args:
+            error: Error message
+            session_num: Session number when error occurred
+        """
+        history = self._load_attempt_history()
+
+        # Ensure session_errors exists (for backwards compatibility)
+        if "session_errors" not in history:
+            history["session_errors"] = []
+
+        error_entry = {
+            "session": session_num,
+            "error": error[:500],  # Truncate long errors
+            "timestamp": datetime.now().isoformat(),
+            "failure_type": self.classify_failure(error, "session").value,
+        }
+        history["session_errors"].append(error_entry)
+
+        # Keep only last 20 errors to prevent file bloat
+        history["session_errors"] = history["session_errors"][-20:]
+
+        self._save_attempt_history(history)
+
+    def get_session_error_count(self, window_minutes: int = 30) -> int:
+        """
+        Count session errors within a time window.
+
+        Args:
+            window_minutes: Look back this many minutes
+
+        Returns:
+            Number of errors in the time window
+        """
+        history = self._load_attempt_history()
+        errors = history.get("session_errors", [])
+
+        if not errors:
+            return 0
+
+        cutoff = datetime.now() - timedelta(minutes=window_minutes)
+        recent_errors = [
+            e for e in errors
+            if datetime.fromisoformat(e["timestamp"]) > cutoff
+        ]
+        return len(recent_errors)
+
+    def should_stop_for_session_errors(self, error: str) -> tuple[bool, str]:
+        """
+        Check if we should stop due to session-level errors.
+
+        This implements a circuit breaker pattern - if we see the same
+        type of error repeatedly, we should stop rather than loop forever.
+
+        Args:
+            error: The current error message
+
+        Returns:
+            (should_stop, reason) tuple
+        """
+        failure_type = self.classify_failure(error, "session")
+
+        # Authentication errors always stop immediately
+        if failure_type == FailureType.AUTHENTICATION_ERROR:
+            return True, "Authentication error - OAuth token expired or invalid. Run 'claude setup-token' to refresh."
+
+        # Rate limiting - stop after 5 attempts
+        if failure_type == FailureType.RATE_LIMIT:
+            history = self._load_attempt_history()
+            errors = history.get("session_errors", [])
+            rate_limit_count = sum(
+                1 for e in errors[-10:]
+                if e.get("failure_type") == FailureType.RATE_LIMIT.value
+            )
+            if rate_limit_count >= 5:
+                return True, f"Rate limited {rate_limit_count} times. Try again later."
+
+        # Check for repeated errors of the same type
+        error_count = self.get_session_error_count(window_minutes=30)
+        if error_count >= 5:
+            return True, f"Too many session errors ({error_count} in last 30 minutes). Something is fundamentally broken."
+
+        return False, ""
+
+    def clear_session_errors(self) -> None:
+        """Clear session error history (after successful session)."""
+        history = self._load_attempt_history()
+        history["session_errors"] = []
+        self._save_attempt_history(history)
 
     def clear_stuck_subtasks(self) -> None:
         """Clear all stuck subtasks (for manual resolution)."""
