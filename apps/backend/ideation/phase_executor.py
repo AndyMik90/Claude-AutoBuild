@@ -14,9 +14,38 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from core.language_injection import get_user_language_preference, LANGUAGE_NAMES
 from ui import print_key_value, print_status
 
 from .types import IdeationPhaseResult
+
+# Localized ideation type labels for additional_context
+IDEATION_TYPE_LABELS_LOCALIZED = {
+    "en": {
+        "code_improvements": "Code Improvements",
+        "ui_ux_improvements": "UI/UX Improvements",
+        "documentation_gaps": "Documentation Gaps",
+        "security_hardening": "Security Hardening",
+        "performance_optimizations": "Performance Optimizations",
+        "code_quality": "Code Quality & Refactoring",
+    },
+    "zh": {
+        "code_improvements": "代码改进",
+        "ui_ux_improvements": "UI/UX 改进",
+        "documentation_gaps": "文档缺口",
+        "security_hardening": "安全加固",
+        "performance_optimizations": "性能优化",
+        "code_quality": "代码质量与重构",
+    },
+    "fr": {
+        "code_improvements": "Améliorations de Code",
+        "ui_ux_improvements": "Améliorations UI/UX",
+        "documentation_gaps": "Écarts de Documentation",
+        "security_hardening": "Renforcement de la Sécurité",
+        "performance_optimizations": "Optimisations des Performances",
+        "code_quality": "Qualité de Code & Refactorisation",
+    },
+}
 
 
 class PhaseExecutor:
@@ -292,13 +321,31 @@ class PhaseExecutor:
             "progress",
         )
 
-        context = f"""
+        # Get localized context based on user language preference
+        user_lang = get_user_language_preference()
+        type_label_localized = IDEATION_TYPE_LABELS_LOCALIZED.get(
+            user_lang, IDEATION_TYPE_LABELS_LOCALIZED["en"]
+        ).get(ideation_type, ideation_type)
+
+        if user_lang == "zh":
+            context = f"""
+**创意上下文**: {self.output_dir / "ideation_context.json"}
+**项目索引**: {self.output_dir / "project_index.json"}
+**输出文件**: {output_file}
+**最大想法数**: {self.max_ideas_per_type}
+
+生成最多 {self.max_ideas_per_type} 个 {type_label_localized} 想法。
+避免重复已计划的功能（参见 ideation_context.json）。
+将你的想法输出到 {output_file.name}。
+"""
+        else:
+            context = f"""
 **Ideation Context**: {self.output_dir / "ideation_context.json"}
 **Project Index**: {self.output_dir / "project_index.json"}
 **Output File**: {output_file}
 **Max Ideas**: {self.max_ideas_per_type}
 
-Generate up to {self.max_ideas_per_type} {self.generator.get_type_label(ideation_type)} ideas.
+Generate up to {self.max_ideas_per_type} {type_label_localized} ideas.
 Avoid duplicating features that are already planned (see ideation_context.json).
 Output your ideas to {output_file.name}.
 """

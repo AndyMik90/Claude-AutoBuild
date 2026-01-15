@@ -27,7 +27,7 @@
   "description": "改进的作用",
   "rationale": "为何这改进了 UX",
   "category": "usability|accessibility|performance|visual|interaction",
-  "affected_components": ["Component1.tsx", "Component2.tsx"],
+  "affected_components": ["[组件1.tsx]", "[组件2.tsx]"],
   "screenshots": ["screenshot_before.png"],
   "current_state": "当前状态的描述",
   "proposed_change": "要做的具体更改",
@@ -81,7 +81,8 @@ cat graph_hints.json 2>/dev/null || echo "没有可用的图提示"
 
 使用 Puppeteer MCP 导航到应用程序：
 
-```
+```xml
+<!-- 导航到应用首页 -->
 <puppeteer_navigate>
 url: http://localhost:3000
 wait_until: networkidle2
@@ -90,7 +91,8 @@ wait_until: networkidle2
 
 截取落地页的屏幕截图：
 
-```
+```xml
+<!-- 截取落地页完整截图 -->
 <puppeteer_screenshot>
 path: ideation/screenshots/landing_page.png
 full_page: true
@@ -111,7 +113,8 @@ full_page: true
 导航通过主要用户流程并捕获屏幕截图：
 
 ### 2.1 导航和布局
-```
+```xml
+<!-- 截取导航和布局区域 -->
 <puppeteer_screenshot>
 path: ideation/screenshots/navigation.png
 selector: nav, header, .sidebar
@@ -126,11 +129,13 @@ selector: nav, header, .sidebar
 ### 2.2 交互元素
 点击按钮、表单和交互元素：
 
-```
+```xml
+<!-- 点击按钮 -->
 <puppeteer_click>
 selector: button, .btn, [type="submit"]
 </puppeteer_click>
 
+<!-- 截取交互后的状态 -->
 <puppeteer_screenshot>
 path: ideation/screenshots/interactive_state.png
 </puppeteer_screenshot>
@@ -146,7 +151,8 @@ path: ideation/screenshots/interactive_state.png
 ### 2.3 表单和输入
 如果表单存在，分析它们：
 
-```
+```xml
+<!-- 截取表单区域 -->
 <puppeteer_screenshot>
 path: ideation/screenshots/forms.png
 selector: form, .form-container
@@ -163,7 +169,8 @@ selector: form, .form-container
 ### 2.4 空状态
 检查空状态处理：
 
-```
+```xml
+<!-- 截取空状态页面 -->
 <puppeteer_screenshot>
 path: ideation/screenshots/empty_state.png
 </puppeteer_screenshot>
@@ -177,12 +184,14 @@ path: ideation/screenshots/empty_state.png
 ### 2.5 移动响应式
 调整视口并检查响应式行为：
 
-```
+```xml
+<!-- 设置移动设备视口（iPhone X 尺寸） -->
 <puppeteer_set_viewport>
 width: 375
 height: 812
 </puppeteer_set_viewport>
 
+<!-- 截取移动端视图 -->
 <puppeteer_screenshot>
 path: ideation/screenshots/mobile_view.png
 full_page: true
@@ -201,16 +210,17 @@ full_page: true
 
 检查无障碍问题：
 
-```
+```xml
+<!-- 执行 JavaScript 无障碍检查 -->
 <puppeteer_evaluate>
 // 检查无障碍基础
 const audit = {
-  images_without_alt: document.querySelectorAll('img:not([alt])').length,
-  buttons_without_text: document.querySelectorAll('button:empty').length,
-  inputs_without_labels: document.querySelectorAll('input:not([aria-label]):not([id])').length,
-  low_contrast_text: 0, // 需要更复杂的检查
-  missing_lang: !document.documentElement.lang,
-  missing_title: !document.title
+  images_without_alt: document.querySelectorAll('img:not([alt])').length,  // 缺失 alt 的图片
+  buttons_without_text: document.querySelectorAll('button:empty').length,  // 空按钮
+  inputs_without_labels: document.querySelectorAll('input:not([aria-label]):not([id])').length,  // 缺失标签的输入框
+  low_contrast_text: 0,  // 需要更复杂的检查
+  missing_lang: !document.documentElement.lang,  // 缺失 lang 属性
+  missing_title: !document.title  // 缺失页面标题
 };
 return JSON.stringify(audit);
 </puppeteer_evaluate>
@@ -349,7 +359,7 @@ cat > ui_ux_ideas.json << 'EOF'
       "description": "[改进的作用]",
       "rationale": "[为何这改进了 UX]",
       "category": "[usability|accessibility|performance|visual|interaction]",
-      "affected_components": ["[Component.tsx]"],
+      "affected_components": ["[组件名.tsx]"],
       "screenshots": ["[screenshot_path.png]"],
       "current_state": "[当前状态描述]",
       "proposed_change": "[具体建议的更改]",
@@ -414,6 +424,36 @@ ui_ux_ideas.json 创建成功。
 4. **建议具体更改** - 具体的 CSS/组件更改，而不是模糊的建议
 5. **考虑现有模式** - 建议与现有设计系统匹配的修复
 6. **优先考虑用户影响** - 专注于有意义地改善 UX 的更改
+
+---
+
+## 良好 UI/UX 改进的示例
+
+**可用性改进：**
+- "为按钮添加悬停状态"（按钮组件存在样式系统）
+- "为表单添加行内验证"（其他表单有验证模式）
+- "为导航添加键盘快捷键"（快捷键系统已存在）
+
+**无障碍改进：**
+- "为按钮添加 ARIA 标签"（缺少无障碍属性）
+- "为模态框添加焦点陷阱"（键盘导航不完整）
+- "提高表字段的对比度"（当前对比度低于 WCAG 标准）
+
+**视觉改进：**
+- "统一按钮间距"（当前间距不一致）
+- "为空状态添加插图"（空状态只有文本）
+- "为加载状态添加骨架屏"（缺少加载指示器）
+
+**交互改进：**
+- "为拖放添加视觉反馈"（当前拖放没有反馈）
+- "为操作添加确认对话框"（删除操作没有确认）
+- "为长列表添加虚拟滚动"（列表性能慢）
+
+## 不良 UI/UX 改进的示例（应避免）
+
+- "完全重新设计 UI"（过于宽泛，不是具体改进）
+- "使用流行的新框架"（不是基于现有代码的改进）
+- "添加动画效果"（太模糊，没有具体说明）
 
 ---
 
