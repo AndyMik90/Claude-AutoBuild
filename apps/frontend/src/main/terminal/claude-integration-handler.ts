@@ -679,11 +679,10 @@ export async function resumeClaudeAsync(
   SessionHandler.releaseSessionId(terminal.id);
 
   // Async CLI invocation - non-blocking
-  const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
+  const { command: claudeCmd } = await getClaudeCliInvocationAsync();
   const escapedClaudeCmd = escapeShellArg(claudeCmd);
-  const pathPrefix = claudeEnv.PATH
-    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
-    : '';
+  // Don't use PATH prefix for resume - the command was already found in path by detection,
+  // and a long PATH string (1.5KB+) causes PTY buffer overflow deadlock
 
   // Always use --continue which resumes the most recent session in the current directory.
   // This is more reliable than --resume with session IDs since Auto Claude already restores
@@ -698,8 +697,9 @@ export async function resumeClaudeAsync(
     console.warn('[ClaudeIntegration:resumeClaudeAsync] sessionId parameter is deprecated and ignored; using claude --continue instead');
   }
 
-  const command = `${pathPrefix}${escapedClaudeCmd} --continue`;
+  const command = `${escapedClaudeCmd} --continue`;
 
+  // Direct write - command is now short (~30 bytes) since we removed PATH prefix
   terminal.pty.write(`${command}\r`);
 
   terminal.title = 'Claude';
