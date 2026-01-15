@@ -114,3 +114,52 @@ export function isPathSafe(path: string): boolean {
 
   return !suspiciousPatterns.some(pattern => pattern.test(path));
 }
+
+/**
+ * File reference data structure from FileTreeItem drag events.
+ * This is the JSON payload set in dataTransfer by FileTreeItem components.
+ */
+export interface FileReferenceDropData {
+  type: 'file-reference';
+  path: string;
+  name: string;
+  isDirectory: boolean;
+}
+
+/**
+ * Parse file reference data from a drag event's DataTransfer.
+ * Extracts and validates the JSON payload set by FileTreeItem components.
+ *
+ * This function is used by Terminal drop handlers to safely extract file paths
+ * from drag-and-drop events originating from the file tree.
+ *
+ * @param dataTransfer - The DataTransfer object from a drag event
+ * @returns The parsed FileReferenceDropData if valid, null otherwise
+ */
+export function parseFileReferenceDrop(dataTransfer: DataTransfer): FileReferenceDropData | null {
+  const jsonData = dataTransfer.getData('application/json');
+  if (!jsonData) {
+    return null;
+  }
+
+  try {
+    const data = JSON.parse(jsonData) as Record<string, unknown>;
+    // Validate required fields
+    if (
+      data.type === 'file-reference' &&
+      typeof data.path === 'string' &&
+      data.path.length > 0
+    ) {
+      return {
+        type: 'file-reference',
+        path: data.path,
+        name: typeof data.name === 'string' ? data.name : '',
+        isDirectory: typeof data.isDirectory === 'boolean' ? data.isDirectory : false
+      };
+    }
+  } catch {
+    // Invalid JSON, return null
+  }
+
+  return null;
+}

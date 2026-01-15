@@ -14,6 +14,7 @@ import { useXterm } from './terminal/useXterm';
 import { usePtyProcess } from './terminal/usePtyProcess';
 import { useTerminalEvents } from './terminal/useTerminalEvents';
 import { useAutoNaming } from './terminal/useAutoNaming';
+import { useTerminalFileDrop } from './terminal/useTerminalFileDrop';
 
 // Minimum dimensions to prevent PTY creation with invalid sizes
 const MIN_COLS = 10;
@@ -72,8 +73,14 @@ export function Terminal({
   // Check if a terminal is being dragged (vs a file)
   const { active } = useDndContext();
   const isDraggingTerminal = active?.data.current?.type === 'terminal-panel';
-  // Only show file drop overlay when dragging files, not terminals
-  const showFileDropOverlay = isOver && !isDraggingTerminal;
+
+  // Use custom hook for native HTML5 file drop handling from FileTreeItem
+  // This hook is extracted to enable proper unit testing with renderHook()
+  const { isNativeDragOver, handleNativeDragOver, handleNativeDragLeave, handleNativeDrop } =
+    useTerminalFileDrop({ terminalId: id });
+
+  // Only show file drop overlay when dragging files (via @dnd-kit or native), not terminals
+  const showFileDropOverlay = (isOver && !isDraggingTerminal) || isNativeDragOver;
 
   // Auto-naming functionality
   const { handleCommandEnter, cleanup: cleanupAutoNaming } = useAutoNaming({
@@ -359,6 +366,9 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
         showClaudeBusyIndicator && !isClaudeBusy && 'border-green-500/60 ring-1 ring-green-500/20'
       )}
       onClick={handleClick}
+      onDragOver={handleNativeDragOver}
+      onDragLeave={handleNativeDragLeave}
+      onDrop={handleNativeDrop}
     >
       {showFileDropOverlay && (
         <div className="absolute inset-0 bg-info/10 z-10 flex items-center justify-center pointer-events-none">
