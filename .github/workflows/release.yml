@@ -487,30 +487,108 @@ jobs:
         with:
           path: dist
 
-      - name: Flatten and validate artifacts
+      - name: Flatten binary artifacts
         run: |
           mkdir -p release-assets
-          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" -o -name "*.yml" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
 
-          # Validate that installer files exist (not just manifests)
+          # Copy binary artifacts (these have unique names per architecture)
+          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
+
+          # Validate that installer files exist
           installer_count=$(find release-assets -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) | wc -l)
           if [ "$installer_count" -eq 0 ]; then
             echo "::error::No installer artifacts found! Expected .dmg, .zip, .exe, .AppImage, .deb, or .flatpak files."
             exit 1
           fi
 
-          echo "Found $installer_count installer(s):"
+          echo "Found $installer_count binary artifact(s):"
           find release-assets -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) -exec basename {} \;
 
+      # Merge macOS manifests from Intel and ARM64 builds
+      # See: https://github.com/electron-userland/electron-builder/issues/5592
+      # Both builds produce latest-mac.yml with only their architecture's files.
+      # We must merge them so electron-updater can find the correct architecture.
+      - name: Merge macOS manifests
+        run: |
+          echo "=== Merging macOS update manifests ==="
+
+          # Find all latest-mac.yml files from different build artifacts
+          intel_manifest=$(find dist -path "*/macos-intel-builds/latest-mac.yml" -type f 2>/dev/null | head -1)
+          arm64_manifest=$(find dist -path "*/macos-arm64-builds/latest-mac.yml" -type f 2>/dev/null | head -1)
+
+          echo "Intel manifest: ${intel_manifest:-not found}"
+          echo "ARM64 manifest: ${arm64_manifest:-not found}"
+
+          if [ -n "$intel_manifest" ] && [ -n "$arm64_manifest" ]; then
+            echo "Both architectures found - merging manifests..."
+
+            # Install yq for YAML merging
+            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            sudo chmod +x /usr/local/bin/yq
+
+            # Merge the files arrays from both manifests
+            # Start with intel manifest as base, then append arm64 files
+            cp "$intel_manifest" release-assets/latest-mac.yml
+
+            # Extract arm64 files and append to merged manifest
+            arm64_files=$(yq '.files' "$arm64_manifest")
+            yq -i ".files += $arm64_files" release-assets/latest-mac.yml
+
+            echo "Merged manifest contents:"
+            cat release-assets/latest-mac.yml
+
+          elif [ -n "$intel_manifest" ]; then
+            echo "Only Intel manifest found - using as-is"
+            cp "$intel_manifest" release-assets/latest-mac.yml
+          elif [ -n "$arm64_manifest" ]; then
+            echo "Only ARM64 manifest found - using as-is"
+            cp "$arm64_manifest" release-assets/latest-mac.yml
+          else
+            echo "::warning::No macOS manifests found"
+          fi
+
+          # Copy other manifests (Windows, Linux) - these don't have the duplicate issue
+          for manifest in latest.yml latest-linux.yml latest-linux-arm64.yml; do
+            found=$(find dist -name "$manifest" -type f 2>/dev/null | head -1)
+            if [ -n "$found" ]; then
+              echo "Copying $manifest"
+              cp "$found" release-assets/
+            fi
+          done
+
+          echo ""
+          echo "=== Manifest files in release-assets ==="
+          ls -la release-assets/*.yml 2>/dev/null || echo "No manifest files found"
+
+      - name: Validate manifests
+        run: |
           # Validate that electron-updater manifest files are present (required for auto-updates)
           yml_count=$(find release-assets -type f -name "*.yml" | wc -l)
           if [ "$yml_count" -eq 0 ]; then
-            echo "::error::No update manifest (.yml) files found! Auto-update architecture detection will not work."
+            echo "::error::No update manifest (.yml) files found! Auto-update will not work."
             exit 1
           fi
 
           echo "Found $yml_count manifest file(s):"
           find release-assets -type f -name "*.yml" -exec basename {} \;
+
+          # Validate required manifests exist
+          missing=""
+          [ ! -f "release-assets/latest-mac.yml" ] && missing="$missing latest-mac.yml"
+          [ ! -f "release-assets/latest.yml" ] && missing="$missing latest.yml"
+          [ ! -f "release-assets/latest-linux.yml" ] && missing="$missing latest-linux.yml"
+
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required manifests:$missing"
+            echo "::error::Auto-update will fail on affected platforms!"
+            exit 1
+          fi
+
+          echo ""
+          echo "All required manifests present:"
+          echo "  - latest-mac.yml (macOS)"
+          echo "  - latest.yml (Windows)"
+          echo "  - latest-linux.yml (Linux)"
 
           echo ""
           echo "All release assets:"
