@@ -4,8 +4,11 @@ Auto Claude project initialization utilities.
 Handles first-time setup of .auto-claude directory and ensures proper gitignore configuration.
 """
 
+import logging
 import subprocess
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # All entries that should be added to .gitignore for auto-claude projects
 AUTO_CLAUDE_GITIGNORE_ENTRIES = [
@@ -85,9 +88,10 @@ def _is_git_repo(project_dir: Path) -> bool:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=10,
         )
         return result.returncode == 0
-    except Exception:
+    except (subprocess.TimeoutExpired, Exception):
         return False
 
 
@@ -114,6 +118,7 @@ def _commit_gitignore(project_dir: Path) -> bool:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if result.returncode != 0:
             return False
@@ -124,11 +129,14 @@ def _commit_gitignore(project_dir: Path) -> bool:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=30,
         )
         # Return True even if commit "fails" due to nothing to commit
-        return result.returncode == 0 or "nothing to commit" in result.stdout
+        # Check both stdout and stderr as message location varies by git version
+        combined_output = result.stdout + result.stderr
+        return result.returncode == 0 or "nothing to commit" in combined_output
 
-    except Exception:
+    except (subprocess.TimeoutExpired, Exception):
         return False
 
 
@@ -182,7 +190,12 @@ def ensure_all_gitignore_entries(
 
     # Auto-commit if requested and entries were added
     if auto_commit and added_entries:
-        _commit_gitignore(project_dir)
+        if not _commit_gitignore(project_dir):
+            logger.warning(
+                "Failed to auto-commit .gitignore changes in %s. "
+                "Manual commit may be required to avoid merge conflicts.",
+                project_dir,
+            )
 
     return added_entries
 
