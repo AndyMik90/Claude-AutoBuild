@@ -249,9 +249,11 @@ function symlinkNodeModulesToWorktree(projectPath: string, worktreePath: string)
       symlinked.push(targetRel);
       debugLog('[TerminalWorktree] Created symlink:', targetRel, '->', sourcePath);
     } catch (error) {
-      // Symlink creation can fail on some systems (e.g., FAT32 filesystem)
+      // Symlink creation can fail on some systems (e.g., FAT32 filesystem, or permission issues)
       // Log warning but don't fail - worktree is still usable, just without TypeScript checking
+      // Note: This warning appears in dev console. Users may see TypeScript errors in pre-commit hooks.
       debugError('[TerminalWorktree] Could not create symlink for', targetRel, ':', error);
+      console.warn(`[TerminalWorktree] Warning: Failed to link ${targetRel} - TypeScript checks may fail in this worktree`);
     }
   }
 

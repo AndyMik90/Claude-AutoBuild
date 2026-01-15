@@ -184,15 +184,8 @@ if git diff --cached --name-only | grep -q "^apps/frontend/"; then
   # Check if node_modules has actual dependencies by looking for a known package
   # @lydell/node-pty is required for terminal code and is a common source of TypeScript errors
   # It may be in root node_modules (hoisted) or apps/frontend/node_modules
+  # Note: -d follows symlinks automatically, so this works for both real dirs and symlinks
   if [ ! -d "node_modules/@lydell" ] && [ ! -d "apps/frontend/node_modules/@lydell" ]; then
-    # Also check via symlinks
-    if [ ! -L "node_modules" ] || [ ! -d "node_modules/@lydell" ]; then
-      DEPS_AVAILABLE=false
-    fi
-  fi
-
-  # Additional check: if root node_modules doesn't exist at all (common in worktrees)
-  if [ ! -d "node_modules" ] && [ ! -L "node_modules" ]; then
     DEPS_AVAILABLE=false
   fi
 

@@ -225,6 +225,11 @@ def symlink_node_modules_to_worktree(
             debug(MODULE, f"Skipping {target_rel} - target already exists")
             continue
 
+        # Also skip if target is a symlink (even if broken - exists() returns False for broken symlinks)
+        if target_path.is_symlink():
+            debug(MODULE, f"Skipping {target_rel} - symlink already exists (possibly broken)")
+            continue
+
         # Ensure parent directory exists
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -251,6 +256,11 @@ def symlink_node_modules_to_worktree(
             # TypeScript checking
             debug_warning(
                 MODULE, f"Could not symlink {target_rel}: {e}. TypeScript checks may fail."
+            )
+            # Warn user - pre-commit hooks may fail without dependencies
+            print_status(
+                f"Warning: Could not link {target_rel} - TypeScript checks may fail",
+                "warning",
             )
 
     return symlinked
