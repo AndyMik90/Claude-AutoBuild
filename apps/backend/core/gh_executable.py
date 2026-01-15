@@ -58,7 +58,7 @@ def _run_where_command() -> str | None:
             text=True,
             encoding="utf-8",
             timeout=5,
-            shell=True,  # Required: 'where' is a Windows shell builtin, not a standalone executable
+            shell=True,  # Required: 'where' command must be executed through shell on Windows
         )
         if result.returncode == 0 and result.stdout.strip():
             found_path = result.stdout.strip().split("\n")[0].strip()
