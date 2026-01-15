@@ -8,6 +8,8 @@ interface PhaseProgressIndicatorProps {
   phase?: ExecutionPhase;
   subtasks: Subtask[];
   phaseLogs?: TaskLogs | null;
+  phaseProgressPercent?: number;  // 0-100 progress within current phase (from ExecutionProgress)
+  statusMessage?: string;  // Current status message (from ExecutionProgress)
   isStuck?: boolean;
   isRunning?: boolean;
   className?: string;
@@ -47,6 +49,8 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
   phase: rawPhase,
   subtasks,
   phaseLogs,
+  phaseProgressPercent,
+  statusMessage,
   isStuck = false,
   isRunning = false,
   className,
@@ -140,6 +144,12 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
             <span className="text-muted-foreground">
               {activeEntries} {activeEntries === 1 ? t('execution.labels.entry') : t('execution.labels.entries')}
             </span>
+          ) : isRunning && isIndeterminatePhase && phaseProgressPercent !== undefined && phaseProgressPercent > 0 ? (
+            // FIX (#1116): Show phase progress during planning when available
+            `${phaseProgressPercent}%`
+          ) : isRunning && isIndeterminatePhase ? (
+            // Show nothing instead of "—" when actively planning/reviewing (animated bar is enough)
+            <span className="text-muted-foreground animate-pulse">...</span>
           ) : (
             '—'
           )}
