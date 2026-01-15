@@ -60,6 +60,7 @@ const TOOL_STYLES: Array<{
   { patterns: ['editing'], icon: Pencil, color: 'text-purple-500 bg-purple-500/10', translationKey: 'toolActions.editing' },
   { patterns: ['writing'], icon: FileCode, color: 'text-cyan-500 bg-cyan-500/10', translationKey: 'toolActions.writing' },
   { patterns: ['running', 'executing'], icon: Terminal, color: 'text-orange-500 bg-orange-500/10', translationKey: 'toolActions.running' },
+  { patterns: ['using'], icon: Wrench, color: 'text-slate-500 bg-slate-500/10', translationKey: 'toolActions.using' },
 ];
 
 // Helper to detect tool type from execution message and return styling with translation key
