@@ -159,12 +159,6 @@ function DroppableStatusColumn({
                     onClick={() => onFeatureClick(feature)}
                     onConvertToSpec={onConvertToSpec}
                     onGoToTask={onGoToTask}
-                    onDependencyClick={(depId) => {
-                      const depFeature = roadmap.features.find(f => f.id === depId);
-                      if (depFeature) {
-                        onFeatureClick(depFeature);
-                      }
-                    }}
                   />
                 ))
               )}
