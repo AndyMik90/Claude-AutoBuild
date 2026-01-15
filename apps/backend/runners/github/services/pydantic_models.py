@@ -111,7 +111,12 @@ class AICommentTriage(BaseModel):
         description="AI tool name (CodeRabbit, Cursor, Greptile, etc.)"
     )
     verdict: Literal[
-        "critical", "important", "nice_to_have", "trivial", "false_positive"
+        "critical",
+        "important",
+        "nice_to_have",
+        "trivial",
+        "addressed",
+        "false_positive",
     ] = Field(description="Verdict on the comment")
     reasoning: str = Field(description="Why this verdict was chosen")
     response_comment: str | None = Field(
