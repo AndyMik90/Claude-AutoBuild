@@ -178,9 +178,10 @@ export function ReviewStatusTree({
       });
     }
 
-    // Step 4: Follow-up (only show when not currently reviewing AND commits happened after posting)
-    // This prevents showing follow-up prompts for commits that were made during/before the review
-    if (!isReviewing && newCommitsCheck?.hasNewCommits && newCommitsCheck?.hasCommitsAfterPosting) {
+    // Step 4: Follow-up (only show when findings were POSTED and new commits happened after posting)
+    // This prevents showing follow-up prompts when initial review was never posted to GitHub
+    const hasPostedFindings = postedCount > 0 || reviewResult?.hasPostedFindings;
+    if (!isReviewing && hasPostedFindings && newCommitsCheck?.hasNewCommits && newCommitsCheck?.hasCommitsAfterPosting) {
       steps.push({
         id: 'new_commits',
         label: t('prReview.newCommits', { count: newCommitsCheck.newCommitCount }),

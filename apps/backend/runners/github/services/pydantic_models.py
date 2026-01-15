@@ -611,8 +611,10 @@ class FindingValidationResult(BaseModel):
             "This is the proof that determines the validation status."
         ),
     )
-    line_range: tuple[int, int] = Field(
-        description="Start and end line numbers of the examined code"
+    line_range: list[int] = Field(
+        min_length=2,
+        max_length=2,
+        description="Start and end line numbers of the examined code [start, end]",
     )
     explanation: str = Field(
         min_length=20,
