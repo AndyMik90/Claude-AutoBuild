@@ -21,6 +21,24 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       enabled: true,
       requireEmailVerification: false,
     },
+    // Configure trusted origins for CORS
+    trustedOrigins: [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "http://localhost:5174",
+      // Add production URLs when needed
+    ],
+    // Advanced configuration for CORS and cookies
+    advanced: {
+      // Configure CORS headers
+      crossSubDomainCookies: {
+        enabled: false,
+      },
+      // Use secure cookies in production
+      useSecureCookies: siteUrl.startsWith("https://"),
+      // Configure cookie settings
+      cookiePrefix: "better-auth",
+    },
     plugins: [
       // The Convex plugin is required for Convex compatibility
       convex({ authConfig }),

@@ -560,5 +560,12 @@ export const IPC_CHANNELS = {
   // Template Editor events (main -> renderer)
   TEMPLATE_EDITOR_STATUS: 'templateEditor:status',
   TEMPLATE_EDITOR_STREAM_CHUNK: 'templateEditor:streamChunk',
-  TEMPLATE_EDITOR_ERROR: 'templateEditor:error'
+  TEMPLATE_EDITOR_ERROR: 'templateEditor:error',
+
+  // Convex service operations
+  CONVEX_GET_STATUS: 'convex:getStatus',
+  CONVEX_GET_URL: 'convex:getUrl',
+  CONVEX_START_DEV: 'convex:startDev',
+  CONVEX_STOP_DEV: 'convex:stopDev',
+  CONVEX_GET_DEPLOYMENTS: 'convex:getDeployments'
 } as const;

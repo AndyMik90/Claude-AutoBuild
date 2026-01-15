@@ -366,9 +366,9 @@
       "title": "Security",
       "description": "Password and authentication settings"
     },
-    "auth": {
-      "title": "Authentication",
-      "description": "Configure Convex authentication"
+    "login": {
+      "title": "Login",
+      "description": "Sign in or create an account"
     }
   },
   "agentProfile": {

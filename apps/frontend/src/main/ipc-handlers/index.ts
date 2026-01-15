@@ -35,6 +35,7 @@ import { registerDebugHandlers } from './debug-handlers';
 import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
+import { registerConvexHandlers } from './convex-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { notificationService } from '../notification-service';
 
@@ -130,6 +131,9 @@ export function setupIpcHandlers(
   // API Profile handlers (custom Anthropic-compatible endpoints)
   registerProfileHandlers();
 
+  // Convex service handlers (authentication backend)
+  registerConvexHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -159,5 +163,6 @@ export {
   registerDebugHandlers,
   registerClaudeCodeHandlers,
   registerMcpHandlers,
-  registerProfileHandlers
+  registerProfileHandlers,
+  registerConvexHandlers
 };
