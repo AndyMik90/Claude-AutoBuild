@@ -256,10 +256,14 @@ def prompt_for_existing_spec_action(
 
     while True:
         try:
-            choice = input(
-                "  Choose an option "
-                "(1-5 to select, R to reuse #1, O to overwrite #1, N for new): "
-            ).strip().upper()
+            choice = (
+                input(
+                    "  Choose an option "
+                    "(1-5 to select, R to reuse #1, O to overwrite #1, N for new): "
+                )
+                .strip()
+                .upper()
+            )
         except (EOFError, KeyboardInterrupt):
             return ("new", None)
 
