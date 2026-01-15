@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 CLAUDE_SDK_AVAILABLE = importlib.util.find_spec("claude_agent_sdk") is not None
 
 # Default model and thinking configuration
-DEFAULT_MODEL = "claude-sonnet-4-20250514"
+DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
 DEFAULT_THINKING_BUDGET = 10000  # Medium thinking
 
 

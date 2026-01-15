@@ -13,6 +13,8 @@
 export {
   useIssuesStore,
   loadGitHubIssues,
+  loadMoreGitHubIssues,
+  loadAllGitHubIssues,
   importGitHubIssues,
   type IssueFilterState
 } from './issues-store';

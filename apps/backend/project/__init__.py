@@ -12,6 +12,8 @@ Public API:
 - SecurityProfile: Security profile data structure
 - TechnologyStack: Detected technologies
 - CustomScripts: Detected custom scripts
+- StackDetector: Technology stack detection
+- StructureAnalyzer: Project structure analysis
 - get_or_create_profile: Convenience function
 - is_command_allowed: Check if command is allowed
 - needs_validation: Check if command needs extra validation

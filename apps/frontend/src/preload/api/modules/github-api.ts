@@ -7,7 +7,8 @@ import type {
   GitHubInvestigationStatus,
   GitHubInvestigationResult,
   IPCResult,
-  VersionSuggestion
+  VersionSuggestion,
+  PaginatedIssuesResult
 } from '../../../shared/types';
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
@@ -145,13 +146,21 @@ export interface WorkflowsAwaitingApprovalResult {
   error?: string;
 }
 
+// Re-export PaginatedIssuesResult from shared types for API consumers
+export type { PaginatedIssuesResult };
+
 /**
  * GitHub Integration API operations
  */
 export interface GitHubAPI {
   // Operations
   getGitHubRepositories: (projectId: string) => Promise<IPCResult<GitHubRepository[]>>;
-  getGitHubIssues: (projectId: string, state?: 'open' | 'closed' | 'all') => Promise<IPCResult<GitHubIssue[]>>;
+  getGitHubIssues: (
+    projectId: string,
+    state?: 'open' | 'closed' | 'all',
+    page?: number,
+    fetchAll?: boolean
+  ) => Promise<IPCResult<PaginatedIssuesResult>>;
   getGitHubIssue: (projectId: string, issueNumber: number) => Promise<IPCResult<GitHubIssue>>;
   getIssueComments: (projectId: string, issueNumber: number) => Promise<IPCResult<any[]>>;
   checkGitHubConnection: (projectId: string) => Promise<IPCResult<GitHubSyncStatus>>;
@@ -369,6 +378,12 @@ export interface NewCommitsCheck {
   currentHeadCommit?: string;
   /** Whether new commits happened AFTER findings were posted (for "Ready for Follow-up" status) */
   hasCommitsAfterPosting?: boolean;
+  /** Whether new commits touch files that had findings (requires verification) */
+  hasOverlapWithFindings?: boolean;
+  /** Files from new commits that overlap with finding files */
+  overlappingFiles?: string[];
+  /** Whether this appears to be a merge from base branch (develop/main) */
+  isMergeFromBase?: boolean;
 }
 
 /**
@@ -456,8 +471,13 @@ export const createGitHubAPI = (): GitHubAPI => ({
   getGitHubRepositories: (projectId: string): Promise<IPCResult<GitHubRepository[]>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_GET_REPOSITORIES, projectId),
 
-  getGitHubIssues: (projectId: string, state?: 'open' | 'closed' | 'all'): Promise<IPCResult<GitHubIssue[]>> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_GET_ISSUES, projectId, state),
+  getGitHubIssues: (
+    projectId: string,
+    state?: 'open' | 'closed' | 'all',
+    page?: number,
+    fetchAll?: boolean
+  ): Promise<IPCResult<PaginatedIssuesResult>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_GET_ISSUES, projectId, state, page, fetchAll),
 
   getGitHubIssue: (projectId: string, issueNumber: number): Promise<IPCResult<GitHubIssue>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_GET_ISSUE, projectId, issueNumber),

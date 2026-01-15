@@ -101,7 +101,7 @@ class TestCostTracker:
         cost = CostTracker.calculate_cost(
             input_tokens=1_000_000,
             output_tokens=1_000_000,
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
         )
         # $3 input + $15 output = $18 for 1M each
         assert cost == 18.0
@@ -111,7 +111,7 @@ class TestCostTracker:
         cost = CostTracker.calculate_cost(
             input_tokens=1_000_000,
             output_tokens=1_000_000,
-            model="claude-opus-4-20250514",
+            model="claude-opus-4-5-20251101",
         )
         # $15 input + $75 output = $90 for 1M each
         assert cost == 90.0
@@ -121,7 +121,7 @@ class TestCostTracker:
         cost = CostTracker.calculate_cost(
             input_tokens=1_000_000,
             output_tokens=1_000_000,
-            model="claude-haiku-3-5-20241022",
+            model="claude-haiku-4-5-20251001",
         )
         # $0.80 input + $4 output = $4.80 for 1M each
         assert cost == 4.80
@@ -142,7 +142,7 @@ class TestCostTracker:
         cost = tracker.add_operation(
             input_tokens=100_000,  # $0.30
             output_tokens=50_000,  # $0.75
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             operation_name="test",
         )
         assert 1.0 <= cost <= 1.1
@@ -156,7 +156,7 @@ class TestCostTracker:
             tracker.add_operation(
                 input_tokens=1_000_000,  # $3 - exceeds $1 limit
                 output_tokens=0,
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-4-5-20250929",
             )
 
     def test_remaining_budget(self):
@@ -165,7 +165,7 @@ class TestCostTracker:
         tracker.add_operation(
             input_tokens=100_000,
             output_tokens=50_000,
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
         )
         remaining = tracker.remaining_budget()
         assert 8.9 <= remaining <= 9.1
@@ -176,7 +176,7 @@ class TestCostTracker:
         tracker.add_operation(
             input_tokens=100_000,
             output_tokens=50_000,
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             operation_name="operation1",
         )
         report = tracker.usage_report()
@@ -231,7 +231,7 @@ class TestRateLimiter:
         cost = limiter.track_ai_cost(
             input_tokens=100_000,
             output_tokens=50_000,
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             operation_name="test",
         )
         assert cost > 0
@@ -244,7 +244,7 @@ class TestRateLimiter:
             limiter.track_ai_cost(
                 input_tokens=1_000_000,
                 output_tokens=1_000_000,
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-4-5-20250929",
             )
 
     def test_check_cost_available(self):
@@ -352,7 +352,7 @@ class TestRateLimitedDecorator:
             limiter.track_ai_cost(
                 input_tokens=1_000_000,
                 output_tokens=1_000_000,
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-4-5-20250929",
             )
             return "success"
 
@@ -433,7 +433,7 @@ class TestIntegration:
         limiter.track_ai_cost(
             input_tokens=5000,
             output_tokens=2000,
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             operation_name="PR review",
         )
 
@@ -472,7 +472,7 @@ class TestIntegration:
         limiter.track_ai_cost(
             input_tokens=10_000,
             output_tokens=5_000,
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             operation_name="PR review",
         )
 
@@ -480,7 +480,7 @@ class TestIntegration:
         limiter.track_ai_cost(
             input_tokens=5_000,
             output_tokens=2_000,
-            model="claude-haiku-3-5-20241022",
+            model="claude-haiku-4-5-20251001",
             operation_name="Issue triage",
         )
 
@@ -488,7 +488,7 @@ class TestIntegration:
         limiter.track_ai_cost(
             input_tokens=20_000,
             output_tokens=10_000,
-            model="claude-opus-4-20250514",
+            model="claude-opus-4-5-20251101",
             operation_name="Architecture review",
         )
 

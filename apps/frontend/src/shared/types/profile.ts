@@ -72,7 +72,7 @@ export interface TestConnectionResult {
  * Model information from /v1/models endpoint
  */
 export interface ModelInfo {
-  id: string; // Model ID (e.g., "claude-sonnet-4-20250514")
+  id: string; // Model ID (e.g., "claude-sonnet-4-5-20250929")
   display_name: string; // Human-readable name (e.g., "Claude Sonnet 4")
 }
 

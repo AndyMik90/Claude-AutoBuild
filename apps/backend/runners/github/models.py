@@ -84,6 +84,7 @@ class AICommentVerdict(str, Enum):
     NICE_TO_HAVE = "nice_to_have"  # Optional improvement
     TRIVIAL = "trivial"  # Can be ignored
     FALSE_POSITIVE = "false_positive"  # AI was wrong
+    ADDRESSED = "addressed"  # Valid issue that was fixed in a subsequent commit
 
 
 class TriageCategory(str, Enum):
@@ -840,7 +841,7 @@ class GitHubRunnerConfig:
     )
 
     # Model settings
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-sonnet-4-5-20250929"
     thinking_level: str = "medium"
 
     def to_dict(self) -> dict:
@@ -914,6 +915,6 @@ class GitHubRunnerConfig:
             review_own_prs=settings.get("review_own_prs", False),
             auto_post_reviews=settings.get("auto_post_reviews", False),
             allow_fix_commits=settings.get("allow_fix_commits", True),
-            model=settings.get("model", "claude-sonnet-4-20250514"),
+            model=settings.get("model", "claude-sonnet-4-5-20250929"),
             thinking_level=settings.get("thinking_level", "medium"),
         )

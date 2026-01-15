@@ -11,7 +11,7 @@ Tests the security.py module functionality including:
 """
 
 import pytest
-from project import BASE_COMMANDS, SecurityProfile
+from project import SecurityProfile
 from security import (
     extract_commands,
     get_command_for_validation,

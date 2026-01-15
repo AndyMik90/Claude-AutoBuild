@@ -84,7 +84,7 @@ class BatchProcessor:
                 min_batch_size=1,
                 max_batch_size=5,
                 validate_batches=True,
-                validation_model="claude-sonnet-4-20250514",
+                validation_model="claude-sonnet-4-5-20250929",
                 validation_thinking_budget=10000,
             )
 
@@ -210,7 +210,7 @@ class BatchProcessor:
                 min_batch_size=1,
                 max_batch_size=5,
                 validate_batches=True,
-                validation_model="claude-sonnet-4-20250514",
+                validation_model="claude-sonnet-4-5-20250929",
                 validation_thinking_budget=10000,
             )
 
