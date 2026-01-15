@@ -439,14 +439,15 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 </div>
               )}
 
-              {/* Warnings - compact inline */}
-              {(state.isStuck || state.isIncomplete) && (
+              {/* Warnings - compact inline (stuck, incomplete, or service errors) */}
+              {(state.isStuck || state.isIncomplete || task.errorInfo) && (
                 <div className="mt-3">
                   <TaskWarnings
                     isStuck={state.isStuck}
                     isIncomplete={state.isIncomplete}
                     isRecovering={state.isRecovering}
                     taskProgress={state.taskProgress}
+                    errorInfo={task.errorInfo}
                     onRecover={handleRecover}
                     onResume={handleStartStop}
                   />

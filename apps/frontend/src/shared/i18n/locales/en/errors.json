@@ -1,5 +1,8 @@
 {
   "task": {
-    "parseImplementationPlan": "Failed to parse implementation_plan.json for {{specId}}: {{error}}"
+    "parseImplementationPlan": "Failed to parse implementation_plan.json for {{specId}}: {{error}}",
+    "circuitBreaker": "Task stopped due to repeated errors: {{error}}",
+    "authenticationError": "Authentication failed - your OAuth token may have expired. Run 'claude setup-token' to refresh. Details: {{error}}",
+    "rateLimitError": "Rate limit exceeded - too many API requests. Please wait and try again later. Details: {{error}}"
   }
 }

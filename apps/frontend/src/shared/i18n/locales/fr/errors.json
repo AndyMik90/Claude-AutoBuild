@@ -1,5 +1,8 @@
 {
   "task": {
-    "parseImplementationPlan": "Échec de l'analyse du fichier implementation_plan.json pour {{specId}} : {{error}}"
+    "parseImplementationPlan": "Échec de l'analyse du fichier implementation_plan.json pour {{specId}} : {{error}}",
+    "circuitBreaker": "Tâche arrêtée à cause d'erreurs répétées : {{error}}",
+    "authenticationError": "Échec d'authentification - votre token OAuth a peut-être expiré. Exécutez 'claude setup-token' pour le rafraîchir. Détails : {{error}}",
+    "rateLimitError": "Limite de débit dépassée - trop de requêtes API. Veuillez attendre et réessayer plus tard. Détails : {{error}}"
   }
 }

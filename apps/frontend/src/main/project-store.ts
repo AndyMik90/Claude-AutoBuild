@@ -515,6 +515,28 @@ export class ProjectStore {
           const { status, reviewReason } = this.determineTaskStatusAndReason(plan, specPath, metadata);
           finalStatus = status;
           finalReviewReason = reviewReason;
+
+          // Check for circuit breaker errors in recoveryNote
+          const planWithRecovery = plan as unknown as { recoveryNote?: string; status?: string } | null;
+          if (planWithRecovery?.recoveryNote?.startsWith('[CIRCUIT BREAKER]') || planWithRecovery?.status === 'error') {
+            finalStatus = 'error';
+            // Determine error type from recovery note for appropriate i18n key
+            const recoveryNote = planWithRecovery?.recoveryNote || '';
+            let errorKey = 'errors:task.circuitBreaker';
+            if (recoveryNote.toLowerCase().includes('oauth') || recoveryNote.toLowerCase().includes('authentication') || recoveryNote.toLowerCase().includes('401')) {
+              errorKey = 'errors:task.authenticationError';
+            } else if (recoveryNote.toLowerCase().includes('rate limit') || recoveryNote.toLowerCase().includes('429')) {
+              errorKey = 'errors:task.rateLimitError';
+            }
+            finalErrorInfo = {
+              key: errorKey,
+              meta: {
+                specId: dir.name,
+                error: recoveryNote.replace('[CIRCUIT BREAKER] ', '')
+              }
+            };
+            console.warn(`[ProjectStore] Circuit breaker error for ${dir.name}:`, recoveryNote);
+          }
         }
 
         // Extract subtasks from plan (handle both 'subtasks' and 'chunks' naming)
