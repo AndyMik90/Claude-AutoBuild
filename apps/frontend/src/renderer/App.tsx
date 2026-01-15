@@ -191,10 +191,6 @@ export function App() {
 
   // Run health check on mount and when active project changes
   useEffect(() => {
-    // TEMPORARILY DISABLED: Debug high CPU usage
-    console.log('[Health Check] Health check is temporarily disabled for debugging');
-    return;
-
     // Don't run health check if no active project yet
     if (!activeProjectId) return;
 

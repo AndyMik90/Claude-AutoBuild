@@ -20,7 +20,7 @@ import { AgentManager } from '../agent';
 import type { BrowserWindow } from 'electron';
 import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-updater';
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
-import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
+import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform } from '../cli-tool-manager';
 import { parseEnvFile } from './utils';
 import { pythonEnvManager } from '../python-env-manager';
 import { parsePythonCommand } from '../python-detector';
@@ -180,10 +180,8 @@ export function registerSettingsHandlers(
         claudePath: settings.claudePath,
       });
 
-      // Re-warm cache asynchronously after configuring (non-blocking)
-      preWarmToolCache(['claude']).catch((error) => {
-        console.warn('[SETTINGS_GET] Failed to re-warm CLI cache:', error);
-      });
+      // Note: Cache is pre-warmed on app startup (index.ts), no need to re-warm on every settings load
+      // Removing preWarmToolCache call here fixes infinite loop bug (#CPU-100%)
 
       return { success: true, data: settings as AppSettings };
     }
@@ -227,10 +225,8 @@ export function registerSettingsHandlers(
             claudePath: newSettings.claudePath,
           });
 
-          // Re-warm cache asynchronously after configuring (non-blocking)
-          preWarmToolCache(['claude']).catch((error) => {
-            console.warn('[SETTINGS_SAVE] Failed to re-warm CLI cache:', error);
-          });
+          // Note: configureTools() clears the cache, tools will be re-detected on next use
+          // No need to pre-warm here since detection is fast (cached) and non-blocking
         }
 
         // Update auto-updater channel if betaUpdates setting changed
