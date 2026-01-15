@@ -21,6 +21,7 @@ import {
 } from '../../worktree-paths';
 import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
 import { killProcessGracefully } from '../../platform';
+import { escapePathForShell } from './shell-escape';
 
 // Regex pattern for validating git branch names
 const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
@@ -33,42 +34,6 @@ const PRINTABLE_CHARS_REGEX = /^[\x20-\x7E\u00A0-\uFFFF]*$/;
 
 // Timeout for PR creation operations (2 minutes for network operations)
 const PR_CREATION_TIMEOUT_MS = 120000;
-
-/**
- * Escape a path for use in shell commands.
- * Prevents command injection by escaping or rejecting dangerous characters.
- *
- * @param filePath - The path to escape
- * @param platform - Target platform ('win32', 'darwin', 'linux')
- * @returns Escaped path string safe for shell use, or null if path is invalid
- */
-function escapePathForShell(filePath: string, platform: NodeJS.Platform): string | null {
-  // Reject paths with null bytes (always dangerous)
-  if (filePath.includes('\0')) {
-    return null;
-  }
-
-  // Reject paths with newlines (can break command structure)
-  if (filePath.includes('\n') || filePath.includes('\r')) {
-    return null;
-  }
-
-  if (platform === 'win32') {
-    // Windows: Reject paths with characters that could escape cmd.exe quoting
-    // These characters can break out of double-quoted strings in cmd
-    const dangerousWinChars = /[<>|&^%!`]/;
-    if (dangerousWinChars.test(filePath)) {
-      return null;
-    }
-    // Double-quote the path (already done in caller, but escape any internal quotes)
-    return filePath.replace(/"/g, '""');
-  } else {
-    // Unix (macOS/Linux): Use single quotes and escape any internal single quotes
-    // Single-quoted strings in bash treat everything literally except single quotes
-    // Escape ' as '\'' (end quote, escaped quote, start quote)
-    return filePath.replace(/'/g, "'\\''");
-  }
-}
 
 /**
  * Read utility feature settings (for commit message, merge resolver) from settings file
