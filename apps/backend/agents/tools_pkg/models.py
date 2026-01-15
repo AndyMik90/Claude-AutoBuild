@@ -317,10 +317,16 @@ AGENT_CONFIGS = {
         "thinking_default": "high",
     },
     "ideation": {
-        "tools": BASE_READ_TOOLS + WEB_TOOLS,
+        "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,  # Needs Write/Bash for JSON output files
         "mcp_servers": [],
         "auto_claude_tools": [],
         "thinking_default": "high",
+    },
+    "ideation_recovery": {
+        "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,  # Needs Write/Edit for fixing JSON files
+        "mcp_servers": [],
+        "auto_claude_tools": [],
+        "thinking_default": "medium",
     },
 }
 
