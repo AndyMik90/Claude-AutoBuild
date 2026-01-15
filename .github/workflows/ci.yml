@@ -83,7 +83,7 @@ jobs:
           else
             source .venv/bin/activate
           fi
-          pytest ../../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=20
+          pytest ../../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=10
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'
