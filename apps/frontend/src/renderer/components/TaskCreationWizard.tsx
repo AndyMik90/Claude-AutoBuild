@@ -306,7 +306,9 @@ export function TaskCreationWizard({
    * Inserts @filename at cursor position or end of description
    * Uses descriptionValueRef to avoid stale closure issues with rapid consecutive drops
    */
-  const handleFileReferenceDrop = useCallback((reference: string, _data: FileReferenceData) => {
+  const handleFileReferenceDrop = useCallback((_reference: string, data: FileReferenceData) => {
+    // Construct reference from validated data to avoid using unvalidated text/plain input
+    const reference = `@${data.name}`;
     // Dismiss any active autocomplete when file is dropped
     if (autocomplete?.show) {
       setAutocomplete(null);

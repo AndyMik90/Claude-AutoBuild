@@ -249,10 +249,23 @@ export function useImageUpload({
     if (!jsonData) return null;
 
     try {
-      const data = JSON.parse(jsonData);
-      // Validate all required FileReferenceData properties including isDirectory
-      if (data.type === 'file-reference' && typeof data.path === 'string' && typeof data.name === 'string' && typeof data.isDirectory === 'boolean') {
-        return data as FileReferenceData;
+      const data = JSON.parse(jsonData) as Record<string, unknown>;
+      // Validate required fields - path and name must be non-empty strings
+      // isDirectory is optional and defaults to false if missing or not a boolean
+      // This aligns with parseFileReferenceDrop in shell-escape.ts
+      if (
+        data.type === 'file-reference' &&
+        typeof data.path === 'string' &&
+        data.path.length > 0 &&
+        typeof data.name === 'string' &&
+        data.name.length > 0
+      ) {
+        return {
+          type: 'file-reference',
+          path: data.path,
+          name: data.name,
+          isDirectory: typeof data.isDirectory === 'boolean' ? data.isDirectory : false
+        };
       }
     } catch {
       // Invalid JSON, not a file reference
