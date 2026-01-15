@@ -49,6 +49,10 @@ export interface TaskAPI {
     options?: import('../../shared/types').TaskRecoveryOptions
   ) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
+  deleteAndRetryTask: (
+    taskId: string,
+    options?: { recreate?: boolean }
+  ) => Promise<IPCResult<{ deleted: boolean; recreatedTask?: Task; cleanedUpWorktree?: boolean }>>;
 
   // Workspace Management (for human review)
   getWorktreeStatus: (taskId: string) => Promise<IPCResult<import('../../shared/types').WorktreeStatus>>;
@@ -134,6 +138,12 @@ export const createTaskAPI = (): TaskAPI => ({
 
   checkTaskRunning: (taskId: string): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_CHECK_RUNNING, taskId),
+
+  deleteAndRetryTask: (
+    taskId: string,
+    options?: { recreate?: boolean }
+  ): Promise<IPCResult<{ deleted: boolean; recreatedTask?: Task; cleanedUpWorktree?: boolean }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_DELETE_AND_RETRY, taskId, options),
 
   // Workspace Management
   getWorktreeStatus: (taskId: string): Promise<IPCResult<import('../../shared/types').WorktreeStatus>> =>

@@ -74,6 +74,11 @@ export const taskMock = {
 
   checkTaskRunning: async () => ({ success: true, data: false }),
 
+  deleteAndRetryTask: async () => ({
+    success: true,
+    data: { deleted: true, cleanedUpWorktree: false }
+  }),
+
   // Task logs operations
   getTaskLogs: async () => ({
     success: true,

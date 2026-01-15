@@ -851,6 +851,39 @@ export async function deleteTask(
 }
 
 /**
+ * Delete a failed/stuck task, cleanup its worktree, and optionally recreate for retry
+ */
+export async function deleteAndRetryTask(
+  taskId: string,
+  options?: { recreate?: boolean }
+): Promise<{ success: boolean; error?: string; recreatedTask?: Task; cleanedUpWorktree?: boolean }> {
+  const store = useTaskStore.getState();
+  try {
+    const result = await window.electronAPI.deleteAndRetryTask(taskId, options);
+    if (result.success && result.data) {
+      // Remove the deleted task from local store
+      store.setTasks(store.tasks.filter(t => t.id !== taskId && t.specId !== taskId));
+      if (store.selectedTaskId === taskId) {
+        store.selectTask(null);
+      }
+      // Add the recreated task if present
+      if (result.data.recreatedTask) {
+        store.addTask(result.data.recreatedTask);
+      }
+      return {
+        success: true,
+        recreatedTask: result.data.recreatedTask,
+        cleanedUpWorktree: result.data.cleanedUpWorktree
+      };
+    }
+    return { success: false, error: result.error || 'Failed to delete and retry task' };
+  } catch (error) {
+    console.error('Error in deleteAndRetryTask:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
  * Archive tasks
  * Marks tasks as archived by adding archivedAt timestamp to metadata
  */

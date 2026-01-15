@@ -1170,4 +1170,174 @@ export function registerTaskExecutionHandlers(
       }
     }
   );
+
+  // Delete and retry a stuck/failed task - cleans up worktree and spec, optionally recreates
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_DELETE_AND_RETRY,
+    async (_, taskId: string, options?: { recreate?: boolean }): Promise<IPCResult<{ deleted: boolean; recreatedTask?: import('../../../shared/types').Task; cleanedUpWorktree?: boolean }>> => {
+      const { rm } = await import('fs/promises');
+      const { readdirSync } = await import('fs');
+
+      const { task, project } = findTaskAndProject(taskId);
+      if (!task || !project) {
+        return { success: false, error: 'Task or project not found' };
+      }
+
+      // Stop any running process for this task
+      if (agentManager.isRunning(taskId)) {
+        agentManager.killTask(taskId);
+        fileWatcher.unwatch(taskId);
+      }
+
+      // Save task info for potential recreation
+      const { title: taskTitle, description: taskDescription, metadata: taskMetadata, projectId } = task;
+      let cleanedUpWorktree = false;
+
+      // Clean up git worktree if it exists
+      const worktreePath = findTaskWorktree(project.path, task.specId);
+      if (worktreePath) {
+        try {
+          // Get the branch name before removing worktree
+          let branch = `auto-claude/${task.specId}`;
+          try {
+            branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
+              cwd: worktreePath,
+              encoding: 'utf-8',
+              timeout: 30000
+            }).trim();
+          } catch {
+            // Use default branch name if rev-parse fails
+          }
+
+          // Remove the worktree forcefully
+          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+            cwd: project.path,
+            encoding: 'utf-8',
+            timeout: 30000
+          });
+
+          // Delete the associated branch
+          try {
+            execFileSync(getToolPath('git'), ['branch', '-D', branch], {
+              cwd: project.path,
+              encoding: 'utf-8',
+              timeout: 30000
+            });
+          } catch {
+            // Branch may not exist or be the current branch
+          }
+
+          // Prune dangling worktrees
+          execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+            cwd: project.path,
+            encoding: 'utf-8',
+            timeout: 30000
+          });
+
+          cleanedUpWorktree = true;
+        } catch (e) {
+          console.error('[TASK_DELETE_AND_RETRY] Worktree cleanup error:', e);
+        }
+      }
+
+      // Delete the spec directory
+      const specDir = task.specsPath || path.join(project.path, getSpecsDir(project.autoBuildPath), task.specId);
+      try {
+        if (existsSync(specDir)) {
+          await rm(specDir, { recursive: true, force: true });
+        }
+      } catch (error) {
+        return {
+          success: false,
+          error: `Failed to delete task files: ${error instanceof Error ? error.message : String(error)}`
+        };
+      }
+
+      // Invalidate the task cache
+      projectStore.invalidateTasksCache(project.id);
+
+      // Optionally recreate the task for retry
+      if (options?.recreate && taskTitle && taskDescription) {
+        try {
+          const specsDir = path.join(project.path, getSpecsDir(project.autoBuildPath));
+          let specNum = 1;
+
+          // Find next spec number
+          if (existsSync(specsDir)) {
+            const nums = readdirSync(specsDir, { withFileTypes: true })
+              .filter(d => d.isDirectory())
+              .map(d => {
+                const m = d.name.match(/^(\d+)/);
+                return m ? parseInt(m[1], 10) : 0;
+              })
+              .filter(n => n > 0);
+
+            if (nums.length > 0) {
+              specNum = Math.max(...nums) + 1;
+            }
+          }
+
+          // Create new spec directory
+          const slug = taskTitle.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '')
+            .substring(0, 50);
+          const newSpecId = `${String(specNum).padStart(3, '0')}-${slug}`;
+          const newSpecDir = path.join(specsDir, newSpecId);
+
+          mkdirSync(newSpecDir, { recursive: true });
+
+          // Write basic files
+          const now = new Date().toISOString();
+          writeFileSync(
+            path.join(newSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
+            JSON.stringify({
+              feature: taskTitle,
+              description: taskDescription,
+              created_at: now,
+              updated_at: now,
+              status: 'pending',
+              phases: []
+            }, null, 2)
+          );
+
+          const newMeta = {
+            ...taskMetadata,
+            sourceType: taskMetadata?.sourceType || 'manual',
+            retriedFrom: task.specId
+          };
+          writeFileSync(path.join(newSpecDir, 'task_metadata.json'), JSON.stringify(newMeta, null, 2));
+          writeFileSync(
+            path.join(newSpecDir, AUTO_BUILD_PATHS.REQUIREMENTS),
+            JSON.stringify({
+              task_description: taskDescription,
+              workflow_type: newMeta.category || 'feature'
+            }, null, 2)
+          );
+
+          const newTask: import('../../../shared/types').Task = {
+            id: newSpecId,
+            specId: newSpecId,
+            projectId,
+            title: taskTitle,
+            description: taskDescription,
+            status: 'backlog',
+            subtasks: [],
+            logs: [],
+            metadata: newMeta,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+
+          projectStore.invalidateTasksCache(project.id);
+          return { success: true, data: { deleted: true, recreatedTask: newTask, cleanedUpWorktree } };
+        } catch {
+          // If recreation fails, still report successful deletion
+          return { success: true, data: { deleted: true, cleanedUpWorktree } };
+        }
+      }
+
+      return { success: true, data: { deleted: true, cleanedUpWorktree } };
+    }
+  );
 }
