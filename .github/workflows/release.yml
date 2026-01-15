@@ -523,16 +523,18 @@ jobs:
             echo "Both architectures found - merging manifests..."
 
             # Install yq for YAML merging
-            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            if ! sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64; then
+              echo "::error::Failed to download yq"
+              exit 1
+            fi
             sudo chmod +x /usr/local/bin/yq
+            yq --version
 
-            # Merge the files arrays from both manifests
-            # Start with intel manifest as base, then append arm64 files
-            cp "$intel_manifest" release-assets/latest-mac.yml
-
-            # Extract arm64 files and append to merged manifest
-            arm64_files=$(yq '.files' "$arm64_manifest")
-            yq -i ".files += $arm64_files" release-assets/latest-mac.yml
+            # Merge the files arrays from both manifests using eval-all
+            # This avoids shell expansion issues with multiline YAML
+            yq eval-all '
+              select(fileIndex == 0) * {"files": ([.[].files] | add)}
+            ' "$intel_manifest" "$arm64_manifest" > release-assets/latest-mac.yml
 
             echo "Merged manifest contents:"
             cat release-assets/latest-mac.yml
@@ -544,7 +546,8 @@ jobs:
             echo "Only ARM64 manifest found - using as-is"
             cp "$arm64_manifest" release-assets/latest-mac.yml
           else
-            echo "::warning::No macOS manifests found"
+            echo "::error::No macOS manifests found - this will cause auto-update to fail"
+            exit 1
           fi
 
           # Copy other manifests (Windows, Linux) - these don't have the duplicate issue
