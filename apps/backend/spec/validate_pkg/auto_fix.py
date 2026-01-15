@@ -6,9 +6,11 @@ Automated fixes for common implementation plan issues.
 """
 
 import json
+import logging
 import re
 from pathlib import Path
 
+from core.file_utils import write_json_atomic
 from core.plan_normalization import normalize_subtask_aliases
 
 
@@ -31,12 +33,26 @@ def _repair_json_syntax(content: str) -> str | None:
     # Match: comma followed by optional whitespace and closing bracket/brace
     repaired = re.sub(r',(\s*[}\]])', r'\1', repaired)
 
-    # Handle truncated JSON by attempting to close open brackets/braces
-    # Count open vs closed brackets
-    open_braces = repaired.count('{') - repaired.count('}')
-    open_brackets = repaired.count('[') - repaired.count(']')
+    # Strip string contents before counting brackets to avoid counting
+    # brackets inside JSON string values (e.g., {"desc": "array[0]"})
+    stripped = re.sub(r'"(?:[^"\\]|\\.)*"', '""', repaired)
 
-    if open_braces > 0 or open_brackets > 0:
+    # Handle truncated JSON by attempting to close open brackets/braces
+    # Use stack-based approach to track bracket order for correct closing
+    bracket_stack: list[str] = []
+    for char in stripped:
+        if char == '{':
+            bracket_stack.append('{')
+        elif char == '[':
+            bracket_stack.append('[')
+        elif char == '}':
+            if bracket_stack and bracket_stack[-1] == '{':
+                bracket_stack.pop()
+        elif char == ']':
+            if bracket_stack and bracket_stack[-1] == '[':
+                bracket_stack.pop()
+
+    if bracket_stack:
         # Try to find a reasonable truncation point and close
         # First, strip any incomplete key-value pair at the end
         # Pattern: trailing incomplete string or number after last complete element
@@ -45,12 +61,13 @@ def _repair_json_syntax(content: str) -> str | None:
         repaired = re.sub(r':\s*"[^"]*$', ': ""', repaired)  # Incomplete string value
         repaired = re.sub(r':\s*[0-9.]+$', ': 0', repaired)  # Incomplete number
 
-        # Close remaining open brackets (in reverse order they'd typically be closed)
+        # Close remaining open brackets in reverse order (stack-based)
         repaired = repaired.rstrip()
-        for _ in range(open_brackets):
-            repaired += ']'
-        for _ in range(open_braces):
-            repaired += '}'
+        for bracket in reversed(bracket_stack):
+            if bracket == '{':
+                repaired += '}'
+            elif bracket == '[':
+                repaired += ']'
 
     # Fix unquoted string values (common LLM error)
     # Match: colon followed by unquoted word (not number, true, false, null, object, array)
@@ -124,8 +141,8 @@ def auto_fix_plan(spec_dir: Path) -> bool:
                 plan = json.loads(repaired)
                 json_repaired = True
                 print(f"JSON syntax repaired: {plan_file}")
-        except Exception:
-            pass
+        except Exception as e:
+            logging.warning(f"JSON repair attempt failed for {plan_file}: {e}")
     except OSError:
         return False
 
@@ -251,8 +268,8 @@ def auto_fix_plan(spec_dir: Path) -> bool:
 
     if fixed or json_repaired:
         try:
-            with open(plan_file, "w", encoding="utf-8") as f:
-                json.dump(plan, f, indent=2, ensure_ascii=False)
+            # Use atomic write to prevent file corruption if interrupted
+            write_json_atomic(plan_file, plan, indent=2, ensure_ascii=False)
         except OSError:
             return False
         if fixed:

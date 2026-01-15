@@ -384,6 +384,8 @@ export class ProjectStore {
 
         // Try to read implementation plan
         let plan: ImplementationPlan | null = null;
+        let hasJsonError = false;
+        let jsonErrorMessage = '';
         if (existsSync(planPath)) {
           console.warn(`[ProjectStore] Loading implementation_plan.json for spec: ${dir.name} from ${location}`);
           try {
@@ -397,10 +399,10 @@ export class ProjectStore {
               subtaskCount: plan?.phases?.flatMap(p => p.subtasks || []).length || 0
             });
           } catch (err) {
-            // Skip tasks with malformed JSON - backend should handle retry/repair
-            const errorMessage = err instanceof Error ? err.message : String(err);
-            console.error(`[ProjectStore] Skipping spec ${dir.name} - failed to parse implementation_plan.json:`, errorMessage);
-            continue;
+            // Don't skip - create task with error indicator so user knows it exists
+            hasJsonError = true;
+            jsonErrorMessage = err instanceof Error ? err.message : String(err);
+            console.error(`[ProjectStore] JSON parse error for spec ${dir.name}:`, jsonErrorMessage);
           }
         } else {
           console.warn(`[ProjectStore] No implementation_plan.json found for spec: ${dir.name} at ${planPath}`);
@@ -458,8 +460,13 @@ export class ProjectStore {
         }
 
         // Determine task status and review reason from plan
-        const finalDescription = description;
-        const { status: finalStatus, reviewReason: finalReviewReason } = this.determineTaskStatusAndReason(plan, specPath, metadata);
+        const finalDescription = hasJsonError
+          ? `⚠️ JSON Parse Error: ${jsonErrorMessage}\n\nThe implementation_plan.json file is malformed. Run the backend auto-fix or manually repair the file.`
+          : description;
+        // Tasks with JSON errors go to human_review with errors reason
+        const { status: finalStatus, reviewReason: finalReviewReason } = hasJsonError
+          ? { status: 'human_review' as TaskStatus, reviewReason: 'errors' as ReviewReason }
+          : this.determineTaskStatusAndReason(plan, specPath, metadata);
 
         // Extract subtasks from plan (handle both 'subtasks' and 'chunks' naming)
         const subtasks = plan?.phases?.flatMap((phase) => {
@@ -479,8 +486,9 @@ export class ProjectStore {
         const stagedAt = planWithStaged?.stagedAt;
 
         // Determine title - check if feature looks like a spec ID (e.g., "054-something-something")
-        let title = plan?.feature || plan?.title || dir.name;
-        const looksLikeSpecId = /^\d{3}-/.test(title);
+        // For JSON error tasks, always use directory name as title
+        let title = hasJsonError ? `${dir.name} (JSON Error)` : (plan?.feature || plan?.title || dir.name);
+        const looksLikeSpecId = /^\d{3}-/.test(title) && !hasJsonError;
         if (looksLikeSpecId && existsSync(specFilePath)) {
           try {
             const specContent = readFileSync(specFilePath, 'utf-8');

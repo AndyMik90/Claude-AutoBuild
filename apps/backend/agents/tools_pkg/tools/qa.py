@@ -6,6 +6,7 @@ Tools for managing QA status and sign-off in implementation_plan.json.
 """
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,53 @@ try:
 except ImportError:
     SDK_TOOLS_AVAILABLE = False
     tool = None
+
+
+def _apply_qa_update(
+    plan: dict[str, Any],
+    status: str,
+    issues: list[Any],
+    tests_passed: dict[str, Any],
+) -> int:
+    """
+    Apply QA update to the plan and return the new QA session number.
+
+    Args:
+        plan: The implementation plan dict
+        status: QA status (pending, in_review, approved, rejected, fixes_applied)
+        issues: List of issues found
+        tests_passed: Dict of test results
+
+    Returns:
+        The new QA session number
+    """
+    # Get current QA session number
+    current_qa = plan.get("qa_signoff", {})
+    qa_session = current_qa.get("qa_session", 0)
+    if status in ["in_review", "rejected"]:
+        qa_session += 1
+
+    plan["qa_signoff"] = {
+        "status": status,
+        "qa_session": qa_session,
+        "issues_found": issues,
+        "tests_passed": tests_passed,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "ready_for_qa_revalidation": status == "fixes_applied",
+    }
+
+    # Update plan status to match QA result
+    # This ensures the UI shows the correct column after QA
+    if status == "approved":
+        plan["status"] = "human_review"
+        plan["planStatus"] = "review"
+    elif status == "rejected":
+        plan["status"] = "human_review"
+        plan["planStatus"] = "review"
+
+    plan["last_updated"] = datetime.now(timezone.utc).isoformat()
+
+    return qa_session
 
 
 def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
@@ -95,31 +143,7 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
             with open(plan_file) as f:
                 plan = json.load(f)
 
-            # Get current QA session number
-            current_qa = plan.get("qa_signoff", {})
-            qa_session = current_qa.get("qa_session", 0)
-            if status in ["in_review", "rejected"]:
-                qa_session += 1
-
-            plan["qa_signoff"] = {
-                "status": status,
-                "qa_session": qa_session,
-                "issues_found": issues,
-                "tests_passed": tests_passed,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "ready_for_qa_revalidation": status == "fixes_applied",
-            }
-
-            # Update plan status to match QA result
-            # This ensures the UI shows the correct column after QA
-            if status == "approved":
-                plan["status"] = "human_review"
-                plan["planStatus"] = "review"
-            elif status == "rejected":
-                plan["status"] = "human_review"
-                plan["planStatus"] = "review"
-
-            plan["last_updated"] = datetime.now(timezone.utc).isoformat()
+            qa_session = _apply_qa_update(plan, status, issues, tests_passed)
 
             # Use atomic write to prevent file corruption
             write_json_atomic(plan_file, plan, indent=2)
@@ -141,29 +165,7 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
                     with open(plan_file) as f:
                         plan = json.load(f)
 
-                    # Get current QA session number (retry)
-                    current_qa = plan.get("qa_signoff", {})
-                    qa_session = current_qa.get("qa_session", 0)
-                    if status in ["in_review", "rejected"]:
-                        qa_session += 1
-
-                    plan["qa_signoff"] = {
-                        "status": status,
-                        "qa_session": qa_session,
-                        "issues_found": issues,
-                        "tests_passed": tests_passed,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "ready_for_qa_revalidation": status == "fixes_applied",
-                    }
-
-                    if status == "approved":
-                        plan["status"] = "human_review"
-                        plan["planStatus"] = "review"
-                    elif status == "rejected":
-                        plan["status"] = "human_review"
-                        plan["planStatus"] = "review"
-
-                    plan["last_updated"] = datetime.now(timezone.utc).isoformat()
+                    qa_session = _apply_qa_update(plan, status, issues, tests_passed)
                     write_json_atomic(plan_file, plan, indent=2)
 
                     return {
@@ -174,8 +176,9 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
                             }
                         ]
                     }
-                except Exception:
-                    pass  # Fall through to error return
+                except Exception as retry_err:
+                    logging.warning(f"QA update retry failed after auto-fix: {retry_err}")
+                    # Fall through to error return
 
             return {
                 "content": [
