@@ -96,8 +96,11 @@ def create_simple_client(
         "max_turns": max_turns,
         "cwd": str(cwd.resolve()) if cwd else None,
         "env": sdk_env,
-        "max_thinking_tokens": max_thinking_tokens,
     }
+
+    # Only add max_thinking_tokens if not None (Haiku doesn't support extended thinking)
+    if max_thinking_tokens is not None:
+        options_kwargs["max_thinking_tokens"] = max_thinking_tokens
 
     # Add CLI path if found
     if cli_path:

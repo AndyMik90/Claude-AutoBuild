@@ -36,13 +36,14 @@ function getInsightsFeatureSettings(): InsightsModelConfig {
       const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(content) };
 
       // Get insights-specific settings from Agent Settings
-      const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
-      const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+      // Use nullish coalescing at property level to handle partial settings objects
+      const featureModels = settings.featureModels ?? DEFAULT_FEATURE_MODELS;
+      const featureThinking = settings.featureThinking ?? DEFAULT_FEATURE_THINKING;
 
       return {
         profileId: "balanced", // Default profile for settings-based config
-        model: featureModels.insights,
-        thinkingLevel: featureThinking.insights,
+        model: featureModels.insights ?? DEFAULT_FEATURE_MODELS.insights,
+        thinkingLevel: featureThinking.insights ?? DEFAULT_FEATURE_THINKING.insights,
       };
     }
   } catch (error) {
