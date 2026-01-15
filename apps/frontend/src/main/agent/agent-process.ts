@@ -140,9 +140,26 @@ export class AgentProcessManager {
       }
     }
 
+    // Detect and pass Claude CLI path to Python backend
+    // Common issue: Claude CLI installed via Homebrew at /opt/homebrew/bin/claude (macOS)
+    // or other non-standard locations not in subprocess PATH when app launches from Finder/Dock
+    const claudeCliEnv: Record<string, string> = {};
+    if (!process.env.CLAUDE_CLI_PATH) {
+      try {
+        const claudeInfo = getToolInfo('claude');
+        if (claudeInfo.found && claudeInfo.path) {
+          claudeCliEnv['CLAUDE_CLI_PATH'] = claudeInfo.path;
+          console.log('[AgentProcess] Setting CLAUDE_CLI_PATH:', claudeInfo.path, `(source: ${claudeInfo.source})`);
+        }
+      } catch (error) {
+        console.warn('[AgentProcess] Failed to detect Claude CLI path:', error);
+      }
+    }
+
     return {
       ...augmentedEnv,
       ...gitBashEnv,
+      ...claudeCliEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
