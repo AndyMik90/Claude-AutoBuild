@@ -60,6 +60,25 @@ export class RoadmapPhaseParser extends BasePhaseParser<RoadmapPhase> {
    * Parse phase transitions from log text.
    */
   private parsePhaseFromLog(log: string): RoadmapParseResult | null {
+    // Check for granular progress markers first (higher priority)
+    const progressMatch = log.match(/\[ROADMAP_PROGRESS\]\s+(\d+)\s+(.+)/);
+    if (progressMatch) {
+      const progress = parseInt(progressMatch[1], 10);
+
+      // Determine phase based on progress value
+      let phase: RoadmapPhase = 'analyzing';
+      if (progress >= 40 && progress < 70) {
+        phase = 'discovering';
+      } else if (progress >= 70 && progress < 100) {
+        phase = 'generating';
+      } else if (progress >= 100) {
+        phase = 'complete';
+      }
+
+      return { phase, progress };
+    }
+
+    // Fallback to coarse-grained phase markers
     if (log.includes('PROJECT ANALYSIS')) {
       return { phase: 'analyzing', progress: 20 };
     }

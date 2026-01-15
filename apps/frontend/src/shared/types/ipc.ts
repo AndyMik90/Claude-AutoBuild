@@ -679,6 +679,7 @@ export interface ElectronAPI {
   deleteInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult>;
   renameInsightsSession: (projectId: string, sessionId: string, newTitle: string) => Promise<IPCResult>;
   updateInsightsModelConfig: (projectId: string, sessionId: string, modelConfig: InsightsModelConfig) => Promise<IPCResult>;
+  cancelInsightsSession: (projectId: string) => Promise<IPCResult>;
 
   // Insights event listeners
   onInsightsStreamChunk: (

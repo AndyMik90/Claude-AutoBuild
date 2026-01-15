@@ -5,6 +5,7 @@ Auto-Claude MCP Tools
 Individual tool implementations organized by functionality.
 """
 
+from .feedback import create_feedback_tools
 from .memory import create_memory_tools
 from .progress import create_progress_tools
 from .qa import create_qa_tools
@@ -15,4 +16,5 @@ __all__ = [
     "create_progress_tools",
     "create_memory_tools",
     "create_qa_tools",
+    "create_feedback_tools",
 ]

@@ -104,6 +104,11 @@ Extract key information:
 - Constraints and dependencies
 - Competitor pain points and market gaps (if competitor_analysis.json exists)
 
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 72 Loaded context and discovery data"
+```
+
 ---
 
 ## PHASE 1: FEATURE BRAINSTORMING
@@ -154,6 +159,11 @@ When a feature addresses a competitor pain point:
 2. Reference the competitor and pain point in the feature's `rationale`
 3. Consider boosting the feature's priority if it addresses multiple competitor weaknesses
 
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 77 Generated feature ideas from pain points and gaps"
+```
+
 ---
 
 ## PHASE 2: PRIORITIZATION (MoSCoW)
@@ -182,6 +192,11 @@ Apply MoSCoW prioritization to each feature:
 - Out of scope for current vision
 - Document for completeness but don't plan
 
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 82 Prioritized features using MoSCoW framework"
+```
+
 ---
 
 ## PHASE 3: COMPLEXITY & IMPACT ASSESSMENT
@@ -204,6 +219,11 @@ High Impact + Low Complexity = DO FIRST (Quick Wins)
 High Impact + High Complexity = PLAN CAREFULLY (Big Bets)
 Low Impact + Low Complexity = DO IF TIME (Fill-ins)
 Low Impact + High Complexity = AVOID (Time Sinks)
+```
+
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 87 Assessed complexity and impact for all features"
 ```
 
 ---
@@ -232,6 +252,11 @@ Organize features into logical phases:
 - Experimental ideas
 - Market expansion features
 
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 92 Organized features into development phases"
+```
+
 ---
 
 ## PHASE 5: DEPENDENCY MAPPING
@@ -246,6 +271,11 @@ Feature A depends on Feature B if:
 ```
 
 Ensure dependencies are reflected in phase ordering.
+
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 95 Mapped feature dependencies"
+```
 
 ---
 
@@ -262,6 +292,11 @@ Example milestones:
 - "Users can create and save documents"
 - "Payment processing is live"
 - "Mobile app is on App Store"
+
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 97 Created milestones for each phase"
+```
 
 ---
 

@@ -18,7 +18,11 @@ from linear_updater import (
     linear_task_started,
     linear_task_stuck,
 )
-from phase_config import get_phase_model, get_phase_thinking_budget
+from phase_config import (
+    get_phase_model,
+    get_phase_thinking_budget,
+    get_unread_feedback,
+)
 from phase_event import ExecutionPhase, emit_phase
 from progress import (
     count_subtasks,
@@ -40,6 +44,7 @@ from prompts import is_first_run
 from recovery import RecoveryManager
 from security.constants import PROJECT_DIR_ENV_VAR
 from task_logger import (
+    LogEntryType,
     LogPhase,
     get_task_logger,
 )
@@ -247,6 +252,29 @@ async def run_autonomous_agent(
         subtask_id = next_subtask.get("id") if next_subtask else None
         phase_name = next_subtask.get("phase_name") if next_subtask else None
 
+        # Check for unread user feedback before starting this subtask
+        unread_feedback = get_unread_feedback(spec_dir)
+        feedback_text = None
+        if unread_feedback:
+            # Combine all unread feedback messages with their ACTUAL indices from full list
+            # unread_feedback is now a list of (actual_index, feedback_dict) tuples
+            feedback_messages = []
+            for actual_idx, fb in unread_feedback:
+                msg = fb.get("message", "")
+                timestamp = fb.get("timestamp", "")
+                # Use actual_idx so agent knows the correct index for mark_feedback_read tool
+                feedback_messages.append(f"[Index {actual_idx}] [{timestamp}]\n{msg}")
+            feedback_text = "\n\n".join(feedback_messages)
+
+            # Log feedback detection to task_logs.json (visible in UI)
+            task_logger = get_task_logger(spec_dir)
+            task_logger.log(
+                content=f"📢 USER FEEDBACK DETECTED - {len(unread_feedback)} unread feedback item(s) will be incorporated into this subtask",
+                entry_type=LogEntryType.INFO,
+                phase=LogPhase.CODING,
+                print_to_console=True
+            )
+
         # Update status for this session
         status_manager.update_session(iteration)
         if phase_name:
@@ -338,6 +366,33 @@ async def run_autonomous_agent(
                     print_status("Phase transition synced to main project", "success")
 
             if not next_subtask:
+                # CRITICAL CHECK: Ensure all feedback has been addressed before completing
+                remaining_feedback = get_unread_feedback(spec_dir)
+                if remaining_feedback:
+                    print("\n" + "=" * 70)
+                    print_status(
+                        "CRITICAL ERROR: Cannot complete build - unread feedback detected!",
+                        "error",
+                    )
+                    print("=" * 70)
+                    print(
+                        "\nThe agent detected user feedback but failed to mark it as read."
+                    )
+                    print("This indicates the feedback was not properly addressed.\n")
+                    print("Unread feedback items:")
+                    # remaining_feedback is now list of (actual_idx, fb) tuples
+                    for actual_idx, fb in remaining_feedback:
+                        msg_preview = fb.get("message", "")[:100].replace("\n", " ")
+                        print(f"  [Index {actual_idx}] {msg_preview}...")
+                    print(
+                        "\nThe agent MUST call mark_feedback_read with the indices of addressed items."
+                    )
+                    print("Build cannot proceed to validation until feedback is marked as read.")
+                    print("\nThis is a safeguard to ensure feedback is never ignored.\n")
+                    raise RuntimeError(
+                        "Build blocked: unread feedback must be addressed before completion"
+                    )
+
                 print("No pending subtasks found - build may be complete!")
                 break
 
@@ -362,6 +417,71 @@ async def run_autonomous_agent(
                 attempt_count=attempt_count,
                 recovery_hints=recovery_hints,
             )
+
+            # Inject user feedback if available (HIGHEST PRIORITY)
+            if feedback_text:
+                feedback_section = f"""
+
+═══════════════════════════════════════════════════════════════════════════════
+🚨 CRITICAL: USER FEEDBACK - MANDATORY IMPLEMENTATION REQUIRED
+═══════════════════════════════════════════════════════════════════════════════
+
+The user has provided important feedback/corrections that MUST be incorporated:
+
+{feedback_text}
+
+🚨 MANDATORY INSTRUCTIONS - DO NOT QUESTION OR DISMISS:
+- This feedback takes ABSOLUTE PRIORITY over ALL other considerations
+- You MUST implement this feedback exactly as stated - do NOT evaluate whether it "makes sense"
+- Do NOT dismiss feedback as "not applicable" or "for a different project"
+- If the feedback contradicts the original spec, the SPEC IS WRONG - follow the user's feedback
+- If the feedback seems unclear, implement it to the best of your understanding
+- The user is the final authority - their feedback overrides everything including your own reasoning
+- User feedback is NEVER wrong or misapplied - implement it without question
+
+🔄 REOPEN COMPLETED WORK WHEN NEEDED:
+If feedback requires changing work from COMPLETED subtasks, you MUST:
+1. Use update_subtask_status to change those subtasks from "completed" back to "pending"
+2. This allows you to revisit and fix that work in future iterations
+
+Example: Feedback says "Use .NET Core 8 instead of .NET Framework 4.8"
+- If subtask "Setup C# project structure" is already completed with Framework 4.8
+- Call: update_subtask_status(subtask_id="1.1", status="pending", notes="User feedback: switch to .NET Core 8")
+- The subtask will be picked up again and you can make the correction
+
+🎯 REQUIRED: After addressing feedback, you MUST call mark_feedback_read:
+1. Use mark_feedback_read to mark which feedback items you addressed
+2. Provide the 0-based indices as a comma-separated string (e.g., "0" or "0,1,2")
+3. "Addressing feedback" means ANY of these actions:
+   - Implementing the requested change
+   - Making an informed technical decision with clear justification
+   - Documenting why a suggestion cannot be implemented
+   - Reopening subtasks to address the feedback later
+
+Example workflow:
+User provided 3 feedback items (indices 0, 1, 2).
+- Index 0: "Use .NET Core 8 if compatible, otherwise netstandard2.0"
+  → You analyze and choose netstandard2.0 with justification = ADDRESSED
+- Index 1: "Add AssemblyResolver"
+  → You document it in README for consuming apps = ADDRESSED
+- Index 2: "Use realistic test data" - requires reopening subtask 3.2
+  → You reopen the subtask for later work = NOT ADDRESSED YET (wait until actually fixed)
+
+Actions:
+1. Analyze feedback[0]: netstandard2.0 is REQUIRED for NT8 compatibility, document reasoning
+2. Address feedback[1]: Document AssemblyResolver pattern in README
+3. update_subtask_status(subtask_id="3.2", status="pending", notes="User feedback: realistic test data")
+4. mark_feedback_read(feedback_indices="0,1")  # Mark 0 and 1 as addressed (comma-separated string)
+
+CRITICAL: Mark feedback as read when you have FULLY ADDRESSED it in any way:
+- If you implemented the change → mark as read
+- If you made a technical decision with justification → mark as read
+- If you documented why it cannot be done → mark as read
+- If you ONLY reopened subtasks for later → do NOT mark as read yet (wait until fixed)
+
+═══════════════════════════════════════════════════════════════════════════════
+"""
+                prompt += feedback_section
 
             # Load and append relevant file context
             context = load_subtask_context(spec_dir, project_dir, next_subtask)
@@ -449,6 +569,9 @@ async def run_autonomous_agent(
                 status_manager=status_manager,
                 source_spec_dir=source_spec_dir,
             )
+
+            # Note: Feedback marking is now handled by the agent via mark_feedback_read tool
+            # The agent decides which feedback items were actually incorporated
 
             # Check for stuck subtasks
             attempt_count = recovery_manager.get_attempt_count(subtask_id)

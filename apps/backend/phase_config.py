@@ -317,3 +317,27 @@ def get_spec_phase_thinking_budget(phase_name: str) -> int | None:
     """
     thinking_level = SPEC_PHASE_THINKING_LEVELS.get(phase_name, "medium")
     return get_thinking_budget(thinking_level)
+
+
+def get_unread_feedback(spec_dir: Path) -> list[tuple[int, dict]] | None:
+    """
+    Get unread feedback entries from task_metadata.json with their actual indices.
+
+    Args:
+        spec_dir: Path to the spec directory
+
+    Returns:
+        List of (index, feedback) tuples for unread entries, or None if no feedback found.
+        The index is the position in the full feedback list (for use with mark_feedback_read tool).
+    """
+    metadata = load_task_metadata(spec_dir)
+    if not metadata or "feedback" not in metadata:
+        return None
+
+    feedback_list = metadata.get("feedback", [])
+    # Return tuples of (actual_index, feedback_dict) for unread items
+    unread = [(idx, fb) for idx, fb in enumerate(feedback_list) if not fb.get("read", False)]
+
+    return unread if unread else None
+
+

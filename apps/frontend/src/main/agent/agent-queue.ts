@@ -11,27 +11,11 @@ import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-
 import { getAPIProfileEnv } from '../services/profile';
 import { getOAuthModeClearVars } from './env-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
-import { stripAnsiCodes } from '../../shared/utils/ansi-sanitizer';
 import { parsePythonCommand } from '../python-detector';
 import { pythonEnvManager } from '../python-env-manager';
 import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ipc-handlers/ideation/transformers';
 import { transformRoadmapFromSnakeCase } from '../ipc-handlers/roadmap/transformers';
 import type { RawIdea } from '../ipc-handlers/ideation/types';
-
-/** Maximum length for status messages displayed in progress UI */
-const STATUS_MESSAGE_MAX_LENGTH = 200;
-
-/**
- * Formats a raw log line for display as a status message.
- * Strips ANSI escape codes, extracts the first line, and truncates to max length.
- *
- * @param log - Raw log output from backend process
- * @returns Formatted status message safe for UI display
- */
-function formatStatusMessage(log: string): string {
-  if (!log) return '';
-  return stripAnsiCodes(log.trim()).split('\n')[0].substring(0, STATUS_MESSAGE_MAX_LENGTH);
-}
 
 /**
  * Queue management for ideation and roadmap generation
@@ -428,7 +412,7 @@ export class AgentQueueManager {
       progressPercent = progressUpdate.progress;
 
       // Emit progress update with a clean message for the status bar
-      const statusMessage = formatStatusMessage(log);
+      const statusMessage = log.trim().split('\n')[0].substring(0, 200);
       this.emitter.emit('ideation-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
@@ -447,7 +431,7 @@ export class AgentQueueManager {
       this.emitter.emit('ideation-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: formatStatusMessage(log)
+        message: log.trim().split('\n')[0].substring(0, 200)
       });
     });
 
@@ -672,6 +656,10 @@ export class AgentQueueManager {
       }
     };
 
+    // Tool usage tracking for micro-progress
+    let toolCallCount = 0;
+    const TOOL_PROGRESS_INCREMENT = 2; // Each tool call = 2% progress
+
     // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
     childProcess.stdout?.on('data', (data: Buffer) => {
       const log = data.toString('utf8');
@@ -683,15 +671,55 @@ export class AgentQueueManager {
 
       // Parse progress using AgentEvents
       const progressUpdate = this.events.parseRoadmapProgress(log, progressPhase, progressPercent);
-      progressPhase = progressUpdate.phase;
-      progressPercent = progressUpdate.progress;
 
-      // Emit progress update
-      this.emitter.emit('roadmap-progress', projectId, {
-        phase: progressPhase,
-        progress: progressPercent,
-        message: formatStatusMessage(log)
-      });
+      // Track tool usage for micro-progress
+      const isToolCall = log.includes('[Tool:') && !log.includes('Error in hook');
+      const isHookError = log.includes('Error in hook callback');
+
+      if (isToolCall && progressPhase === 'discovering' && progressPercent >= 40 && progressPercent < 70) {
+        // Discovery phase: 40% → 67% based on tool usage
+        toolCallCount++;
+        const toolProgress = Math.min(67, 40 + Math.floor(toolCallCount * TOOL_PROGRESS_INCREMENT));
+        if (toolProgress > progressPercent) {
+          progressPercent = toolProgress;
+          this.emitter.emit('roadmap-progress', projectId, {
+            phase: progressPhase,
+            progress: progressPercent,
+            message: `Analyzing project (${toolCallCount} operations)...`
+          });
+        }
+      } else if (isToolCall && progressPhase === 'generating' && progressPercent >= 70 && progressPercent < 100) {
+        // Feature generation phase: 70% → 97% based on tool usage
+        toolCallCount++;
+        const toolProgress = Math.min(97, 70 + Math.floor(toolCallCount * TOOL_PROGRESS_INCREMENT));
+        if (toolProgress > progressPercent) {
+          progressPercent = toolProgress;
+          this.emitter.emit('roadmap-progress', projectId, {
+            phase: progressPhase,
+            progress: progressPercent,
+            message: `Generating features (${toolCallCount} operations)...`
+          });
+        }
+      }
+
+      // Only emit progress update if phase or progress actually changed (and not a hook error)
+      const hasProgressChanged = progressUpdate.phase !== progressPhase || progressUpdate.progress !== progressPercent;
+
+      if (hasProgressChanged && !isHookError) {
+        // Reset tool count on phase change
+        if (progressUpdate.phase !== progressPhase) {
+          toolCallCount = 0;
+        }
+
+        progressPhase = progressUpdate.phase;
+        progressPercent = progressUpdate.progress;
+
+        this.emitter.emit('roadmap-progress', projectId, {
+          phase: progressPhase,
+          progress: progressPercent,
+          message: progressUpdate.message || log.trim().substring(0, 200) // Use parsed message if available
+        });
+      }
     });
 
     // Handle stderr - explicitly decode as UTF-8
@@ -704,7 +732,7 @@ export class AgentQueueManager {
       this.emitter.emit('roadmap-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: formatStatusMessage(log)
+        message: log.trim().substring(0, 200)
       });
     });
 

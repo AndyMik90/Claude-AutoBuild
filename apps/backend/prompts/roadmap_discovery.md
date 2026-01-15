@@ -94,6 +94,11 @@ Understand:
 - What does the README say about the purpose?
 - Is there competitor analysis data available to incorporate?
 
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 42 Analyzed project structure and dependencies"
+```
+
 ---
 
 ## PHASE 1: UNDERSTAND THE PROJECT PURPOSE (AUTONOMOUS)
@@ -112,6 +117,11 @@ Look for clues in:
 
 **DO NOT** ask questions. Infer the best answers from available information.
 
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 47 Identified project purpose and value proposition"
+```
+
 ---
 
 ## PHASE 2: DISCOVER TARGET AUDIENCE (AUTONOMOUS)
@@ -128,6 +138,11 @@ Make reasonable inferences. If the README doesn't specify, infer from:
 - A web app with auth → likely for end users or businesses
 - A library → likely for other developers
 - An API → likely for integration/automation use cases
+
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 52 Discovered target audience and pain points"
+```
 
 ---
 
@@ -157,6 +172,11 @@ Determine maturity level:
 - **growth**: Active users, adding features
 - **mature**: Stable, well-tested, production-ready
 
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 57 Assessed project maturity and existing features"
+```
+
 ---
 
 ## PHASE 4: INFER COMPETITIVE CONTEXT (AUTONOMOUS)
@@ -166,6 +186,12 @@ Based on project type and purpose, infer:
 ### 4.1: Check for Competitor Analysis Data
 
 If `competitor_analysis.json` exists (created by the Competitor Analysis Agent), incorporate those insights:
+
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 62 Analyzed competitive landscape"
+```
+
 ---
 
 ## PHASE 5: IDENTIFY CONSTRAINTS (AUTONOMOUS)
@@ -175,6 +201,11 @@ Infer constraints from:
 - **Technical**: Dependencies, required services, platform limitations
 - **Resources**: Solo developer vs team (check git contributors)
 - **Dependencies**: External APIs, services mentioned in code/docs
+
+**After completing this phase, signal progress:**
+```bash
+echo "[ROADMAP_PROGRESS] 67 Identified technical and resource constraints"
+```
 
 ---
 

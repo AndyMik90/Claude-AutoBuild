@@ -199,6 +199,9 @@ export function RoadmapGenerationProgress({
   const reducedMotion = useReducedMotion();
   const [isStopping, setIsStopping] = useState(false);
 
+  // Debug logging
+  console.log('[RoadmapProgress]', { phase, progress, message });
+
   /**
    * Handle stop button click with error handling and double-click prevention
    */
@@ -339,11 +342,9 @@ export function RoadmapGenerationProgress({
           <div className="relative h-2 w-full overflow-hidden rounded-full bg-border">
             {progress > 0 ? (
               // Determinate progress bar
-              <motion.div
-                className={cn('h-full rounded-full', config.color)}
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
+              <div
+                className={cn('h-full rounded-full transition-all duration-500 ease-out', config.color)}
+                style={{ width: `${progress}%` }}
               />
             ) : (
               // Indeterminate progress bar when progress is 0

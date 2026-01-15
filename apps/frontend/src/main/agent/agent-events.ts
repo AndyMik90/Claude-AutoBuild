@@ -172,10 +172,32 @@ export class AgentEvents {
   /**
    * Parse roadmap progress from log output
    */
-  parseRoadmapProgress(log: string, currentPhase: string, currentProgress: number): { phase: string; progress: number } {
+  parseRoadmapProgress(log: string, currentPhase: string, currentProgress: number): { phase: string; progress: number; message?: string } {
     let phase = currentPhase;
     let progress = currentProgress;
+    let message: string | undefined;
 
+    // Check for granular progress markers from discovery agent
+    const progressMatch = log.match(/\[ROADMAP_PROGRESS\]\s+(\d+)\s+(.+)/);
+    if (progressMatch) {
+      const newProgress = parseInt(progressMatch[1], 10);
+      const progressMessage = progressMatch[2].trim();
+
+      // Only update if progress is moving forward
+      if (newProgress > currentProgress) {
+        progress = newProgress;
+        message = progressMessage;
+
+        // Update phase based on progress value
+        if (newProgress >= 40 && newProgress < 70) {
+          phase = 'discovering';
+        }
+      }
+
+      return { phase, progress, message };
+    }
+
+    // Phase transition markers (coarser-grained)
     if (log.includes('PROJECT ANALYSIS')) {
       phase = 'analyzing';
       progress = 20;
@@ -190,6 +212,6 @@ export class AgentEvents {
       progress = 100;
     }
 
-    return { phase, progress };
+    return { phase, progress, message };
   }
 }

@@ -9,6 +9,7 @@ from agents.tools_pkg.models import (  # noqa: F401
     ELECTRON_TOOLS,
     TOOL_GET_BUILD_PROGRESS,
     TOOL_GET_SESSION_CONTEXT,
+    TOOL_MARK_FEEDBACK_READ,
     TOOL_RECORD_DISCOVERY,
     TOOL_RECORD_GOTCHA,
     TOOL_UPDATE_QA_STATUS,
@@ -31,6 +32,7 @@ __all__ = [
     "TOOL_RECORD_GOTCHA",
     "TOOL_GET_SESSION_CONTEXT",
     "TOOL_UPDATE_QA_STATUS",
+    "TOOL_MARK_FEEDBACK_READ",
     "ELECTRON_TOOLS",
     "is_electron_mcp_enabled",
 ]

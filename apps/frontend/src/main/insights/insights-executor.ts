@@ -52,6 +52,13 @@ export class InsightsExecutor extends EventEmitter {
 
     existingProcess.kill();
     this.activeSessions.delete(projectId);
+
+    // Emit status update to inform UI
+    this.emit('status', projectId, {
+      phase: 'idle',
+      message: ''
+    } as InsightsChatStatus);
+
     return true;
   }
 
