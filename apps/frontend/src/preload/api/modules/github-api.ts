@@ -378,6 +378,12 @@ export interface NewCommitsCheck {
   currentHeadCommit?: string;
   /** Whether new commits happened AFTER findings were posted (for "Ready for Follow-up" status) */
   hasCommitsAfterPosting?: boolean;
+  /** Whether new commits touch files that had findings (requires verification) */
+  hasOverlapWithFindings?: boolean;
+  /** Files from new commits that overlap with finding files */
+  overlappingFiles?: string[];
+  /** Whether this appears to be a merge from base branch (develop/main) */
+  isMergeFromBase?: boolean;
 }
 
 /**
