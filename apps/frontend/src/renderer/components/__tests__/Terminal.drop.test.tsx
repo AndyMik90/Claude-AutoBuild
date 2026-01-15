@@ -5,6 +5,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { escapeShellArg } from '../../../shared/utils/shell-escape';
 
 // Mock window.electronAPI for terminal input
 const mockSendTerminalInput = vi.fn();
@@ -92,7 +93,7 @@ describe('Terminal Native Drop Handling', () => {
       const dragData = createFileReferenceDragData(filePath, 'file.ts');
       const mockEvent = createMockDragEvent(dragData);
 
-      // Simulate the handleNativeDrop logic
+      // Simulate the handleNativeDrop logic with escapeShellArg
       const jsonData = mockEvent.dataTransfer.getData('application/json');
       if (jsonData) {
         try {
@@ -100,24 +101,24 @@ describe('Terminal Native Drop Handling', () => {
           if (data.type === 'file-reference' && data.path) {
             mockEvent.preventDefault();
             mockEvent.stopPropagation();
-            const quotedPath = data.path.includes(' ') ? `"${data.path}"` : data.path;
-            mockSendTerminalInput(terminalId, quotedPath + ' ');
+            const escapedPath = escapeShellArg(data.path);
+            mockSendTerminalInput(terminalId, escapedPath + ' ');
           }
         } catch {
           // Failed to parse
         }
       }
 
-      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, '/path/to/file.ts ');
+      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, "'/path/to/file.ts' ");
     });
 
-    it('should quote file path when it contains spaces', () => {
+    it('should escape file path with spaces using single quotes', () => {
       const terminalId = 'test-terminal-2';
       const filePath = '/path/to/my file.ts';
       const dragData = createFileReferenceDragData(filePath, 'my file.ts');
       const mockEvent = createMockDragEvent(dragData);
 
-      // Simulate the handleNativeDrop logic
+      // Simulate the handleNativeDrop logic with escapeShellArg
       const jsonData = mockEvent.dataTransfer.getData('application/json');
       if (jsonData) {
         try {
@@ -125,24 +126,24 @@ describe('Terminal Native Drop Handling', () => {
           if (data.type === 'file-reference' && data.path) {
             mockEvent.preventDefault();
             mockEvent.stopPropagation();
-            const quotedPath = data.path.includes(' ') ? `"${data.path}"` : data.path;
-            mockSendTerminalInput(terminalId, quotedPath + ' ');
+            const escapedPath = escapeShellArg(data.path);
+            mockSendTerminalInput(terminalId, escapedPath + ' ');
           }
         } catch {
           // Failed to parse
         }
       }
 
-      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, '"/path/to/my file.ts" ');
+      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, "'/path/to/my file.ts' ");
     });
 
-    it('should not quote file path when it does not contain spaces', () => {
+    it('should escape simple paths too (all paths get single quoted)', () => {
       const terminalId = 'test-terminal-3';
       const filePath = '/simple/path.ts';
       const dragData = createFileReferenceDragData(filePath, 'path.ts');
       const mockEvent = createMockDragEvent(dragData);
 
-      // Simulate the handleNativeDrop logic
+      // Simulate the handleNativeDrop logic with escapeShellArg
       const jsonData = mockEvent.dataTransfer.getData('application/json');
       if (jsonData) {
         try {
@@ -150,15 +151,15 @@ describe('Terminal Native Drop Handling', () => {
           if (data.type === 'file-reference' && data.path) {
             mockEvent.preventDefault();
             mockEvent.stopPropagation();
-            const quotedPath = data.path.includes(' ') ? `"${data.path}"` : data.path;
-            mockSendTerminalInput(terminalId, quotedPath + ' ');
+            const escapedPath = escapeShellArg(data.path);
+            mockSendTerminalInput(terminalId, escapedPath + ' ');
           }
         } catch {
           // Failed to parse
         }
       }
 
-      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, '/simple/path.ts ');
+      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, "'/simple/path.ts' ");
     });
 
     it('should add trailing space after file path', () => {
@@ -167,14 +168,14 @@ describe('Terminal Native Drop Handling', () => {
       const dragData = createFileReferenceDragData(filePath, 'file.ts');
       const mockEvent = createMockDragEvent(dragData);
 
-      // Simulate the handleNativeDrop logic
+      // Simulate the handleNativeDrop logic with escapeShellArg
       const jsonData = mockEvent.dataTransfer.getData('application/json');
       if (jsonData) {
         try {
           const data = JSON.parse(jsonData) as { type?: string; path?: string };
           if (data.type === 'file-reference' && data.path) {
-            const quotedPath = data.path.includes(' ') ? `"${data.path}"` : data.path;
-            mockSendTerminalInput(terminalId, quotedPath + ' ');
+            const escapedPath = escapeShellArg(data.path);
+            mockSendTerminalInput(terminalId, escapedPath + ' ');
           }
         } catch {
           // Failed to parse
@@ -191,7 +192,7 @@ describe('Terminal Native Drop Handling', () => {
       const dragData = createFileReferenceDragData(dirPath, 'directory', true);
       const mockEvent = createMockDragEvent(dragData);
 
-      // Simulate the handleNativeDrop logic
+      // Simulate the handleNativeDrop logic with escapeShellArg
       const jsonData = mockEvent.dataTransfer.getData('application/json');
       if (jsonData) {
         try {
@@ -199,15 +200,15 @@ describe('Terminal Native Drop Handling', () => {
           if (data.type === 'file-reference' && data.path) {
             mockEvent.preventDefault();
             mockEvent.stopPropagation();
-            const quotedPath = data.path.includes(' ') ? `"${data.path}"` : data.path;
-            mockSendTerminalInput(terminalId, quotedPath + ' ');
+            const escapedPath = escapeShellArg(data.path);
+            mockSendTerminalInput(terminalId, escapedPath + ' ');
           }
         } catch {
           // Failed to parse
         }
       }
 
-      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, '/path/to/directory ');
+      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, "'/path/to/directory' ");
     });
 
     it('should handle directory paths with spaces', () => {
@@ -216,7 +217,7 @@ describe('Terminal Native Drop Handling', () => {
       const dragData = createFileReferenceDragData(dirPath, 'my directory', true);
       const mockEvent = createMockDragEvent(dragData);
 
-      // Simulate the handleNativeDrop logic
+      // Simulate the handleNativeDrop logic with escapeShellArg
       const jsonData = mockEvent.dataTransfer.getData('application/json');
       if (jsonData) {
         try {
@@ -224,15 +225,15 @@ describe('Terminal Native Drop Handling', () => {
           if (data.type === 'file-reference' && data.path) {
             mockEvent.preventDefault();
             mockEvent.stopPropagation();
-            const quotedPath = data.path.includes(' ') ? `"${data.path}"` : data.path;
-            mockSendTerminalInput(terminalId, quotedPath + ' ');
+            const escapedPath = escapeShellArg(data.path);
+            mockSendTerminalInput(terminalId, escapedPath + ' ');
           }
         } catch {
           // Failed to parse
         }
       }
 
-      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, '"/path/to/my directory" ');
+      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, "'/path/to/my directory' ");
     });
   });
 
@@ -327,107 +328,97 @@ describe('Terminal Native Drop Handling', () => {
   });
 
   describe('Drop Overlay State', () => {
-    it('should show drop overlay when isNativeDragOver is true and not dragging terminal', () => {
-      const isNativeDragOver = true;
-      const isDraggingTerminal = false;
-      const isOver = false; // dnd-kit isOver
+    // Helper to compute showFileDropOverlay (matches Terminal.tsx logic)
+    function computeShowFileDropOverlay(isOver: boolean, isDraggingTerminal: boolean, isNativeDragOver: boolean): boolean {
+      return (isOver && !isDraggingTerminal) || isNativeDragOver;
+    }
 
-      const showFileDropOverlay = (isOver && !isDraggingTerminal) || isNativeDragOver;
-
-      expect(showFileDropOverlay).toBe(true);
-    });
-
-    it('should show drop overlay when dnd-kit isOver is true and not dragging terminal', () => {
-      const isNativeDragOver = false;
-      const isDraggingTerminal = false;
-      const isOver = true; // dnd-kit isOver
-
-      const showFileDropOverlay = (isOver && !isDraggingTerminal) || isNativeDragOver;
-
-      expect(showFileDropOverlay).toBe(true);
-    });
-
-    it('should NOT show drop overlay when dragging a terminal panel', () => {
-      const isNativeDragOver = false;
-      const isDraggingTerminal = true;
-      const isOver = true; // dnd-kit isOver
-
-      const showFileDropOverlay = (isOver && !isDraggingTerminal) || isNativeDragOver;
-
-      expect(showFileDropOverlay).toBe(false);
-    });
-
-    it('should NOT show drop overlay when nothing is being dragged over', () => {
-      const isNativeDragOver = false;
-      const isDraggingTerminal = false;
-      const isOver = false;
-
-      const showFileDropOverlay = (isOver && !isDraggingTerminal) || isNativeDragOver;
-
-      expect(showFileDropOverlay).toBe(false);
-    });
-
-    it('should show drop overlay for native drag even if dnd-kit detects terminal drag', () => {
-      // Edge case: native drag should override dnd-kit terminal detection
-      const isNativeDragOver = true;
-      const isDraggingTerminal = true; // Would normally hide overlay
-      const isOver = false;
-
-      const showFileDropOverlay = (isOver && !isDraggingTerminal) || isNativeDragOver;
-
-      // Native drag takes precedence
-      expect(showFileDropOverlay).toBe(true);
+    // Use parameterized tests to avoid static analysis warnings about tautological conditions
+    it.each([
+      { isNativeDragOver: true, isDraggingTerminal: false, isOver: false, expected: true, desc: 'native drag over file' },
+      { isNativeDragOver: false, isDraggingTerminal: false, isOver: true, expected: true, desc: 'dnd-kit isOver' },
+      { isNativeDragOver: false, isDraggingTerminal: true, isOver: true, expected: false, desc: 'dragging terminal panel' },
+      { isNativeDragOver: false, isDraggingTerminal: false, isOver: false, expected: false, desc: 'nothing dragged' },
+      { isNativeDragOver: true, isDraggingTerminal: true, isOver: false, expected: true, desc: 'native drag overrides terminal' },
+    ])('should return $expected when $desc', ({ isNativeDragOver, isDraggingTerminal, isOver, expected }) => {
+      const showFileDropOverlay = computeShowFileDropOverlay(isOver, isDraggingTerminal, isNativeDragOver);
+      expect(showFileDropOverlay).toBe(expected);
     });
   });
 
-  describe('Path Quoting Logic', () => {
-    it('should quote paths with single space', () => {
-      const path = '/path/to file.ts';
-      const quotedPath = path.includes(' ') ? `"${path}"` : path;
-
-      expect(quotedPath).toBe('"/path/to file.ts"');
+  describe('Shell Escaping with escapeShellArg', () => {
+    it('should wrap paths in single quotes', () => {
+      const path = '/path/to/file.ts';
+      const escaped = escapeShellArg(path);
+      expect(escaped).toBe("'/path/to/file.ts'");
     });
 
-    it('should quote paths with multiple spaces', () => {
+    it('should handle paths with spaces', () => {
       const path = '/path/to my special file.ts';
-      const quotedPath = path.includes(' ') ? `"${path}"` : path;
-
-      expect(quotedPath).toBe('"/path/to my special file.ts"');
-    });
-
-    it('should not quote paths without spaces', () => {
-      const path = '/simple/path/file.ts';
-      const quotedPath = path.includes(' ') ? `"${path}"` : path;
-
-      expect(quotedPath).toBe('/simple/path/file.ts');
+      const escaped = escapeShellArg(path);
+      expect(escaped).toBe("'/path/to my special file.ts'");
     });
 
     it('should handle empty path', () => {
       const path = '';
-      const quotedPath = path.includes(' ') ? `"${path}"` : path;
-
-      expect(quotedPath).toBe('');
+      const escaped = escapeShellArg(path);
+      expect(escaped).toBe("''");
     });
 
-    it('should handle path with only spaces', () => {
-      const path = '   ';
-      const quotedPath = path.includes(' ') ? `"${path}"` : path;
-
-      expect(quotedPath).toBe('"   "');
-    });
-
-    it('should handle paths with special characters (no spaces)', () => {
+    it('should handle paths with special characters', () => {
       const path = '/path/to/file@2.0.ts';
-      const quotedPath = path.includes(' ') ? `"${path}"` : path;
-
-      expect(quotedPath).toBe('/path/to/file@2.0.ts');
+      const escaped = escapeShellArg(path);
+      expect(escaped).toBe("'/path/to/file@2.0.ts'");
     });
 
-    it('should handle paths with special characters and spaces', () => {
-      const path = '/path/to/file @2.0.ts';
-      const quotedPath = path.includes(' ') ? `"${path}"` : path;
+    // Shell-unsafe character tests (addressing review feedback)
+    it('should properly escape paths with double quotes', () => {
+      const path = '/path/to/"quoted"file.ts';
+      const escaped = escapeShellArg(path);
+      // Single-quoted strings don't need double quotes escaped
+      expect(escaped).toBe('\'/path/to/"quoted"file.ts\'');
+    });
 
-      expect(quotedPath).toBe('"/path/to/file @2.0.ts"');
+    it('should properly escape paths with dollar signs', () => {
+      const path = '/path/to/$HOME/file.ts';
+      const escaped = escapeShellArg(path);
+      // Single-quoted strings prevent shell expansion
+      expect(escaped).toBe("'/path/to/$HOME/file.ts'");
+    });
+
+    it('should properly escape paths with backticks', () => {
+      const path = '/path/to/`command`/file.ts';
+      const escaped = escapeShellArg(path);
+      // Single-quoted strings prevent command substitution
+      expect(escaped).toBe("'/path/to/`command`/file.ts'");
+    });
+
+    it('should properly escape paths with single quotes', () => {
+      const path = "/path/to/it's/file.ts";
+      const escaped = escapeShellArg(path);
+      // Single quotes within single quotes need special handling: '\''
+      expect(escaped).toBe("'/path/to/it'\\''s/file.ts'");
+    });
+
+    it('should properly escape paths with backslashes', () => {
+      const path = '/path/to/file\\name.ts';
+      const escaped = escapeShellArg(path);
+      // Backslashes are literal inside single quotes
+      expect(escaped).toBe("'/path/to/file\\name.ts'");
+    });
+
+    it('should handle complex paths with multiple shell metacharacters', () => {
+      const path = '/path/to/$USER\'s "files"`cmd`/test.ts';
+      const escaped = escapeShellArg(path);
+      // Only single quotes need special escaping
+      expect(escaped).toBe("'/path/to/$USER'\\''s \"files\"`cmd`/test.ts'");
+    });
+
+    it('should handle paths with newlines', () => {
+      const path = '/path/to/file\nwith\nnewlines.ts';
+      const escaped = escapeShellArg(path);
+      // Newlines are literal inside single quotes
+      expect(escaped).toBe("'/path/to/file\nwith\nnewlines.ts'");
     });
   });
 
@@ -438,21 +429,21 @@ describe('Terminal Native Drop Handling', () => {
       const dragData = createFileReferenceDragData(longPath, 'file.ts');
       const mockEvent = createMockDragEvent(dragData);
 
-      // Simulate the handleNativeDrop logic
+      // Simulate the handleNativeDrop logic with escapeShellArg
       const jsonData = mockEvent.dataTransfer.getData('application/json');
       if (jsonData) {
         try {
           const data = JSON.parse(jsonData) as { type?: string; path?: string };
           if (data.type === 'file-reference' && data.path) {
-            const quotedPath = data.path.includes(' ') ? `"${data.path}"` : data.path;
-            mockSendTerminalInput(terminalId, quotedPath + ' ');
+            const escapedPath = escapeShellArg(data.path);
+            mockSendTerminalInput(terminalId, escapedPath + ' ');
           }
         } catch {
           // Failed to parse
         }
       }
 
-      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, longPath + ' ');
+      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, `'${longPath}' `);
     });
 
     it('should handle paths with unicode characters', () => {
@@ -461,21 +452,21 @@ describe('Terminal Native Drop Handling', () => {
       const dragData = createFileReferenceDragData(unicodePath, '文件.ts');
       const mockEvent = createMockDragEvent(dragData);
 
-      // Simulate the handleNativeDrop logic
+      // Simulate the handleNativeDrop logic with escapeShellArg
       const jsonData = mockEvent.dataTransfer.getData('application/json');
       if (jsonData) {
         try {
           const data = JSON.parse(jsonData) as { type?: string; path?: string };
           if (data.type === 'file-reference' && data.path) {
-            const quotedPath = data.path.includes(' ') ? `"${data.path}"` : data.path;
-            mockSendTerminalInput(terminalId, quotedPath + ' ');
+            const escapedPath = escapeShellArg(data.path);
+            mockSendTerminalInput(terminalId, escapedPath + ' ');
           }
         } catch {
           // Failed to parse
         }
       }
 
-      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, unicodePath + ' ');
+      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, `'${unicodePath}' `);
     });
 
     it('should handle paths with unicode characters and spaces', () => {
@@ -484,21 +475,21 @@ describe('Terminal Native Drop Handling', () => {
       const dragData = createFileReferenceDragData(unicodePath, '我的 文件.ts');
       const mockEvent = createMockDragEvent(dragData);
 
-      // Simulate the handleNativeDrop logic
+      // Simulate the handleNativeDrop logic with escapeShellArg
       const jsonData = mockEvent.dataTransfer.getData('application/json');
       if (jsonData) {
         try {
           const data = JSON.parse(jsonData) as { type?: string; path?: string };
           if (data.type === 'file-reference' && data.path) {
-            const quotedPath = data.path.includes(' ') ? `"${data.path}"` : data.path;
-            mockSendTerminalInput(terminalId, quotedPath + ' ');
+            const escapedPath = escapeShellArg(data.path);
+            mockSendTerminalInput(terminalId, escapedPath + ' ');
           }
         } catch {
           // Failed to parse
         }
       }
 
-      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, `"${unicodePath}" `);
+      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, `'${unicodePath}' `);
     });
 
     it('should handle relative paths', () => {
@@ -507,21 +498,21 @@ describe('Terminal Native Drop Handling', () => {
       const dragData = createFileReferenceDragData(relativePath, 'file.ts');
       const mockEvent = createMockDragEvent(dragData);
 
-      // Simulate the handleNativeDrop logic
+      // Simulate the handleNativeDrop logic with escapeShellArg
       const jsonData = mockEvent.dataTransfer.getData('application/json');
       if (jsonData) {
         try {
           const data = JSON.parse(jsonData) as { type?: string; path?: string };
           if (data.type === 'file-reference' && data.path) {
-            const quotedPath = data.path.includes(' ') ? `"${data.path}"` : data.path;
-            mockSendTerminalInput(terminalId, quotedPath + ' ');
+            const escapedPath = escapeShellArg(data.path);
+            mockSendTerminalInput(terminalId, escapedPath + ' ');
           }
         } catch {
           // Failed to parse
         }
       }
 
-      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, relativePath + ' ');
+      expect(mockSendTerminalInput).toHaveBeenCalledWith(terminalId, `'${relativePath}' `);
     });
   });
 });

@@ -168,10 +168,13 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
    * Appends @filename to the end of the description (no textarea ref in edit dialog)
    */
   const handleFileReferenceDrop = useCallback((reference: string, _data: FileReferenceData) => {
-    // Append to description (no textarea ref available in edit dialog)
-    const separator = description.endsWith(' ') || description === '' ? '' : ' ';
-    setDescription(description + separator + reference + ' ');
-  }, [description, setDescription]);
+    // Append to description using functional update to ensure latest state
+    // This prevents stale closure issues with rapid consecutive drops
+    setDescription(prev => {
+      const separator = prev.endsWith(' ') || prev === '' ? '' : ' ';
+      return prev + separator + reference + ' ';
+    });
+  }, []);
 
   const handleSave = async () => {
     // Validate input

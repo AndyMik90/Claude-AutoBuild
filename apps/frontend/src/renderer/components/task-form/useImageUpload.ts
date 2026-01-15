@@ -250,7 +250,8 @@ export function useImageUpload({
 
     try {
       const data = JSON.parse(jsonData);
-      if (data.type === 'file-reference' && typeof data.path === 'string' && typeof data.name === 'string') {
+      // Validate all required FileReferenceData properties including isDirectory
+      if (data.type === 'file-reference' && typeof data.path === 'string' && typeof data.name === 'string' && typeof data.isDirectory === 'boolean') {
         return data as FileReferenceData;
       }
     } catch {

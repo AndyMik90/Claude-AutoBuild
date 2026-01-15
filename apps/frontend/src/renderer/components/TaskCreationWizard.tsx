@@ -299,6 +299,11 @@ export function TaskCreationWizard({
    * Inserts @filename at cursor position or end of description
    */
   const handleFileReferenceDrop = useCallback((reference: string, _data: FileReferenceData) => {
+    // Dismiss any active autocomplete when file is dropped
+    if (autocomplete?.show) {
+      setAutocomplete(null);
+    }
+
     // Insert reference at cursor position if textarea is available
     const textarea = descriptionRef.current;
     if (textarea) {
@@ -310,17 +315,18 @@ export function TaskCreationWizard({
         description.substring(end);
       handleDescriptionChange(newDescription);
       // Focus textarea and set cursor after inserted text
-      setTimeout(() => {
+      // Use queueMicrotask for consistency with handleAutocompleteSelect
+      queueMicrotask(() => {
         textarea.focus();
         const newCursorPos = start + reference.length + 1;
         textarea.setSelectionRange(newCursorPos, newCursorPos);
-      }, 0);
+      });
     } else {
       // Fallback: append to end
       const separator = description.endsWith(' ') || description === '' ? '' : ' ';
       handleDescriptionChange(description + separator + reference + ' ');
     }
-  }, [description, handleDescriptionChange]);
+  }, [description, handleDescriptionChange, autocomplete?.show]);
 
   /**
    * Parse @mentions from description

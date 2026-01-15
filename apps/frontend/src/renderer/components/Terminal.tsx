@@ -14,6 +14,7 @@ import { useXterm } from './terminal/useXterm';
 import { usePtyProcess } from './terminal/usePtyProcess';
 import { useTerminalEvents } from './terminal/useTerminalEvents';
 import { useAutoNaming } from './terminal/useAutoNaming';
+import { escapeShellArg } from '../../shared/utils/shell-escape';
 
 // Minimum dimensions to prevent PTY creation with invalid sizes
 const MIN_COLS = 10;
@@ -105,10 +106,11 @@ export function Terminal({
         if (data.type === 'file-reference' && data.path) {
           e.preventDefault();
           e.stopPropagation();
-          // Quote the path if it contains spaces
-          const quotedPath = data.path.includes(' ') ? `"${data.path}"` : data.path;
+          // Use escapeShellArg to safely escape path for shell execution
+          // This handles all shell metacharacters (quotes, $, backticks, etc.)
+          const escapedPath = escapeShellArg(data.path);
           // Insert the file path into the terminal with a trailing space
-          window.electronAPI.sendTerminalInput(id, quotedPath + ' ');
+          window.electronAPI.sendTerminalInput(id, escapedPath + ' ');
         }
       } catch {
         // Failed to parse drag data, ignore
