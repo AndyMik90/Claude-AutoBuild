@@ -19,7 +19,11 @@ import {
   Globe,
   Code,
   Bug,
-  Server
+  Server,
+  LayoutTemplate,
+  User,
+  Shield,
+  LogOut
 } from 'lucide-react';
 
 // GitLab icon component (lucide-react doesn't have one)
@@ -63,11 +67,15 @@ interface AppSettingsDialogProps {
   onOpenChange: (open: boolean) => void;
   initialSection?: AppSection;
   initialProjectSection?: ProjectSettingsSection;
+  initialAccountSection?: AccountSection;
   onRerunWizard?: () => void;
 }
 
 // App-level settings sections
 export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'integrations' | 'api-profiles' | 'updates' | 'notifications' | 'debug';
+
+// Account-level settings sections
+export type AccountSection = 'profile' | 'security' | 'auth';
 
 interface NavItemConfig<T extends string> {
   id: T;
@@ -96,24 +104,34 @@ const projectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
   { id: 'memory', icon: Database }
 ];
 
+const accountNavItemsConfig: NavItemConfig<AccountSection>[] = [
+  { id: 'profile', icon: User },
+  { id: 'security', icon: Shield },
+  { id: 'auth', icon: Key }
+];
+
 /**
  * Main application settings dialog container
  * Coordinates app and project settings sections
  */
-export function AppSettingsDialog({ open, onOpenChange, initialSection, initialProjectSection, onRerunWizard }: AppSettingsDialogProps) {
+export function AppSettingsDialog({ open, onOpenChange, initialSection, initialProjectSection, initialAccountSection, onRerunWizard }: AppSettingsDialogProps) {
   const { t } = useTranslation('settings');
   const { settings, setSettings, isSaving, error, saveSettings, revertTheme, commitTheme } = useSettings();
   const [version, setVersion] = useState<string>('');
 
   // Track which top-level section is active
-  const [activeTopLevel, setActiveTopLevel] = useState<'app' | 'project'>('app');
+  const [activeTopLevel, setActiveTopLevel] = useState<'app' | 'project' | 'account'>('app');
   const [appSection, setAppSection] = useState<AppSection>(initialSection || 'appearance');
   const [projectSection, setProjectSection] = useState<ProjectSettingsSection>('general');
+  const [accountSection, setAccountSection] = useState<AccountSection>(initialAccountSection || 'profile');
 
   // Navigate to initial section when dialog opens with a specific section
   useEffect(() => {
     if (open) {
-      if (initialProjectSection) {
+      if (initialAccountSection) {
+        setActiveTopLevel('account');
+        setAccountSection(initialAccountSection);
+      } else if (initialProjectSection) {
         setActiveTopLevel('project');
         setProjectSection(initialProjectSection);
       } else if (initialSection) {
@@ -121,7 +139,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         setAppSection(initialSection);
       }
     }
-  }, [open, initialSection, initialProjectSection]);
+  }, [open, initialSection, initialProjectSection, initialAccountSection]);
 
   // Project state
   const projects = useProjectStore((state) => state.projects);
@@ -207,9 +225,26 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
     }
   };
 
+  const renderAccountSection = () => {
+    // TODO: Create actual account settings components
+    switch (accountSection) {
+      case 'profile':
+        return <div className="p-4"><p className="text-sm text-muted-foreground">Profile settings coming soon...</p></div>;
+      case 'security':
+        return <div className="p-4"><p className="text-sm text-muted-foreground">Security settings coming soon...</p></div>;
+      case 'auth':
+        return <div className="p-4"><p className="text-sm text-muted-foreground">Authentication settings coming soon...</p></div>;
+      default:
+        return null;
+    }
+  };
+
   const renderContent = () => {
     if (activeTopLevel === 'app') {
       return renderAppSection();
+    }
+    if (activeTopLevel === 'account') {
+      return renderAccountSection();
     }
     return (
       <ProjectSettingsContent
@@ -345,6 +380,40 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                             <div className="min-w-0">
                               <div className="font-medium text-sm">{t(`projectSections.${item.id}.title`)}</div>
                               <div className="text-xs text-muted-foreground truncate">{t(`projectSections.${item.id}.description`)}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ACCOUNT Section */}
+                  <div>
+                    <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t('tabs.account')}
+                    </h3>
+                    <div className="space-y-1">
+                      {accountNavItemsConfig.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = activeTopLevel === 'account' && accountSection === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setActiveTopLevel('account');
+                              setAccountSection(item.id);
+                            }}
+                            className={cn(
+                              'w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all',
+                              isActive
+                                ? 'bg-accent text-accent-foreground'
+                                : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
+                            )}
+                          >
+                            <Icon className="h-5 w-5 mt-0.5 shrink-0" />
+                            <div className="min-w-0">
+                              <div className="font-medium text-sm">{t(`accountSections.${item.id}.title`)}</div>
+                              <div className="text-xs text-muted-foreground truncate">{t(`accountSections.${item.id}.description`)}</div>
                             </div>
                           </button>
                         );
