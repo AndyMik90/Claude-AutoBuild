@@ -3,10 +3,6 @@ Dependency validators for roadmap features.
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 from .models import RoadmapFeature
 
