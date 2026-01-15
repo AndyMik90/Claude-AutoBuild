@@ -123,8 +123,28 @@ export function Sidebar({
   const [isInitializing, setIsInitializing] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [envConfig, setEnvConfig] = useState<ProjectEnvConfig | null>(null);
+  const [appVersion, setAppVersion] = useState<string>('');
+  const [isPackaged, setIsPackaged] = useState<boolean>(false);
+  const [buildHash, setBuildHash] = useState<string | null>(null);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
+
+  // Load app version and packaged status on mount
+  useEffect(() => {
+    const loadAppInfo = async () => {
+      try {
+        const version = await window.electronAPI.getAppVersion();
+        const packaged = await window.electronAPI.getAppIsPackaged();
+        const hash = await window.electronAPI.getAppBuildHash();
+        setAppVersion(version);
+        setIsPackaged(packaged);
+        setBuildHash(hash);
+      } catch (error) {
+        console.error('Failed to load app info:', error);
+      }
+    };
+    loadAppInfo();
+  }, []);
 
   // Load env config when project changes to check GitHub/GitLab enabled state
   useEffect(() => {
@@ -424,6 +444,33 @@ export function Sidebar({
             <Plus className="mr-2 h-4 w-4" />
             {t('actions.newTask')}
           </Button>
+
+          {/* Version Info */}
+          {appVersion && (
+            <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <span>
+                  {t('common:labels.version')} {appVersion}
+                </span>
+                <span
+                  className={cn(
+                    'px-1.5 py-0.5 rounded font-semibold',
+                    isPackaged
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-orange-500/20 text-orange-400'
+                  )}
+                >
+                  {isPackaged ? t('common:labels.prodMode') : t('common:labels.devMode')}
+                </span>
+              </div>
+              {buildHash && (
+                <span className="text-[10px] text-muted-foreground/60 font-mono">
+                  build: {buildHash}
+                </span>
+              )}
+            </div>
+          )}
+
           {selectedProject && !selectedProject.autoBuildPath && (
             <p className="mt-2 text-xs text-muted-foreground text-center">
               {t('messages.initializeToCreateTasks')}

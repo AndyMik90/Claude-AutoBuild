@@ -5,7 +5,8 @@ import type {
   IPCResult,
   SourceEnvConfig,
   SourceEnvCheckResult,
-  ToolDetectionResult
+  ToolDetectionResult,
+  SystemHealthCheck
 } from '../../shared/types';
 
 export interface SettingsAPI {
@@ -23,6 +24,9 @@ export interface SettingsAPI {
 
   // App Info
   getAppVersion: () => Promise<string>;
+  getAppIsPackaged: () => Promise<boolean>;
+  getAppBuildHash: () => Promise<string | null>;
+  getSystemHealthCheck: () => Promise<IPCResult<SystemHealthCheck>>;
 
   // Auto-Build Source Environment
   getSourceEnv: () => Promise<IPCResult<SourceEnvConfig>>;
@@ -55,6 +59,15 @@ export const createSettingsAPI = (): SettingsAPI => ({
   // App Info
   getAppVersion: (): Promise<string> =>
     ipcRenderer.invoke(IPC_CHANNELS.APP_VERSION),
+
+  getAppIsPackaged: (): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.APP_IS_PACKAGED),
+
+  getAppBuildHash: (): Promise<string | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.APP_BUILD_HASH),
+
+  getSystemHealthCheck: (): Promise<IPCResult<SystemHealthCheck>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SYSTEM_HEALTH_CHECK),
 
   // Auto-Build Source Environment
   getSourceEnv: (): Promise<IPCResult<SourceEnvConfig>> =>

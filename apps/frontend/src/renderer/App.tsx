@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, RefreshCw, AlertCircle, LayoutGrid, Folder, ListChecks, CheckCircle2, FolderOpen, Activity } from 'lucide-react';
+import { Download, RefreshCw, AlertCircle, LayoutGrid, Folder, ListChecks, CheckCircle2, FolderOpen, Activity, CheckCircle, XCircle } from 'lucide-react';
 import { debugLog } from '../shared/utils/debug-logger';
+import { cn } from './lib/utils';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Button } from './components/ui/button';
 import { Badge } from './components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from './components/ui/dropdown-menu';
 import { ScrollArea } from './components/ui/scroll-area';
 import { Toaster } from './components/ui/toaster';
 import {
@@ -175,12 +177,57 @@ export function App() {
   // Track if settings have been loaded at least once
   const [settingsHaveLoaded, setSettingsHaveLoaded] = useState(false);
 
+  // Health check state
+  const [healthCheck, setHealthCheck] = useState<import('../shared/types').SystemHealthCheck | null>(null);
+  const [healthCheckLoading, setHealthCheckLoading] = useState(false);
+  const [lastHealthCheckTime, setLastHealthCheckTime] = useState<Date | null>(null);
+
   // Mark settings as loaded when loading completes
   useEffect(() => {
     if (!settingsLoading && !settingsHaveLoaded) {
       setSettingsHaveLoaded(true);
     }
   }, [settingsLoading, settingsHaveLoaded]);
+
+  // Run health check on mount
+  useEffect(() => {
+    const runHealthCheck = async () => {
+      console.log('[Health Check] Starting initial health check...');
+      setHealthCheckLoading(true);
+      try {
+        const result = await window.electronAPI.getSystemHealthCheck();
+        console.log('[Health Check] Result:', result);
+        if (result.success && result.data) {
+          setHealthCheck(result.data);
+          setLastHealthCheckTime(new Date());
+          console.log('[Health Check] Health check completed successfully');
+        } else {
+          console.error('[Health Check] Health check failed:', result.error);
+        }
+      } catch (error) {
+        console.error('[Health Check] Exception during health check:', error);
+      } finally {
+        setHealthCheckLoading(false);
+      }
+    };
+    runHealthCheck();
+  }, []);
+
+  // Manual health check trigger
+  const runHealthCheck = async () => {
+    setHealthCheckLoading(true);
+    try {
+      const result = await window.electronAPI.getSystemHealthCheck();
+      if (result.success && result.data) {
+        setHealthCheck(result.data);
+        setLastHealthCheckTime(new Date());
+      }
+    } catch (error) {
+      console.error('Failed to run health check:', error);
+    } finally {
+      setHealthCheckLoading(false);
+    }
+  };
 
   // First-run detection - show onboarding wizard if not completed
   // Only check AFTER settings have been loaded from disk to avoid race condition
@@ -669,6 +716,170 @@ export function App() {
         {/* Global Title Bar */}
         <div className="electron-drag flex h-10 items-center bg-primary px-4 shrink-0">
           <div className="electron-no-drag flex items-center gap-3 ml-64 flex-1">
+            {/* Health Status Indicator */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "flex items-center gap-1.5 text-white cursor-pointer hover:brightness-110 transition-all",
+                    healthCheckLoading && "animate-pulse"
+                  )}
+                  style={{
+                    background: healthCheck?.healthy
+                      ? 'rgb(34 197 94 / 20%)'
+                      : 'rgb(239 68 68 / 20%)',
+                    border: healthCheck?.healthy
+                      ? '1px solid rgb(34 197 94 / 60%)'
+                      : '1px solid rgb(239 68 68 / 60%)',
+                    padding: '4px 12px',
+                  }}
+                >
+                  {healthCheckLoading ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : healthCheck?.healthy ? (
+                    <CheckCircle className="h-3.5 w-3.5 text-green-400" />
+                  ) : (
+                    <XCircle className="h-3.5 w-3.5 text-red-400" />
+                  )}
+                  <span className="text-xs font-semibold">
+                    {healthCheckLoading
+                      ? t('common:health.checking')
+                      : healthCheck?.healthy
+                      ? t('common:health.healthy')
+                      : t('common:health.unhealthy', { count: healthCheck?.summary.failed || 0 })}
+                  </span>
+                </Badge>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-80 max-h-[600px] flex flex-col">
+                <div className="p-3 border-b border-border bg-muted/50 shrink-0">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      {healthCheck?.healthy ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      {t('common:health.title')}
+                    </h4>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        runHealthCheck();
+                      }}
+                      disabled={healthCheckLoading}
+                    >
+                      <RefreshCw className={cn("h-3.5 w-3.5", healthCheckLoading && "animate-spin")} />
+                    </Button>
+                  </div>
+                  {lastHealthCheckTime && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t('common:health.lastChecked', {
+                        time: lastHealthCheckTime.toLocaleTimeString()
+                      })}
+                    </p>
+                  )}
+                </div>
+                <ScrollArea className="flex-1 max-h-[400px]">
+                  <div className="p-2 space-y-2">
+                    {/* Debug info */}
+                    {healthCheck && (
+                      <div className="text-xs text-muted-foreground p-2 bg-muted/20 rounded">
+                        Checks count: {healthCheck.checks ? Object.keys(healthCheck.checks).length : 0} |
+                        Healthy: {healthCheck.healthy ? 'Yes' : 'No'}
+                      </div>
+                    )}
+
+                    {!healthCheck ? (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        Click refresh to run health check
+                      </div>
+                    ) : healthCheck?.checks && Object.entries(healthCheck.checks).length > 0 ? (
+                      Object.entries(healthCheck.checks).map(([key, check]) => (
+                      <div key={key} className="border border-border rounded-lg overflow-hidden">
+                        {/* Main category header */}
+                        <div className="flex items-center justify-between py-2 px-3 bg-muted/30">
+                          <span className="text-sm font-semibold">
+                            {t(`common:health.${key}`)}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {check.healthy ? (
+                              <>
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                                <span className="text-xs text-green-600 font-semibold">
+                                  {t('common:health.passed')}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="h-4 w-4 text-red-500" />
+                                <span className="text-xs text-red-600 font-semibold">
+                                  {t('common:health.failed')}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Sub-checks details */}
+                        {check.checks && Object.keys(check.checks).length > 0 && (
+                          <div className="px-3 py-2 space-y-1.5 bg-card">
+                            {Object.entries(check.checks).map(([subKey, passed]) => (
+                              <div key={subKey} className="flex items-center gap-2 text-xs">
+                                {passed ? (
+                                  <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+                                ) : (
+                                  <XCircle className="h-3 w-3 text-red-500 shrink-0" />
+                                )}
+                                <span className={cn(
+                                  "text-muted-foreground",
+                                  !passed && "text-red-600"
+                                )}>
+                                  {subKey.replace(/_/g, ' ')}
+                                </span>
+                              </div>
+                            ))}
+
+                            {/* Show message if available */}
+                            {check.message && (
+                              <div className="mt-2 pt-2 border-t border-border">
+                                <p className="text-xs text-muted-foreground italic">
+                                  {check.message}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Show details for failed checks */}
+                            {!check.healthy && check.details && Object.keys(check.details).length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-border">
+                                {check.details.inconsistencies && Array.isArray(check.details.inconsistencies) && check.details.inconsistencies.length > 0 && (
+                                  <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-red-600">Issues found:</p>
+                                    {check.details.inconsistencies.map((item: any, idx: number) => (
+                                      <p key={idx} className="text-xs text-red-600 pl-2">
+                                        • {item.variable}: {item.issue}
+                                      </p>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        No health check data available
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             {/* Active View Badge */}
             <Badge
               variant="secondary"

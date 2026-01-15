@@ -8,3 +8,28 @@ export interface IPCResult<T = unknown> {
   data?: T;
   error?: string;
 }
+
+// Health Check Types
+export interface HealthCheckResult {
+  healthy: boolean;
+  checks: Record<string, boolean>;
+  details: Record<string, any>;
+  message: string;
+}
+
+export interface SystemHealthCheck {
+  healthy: boolean;
+  timestamp: string;
+  checks: {
+    python: HealthCheckResult;
+    git: HealthCheckResult;
+    claude_auth: HealthCheckResult;
+    integrations: HealthCheckResult;
+    environment: HealthCheckResult;
+  };
+  summary: {
+    total_checks: number;
+    passed: number;
+    failed: number;
+  };
+}

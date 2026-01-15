@@ -153,6 +153,9 @@ export const IPC_CHANNELS = {
 
   // App info
   APP_VERSION: 'app:version',
+  APP_IS_PACKAGED: 'app:isPackaged',
+  APP_BUILD_HASH: 'app:buildHash',
+  SYSTEM_HEALTH_CHECK: 'system:healthCheck',
 
   // Shell operations
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',

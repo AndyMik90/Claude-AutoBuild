@@ -91,7 +91,25 @@
     "noData": "Aucune donnée",
     "optional": "Optionnel",
     "required": "Requis",
-    "dismiss": "Ignorer"
+    "dismiss": "Ignorer",
+    "version": "Version",
+    "devMode": "DEV",
+    "prodMode": "PROD"
+  },
+  "health": {
+    "title": "État du système",
+    "healthy": "Tous les systèmes opérationnels",
+    "unhealthy": "{{count}} problème détecté",
+    "unhealthy_plural": "{{count}} problèmes détectés",
+    "checking": "Vérification...",
+    "python": "Environnement Python",
+    "git": "Configuration Git",
+    "claude_auth": "Authentification Claude",
+    "integrations": "Intégrations",
+    "environment": "Configuration environnement",
+    "passed": "Réussi",
+    "failed": "Échoué",
+    "lastChecked": "Dernière vérification : {{time}}"
   },
   "time": {
     "justNow": "À l'instant",
