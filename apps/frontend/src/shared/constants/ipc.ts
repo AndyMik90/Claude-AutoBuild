@@ -139,6 +139,7 @@ export const IPC_CHANNELS = {
 
   // Dialogs
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',
+  DIALOG_SELECT_FILE: 'dialog:selectFile',
   DIALOG_CREATE_PROJECT_FOLDER: 'dialog:createProjectFolder',
   DIALOG_GET_DEFAULT_PROJECT_LOCATION: 'dialog:getDefaultProjectLocation',
 
@@ -210,6 +211,7 @@ export const IPC_CHANNELS = {
 
   // GitHub integration
   GITHUB_GET_REPOSITORIES: 'github:getRepositories',
+  GITHUB_GET_PULL_REQUESTS: 'github:getPullRequests',
   GITHUB_GET_ISSUES: 'github:getIssues',
   GITHUB_GET_ISSUE: 'github:getIssue',
   GITHUB_GET_ISSUE_COMMENTS: 'github:getIssueComments',
@@ -467,12 +469,17 @@ export const IPC_CHANNELS = {
   FILE_EXPLORER_LIST: 'fileExplorer:list',
   FILE_EXPLORER_READ: 'fileExplorer:read',
 
+  // File operations (for template parameter editor)
+  FILE_READ: 'file:read',
+  FILE_WRITE: 'file:write',
+
   // Git operations
   GIT_GET_BRANCHES: 'git:getBranches',
   GIT_GET_CURRENT_BRANCH: 'git:getCurrentBranch',
   GIT_DETECT_MAIN_BRANCH: 'git:detectMainBranch',
   GIT_CHECK_STATUS: 'git:checkStatus',
   GIT_INITIALIZE: 'git:initialize',
+  GIT_CLONE_REPOSITORY: 'git:cloneRepository',
 
   // App auto-update operations
   APP_UPDATE_CHECK: 'app-update:check',
@@ -520,5 +527,38 @@ export const IPC_CHANNELS = {
   // Sentry error reporting
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
-  GET_SENTRY_CONFIG: 'sentry:get-config'         // Get full Sentry config (DSN + sample rates)
+  GET_SENTRY_CONFIG: 'sentry:get-config',         // Get full Sentry config (DSN + sample rates)
+
+  // Template operations (from template-system feature)
+  TEMPLATES_GET: 'templates:get',
+  TEMPLATES_SAVE: 'templates:save',
+  TEMPLATES_UPDATE: 'templates:update',
+  TEMPLATES_DELETE: 'templates:delete',
+  TEMPLATES_COPY: 'templates:copy',
+  TEMPLATES_COPY_WITH_NAME: 'templates:copyWithName',
+  TEMPLATES_PARSE_PARAMETERS: 'templates:parseParameters',
+  TEMPLATES_COPY_WITH_PARAMETERS: 'templates:copyWithParameters',
+
+  // Secrets operations (Encrypted storage - Group/Account model)
+  SECRETS_CHECK_ENCRYPTION: 'secrets:checkEncryption',
+  SECRETS_GET_GROUPS: 'secrets:getGroups',
+  SECRETS_GET_GROUP: 'secrets:getGroup',
+  SECRETS_CREATE_GROUP: 'secrets:createGroup',
+  SECRETS_UPDATE_GROUP: 'secrets:updateGroup',
+  SECRETS_DELETE_GROUP: 'secrets:deleteGroup',
+  SECRETS_ADD_ACCOUNT: 'secrets:addAccount',
+  SECRETS_UPDATE_ACCOUNT: 'secrets:updateAccount',
+  SECRETS_DELETE_ACCOUNT: 'secrets:deleteAccount',
+  SECRETS_DECRYPT_ACCOUNT: 'secrets:decryptAccount',
+  SECRETS_DECRYPT_ACCOUNT_KEY: 'secrets:decryptAccountKey',
+
+  // Template Editor operations (AI-powered template editing)
+  TEMPLATE_EDITOR_CHECK_INITIALIZED: 'templateEditor:checkInitialized',
+  TEMPLATE_EDITOR_SEND_MESSAGE: 'templateEditor:sendMessage',
+  TEMPLATE_EDITOR_CLEAR_HISTORY: 'templateEditor:clearHistory',
+
+  // Template Editor events (main -> renderer)
+  TEMPLATE_EDITOR_STATUS: 'templateEditor:status',
+  TEMPLATE_EDITOR_STREAM_CHUNK: 'templateEditor:streamChunk',
+  TEMPLATE_EDITOR_ERROR: 'templateEditor:error'
 } as const;

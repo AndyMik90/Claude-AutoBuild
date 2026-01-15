@@ -2,6 +2,8 @@ import { ProjectAPI, createProjectAPI } from './project-api';
 import { TerminalAPI, createTerminalAPI } from './terminal-api';
 import { TaskAPI, createTaskAPI } from './task-api';
 import { SettingsAPI, createSettingsAPI } from './settings-api';
+import { TemplateAPI, createTemplateAPI } from './template-api';
+import { SecretsAPI, createSecretsAPI } from './secrets-api';
 import { FileAPI, createFileAPI } from './file-api';
 import { AgentAPI, createAgentAPI } from './agent-api';
 import { IdeationAPI, createIdeationAPI } from './modules/ideation-api';
@@ -19,6 +21,8 @@ export interface ElectronAPI extends
   TerminalAPI,
   TaskAPI,
   SettingsAPI,
+  TemplateAPI,
+  SecretsAPI,
   FileAPI,
   AgentAPI,
   IdeationAPI,
@@ -37,6 +41,8 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createTerminalAPI(),
   ...createTaskAPI(),
   ...createSettingsAPI(),
+  ...createTemplateAPI(),
+  ...createSecretsAPI(),
   ...createFileAPI(),
   ...createAgentAPI(),
   ...createIdeationAPI(),
@@ -56,6 +62,8 @@ export {
   createTerminalAPI,
   createTaskAPI,
   createSettingsAPI,
+  createTemplateAPI,
+  createSecretsAPI,
   createFileAPI,
   createAgentAPI,
   createIdeationAPI,
@@ -74,6 +82,8 @@ export type {
   TerminalAPI,
   TaskAPI,
   SettingsAPI,
+  TemplateAPI,
+  SecretsAPI,
   FileAPI,
   AgentAPI,
   IdeationAPI,

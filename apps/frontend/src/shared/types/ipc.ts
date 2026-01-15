@@ -130,6 +130,7 @@ import type {
   GitLabNewCommitsCheck
 } from './integrations';
 import type { APIProfile, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from './profile';
+import type { TemplateEditorStatus, TemplateEditorStreamChunk } from './template-editor';
 
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
@@ -299,6 +300,33 @@ export interface ElectronAPI {
     gh: import('./cli').ToolDetectionResult;
     claude: import('./cli').ToolDetectionResult;
   }>>;
+
+  // Template operations
+  getTemplates: () => Promise<IPCResult<import('./template').Template[]>>;
+  saveTemplate: (template: Omit<import('./template').Template, 'id' | 'version' | 'createdAt' | 'updatedAt'>) => Promise<IPCResult<import('./template').Template>>;
+  deleteTemplate: (templateId: string) => Promise<IPCResult>;
+  updateTemplate: (templateId: string, updates: Partial<Omit<import('./template').Template, 'id' | 'version' | 'createdAt' | 'updatedAt'>>, expectedVersion: number) => Promise<IPCResult<import('./template').Template>>;
+  copyTemplate: (templateId: string, destinationPath: string) => Promise<IPCResult<{ path: string }>>;
+  copyTemplateWithName: (templateId: string, destinationPath: string, customName: string) => Promise<IPCResult<{ path: string }>>;
+  parseTemplateParameters: (templateId: string) => Promise<IPCResult<import('./template').ParsedTemplate>>;
+  copyTemplateWithParameters: (templateId: string, destinationPath: string, customName: string, parameterValues: Record<string, string>) => Promise<IPCResult<{ path: string }>>;
+
+  // File operations (for template parameter editor)
+  readFile: (filePath: string) => Promise<IPCResult<string>>;
+  writeFile: (filePath: string, content: string) => Promise<IPCResult>;
+
+  // Secrets operations (Encrypted storage - Group/Account model)
+  checkSecretsEncryption: () => Promise<IPCResult<boolean>>;
+  getSecretGroups: () => Promise<IPCResult<import('./secrets').SecretGroup[]>>;
+  getSecretGroup: (groupId: string) => Promise<IPCResult<import('./secrets').SecretGroup>>;
+  createSecretGroup: (groupInput: import('./secrets').SecretGroupInput) => Promise<IPCResult<import('./secrets').SecretGroup>>;
+  updateSecretGroup: (groupId: string, updates: Partial<import('./secrets').SecretGroupInput>) => Promise<IPCResult<import('./secrets').SecretGroup>>;
+  deleteSecretGroup: (groupId: string) => Promise<IPCResult>;
+  addSecretAccount: (groupId: string, accountInput: import('./secrets').SecretAccountInput) => Promise<IPCResult<import('./secrets').SecretGroup>>;
+  updateSecretAccount: (groupId: string, accountId: string, accountInput: import('./secrets').SecretAccountInput) => Promise<IPCResult<import('./secrets').SecretGroup>>;
+  deleteSecretAccount: (groupId: string, accountId: string) => Promise<IPCResult<import('./secrets').SecretGroup>>;
+  decryptSecretAccount: (groupId: string, accountId: string) => Promise<IPCResult<Record<string, string>>>;
+  decryptSecretAccountKey: (groupId: string, accountId: string, keyId: string) => Promise<IPCResult<string>>;
 
   // API Profile management (custom Anthropic-compatible endpoints)
   getAPIProfiles: () => Promise<IPCResult<ProfilesFile>>;
@@ -719,6 +747,7 @@ export interface ElectronAPI {
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;
   initializeGit: (projectPath: string) => Promise<IPCResult<InitializationResult>>;
+  cloneRepository: (repoUrl: string, destinationPath: string) => Promise<IPCResult<{ path: string }>>;
 
   // Ollama model detection operations
   checkOllamaStatus: (baseUrl?: string) => Promise<IPCResult<{
@@ -803,6 +832,17 @@ export interface ElectronAPI {
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
+
+  // Template Editor operations (AI-powered template editing)
+  // Auto-initializes with active API profile or global Anthropic API key
+  checkTemplateEditorInitialized: () => Promise<IPCResult<boolean>>;
+  sendTemplateEditorMessage: (templateId: string, templatePath: string, message: string) => Promise<IPCResult>;
+  clearTemplateEditorHistory: (templateId: string) => Promise<IPCResult>;
+
+  // Template Editor event listeners
+  onTemplateEditorStatus: (callback: (templateId: string, status: TemplateEditorStatus) => void) => () => void;
+  onTemplateEditorStreamChunk: (callback: (templateId: string, chunk: TemplateEditorStreamChunk) => void) => () => void;
+  onTemplateEditorError: (callback: (templateId: string, error: string) => void) => () => void;
 }
 
 declare global {

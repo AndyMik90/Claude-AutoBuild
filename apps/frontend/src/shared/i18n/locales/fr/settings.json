@@ -29,6 +29,10 @@
       "title": "Chemins",
       "description": "Outils CLI et chemins framework"
     },
+    "templates": {
+      "title": "Modèles",
+      "description": "Modèles de projet et secrets"
+    },
     "integrations": {
       "title": "Intégrations",
       "description": "Clés API & comptes Claude"
@@ -453,6 +457,125 @@
       "tokenSaveFailed": "Échec de l'enregistrement du token",
       "settingsUpdateFailed": "Échec de la mise à jour des paramètres",
       "tryAgain": "Veuillez réessayer."
+    }
+  },
+  "templates": {
+    "add": {
+      "title": "Ajouter un modèle",
+      "titleEdit": "Modifier le modèle",
+      "description": "Créer un nouveau modèle de projet en sélectionnant un dossier et en lui donnant un nom",
+      "descriptionEdit": "Mettre à jour les détails de votre modèle"
+    },
+    "form": {
+      "name": {
+        "label": "Nom du modèle",
+        "placeholder": "Mon super modèle"
+      },
+      "folder": {
+        "label": "Dossier du modèle",
+        "placeholder": "Sélectionner un dossier...",
+        "browse": "Parcourir"
+      },
+      "image": {
+        "label": "Icône/Image (Optionnel)",
+        "chooseImage": "Choisir une image",
+        "helper": "Sélectionner un fichier image à utiliser comme icône du modèle"
+      },
+      "buildCommand": {
+        "label": "Commande de construction (Optionnel)",
+        "placeholder": "npm install && npm run build",
+        "helper": "Commande à exécuter après la création d'un projet à partir de ce modèle (s'exécute en arrière-plan)"
+      }
+    },
+    "actions": {
+      "cancel": "Annuler",
+      "create": "Créer",
+      "update": "Mettre à jour",
+      "saving": "Enregistrement..."
+    },
+    "errors": {
+      "nameRequired": "Veuillez entrer un nom de modèle",
+      "folderRequired": "Veuillez sélectionner un dossier",
+      "updateFailed": "Échec de la mise à jour du modèle",
+      "createFailed": "Échec de la création du modèle",
+      "generic": "Une erreur s'est produite"
+    },
+    "parameterEditor": {
+      "title": "Modifier les paramètres du modèle",
+      "description": "Modifier les paramètres dynamiques et mettre à jour les fichiers du modèle",
+      "loading": "Chargement des paramètres...",
+      "noParameters": "Aucun paramètre dynamique trouvé dans ce modèle",
+      "fields": {
+        "title": "Titre du paramètre",
+        "type": "Type",
+        "defaultValue": "Valeur par défaut (optionnel)",
+        "options": "Options",
+        "addOption": "Ajouter une option",
+        "secretGroup": "Groupe de secrets",
+        "secretKey": "Clé secrète"
+      },
+      "types": {
+        "text": "Texte",
+        "dropdown": "Liste déroulante",
+        "secret": "Secret"
+      },
+      "placeholders": {
+        "title": "ex.: Nom du projet",
+        "defaultValue": "Valeur par défaut",
+        "secretGroup": "ex.: AWS",
+        "secretKey": "ex.: ACCESS_KEY"
+      },
+      "badges": {
+        "modified": "Modifié",
+        "paramCount": "{{count}} param",
+        "paramCount_plural": "{{count}} params"
+      },
+      "errors": {
+        "loadFailed": "Échec du chargement des paramètres",
+        "saveFailed": "Échec de l'enregistrement des paramètres"
+      },
+      "actions": {
+        "save": "Enregistrer les modifications",
+        "saving": "Enregistrement...",
+        "cancel": "Annuler"
+      }
+    }
+  },
+  "secrets": {
+    "manager": {
+      "title": "Gestionnaire de secrets",
+      "encryptionUnavailable": {
+        "title": "Chiffrement non disponible",
+        "message": "Le chiffrement sécurisé n'est pas disponible sur votre système. Veuillez vous assurer que votre système d'exploitation prend en charge le stockage sécurisé."
+      },
+      "about": {
+        "title": "À propos des secrets",
+        "description": "Les secrets sont des identifiants chiffrés de manière sécurisée qui se remplissent automatiquement dans vos projets générés. Créez des groupes de secrets avec plusieurs comptes, puis référencez-les dans vos fichiers de modèle à l'aide de paramètres secrets. Lors de la création de projets, sélectionnez le compte à utiliser et les valeurs sont automatiquement injectées."
+      },
+      "addGroup": "Ajouter un groupe de secrets",
+      "loading": "Chargement des secrets...",
+      "empty": {
+        "title": "Aucun groupe de secrets pour le moment",
+        "description": "Créez votre premier modèle de groupe de secrets pour stocker en toute sécurité les identifiants",
+        "action": "Créer un groupe de secrets"
+      },
+      "defaultAccounts": {
+        "title": "Comptes par défaut pour les modèles",
+        "description": "Sélectionnez le compte à utiliser par défaut lors de la création de projets à partir de modèles",
+        "placeholder": "Sélectionner le compte par défaut",
+        "accountsAvailable": "comptes disponibles"
+      },
+      "group": {
+        "account": "compte",
+        "accounts": "comptes",
+        "keys": "Clés",
+        "addAccount": "Ajouter un compte",
+        "noAccounts": "Aucun compte pour le moment. Cliquez sur \"Ajouter un compte\" pour en créer un."
+      },
+      "confirmDelete": {
+        "group": "Êtes-vous sûr de vouloir supprimer ce groupe de secrets et tous ses comptes ? Cette action ne peut pas être annulée.",
+        "account": "Êtes-vous sûr de vouloir supprimer ce compte ?"
+      }
     }
   },
   "debug": {

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import { Button } from '../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
@@ -119,6 +120,17 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
         });
     }
   }, [section]);
+
+  const handleSelectProjectPath = async () => {
+    try {
+      const path = await window.electronAPI.selectDirectory();
+      if (path) {
+        onSettingsChange({ ...settings, projectPath: path });
+      }
+    } catch {
+      // User cancelled - ignore
+    }
+  };
 
   if (section === 'agent') {
     return (
@@ -333,6 +345,22 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
             value={settings.autoBuildPath || ''}
             onChange={(e) => onSettingsChange({ ...settings, autoBuildPath: e.target.value })}
           />
+        </div>
+        <div className="space-y-3">
+          <Label htmlFor="projectPath" className="text-sm font-medium text-foreground">Default Projects Path</Label>
+          <p className="text-sm text-muted-foreground">Default location for new projects and templates</p>
+          <div className="flex gap-2 max-w-lg">
+            <Input
+              id="projectPath"
+              placeholder="Select a folder..."
+              className="flex-1"
+              value={settings.projectPath || ''}
+              onChange={(e) => onSettingsChange({ ...settings, projectPath: e.target.value })}
+            />
+            <Button variant="outline" onClick={handleSelectProjectPath}>
+              Browse
+            </Button>
+          </div>
         </div>
       </div>
     </SettingsSection>

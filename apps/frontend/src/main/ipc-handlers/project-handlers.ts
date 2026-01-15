@@ -1,7 +1,7 @@
 import { ipcMain, app } from 'electron';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 import { is } from '@electron-toolkit/utils';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
@@ -501,6 +501,62 @@ export function registerProjectHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // Clone a git repository
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_CLONE_REPOSITORY,
+    async (_, repoUrl: string, destinationPath: string): Promise<IPCResult<{ path: string }>> => {
+      try {
+        if (!existsSync(destinationPath)) {
+          return { success: false, error: 'Destination directory does not exist' };
+        }
+
+        // Extract repo name from URL (remove .git extension if present)
+        const repoName = repoUrl
+          .split('/')
+          .pop()
+          ?.replace(/\.git$/, '') || 'repo';
+
+        const clonePath = path.join(destinationPath, repoName);
+
+        // Check if directory already exists
+        if (existsSync(clonePath)) {
+          return { success: false, error: `Directory "${repoName}" already exists at this location` };
+        }
+
+        // Clone the repository
+        try {
+          execFileSync(getToolPath('git'), ['clone', repoUrl, clonePath], {
+            stdio: 'pipe',
+            encoding: 'utf-8'
+          });
+        } catch (gitError: unknown) {
+          // Parse git error message with proper type narrowing
+          let errorMessage = 'Git clone failed';
+          if (gitError && typeof gitError === 'object') {
+            if ('stderr' in gitError && typeof gitError.stderr === 'string') {
+              errorMessage = gitError.stderr;
+            } else if ('message' in gitError && typeof gitError.message === 'string') {
+              errorMessage = gitError.message;
+            }
+          }
+          return { success: false, error: errorMessage };
+        }
+
+        // Verify the clone was successful
+        if (!existsSync(clonePath)) {
+          return { success: false, error: 'Repository cloned but directory not found' };
+        }
+
+        return { success: true, data: { path: clonePath } };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to clone repository'
         };
       }
     }

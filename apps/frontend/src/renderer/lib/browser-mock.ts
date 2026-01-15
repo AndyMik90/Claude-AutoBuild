@@ -229,6 +229,29 @@ const browserMockAPI: ElectronAPI = {
     onAnalyzePreviewError: () => () => {}
   },
 
+  // Template operations
+  getTemplates: async () => ({ success: true, data: [] }),
+  saveTemplate: async () => ({ success: true, data: { id: '1', name: 'Mock', folderPath: '/mock', version: 1, createdAt: Date.now(), updatedAt: Date.now() } }),
+  deleteTemplate: async () => ({ success: true }),
+  updateTemplate: async () => ({ success: true, data: { id: '1', name: 'Mock', folderPath: '/mock', version: 2, createdAt: Date.now(), updatedAt: Date.now() } }),
+  copyTemplate: async () => ({ success: true, data: { path: '/mock/copied' } }),
+  copyTemplateWithName: async () => ({ success: true, data: { path: '/mock/copied' } }),
+  parseTemplateParameters: async () => ({ success: true, data: { parameters: [], totalFiles: 0, filesWithParameters: 0 } }),
+  copyTemplateWithParameters: async () => ({ success: true, data: { path: '/mock/copied' } }),
+
+  // Secrets operations
+  checkSecretsEncryption: async () => ({ success: true, data: true }),
+  getSecretGroups: async () => ({ success: true, data: [] }),
+  getSecretGroup: async () => ({ success: true, data: { id: '1', title: 'Mock', description: '', keyIds: [], accounts: [], createdAt: Date.now(), updatedAt: Date.now() } }),
+  createSecretGroup: async () => ({ success: true, data: { id: '1', title: 'Mock', description: '', keyIds: [], accounts: [], createdAt: Date.now(), updatedAt: Date.now() } }),
+  updateSecretGroup: async () => ({ success: true, data: { id: '1', title: 'Mock', description: '', keyIds: [], accounts: [], createdAt: Date.now(), updatedAt: Date.now() } }),
+  deleteSecretGroup: async () => ({ success: true }),
+  addSecretAccount: async () => ({ success: true, data: { id: '1', title: 'Mock', description: '', keyIds: [], accounts: [], createdAt: Date.now(), updatedAt: Date.now() } }),
+  updateSecretAccount: async () => ({ success: true, data: { id: '1', title: 'Mock', description: '', keyIds: [], accounts: [], createdAt: Date.now(), updatedAt: Date.now() } }),
+  deleteSecretAccount: async () => ({ success: true, data: { id: '1', title: 'Mock', description: '', keyIds: [], accounts: [], createdAt: Date.now(), updatedAt: Date.now() } }),
+  decryptSecretAccount: async () => ({ success: true, data: {} }),
+  decryptSecretAccountKey: async () => ({ success: true, data: 'mock-decrypted-value' }),
+
   // Claude Code Operations
   checkClaudeCodeVersion: async () => ({
     success: true,
@@ -277,6 +300,20 @@ const browserMockAPI: ElectronAPI = {
   setClaudeCodeActivePath: async (cliPath: string) => ({
     success: true,
     data: { path: cliPath }
+  }),
+
+  // Terminal Worktree Operations
+  createTerminalWorktree: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+  listTerminalWorktrees: async () => ({
+    success: true,
+    data: []
+  }),
+  removeTerminalWorktree: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
   }),
 
   // Terminal Worktree Operations

@@ -52,6 +52,7 @@ export interface ProjectAPI {
 
   // Dialog Operations
   selectDirectory: () => Promise<string | null>;
+  selectFile: () => Promise<string | null>;
   createProjectFolder: (
     location: string,
     name: string,
@@ -97,6 +98,7 @@ export interface ProjectAPI {
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;
   initializeGit: (projectPath: string) => Promise<IPCResult<InitializationResult>>;
+  cloneRepository: (repoUrl: string, destinationPath: string) => Promise<IPCResult<{ path: string }>>;
 
   // Ollama Model Detection
   checkOllamaStatus: (baseUrl?: string) => Promise<IPCResult<{
@@ -203,6 +205,9 @@ export const createProjectAPI = (): ProjectAPI => ({
   selectDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.DIALOG_SELECT_DIRECTORY),
 
+  selectFile: (): Promise<string | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.DIALOG_SELECT_FILE),
+
   createProjectFolder: (
     location: string,
     name: string,
@@ -276,6 +281,9 @@ export const createProjectAPI = (): ProjectAPI => ({
 
   initializeGit: (projectPath: string): Promise<IPCResult<InitializationResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_INITIALIZE, projectPath),
+
+  cloneRepository: (repoUrl: string, destinationPath: string): Promise<IPCResult<{ path: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_CLONE_REPOSITORY, repoUrl, destinationPath),
 
   // Ollama Model Detection
   checkOllamaStatus: (baseUrl?: string) =>
