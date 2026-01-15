@@ -369,5 +369,10 @@
     "conversionFailedDescription": "Failed to convert idea to task",
     "conversionError": "Conversion error",
     "conversionErrorDescription": "An error occurred while converting the idea"
+  },
+  "issues": {
+    "loadingMore": "Loading more...",
+    "scrollForMore": "Scroll for more",
+    "allLoaded": "All issues loaded"
   }
 }
