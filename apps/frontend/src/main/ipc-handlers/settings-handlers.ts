@@ -823,6 +823,10 @@ export function registerSettingsHandlers(
           return { success: false, error: 'No .env files found to reload' };
         }
 
+        // NOTE: This reload only affects the main Electron process and newly-spawned
+        // child processes. Already-running child processes (like Python backend agents)
+        // will continue using their original environment. Users should stop running
+        // tasks before reloading config, then start new tasks to use the updated values.
         return { success: true, data: { reloadedFiles } };
       } catch (error) {
         console.error('[CONFIG_RELOAD] Error:', error);
