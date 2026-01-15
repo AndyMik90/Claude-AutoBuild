@@ -24,13 +24,37 @@ const COLORS = {
   cyan: '\x1b[36m',
 };
 
+/**
+ * Log a message with optional color formatting.
+ * @param {string} msg - The message to log
+ * @param {string} [color='reset'] - Color key from COLORS object
+ */
 function log(msg, color = 'reset') {
   console.log(`${COLORS[color]}${msg}${COLORS.reset}`);
 }
 
+/**
+ * Log a success message with green checkmark.
+ * @param {string} msg - The success message
+ */
 function success(msg) { log(`✓ ${msg}`, 'green'); }
+
+/**
+ * Log an error message with red X mark.
+ * @param {string} msg - The error message
+ */
 function error(msg) { log(`✗ ${msg}`, 'red'); }
+
+/**
+ * Log an informational message with blue info icon.
+ * @param {string} msg - The info message
+ */
 function info(msg) { log(`ℹ ${msg}`, 'blue'); }
+
+/**
+ * Log a warning message with yellow warning icon.
+ * @param {string} msg - The warning message
+ */
 function warn(msg) { log(`⚠ ${msg}`, 'yellow'); }
 
 /**
