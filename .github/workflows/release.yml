@@ -10,7 +10,7 @@ on:
       dry_run:
         description: 'Test build without creating release'
         required: false
-        default: true
+        default: false
         type: boolean
 
 jobs:
