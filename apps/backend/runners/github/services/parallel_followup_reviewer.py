@@ -45,6 +45,7 @@ try:
     )
     from .category_utils import map_category
     from .io_utils import safe_print
+    from .pr_worktree_manager import PRWorktreeManager
     from .pydantic_models import ParallelFollowupResponse
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
@@ -64,6 +65,7 @@ except (ImportError, ValueError, SystemError):
     )
     from services.category_utils import map_category
     from services.io_utils import safe_print
+    from services.pr_worktree_manager import PRWorktreeManager
     from services.pydantic_models import ParallelFollowupResponse
     from services.sdk_utils import process_sdk_stream
 
