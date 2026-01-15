@@ -28,7 +28,7 @@ from claude_agent_sdk import AgentDefinition
 try:
     from ...core.client import create_client
     from ...phase_config import get_thinking_budget
-    from ..context_gatherer import PRContext, _validate_git_ref
+    from ..context_gatherer import PRContext, PRContextGatherer, _validate_git_ref
     from ..gh_client import GHClient
     from ..models import (
         BRANCH_BEHIND_BLOCKER_MSG,
@@ -45,7 +45,7 @@ try:
     from .pydantic_models import ParallelOrchestratorResponse
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
-    from context_gatherer import PRContext, _validate_git_ref
+    from context_gatherer import PRContext, PRContextGatherer, _validate_git_ref
     from core.client import create_client
     from gh_client import GHClient
     from models import (
@@ -468,11 +468,9 @@ The SDK will run invoked agents in parallel automatically.
                 pr_number=context.pr_number,
             )
 
-            # Build orchestrator prompt
-            prompt = self._build_orchestrator_prompt(context)
-
             # Create temporary worktree at PR head commit for isolated review
-            # This ensures agents read from the correct PR state, not the current checkout
+            # This MUST happen BEFORE building the prompt so we can find related files
+            # that exist in the PR but not in the current checkout
             head_sha = context.head_sha or context.head_branch
 
             if DEBUG_MODE:
@@ -518,12 +516,31 @@ The SDK will run invoked agents in parallel automatically.
                         head_sha, context.pr_number
                     )
                     project_root = worktree_path
-                    if DEBUG_MODE:
-                        safe_print(
-                            f"[PRReview] DEBUG: Using worktree as "
-                            f"project_root={project_root}",
-                            flush=True,
-                        )
+                    # Count files in worktree to give user visibility (with limit to avoid slowdown)
+                    MAX_FILE_COUNT = 10000
+                    try:
+                        file_count = 0
+                        for f in worktree_path.rglob("*"):
+                            if f.is_file() and ".git" not in f.parts:
+                                file_count += 1
+                                if file_count >= MAX_FILE_COUNT:
+                                    break
+                    except (OSError, PermissionError):
+                        file_count = 0
+                    file_count_str = (
+                        f"{file_count:,}+"
+                        if file_count >= MAX_FILE_COUNT
+                        else f"{file_count:,}"
+                    )
+                    # Always log worktree creation with file count (not gated by DEBUG_MODE)
+                    safe_print(
+                        f"[PRReview] Created temporary worktree: {worktree_path.name} ({file_count_str} files)",
+                        flush=True,
+                    )
+                    safe_print(
+                        f"[PRReview] Worktree contains PR branch HEAD: {head_sha[:8]}",
+                        flush=True,
+                    )
                 except (RuntimeError, ValueError) as e:
                     if DEBUG_MODE:
                         safe_print(
@@ -540,6 +557,29 @@ The SDK will run invoked agents in parallel automatically.
                         if self.project_dir.name == "backend"
                         else self.project_dir
                     )
+
+            # Rescan for related files using the worktree/project root
+            # This fixes the issue where related files were 0 because context gathering
+            # happened BEFORE the worktree was created (PR files didn't exist locally)
+            if context.changed_files:
+                new_related_files = PRContextGatherer.find_related_files_for_root(
+                    context.changed_files,
+                    project_root,
+                )
+                # Always log rescan result (not gated by DEBUG_MODE)
+                if new_related_files:
+                    context.related_files = new_related_files
+                    safe_print(
+                        f"[PRReview] Rescanned in worktree: found {len(new_related_files)} related files"
+                    )
+                else:
+                    safe_print(
+                        f"[PRReview] Rescanned in worktree: found 0 related files "
+                        f"(initial scan found {len(context.related_files)})"
+                    )
+
+            # Build orchestrator prompt AFTER worktree creation and related files rescan
+            prompt = self._build_orchestrator_prompt(context)
 
             # Use model and thinking level from config (user settings)
             model = self.config.model or "claude-sonnet-4-5-20250929"
@@ -575,6 +615,7 @@ The SDK will run invoked agents in parallel automatically.
                 stream_result = await process_sdk_stream(
                     client=client,
                     context_name="ParallelOrchestrator",
+                    model=model,
                 )
 
                 # Check for stream processing errors
