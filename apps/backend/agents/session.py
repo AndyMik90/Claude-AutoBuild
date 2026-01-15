@@ -332,8 +332,31 @@ async def receive_with_timeout(client: ClaudeSDKClient, timeout_seconds: int = R
 
     Raises:
         TimeoutError: If no message received within timeout_seconds
+        TypeError: If receive_response() returns wrong type
     """
     response_gen = client.receive_response()
+
+    # Debug: Check if we got the right type
+    response_type = type(response_gen).__name__
+    logger.debug(f"receive_response() returned type: {response_type}")
+
+    # Check if it's a list (wrong type)
+    if isinstance(response_gen, list):
+        logger.error(f"receive_response() returned list instead of AsyncIterator: {response_gen}")
+        raise TypeError(
+            f"client.receive_response() returned a list instead of AsyncIterator. "
+            f"This suggests the SDK client may be in an invalid state or a previous "
+            f"response wasn't fully consumed. List contents: {response_gen[:3] if len(response_gen) > 3 else response_gen}"
+        )
+
+    # Check if it has __anext__ method (required for async iteration)
+    if not hasattr(response_gen, '__anext__'):
+        logger.error(f"receive_response() returned non-async-iterable: {response_type}")
+        raise TypeError(
+            f"client.receive_response() returned {response_type} which is not an async iterator. "
+            f"Expected AsyncIterator[Message] but got {type(response_gen)}."
+        )
+
     while True:
         try:
             msg = await asyncio.wait_for(response_gen.__anext__(), timeout=timeout_seconds)

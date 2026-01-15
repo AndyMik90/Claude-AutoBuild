@@ -717,6 +717,82 @@ def load_claude_md(project_dir: Path) -> str | None:
     return None
 
 
+def get_claude_cli_version() -> tuple[int, int, int] | None:
+    """
+    Get the installed Claude CLI version.
+
+    Returns:
+        Tuple of (major, minor, patch) or None if version cannot be determined
+    """
+    try:
+        cli_path = find_claude_cli()
+        if not cli_path:
+            return None
+
+        result = subprocess.run(
+            [cli_path, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        if result.returncode != 0:
+            return None
+
+        # Parse version string (e.g., "2.1.7", "claude 2.1.7", "2.0.27 (Claude Code)")
+        version_str = result.stdout.strip()
+        # Remove "claude" prefix and anything in parentheses
+        version_str = version_str.replace("claude", "").strip()
+        if "(" in version_str:
+            version_str = version_str.split("(")[0].strip()
+
+        parts = version_str.split(".")
+        if len(parts) >= 3:
+            return (int(parts[0]), int(parts[1]), int(parts[2]))
+
+        return None
+    except Exception as e:
+        logger.debug(f"Failed to get Claude CLI version: {e}")
+        return None
+
+
+def supports_max_thinking_tokens() -> bool:
+    """
+    Check if the installed Claude CLI supports --max-thinking-tokens flag.
+
+    The flag was added in version 2.1.0. This function checks:
+    1. If CLAUDE_FORCE_THINKING_TOKENS=true env var is set (override)
+    2. If installed CLI version is >= 2.1.0
+
+    Returns:
+        True if --max-thinking-tokens is supported, False otherwise
+    """
+    # Allow override via environment variable
+    force_thinking = os.environ.get("CLAUDE_FORCE_THINKING_TOKENS", "").lower() == "true"
+    if force_thinking:
+        logger.info("CLAUDE_FORCE_THINKING_TOKENS=true, enabling --max-thinking-tokens")
+        return True
+
+    # Check CLI version
+    version = get_claude_cli_version()
+    if version is None:
+        logger.debug("Could not determine Claude CLI version, disabling --max-thinking-tokens")
+        return False
+
+    major, minor, patch = version
+
+    # --max-thinking-tokens was added in 2.1.0
+    supports = (major > 2) or (major == 2 and minor >= 1)
+
+    if not supports:
+        logger.info(
+            f"Claude CLI version {major}.{minor}.{patch} does not support --max-thinking-tokens "
+            f"(requires >= 2.1.0). Update with: brew upgrade claude-cli"
+        )
+
+    return supports
+
+
 def create_client(
     project_dir: Path,
     spec_dir: Path,
@@ -1109,7 +1185,6 @@ def create_client(
         "cwd": str(project_dir.resolve()),
         "settings": str(settings_file.resolve()),
         "env": sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess
-        "max_thinking_tokens": max_thinking_tokens,
         "max_buffer_size": 10
         * 1024
         * 1024,  # 10MB buffer (default: 1MB) - fixes large tool results
@@ -1117,6 +1192,16 @@ def create_client(
         # This prevents "File has not been read yet" errors in recovery sessions
         "enable_file_checkpointing": True,
     }
+
+    # Only include max_thinking_tokens if CLI supports it (requires Claude CLI >= 2.1.0)
+    # Can be overridden with CLAUDE_FORCE_THINKING_TOKENS=true env var
+    if max_thinking_tokens is not None and supports_max_thinking_tokens():
+        options_kwargs["max_thinking_tokens"] = max_thinking_tokens
+    elif max_thinking_tokens is not None:
+        logger.warning(
+            f"max_thinking_tokens={max_thinking_tokens} requested but Claude CLI does not support it. "
+            "Ignoring. Update Claude CLI or set CLAUDE_FORCE_THINKING_TOKENS=true to override."
+        )
 
     # Add CLI path if found (helps SDK find Claude Code in non-standard locations)
     if cli_path:
