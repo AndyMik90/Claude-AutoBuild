@@ -82,6 +82,7 @@ def cleanup_orphaned_pending_folders(specs_dir: Path) -> None:
         try:
             shutil.rmtree(folder)
         except OSError:
+            # Ignore cleanup errors - folder may have been deleted or is in use
             pass
 
 
@@ -140,6 +141,7 @@ def find_existing_spec_for_task(
                     req = json.load(f)
                     existing_task = req.get("task_description", "").lower().strip()
             except (json.JSONDecodeError, OSError):
+                # Skip if requirements.json is malformed or unreadable - use empty task
                 pass
 
         # Calculate task description similarity
@@ -212,6 +214,7 @@ def _get_spec_status(spec_dir: Path) -> str:
             elif completed > 0:
                 return "in_progress"
     except (json.JSONDecodeError, OSError):
+        # Unable to read plan file - default to initialized status
         pass
 
     return "initialized"
@@ -349,6 +352,7 @@ def cleanup_incomplete_pending_folders(specs_dir: Path, force: bool = False) -> 
                             should_clean = True
                             reason = "stale empty pending folder"
                     except OSError:
+                        # Can't get folder mtime - skip cleanup to be safe
                         pass
 
         if should_clean:
@@ -389,6 +393,7 @@ def create_spec_dir(specs_dir: Path, lock: SpecNumberLock | None = None) -> Path
                     num = int(folder.name[:3])
                     numbers.append(num)
                 except ValueError:
+                    # Folder name doesn't start with a number - skip
                     pass
             next_num = max(numbers) + 1 if numbers else 1
         else:
