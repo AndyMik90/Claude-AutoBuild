@@ -801,6 +801,8 @@ export function registerSettingsHandlers(
               if (!result.error) {
                 console.log(`[CONFIG_RELOAD] Reloaded frontend environment from: ${envPath}`);
                 reloadedFiles.push(envPath);
+              } else {
+                console.warn(`[CONFIG_RELOAD] Failed to parse frontend .env at ${envPath}:`, result.error.message);
               }
               break;
             }
@@ -816,6 +818,8 @@ export function registerSettingsHandlers(
           if (!result.error) {
             console.log(`[CONFIG_RELOAD] Reloaded backend environment from: ${backendEnvPath}`);
             reloadedFiles.push(backendEnvPath);
+          } else {
+            console.warn(`[CONFIG_RELOAD] Failed to parse backend .env at ${backendEnvPath}:`, result.error.message);
           }
         }
 

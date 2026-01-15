@@ -132,6 +132,11 @@ def sanitize_filename(filename: str) -> str:
     # Remove trailing dots and spaces (Windows doesn't allow them)
     sanitized = sanitized.rstrip(". ")
 
+    # Handle edge case where filename becomes empty after sanitization
+    # (e.g., input was "..." or "   ")
+    if not sanitized:
+        return "_"
+
     # Handle reserved names by prefixing with underscore
     name_part = sanitized.rsplit(".", 1)[0] if "." in sanitized else sanitized
     if name_part.upper() in _WINDOWS_RESERVED_NAMES:
