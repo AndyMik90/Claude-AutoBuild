@@ -52,14 +52,15 @@ import type { ProjectEnvConfig, AgentMcpOverrides, AgentMcpOverride, CustomMcpSe
 import { CustomMcpDialog } from './CustomMcpDialog';
 import { useTranslation } from 'react-i18next';
 import {
-  DEFAULT_PHASE_MODELS,
-  DEFAULT_PHASE_THINKING,
-  DEFAULT_FEATURE_MODELS,
-  DEFAULT_FEATURE_THINKING,
   AVAILABLE_MODELS,
   THINKING_LEVELS,
 } from '../../shared/constants/models';
-import { useResolvedAgentSettings, resolveAgentSettings as resolveAgentModelConfig } from '../lib/agent-settings-resolver';
+import {
+  useResolvedAgentSettings,
+  resolveAgentSettings as resolveAgentModelConfig,
+  type AgentSettingsSource,
+  type ResolvedAgentSettings,
+} from '../hooks/useResolvedAgentSettings';
 import type { ModelTypeShort, ThinkingLevel } from '../../shared/types/settings';
 
 // Agent configuration data - mirrors AGENT_CONFIGS from backend
@@ -72,17 +73,7 @@ interface AgentConfig {
   mcp_servers: string[];
   mcp_optional?: string[];
   // Maps to settings source - either a phase or a feature
-  settingsSource: {
-    type: 'phase';
-    phase: 'spec' | 'planning' | 'coding' | 'qa';
-  } | {
-    type: 'feature';
-    feature: 'insights' | 'ideation' | 'roadmap' | 'githubIssues' | 'githubPrs' | 'utility';
-  } | {
-    type: 'fixed';  // For agents not yet configurable
-    model: ModelTypeShort;
-    thinking: ThinkingLevel;
-  };
+  settingsSource: AgentSettingsSource;
 }
 
 // Helper to get model label from short name

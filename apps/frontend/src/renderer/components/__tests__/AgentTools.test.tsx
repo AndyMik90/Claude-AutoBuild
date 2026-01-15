@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { DEFAULT_AGENT_PROFILES, DEFAULT_PHASE_MODELS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../../shared/constants/models';
-import { resolveAgentSettings, type AgentSettingsSource } from '../../lib/agent-settings-resolver';
+import { resolveAgentSettings, type AgentSettingsSource } from '../../hooks/useResolvedAgentSettings';
 
 // Mock electronAPI
 global.window.electronAPI = {

@@ -1,5 +1,5 @@
 /**
- * Agent Settings Resolution Utility
+ * Agent Settings Resolution Hook
  *
  * Provides centralized logic for resolving agent model and thinking settings
  * based on the selected agent profile, custom overrides, and defaults.
@@ -76,17 +76,13 @@ export interface AgentModelConfig {
  * ```
  */
 export function useResolvedAgentSettings(settings: AppSettings): ResolvedAgentSettings {
-  // Get selected profile ID, default to 'auto'
-  const selectedProfileId = settings.selectedAgentProfile || 'auto';
-
-  // Find the selected profile
-  const selectedProfile = useMemo(
-    () => DEFAULT_AGENT_PROFILES.find((p) => p.id === selectedProfileId) || DEFAULT_AGENT_PROFILES[0],
-    [selectedProfileId]
-  );
-
-  // Memoize the resolved settings to avoid unnecessary re-renders
   return useMemo(() => {
+    // Get selected profile ID, default to 'auto'
+    const selectedProfileId = settings.selectedAgentProfile || 'auto';
+
+    // Find the selected profile
+    const selectedProfile = DEFAULT_AGENT_PROFILES.find((p) => p.id === selectedProfileId) || DEFAULT_AGENT_PROFILES[0];
+
     // Profile defaults (used when no custom overrides exist)
     const profilePhaseModels = selectedProfile.phaseModels || DEFAULT_PHASE_MODELS;
     const profilePhaseThinking = selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING;
@@ -105,7 +101,13 @@ export function useResolvedAgentSettings(settings: AppSettings): ResolvedAgentSe
       featureModels,
       featureThinking,
     };
-  }, [selectedProfile, settings.customPhaseModels, settings.customPhaseThinking, settings.featureModels, settings.featureThinking]);
+  }, [
+    settings.selectedAgentProfile,
+    settings.customPhaseModels,
+    settings.customPhaseThinking,
+    settings.featureModels,
+    settings.featureThinking,
+  ]);
 }
 
 /**
