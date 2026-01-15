@@ -654,10 +654,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div
+        <section
           ref={scrollContainerRef}
           onMouseDown={handleMouseDown}
-          role="region"
           aria-label={t('tasks:kanban.boardRegion')}
           className={cn(
             "flex flex-1 gap-4 overflow-x-auto p-6 cursor-grab select-none",
@@ -679,7 +678,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
             />
           ))}
-        </div>
+        </section>
 
         {/* Drag overlay - enhanced visual feedback */}
         <DragOverlay>

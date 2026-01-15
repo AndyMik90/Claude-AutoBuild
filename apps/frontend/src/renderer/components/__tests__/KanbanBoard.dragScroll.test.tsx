@@ -223,6 +223,7 @@ describe('KanbanBoard Drag-to-Scroll', () => {
       const boardRegion = getBoardRegion();
 
       // Mock scrollLeft as jsdom doesn't support actual scrolling
+      // Initial scroll position is 100
       let currentScrollLeft = 100;
       Object.defineProperty(boardRegion, 'scrollLeft', {
         get: () => currentScrollLeft,
@@ -230,15 +231,20 @@ describe('KanbanBoard Drag-to-Scroll', () => {
         configurable: true
       });
 
-      // Start drag at position 200
+      // Start drag at position 200 (dragStartX = 200, dragStartScrollLeft = 100)
       fireEvent.mouseDown(boardRegion, { clientX: 200 });
       expect(boardRegion).toHaveClass('cursor-grabbing');
 
-      // Move mouse to 250 (right by 50px) - this should scroll left (decrease scrollLeft)
+      // Move mouse to 250 (right by 50px from start)
+      // Formula: newScrollLeft = dragStartScrollLeft - (clientX - dragStartX)
+      // newScrollLeft = 100 - (250 - 200) = 100 - 50 = 50
       fireEvent.mouseMove(window, { clientX: 250 });
+      expect(currentScrollLeft).toBe(50);
 
-      // Move mouse to 150 (left by 50px from start) - this should scroll right (increase scrollLeft)
+      // Move mouse to 150 (left by 50px from start)
+      // newScrollLeft = 100 - (150 - 200) = 100 - (-50) = 150
       fireEvent.mouseMove(window, { clientX: 150 });
+      expect(currentScrollLeft).toBe(150);
 
       // Release
       fireEvent.mouseUp(window);
