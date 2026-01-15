@@ -1192,7 +1192,8 @@ export function registerTaskExecutionHandlers(
       const { title: taskTitle, description: taskDescription, metadata: taskMetadata, projectId } = task;
       let cleanedUpWorktree = false;
 
-      // Clean up git worktree if it exists
+      // Clean up git worktree if it exists (best-effort - cleanup failure shouldn't block task deletion)
+      // The cleanedUpWorktree flag in the response indicates whether cleanup succeeded
       const worktreePath = findTaskWorktree(project.path, task.specId);
       if (worktreePath) {
         try {
@@ -1251,9 +1252,6 @@ export function registerTaskExecutionHandlers(
           error: `Failed to delete task files: ${error instanceof Error ? error.message : String(error)}`
         };
       }
-
-      // Invalidate the task cache
-      projectStore.invalidateTasksCache(project.id);
 
       // Optionally recreate the task for retry
       if (options?.recreate && taskTitle && taskDescription) {
@@ -1337,10 +1335,13 @@ export function registerTaskExecutionHandlers(
         } catch (error) {
           console.error('[TASK_DELETE_AND_RETRY] Task recreation failed:', error);
           // If recreation fails, still report successful deletion
+          projectStore.invalidateTasksCache(project.id);
           return { success: true, data: { deleted: true, cleanedUpWorktree } };
         }
       }
 
+      // Invalidate cache after successful deletion (without recreation)
+      projectStore.invalidateTasksCache(project.id);
       return { success: true, data: { deleted: true, cleanedUpWorktree } };
     }
   );

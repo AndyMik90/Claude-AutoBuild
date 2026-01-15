@@ -74,9 +74,28 @@ export const taskMock = {
 
   checkTaskRunning: async () => ({ success: true, data: false }),
 
-  deleteAndRetryTask: async () => ({
+  deleteAndRetryTask: async (_taskId: string, options?: { recreate?: boolean }) => ({
     success: true,
-    data: { deleted: true, cleanedUpWorktree: false }
+    data: {
+      deleted: true,
+      cleanedUpWorktree: false,
+      // Include recreatedTask when recreate option is true
+      ...(options?.recreate && {
+        recreatedTask: {
+          id: 'mock-retry-001',
+          specId: 'mock-retry-001',
+          projectId: 'mock-project',
+          title: 'Retried Task',
+          description: 'Mock retried task',
+          status: 'backlog' as const,
+          subtasks: [],
+          logs: [],
+          metadata: { retriedFrom: _taskId },
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      })
+    }
   }),
 
   // Task logs operations
