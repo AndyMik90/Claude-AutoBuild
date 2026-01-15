@@ -40,9 +40,11 @@ from ..validate_pkg.spec_validator import SpecValidator
 from .agent_runner import AgentRunner
 from .models import (
     PHASE_DISPLAY,
-    cleanup_orphaned_pending_folders,
+    cleanup_incomplete_pending_folders,
     create_spec_dir,
+    find_existing_spec_for_task,
     get_specs_dir,
+    prompt_for_existing_spec_action,
     rename_spec_dir_from_requirements,
 )
 
@@ -84,8 +86,8 @@ class SpecOrchestrator:
         # Get the appropriate specs directory (within the project)
         self.specs_dir = get_specs_dir(self.project_dir)
 
-        # Clean up orphaned pending folders before creating new spec
-        cleanup_orphaned_pending_folders(self.specs_dir)
+        # Clean up incomplete pending folders before creating new spec
+        cleanup_incomplete_pending_folders(self.specs_dir)
 
         # Complexity assessment (populated during run)
         self.assessment: complexity.ComplexityAssessment | None = None
@@ -99,6 +101,31 @@ class SpecOrchestrator:
             self.spec_dir = self.specs_dir / spec_name
             self.spec_dir.mkdir(parents=True, exist_ok=True)
         else:
+            # Check for existing specs that might be for the same task
+            if task_description:
+                existing_specs = find_existing_spec_for_task(
+                    self.specs_dir, task_description
+                )
+                if existing_specs:
+                    action, chosen_spec = prompt_for_existing_spec_action(
+                        existing_specs, task_description
+                    )
+                    if action == "reuse" and chosen_spec:
+                        # Reuse existing spec
+                        self.spec_dir = chosen_spec
+                        self.validator = SpecValidator(self.spec_dir)
+                        return
+                    elif action == "overwrite" and chosen_spec:
+                        # Overwrite existing spec - delete and reuse path
+                        import shutil
+
+                        shutil.rmtree(chosen_spec)
+                        self.spec_dir = chosen_spec
+                        self.spec_dir.mkdir(parents=True, exist_ok=True)
+                        self.validator = SpecValidator(self.spec_dir)
+                        return
+                    # action == "new" - continue to create new spec
+
             # Use lock for coordinated spec numbering across worktrees
             with SpecNumberLock(self.project_dir) as lock:
                 self.spec_dir = create_spec_dir(self.specs_dir, lock)
