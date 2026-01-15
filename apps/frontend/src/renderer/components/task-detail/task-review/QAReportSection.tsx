@@ -1,7 +1,91 @@
-import { Image as ImageIcon, ZoomIn } from 'lucide-react';
-import { useState } from 'react';
+import { Image as ImageIcon, ZoomIn, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import type { QAReport } from '../../../../shared/types';
 import { Dialog, DialogContent } from '../../ui/dialog';
+
+/**
+ * Component for loading local screenshots via IPC (handles Electron security restrictions)
+ */
+function LocalScreenshot({
+  specsPath,
+  screenshotPath,
+  index,
+  onClick
+}: {
+  specsPath: string;
+  screenshotPath: string;
+  index: number;
+  onClick: (dataUrl: string) => void;
+}) {
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadImage = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        // Use the existing readLocalImage IPC which takes base path and relative path
+        const result = await window.electronAPI.readLocalImage(specsPath, screenshotPath);
+        if (result.success && result.data) {
+          setImageSrc(result.data);
+        } else {
+          setError(result.error || 'Failed to load screenshot');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load screenshot');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadImage();
+  }, [specsPath, screenshotPath]);
+
+  if (loading) {
+    return (
+      <div className="aspect-video flex items-center justify-center bg-muted rounded-lg">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !imageSrc) {
+    return (
+      <div className="aspect-video flex items-center justify-center bg-destructive/10 rounded-lg border border-destructive/30">
+        <div className="text-center p-2">
+          <ImageIcon className="h-6 w-6 text-destructive mx-auto mb-1" />
+          <p className="text-xs text-destructive">{error || 'Not found'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(imageSrc)}
+      className="relative group rounded-lg border border-border bg-card overflow-hidden hover:border-primary transition-colors cursor-pointer w-full"
+    >
+      <div className="aspect-video flex items-center justify-center bg-muted">
+        <img
+          src={imageSrc}
+          alt={`QA Screenshot ${index + 1}`}
+          className="w-full h-full object-contain"
+        />
+      </div>
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
+        <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+        <p className="text-xs text-white font-medium truncate">
+          {screenshotPath.split('/').pop()}
+        </p>
+      </div>
+    </button>
+  );
+}
 
 interface QAReportSectionProps {
   qaReport: QAReport | undefined;
@@ -47,45 +131,18 @@ export function QAReportSection({ qaReport, specsPath }: QAReportSectionProps) {
             const verdict = typeof screenshot === 'object' ? screenshot.verdict : undefined;
             const description = typeof screenshot === 'object' ? screenshot.description : undefined;
 
-            // Construct full path to screenshot
-            // specsPath is the full path to spec directory
-            // screenshotPath is relative path from spec directory
-            const fullPath = specsPath
-              ? `file://${specsPath}/${screenshotPath}`
-              : undefined;
-
-            if (!fullPath) {
+            if (!specsPath) {
               return null;
             }
 
             return (
               <div key={index} className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedScreenshot(fullPath)}
-                  className="relative group rounded-lg border border-border bg-card overflow-hidden hover:border-primary transition-colors cursor-pointer w-full"
-                >
-                  {/* Thumbnail */}
-                  <div className="aspect-video flex items-center justify-center bg-muted">
-                    <img
-                      src={fullPath}
-                      alt={`QA Screenshot ${index + 1}`}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
-                    <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-
-                  {/* File info */}
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                    <p className="text-xs text-white font-medium truncate">
-                      {screenshotPath.split('/').pop()}
-                    </p>
-                  </div>
-                </button>
+                <LocalScreenshot
+                  specsPath={specsPath}
+                  screenshotPath={screenshotPath}
+                  index={index}
+                  onClick={(dataUrl) => setSelectedScreenshot(dataUrl)}
+                />
 
                 {/* QA Verdict and Description */}
                 {(verdict || description) && (
