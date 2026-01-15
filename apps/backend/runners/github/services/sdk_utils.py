@@ -255,8 +255,14 @@ async def process_sdk_stream(
                                 if agent_name not in agents_invoked:
                                     agents_invoked.append(agent_name)
                                     subagent_tool_ids[tool_id] = agent_name
+                                    # Log with model info if available
+                                    model_info = (
+                                        f" [{_short_model_name(model)}]"
+                                        if model
+                                        else ""
+                                    )
                                     safe_print(
-                                        f"[{context_name}] Invoking agent: {agent_name}"
+                                        f"[{context_name}] Invoking agent: {agent_name}{model_info}"
                                     )
                             elif tool_name == "StructuredOutput":
                                 if tool_input:
