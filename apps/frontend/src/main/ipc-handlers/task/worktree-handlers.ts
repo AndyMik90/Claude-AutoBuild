@@ -3002,6 +3002,9 @@ export function registerWorktreeHandlers(
           // Get Python environment for bundled packages
           const pythonEnv = pythonEnvManagerSingleton.getPythonEnv();
 
+          // Get gh CLI path to pass to Python backend
+          const ghCliPath = getToolPath('gh');
+
           // Parse Python command to handle space-separated commands like "py -3"
           const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
           const createPRProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
@@ -3010,6 +3013,7 @@ export function registerWorktreeHandlers(
               ...process.env,
               ...pythonEnv,
               ...profileEnv,
+              GITHUB_CLI_PATH: ghCliPath,
               PYTHONUNBUFFERED: '1',
               PYTHONUTF8: '1'
             },
