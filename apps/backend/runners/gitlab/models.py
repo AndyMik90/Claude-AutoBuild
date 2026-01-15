@@ -208,7 +208,7 @@ class GitLabRunnerConfig:
     instance_url: str = "https://gitlab.com"
 
     # Model settings
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-sonnet-4-5-20250929"
     thinking_level: str = "medium"
 
     def to_dict(self) -> dict:
