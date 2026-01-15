@@ -544,15 +544,21 @@ function parseLogLine(line: string): { source: string; content: string; isError:
  * Determine the phase from source
  */
 function getPhaseFromSource(source: string): PRLogPhase {
-  const contextSources = ["Context", "BotDetector"];
+  // Context phase: gathering PR data, commits, files, feedback
+  // Note: "Followup" is context gathering for follow-up reviews (comparing commits, finding changes)
+  const contextSources = ["Context", "BotDetector", "Followup"];
+  // Analysis phase: AI agents analyzing code
   const analysisSources = [
     "AI",
     "Orchestrator",
     "ParallelOrchestrator",
     "ParallelFollowup",
-    "Followup",
     "orchestrator",
+    "PRReview", // Worktree creation and PR-specific analysis
+    "ClientCache", // SDK client cache operations
   ];
+  // Synthesis phase: final summary and results
+  // Note: "Progress" logs are redundant (shown in progress bar) but kept for completeness
   const synthesisSources = ["PR Review Engine", "Summary", "Progress"];
 
   if (contextSources.includes(source)) return "context";
