@@ -31,6 +31,7 @@ from claude_agent_sdk import AgentDefinition
 
 try:
     from ...core.client import create_client
+    from ....core.language_injection import get_localized_prompt_path
     from ...phase_config import get_thinking_budget
     from ..context_gatherer import _validate_git_ref
     from ..gh_client import GHClient
@@ -143,10 +144,9 @@ class ParallelFollowupReviewer:
             )
 
     def _load_prompt(self, filename: str) -> str:
-        """Load a prompt file from the prompts/github directory."""
-        prompt_file = (
-            Path(__file__).parent.parent.parent.parent / "prompts" / "github" / filename
-        )
+        """Load a localized prompt file from the prompts directory."""
+        prompts_dir = Path(__file__).parent.parent.parent.parent / "prompts"
+        prompt_file = get_localized_prompt_path(prompts_dir, f"github/{filename}")
         if prompt_file.exists():
             return prompt_file.read_text(encoding="utf-8")
         logger.warning(f"Prompt file not found: {prompt_file}")

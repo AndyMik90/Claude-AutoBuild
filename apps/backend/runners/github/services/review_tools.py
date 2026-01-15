@@ -17,6 +17,7 @@ from pathlib import Path
 try:
     from ...analysis.test_discovery import TestDiscovery
     from ...core.client import create_client
+    from ....core.language_injection import get_localized_prompt_path
     from ..context_gatherer import PRContext
     from ..models import PRReviewFinding, ReviewSeverity
     from .category_utils import map_category
@@ -98,13 +99,9 @@ async def spawn_security_review(
         # Build focused context with only specified files
         focused_patches = _build_focused_patches(files, pr_context)
 
-        # Load security agent prompt
-        prompt_file = (
-            Path(__file__).parent.parent.parent.parent
-            / "prompts"
-            / "github"
-            / "pr_security_agent.md"
-        )
+        # Load security agent prompt with localization support
+        prompts_dir = Path(__file__).parent.parent.parent.parent / "prompts"
+        prompt_file = get_localized_prompt_path(prompts_dir, "github/pr_security_agent.md")
         if prompt_file.exists():
             base_prompt = prompt_file.read_text(encoding="utf-8")
         else:
@@ -186,13 +183,9 @@ async def spawn_quality_review(
     try:
         focused_patches = _build_focused_patches(files, pr_context)
 
-        # Load quality agent prompt
-        prompt_file = (
-            Path(__file__).parent.parent.parent.parent
-            / "prompts"
-            / "github"
-            / "pr_quality_agent.md"
-        )
+        # Load quality agent prompt with localization support
+        prompts_dir = Path(__file__).parent.parent.parent.parent / "prompts"
+        prompt_file = get_localized_prompt_path(prompts_dir, "github/pr_quality_agent.md")
         if prompt_file.exists():
             base_prompt = prompt_file.read_text(encoding="utf-8")
         else:

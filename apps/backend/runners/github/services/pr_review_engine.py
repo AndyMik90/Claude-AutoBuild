@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from ....core.language_injection import get_localized_prompt_path
     from ..context_gatherer import PRContext
     from ..models import (
         AICommentTriage,
@@ -469,13 +470,9 @@ class PRReviewEngine:
         """Run the structural review pass."""
         from core.client import create_client
 
-        # Load the structural prompt file
-        prompt_file = (
-            Path(__file__).parent.parent.parent.parent
-            / "prompts"
-            / "github"
-            / "pr_structural.md"
-        )
+        # Load the structural prompt file with localization support
+        prompts_dir = Path(__file__).parent.parent.parent.parent / "prompts"
+        prompt_file = get_localized_prompt_path(prompts_dir, "github/pr_structural.md")
         if prompt_file.exists():
             prompt = prompt_file.read_text(encoding="utf-8")
         else:
@@ -522,13 +519,9 @@ class PRReviewEngine:
         if not context.ai_bot_comments:
             return "[]"
 
-        # Load the AI triage prompt file
-        prompt_file = (
-            Path(__file__).parent.parent.parent.parent
-            / "prompts"
-            / "github"
-            / "pr_ai_triage.md"
-        )
+        # Load the AI triage prompt file with localization support
+        prompts_dir = Path(__file__).parent.parent.parent.parent / "prompts"
+        prompt_file = get_localized_prompt_path(prompts_dir, "github/pr_ai_triage.md")
         if prompt_file.exists():
             prompt = prompt_file.read_text(encoding="utf-8")
         else:

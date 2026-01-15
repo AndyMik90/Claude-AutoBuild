@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from core.language_injection import get_localized_prompt_path
+
 try:
     from ..models import ReviewPass
 except (ImportError, ValueError, SystemError):
@@ -302,8 +304,10 @@ Output JSON array:
         return prompts.get(review_pass, "")
 
     def get_pr_review_prompt(self) -> str:
-        """Get the main PR review prompt."""
-        prompt_file = self.prompts_dir / "pr_reviewer.md"
+        """Get the main PR review prompt with localization support."""
+        # For github subdirectory, use parent prompts_dir and include "github/" in filename
+        base_prompts_dir = self.prompts_dir.parent.parent
+        prompt_file = get_localized_prompt_path(base_prompts_dir, "github/pr_reviewer.md")
         if prompt_file.exists():
             return prompt_file.read_text(encoding="utf-8")
         return self._get_default_pr_review_prompt()
@@ -342,8 +346,10 @@ Be specific and actionable. Focus on significant issues, not nitpicks.
 """
 
     def get_followup_review_prompt(self) -> str:
-        """Get the follow-up PR review prompt."""
-        prompt_file = self.prompts_dir / "pr_followup.md"
+        """Get the follow-up PR review prompt with localization support."""
+        # For github subdirectory, use parent prompts_dir and include "github/" in filename
+        base_prompts_dir = self.prompts_dir.parent.parent
+        prompt_file = get_localized_prompt_path(base_prompts_dir, "github/pr_followup.md")
         if prompt_file.exists():
             return prompt_file.read_text(encoding="utf-8")
         return self._get_default_followup_review_prompt()
@@ -384,8 +390,10 @@ Output JSON:
 """
 
     def get_triage_prompt(self) -> str:
-        """Get the issue triage prompt."""
-        prompt_file = self.prompts_dir / "issue_triager.md"
+        """Get the issue triage prompt with localization support."""
+        # For github subdirectory, use parent prompts_dir and include "github/" in filename
+        base_prompts_dir = self.prompts_dir.parent.parent
+        prompt_file = get_localized_prompt_path(base_prompts_dir, "github/issue_triager.md")
         if prompt_file.exists():
             return prompt_file.read_text(encoding="utf-8")
         return self._get_default_triage_prompt()
