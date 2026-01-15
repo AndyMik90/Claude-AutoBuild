@@ -94,7 +94,10 @@ export const useIssuesStore = create<IssuesState>((set, get) => ({
 
   resetPagination: () => set({
     currentPage: 1,
-    hasMore: true
+    hasMore: true,
+    // Clear selection when resetting pagination to prevent orphaned selections
+    // (e.g., when clearing search, the selected issue may no longer be in the results)
+    selectedIssueNumber: null
   }),
 
   // Selectors

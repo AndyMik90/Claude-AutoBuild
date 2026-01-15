@@ -7,7 +7,8 @@ import type {
   GitHubInvestigationStatus,
   GitHubInvestigationResult,
   IPCResult,
-  VersionSuggestion
+  VersionSuggestion,
+  PaginatedIssuesResult
 } from '../../../shared/types';
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
@@ -145,13 +146,8 @@ export interface WorkflowsAwaitingApprovalResult {
   error?: string;
 }
 
-/**
- * Paginated issues result
- */
-export interface PaginatedIssuesResult {
-  issues: GitHubIssue[];
-  hasMore: boolean;
-}
+// Re-export PaginatedIssuesResult from shared types for API consumers
+export type { PaginatedIssuesResult };
 
 /**
  * GitHub Integration API operations

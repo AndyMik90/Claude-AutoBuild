@@ -33,6 +33,11 @@ export function useGitHubIssues(projectId: string | undefined) {
   // Track if search is active (need to load all issues for search)
   const [isSearchActive, setIsSearchActive] = useState(false);
 
+  // Reset search state when projectId changes to prevent incorrect fetchAll mode
+  useEffect(() => {
+    setIsSearchActive(false);
+  }, [projectId]);
+
   // Always check connection when component mounts or projectId changes
   useEffect(() => {
     if (projectId) {
@@ -64,12 +69,11 @@ export function useGitHubIssues(projectId: string | undefined) {
 
   const handleFilterChange = useCallback(
     (state: FilterState) => {
+      // Only update filter state - useEffect handles loading when filterState changes
+      // This prevents duplicate API calls
       setFilterState(state);
-      if (projectId) {
-        loadGitHubIssues(projectId, state, isSearchActive);
-      }
     },
-    [projectId, setFilterState, isSearchActive]
+    [setFilterState]
   );
 
   const handleLoadMore = useCallback(() => {

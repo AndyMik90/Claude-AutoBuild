@@ -4,7 +4,7 @@
 
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
-import type { IPCResult, GitHubIssue } from '../../../shared/types';
+import type { IPCResult, GitHubIssue, PaginatedIssuesResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import { getGitHubConfig, githubFetch, normalizeRepoReference } from './utils';
 import type { GitHubAPIIssue, GitHubAPIComment } from './types';
@@ -44,14 +44,6 @@ function transformIssue(issue: GitHubAPIIssue, repoFullName: string): GitHubIssu
     htmlUrl: issue.html_url,
     repoFullName
   };
-}
-
-/**
- * Result type for paginated issue fetching
- */
-interface PaginatedIssuesResult {
-  issues: GitHubIssue[];
-  hasMore: boolean;
 }
 
 /**
