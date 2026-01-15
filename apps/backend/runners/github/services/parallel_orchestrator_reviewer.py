@@ -275,19 +275,35 @@ class ParallelOrchestratorReviewer:
         if len(diff_content) > MAX_DIFF_CHARS:
             diff_content = diff_content[:MAX_DIFF_CHARS] + "\n\n... (diff truncated)"
 
-        # Build AI comments context if present
+        # Build AI comments context if present (with timestamps for timeline awareness)
         ai_comments_section = ""
         if context.ai_bot_comments:
             ai_comments_list = []
             for comment in context.ai_bot_comments[:20]:
                 ai_comments_list.append(
-                    f"- **{comment.tool_name}** on {comment.file or 'general'}: "
+                    f"- **{comment.tool_name}** ({comment.created_at}) on {comment.file or 'general'}: "
                     f"{comment.body[:200]}..."
                 )
             ai_comments_section = f"""
 ### AI Review Comments (need triage)
-Found {len(context.ai_bot_comments)} comments from AI tools:
+Found {len(context.ai_bot_comments)} comments from AI tools.
+**IMPORTANT: Check timestamps! If a later commit fixed an AI-flagged issue, use ADDRESSED verdict (not FALSE_POSITIVE).**
+
 {chr(10).join(ai_comments_list)}
+"""
+
+        # Build commits timeline section (important for AI triage)
+        commits_section = ""
+        if context.commits:
+            commits_list = []
+            for commit in context.commits:
+                sha = commit.get("oid", "")[:8]
+                message = commit.get("messageHeadline", "")
+                committed_at = commit.get("committedDate", "")
+                commits_list.append(f"- `{sha}` ({committed_at}): {message}")
+            commits_section = f"""
+### Commit Timeline
+{chr(10).join(commits_list)}
 """
 
         pr_context = f"""
@@ -307,7 +323,7 @@ Found {len(context.ai_bot_comments)} comments from AI tools:
 
 ### All Changed Files
 {chr(10).join(files_list)}
-{ai_comments_section}
+{commits_section}{ai_comments_section}
 ### Code Changes
 ```diff
 {diff_content}

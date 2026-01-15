@@ -111,7 +111,12 @@ class AICommentTriage(BaseModel):
         description="AI tool name (CodeRabbit, Cursor, Greptile, etc.)"
     )
     verdict: Literal[
-        "critical", "important", "nice_to_have", "trivial", "false_positive"
+        "critical",
+        "important",
+        "nice_to_have",
+        "trivial",
+        "addressed",
+        "false_positive",
     ] = Field(description="Verdict on the comment")
     reasoning: str = Field(description="Why this verdict was chosen")
     response_comment: str | None = Field(
@@ -611,8 +616,10 @@ class FindingValidationResult(BaseModel):
             "This is the proof that determines the validation status."
         ),
     )
-    line_range: tuple[int, int] = Field(
-        description="Start and end line numbers of the examined code"
+    line_range: list[int] = Field(
+        min_length=2,
+        max_length=2,
+        description="Start and end line numbers of the examined code [start, end]",
     )
     explanation: str = Field(
         min_length=20,
