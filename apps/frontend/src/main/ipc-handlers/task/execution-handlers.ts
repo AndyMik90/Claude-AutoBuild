@@ -1247,6 +1247,9 @@ export function registerTaskExecutionHandlers(
       try {
         await rm(specDir, { recursive: true, force: true });
       } catch (error) {
+        // Invalidate cache even on failure - worktree may have been cleaned up
+        // and we don't want stale data in the UI
+        projectStore.invalidateTasksCache(project.id);
         return {
           success: false,
           error: `Failed to delete task files: ${error instanceof Error ? error.message : String(error)}`
