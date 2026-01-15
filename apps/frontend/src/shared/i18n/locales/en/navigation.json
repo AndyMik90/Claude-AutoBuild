@@ -30,6 +30,15 @@
   "messages": {
     "initializeToCreateTasks": "Initialize Auto Claude to create tasks"
   },
+  "updateBanner": {
+    "title": "Update Available",
+    "version": "Version {{version}} is ready",
+    "updateAndRestart": "Update and Restart",
+    "installAndRestart": "Install and Restart",
+    "downloading": "Downloading...",
+    "dismiss": "Dismiss",
+    "downloadError": "Failed to download update"
+  },
   "claudeCode": {
     "checking": "Checking Claude Code...",
     "upToDate": "Claude Code is up to date",

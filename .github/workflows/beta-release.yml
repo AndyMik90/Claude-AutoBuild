@@ -557,10 +557,12 @@ jobs:
         with:
           path: dist
 
-      - name: Flatten and validate artifacts
+      - name: Flatten binary artifacts
         run: |
           mkdir -p release-assets
-          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" -o -name "*.yml" \) -exec cp {} release-assets/ \;
+
+          # Copy binary artifacts (these have unique names per architecture)
+          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
 
           # Validate that at least one artifact was copied
           artifact_count=$(find release-assets -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) | wc -l)
@@ -569,8 +571,83 @@ jobs:
             exit 1
           fi
 
-          echo "Found $artifact_count artifact(s):"
+          echo "Found $artifact_count binary artifact(s):"
           ls -la release-assets/
+
+      # Merge macOS manifests from Intel and ARM64 builds
+      # See: https://github.com/electron-userland/electron-builder/issues/5592
+      - name: Merge macOS manifests
+        uses: ./.github/actions/merge-macos-manifests
+        with:
+          dist-path: dist
+          output-path: release-assets
+          copy-other-manifests: 'true'
+
+      - name: Rename and validate beta manifests
+        run: |
+          cd release-assets
+
+          echo "=== Current manifest files ==="
+          ls -la *.yml 2>/dev/null || echo "No yml files found yet"
+
+          # electron-builder generates latest*.yml files by default
+          # For beta channel, electron-updater expects beta*.yml files
+          # Rename: latest.yml -> beta.yml, latest-mac.yml -> beta-mac.yml, latest-linux.yml -> beta-linux.yml
+
+          # Windows: latest.yml -> beta.yml
+          if [ -f "latest.yml" ]; then
+            echo "Renaming latest.yml -> beta.yml (Windows)"
+            mv latest.yml beta.yml
+          fi
+
+          # macOS: latest-mac.yml -> beta-mac.yml
+          if [ -f "latest-mac.yml" ]; then
+            echo "Renaming latest-mac.yml -> beta-mac.yml (macOS)"
+            mv latest-mac.yml beta-mac.yml
+          fi
+
+          # Linux: latest-linux.yml -> beta-linux.yml
+          if [ -f "latest-linux.yml" ]; then
+            echo "Renaming latest-linux.yml -> beta-linux.yml (Linux)"
+            mv latest-linux.yml beta-linux.yml
+          fi
+
+          # Linux ARM64: latest-linux-arm64.yml -> beta-linux-arm64.yml (if exists)
+          if [ -f "latest-linux-arm64.yml" ]; then
+            echo "Renaming latest-linux-arm64.yml -> beta-linux-arm64.yml (Linux ARM64)"
+            mv latest-linux-arm64.yml beta-linux-arm64.yml
+          fi
+
+          echo ""
+          echo "=== Beta manifest files after rename ==="
+          ls -la *.yml 2>/dev/null || echo "No yml files found"
+
+          # Validate required beta manifests exist
+          missing_manifests=""
+
+          if [ ! -f "beta-mac.yml" ]; then
+            missing_manifests="$missing_manifests beta-mac.yml"
+          fi
+
+          if [ ! -f "beta.yml" ]; then
+            missing_manifests="$missing_manifests beta.yml"
+          fi
+
+          if [ ! -f "beta-linux.yml" ]; then
+            missing_manifests="$missing_manifests beta-linux.yml"
+          fi
+
+          if [ -n "$missing_manifests" ]; then
+            echo "::error::Missing required beta manifests:$missing_manifests"
+            echo "::error::Auto-update will fail on affected platforms without these files!"
+            exit 1
+          fi
+
+          echo ""
+          echo "All required beta manifests present:"
+          echo "  - beta-mac.yml (macOS)"
+          echo "  - beta.yml (Windows)"
+          echo "  - beta-linux.yml (Linux)"
 
       - name: Generate checksums
         run: |
@@ -610,10 +687,53 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.dry_run == 'true' }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist
+
+      - name: Flatten binary artifacts
+        run: |
+          mkdir -p release-assets
+          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
+
+      # Merge macOS manifests (same logic as real release)
+      - name: Merge macOS manifests
+        uses: ./.github/actions/merge-macos-manifests
+        with:
+          dist-path: dist
+          output-path: release-assets
+          copy-other-manifests: 'true'
+
+      - name: Validate and rename beta manifests
+        run: |
+          cd release-assets
+
+          # Rename latest*.yml to beta*.yml
+          [ -f "latest.yml" ] && mv latest.yml beta.yml
+          [ -f "latest-mac.yml" ] && mv latest-mac.yml beta-mac.yml
+          [ -f "latest-linux.yml" ] && mv latest-linux.yml beta-linux.yml
+          [ -f "latest-linux-arm64.yml" ] && mv latest-linux-arm64.yml beta-linux-arm64.yml
+
+          # Validate required manifests
+          missing=""
+          [ ! -f "beta-mac.yml" ] && missing="$missing beta-mac.yml"
+          [ ! -f "beta.yml" ] && missing="$missing beta.yml"
+          [ ! -f "beta-linux.yml" ] && missing="$missing beta-linux.yml"
+
+          if [ -n "$missing" ]; then
+            echo "::warning::DRY RUN: Missing required beta manifests:$missing"
+            echo "MANIFEST_STATUS=FAILED" >> $GITHUB_ENV
+          else
+            echo "MANIFEST_STATUS=PASSED" >> $GITHUB_ENV
+
+            # Show merged manifest content for verification
+            echo ""
+            echo "=== beta-mac.yml content (should have both architectures) ==="
+            cat beta-mac.yml
+          fi
 
       - name: Dry run summary
         run: |
@@ -621,9 +741,23 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ needs.create-tag.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Build artifacts created successfully:" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Build Artifacts" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Update Manifests (Required for Auto-Update)" >> $GITHUB_STEP_SUMMARY
+          if [ "$MANIFEST_STATUS" = "PASSED" ]; then
+            echo "All required beta manifests present:" >> $GITHUB_STEP_SUMMARY
+            echo "- beta-mac.yml (macOS)" >> $GITHUB_STEP_SUMMARY
+            echo "- beta.yml (Windows)" >> $GITHUB_STEP_SUMMARY
+            echo "- beta-linux.yml (Linux)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**WARNING: Missing required manifests! Auto-update will fail.**" >> $GITHUB_STEP_SUMMARY
+            echo "Check build logs for details." >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
           echo "To create a real release, run this workflow again with dry_run unchecked." >> $GITHUB_STEP_SUMMARY

@@ -369,5 +369,10 @@
     "conversionFailedDescription": "Impossible de convertir l'idée en tâche",
     "conversionError": "Erreur de conversion",
     "conversionErrorDescription": "Une erreur s'est produite lors de la conversion de l'idée"
+  },
+  "issues": {
+    "loadingMore": "Chargement...",
+    "scrollForMore": "Défiler pour plus",
+    "allLoaded": "Toutes les issues chargées"
   }
 }
