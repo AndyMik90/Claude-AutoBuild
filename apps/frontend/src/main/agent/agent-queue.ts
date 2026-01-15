@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { existsSync, promises as fsPromises } from 'fs';
 import { EventEmitter } from 'events';
+import { app } from 'electron';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
@@ -299,7 +300,8 @@ export class AgentQueueManager {
       ...apiProfileEnv,
       PYTHONPATH: combinedPythonPath,
       PYTHONUNBUFFERED: '1',
-      PYTHONUTF8: '1'
+      PYTHONUTF8: '1',
+      AUTO_CLAUDE_APP_DATA: app.getPath('userData')
     };
 
     // Debug: Show OAuth token source (token values intentionally omitted for security - AC4)
@@ -626,7 +628,8 @@ export class AgentQueueManager {
       ...apiProfileEnv,
       PYTHONPATH: combinedPythonPath,
       PYTHONUNBUFFERED: '1',
-      PYTHONUTF8: '1'
+      PYTHONUTF8: '1',
+      AUTO_CLAUDE_APP_DATA: app.getPath('userData')
     };
 
     // Debug: Show OAuth token source (token values intentionally omitted for security - AC4)

@@ -164,7 +164,8 @@ export class AgentProcessManager {
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
-      PYTHONUTF8: '1'
+      PYTHONUTF8: '1',
+      AUTO_CLAUDE_APP_DATA: app.getPath('userData')
     } as NodeJS.ProcessEnv;
   }
 
@@ -748,8 +749,11 @@ export class AgentProcessManager {
     const projectFileEnv = this.loadProjectEnv(projectPath);
     const projectSettingsEnv = this.getProjectEnvVars(projectPath);
 
-    // Priority: app-wide memory -> backend .env -> project .env -> project settings
+    // Priority: app-wide memory -> backend .env -> project .env -> project settings -> app data
     // Later sources override earlier ones
-    return { ...memoryEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
+    const appDataEnv: Record<string, string> = {
+      AUTO_CLAUDE_APP_DATA: app.getPath('userData')
+    };
+    return { ...memoryEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv, ...appDataEnv };
   }
 }
