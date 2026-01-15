@@ -2932,6 +2932,7 @@ export function registerWorktreeHandlers(
           const { execSync } = await import('child_process');
           const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm'];
           let launched = false;
+          let lastError: Error | null = null;
 
           for (const term of terminals) {
             try {
@@ -2939,33 +2940,57 @@ export function registerWorktreeHandlers(
               execSync(`which ${term}`, { stdio: 'ignore' });
 
               // Terminal exists, spawn it with escaped path
+              let proc;
               if (term === 'gnome-terminal') {
-                spawn(term, ['--', 'bash', '-c', `cd '${escapedPath}' && ${devCommand}; exec bash`], {
+                proc = spawn(term, ['--', 'bash', '-c', `cd '${escapedPath}' && ${devCommand}; exec bash`], {
                   detached: true,
                   stdio: 'ignore'
-                }).unref();
+                });
               } else if (term === 'konsole') {
                 // konsole's --workdir accepts the path directly (no shell interpolation)
-                spawn(term, ['--workdir', worktreePath, '-e', 'bash', '-c', `${devCommand}; exec bash`], {
+                proc = spawn(term, ['--workdir', worktreePath, '-e', 'bash', '-c', `${devCommand}; exec bash`], {
                   detached: true,
                   stdio: 'ignore'
-                }).unref();
+                });
               } else {
-                spawn(term, ['-e', `bash -c "cd '${escapedPath}' && ${devCommand}; exec bash"`], {
+                proc = spawn(term, ['-e', `bash -c "cd '${escapedPath}' && ${devCommand}; exec bash"`], {
                   detached: true,
                   stdio: 'ignore'
-                }).unref();
+                });
               }
+
+              // Handle spawn errors - spawn itself doesn't throw synchronously for most errors,
+              // but emits an 'error' event. We listen briefly to catch immediate failures.
+              let spawnFailed = false;
+              proc.once('error', (err) => {
+                spawnFailed = true;
+                lastError = err;
+              });
+
+              // Give a brief moment for synchronous spawn errors to propagate
+              await new Promise(resolve => setImmediate(resolve));
+
+              if (spawnFailed) {
+                // Spawn failed immediately, try next terminal
+                continue;
+              }
+
+              // Detach the process so it keeps running after our app exits
+              proc.unref();
               launched = true;
               break;
-            } catch {
-              // Terminal not found or spawn failed, try next one
+            } catch (e) {
+              // Terminal not found (which failed) or other error, try next one
+              lastError = e instanceof Error ? e : new Error(String(e));
               continue;
             }
           }
 
           if (!launched) {
-            return { success: false, error: 'No supported terminal emulator found' };
+            const errorMsg = lastError
+              ? `No supported terminal emulator found: ${lastError.message}`
+              : 'No supported terminal emulator found';
+            return { success: false, error: errorMsg };
           }
         }
 
