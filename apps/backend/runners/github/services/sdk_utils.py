@@ -88,7 +88,7 @@ async def process_sdk_stream(
     - Tracking tool invocations (especially Task/subagent calls)
     - Tracking tool results
     - Collecting text output
-    - Extracting structured output
+    - Extracting structured output (per official Python SDK pattern)
 
     Args:
         client: Claude SDK client with receive_response() method
@@ -133,13 +133,6 @@ async def process_sdk_stream(
 
                 # Log progress periodically so user knows AI is working
                 if msg_count - last_progress_log >= PROGRESS_LOG_INTERVAL:
-                    active_agents = len(subagent_tool_ids) - len(
-                        [
-                            a
-                            for a in agents_invoked
-                            if a in str(subagent_tool_ids.values())
-                        ]
-                    )
                     if subagent_tool_ids:
                         pending = len(subagent_tool_ids)
                         safe_print(
@@ -205,21 +198,9 @@ async def process_sdk_stream(
                         safe_print(
                             f"[{context_name}] Invoking agent: {agent_name}{model_info}"
                         )
-                    elif tool_name == "StructuredOutput":
-                        if tool_input:
-                            # Warn if overwriting existing structured output
-                            if structured_output is not None:
-                                logger.warning(
-                                    f"[{context_name}] Multiple StructuredOutput blocks received, "
-                                    f"overwriting previous output"
-                                )
-                            structured_output = tool_input
-                            safe_print(f"[{context_name}] Received structured output")
-                            # Invoke callback
-                            if on_structured_output:
-                                on_structured_output(tool_input)
-                    else:
+                    elif tool_name != "StructuredOutput":
                         # Log other tool calls (Read, Grep, etc.) so user sees activity
+                        # Skip StructuredOutput tool - it's handled separately
                         safe_print(f"[{context_name}] Using tool: {tool_name}")
 
                     # Invoke callback for all tool uses
@@ -294,18 +275,9 @@ async def process_sdk_stream(
                                     safe_print(
                                         f"[{context_name}] Invoking agent: {agent_name}{model_info}"
                                     )
-                            elif tool_name == "StructuredOutput":
-                                if tool_input:
-                                    # Warn if overwriting existing structured output
-                                    if structured_output is not None:
-                                        logger.warning(
-                                            f"[{context_name}] Multiple StructuredOutput blocks received, "
-                                            f"overwriting previous output"
-                                        )
-                                    structured_output = tool_input
-                                    # Invoke callback
-                                    if on_structured_output:
-                                        on_structured_output(tool_input)
+                            elif tool_name != "StructuredOutput":
+                                # Log other tool calls, skip StructuredOutput
+                                safe_print(f"[{context_name}] Using tool: {tool_name}")
 
                             # Invoke callback
                             if on_tool_use:
@@ -325,53 +297,23 @@ async def process_sdk_stream(
                                 if on_text:
                                     on_text(block.text)
 
-                        # Check for StructuredOutput in content (legacy check)
-                        if getattr(block, "name", "") == "StructuredOutput":
-                            structured_data = getattr(block, "input", None)
-                            if structured_data:
-                                # Warn if overwriting existing structured output
-                                if structured_output is not None:
-                                    logger.warning(
-                                        f"[{context_name}] Multiple StructuredOutput blocks received, "
-                                        f"overwriting previous output"
-                                    )
-                                structured_output = structured_data
-                                # Invoke callback
-                                if on_structured_output:
-                                    on_structured_output(structured_data)
+                # ================================================================
+                # STRUCTURED OUTPUT CAPTURE (Single, consolidated location)
+                # Per official Python SDK docs: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
+                # The Python pattern is: if hasattr(message, 'structured_output')
+                # ================================================================
 
-                # Check for ResultMessage with structured output (per Anthropic SDK docs)
-                # See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
-                # Also check for ResultMessage class name as fallback (SDK may vary)
-                is_result_msg = (
+                # Check for error_max_structured_output_retries first (SDK validation failed)
+                is_result_msg = msg_type == "ResultMessage" or (
                     hasattr(msg, "type") and msg.type == "result"
-                ) or msg_type == "ResultMessage"
+                )
                 if is_result_msg:
                     subtype = getattr(msg, "subtype", None)
-                    # Log what we're seeing for diagnostics
                     if DEBUG_MODE:
-                        msg_type_attr = getattr(msg, "type", "NO_TYPE_ATTR")
                         safe_print(
-                            f"[DEBUG {context_name}] ResultMessage detected: "
-                            f"type={msg_type_attr}, subtype={subtype}, "
-                            f"has_structured_output={hasattr(msg, 'structured_output')}"
+                            f"[DEBUG {context_name}] ResultMessage: subtype={subtype}"
                         )
-                    if subtype == "success":
-                        if hasattr(msg, "structured_output") and msg.structured_output:
-                            # Warn if overwriting existing structured output
-                            if structured_output is not None:
-                                logger.warning(
-                                    f"[{context_name}] Multiple StructuredOutput blocks received, "
-                                    f"overwriting previous output"
-                                )
-                            structured_output = msg.structured_output
-                            safe_print(
-                                f"[{context_name}] Received structured output from ResultMessage"
-                            )
-                            # Invoke callback
-                            if on_structured_output:
-                                on_structured_output(msg.structured_output)
-                    elif subtype == "error_max_structured_output_retries":
+                    if subtype == "error_max_structured_output_retries":
                         # SDK failed to produce valid structured output after retries
                         logger.warning(
                             f"[{context_name}] Claude could not produce valid structured output "
@@ -380,29 +322,23 @@ async def process_sdk_stream(
                         safe_print(
                             f"[{context_name}] WARNING: Structured output validation failed after retries"
                         )
-                        # Set error so caller knows structured output isn't available
                         if not stream_error:
                             stream_error = "structured_output_validation_failed"
+
+                # Capture structured output from ANY message that has it
+                # This is the official Python SDK pattern - check hasattr()
+                if hasattr(msg, "structured_output") and msg.structured_output:
+                    # Only capture if we don't already have it (avoid duplicates)
+                    if structured_output is None:
+                        structured_output = msg.structured_output
+                        safe_print(f"[{context_name}] Received structured output")
+                        if on_structured_output:
+                            on_structured_output(msg.structured_output)
                     elif DEBUG_MODE:
+                        # In debug mode, note that we skipped a duplicate
                         safe_print(
-                            f"[DEBUG {context_name}] ResultMessage subtype: {subtype}"
+                            f"[DEBUG {context_name}] Skipping duplicate structured output"
                         )
-                # Fallback: Check for structured_output attribute on any message type
-                # (handles legacy SDK versions or alternative message formats)
-                elif hasattr(msg, "structured_output") and msg.structured_output:
-                    # Warn if overwriting existing structured output
-                    if structured_output is not None:
-                        logger.warning(
-                            f"[{context_name}] Multiple StructuredOutput blocks received, "
-                            f"overwriting previous output"
-                        )
-                    structured_output = msg.structured_output
-                    safe_print(
-                        f"[{context_name}] Received structured output (fallback)"
-                    )
-                    # Invoke callback
-                    if on_structured_output:
-                        on_structured_output(msg.structured_output)
 
                 # Check for tool results in UserMessage (subagent results come back here)
                 if msg_type == "UserMessage" and hasattr(msg, "content"):
