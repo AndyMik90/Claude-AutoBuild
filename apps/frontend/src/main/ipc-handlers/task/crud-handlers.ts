@@ -313,12 +313,15 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
               oldDescription.trim() !== newDescription.trim();
 
             if (descriptionChanged && plan.phases && plan.phases.length > 0) {
-              console.log('[TASK_UPDATE] Description changed, resetting subtasks for re-planning');
+              console.warn('[TASK_UPDATE] Description changed, resetting subtasks for re-planning');
               // Reset all subtasks to pending so they can be re-processed
               for (const phase of plan.phases) {
                 if (phase.subtasks) {
                   for (const subtask of phase.subtasks) {
-                    subtask.status = 'pending';
+                    // Defensive check in case subtasks array has null/undefined entries
+                    if (subtask) {
+                      subtask.status = 'pending';
+                    }
                   }
                 }
               }
