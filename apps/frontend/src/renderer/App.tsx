@@ -65,6 +65,7 @@ import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 import { AddProjectModal } from './components/AddProjectModal';
 import { ViewStateProvider } from './contexts/ViewStateContext';
+import { ConvexAuthProvider } from './providers/convex/ConvexAuthProvider';
 
 // Wrapper component for ProjectTabBar
 interface ProjectTabBarWithContextProps {
@@ -755,9 +756,10 @@ export function App() {
 
   return (
     <ViewStateProvider>
-      <TooltipProvider>
-        <ProactiveSwapListener />
-      <div className="flex h-screen bg-background">
+      <ConvexAuthProvider>
+        <TooltipProvider>
+          <ProactiveSwapListener />
+        <div className="flex h-screen bg-background">
         {/* Sidebar */}
         <Sidebar
           onSettingsClick={() => setIsSettingsDialogOpen(true)}
@@ -1089,6 +1091,7 @@ export function App() {
         <Toaster />
       </div>
       </TooltipProvider>
+    </ConvexAuthProvider>
     </ViewStateProvider>
   );
 }

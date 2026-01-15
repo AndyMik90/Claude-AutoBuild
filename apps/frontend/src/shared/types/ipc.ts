@@ -139,6 +139,23 @@ export interface TabState {
   tabOrder: string[];
 }
 
+// Convex service types
+export interface ConvexStatus {
+  available: boolean;
+  running: boolean;
+  url?: string;
+  envConfigured: boolean;
+}
+
+export interface ConvexStartResult {
+  url?: string;
+  message: string;
+}
+
+export interface ConvexStopResult {
+  message: string;
+}
+
 export interface ElectronAPI {
   // Project operations
   addProject: (projectPath: string) => Promise<IPCResult<Project>>;
@@ -711,7 +728,6 @@ export interface ElectronAPI {
 
   // File explorer operations
   listDirectory: (dirPath: string) => Promise<IPCResult<FileNode[]>>;
-  readFile: (filePath: string) => Promise<IPCResult<string>>;
 
   // Git operations
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
@@ -803,11 +819,37 @@ export interface ElectronAPI {
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
+
+  // Template Editor operations (AI-powered template editing)
+  // Auto-initializes with active API profile or global Anthropic API key
+  checkTemplateEditorInitialized: () => Promise<IPCResult<boolean>>;
+  sendTemplateEditorMessage: (templateId: string, templatePath: string, message: string) => Promise<IPCResult>;
+  clearTemplateEditorHistory: (templateId: string) => Promise<IPCResult>;
+
+  // Template Editor event listeners
+  onTemplateEditorStatus: (callback: (templateId: string, status: TemplateEditorStatus) => void) => () => void;
+  onTemplateEditorStreamChunk: (callback: (templateId: string, chunk: TemplateEditorStreamChunk) => void) => () => void;
+  onTemplateEditorError: (callback: (templateId: string, error: string) => void) => () => void;
+
+  // Convex service operations (authentication backend)
+  convex: {
+    /** Get the Convex URLs from environment or .env.local file */
+    getUrl: () => Promise<{ success: boolean; data?: { convexUrl: string; siteUrl: string }; error?: string }>;
+    /** Get the current status of the Convex service */
+    getStatus: () => Promise<{ success: boolean; data?: ConvexStatus; error?: string }>;
+    /** Start the Convex dev server */
+    startDev: () => Promise<{ success: boolean; data?: ConvexStartResult; error?: string }>;
+    /** Stop the Convex dev server */
+    stopDev: () => Promise<{ success: boolean; data?: ConvexStopResult; error?: string }>;
+    /** Get available Convex deployments */
+    getDeployments: () => Promise<{ success: boolean; data?: string[]; error?: string }>;
+  };
 }
 
 declare global {
   interface Window {
     electronAPI: ElectronAPI;
     DEBUG: boolean;
+    CONVEX_URL: string;
   }
 }

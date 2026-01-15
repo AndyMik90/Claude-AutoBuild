@@ -362,9 +362,9 @@
       "title": "Sécurité",
       "description": "Paramètres de mot de passe et d'authentification"
     },
-    "auth": {
-      "title": "Authentification",
-      "description": "Configurer l'authentification Convex"
+    "login": {
+      "title": "Connexion",
+      "description": "Se connecter ou créer un compte"
     }
   },
   "agentProfile": {

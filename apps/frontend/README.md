@@ -58,6 +58,121 @@ npm install
 npm run dev
 ```
 
+## Services
+
+### Convex (Optional - For Account/Authentication Features)
+
+This application includes optional Convex integration for account management and authentication features.
+
+**Note:** Convex is completely optional - the application works fully without it. You only need to set up Convex if you're developing or testing authentication features.
+
+The **Account tab** in Settings is always visible, but authentication features will only work when Convex is properly configured.
+
+#### Setting Up Convex for Local Development
+
+To develop authentication features locally, you'll need to set up your own Convex deployment:
+
+1. **Create a Convex account** (if you don't have one):
+   - Go to https://www.convex.dev
+   - Sign up for a free account
+
+2. **Install dependencies**:
+   ```bash
+   cd services/convex
+   npm install
+   ```
+
+3. **Generate Better Auth secret**:
+   ```bash
+   # Generate a secure random secret for Better Auth
+   openssl rand -base64 32
+   ```
+
+4. **Set up environment variables**:
+
+   Create a `.env.local` file in `services/convex/` with:
+   ```bash
+   # Convex Deployment (from 'npx convex dev')
+   CONVEX_DEPLOYMENT=dev
+
+   # Better Auth Secret (from the openssl command above)
+   BETTER_AUTH_SECRET=your-generated-secret-here
+
+   # Your local site URL
+   SITE_URL=http://localhost:5173
+   ```
+
+5. **Start the Convex dev server** (keep this running):
+   ```bash
+   npx convex dev
+   ```
+
+   This will:
+   - Connect to your Convex deployment
+   - Generate a `.env.local` file with your Convex URLs
+   - Start the development server
+   - Keep running to sync your Convex functions
+
+   After running this, your `.env.local` will be updated with:
+   ```
+   # For Convex client connection (WebSocket, real-time sync)
+   CONVEX_URL=https://your-deployment-name.convex.cloud
+
+   # For Better Auth actions (sign in, sign up, etc.)
+   CONVEX_SITE_URL=https://your-deployment-name.convex.site
+   ```
+
+   **Note:** There are two URLs:
+   - `CONVEX_URL` - Used by the Convex client for database operations and real-time sync
+   - `CONVEX_SITE_URL` - Used by Better Auth for authentication actions (sign in, sign up)
+
+6. **Start the application**:
+
+   In a new terminal (keep `npx convex dev` running):
+   ```bash
+   cd ../../
+   npm run dev
+   ```
+
+7. **Use the Account tab**:
+
+   - Open the application
+   - Go to Settings
+   - Click on the **Account** tab
+   - You can now sign in, sign up, and manage your profile
+
+#### Troubleshooting
+
+**Account tab shows but login doesn't work:**
+- Make sure `npx convex dev` is running in the `services/convex` folder
+- Check that `.env.local` contains `BETTER_AUTH_SECRET`
+- Check the browser console for errors (look for CSP violations or 404 errors)
+
+**CSP error connecting to Convex:**
+- The CSP has been updated to allow Convex connections
+- Try restarting the app after running `npx convex dev`
+
+**404 error on auth endpoints:**
+- Make sure `npx convex dev` is running
+- The auth routes are served by the Convex dev server
+- Check that the `.env.local` file has the correct `CONVEX_URL`
+
+#### Important Notes
+
+- **Always run `npx convex dev` before starting the app** if you want to use authentication features
+- The Convex dev server must be running while the app is active
+- Each developer needs their own Convex deployment (use your own account)
+- Never commit `.env.local` to version control (it contains secrets)
+
+#### Running Convex in Production
+
+For production deployments, you'll need to:
+1. Create a production Convex deployment
+2. Set the `CONVEX_URL` environment variable before starting the app
+3. Configure Better Auth with your production settings
+
+For more information on Convex deployment, see: https://docs.convex.dev
+
 ## Security
 
 This project maintains **0 vulnerabilities**. Run `npm audit` to verify.

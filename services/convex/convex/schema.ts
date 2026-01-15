@@ -1,14 +1,11 @@
 import { defineSchema } from "convex/server";
+import { v } from "convex/values";
 
-// Define the Convex schema
-// Better Auth tables will be auto-generated in the _generated folder
-// We can add custom tables here later for template library features
+// Define the Convex schema with Better Auth tables
+// Better Auth tables are managed by @convex-dev/better-auth
 export default defineSchema({
-  // Custom tables will be added here as needed
-  // Example:
-  // templates: defineTable({
-  //   name: v.string(),
-  //   description: v.optional(v.string()),
-  //   createdAt: v.number(),
-  // })
+  // User profiles (managed by Better Auth)
+  // The plugin will create: user, session, account, verification tables
+  // Custom tables for template library features
+  // Add custom tables here as needed for template library functionality
 });

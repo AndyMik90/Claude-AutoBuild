@@ -63,7 +63,8 @@ import { useProjectStore } from '../../stores/project-store';
 import type { UseProjectSettingsReturn } from '../project-settings/hooks/useProjectSettings';
 import { AccountProfile } from './account/AccountProfile';
 import { AccountSecurity } from './account/AccountSecurity';
-import { AccountAuthSettings } from './account/AccountAuthSettings';
+import { AccountLogin } from './account/AccountLogin';
+import { useAuthClient } from '../../../shared/lib/convex/auth-client';
 
 interface AppSettingsDialogProps {
   open: boolean;
@@ -78,7 +79,7 @@ interface AppSettingsDialogProps {
 export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'integrations' | 'api-profiles' | 'updates' | 'notifications' | 'debug';
 
 // Account-level settings sections
-export type AccountSection = 'profile' | 'security' | 'auth';
+export type AccountSection = 'profile' | 'security' | 'login';
 
 interface NavItemConfig<T extends string> {
   id: T;
@@ -107,12 +108,6 @@ const projectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
   { id: 'memory', icon: Database }
 ];
 
-const accountNavItemsConfig: NavItemConfig<AccountSection>[] = [
-  { id: 'profile', icon: User },
-  { id: 'security', icon: Shield },
-  { id: 'auth', icon: Key }
-];
-
 /**
  * Main application settings dialog container
  * Coordinates app and project settings sections
@@ -122,11 +117,40 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
   const { settings, setSettings, isSaving, error, saveSettings, revertTheme, commitTheme } = useSettings();
   const [version, setVersion] = useState<string>('');
 
+  // Better Auth client for authentication state
+  const authClient = useAuthClient();
+  // Only call useSession if authClient is properly initialized (has useSession method)
+  // This prevents infinite loops when Convex is not configured
+  const { data: session } = authClient?.useSession ? authClient.useSession() : { data: null };
+  const isAuthenticated = !!session?.user;
+
   // Track which top-level section is active
   const [activeTopLevel, setActiveTopLevel] = useState<'app' | 'project' | 'account'>('app');
   const [appSection, setAppSection] = useState<AppSection>(initialSection || 'appearance');
   const [projectSection, setProjectSection] = useState<ProjectSettingsSection>('general');
-  const [accountSection, setAccountSection] = useState<AccountSection>(initialAccountSection || 'profile');
+  // Default to 'login' if not authenticated, otherwise 'profile'
+  const [accountSection, setAccountSection] = useState<AccountSection>(
+    initialAccountSection || 'login'
+  );
+
+  // Dynamic account nav items based on auth state
+  const accountNavItemsConfig: NavItemConfig<AccountSection>[] = isAuthenticated
+    ? [
+        { id: 'profile', icon: User },
+        { id: 'security', icon: Shield },
+      ]
+    : [
+        { id: 'login', icon: Key },
+      ];
+
+  // Update account section when authentication state changes
+  useEffect(() => {
+    if (isAuthenticated && accountSection === 'login') {
+      setAccountSection('profile');
+    } else if (!isAuthenticated && accountSection !== 'login') {
+      setAccountSection('login');
+    }
+  }, [isAuthenticated]);
 
   // Navigate to initial section when dialog opens with a specific section
   useEffect(() => {
@@ -230,12 +254,12 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
 
   const renderAccountSection = () => {
     switch (accountSection) {
+      case 'login':
+        return <AccountLogin />;
       case 'profile':
         return <AccountProfile />;
       case 'security':
         return <AccountSecurity />;
-      case 'auth':
-        return <AccountAuthSettings settings={settings} onSettingsChange={setSettings} />;
       default:
         return null;
     }

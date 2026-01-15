@@ -1,59 +1,106 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, createContext, useContext, type ReactNode } from "react";
 import { ConvexReactClient } from "convex/react";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
-import { authClient } from "@/shared/lib/convex/auth-client";
-import type { ReactNode } from "react";
+import { getAuthClient } from "@shared/lib/convex/auth-client";
 
-interface Props {
-  children: ReactNode;
-  enabled?: boolean;
-  convexUrl?: string;
+// ConvexClient type is the instance type of ConvexReactClient
+type ConvexClientType = InstanceType<typeof ConvexReactClient>;
+
+interface AuthContextValue {
+  convex: ConvexClientType | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
 }
+
+const AuthContext = createContext<AuthContextValue>({
+  convex: null,
+  isAuthenticated: false,
+  isLoading: true,
+});
 
 /**
  * Convex Auth Provider Component
  *
- * Wraps the application with Convex and Better Auth providers.
- * Auth is optional - when disabled, children render without auth context.
- *
- * @param enabled - Whether Convex auth is enabled (from settings)
- * @param convexUrl - The Convex deployment URL
- * @param children - Child components to wrap
+ * Fetches the Convex URLs, initializes both Convex and Better Auth clients,
+ * and provides auth context to the app.
  */
-export function ConvexAuthProvider({ children, enabled = false, convexUrl }: Props) {
-  const [isReady, setIsReady] = useState(!enabled);
+export function ConvexAuthProvider({ children }: { children: ReactNode }) {
+  const [convex, setConvex] = useState<ConvexClientType | null>(null);
+  const [authClient, setAuthClientState] = useState<ReturnType<typeof getAuthClient> | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (enabled && convexUrl) {
-      // Initialize Convex client when enabled
-      setIsReady(true);
-    } else if (!enabled) {
-      // Reset when disabled
-      setIsReady(true);
-    }
-  }, [enabled, convexUrl]);
+    const initializeConvex = async () => {
+      try {
+        // Fetch Convex URLs from the main process
+        const result = await window.electronAPI.convex.getUrl();
+        if (result.success && result.data) {
+          const { convexUrl, siteUrl } = result.data;
 
-  // If auth is disabled, render children without provider
-  if (!enabled) {
-    return <>{children}</>;
-  }
+          // Initialize Convex client with convexUrl (for WebSocket/real-time)
+          const convexClient = new ConvexReactClient(convexUrl);
 
-  // If enabled but no URL, show loading state
-  if (!convexUrl) {
-    return <>{children}</>;
-  }
+          // Initialize Better Auth client with siteUrl (for auth actions like sign in/sign up)
+          const client = getAuthClient(siteUrl);
 
+          // Log the configuration for debugging
+          console.info('Convex initialized:', {
+            convexUrl,
+            siteUrl,
+            authBaseURL: `${siteUrl}/api/auth`
+          });
+
+          setConvex(convexClient);
+          setAuthClientState(client);
+          setIsReady(true);
+        } else {
+          // No Convex URL found - run without auth
+          console.warn('Convex URL not found. Running without authentication.');
+          setIsReady(true);
+        }
+      } catch (error) {
+        console.error('Failed to initialize Convex:', error);
+        setIsReady(true);
+      }
+    };
+
+    initializeConvex();
+  }, []);
+
+  // If Convex is not configured or still loading, render children without auth
+  // The no-op auth client will prevent errors, but auth features won't work
   if (!isReady) {
-    return <>{children}</>;
+    return (
+      <AuthContext.Provider value={{ convex: null, isAuthenticated: false, isLoading: true }}>
+        {children}
+      </AuthContext.Provider>
+    );
   }
 
-  const convex = new ConvexReactClient(convexUrl);
+  // If Convex is not configured, render children without ConvexBetterAuthProvider
+  // Components should check isAuthenticated before using auth features
+  if (!convex || !authClient) {
+    return (
+      <AuthContext.Provider value={{ convex: null, isAuthenticated: false, isLoading: false }}>
+        {children}
+      </AuthContext.Provider>
+    );
+  }
 
   return (
-    <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-      {children}
+    <ConvexBetterAuthProvider client={convex} authClient={authClient as any}>
+      <AuthContext.Provider value={{ convex, isAuthenticated: true, isLoading: false }}>
+        {children}
+      </AuthContext.Provider>
     </ConvexBetterAuthProvider>
   );
+}
+
+/**
+ * Hook to access the Convex auth context
+ */
+export function useConvexAuth() {
+  return useContext(AuthContext);
 }
