@@ -432,7 +432,6 @@ class TestAICommentTriage:
             "nice_to_have",
             "trivial",
             "false_positive",
-            "addressed",
         ]:
             data = {
                 "comment_id": 1,

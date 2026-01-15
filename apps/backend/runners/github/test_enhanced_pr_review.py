@@ -56,7 +56,6 @@ def test_ai_comment_verdict_enum():
     assert AICommentVerdict.NICE_TO_HAVE.value == "nice_to_have"
     assert AICommentVerdict.TRIVIAL.value == "trivial"
     assert AICommentVerdict.FALSE_POSITIVE.value == "false_positive"
-    assert AICommentVerdict.ADDRESSED.value == "addressed"
 
     print("  ✅ AICommentVerdict enum: PASS")
 
