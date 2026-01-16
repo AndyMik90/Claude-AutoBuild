@@ -43,6 +43,7 @@ import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager } from './claude-profile-manager';
+import { isWindows } from './platform';
 import type { AppSettings } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -112,7 +113,7 @@ function cleanupStaleUpdateMetadata(): void {
  * This fix runs before any Claude CLI calls to prevent crashes.
  */
 function fixKnownMarketplacesJson(): void {
-  if (process.platform !== 'win32') {
+  if (!isWindows()) {
     return;
   }
 
