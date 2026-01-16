@@ -17,6 +17,43 @@ import type { SupportedTerminal } from '../../shared/types/settings';
 // Windows shell paths are now imported from the platform module via getWindowsShellPaths()
 
 /**
+ * Track pending exit promises for terminals being destroyed.
+ * Used to wait for PTY process exit on Windows where termination is async.
+ */
+const pendingExitPromises = new Map<string, {
+  resolve: () => void;
+  timeoutId: NodeJS.Timeout;
+}>();
+
+/**
+ * Default timeouts for waiting for PTY exit (in milliseconds).
+ * Windows needs longer timeout due to slower process termination.
+ */
+const PTY_EXIT_TIMEOUT_WINDOWS = 2000;
+const PTY_EXIT_TIMEOUT_UNIX = 500;
+
+/**
+ * Wait for a PTY process to exit.
+ * Returns a promise that resolves when the PTY's onExit event fires.
+ * Has a timeout fallback in case the exit event never fires.
+ */
+export function waitForPtyExit(terminalId: string, timeoutMs?: number): Promise<void> {
+  const timeout = timeoutMs ?? (isWindows() ? PTY_EXIT_TIMEOUT_WINDOWS : PTY_EXIT_TIMEOUT_UNIX);
+
+  return new Promise<void>((resolve) => {
+    // Set up timeout fallback
+    const timeoutId = setTimeout(() => {
+      debugLog('[PtyManager] PTY exit timeout for terminal:', terminalId);
+      pendingExitPromises.delete(terminalId);
+      resolve();
+    }, timeout);
+
+    // Store the promise resolver
+    pendingExitPromises.set(terminalId, { resolve, timeoutId });
+  });
+}
+
+/**
  * Get the Windows shell executable based on preferred terminal setting
  */
 function getWindowsShell(preferredTerminal: SupportedTerminal | undefined): string {
@@ -115,6 +152,14 @@ export function setupPtyHandlers(
   ptyProcess.onExit(({ exitCode }) => {
     debugLog('[PtyManager] Terminal exited:', id, 'code:', exitCode);
 
+    // Resolve any pending exit promise FIRST (before other cleanup)
+    const pendingExit = pendingExitPromises.get(id);
+    if (pendingExit) {
+      clearTimeout(pendingExit.timeoutId);
+      pendingExitPromises.delete(id);
+      pendingExit.resolve();
+    }
+
     const win = getWindow();
     if (win) {
       win.webContents.send(IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
@@ -123,7 +168,12 @@ export function setupPtyHandlers(
     // Call custom exit handler
     onExitCallback(terminal);
 
-    terminals.delete(id);
+    // Only delete if this is the SAME terminal object (not a newly created one with same ID).
+    // This prevents a race where destroyTerminal() awaits PTY exit, a new terminal is created
+    // with the same ID during the await, and then the old PTY's onExit deletes the new terminal.
+    if (terminals.get(id) === terminal) {
+      terminals.delete(id);
+    }
   });
 }
 
@@ -228,9 +278,30 @@ export function resizePty(terminal: TerminalProcess, cols: number, rows: number)
 }
 
 /**
- * Kill a PTY process
+ * Kill a PTY process.
+ * @param terminal The terminal process to kill
+ * @param waitForExit If true, returns a promise that resolves when the PTY exits.
+ *                    Used on Windows where PTY termination is async.
  */
-export function killPty(terminal: TerminalProcess): void {
+export function killPty(terminal: TerminalProcess, waitForExit: true): Promise<void>;
+export function killPty(terminal: TerminalProcess, waitForExit?: false): void;
+export function killPty(terminal: TerminalProcess, waitForExit?: boolean): Promise<void> | void {
+  if (waitForExit) {
+    const exitPromise = waitForPtyExit(terminal.id);
+    try {
+      terminal.pty.kill();
+    } catch (error) {
+      // Clean up the pending promise if kill() throws
+      const pending = pendingExitPromises.get(terminal.id);
+      if (pending) {
+        clearTimeout(pending.timeoutId);
+        pendingExitPromises.delete(terminal.id);
+        pending.resolve();
+      }
+      throw error;
+    }
+    return exitPromise;
+  }
   terminal.pty.kill();
 }
 
