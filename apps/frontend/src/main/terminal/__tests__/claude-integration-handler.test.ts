@@ -4,7 +4,7 @@ import path from 'path';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type * as pty from '@lydell/node-pty';
 import type { TerminalProcess } from '../types';
-import { buildCdCommand } from '../../../shared/utils/shell-escape';
+import { buildCdCommand, escapeShellArg } from '../../../shared/utils/shell-escape';
 
 // Mock the platform module (terminal/platform.ts re-exports from shared/platform)
 vi.mock('../platform', () => ({
@@ -110,11 +110,13 @@ function getPathPrefixExpectation(platform: 'win32' | 'darwin' | 'linux', pathVa
  */
 function getQuotedCommand(platform: 'win32' | 'darwin' | 'linux', command: string): string {
   if (platform === 'win32') {
-    // Windows: double quotes
-    return `"${command}"`;
+    // Windows: double quotes, use escapeForWindowsDoubleQuote logic
+    // Inside double quotes, only " needs escaping (as "")
+    const escaped = command.replace(/"/g, '""');
+    return `"${escaped}"`;
   }
-  // Unix/macOS: single quotes
-  return `'${command}'`;
+  // Unix/macOS: use escapeShellArg which properly handles embedded single quotes
+  return escapeShellArg(command);
 }
 
 /**
