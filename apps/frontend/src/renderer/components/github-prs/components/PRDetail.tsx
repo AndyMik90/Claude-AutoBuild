@@ -122,6 +122,12 @@ export function PRDetail({
   const [mergeReadiness, setMergeReadiness] = useState<MergeReadiness | null>(null);
   const mergeReadinessAbortRef = useRef<AbortController | null>(null);
 
+  // Branch update state (for updating PR branch when behind base)
+  const [isUpdatingBranch, setIsUpdatingBranch] = useState(false);
+  const [branchUpdateError, setBranchUpdateError] = useState<string | null>(null);
+  const [branchUpdateSuccess, setBranchUpdateSuccess] = useState(false);
+  const [mergeReadinessRefreshKey, setMergeReadinessRefreshKey] = useState(0);
+
   // Workflows awaiting approval state (for fork PRs)
   const [workflowsAwaiting, setWorkflowsAwaiting] = useState<WorkflowsAwaitingApprovalResult | null>(null);
   const [isApprovingWorkflow, setIsApprovingWorkflow] = useState<number | null>(null);
