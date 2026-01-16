@@ -2844,7 +2844,7 @@ export function registerWorktreeHandlers(
 
         // Try to detect the dev command from package.json
         const packageJsonPath = path.join(worktreePath, 'package.json');
-        let devCommand = 'npm run dev'; // Default
+        let devCommand: string | null = null;
 
         if (existsSync(packageJsonPath)) {
           try {
@@ -2862,8 +2862,16 @@ export function registerWorktreeHandlers(
               devCommand = 'npm run develop';
             }
           } catch {
-            // Ignore JSON parse errors, use default
+            // Ignore JSON parse errors
           }
+        }
+
+        // If no valid dev script was found, return an error
+        if (!devCommand) {
+          return {
+            success: false,
+            error: 'No dev script found in package.json. Expected one of: dev, start, serve, develop'
+          };
         }
 
         // Open a terminal and run the dev command
@@ -2873,11 +2881,31 @@ export function registerWorktreeHandlers(
         if (platform === 'win32') {
           // Windows: Open Windows Terminal or cmd with the command
           // Use escaped path in double quotes
-          spawn('cmd.exe', ['/c', 'start', 'cmd.exe', '/k', `cd /d "${escapedPath}" && ${devCommand}`], {
+          const proc = spawn('cmd.exe', ['/c', 'start', 'cmd.exe', '/k', `cd /d "${escapedPath}" && ${devCommand}`], {
             detached: true,
             stdio: 'ignore',
             shell: true
-          }).unref();
+          });
+
+          // Handle spawn errors
+          let spawnFailed = false;
+          let spawnError: Error | null = null;
+          proc.once('error', (err) => {
+            spawnFailed = true;
+            spawnError = err;
+          });
+
+          // Give a brief moment for synchronous spawn errors to propagate
+          await new Promise(resolve => setImmediate(resolve));
+
+          if (spawnFailed) {
+            return {
+              success: false,
+              error: `Failed to launch terminal: ${spawnError?.message || 'Unknown error'}`
+            };
+          }
+
+          proc.unref();
         } else if (platform === 'darwin') {
           // macOS: Use osascript to open Terminal.app with the command
           // Use escaped path with single quotes
@@ -2887,10 +2915,30 @@ export function registerWorktreeHandlers(
               do script "cd '${escapedPath}' && ${devCommand}"
             end tell
           `;
-          spawn('osascript', ['-e', script], {
+          const proc = spawn('osascript', ['-e', script], {
             detached: true,
             stdio: 'ignore'
-          }).unref();
+          });
+
+          // Handle spawn errors
+          let spawnFailed = false;
+          let spawnError: Error | null = null;
+          proc.once('error', (err) => {
+            spawnFailed = true;
+            spawnError = err;
+          });
+
+          // Give a brief moment for synchronous spawn errors to propagate
+          await new Promise(resolve => setImmediate(resolve));
+
+          if (spawnFailed) {
+            return {
+              success: false,
+              error: `Failed to launch terminal: ${spawnError?.message || 'Unknown error'}`
+            };
+          }
+
+          proc.unref();
         } else {
           // Linux: Try common terminal emulators
           // First check which terminals are actually installed using 'which'
@@ -2917,8 +2965,17 @@ export function registerWorktreeHandlers(
                   detached: true,
                   stdio: 'ignore'
                 });
+              } else if (term === 'xfce4-terminal') {
+                // xfce4-terminal: use -e with separate arguments to avoid shell escaping issues
+                // Pass bash -c as a single argument, with path properly quoted inside single quotes
+                proc = spawn(term, ['-e', `bash -c 'cd '\\''${escapedPath}'\\'' && ${devCommand}; exec bash'`], {
+                  detached: true,
+                  stdio: 'ignore'
+                });
               } else {
-                proc = spawn(term, ['-e', `bash -c "cd '${escapedPath}' && ${devCommand}; exec bash"`], {
+                // xterm and other terminals: use the same approach as gnome-terminal
+                // Pass arguments separately so the path with '\'' escaping works correctly
+                proc = spawn(term, ['-e', 'bash', '-c', `cd '${escapedPath}' && ${devCommand}; exec bash`], {
                   detached: true,
                   stdio: 'ignore'
                 });

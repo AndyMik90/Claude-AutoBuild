@@ -4,6 +4,12 @@
     "openInbuilt": "Open in Inbuilt Terminal",
     "openExternal": "Open in External Terminal"
   },
+  "workspace": {
+    "launchApp": "Launch App",
+    "launchAppTooltip": "Launch dev server from worktree",
+    "launchSuccess": "Dev server started successfully",
+    "launchFailed": "Failed to launch dev server"
+  },
   "merge": {
     "branchHasNewCommits": "{{branch}} branch has {{count}} new commit.",
     "branchHasNewCommits_other": "{{branch}} branch has {{count}} new commits.",

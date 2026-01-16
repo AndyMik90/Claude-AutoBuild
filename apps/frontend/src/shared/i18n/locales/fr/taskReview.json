@@ -4,6 +4,12 @@
     "openInbuilt": "Ouvrir dans le terminal intégré",
     "openExternal": "Ouvrir dans le terminal externe"
   },
+  "workspace": {
+    "launchApp": "Lancer l'application",
+    "launchAppTooltip": "Lancer le serveur de développement depuis le worktree",
+    "launchSuccess": "Serveur de développement démarré avec succès",
+    "launchFailed": "Échec du lancement du serveur de développement"
+  },
   "merge": {
     "branchHasNewCommits": "La branche {{branch}} a {{count}} nouveau commit.",
     "branchHasNewCommits_other": "La branche {{branch}} a {{count}} nouveaux commits.",

@@ -23,6 +23,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
 import { cn } from '../../../lib/utils';
 import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal } from '../../../../shared/types';
 import { useSettingsStore } from '../../../stores/settings-store';
+import { useToast } from '../../ui/use-toast';
 
 interface WorkspaceStatusProps {
   worktreeStatus: WorktreeStatus;
@@ -104,6 +105,7 @@ export function WorkspaceStatus({
 }: WorkspaceStatusProps) {
   const { t } = useTranslation(['taskReview', 'common', 'tasks']);
   const { settings } = useSettingsStore();
+  const { toast } = useToast();
   const preferredIDE = settings.preferredIDE || 'vscode';
   const preferredTerminal = settings.preferredTerminal || 'system';
 
@@ -137,11 +139,26 @@ export function WorkspaceStatus({
     if (!worktreeStatus.worktreePath) return;
     try {
       const result = await window.electronAPI.worktreeLaunchApp(worktreeStatus.worktreePath);
-      if (!result.success) {
+      if (result.success) {
+        toast({
+          title: t('taskReview:workspace.launchSuccess'),
+          description: result.data?.command,
+        });
+      } else {
         console.error('Failed to launch app:', result.error);
+        toast({
+          title: t('taskReview:workspace.launchFailed'),
+          description: result.error,
+          variant: 'destructive',
+        });
       }
     } catch (err) {
       console.error('Failed to launch app:', err);
+      toast({
+        title: t('taskReview:workspace.launchFailed'),
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -230,10 +247,10 @@ export function WorkspaceStatus({
               size="sm"
               onClick={handleLaunchApp}
               className="h-7 px-2 text-xs"
-              title="Launch dev server from worktree"
+              title={t('taskReview:workspace.launchAppTooltip')}
             >
               <Play className="h-3.5 w-3.5 mr-1" />
-              Launch App
+              {t('taskReview:workspace.launchApp')}
             </Button>
             <Button
               variant="outline"
