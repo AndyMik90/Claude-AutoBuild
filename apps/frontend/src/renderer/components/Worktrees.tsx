@@ -17,7 +17,9 @@ import {
   Check,
   X,
   Terminal,
-  CheckSquare2
+  CheckSquare2,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -116,6 +118,8 @@ export function Worktrees({ projectId }: WorktreesProps) {
     () => worktrees.some(w => selectedWorktreeIds.has(w.specName)) && !isAllSelected,
     [worktrees, selectedWorktreeIds, isAllSelected]
   );
+
+  const selectedCount = selectedWorktreeIds.size;
 
   // Load worktrees (both task and terminal worktrees)
   const loadWorktrees = useCallback(async () => {
@@ -356,6 +360,25 @@ export function Worktrees({ projectId }: WorktreesProps) {
           </Button>
         </div>
       </div>
+
+      {/* Selection controls bar - visible when selection mode is enabled */}
+      {isSelectionMode && worktrees.length > 0 && (
+        <div className="flex items-center justify-between py-2 mb-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={isAllSelected ? deselectAll : selectAll}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              {/* tri-state icon: isAllSelected -> CheckSquare, isSomeSelected -> Minus, none -> Square */}
+              {isAllSelected ? <CheckSquare className="h-4 w-4 text-primary" /> : isSomeSelected ? <Minus className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+              {isAllSelected ? 'Deselect all' : 'Select all'}
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {selectedCount} of {worktrees.length} selected
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Error message */}
       {error && (
