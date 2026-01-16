@@ -502,9 +502,10 @@ describe('claude-integration-handler - Helper Functions', () => {
   });
 
   describe('finalizeClaudeInvoke', () => {
-    it('should set terminal title to "Claude" for default profile', async () => {
+    it('should set terminal title to "Claude" for default profile when terminal has default name', async () => {
       const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
-      const terminal = createMockTerminal();
+      // Use a default terminal name pattern so renaming logic kicks in
+      const terminal = createMockTerminal({ title: 'Terminal 1' });
       const mockWindow = {
         webContents: { send: vi.fn() }
       };
@@ -523,7 +524,8 @@ describe('claude-integration-handler - Helper Functions', () => {
 
     it('should set terminal title to "Claude (ProfileName)" for non-default profile', async () => {
       const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
-      const terminal = createMockTerminal();
+      // Use a default terminal name pattern so renaming logic kicks in
+      const terminal = createMockTerminal({ title: 'Terminal 2' });
       const mockWindow = {
         webContents: { send: vi.fn() }
       };
@@ -540,9 +542,10 @@ describe('claude-integration-handler - Helper Functions', () => {
       expect(terminal.title).toBe('Claude (Work Profile)');
     });
 
-    it('should send IPC message to renderer', async () => {
+    it('should send IPC message to renderer when terminal has default name', async () => {
       const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
-      const terminal = createMockTerminal();
+      // Use a default terminal name pattern so renaming logic kicks in
+      const terminal = createMockTerminal({ title: 'Terminal 3' });
       const mockSend = vi.fn();
       const mockWindow = {
         webContents: { send: mockSend }
@@ -562,6 +565,54 @@ describe('claude-integration-handler - Helper Functions', () => {
         terminal.id,
         'Claude'
       );
+    });
+
+    it('should NOT rename terminal when already named Claude', async () => {
+      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      // Terminal already has Claude title - should NOT be renamed
+      const terminal = createMockTerminal({ title: 'Claude' });
+      const mockSend = vi.fn();
+      const mockWindow = {
+        webContents: { send: mockSend }
+      };
+
+      finalizeClaudeInvoke(
+        terminal,
+        { name: 'Work Profile', isDefault: false },
+        '/tmp/project',
+        Date.now(),
+        () => mockWindow as any,
+        vi.fn()
+      );
+
+      // Title should remain unchanged
+      expect(terminal.title).toBe('Claude');
+      // No IPC message should be sent for title change
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it('should NOT rename terminal with user-customized name', async () => {
+      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      // User has customized the terminal name - should NOT be renamed
+      const terminal = createMockTerminal({ title: 'My Custom Terminal' });
+      const mockSend = vi.fn();
+      const mockWindow = {
+        webContents: { send: mockSend }
+      };
+
+      finalizeClaudeInvoke(
+        terminal,
+        undefined,
+        '/tmp/project',
+        Date.now(),
+        () => mockWindow as any,
+        vi.fn()
+      );
+
+      // Title should remain unchanged
+      expect(terminal.title).toBe('My Custom Terminal');
+      // No IPC message should be sent for title change
+      expect(mockSend).not.toHaveBeenCalled();
     });
 
     it('should persist session when terminal has projectPath', async () => {
