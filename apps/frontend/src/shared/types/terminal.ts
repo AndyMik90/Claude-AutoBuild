@@ -188,3 +188,18 @@ export interface TerminalWorktreeResult {
   config?: TerminalWorktreeConfig;
   error?: string;
 }
+
+/**
+ * Information about a worktree not managed by Auto Claude
+ * Discovered via `git worktree list` excluding Auto Claude paths
+ */
+export interface OtherWorktreeInfo {
+  /** Full path to the worktree */
+  path: string;
+  /** Git branch name, or null if in detached HEAD state */
+  branch: string | null;
+  /** Short commit SHA (first 8 chars) */
+  commitSha: string;
+  /** Display name (last directory component of path) */
+  displayName: string;
+}
