@@ -81,7 +81,10 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     });
 
     const fitAddon = new FitAddon();
-    const webLinksAddon = new WebLinksAddon();
+    // Configure WebLinksAddon to open links in system browser via IPC
+    const webLinksAddon = new WebLinksAddon((_event, uri) => {
+      window.electronAPI?.openExternal?.(uri);
+    });
     const serializeAddon = new SerializeAddon();
 
     xterm.loadAddon(fitAddon);
