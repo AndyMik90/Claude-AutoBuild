@@ -826,9 +826,16 @@ export function getTaskByGitHubIssue(issueNumber: number): Task | undefined {
  * Check if a task is in human_review but has no completed subtasks.
  * This indicates the task crashed/exited before implementation completed
  * and should be resumed rather than reviewed.
+ *
+ * IMPORTANT: Plan review tasks (reviewReason === 'plan_review') are NOT incomplete.
+ * They are legitimately waiting for spec approval before planner creates phases.
  */
 export function isIncompleteHumanReview(task: Task): boolean {
   if (task.status !== 'human_review') return false;
+
+  // If task is in plan review stage, it's legitimately awaiting spec approval (NOT incomplete)
+  // Plan review happens after spec creation but before planner creates implementation phases
+  if (task.reviewReason === 'plan_review') return false;
 
   // If no subtasks defined, task hasn't been planned yet (shouldn't be in human_review)
   if (!task.subtasks || task.subtasks.length === 0) return true;

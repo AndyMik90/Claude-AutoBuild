@@ -27,6 +27,8 @@ export const IPC_CHANNELS = {
   TASK_UPDATE_STATUS: 'task:updateStatus',
   TASK_RECOVER_STUCK: 'task:recoverStuck',
   TASK_CHECK_RUNNING: 'task:checkRunning',
+  TASK_GET_METADATA: 'task:getMetadata',
+  TASK_UPDATE_METADATA: 'task:updateMetadata',
 
   // Workspace management (for human review)
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
@@ -449,6 +451,7 @@ export const IPC_CHANNELS = {
   // Insights operations
   INSIGHTS_GET_SESSION: 'insights:getSession',
   INSIGHTS_SEND_MESSAGE: 'insights:sendMessage',
+  INSIGHTS_CANCEL_SESSION: 'insights:cancelSession',
   INSIGHTS_CLEAR_SESSION: 'insights:clearSession',
   INSIGHTS_CREATE_TASK: 'insights:createTask',
   INSIGHTS_LIST_SESSIONS: 'insights:listSessions',

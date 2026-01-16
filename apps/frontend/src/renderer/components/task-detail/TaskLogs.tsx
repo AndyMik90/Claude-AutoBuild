@@ -227,6 +227,7 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
         <button
           className={cn(
             'w-full flex items-center justify-between p-3 rounded-lg border transition-colors',
+            'sticky top-0 z-10 backdrop-blur-sm',
             'hover:bg-secondary/50',
             status === 'active' && !isInterrupted && PHASE_COLORS[phase],
             isInterrupted && 'border-warning/30 bg-warning/5',

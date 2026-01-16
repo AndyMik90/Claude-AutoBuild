@@ -155,14 +155,9 @@ export function registerTaskExecutionHandlers(
         );
         return;
       }
+      // Warn if no commits yet, but DON'T block (backend can create initial commit)
       if (!gitStatus.hasCommits) {
-        console.warn('[TASK_START] Git repository has no commits:', project.path);
-        mainWindow.webContents.send(
-          IPC_CHANNELS.TASK_ERROR,
-          taskId,
-          'Git repository has no commits. Please make an initial commit first (git add . && git commit -m "Initial commit").'
-        );
-        return;
+        console.warn('[TASK_START] No commits in repository yet - backend will create initial commit');
       }
 
       // Check authentication - Claude requires valid auth to run tasks
@@ -688,16 +683,22 @@ export function registerTaskExecutionHandlers(
 
           // Check git status before auto-starting
           const gitStatusCheck = checkGitStatus(project.path);
-          if (!gitStatusCheck.isGitRepo || !gitStatusCheck.hasCommits) {
-            console.warn('[TASK_UPDATE_STATUS] Git check failed, cannot auto-start task');
+          if (!gitStatusCheck.isGitRepo) {
+            // Block if no git repo at all (hard requirement)
+            console.warn('[TASK_UPDATE_STATUS] No git repository, cannot auto-start task');
             if (mainWindow) {
               mainWindow.webContents.send(
                 IPC_CHANNELS.TASK_ERROR,
                 taskId,
-                gitStatusCheck.error || 'Git repository with commits required to run tasks.'
+                gitStatusCheck.error || 'Git repository required to run tasks.'
               );
             }
             return { success: false, error: gitStatusCheck.error || 'Git repository required' };
+          }
+
+          // Warn if no commits yet, but DON'T block (backend can create initial commit)
+          if (!gitStatusCheck.hasCommits) {
+            console.warn('[TASK_UPDATE_STATUS] No commits in repository yet - backend will create initial commit');
           }
 
           // Check authentication before auto-starting
@@ -1028,19 +1029,23 @@ export function registerTaskExecutionHandlers(
         if (autoRestart && project) {
           // Check git status before auto-restarting
           const gitStatusForRestart = checkGitStatus(project.path);
-          if (!gitStatusForRestart.isGitRepo || !gitStatusForRestart.hasCommits) {
-            console.warn('[Recovery] Git check failed, cannot auto-restart task');
-            // Recovery succeeded but we can't restart without git
+          if (!gitStatusForRestart.isGitRepo) {
+            console.warn('[Recovery] No git repository, cannot auto-restart task');
+            // Recovery succeeded but we can't restart without git repo
             return {
               success: true,
               data: {
                 taskId,
                 recovered: true,
                 newStatus,
-                message: `Task recovered but cannot restart: ${gitStatusForRestart.error || 'Git repository with commits required.'}`,
+                message: `Task recovered but cannot restart: ${gitStatusForRestart.error || 'Git repository required.'}`,
                 autoRestarted: false
               }
             };
+          }
+          // Warn if no commits yet, but DON'T block restart (backend can create initial commit)
+          if (!gitStatusForRestart.hasCommits) {
+            console.warn('[Recovery] No commits in repository yet - backend will create initial commit');
           }
 
           // Check authentication before auto-restarting

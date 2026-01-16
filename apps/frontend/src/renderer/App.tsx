@@ -668,10 +668,22 @@ export function App() {
         setShowInitDialog(false);
         setPendingProject(null);
 
-        // Show GitHub setup modal
+        // Check if project uses GitHub before showing GitHub setup modal
+        // Only show for GitHub repositories, not GitLab or other git providers
         if (updatedProject) {
-          setGitHubSetupProject(updatedProject);
-          setShowGitHubSetup(true);
+          try {
+            const repoResult = await window.electronAPI.detectGitHubRepo(updatedProject.path);
+            // Only show GitHub setup modal if it's actually a GitHub repository
+            if (repoResult.success && repoResult.data) {
+              console.log('[InitDialog] Detected GitHub repository, showing setup modal');
+              setGitHubSetupProject(updatedProject);
+              setShowGitHubSetup(true);
+            } else {
+              console.log('[InitDialog] Not a GitHub repository, skipping GitHub setup modal');
+            }
+          } catch (err) {
+            console.log('[InitDialog] Error detecting repository, skipping GitHub setup:', err);
+          }
         }
       } else {
         // Initialization failed - show error but keep dialog open

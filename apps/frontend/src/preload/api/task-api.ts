@@ -49,6 +49,8 @@ export interface TaskAPI {
     options?: import('../../shared/types').TaskRecoveryOptions
   ) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
+  getTaskMetadata: (taskId: string) => Promise<IPCResult<any>>;
+  updateTaskMetadata: (taskId: string, metadata: any) => Promise<IPCResult<void>>;
 
   // Workspace Management (for human review)
   getWorktreeStatus: (taskId: string) => Promise<IPCResult<import('../../shared/types').WorktreeStatus>>;
@@ -134,6 +136,12 @@ export const createTaskAPI = (): TaskAPI => ({
 
   checkTaskRunning: (taskId: string): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_CHECK_RUNNING, taskId),
+
+  getTaskMetadata: (taskId: string): Promise<IPCResult<any>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_GET_METADATA, taskId),
+
+  updateTaskMetadata: (taskId: string, metadata: any): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_UPDATE_METADATA, taskId, metadata),
 
   // Workspace Management
   getWorktreeStatus: (taskId: string): Promise<IPCResult<import('../../shared/types').WorktreeStatus>> =>

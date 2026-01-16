@@ -56,10 +56,10 @@ DEFAULT_PHASE_MODELS: dict[str, str] = {
 }
 
 DEFAULT_PHASE_THINKING: dict[str, str] = {
-    "spec": "medium",
-    "planning": "high",
-    "coding": "medium",
-    "qa": "high",
+    "spec": "low",      # 1,024 tokens - minimal thinking for spec creation
+    "planning": "low",  # 1,024 tokens - minimal thinking for plan generation (was "high" 16K)
+    "coding": "none",   # No extended thinking - coding is usually straightforward (was "medium" 4K)
+    "qa": "low",        # 1,024 tokens - minimal thinking for validation (was "high" 16K)
 }
 
 

@@ -484,7 +484,83 @@ export class AgentProcessManager {
 
     // Parse Python commandto handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
-    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+
+    let finalCommand: string;
+    let finalArgs: string[];
+
+    if (activationScript && existsSync(activationScript)) {
+      // Build command with conda activation
+      if (process.platform === 'win32') {
+        const pythonWithArgs = [pythonCommand, ...pythonBaseArgs, ...args]
+          .map(arg => arg.includes(' ') ? `"${arg}"` : arg)
+          .join(' ');
+
+        // Check if it's a PowerShell script (.ps1)
+        if (activationScript.toLowerCase().endsWith('.ps1')) {
+          // PowerShell: powershell -NoProfile -Command "& script.ps1; & python args"
+          finalCommand = 'powershell';
+          finalArgs = ['-NoProfile', '-Command', `& '${activationScript}'; & ${pythonWithArgs}`];
+        } else {
+          // Batch file: Extract conda activation from terminal.cmd and run command directly
+          // IMPORTANT: Don't call terminal.cmd directly as it may open interactive prompt (cmd /k)
+          // Instead, extract the conda activation command and run it inline
+          const quotedScript = activationScript.includes(' ') ? `"${activationScript}"` : activationScript;
+
+          // If this is terminal.cmd, extract conda activation and skip the 'cmd /k' part
+          if (activationScript.toLowerCase().includes('terminal.cmd')) {
+            // Parse terminal.cmd to extract conda activation
+            try {
+              const fs = require('fs');
+              const scriptContent = fs.readFileSync(activationScript, 'utf-8');
+              const condaMatch = scriptContent.match(/call\s+(.+?condabin[\\/]conda\.bat)\s+activate\s+"?([^"\r\n]+)"?/i);
+
+              if (condaMatch) {
+                const condaBat = condaMatch[1].replace(/%USERPROFILE%/g, process.env.USERPROFILE || '');
+                const envPath = condaMatch[2];
+                // Run conda activation directly without the interactive cmd /k
+                // Only quote paths if they contain spaces
+                const quotedCondaBat = condaBat.includes(' ') ? `"${condaBat}"` : condaBat;
+                const quotedEnvPath = envPath.includes(' ') ? `"${envPath}"` : envPath;
+                finalCommand = process.env.COMSPEC || 'cmd.exe';
+                finalArgs = ['/c', `call ${quotedCondaBat} activate ${quotedEnvPath} && ${pythonWithArgs}`];
+              } else {
+                // Fallback: call the script but it might hang
+                console.warn('[AgentProcess] Could not parse conda activation from terminal.cmd, using script directly');
+                finalCommand = process.env.COMSPEC || 'cmd.exe';
+                finalArgs = ['/c', `call ${quotedScript} && ${pythonWithArgs}`];
+              }
+            } catch (err) {
+              console.error('[AgentProcess] Error parsing terminal.cmd:', err);
+              // Fallback to calling script directly
+              finalCommand = process.env.COMSPEC || 'cmd.exe';
+              finalArgs = ['/c', `call ${quotedScript} && ${pythonWithArgs}`];
+            }
+          } else {
+            // Regular batch file activation script
+            finalCommand = process.env.COMSPEC || 'cmd.exe';
+            finalArgs = ['/c', `call ${quotedScript} && ${pythonWithArgs}`];
+          }
+        }
+      } else {
+        // Unix: bash -c "source activate && python args"
+        finalCommand = process.env.SHELL || '/bin/bash';
+        const pythonWithArgs = [pythonCommand, ...pythonBaseArgs, ...args]
+          .map(arg => arg.includes(' ') ? `"${arg}"` : arg)
+          .join(' ');
+        finalArgs = ['-c', `source "${activationScript}" && ${pythonWithArgs}`];
+      }
+    } else {
+      // No activation - use Python directly
+      finalCommand = pythonCommand;
+      finalArgs = [...pythonBaseArgs, ...args];
+    }
+
+    // Debug: Log the exact command being spawned
+    console.warn('[AgentProcess] Spawning command:', finalCommand);
+    console.warn('[AgentProcess] With args:', JSON.stringify(finalArgs));
+    console.warn('[AgentProcess] CWD:', cwd);
+
+    const childProcess = spawn(finalCommand, finalArgs, {
       cwd,
       env: {
         ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
