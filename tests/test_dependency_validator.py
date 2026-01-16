@@ -233,23 +233,45 @@ class TestLinuxSecretstorageValidation:
 
     def test_windows_skips_secretstorage_validation(self):
         """Windows should skip secretstorage validation."""
-        with patch("core.dependency_validator.is_linux", return_value=False), \
-             patch("builtins.__import__") as mock_import:
-            # Even if secretstorage is not available, should not warn
-            mock_import.side_effect = ImportError("No module named 'secretstorage'")
+        import builtins
 
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            # Allow pywintypes to succeed (Windows validation passes)
+            if name == "pywintypes":
+                return MagicMock()
+            # secretstorage import fails (but should be skipped on Windows)
+            if name == "secretstorage":
+                raise ImportError("No module named 'secretstorage'")
+            return original_import(name, *args, **kwargs)
+
+        with patch("core.dependency_validator.is_linux", return_value=False), \
+             patch("core.dependency_validator._exit_with_secretstorage_warning") as mock_warning, \
+             patch("builtins.__import__", side_effect=mock_import):
             # Should not call warning function
             validate_platform_dependencies()
+            mock_warning.assert_not_called()
 
     def test_macos_skips_secretstorage_validation(self):
         """macOS should skip secretstorage validation."""
-        with patch("core.dependency_validator.is_linux", return_value=False), \
-             patch("builtins.__import__") as mock_import:
-            # Even if secretstorage is not available, should not warn
-            mock_import.side_effect = ImportError("No module named 'secretstorage'")
+        import builtins
 
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            # All platform-specific imports fail (macOS has none required)
+            if name in ("pywintypes", "secretstorage"):
+                raise ImportError(f"No module named '{name}'")
+            return original_import(name, *args, **kwargs)
+
+        with patch("core.dependency_validator.is_linux", return_value=False), \
+             patch("core.dependency_validator.is_windows", return_value=False), \
+             patch("core.dependency_validator._exit_with_secretstorage_warning") as mock_warning, \
+             patch("builtins.__import__", side_effect=mock_import):
             # Should not call warning function
             validate_platform_dependencies()
+            mock_warning.assert_not_called()
 
 
 # =============================================================================
