@@ -309,6 +309,78 @@ export function Worktrees({ projectId }: WorktreesProps) {
     setShowBulkDeleteConfirm(true);
   }, [selectedWorktreeIds]);
 
+  // Execute bulk delete - called when user confirms in dialog
+  const executeBulkDelete = useCallback(async () => {
+    if (selectedWorktreeIds.size === 0 || !selectedProject) return;
+
+    setIsBulkDeleting(true);
+    const errors: string[] = [];
+
+    // Parse selected IDs and separate by type
+    const taskSpecNames: string[] = [];
+    const terminalNames: string[] = [];
+
+    selectedWorktreeIds.forEach((id) => {
+      if (id.startsWith('task:')) {
+        taskSpecNames.push(id.slice(5)); // Remove 'task:' prefix
+      } else if (id.startsWith('terminal:')) {
+        terminalNames.push(id.slice(9)); // Remove 'terminal:' prefix
+      }
+    });
+
+    // Delete task worktrees
+    for (const specName of taskSpecNames) {
+      const task = findTaskForWorktree(specName);
+      if (!task) {
+        errors.push(`Task not found for worktree: ${specName}`);
+        continue;
+      }
+
+      try {
+        const result = await window.electronAPI.discardWorktree(task.id);
+        if (!result.success) {
+          errors.push(result.error || `Failed to delete task worktree: ${specName}`);
+        }
+      } catch (err) {
+        errors.push(err instanceof Error ? err.message : `Failed to delete task worktree: ${specName}`);
+      }
+    }
+
+    // Delete terminal worktrees
+    for (const name of terminalNames) {
+      const terminalWt = terminalWorktrees.find((wt) => wt.name === name);
+      if (!terminalWt) {
+        errors.push(`Terminal worktree not found: ${name}`);
+        continue;
+      }
+
+      try {
+        const result = await window.electronAPI.removeTerminalWorktree(
+          selectedProject.path,
+          terminalWt.name,
+          terminalWt.hasGitBranch // Delete the branch too if it was created
+        );
+        if (!result.success) {
+          errors.push(result.error || `Failed to delete terminal worktree: ${name}`);
+        }
+      } catch (err) {
+        errors.push(err instanceof Error ? err.message : `Failed to delete terminal worktree: ${name}`);
+      }
+    }
+
+    // Clear selection and refresh list
+    setSelectedWorktreeIds(new Set());
+    setShowBulkDeleteConfirm(false);
+    await loadWorktrees();
+
+    // Show error if any failures occurred
+    if (errors.length > 0) {
+      setError(`Some worktrees could not be deleted:\n${errors.join('\n')}`);
+    }
+
+    setIsBulkDeleting(false);
+  }, [selectedWorktreeIds, selectedProject, terminalWorktrees, findTaskForWorktree, loadWorktrees]);
+
   // Handle terminal worktree delete
   const handleDeleteTerminalWorktree = async () => {
     if (!terminalWorktreeToDelete || !selectedProject) return;
@@ -868,7 +940,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                // TODO: Implement actual bulk delete logic in next subtask
+                executeBulkDelete();
               }}
               disabled={isBulkDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
