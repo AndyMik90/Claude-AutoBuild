@@ -392,7 +392,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // Project store for queue settings
   const projects = useProjectStore((state) => state.projects);
-  const updateProjectSettings = useProjectStore((state) => state.updateProjectSettings);
 
   // Get projectId from first task
   const projectId = tasks[0]?.projectId;
