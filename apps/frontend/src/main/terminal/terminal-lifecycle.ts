@@ -98,7 +98,7 @@ export async function createTerminal(
     );
 
     if (projectPath) {
-      SessionHandler.persistSession(terminal);
+      SessionHandler.persistSessionAsync(terminal);
     }
 
     debugLog('[TerminalLifecycle] Terminal created successfully:', id);
@@ -183,7 +183,7 @@ export async function restoreTerminal(
   // Re-persist after restoring title and worktreeConfig
   // (createTerminal persists before these are set, so we need to persist again)
   if (terminal.projectPath) {
-    SessionHandler.persistSession(terminal);
+    SessionHandler.persistSessionAsync(terminal);
   }
 
   // Send title change event for all restored terminals so renderer updates
@@ -218,7 +218,7 @@ export async function restoreTerminal(
 
     // Persist the Claude mode and pending resume state
     if (terminal.projectPath) {
-      SessionHandler.persistSession(terminal);
+      SessionHandler.persistSessionAsync(terminal);
     }
   }
 
@@ -276,7 +276,7 @@ export async function destroyAllTerminals(
   terminals: Map<string, TerminalProcess>,
   saveTimer: NodeJS.Timeout | null
 ): Promise<NodeJS.Timeout | null> {
-  SessionHandler.persistAllSessions(terminals);
+  await SessionHandler.persistAllSessionsAsync(terminals);
 
   if (saveTimer) {
     clearInterval(saveTimer);
