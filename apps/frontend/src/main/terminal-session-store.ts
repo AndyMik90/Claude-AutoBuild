@@ -18,6 +18,8 @@ export interface TerminalSession {
   lastActiveAt: string;  // ISO timestamp
   /** Associated worktree configuration (validated on restore) */
   worktreeConfig?: TerminalWorktreeConfig;
+  /** UI display position for ordering terminals after drag-drop */
+  displayOrder?: number;
 }
 
 /**
