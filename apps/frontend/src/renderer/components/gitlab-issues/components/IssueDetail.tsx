@@ -145,7 +145,7 @@ export function IssueDetail({ issue, onInvestigate, investigationResult, linkedT
           </CardHeader>
           <CardContent>
             {issue.description ? (
-              <div className="prose prose-sm prose-invert max-w-none">
+              <div className="prose prose-sm dark:prose-invert max-w-none">
                 <pre className="whitespace-pre-wrap text-sm text-muted-foreground font-sans">
                   {issue.description}
                 </pre>
