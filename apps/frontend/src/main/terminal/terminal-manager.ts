@@ -368,9 +368,9 @@ export class TerminalManager {
     const terminal = this.terminals.get(id);
     if (terminal) {
       terminal.worktreeConfig = config;
-      // Persist immediately when worktree config changes
+      // Persist immediately when worktree config changes (async to avoid blocking)
       if (terminal.projectPath) {
-        SessionHandler.persistSession(terminal);
+        SessionHandler.persistSessionAsync(terminal);
       }
     }
   }
