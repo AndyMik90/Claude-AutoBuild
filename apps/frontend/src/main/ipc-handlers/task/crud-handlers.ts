@@ -266,7 +266,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           return { success: false, error: 'Task not found' };
         }
 
-        const autoBuildDir = project.autoBuildPath || '.auto-claude';
+        const autoBuildDir = project.autoBuildPath ?? '.auto-claude';
         const specDir = path.join(project.path, autoBuildDir, 'specs', task.specId);
 
         if (!existsSync(specDir)) {
@@ -308,17 +308,16 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
             // FIX (#1085): Reset subtasks when description changes significantly
             // This allows users to update the description and re-run the task
             // Only reset for tasks that are in re-plannable states (not done/pr_created/running)
-            const oldDescription = plan.description || '';
-            const newDescription = updates.description || oldDescription;
+            const oldDescription = plan.description ?? '';
+            const newDescription = updates.description ?? oldDescription;
             const descriptionChanged = updates.description !== undefined &&
               oldDescription.trim() !== newDescription.trim();
 
             // Only reset status for tasks in states where re-planning makes sense
-            // Don't reset 'done' or 'pr_created' tasks as that would lose their completion state
-            // Also don't reset while agent is actively running to prevent corrupting execution state
-            const replanableStates = ['backlog', 'error', 'in_progress'];
-            const isAgentRunning = agentManager.isRunning(taskId);
-            const canReplan = replanableStates.includes(task.status) && !isAgentRunning;
+            // Don't reset 'done', 'pr_created', or 'in_progress' tasks as that would lose progress
+            // in_progress tasks might have partial work even if agent isn't actively running
+            const replanableStates = ['backlog', 'error'];
+            const canReplan = replanableStates.includes(task.status);
 
             if (descriptionChanged && canReplan && plan.phases && plan.phases.length > 0) {
               console.warn('[TASK_UPDATE] Description changed, resetting subtasks for re-planning');
@@ -341,10 +340,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
               plan.planStatus = 'pending';
               plan.status = 'pending';
             } else if (descriptionChanged && !canReplan) {
-              const reason = isAgentRunning
-                ? 'agent is currently running'
-                : `task status '${task.status}' prevents re-planning`;
-              console.warn(`[TASK_UPDATE] Description changed but ${reason}`);
+              console.warn(`[TASK_UPDATE] Description changed but task status '${task.status}' prevents re-planning`);
             }
 
             if (finalTitle !== undefined) {
