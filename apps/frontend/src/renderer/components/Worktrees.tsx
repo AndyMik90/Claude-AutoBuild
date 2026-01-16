@@ -299,6 +299,12 @@ export function Worktrees({ projectId }: WorktreesProps) {
     }
   };
 
+  // Handle bulk delete - triggered from selection bar
+  const handleBulkDelete = useCallback(() => {
+    if (selectedWorktreeIds.size === 0) return;
+    // TODO: Implement bulk delete confirmation dialog in next subtask
+  }, [selectedWorktreeIds]);
+
   // Handle terminal worktree delete
   const handleDeleteTerminalWorktree = async () => {
     if (!terminalWorktreeToDelete || !selectedProject) return;
@@ -388,6 +394,17 @@ export function Worktrees({ projectId }: WorktreesProps) {
             <span className="text-xs text-muted-foreground">
               {selectedCount} of {totalWorktrees} selected
             </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={selectedWorktreeIds.size === 0}
+              onClick={handleBulkDelete}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {t('common:buttons.delete')} ({selectedWorktreeIds.size})
+            </Button>
           </div>
         </div>
       )}
