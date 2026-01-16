@@ -447,13 +447,38 @@ export class TerminalSessionStore {
   }
 
   /**
-   * Save sessions to disk asynchronously (non-blocking)
+   * Save a terminal session asynchronously (non-blocking)
    *
-   * Public wrapper around saveAsync() for external callers that need
-   * non-blocking saves (e.g., during Electron app-quit handlers).
+   * Mirrors saveSession() but uses async disk write to avoid blocking
+   * the main process. Use this for fire-and-forget session persistence.
    */
-  saveSessionAsync(): Promise<void> {
-    return this.saveAsync();
+  async saveSessionAsync(session: TerminalSession): Promise<void> {
+    const { projectPath } = session;
+    const todaySessions = this.getTodaysSessions();
+
+    if (!todaySessions[projectPath]) {
+      todaySessions[projectPath] = [];
+    }
+
+    // Update existing or add new
+    const existingIndex = todaySessions[projectPath].findIndex(s => s.id === session.id);
+    if (existingIndex >= 0) {
+      todaySessions[projectPath][existingIndex] = {
+        ...session,
+        // Limit output buffer size
+        outputBuffer: session.outputBuffer.slice(-MAX_OUTPUT_BUFFER),
+        lastActiveAt: new Date().toISOString()
+      };
+    } else {
+      todaySessions[projectPath].push({
+        ...session,
+        outputBuffer: session.outputBuffer.slice(-MAX_OUTPUT_BUFFER),
+        createdAt: new Date().toISOString(),
+        lastActiveAt: new Date().toISOString()
+      });
+    }
+
+    await this.saveAsync();
   }
 
   /**

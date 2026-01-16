@@ -170,6 +170,33 @@ export function persistSession(terminal: TerminalProcess): void {
 }
 
 /**
+ * Persist a terminal session to disk asynchronously (fire-and-forget).
+ * This is non-blocking and prevents the main process from freezing during disk writes.
+ */
+export function persistSessionAsync(terminal: TerminalProcess): void {
+  if (!terminal.projectPath) {
+    return;
+  }
+
+  const store = getTerminalSessionStore();
+  const session: TerminalSession = {
+    id: terminal.id,
+    title: terminal.title,
+    cwd: terminal.cwd,
+    projectPath: terminal.projectPath,
+    isClaudeMode: terminal.isClaudeMode,
+    claudeSessionId: terminal.claudeSessionId,
+    outputBuffer: terminal.outputBuffer,
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    worktreeConfig: terminal.worktreeConfig,
+  };
+  store.saveSessionAsync(session).catch((error) => {
+    debugError('[SessionHandler] Failed to persist session:', error);
+  });
+}
+
+/**
  * Persist all active sessions
  */
 export function persistAllSessions(terminals: Map<string, TerminalProcess>): void {
