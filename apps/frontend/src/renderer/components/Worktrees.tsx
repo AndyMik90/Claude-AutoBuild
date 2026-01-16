@@ -49,6 +49,10 @@ import { useTaskStore } from '../stores/task-store';
 import type { WorktreeListItem, WorktreeMergeResult, TerminalWorktreeConfig, WorktreeStatus, Task, WorktreeCreatePROptions, WorktreeCreatePRResult } from '../../shared/types';
 import { CreatePRDialog } from './task-detail/task-review/CreatePRDialog';
 
+// Prefix constants for worktree ID parsing
+const TASK_PREFIX = 'task:';
+const TERMINAL_PREFIX = 'terminal:';
+
 interface WorktreesProps {
   projectId: string;
 }
@@ -184,9 +188,9 @@ export function Worktrees({ projectId }: WorktreesProps) {
   }, [loadWorktrees]);
 
   // Find task for a worktree
-  const findTaskForWorktree = (specName: string) => {
+  const findTaskForWorktree = useCallback((specName: string) => {
     return tasks.find(t => t.specId === specName);
-  };
+  }, [tasks]);
 
   // Handle merge
   const handleMerge = async () => {
@@ -325,10 +329,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
     const terminalNames: string[] = [];
 
     selectedWorktreeIds.forEach((id) => {
-      if (id.startsWith('task:')) {
-        taskSpecNames.push(id.slice(5)); // Remove 'task:' prefix
-      } else if (id.startsWith('terminal:')) {
-        terminalNames.push(id.slice(9)); // Remove 'terminal:' prefix
+      if (id.startsWith(TASK_PREFIX)) {
+        taskSpecNames.push(id.slice(TASK_PREFIX.length));
+      } else if (id.startsWith(TERMINAL_PREFIX)) {
+        terminalNames.push(id.slice(TERMINAL_PREFIX.length));
       }
     });
 
@@ -336,17 +340,17 @@ export function Worktrees({ projectId }: WorktreesProps) {
     for (const specName of taskSpecNames) {
       const task = findTaskForWorktree(specName);
       if (!task) {
-        errors.push(`Task not found for worktree: ${specName}`);
+        errors.push(t('common:errors.taskNotFoundForWorktree', { specName }));
         continue;
       }
 
       try {
         const result = await window.electronAPI.discardWorktree(task.id);
         if (!result.success) {
-          errors.push(result.error || `Failed to delete task worktree: ${specName}`);
+          errors.push(result.error || t('common:errors.failedToDeleteTaskWorktree', { specName }));
         }
       } catch (err) {
-        errors.push(err instanceof Error ? err.message : `Failed to delete task worktree: ${specName}`);
+        errors.push(err instanceof Error ? err.message : t('common:errors.failedToDeleteTaskWorktree', { specName }));
       }
     }
 
@@ -354,7 +358,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
     for (const name of terminalNames) {
       const terminalWt = terminalWorktrees.find((wt) => wt.name === name);
       if (!terminalWt) {
-        errors.push(`Terminal worktree not found: ${name}`);
+        errors.push(t('common:errors.terminalWorktreeNotFound', { name }));
         continue;
       }
 
@@ -365,10 +369,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
           terminalWt.hasGitBranch // Delete the branch too if it was created
         );
         if (!result.success) {
-          errors.push(result.error || `Failed to delete terminal worktree: ${name}`);
+          errors.push(result.error || t('common:errors.failedToDeleteTerminalWorktree', { name }));
         }
       } catch (err) {
-        errors.push(err instanceof Error ? err.message : `Failed to delete terminal worktree: ${name}`);
+        errors.push(err instanceof Error ? err.message : t('common:errors.failedToDeleteTerminalWorktree', { name }));
       }
     }
 
@@ -379,11 +383,11 @@ export function Worktrees({ projectId }: WorktreesProps) {
 
     // Show error if any failures occurred
     if (errors.length > 0) {
-      setError(`Some worktrees could not be deleted:\n${errors.join('\n')}`);
+      setError(`${t('common:errors.bulkDeletePartialFailure')}\n${errors.join('\n')}`);
     }
 
     setIsBulkDeleting(false);
-  }, [selectedWorktreeIds, selectedProject, terminalWorktrees, findTaskForWorktree, loadWorktrees]);
+  }, [selectedWorktreeIds, selectedProject, terminalWorktrees, findTaskForWorktree, loadWorktrees, t]);
 
   // Handle terminal worktree delete
   const handleDeleteTerminalWorktree = async () => {
@@ -454,7 +458,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
             disabled={isLoading}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
+            {t('common:buttons.refresh')}
           </Button>
         </div>
       </div>
@@ -496,7 +500,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
             <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
             <div>
               <p className="font-medium text-destructive">Error</p>
-              <p className="text-muted-foreground mt-1">{error}</p>
+              <p className="text-muted-foreground mt-1 whitespace-pre-line">{error}</p>
             </div>
           </div>
         </div>

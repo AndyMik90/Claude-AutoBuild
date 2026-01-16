@@ -114,7 +114,12 @@
     "operationFailed": "Operation failed",
     "networkError": "Network error",
     "notFound": "Not found",
-    "unauthorized": "Unauthorized"
+    "unauthorized": "Unauthorized",
+    "bulkDeletePartialFailure": "Some worktrees could not be deleted:",
+    "taskNotFoundForWorktree": "Task not found for worktree: {{specName}}",
+    "failedToDeleteTaskWorktree": "Failed to delete task worktree: {{specName}}",
+    "terminalWorktreeNotFound": "Terminal worktree not found: {{name}}",
+    "failedToDeleteTerminalWorktree": "Failed to delete terminal worktree: {{name}}"
   },
   "notification": {
     "accountSwitched": "Account Switched",

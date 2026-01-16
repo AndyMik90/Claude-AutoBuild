@@ -114,7 +114,12 @@
     "operationFailed": "Opération échouée",
     "networkError": "Erreur réseau",
     "notFound": "Non trouvé",
-    "unauthorized": "Non autorisé"
+    "unauthorized": "Non autorisé",
+    "bulkDeletePartialFailure": "Certains worktrees n'ont pas pu être supprimés :",
+    "taskNotFoundForWorktree": "Tâche introuvable pour le worktree : {{specName}}",
+    "failedToDeleteTaskWorktree": "Échec de la suppression du worktree de tâche : {{specName}}",
+    "terminalWorktreeNotFound": "Worktree terminal introuvable : {{name}}",
+    "failedToDeleteTerminalWorktree": "Échec de la suppression du worktree terminal : {{name}}"
   },
   "notification": {
     "accountSwitched": "Compte changé",
