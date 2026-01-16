@@ -93,6 +93,12 @@
     "required": "Required",
     "dismiss": "Dismiss"
   },
+  "selection": {
+    "selected": "{{count}} selected",
+    "selectAll": "Select All",
+    "clearSelection": "Clear Selection",
+    "deleteSelected": "Delete Selected"
+  },
   "time": {
     "justNow": "Just now",
     "minutesAgo": "{{count}}m ago",
