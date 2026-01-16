@@ -563,6 +563,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const moveTaskToColumnTop = useTaskStore((state) => state.moveTaskToColumnTop);
   const saveTaskOrder = useTaskStore((state) => state.saveTaskOrder);
   const loadTaskOrder = useTaskStore((state) => state.loadTaskOrder);
+  const setTaskOrder = useTaskStore((state) => state.setTaskOrder);
 
   // Get projectId from tasks (all tasks in KanbanBoard share the same project)
   const projectId = useMemo(() => tasks[0]?.projectId ?? null, [tasks]);
@@ -573,6 +574,44 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       loadTaskOrder(projectId);
     }
   }, [projectId, loadTaskOrder]);
+
+  // Clean up stale task IDs from order when tasks change (e.g., after deletion)
+  // This ensures the persisted order doesn't contain IDs for deleted tasks
+  useEffect(() => {
+    if (!projectId || !taskOrder) return;
+
+    // Build a set of current task IDs for fast lookup
+    const currentTaskIds = new Set(tasks.map(t => t.id));
+
+    // Check each column for stale IDs
+    let hasStaleIds = false;
+    const cleanedOrder: typeof taskOrder = {
+      backlog: [],
+      in_progress: [],
+      ai_review: [],
+      human_review: [],
+      pr_created: [],
+      done: []
+    };
+
+    for (const status of Object.keys(taskOrder) as Array<keyof typeof taskOrder>) {
+      const columnOrder = taskOrder[status] || [];
+      const cleanedColumnOrder = columnOrder.filter(id => currentTaskIds.has(id));
+
+      cleanedOrder[status] = cleanedColumnOrder;
+
+      // Check if any IDs were removed
+      if (cleanedColumnOrder.length !== columnOrder.length) {
+        hasStaleIds = true;
+      }
+    }
+
+    // If stale IDs were found, update the order and persist
+    if (hasStaleIds) {
+      setTaskOrder(cleanedOrder);
+      saveTaskOrder(projectId);
+    }
+  }, [tasks, taskOrder, projectId, setTaskOrder, saveTaskOrder]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
