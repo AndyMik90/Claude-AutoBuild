@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment } from '../../shared/types';
+import { arrayMove } from '@dnd-kit/sortable';
+import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState } from '../../shared/types';
 import { debugLog } from '../../shared/utils/debug-logger';
 import { isTerminalPhase } from '../../shared/constants/phase-protocol';
 
@@ -8,6 +9,7 @@ interface TaskState {
   selectedTaskId: string | null;
   isLoading: boolean;
   error: string | null;
+  taskOrder: TaskOrderState | null;  // Per-column task ordering for kanban board
 
   // Actions
   setTasks: (tasks: Task[]) => void;
@@ -22,6 +24,11 @@ interface TaskState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearTasks: () => void;
+  // Task order actions for kanban drag-and-drop reordering
+  setTaskOrder: (order: TaskOrderState) => void;
+  reorderTasksInColumn: (status: TaskStatus, activeId: string, overId: string) => void;
+  loadTaskOrder: (projectId: string) => void;
+  saveTaskOrder: (projectId: string) => void;
 
   // Selectors
   getSelectedTask: () => Task | undefined;
@@ -95,11 +102,36 @@ function validatePlanData(plan: ImplementationPlan): boolean {
   return true;
 }
 
+// localStorage key prefix for task order persistence
+const TASK_ORDER_KEY_PREFIX = 'task-order-state';
+
+/**
+ * Get the localStorage key for a project's task order
+ */
+function getTaskOrderKey(projectId: string): string {
+  return `${TASK_ORDER_KEY_PREFIX}-${projectId}`;
+}
+
+/**
+ * Create an empty task order state with all status columns
+ */
+function createEmptyTaskOrder(): TaskOrderState {
+  return {
+    backlog: [],
+    in_progress: [],
+    ai_review: [],
+    human_review: [],
+    pr_created: [],
+    done: []
+  };
+}
+
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
   selectedTaskId: null,
   isLoading: false,
   error: null,
+  taskOrder: null,
 
   setTasks: (tasks) => set({ tasks }),
 
@@ -402,7 +434,61 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   setError: (error) => set({ error }),
 
-  clearTasks: () => set({ tasks: [], selectedTaskId: null }),
+  clearTasks: () => set({ tasks: [], selectedTaskId: null, taskOrder: null }),
+
+  // Task order actions for kanban drag-and-drop reordering
+  setTaskOrder: (order) => set({ taskOrder: order }),
+
+  reorderTasksInColumn: (status, activeId, overId) => {
+    set((state) => {
+      if (!state.taskOrder) return state;
+
+      const columnOrder = state.taskOrder[status];
+      if (!columnOrder) return state;
+
+      const oldIndex = columnOrder.indexOf(activeId);
+      const newIndex = columnOrder.indexOf(overId);
+
+      // Both tasks must be in the column order array
+      if (oldIndex === -1 || newIndex === -1) return state;
+
+      return {
+        taskOrder: {
+          ...state.taskOrder,
+          [status]: arrayMove(columnOrder, oldIndex, newIndex)
+        }
+      };
+    });
+  },
+
+  loadTaskOrder: (projectId) => {
+    try {
+      const key = getTaskOrderKey(projectId);
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const order = JSON.parse(stored) as TaskOrderState;
+        set({ taskOrder: order });
+      } else {
+        // Initialize with empty order state
+        set({ taskOrder: createEmptyTaskOrder() });
+      }
+    } catch (error) {
+      console.error('Failed to load task order:', error);
+      set({ taskOrder: createEmptyTaskOrder() });
+    }
+  },
+
+  saveTaskOrder: (projectId) => {
+    try {
+      const state = get();
+      if (!state.taskOrder) return;
+
+      const key = getTaskOrderKey(projectId);
+      localStorage.setItem(key, JSON.stringify(state.taskOrder));
+    } catch (error) {
+      console.error('Failed to save task order:', error);
+    }
+  },
 
   getSelectedTask: () => {
     const state = get();
