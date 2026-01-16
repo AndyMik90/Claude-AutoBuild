@@ -2,7 +2,8 @@
   "title": "Settings",
   "tabs": {
     "app": "App Settings",
-    "project": "Project Settings"
+    "project": "Project Settings",
+    "account": "Account"
   },
   "sections": {
     "appearance": {
@@ -350,6 +351,20 @@
       "integrationTitle": "Memory",
       "integrationDescription": "Configure persistent cross-session memory for agents",
       "syncDescription": "Configure persistent memory"
+    }
+  },
+  "accountSections": {
+    "profile": {
+      "title": "Profile",
+      "description": "Manage your account information"
+    },
+    "security": {
+      "title": "Security",
+      "description": "Password and authentication settings"
+    },
+    "login": {
+      "title": "Login",
+      "description": "Sign in or create an account"
     }
   },
   "agentProfile": {

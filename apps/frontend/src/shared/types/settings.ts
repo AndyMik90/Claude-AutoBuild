@@ -283,6 +283,12 @@ export interface AppSettings {
   dangerouslySkipPermissions?: boolean;
   // Anonymous error reporting (Sentry) - enabled by default to help improve the app
   sentryEnabled?: boolean;
+  // Convex authentication backend configuration (optional)
+  convexAuth?: {
+    enabled: boolean;
+    deploymentUrl?: string;
+    siteUrl?: string;
+  };
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

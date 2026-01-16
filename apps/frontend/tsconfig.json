@@ -20,7 +20,8 @@
       "@features/*": ["src/renderer/features/*"],
       "@components/*": ["src/renderer/shared/components/*"],
       "@hooks/*": ["src/renderer/shared/hooks/*"],
-      "@lib/*": ["src/renderer/shared/lib/*"]
+      "@lib/*": ["src/renderer/shared/lib/*"],
+      "@convex/*": ["../../services/convex/convex/*"]
     }
   },
   "include": ["src/**/*"],

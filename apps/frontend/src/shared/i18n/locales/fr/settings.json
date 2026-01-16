@@ -2,7 +2,8 @@
   "title": "Paramètres",
   "tabs": {
     "app": "Paramètres de l'app",
-    "project": "Paramètres du projet"
+    "project": "Paramètres du projet",
+    "account": "Compte"
   },
   "sections": {
     "appearance": {
@@ -350,6 +351,20 @@
       "integrationTitle": "Mémoire",
       "integrationDescription": "Configurer la mémoire persistante inter-sessions pour les agents",
       "syncDescription": "Configurer la mémoire persistante"
+    }
+  },
+  "accountSections": {
+    "profile": {
+      "title": "Profil",
+      "description": "Gérer vos informations de compte"
+    },
+    "security": {
+      "title": "Sécurité",
+      "description": "Paramètres de mot de passe et d'authentification"
+    },
+    "login": {
+      "title": "Connexion",
+      "description": "Se connecter ou créer un compte"
     }
   },
   "agentProfile": {

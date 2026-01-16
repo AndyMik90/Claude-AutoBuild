@@ -19,7 +19,11 @@ import {
   Globe,
   Code,
   Bug,
-  Server
+  Server,
+  LayoutTemplate,
+  User,
+  Shield,
+  LogOut
 } from 'lucide-react';
 
 // GitLab icon component (lucide-react doesn't have one)
@@ -57,17 +61,27 @@ import { ProjectSelector } from './ProjectSelector';
 import { ProjectSettingsContent, ProjectSettingsSection } from './ProjectSettingsContent';
 import { useProjectStore } from '../../stores/project-store';
 import type { UseProjectSettingsReturn } from '../project-settings/hooks/useProjectSettings';
+import { AccountProfile } from './account/AccountProfile';
+import { AccountSecurity } from './account/AccountSecurity';
+import { AccountLogin } from './account/AccountLogin';
+import { useConvexAuth } from '../../providers/convex/ConvexAuthProvider';
+import { useAuthClient } from '../../../shared/lib/convex/auth-client';
+import { authStore } from '../../stores/auth-store';
 
 interface AppSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialSection?: AppSection;
   initialProjectSection?: ProjectSettingsSection;
+  initialAccountSection?: AccountSection;
   onRerunWizard?: () => void;
 }
 
 // App-level settings sections
 export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'integrations' | 'api-profiles' | 'updates' | 'notifications' | 'debug';
+
+// Account-level settings sections
+export type AccountSection = 'profile' | 'security' | 'login';
 
 interface NavItemConfig<T extends string> {
   id: T;
@@ -100,20 +114,50 @@ const projectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
  * Main application settings dialog container
  * Coordinates app and project settings sections
  */
-export function AppSettingsDialog({ open, onOpenChange, initialSection, initialProjectSection, onRerunWizard }: AppSettingsDialogProps) {
+export function AppSettingsDialog({ open, onOpenChange, initialSection, initialProjectSection, initialAccountSection, onRerunWizard }: AppSettingsDialogProps) {
   const { t } = useTranslation('settings');
   const { settings, setSettings, isSaving, error, saveSettings, revertTheme, commitTheme } = useSettings();
   const [version, setVersion] = useState<string>('');
 
+  // Authentication state from Convex + Better Auth integration
+  const { isAuthenticated, user } = useConvexAuth();
+  const authClient = useAuthClient();
+
   // Track which top-level section is active
-  const [activeTopLevel, setActiveTopLevel] = useState<'app' | 'project'>('app');
+  const [activeTopLevel, setActiveTopLevel] = useState<'app' | 'project' | 'account'>('app');
   const [appSection, setAppSection] = useState<AppSection>(initialSection || 'appearance');
   const [projectSection, setProjectSection] = useState<ProjectSettingsSection>('general');
+  // Default to 'login' if not authenticated, otherwise 'profile'
+  const [accountSection, setAccountSection] = useState<AccountSection>(
+    initialAccountSection || 'login'
+  );
+
+  // Dynamic account nav items based on auth state
+  const accountNavItemsConfig: NavItemConfig<AccountSection>[] = isAuthenticated
+    ? [
+        { id: 'profile', icon: User },
+        { id: 'security', icon: Shield },
+      ]
+    : [
+        { id: 'login', icon: Key },
+      ];
+
+  // Update account section when authentication state changes
+  useEffect(() => {
+    if (isAuthenticated && accountSection === 'login') {
+      setAccountSection('profile');
+    } else if (!isAuthenticated && accountSection !== 'login') {
+      setAccountSection('login');
+    }
+  }, [isAuthenticated]);
 
   // Navigate to initial section when dialog opens with a specific section
   useEffect(() => {
     if (open) {
-      if (initialProjectSection) {
+      if (initialAccountSection) {
+        setActiveTopLevel('account');
+        setAccountSection(initialAccountSection);
+      } else if (initialProjectSection) {
         setActiveTopLevel('project');
         setProjectSection(initialProjectSection);
       } else if (initialSection) {
@@ -121,7 +165,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         setAppSection(initialSection);
       }
     }
-  }, [open, initialSection, initialProjectSection]);
+  }, [open, initialSection, initialProjectSection, initialAccountSection]);
 
   // Project state
   const projects = useProjectStore((state) => state.projects);
@@ -178,6 +222,21 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
     selectProject(projectId);
   };
 
+  const handleSignOut = async () => {
+    try {
+      // Sign out using Better Auth
+      await authClient?.signOut?.();
+
+      // Clear local session
+      authStore.clearSession();
+
+      // Navigate to login section
+      setAccountSection('login');
+    } catch (error) {
+      console.error('[Settings] Failed to sign out:', error);
+    }
+  };
+
   const renderAppSection = () => {
     switch (appSection) {
       case 'appearance':
@@ -207,9 +266,25 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
     }
   };
 
+  const renderAccountSection = () => {
+    switch (accountSection) {
+      case 'login':
+        return <AccountLogin />;
+      case 'profile':
+        return <AccountProfile />;
+      case 'security':
+        return <AccountSecurity />;
+      default:
+        return null;
+    }
+  };
+
   const renderContent = () => {
     if (activeTopLevel === 'app') {
       return renderAppSection();
+    }
+    if (activeTopLevel === 'account') {
+      return renderAccountSection();
     }
     return (
       <ProjectSettingsContent
@@ -351,6 +426,54 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                       })}
                     </div>
                   </div>
+
+                  {/* ACCOUNT Section */}
+                  <div>
+                    <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t('tabs.account')}
+                    </h3>
+                    <div className="space-y-1">
+                      {accountNavItemsConfig.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = activeTopLevel === 'account' && accountSection === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setActiveTopLevel('account');
+                              setAccountSection(item.id);
+                            }}
+                            className={cn(
+                              'w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all',
+                              isActive
+                                ? 'bg-accent text-accent-foreground'
+                                : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
+                            )}
+                          >
+                            <Icon className="h-5 w-5 mt-0.5 shrink-0" />
+                            <div className="min-w-0">
+                              <div className="font-medium text-sm">{t(`accountSections.${item.id}.title`)}</div>
+                              <div className="text-xs text-muted-foreground truncate">{t(`accountSections.${item.id}.description`)}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+
+                      {/* Sign Out Button */}
+                      {isAuthenticated && (
+                        <button
+                          onClick={handleSignOut}
+                          className="w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all hover:bg-destructive/10 text-muted-foreground hover:text-destructive mt-2 border border-border hover:border-destructive/50"
+                        >
+                          <LogOut className="h-5 w-5 mt-0.5 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="font-medium text-sm">Sign Out</div>
+                            <div className="text-xs text-muted-foreground">Sign out of your account</div>
+                          </div>
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Version at bottom */}
@@ -367,7 +490,11 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
             {/* Main content */}
             <div className="flex-1 overflow-hidden">
               <ScrollArea className="h-full">
-                <div className="p-8 max-w-2xl">
+                <div className={`p-8 ${
+                  appSection === 'templates' ? 'max-w-6xl' :
+                  activeTopLevel === 'account' ? 'max-w-full' : // Full width for account sections
+                  'max-w-2xl'
+                }`}>
                   {renderContent()}
                 </div>
               </ScrollArea>

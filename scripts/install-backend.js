@@ -26,6 +26,56 @@ function run(cmd, options = {}) {
   }
 }
 
+// Helper to run command and capture output
+function runCapture(cmd, options = {}) {
+  try {
+    return execSync(cmd, { encoding: 'utf8', cwd: backendDir, ...options });
+  } catch (error) {
+    return null;
+  }
+}
+
+// Retry logic for pip install with fallback options
+function pipInstall(pip, requirements, retries = 3) {
+  const installOptions = [
+    // First attempt: prefer pre-built wheels, no cache
+    {
+      flags: 'install --prefer-binary --no-cache-dir',
+      desc: 'prefer-binary (wheels)'
+    },
+    // Second attempt: force reinstall, clear cache
+    {
+      flags: 'install --force-reinstall --no-cache-dir',
+      desc: 'force-reinstall'
+    },
+    // Third attempt: upgrade all dependencies
+    {
+      flags: 'install --upgrade --no-cache-dir',
+      desc: 'upgrade all'
+    },
+    // Last resort: compile from source
+    {
+      flags: 'install --no-binary :all: --no-cache-dir',
+      desc: 'from source'
+    }
+  ];
+
+  for (let i = 0; i < Math.min(retries, installOptions.length); i++) {
+    const option = installOptions[i];
+    console.log(`\nAttempt ${i + 1}: pip ${option.flags} ${requirements}`);
+
+    const cmd = `"${pip}" ${option.flags} ${requirements}`;
+    if (run(cmd)) {
+      console.log(`✓ Installation succeeded with: ${option.desc}`);
+      return true;
+    }
+
+    console.warn(`✗ Attempt ${i + 1} failed with: ${option.desc}`);
+  }
+
+  return false;
+}
+
 // Find Python 3.12+
 // Prefer 3.12 first since it has the most stable wheel support for native packages
 function findPython() {
@@ -95,13 +145,52 @@ async function main() {
     process.exit(1);
   }
 
-  // Install dependencies
+  // Install dependencies with retry logic
   console.log('\nInstalling dependencies...');
   const pip = getPipPath();
-  if (!run(`"${pip}" install -r requirements.txt`)) {
-    console.error('Failed to install dependencies');
+
+  // Upgrade pip and setuptools first for better compatibility
+  console.log('\nUpgrading pip and setuptools...');
+  run(`"${pip}" install --upgrade pip setuptools wheel --no-cache-dir`);
+
+  // Install dependencies with robust retry logic
+  if (!pipInstall(pip, '-r requirements.txt', 4)) {
+    console.error('\nFailed to install dependencies after multiple attempts.');
+    console.error('Please check your Python installation and try again.');
+    console.error('If the issue persists, try installing with verbose output:');
+    console.error(`  "${pip}" install -r requirements.txt -v`);
     process.exit(1);
   }
+
+  // Verify critical imports
+  console.log('\nVerifying critical packages...');
+  const pythonBin = isWindows
+    ? path.join(venvDir, 'Scripts', 'python.exe')
+    : path.join(venvDir, 'bin', 'python');
+
+  const verifyCmd = `"${pythonBin}" -c "import pydantic_core._pydantic_core; import pydantic; from claude_agent_sdk import ClaudeSDKClient; print('✓ All critical imports verified')"`;
+
+  if (!run(verifyCmd)) {
+    console.error('\nPackage verification failed. Some packages may be corrupted.');
+    console.error('Attempting reinstall of problematic packages...');
+
+    // Try reinstalling critical packages individually
+    const criticalPackages = ['pydantic-core', 'pydantic', 'claude-agent-sdk'];
+    for (const pkg of criticalPackages) {
+      console.log(`\nReinstalling ${pkg}...`);
+      pipInstall(pip, `--force-reinstall ${pkg}`, 2);
+    }
+
+    // Verify again
+    if (!run(verifyCmd)) {
+      console.error('\nVerification failed after reinstall attempt.');
+      console.error('Please try manually:');
+      console.error(`  1. Delete .venv folder: rm -rf ${venvDir}`);
+      console.error(`  2. Run installer again: npm run install:backend`);
+      process.exit(1);
+    }
+  }
+  console.log('✓ All packages verified successfully');
 
   // Create .env file from .env.example if it doesn't exist
   const envPath = path.join(backendDir, '.env');
