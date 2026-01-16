@@ -5,10 +5,12 @@ import type {
   CreateTerminalWorktreeRequest,
   TerminalWorktreeConfig,
   TerminalWorktreeResult,
+  OtherWorktreeInfo,
 } from '../../../shared/types';
 import path from 'path';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, symlinkSync, lstatSync } from 'fs';
-import { execFileSync } from 'child_process';
+import { execFileSync, execFile } from 'child_process';
+import { promisify } from 'util';
 import { minimatch } from 'minimatch';
 import { debugLog, debugError } from '../../../shared/utils/debug-logger';
 import { projectStore } from '../../project-store';
@@ -20,12 +22,24 @@ import {
   getTerminalWorktreeMetadataPath,
 } from '../../worktree-paths';
 
+// Promisify execFile for async operations
+const execFileAsync = promisify(execFile);
+
 // Shared validation regex for worktree names - lowercase alphanumeric with dashes/underscores
 // Must start and end with alphanumeric character
 const WORKTREE_NAME_REGEX = /^[a-z0-9][a-z0-9_-]*[a-z0-9]$|^[a-z0-9]$/;
 
 // Validation regex for git branch names - allows alphanumeric, dots, slashes, dashes, underscores
 const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
+
+// Git worktree list porcelain output parsing constants
+const GIT_PORCELAIN = {
+  WORKTREE_PREFIX: 'worktree ',
+  HEAD_PREFIX: 'HEAD ',
+  BRANCH_PREFIX: 'branch ',
+  DETACHED_LINE: 'detached',
+  COMMIT_SHA_LENGTH: 8,
+} as const;
 
 /**
  * Fix repositories that are incorrectly marked with core.bare=true.
@@ -551,6 +565,109 @@ async function listTerminalWorktrees(projectPath: string): Promise<TerminalWorkt
   return configs;
 }
 
+/**
+ * List "other" worktrees - worktrees not managed by Auto Claude
+ * These are discovered via `git worktree list` excluding:
+ * - Main worktree (project root)
+ * - .auto-claude/worktrees/terminal/*
+ * - .auto-claude/worktrees/tasks/*
+ * - .auto-claude/worktrees/pr/*
+ */
+async function listOtherWorktrees(projectPath: string): Promise<OtherWorktreeInfo[]> {
+  // Validate projectPath against registered projects
+  if (!isValidProjectPath(projectPath)) {
+    debugError('[TerminalWorktree] Invalid project path for listing other worktrees:', projectPath);
+    return [];
+  }
+
+  const results: OtherWorktreeInfo[] = [];
+
+  // Paths to exclude (normalize for comparison)
+  const normalizedProjectPath = path.resolve(projectPath);
+  const excludePrefixes = [
+    path.join(normalizedProjectPath, '.auto-claude', 'worktrees', 'terminal'),
+    path.join(normalizedProjectPath, '.auto-claude', 'worktrees', 'tasks'),
+    path.join(normalizedProjectPath, '.auto-claude', 'worktrees', 'pr'),
+  ];
+
+  try {
+    const { stdout: output } = await execFileAsync('git', ['worktree', 'list', '--porcelain'], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      timeout: 30000,
+    });
+
+    // Parse porcelain output
+    // Format:
+    // worktree /path/to/worktree
+    // HEAD abc123...
+    // branch refs/heads/branch-name (or "detached" line)
+    // (blank line)
+
+    let currentWorktree: { path?: string; head?: string; branch?: string | null } = {};
+
+    for (const line of output.split('\n')) {
+      if (line.startsWith(GIT_PORCELAIN.WORKTREE_PREFIX)) {
+        // Save previous worktree if complete
+        if (currentWorktree.path && currentWorktree.head) {
+          processOtherWorktree(currentWorktree, normalizedProjectPath, excludePrefixes, results);
+        }
+        currentWorktree = { path: line.substring(GIT_PORCELAIN.WORKTREE_PREFIX.length) };
+      } else if (line.startsWith(GIT_PORCELAIN.HEAD_PREFIX)) {
+        currentWorktree.head = line.substring(GIT_PORCELAIN.HEAD_PREFIX.length);
+      } else if (line.startsWith(GIT_PORCELAIN.BRANCH_PREFIX)) {
+        // Extract branch name from "refs/heads/branch-name"
+        const fullRef = line.substring(GIT_PORCELAIN.BRANCH_PREFIX.length);
+        currentWorktree.branch = fullRef.replace('refs/heads/', '');
+      } else if (line === GIT_PORCELAIN.DETACHED_LINE) {
+        currentWorktree.branch = null; // Use null for detached HEAD state
+      }
+    }
+
+    // Process final worktree
+    if (currentWorktree.path && currentWorktree.head) {
+      processOtherWorktree(currentWorktree, normalizedProjectPath, excludePrefixes, results);
+    }
+  } catch (error) {
+    debugError('[TerminalWorktree] Error listing other worktrees:', error);
+  }
+
+  return results;
+}
+
+function processOtherWorktree(
+  wt: { path?: string; head?: string; branch?: string | null },
+  mainWorktreePath: string,
+  excludePrefixes: string[],
+  results: OtherWorktreeInfo[]
+): void {
+  if (!wt.path || !wt.head) return;
+
+  const normalizedPath = path.resolve(wt.path);
+
+  // Exclude main worktree
+  if (normalizedPath === mainWorktreePath) {
+    return;
+  }
+
+  // Check if this path starts with any excluded prefix
+  for (const excludePrefix of excludePrefixes) {
+    if (normalizedPath.startsWith(excludePrefix + path.sep) || normalizedPath === excludePrefix) {
+      return; // Skip this worktree
+    }
+  }
+
+  // Extract display name from path (last directory component)
+  const displayName = path.basename(normalizedPath);
+
+  results.push({
+    path: normalizedPath,
+    branch: wt.branch ?? null, // null indicates detached HEAD state
+    commitSha: wt.head.substring(0, GIT_PORCELAIN.COMMIT_SHA_LENGTH),
+    displayName,
+  });
+}
+
 async function removeTerminalWorktree(
   projectPath: string,
   name: string,
@@ -661,6 +778,21 @@ export function registerTerminalWorktreeHandlers(): void {
       deleteBranch: boolean
     ): Promise<IPCResult> => {
       return removeTerminalWorktree(projectPath, name, deleteBranch);
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.TERMINAL_WORKTREE_LIST_OTHER,
+    async (_, projectPath: string): Promise<IPCResult<OtherWorktreeInfo[]>> => {
+      try {
+        const worktrees = await listOtherWorktrees(projectPath);
+        return { success: true, data: worktrees };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to list other worktrees',
+        };
+      }
     }
   );
 }

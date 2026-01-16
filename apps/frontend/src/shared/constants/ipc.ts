@@ -83,6 +83,7 @@ export const IPC_CHANNELS = {
   TERMINAL_WORKTREE_CREATE: 'terminal:worktreeCreate',
   TERMINAL_WORKTREE_REMOVE: 'terminal:worktreeRemove',
   TERMINAL_WORKTREE_LIST: 'terminal:worktreeList',
+  TERMINAL_WORKTREE_LIST_OTHER: 'terminal:worktreeListOther',
 
   // Terminal events (main -> renderer)
   TERMINAL_OUTPUT: 'terminal:output',
