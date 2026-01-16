@@ -54,7 +54,7 @@ interface WorktreesProps {
 }
 
 export function Worktrees({ projectId }: WorktreesProps) {
-  const { t } = useTranslation(['common']);
+  const { t } = useTranslation(['common', 'dialogs']);
   const projects = useProjectStore((state) => state.projects);
   const selectedProject = projects.find((p) => p.id === projectId);
   const tasks = useTaskStore((state) => state.tasks);
@@ -78,6 +78,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [worktreeToDelete, setWorktreeToDelete] = useState<WorktreeListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Bulk delete confirmation state
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Create PR dialog state
   const [showCreatePRDialog, setShowCreatePRDialog] = useState(false);
@@ -302,7 +306,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
   // Handle bulk delete - triggered from selection bar
   const handleBulkDelete = useCallback(() => {
     if (selectedWorktreeIds.size === 0) return;
-    // TODO: Implement bulk delete confirmation dialog in next subtask
+    setShowBulkDeleteConfirm(true);
   }, [selectedWorktreeIds]);
 
   // Handle terminal worktree delete
@@ -840,6 +844,44 @@ export function Worktrees({ projectId }: WorktreesProps) {
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              {t('dialogs:worktrees.bulkDeleteTitle', { count: selectedWorktreeIds.size })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('dialogs:worktrees.bulkDeleteDescription')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>{t('common:buttons.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                // TODO: Implement actual bulk delete logic in next subtask
+              }}
+              disabled={isBulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBulkDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('dialogs:worktrees.deleting')}
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {t('dialogs:worktrees.deleteSelected')}
                 </>
               )}
             </AlertDialogAction>
