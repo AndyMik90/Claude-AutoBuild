@@ -143,8 +143,8 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
             <span className="text-muted-foreground">
               {activeEntries} {activeEntries === 1 ? t('execution.labels.entry') : t('execution.labels.entries')}
             </span>
-          ) : isRunning && isIndeterminatePhase && phaseProgress !== undefined && phaseProgress > 0 ? (
-            `${Math.round(phaseProgress)}%`
+          ) : isRunning && isIndeterminatePhase && (phaseProgress ?? 0) > 0 ? (
+            `${Math.round(phaseProgress!)}%`
           ) : (
             '—'
           )}
