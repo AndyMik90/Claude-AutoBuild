@@ -149,6 +149,7 @@ class TestGitHubRunnerConfigModelDefaults:
             / "github"
             / "models.py"
         )
+        # Explicit UTF-8 encoding required for Windows compatibility (default encoding varies by platform)
         content = models_file.read_text(encoding="utf-8")
         # Verify the default is "sonnet" (shorthand), not a hardcoded full model ID
         assert 'model: str = "sonnet"' in content
