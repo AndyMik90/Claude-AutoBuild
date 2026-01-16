@@ -76,7 +76,10 @@ export function escapeShellArgWindows(arg: string): string {
   // ^ is the escape character in cmd.exe
   // " & | < > ^ need to be escaped
   // % is used for variable expansion
+  // \n and \r terminate commands and must be removed
   const escaped = arg
+    .replace(/\r/g, '')        // Remove carriage returns (command terminators)
+    .replace(/\n/g, '')        // Remove newlines (command terminators)
     .replace(/\^/g, '^^')     // Escape carets first (escape char itself)
     .replace(/"/g, '^"')      // Escape double quotes
     .replace(/&/g, '^&')      // Escape ampersand (command separator)
