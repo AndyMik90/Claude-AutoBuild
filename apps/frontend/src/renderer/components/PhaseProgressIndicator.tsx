@@ -144,7 +144,7 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
               {activeEntries} {activeEntries === 1 ? t('execution.labels.entry') : t('execution.labels.entries')}
             </span>
           ) : isRunning && isIndeterminatePhase && (phaseProgress ?? 0) > 0 ? (
-            `${Math.round(phaseProgress!)}%`
+            `${Math.round(Math.min(phaseProgress!, 100))}%`
           ) : (
             '—'
           )}
