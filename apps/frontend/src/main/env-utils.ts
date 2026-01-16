@@ -111,6 +111,11 @@ export const COMMON_BIN_PATHS: Record<string, string[]> = {
     // Windows usually handles PATH better, but we can add common locations
     'C:\\Program Files\\Git\\cmd',
     'C:\\Program Files\\GitHub CLI',
+    // Node.js and npm paths - critical for packaged Electron apps that don't inherit full PATH
+    'C:\\Program Files\\nodejs',                  // Standard Node.js installer
+    '~\\AppData\\Local\\Programs\\nodejs',        // NVM for Windows / user install
+    '~\\AppData\\Roaming\\npm',                   // npm global scripts (claude.cmd lives here)
+    '~\\scoop\\apps\\nodejs\\current',            // Scoop package manager
   ],
 };
 
