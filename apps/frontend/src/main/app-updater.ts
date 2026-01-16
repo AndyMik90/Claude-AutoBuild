@@ -192,7 +192,11 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
 
   setTimeout(() => {
     console.warn('[app-updater] Performing initial update check');
-    autoUpdater!.checkForUpdates().catch((error: Error) => {
+    if (!autoUpdater) {
+      console.error('[app-updater] autoUpdater not initialized for initial check');
+      return;
+    }
+    autoUpdater.checkForUpdates().catch((error: Error) => {
       console.error('[app-updater] ❌ Initial update check failed:', error.message);
       if (DEBUG_UPDATER) {
         console.error('[app-updater:debug] Full error:', error);
@@ -206,7 +210,11 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
 
   setInterval(() => {
     console.warn('[app-updater] Performing periodic update check');
-    autoUpdater!.checkForUpdates().catch((error: Error) => {
+    if (!autoUpdater) {
+      console.error('[app-updater] autoUpdater not initialized for periodic check');
+      return;
+    }
+    autoUpdater.checkForUpdates().catch((error: Error) => {
       console.error('[app-updater] ❌ Periodic update check failed:', error.message);
       if (DEBUG_UPDATER) {
         console.error('[app-updater:debug] Full error:', error);

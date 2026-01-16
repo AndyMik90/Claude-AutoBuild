@@ -121,10 +121,10 @@ function getIconPath(): string {
     : join(process.resourcesPath);
 
   let iconName: string;
-  if (process.platform === 'darwin') {
+  if (is.mac) {
     // Use PNG in dev mode (works better), ICNS in production
     iconName = is.dev ? 'icon-256.png' : 'icon.icns';
-  } else if (process.platform === 'win32') {
+  } else if (is.windows) {
     iconName = 'icon.ico';
   } else {
     iconName = 'icon.png';
@@ -232,13 +232,13 @@ function createWindow(): void {
 // WSL2 compatibility: wrap in try-catch since app may not be initialized yet
 try {
   app.setName('Auto Claude');
-  if (process.platform === 'darwin') {
+  if (is.mac) {
     // Force the name to appear in dock on macOS
     app.name = 'Auto Claude';
   }
 
   // Fix Windows GPU cache permission errors (0x5 Access Denied)
-  if (process.platform === 'win32') {
+  if (is.windows) {
     app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
     app.commandLine.appendSwitch('disable-gpu-program-cache');
     console.log('[main] Applied Windows GPU cache fixes');
@@ -253,7 +253,7 @@ app.whenReady().then(() => {
   // Set app name (in case pre-init failed on WSL2)
   try {
     app.setName('Auto Claude');
-    if (process.platform === 'darwin') {
+    if (is.mac) {
       app.name = 'Auto Claude';
     }
   } catch (e) {
@@ -264,7 +264,7 @@ app.whenReady().then(() => {
   app.setAppUserModelId('com.autoclaude.ui');
 
   // Clear cache on Windows to prevent permission errors from stale cache
-  if (process.platform === 'win32') {
+  if (is.windows) {
     session.defaultSession.clearCache()
       .then(() => console.log('[main] Cleared cache on startup'))
       .catch((err) => console.warn('[main] Failed to clear cache:', err));
@@ -275,7 +275,7 @@ app.whenReady().then(() => {
   cleanupStaleUpdateMetadata();
 
   // Set dock icon on macOS
-  if (process.platform === 'darwin') {
+  if (is.mac) {
     const iconPath = getIconPath();
     try {
       const icon = nativeImage.createFromPath(iconPath);
@@ -474,7 +474,7 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (!is.mac) {
     app.quit();
   }
 });

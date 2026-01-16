@@ -13,7 +13,8 @@
 
 import * as os from 'os';
 import * as path from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
+import { execSync } from 'child_process';
 import { OS, ShellType, PathConfig, ShellConfig, BinaryDirectories } from './types';
 
 // Re-export from paths.ts for backward compatibility
@@ -96,7 +97,7 @@ export function isWSL2(): boolean {
   if (isLinux()) {
     try {
       const versionInfo = existsSync('/proc/version')
-        ? require('fs').readFileSync('/proc/version', 'utf8').toLowerCase()
+        ? readFileSync('/proc/version', 'utf8').toLowerCase()
         : '';
       // WSL2 typically contains 'microsoft' in kernel version
       if (versionInfo.includes('microsoft')) {
@@ -104,6 +105,16 @@ export function isWSL2(): boolean {
       }
     } catch {
       // /proc/version doesn't exist or can't be read
+    }
+  }
+
+  // Method 3: Check for WSL interop (wsl.exe in PATH)
+  if (isLinux()) {
+    try {
+      execSync('which wsl.exe', { stdio: 'ignore' });
+      return true;
+    } catch {
+      // wsl.exe not found
     }
   }
 

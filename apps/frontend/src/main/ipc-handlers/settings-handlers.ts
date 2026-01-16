@@ -3,7 +3,7 @@ import { existsSync, writeFileSync, mkdirSync, statSync, readFileSync } from 'fs
 import { execFileSync } from 'node:child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { isDev, isMacOS, isWindows, isLinux } from '../platform';
+import { isDev, isMacOS, isWindows, isLinux, getPlatformDescription } from '../platform';
 
 // Platform detection wrapper for backward compatibility
 // Uses centralized platform module (apps/frontend/src/main/platform/)
@@ -68,7 +68,7 @@ const detectAutoBuildSourcePath = (): string | null => {
   const debug = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
 
   if (debug) {
-    console.warn('[detectAutoBuildSourcePath] Platform:', process.platform);
+    console.warn('[detectAutoBuildSourcePath] Platform:', getPlatformDescription());
     console.warn('[detectAutoBuildSourcePath] Is dev:', is.dev);
     console.warn('[detectAutoBuildSourcePath] __dirname:', __dirname);
     console.warn('[detectAutoBuildSourcePath] app.getAppPath():', app.getAppPath());
