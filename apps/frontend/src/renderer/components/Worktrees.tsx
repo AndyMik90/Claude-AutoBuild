@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Check,
   X,
-  Terminal
+  Terminal,
+  CheckSquare2
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -328,15 +329,32 @@ export function Worktrees({ projectId }: WorktreesProps) {
             Manage isolated workspaces for your Auto Claude tasks
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={loadWorktrees}
-          disabled={isLoading}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={isSelectionMode ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              if (isSelectionMode) {
+                setIsSelectionMode(false);
+                setSelectedWorktreeIds(new Set());
+              } else {
+                setIsSelectionMode(true);
+              }
+            }}
+          >
+            <CheckSquare2 className="h-4 w-4 mr-2" />
+            {isSelectionMode ? t('common:selection.done') : t('common:selection.select')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadWorktrees}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Error message */}

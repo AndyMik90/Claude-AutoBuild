@@ -94,6 +94,8 @@
     "dismiss": "Ignorer"
   },
   "selection": {
+    "select": "Sélectionner",
+    "done": "Terminé",
     "selected": "{{count}} sélectionné(s)",
     "selectAll": "Tout sélectionner",
     "clearSelection": "Effacer la sélection",

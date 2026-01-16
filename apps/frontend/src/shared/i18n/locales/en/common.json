@@ -94,6 +94,8 @@
     "dismiss": "Dismiss"
   },
   "selection": {
+    "select": "Select",
+    "done": "Done",
     "selected": "{{count}} selected",
     "selectAll": "Select All",
     "clearSelection": "Clear Selection",
