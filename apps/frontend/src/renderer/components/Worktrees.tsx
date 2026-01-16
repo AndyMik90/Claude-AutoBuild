@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { Checkbox } from './ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
 import {
@@ -88,35 +89,46 @@ export function Worktrees({ projectId }: WorktreesProps) {
   const [selectedWorktreeIds, setSelectedWorktreeIds] = useState<Set<string>>(new Set());
 
   // Selection callbacks
-  const toggleWorktree = useCallback((specName: string) => {
+  const toggleWorktree = useCallback((id: string) => {
     setSelectedWorktreeIds(prev => {
       const next = new Set(prev);
-      if (next.has(specName)) {
-        next.delete(specName);
+      if (next.has(id)) {
+        next.delete(id);
       } else {
-        next.add(specName);
+        next.add(id);
       }
       return next;
     });
   }, []);
 
   const selectAll = useCallback(() => {
-    setSelectedWorktreeIds(new Set(worktrees.map(w => w.specName)));
-  }, [worktrees]);
+    const allIds = [
+      ...worktrees.map(w => `task:${w.specName}`),
+      ...terminalWorktrees.map(wt => `terminal:${wt.name}`)
+    ];
+    setSelectedWorktreeIds(new Set(allIds));
+  }, [worktrees, terminalWorktrees]);
 
   const deselectAll = useCallback(() => {
     setSelectedWorktreeIds(new Set());
   }, []);
 
   // Computed selection values
+  const totalWorktrees = worktrees.length + terminalWorktrees.length;
+
   const isAllSelected = useMemo(
-    () => worktrees.length > 0 && worktrees.every(w => selectedWorktreeIds.has(w.specName)),
-    [worktrees, selectedWorktreeIds]
+    () => totalWorktrees > 0 &&
+      worktrees.every(w => selectedWorktreeIds.has(`task:${w.specName}`)) &&
+      terminalWorktrees.every(wt => selectedWorktreeIds.has(`terminal:${wt.name}`)),
+    [worktrees, terminalWorktrees, selectedWorktreeIds, totalWorktrees]
   );
 
   const isSomeSelected = useMemo(
-    () => worktrees.some(w => selectedWorktreeIds.has(w.specName)) && !isAllSelected,
-    [worktrees, selectedWorktreeIds, isAllSelected]
+    () => (
+      worktrees.some(w => selectedWorktreeIds.has(`task:${w.specName}`)) ||
+      terminalWorktrees.some(wt => selectedWorktreeIds.has(`terminal:${wt.name}`))
+    ) && !isAllSelected,
+    [worktrees, terminalWorktrees, selectedWorktreeIds, isAllSelected]
   );
 
   const selectedCount = selectedWorktreeIds.size;
@@ -362,7 +374,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
       </div>
 
       {/* Selection controls bar - visible when selection mode is enabled */}
-      {isSelectionMode && worktrees.length > 0 && (
+      {isSelectionMode && totalWorktrees > 0 && (
         <div className="flex items-center justify-between py-2 mb-4 border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <button
@@ -374,7 +386,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
               {isAllSelected ? 'Deselect all' : 'Select all'}
             </button>
             <span className="text-xs text-muted-foreground">
-              {selectedCount} of {worktrees.length} selected
+              {selectedCount} of {totalWorktrees} selected
             </span>
           </div>
         </div>
@@ -427,20 +439,30 @@ export function Worktrees({ projectId }: WorktreesProps) {
                 </h3>
                 {worktrees.map((worktree) => {
                   const task = findTaskForWorktree(worktree.specName);
+                  const taskId = `task:${worktree.specName}`;
                   return (
                     <Card key={worktree.specName} className="overflow-hidden">
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-base flex items-center gap-2">
-                              <GitBranch className="h-4 w-4 text-info shrink-0" />
-                              <span className="truncate">{worktree.branch}</span>
-                            </CardTitle>
-                            {task && (
-                              <CardDescription className="mt-1 truncate">
-                                {task.title}
-                              </CardDescription>
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            {isSelectionMode && (
+                              <Checkbox
+                                checked={selectedWorktreeIds.has(taskId)}
+                                onCheckedChange={() => toggleWorktree(taskId)}
+                                className="mt-1"
+                              />
                             )}
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                <GitBranch className="h-4 w-4 text-info shrink-0" />
+                                <span className="truncate">{worktree.branch}</span>
+                              </CardTitle>
+                              {task && (
+                                <CardDescription className="mt-1 truncate">
+                                  {task.title}
+                                </CardDescription>
+                              )}
+                            </div>
                           </div>
                           <Badge variant="outline" className="shrink-0 ml-2">
                             {worktree.specName}
@@ -542,28 +564,39 @@ export function Worktrees({ projectId }: WorktreesProps) {
                   <Terminal className="h-4 w-4" />
                   Terminal Worktrees
                 </h3>
-                {terminalWorktrees.map((wt) => (
-                  <Card key={wt.name} className="overflow-hidden">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <FolderGit className="h-4 w-4 text-amber-500 shrink-0" />
-                            <span className="truncate">{wt.name}</span>
-                          </CardTitle>
-                          {wt.branchName && (
-                            <CardDescription className="mt-1 truncate font-mono text-xs">
-                              {wt.branchName}
-                            </CardDescription>
+                {terminalWorktrees.map((wt) => {
+                  const terminalId = `terminal:${wt.name}`;
+                  return (
+                    <Card key={wt.name} className="overflow-hidden">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            {isSelectionMode && (
+                              <Checkbox
+                                checked={selectedWorktreeIds.has(terminalId)}
+                                onCheckedChange={() => toggleWorktree(terminalId)}
+                                className="mt-1"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                <FolderGit className="h-4 w-4 text-amber-500 shrink-0" />
+                                <span className="truncate">{wt.name}</span>
+                              </CardTitle>
+                              {wt.branchName && (
+                                <CardDescription className="mt-1 truncate font-mono text-xs">
+                                  {wt.branchName}
+                                </CardDescription>
+                              )}
+                            </div>
+                          </div>
+                          {wt.taskId && (
+                            <Badge variant="outline" className="shrink-0 ml-2">
+                              {wt.taskId}
+                            </Badge>
                           )}
                         </div>
-                        {wt.taskId && (
-                          <Badge variant="outline" className="shrink-0 ml-2">
-                            {wt.taskId}
-                          </Badge>
-                        )}
-                      </div>
-                    </CardHeader>
+                      </CardHeader>
                     <CardContent className="pt-0">
                       {/* Branch info */}
                       {wt.baseBranch && wt.branchName && (
@@ -606,7 +639,8 @@ export function Worktrees({ projectId }: WorktreesProps) {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
