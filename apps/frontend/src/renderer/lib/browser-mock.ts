@@ -292,6 +292,10 @@ const browserMockAPI: ElectronAPI = {
     success: false,
     error: 'Not available in browser mode'
   }),
+  listOtherWorktrees: async () => ({
+    success: true,
+    data: []
+  }),
 
   // MCP Server Health Check Operations
   checkMcpHealth: async (server) => ({
