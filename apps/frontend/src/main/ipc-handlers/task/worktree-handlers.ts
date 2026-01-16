@@ -2020,23 +2020,34 @@ export function registerWorktreeHandlers(
               const hasOutput = stdout.length > 0 || stderr.length > 0;
               debug('TIMEOUT: Process hung. stdout length:', stdout.length, 'stderr length:', stderr.length);
 
-              // Build a helpful error message with context
-              let errorMessage = 'Merge process timed out.';
+              // Build error response with i18n translation keys for the renderer
+              // Use structured error with messageKey/messageParams for proper localization
+              let messageKey = 'errors:merge.timeout';
+              let messageParams: Record<string, string> = {};
+              let lastError = '';
+
               if (hasOutput) {
-                errorMessage += ' Some output was received - please run `git status` in your project directory to check if the merge completed partially.';
+                messageKey = 'errors:merge.timeoutWithOutput';
                 if (stderr.length > 0) {
                   const lastStderrLine = stderr.trim().split('\n').pop() || '';
                   if (lastStderrLine.length > 0 && lastStderrLine.length < 200) {
-                    errorMessage += ` Last error: ${lastStderrLine}`;
+                    lastError = lastStderrLine;
+                    messageParams = { lastError };
                   }
                 }
               } else {
-                errorMessage += ' No output received - the merge may not have started.';
+                messageKey = 'errors:merge.timeoutNoOutput';
               }
 
               resolve({
                 success: false,
-                error: errorMessage
+                error: messageKey,  // Fallback for non-i18n consumers
+                data: {
+                  success: false,
+                  message: messageKey,  // Fallback message
+                  messageKey,
+                  messageParams: lastError ? messageParams : undefined
+                }
               });
             }
           }, MERGE_TIMEOUT_MS);
