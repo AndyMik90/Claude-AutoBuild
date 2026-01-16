@@ -137,6 +137,7 @@ class BatchValidator:
             # Fallback to absolute import - wrap in try/except for safety
             try:
                 from phase_config import resolve_model_id
+
                 return resolve_model_id(model)
             except Exception as e:
                 # Log and return original model as final fallback
