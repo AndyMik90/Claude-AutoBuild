@@ -5,5 +5,13 @@
       "titleSuffix": "(JSON Error)",
       "description": "⚠️ JSON Parse Error: {{error}}\n\nThe implementation_plan.json file is malformed. Run the backend auto-fix or manually repair the file."
     }
+  },
+  "merge": {
+    "success": "Merge Successful",
+    "failed": "Merge Failed",
+    "timeout": "Merge process timed out.",
+    "timeoutWithOutput": "Merge process timed out. Some output was received - please run git status in your project directory to check if the merge completed partially.",
+    "timeoutNoOutput": "Merge process timed out. No output received - the merge may not have started.",
+    "timeoutLastError": "Last error: {{lastError}}"
   }
 }
