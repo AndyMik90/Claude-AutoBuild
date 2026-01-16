@@ -532,10 +532,11 @@ class TestImportOrderPreventsEarlyFailure:
             imported_modules.add(name)
             return original_import(name, *args, **kwargs)
 
-        # Use non-Windows to avoid import issues
+        # Use non-Windows platform to avoid pywin32 import issues on Windows CI
         with (
             patch("builtins.__import__", side_effect=tracking_import),
-            patch("sys.platform", "linux"),
+            patch("core.dependency_validator.is_windows", return_value=False),
+            patch("core.dependency_validator.is_linux", return_value=True),
             patch("sys.version_info", (3, 11, 0)),
         ):
             validate_platform_dependencies()
