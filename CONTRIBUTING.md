@@ -429,7 +429,6 @@ All pull requests and pushes to `main` trigger automated CI checks via GitHub Ac
 |----------|---------|----------------|
 | **CI** | Push to `main`, PRs | Python tests (3.11 & 3.12), Frontend tests |
 | **Lint** | Push to `main`, PRs | Ruff (Python), ESLint + TypeScript (Frontend) |
-| **Test on Tag** | Version tags (`v*`) | Full test suite before release |
 
 ### PR Requirements
 
