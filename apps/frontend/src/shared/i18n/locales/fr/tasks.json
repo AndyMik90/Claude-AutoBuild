@@ -53,7 +53,6 @@
     "description": "Créez votre première tâche pour commencer"
   },
   "columns": {
-    "error": "Erreur",
     "backlog": "Planification",
     "in_progress": "En cours",
     "ai_review": "Révision IA",
@@ -72,8 +71,6 @@
     "emptyHumanReviewHint": "Les tâches attendent votre approbation ici",
     "emptyDone": "Aucune tâche terminée",
     "emptyDoneHint": "Les tâches approuvées apparaissent ici",
-    "emptyError": "Aucune tâche en erreur",
-    "emptyErrorHint": "Les tâches en erreur apparaîtront ici en cas d'échec d'analyse",
     "emptyDefault": "Aucune tâche",
     "dropHere": "Déposer ici",
     "showArchived": "Afficher les archivées",
