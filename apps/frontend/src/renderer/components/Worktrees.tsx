@@ -141,6 +141,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
   const loadWorktrees = useCallback(async () => {
     if (!projectId || !selectedProject) return;
 
+    // Clear selection when refreshing list to prevent stale selections
+    setSelectedWorktreeIds(new Set());
+    setIsSelectionMode(false);
+
     setIsLoading(true);
     setError(null);
 
