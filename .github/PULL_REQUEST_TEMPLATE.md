@@ -40,9 +40,21 @@ Follow conventional commits: `<type>: <subject>`
 - [ ] I've followed the code principles (SOLID, DRY, KISS)
 - [ ] My PR is small and focused (< 400 lines ideally)
 
+## Platform Testing Checklist
+
+**CRITICAL:** This project supports Windows, macOS, and Linux. Platform-specific bugs are a common source of breakage.
+
+- [ ] **Windows tested** (either on Windows or via CI)
+- [ ] **macOS tested** (either on macOS or via CI)
+- [ ] **Linux tested** (CI covers this)
+- [ ] Used centralized `platform/` module instead of direct `process.platform` checks
+- [ ] No hardcoded paths (used `findExecutable()` or platform abstractions)
+
+**If you only have access to one OS:** CI now tests on all platforms. Ensure all checks pass before submitting.
+
 ## CI/Testing Requirements
 
-- [ ] All CI checks pass
+- [ ] All CI checks pass on **all platforms** (Windows, macOS, Linux)
 - [ ] All existing tests pass
 - [ ] New features include test coverage
 - [ ] Bug fixes include regression tests
