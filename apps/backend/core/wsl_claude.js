@@ -45,8 +45,36 @@ if (!wslHome) {
   }
 }
 
-// Get Claude CLI path (default: use 'claude' from PATH)
-const claudePath = process.env.AUTO_CLAUDE_WSL_CLAUDE_PATH || 'claude';
+// Get Claude CLI path
+// We need to find Claude in WSL, not the Windows shim which doesn't work in WSL
+let claudePath = process.env.AUTO_CLAUDE_WSL_CLAUDE_PATH;
+if (!claudePath) {
+  // Check common installation locations in WSL
+  const commonPaths = [
+    `${wslHome}/.local/bin/claude`,
+    '/usr/local/bin/claude',
+    `${wslHome}/.npm-global/bin/claude`,
+  ];
+
+  for (const path of commonPaths) {
+    try {
+      execSync(`wsl.exe -d ${distro} -e test -x "${path}"`, { timeout: 5000 });
+      claudePath = path;
+      break;
+    } catch {
+      // Not found at this path, continue
+    }
+  }
+
+  if (!claudePath) {
+    console.error('ERROR: Claude CLI not found in WSL. Please install it:');
+    console.error('  wsl -d ' + distro);
+    console.error('  npm install -g @anthropic-ai/claude-code');
+    console.error('');
+    console.error('Or set AUTO_CLAUDE_WSL_CLAUDE_PATH to the path of the claude binary in WSL.');
+    process.exit(1);
+  }
+}
 
 // Build wsl.exe arguments
 const args = ['-d', distro];

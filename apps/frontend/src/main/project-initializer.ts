@@ -2,6 +2,8 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } fr
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { getToolPath } from './cli-tool-manager';
+import { execGitSync } from './wsl-git';
+import { isWSLPath } from '../shared/utils/wsl-utils';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -33,14 +35,23 @@ export interface GitStatus {
  */
 export function checkGitStatus(projectPath: string): GitStatus {
   const git = getToolPath('git');
+  const useWSL = isWSLPath(projectPath);
 
-  try {
-    // Check if it's a git repository
-    execFileSync(git, ['rev-parse', '--git-dir'], {
+  // Helper to run git commands - uses WSL wrapper for WSL paths
+  const runGit = (args: string[]): string => {
+    if (useWSL) {
+      return execGitSync(args, { cwd: projectPath });
+    }
+    return execFileSync(git, args, {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
     });
+  };
+
+  try {
+    // Check if it's a git repository
+    runGit(['rev-parse', '--git-dir']);
   } catch {
     return {
       isGitRepo: false,
@@ -53,11 +64,7 @@ export function checkGitStatus(projectPath: string): GitStatus {
   // Check if there are any commits
   let hasCommits = false;
   try {
-    execFileSync(git, ['rev-parse', 'HEAD'], {
-      cwd: projectPath,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+    runGit(['rev-parse', 'HEAD']);
     hasCommits = true;
   } catch {
     // No commits yet
@@ -67,11 +74,7 @@ export function checkGitStatus(projectPath: string): GitStatus {
   // Get current branch
   let currentBranch: string | null = null;
   try {
-    currentBranch = execFileSync(git, ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      cwd: projectPath,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    }).trim();
+    currentBranch = runGit(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
   } catch {
     // Branch detection failed
   }

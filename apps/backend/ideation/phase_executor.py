@@ -249,8 +249,9 @@ class PhaseExecutor:
 
         output_file = self.output_dir / f"{ideation_type}_ideas.json"
 
-        if output_file.exists() and not self.refresh:
+        if output_file.exists() and not self.refresh and not self.append:
             # Load and validate existing ideas - only skip if we have valid ideas
+            # Note: when append=True, we always generate more ideas even if file exists
             try:
                 with open(output_file) as f:
                     data = json.load(f)

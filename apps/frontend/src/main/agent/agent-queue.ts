@@ -17,6 +17,19 @@ import { pythonEnvManager } from '../python-env-manager';
 import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ipc-handlers/ideation/transformers';
 import { transformRoadmapFromSnakeCase } from '../ipc-handlers/roadmap/transformers';
 import type { RawIdea } from '../ipc-handlers/ideation/types';
+import { isWSLPath, getWSLDistroFromPath, windowsToWSLPath } from '../../shared/utils/wsl-utils';
+
+/**
+ * Convert WSL UNC paths to use forward slashes for Python subprocess compatibility.
+ * Windows Python handles //wsl.localhost/... correctly but backslash versions get
+ * mangled when passed as subprocess arguments.
+ */
+function normalizePathForPython(p: string): string {
+  if (isWSLPath(p)) {
+    return p.replace(/\\/g, '/');
+  }
+  return p;
+}
 
 /** Maximum length for status messages displayed in progress UI */
 const STATUS_MESSAGE_MAX_LENGTH = 200;
@@ -117,7 +130,9 @@ export class AgentQueueManager {
       return;
     }
 
-    const args = [roadmapRunnerPath, '--project', projectPath];
+    // Normalize WSL paths to use forward slashes for Python compatibility
+    const normalizedProjectPath = normalizePathForPython(projectPath);
+    const args = [roadmapRunnerPath, '--project', normalizedProjectPath];
 
     if (refresh) {
       args.push('--refresh');
@@ -180,7 +195,9 @@ export class AgentQueueManager {
       return;
     }
 
-    const args = [ideationRunnerPath, '--project', projectPath];
+    // Normalize WSL paths to use forward slashes for Python compatibility
+    const normalizedProjectPath = normalizePathForPython(projectPath);
+    const args = [ideationRunnerPath, '--project', normalizedProjectPath];
 
     // Add enabled types as comma-separated list
     if (config.enabledTypes.length > 0) {
@@ -290,7 +307,7 @@ export class AgentQueueManager {
     // 5. profileEnv (Electron app OAuth token)
     // 6. apiProfileEnv (Active API profile config - highest priority for ANTHROPIC_* vars)
     // 7. Our specific overrides
-    const finalEnv = {
+    const finalEnv: Record<string, string | undefined> = {
       ...process.env,
       ...pythonEnv,
       ...combinedEnv,
@@ -302,11 +319,24 @@ export class AgentQueueManager {
       PYTHONUTF8: '1'
     };
 
+    // WSL support: Set env vars for Python backend when project is on WSL filesystem
+    // These env vars tell client.py to use WSL mode and the WSL wrapper for Claude CLI
+    if (isWSLPath(projectPath)) {
+      const distro = getWSLDistroFromPath(projectPath);
+      const linuxPath = windowsToWSLPath(projectPath);
+      if (distro && linuxPath) {
+        finalEnv['AUTO_CLAUDE_WSL_MODE'] = 'true';
+        finalEnv['AUTO_CLAUDE_WSL_DISTRO'] = distro;
+        finalEnv['AUTO_CLAUDE_WSL_PROJECT_PATH'] = linuxPath;
+        debugLog('[Agent Queue] WSL mode enabled for ideation:', { distro, linuxPath });
+      }
+    }
+
     // Debug: Show OAuth token source (token values intentionally omitted for security - AC4)
     const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
       ? 'Electron app profile'
       : (combinedEnv['CLAUDE_CODE_OAUTH_TOKEN'] ? 'auto-claude/.env' : 'not found');
-    const hasToken = !!(finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
+    const hasToken = !!finalEnv['CLAUDE_CODE_OAUTH_TOKEN'];
     debugLog('[Agent Queue] OAuth token status:', {
       source: tokenSource,
       hasToken
@@ -617,7 +647,7 @@ export class AgentQueueManager {
     // 5. profileEnv (Electron app OAuth token)
     // 6. apiProfileEnv (Active API profile config - highest priority for ANTHROPIC_* vars)
     // 7. Our specific overrides
-    const finalEnv = {
+    const finalEnv: Record<string, string | undefined> = {
       ...process.env,
       ...pythonEnv,
       ...combinedEnv,
@@ -629,11 +659,24 @@ export class AgentQueueManager {
       PYTHONUTF8: '1'
     };
 
+    // WSL support: Set env vars for Python backend when project is on WSL filesystem
+    // These env vars tell client.py to use WSL mode and the WSL wrapper for Claude CLI
+    if (isWSLPath(projectPath)) {
+      const distro = getWSLDistroFromPath(projectPath);
+      const linuxPath = windowsToWSLPath(projectPath);
+      if (distro && linuxPath) {
+        finalEnv['AUTO_CLAUDE_WSL_MODE'] = 'true';
+        finalEnv['AUTO_CLAUDE_WSL_DISTRO'] = distro;
+        finalEnv['AUTO_CLAUDE_WSL_PROJECT_PATH'] = linuxPath;
+        debugLog('[Agent Queue] WSL mode enabled for roadmap:', { distro, linuxPath });
+      }
+    }
+
     // Debug: Show OAuth token source (token values intentionally omitted for security - AC4)
     const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
       ? 'Electron app profile'
       : (combinedEnv['CLAUDE_CODE_OAUTH_TOKEN'] ? 'auto-claude/.env' : 'not found');
-    const hasToken = !!(finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
+    const hasToken = !!finalEnv['CLAUDE_CODE_OAUTH_TOKEN'];
     debugLog('[Agent Queue] OAuth token status:', {
       source: tokenSource,
       hasToken
