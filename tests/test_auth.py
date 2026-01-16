@@ -157,8 +157,6 @@ class TestWindowsCredentialFiles:
         cred_file = tmp_path / ".credentials.json"
         cred_file.write_text(credentials)
 
-        import core.auth as auth_module
-
         monkeypatch.setattr(platform, "system", lambda: "Windows")
         monkeypatch.setattr(
             os.path, "expandvars", lambda p: str(cred_file).replace("\\", "/")
@@ -180,8 +178,6 @@ class TestWindowsCredentialFiles:
         cred_file = tmp_path / ".credentials.json"
         cred_file.write_text("invalid json")
 
-        import core.auth as auth_module
-
         monkeypatch.setattr(platform, "system", lambda: "Windows")
         monkeypatch.setattr(
             os.path, "expandvars", lambda p: str(cred_file).replace("\\", "/")
@@ -194,15 +190,6 @@ class TestWindowsCredentialFiles:
 
 class TestLinuxSecretService:
     """Tests for Linux Secret Service token retrieval."""
-
-    @pytest.fixture
-    def mock_secretstorage(self):
-        """Mock secretstorage module."""
-        mock_ss = MagicMock()
-        mock_ss.exceptions = MagicMock()
-        mock_ss.exceptions.SecretServiceNotAvailableException = Exception
-        mock_ss.exceptions.SecretStorageException = Exception
-        return mock_ss
 
     def test_linux_secret_service_not_installed(self, monkeypatch):
         """Returns None when secretstorage is not installed."""
@@ -252,17 +239,44 @@ class TestLinuxSecretService:
         mock_collection.search_items.return_value = [mock_item]
         mock_ss.get_default_collection.return_value = mock_collection
 
-        import core.auth as auth_module
-
         monkeypatch.setattr(platform, "system", lambda: "Linux")
         monkeypatch.setattr("core.auth.secretstorage", mock_ss)
 
         token = get_token_from_keychain()
         assert token == test_token
 
+    def test_linux_secret_service_exact_label_match_only(self, monkeypatch):
+        """Only matches exact 'Claude Code-credentials' label."""
+        test_token = "sk-ant-oat01-linux-token"
+        credentials = json.dumps({"claudeAiOauth": {"accessToken": test_token}})
+
+        mock_ss = MagicMock()
+        mock_ss.exceptions = MagicMock()
+        mock_ss.exceptions.SecretServiceNotAvailableException = Exception
+        mock_ss.exceptions.SecretStorageException = Exception
+
+        mock_collection = MagicMock()
+        mock_collection.is_locked.return_value = False
+
+        # Mock item with similar but not exact label
+        mock_item = MagicMock()
+        mock_item.get_label.return_value = (
+            "Some-Claude-Code-Thing"  # Similar but not exact
+        )
+        mock_item.get_secret.return_value = credentials
+
+        mock_collection.search_items.return_value = [mock_item]
+        mock_ss.get_default_collection.return_value = mock_collection
+
+        monkeypatch.setattr(platform, "system", lambda: "Linux")
+        monkeypatch.setattr("core.auth.secretstorage", mock_ss)
+
+        token = get_token_from_keychain()
+        # Should return None because label doesn't match exactly
+        assert token is None
+
     def test_linux_secret_service_locked_collection_unlock_fails(self, monkeypatch):
         """Returns None when collection is locked and unlock fails."""
-        import core.auth as auth_module
 
         mock_ss = MagicMock()
         mock_ss.exceptions = MagicMock()
@@ -294,8 +308,6 @@ class TestLinuxSecretService:
 
         mock_ss.get_default_collection.return_value = mock_collection
 
-        import core.auth as auth_module
-
         monkeypatch.setattr(platform, "system", lambda: "Linux")
         monkeypatch.setattr("core.auth.secretstorage", mock_ss)
 
@@ -318,8 +330,6 @@ class TestLinuxSecretService:
 
         mock_collection.search_items.return_value = [mock_item]
         mock_ss.get_default_collection.return_value = mock_collection
-
-        import core.auth as auth_module
 
         monkeypatch.setattr(platform, "system", lambda: "Linux")
         monkeypatch.setattr("core.auth.secretstorage", mock_ss)
@@ -345,8 +355,6 @@ class TestLinuxSecretService:
 
         mock_collection.search_items.return_value = [mock_item]
         mock_ss.get_default_collection.return_value = mock_collection
-
-        import core.auth as auth_module
 
         monkeypatch.setattr(platform, "system", lambda: "Linux")
         monkeypatch.setattr("core.auth.secretstorage", mock_ss)
@@ -510,8 +518,6 @@ class TestTokenSourceDetection:
         cred_file = tmp_path / ".credentials.json"
         cred_file.write_text(credentials)
 
-        import core.auth as auth_module
-
         monkeypatch.setattr(platform, "system", lambda: "Windows")
         monkeypatch.setattr(
             os.path, "expandvars", lambda p: str(cred_file).replace("\\", "/")
@@ -555,11 +561,11 @@ class TestTokenSourceDetection:
 class TestSdkEnvVars:
     """Tests for get_sdk_env_vars function."""
 
-    def test_returns_non_empty_vars(self):
+    def test_returns_non_empty_vars(self, monkeypatch):
         """Only returns non-empty environment variables."""
-        os.environ["ANTHROPIC_BASE_URL"] = "https://api.anthropic.com"
-        os.environ["ANTHROPIC_MODEL"] = ""  # Empty, should be excluded
-        os.environ["DISABLE_TELEMETRY"] = "1"
+        monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+        monkeypatch.setenv("ANTHROPIC_MODEL", "")  # Empty, should be excluded
+        monkeypatch.setenv("DISABLE_TELEMETRY", "1")
 
         env = get_sdk_env_vars()
 
@@ -593,7 +599,7 @@ class TestSdkEnvVars:
     def test_does_not_overwrite_existing_git_bash_path(self, monkeypatch):
         """Respects existing CLAUDE_CODE_GIT_BASH_PATH environment variable."""
         existing_path = "/custom/bash.exe"
-        os.environ["CLAUDE_CODE_GIT_BASH_PATH"] = existing_path
+        monkeypatch.setenv("CLAUDE_CODE_GIT_BASH_PATH", existing_path)
 
         monkeypatch.setattr(platform, "system", lambda: "Windows")
 

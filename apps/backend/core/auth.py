@@ -164,7 +164,7 @@ def _get_token_from_linux_secret_service() -> str | None:
         # Get the default collection (typically "login" keyring)
         # secretstorage handles DBus communication internally
         try:
-            collection = secretstorage.get_default_collection()
+            collection = secretstorage.get_default_collection(None)
         except (
             AttributeError,
             secretstorage.exceptions.SecretServiceNotAvailableException,
@@ -172,7 +172,7 @@ def _get_token_from_linux_secret_service() -> str | None:
             # DBus not available or secret-service not running
             return None
 
-        if not collection.is_locked():
+        if collection.is_locked():
             # Try to unlock the collection (may prompt user for password)
             try:
                 collection.unlock()
@@ -186,13 +186,17 @@ def _get_token_from_linux_secret_service() -> str | None:
         for item in items:
             # Check if this is the Claude Code credentials item
             label = item.get_label()
-            if label and "Claude Code" in label:
+            # Use exact match for "Claude Code-credentials" to avoid false positives
+            if label == "Claude Code-credentials":
                 # Get the secret (stored as JSON string)
                 secret = item.get_secret()
                 if not secret:
                     continue
 
                 try:
+                    # Explicitly decode bytes to string if needed
+                    if isinstance(secret, bytes):
+                        secret = secret.decode("utf-8")
                     data = json.loads(secret)
                     token = data.get("claudeAiOauth", {}).get("accessToken")
 
@@ -207,7 +211,8 @@ def _get_token_from_linux_secret_service() -> str | None:
         secretstorage.exceptions.SecretStorageException,
         json.JSONDecodeError,
         KeyError,
-        Exception,
+        AttributeError,
+        TypeError,
     ):
         # Any error with secret-service, fall back to env var
         return None
