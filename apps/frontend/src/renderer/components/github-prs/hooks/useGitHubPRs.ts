@@ -503,9 +503,13 @@ export function useGitHubPRs(
     async (prNumber: number): Promise<void> => {
       if (!projectId) return;
 
+      // Persist to disk first
+      const success = await window.electronAPI.github.markReviewPosted(projectId, prNumber);
+      if (!success) return;
+
+      // Then update the in-memory store
       const existingState = getPRReviewState(projectId, prNumber);
       if (existingState?.result) {
-        // Update the store with hasPostedFindings: true
         usePRReviewStore.getState().setPRReviewResult(
           projectId,
           { ...existingState.result, hasPostedFindings: true },
