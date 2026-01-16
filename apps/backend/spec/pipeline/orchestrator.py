@@ -516,10 +516,11 @@ class SpecOrchestrator:
         if not requirements_file.exists():
             return ""
 
-        with open(requirements_file, encoding="utf-8") as f:
-            req = json.load(f)
-            self.task_description = req.get("task_description", self.task_description)
-            return f"""
+        try:
+            with open(requirements_file, encoding="utf-8") as f:
+                req = json.load(f)
+                self.task_description = req.get("task_description", self.task_description)
+                return f"""
 **Task Description**: {req.get("task_description", "Not provided")}
 **Workflow Type**: {req.get("workflow_type", "Not specified")}
 **Services Involved**: {", ".join(req.get("services_involved", []))}
@@ -530,6 +531,8 @@ class SpecOrchestrator:
 **Constraints**:
 {chr(10).join(f"- {c}" for c in req.get("constraints", []))}
 """
+        except (json.JSONDecodeError, OSError):
+            return ""
 
     def _create_override_assessment(self) -> complexity.ComplexityAssessment:
         """Create a complexity assessment from manual override.
@@ -619,8 +622,11 @@ class SpecOrchestrator:
         project_index = {}
         auto_build_index = self.project_dir / "auto-claude" / "project_index.json"
         if auto_build_index.exists():
-            with open(auto_build_index, encoding="utf-8") as f:
-                project_index = json.load(f)
+            try:
+                with open(auto_build_index, encoding="utf-8") as f:
+                    project_index = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                project_index = {}
 
         analyzer = complexity.ComplexityAnalyzer(project_index)
         return analyzer.analyze(self.task_description or "")
