@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from ...phase_config import resolve_model_id
     from ..context_gatherer import PRContext
     from ..models import (
         AICommentTriage,
@@ -21,7 +22,6 @@ try:
         ReviewPass,
         StructuralIssue,
     )
-    from ...phase_config import resolve_model_id
     from .io_utils import safe_print
     from .prompt_manager import PromptManager
     from .response_parsers import ResponseParser
