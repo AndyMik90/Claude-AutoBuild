@@ -131,6 +131,8 @@ export async function restoreTerminal(
   const storedSession = storedSessions.find(s => s.id === session.id);
   const storedIsClaudeMode = storedSession?.isClaudeMode ?? session.isClaudeMode;
   const storedClaudeSessionId = storedSession?.claudeSessionId ?? session.claudeSessionId;
+  // Get worktreeConfig from stored session (authoritative) since renderer-passed value may be stale
+  const storedWorktreeConfig = storedSession?.worktreeConfig ?? session.worktreeConfig;
 
   debugLog('[TerminalLifecycle] Restoring terminal session:', session.id,
     'Passed Claude mode:', session.isClaudeMode,
@@ -171,8 +173,9 @@ export async function restoreTerminal(
   terminal.title = session.title;
   // Only restore worktree config if the worktree directory still exists
   // (effectiveCwd matching session.cwd means no fallback was needed)
+  // Use storedWorktreeConfig (from disk) as the authoritative source
   if (effectiveCwd === session.cwd) {
-    terminal.worktreeConfig = session.worktreeConfig;
+    terminal.worktreeConfig = storedWorktreeConfig;
   } else {
     // Worktree was deleted, clear the config and update terminal's cwd
     terminal.worktreeConfig = undefined;
