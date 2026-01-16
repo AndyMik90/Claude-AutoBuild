@@ -175,9 +175,9 @@ export function finalizeClaudeInvoke(
     }
   }
 
-  // Persist session if project path is available
+  // Persist session if project path is available (async, fire-and-forget to prevent main process blocking)
   if (terminal.projectPath) {
-    SessionHandler.persistSession(terminal);
+    SessionHandler.persistSessionAsync(terminal);
   }
 
   // Call session capture callback if project path provided
@@ -384,9 +384,9 @@ export function handleClaudeExit(
   terminal.isClaudeMode = false;
   terminal.claudeSessionId = undefined;
 
-  // Persist the session state change
+  // Persist the session state change (async, fire-and-forget to prevent main process blocking)
   if (terminal.projectPath) {
-    SessionHandler.persistSession(terminal);
+    SessionHandler.persistSessionAsync(terminal);
   }
 
   // Notify renderer to update UI
@@ -562,9 +562,9 @@ export function resumeClaude(
     }
   }
 
-  // Persist session
+  // Persist session (async, fire-and-forget to prevent main process blocking)
   if (terminal.projectPath) {
-    SessionHandler.persistSession(terminal);
+    SessionHandler.persistSessionAsync(terminal);
   }
 }
 
@@ -740,7 +740,7 @@ export async function resumeClaudeAsync(
   }
 
   if (terminal.projectPath) {
-    SessionHandler.persistSession(terminal);
+    SessionHandler.persistSessionAsync(terminal);
   }
 }
 
