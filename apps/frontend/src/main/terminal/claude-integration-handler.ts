@@ -39,7 +39,9 @@ function generateTokenTempFileContent(token: string): string {
   if (process.platform === 'win32') {
     // Windows: Use double-quote syntax for set command to handle special characters
     // Format: set "VARNAME=value" - quotes allow spaces and special chars in value
-    const escapedToken = escapeShellArgWindows(token);
+    // For values inside double quotes, use escapeForWindowsDoubleQuote() because
+    // caret is literal inside double quotes in cmd.exe (only " needs escaping).
+    const escapedToken = escapeForWindowsDoubleQuote(token);
     return `@echo off\r\nset "CLAUDE_CODE_OAUTH_TOKEN=${escapedToken}"\r\n`;
   }
   // Unix/macOS: Use export with single-quoted value
@@ -72,7 +74,9 @@ function buildPathPrefix(pathEnv: string): string {
   if (process.platform === 'win32') {
     // Windows: Use semicolon-separated PATH with double-quote escaping
     // Format: set "PATH=value" where value uses semicolons
-    const escapedPath = escapeShellArgWindows(pathEnv);
+    // For values inside double quotes, use escapeForWindowsDoubleQuote() because
+    // caret is literal inside double quotes in cmd.exe (only " needs escaping).
+    const escapedPath = escapeForWindowsDoubleQuote(pathEnv);
     return `set "PATH=${escapedPath}" && `;
   }
 
@@ -720,6 +724,9 @@ export async function invokeClaudeAsync(
   onSessionCapture: (terminalId: string, projectPath: string, startTime: number) => void,
   dangerouslySkipPermissions?: boolean
 ): Promise<void> {
+  // Track terminal state for cleanup on error
+  const wasClaudeMode = terminal.isClaudeMode;
+
   const startTime = Date.now();
 
   try {
@@ -833,6 +840,9 @@ export async function invokeClaudeAsync(
     finalizeClaudeInvoke(terminal, activeProfile, projectPath, startTime, getWindow, onSessionCapture);
     debugLog('[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE COMPLETE (default) ==========');
   } catch (error) {
+    // Reset terminal state on error to prevent inconsistent state
+    terminal.isClaudeMode = wasClaudeMode;
+    terminal.claudeSessionId = undefined;
     const elapsed = Date.now() - startTime;
     debugError('[ClaudeIntegration:invokeClaudeAsync] Invocation failed:', error);
     debugError('[ClaudeIntegration:invokeClaudeAsync] Error details:', {
