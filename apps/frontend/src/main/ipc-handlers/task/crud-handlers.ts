@@ -316,7 +316,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
             // Only reset status for tasks in states where re-planning makes sense
             // Don't reset 'done' or 'pr_created' tasks as that would lose their completion state
             // Also don't reset while agent is actively running to prevent corrupting execution state
-            const replanableStates = ['backlog', 'failed', 'in_progress'];
+            const replanableStates = ['backlog', 'error', 'in_progress'];
             const isAgentRunning = agentManager.isRunning(taskId);
             const canReplan = replanableStates.includes(task.status) && !isAgentRunning;
 
@@ -329,6 +329,10 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
                     // Defensive check in case subtasks array has null/undefined entries
                     if (subtask) {
                       subtask.status = 'pending';
+                      // Clear execution metadata to match pattern in execution-handlers.ts
+                      delete subtask.actual_output;
+                      delete subtask.started_at;
+                      delete subtask.completed_at;
                     }
                   }
                 }
