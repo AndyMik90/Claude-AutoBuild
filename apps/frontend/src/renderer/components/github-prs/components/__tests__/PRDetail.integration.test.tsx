@@ -13,8 +13,8 @@ import { PRDetail } from '../PRDetail';
 import type { PRData, PRReviewResult } from '../../hooks/useGitHubPRs';
 
 // Mock window.electronAPI
-type PostCommentFn = (body: string) => void | Promise<void>;
-const mockOnPostComment = vi.fn<PostCommentFn>();
+type PostCommentFn = (body: string) => Promise<boolean>;
+const mockOnPostComment = vi.fn<PostCommentFn>().mockResolvedValue(true);
 const mockOnPostReview = vi.fn();
 const mockOnRunReview = vi.fn();
 const mockOnRunFollowupReview = vi.fn();
