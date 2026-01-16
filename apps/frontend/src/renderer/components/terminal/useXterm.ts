@@ -313,6 +313,24 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     }
   }, [onDimensionsReady]);
 
+  // Listen for terminal refit events (triggered after drag-drop reorder)
+  useEffect(() => {
+    const handleRefitAll = () => {
+      if (fitAddonRef.current && xtermRef.current && terminalRef.current) {
+        const rect = terminalRef.current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          fitAddonRef.current.fit();
+          const cols = xtermRef.current.cols;
+          const rows = xtermRef.current.rows;
+          setDimensions({ cols, rows });
+        }
+      }
+    };
+
+    window.addEventListener('terminal-refit-all', handleRefitAll);
+    return () => window.removeEventListener('terminal-refit-all', handleRefitAll);
+  }, []);
+
   const fit = useCallback(() => {
     if (fitAddonRef.current && xtermRef.current) {
       fitAddonRef.current.fit();

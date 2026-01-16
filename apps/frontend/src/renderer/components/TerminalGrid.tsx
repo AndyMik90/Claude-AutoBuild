@@ -287,6 +287,12 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
 
       if (activeId !== overId && terminals.some(t => t.id === overId)) {
         reorderTerminals(activeId, overId);
+
+        // Trigger fit on all terminals after reorder completes
+        // Use setTimeout to allow DOM to update before fitting
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('terminal-refit-all'));
+        }, 50);
       }
       return;
     }
