@@ -62,7 +62,7 @@ export const workspaceMock = {
     }
   }),
 
-  discardWorktree: async () => ({
+  discardWorktree: async (_taskId: string, _skipStatusChange?: boolean) => ({
     success: true,
     data: {
       success: true,

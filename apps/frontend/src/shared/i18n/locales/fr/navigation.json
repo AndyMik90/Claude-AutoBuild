@@ -30,6 +30,15 @@
   "messages": {
     "initializeToCreateTasks": "Initialisez Auto Claude pour créer des tâches"
   },
+  "updateBanner": {
+    "title": "Mise à jour disponible",
+    "version": "Version {{version}} est prête",
+    "updateAndRestart": "Mettre à jour et redémarrer",
+    "installAndRestart": "Installer et redémarrer",
+    "downloading": "Téléchargement...",
+    "dismiss": "Ignorer",
+    "downloadError": "Échec du téléchargement de la mise à jour"
+  },
   "claudeCode": {
     "checking": "Vérification de Claude Code...",
     "upToDate": "Claude Code est à jour",

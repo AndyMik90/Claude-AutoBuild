@@ -127,7 +127,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     groqApiKey: settings.globalGroqApiKey || '',
     openrouterApiKey: settings.globalOpenRouterApiKey || '',
     openrouterBaseUrl: 'https://openrouter.ai/api/v1',
-    openrouterLlmModel: 'anthropic/claude-3.5-sonnet',
+    openrouterLlmModel: 'anthropic/claude-sonnet-4',
     openrouterEmbeddingModel: 'openai/text-embedding-3-small',
     huggingfaceApiKey: '',
     ollamaBaseUrl: settings.ollamaBaseUrl || 'http://localhost:11434',

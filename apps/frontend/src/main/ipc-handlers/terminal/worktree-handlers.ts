@@ -397,6 +397,7 @@ async function listTerminalWorktrees(projectPath: string): Promise<TerminalWorkt
 
   const configs: TerminalWorktreeConfig[] = [];
   const seenNames = new Set<string>();
+  const staleMetadataFiles: string[] = [];
 
   // Scan new metadata directory
   const metadataDir = getTerminalWorktreeMetadataDir(projectPath);
@@ -407,8 +408,15 @@ async function listTerminalWorktrees(projectPath: string): Promise<TerminalWorkt
           const name = file.name.replace('.json', '');
           const config = loadWorktreeConfig(projectPath, name);
           if (config) {
-            configs.push(config);
-            seenNames.add(name);
+            // Verify worktree directory still exists
+            if (existsSync(config.worktreePath)) {
+              configs.push(config);
+              seenNames.add(name);
+            } else {
+              // Mark stale metadata for cleanup
+              staleMetadataFiles.push(path.join(metadataDir, file.name));
+              debugLog('[TerminalWorktree] Found stale metadata for deleted worktree:', name);
+            }
           }
         }
       }
@@ -431,6 +439,18 @@ async function listTerminalWorktrees(projectPath: string): Promise<TerminalWorkt
       }
     } catch (error) {
       debugError('[TerminalWorktree] Error scanning worktree dir:', error);
+    }
+  }
+
+  // Auto-cleanup stale metadata files (best-effort cleanup before returning)
+  if (staleMetadataFiles.length > 0) {
+    for (const filePath of staleMetadataFiles) {
+      try {
+        rmSync(filePath);
+        debugLog('[TerminalWorktree] Cleaned up stale metadata file:', filePath);
+      } catch (error) {
+        debugError('[TerminalWorktree] Failed to cleanup stale metadata:', filePath, error);
+      }
     }
   }
 

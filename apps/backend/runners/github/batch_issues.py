@@ -154,7 +154,7 @@ Respond with JSON only:
 
             client = create_simple_client(
                 agent_type="batch_analysis",
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-4-5-20250929",
                 system_prompt="You are an expert at analyzing GitHub issues and grouping related ones. Respond ONLY with valid JSON. Do NOT use any tools.",
                 cwd=self.project_dir,
             )
@@ -408,7 +408,7 @@ class IssueBatcher:
         api_key: str | None = None,
         # AI validation settings
         validate_batches: bool = True,
-        validation_model: str = "claude-sonnet-4-20250514",
+        validation_model: str = "claude-sonnet-4-5-20250929",
         validation_thinking_budget: int = 10000,  # Medium thinking
     ):
         self.github_dir = github_dir
