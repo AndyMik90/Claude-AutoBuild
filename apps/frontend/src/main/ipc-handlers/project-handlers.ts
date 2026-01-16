@@ -28,10 +28,27 @@ import { insightsService } from '../insights-service';
 import { titleGenerator } from '../title-generator';
 import type { BrowserWindow } from 'electron';
 import { getEffectiveSourcePath } from '../updater/path-resolver';
+import { execGitSync } from '../wsl-git';
+import { isWSLPath } from '../../shared/utils/wsl-utils';
 
 // ============================================
 // Git Helper Functions
 // ============================================
+
+/**
+ * Helper to run git commands - uses WSL wrapper for WSL paths
+ */
+function runGit(args: string[], projectPath: string, options?: { timeout?: number }): string {
+  if (isWSLPath(projectPath)) {
+    return execGitSync(args, { cwd: projectPath, timeout: options?.timeout });
+  }
+  return execFileSync(getToolPath('git'), args, {
+    cwd: projectPath,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    timeout: options?.timeout
+  });
+}
 
 /**
  * Get list of git branches for a directory (both local and remote)
@@ -40,22 +57,13 @@ function getGitBranches(projectPath: string): string[] {
   try {
     // First fetch to ensure we have latest remote refs
     try {
-      execFileSync(getToolPath('git'), ['fetch', '--prune'], {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 10000 // 10 second timeout for fetch
-      });
+      runGit(['fetch', '--prune'], projectPath, { timeout: 10000 });
     } catch {
       // Fetch may fail if offline or no remote, continue with local refs
     }
 
     // Get all branches (local + remote) using --all flag
-    const result = execFileSync(getToolPath('git'), ['branch', '--all', '--format=%(refname:short)'], {
-      cwd: projectPath,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+    const result = runGit(['branch', '--all', '--format=%(refname:short)'], projectPath);
 
     const branches = result.trim().split('\n')
       .filter(b => b.trim())
@@ -94,11 +102,7 @@ function getGitBranches(projectPath: string): string[] {
  */
 function getCurrentGitBranch(projectPath: string): string | null {
   try {
-    const result = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      cwd: projectPath,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+    const result = runGit(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath);
     return result.trim() || null;
   } catch {
     return null;
@@ -123,11 +127,7 @@ function detectMainBranch(projectPath: string): string | null {
 
   // If none of the common names found, check for origin/HEAD reference
   try {
-    const result = execFileSync(getToolPath('git'), ['symbolic-ref', 'refs/remotes/origin/HEAD'], {
-      cwd: projectPath,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+    const result = runGit(['symbolic-ref', 'refs/remotes/origin/HEAD'], projectPath);
     const ref = result.trim();
     // Extract branch name from refs/remotes/origin/main
     const match = ref.match(/refs\/remotes\/origin\/(.+)/);

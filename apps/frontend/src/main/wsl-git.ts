@@ -79,14 +79,16 @@ function getWSLGitContext(cwd: string): {
  * execGitSync(['status'], { cwd: '\\\\wsl$\\Ubuntu\\home\\user\\myrepo' })
  */
 export function execGitSync(args: string[], options: GitExecOptions): string {
-  const { cwd, encoding = 'utf-8', timeout = 30000 } = options;
+  const { cwd, encoding = 'utf-8', timeout = 60000 } = options;
   const wslContext = getWSLGitContext(cwd);
 
   if (wslContext.useWSL && wslContext.distro) {
-    // Run git through WSL
-    const wslArgs = ['-d', wslContext.distro, '--cd', wslContext.linuxCwd, 'git', ...args];
+    // Run git through WSL using -e with shell command
+    // This is more reliable than --cd which can timeout on WSL cold start
+    const gitCommand = `cd '${wslContext.linuxCwd}' && git ${args.map(a => `'${a}'`).join(' ')}`;
+    const wslArgs = ['-d', wslContext.distro, '-e', 'sh', '-c', gitCommand];
 
-    console.log(`[WSL-Git] Running: wsl.exe ${wslArgs.join(' ')}`);
+    console.log(`[WSL-Git] Running: wsl.exe ${wslArgs.slice(0, 4).join(' ')} "..."`);
 
     return execFileSync('wsl.exe', wslArgs, {
       encoding,
@@ -115,14 +117,15 @@ export function execGitSync(args: string[], options: GitExecOptions): string {
  * @returns Promise with stdout and stderr
  */
 export async function execGitAsync(args: string[], options: GitExecOptions): Promise<GitExecResult> {
-  const { cwd, encoding = 'utf-8', timeout = 30000 } = options;
+  const { cwd, encoding = 'utf-8', timeout = 60000 } = options;
   const wslContext = getWSLGitContext(cwd);
 
   if (wslContext.useWSL && wslContext.distro) {
-    // Run git through WSL
-    const wslArgs = ['-d', wslContext.distro, '--cd', wslContext.linuxCwd, 'git', ...args];
+    // Run git through WSL using -e with shell command
+    const gitCommand = `cd '${wslContext.linuxCwd}' && git ${args.map(a => `'${a}'`).join(' ')}`;
+    const wslArgs = ['-d', wslContext.distro, '-e', 'sh', '-c', gitCommand];
 
-    console.log(`[WSL-Git] Running async: wsl.exe ${wslArgs.join(' ')}`);
+    console.log(`[WSL-Git] Running async: wsl.exe ${wslArgs.slice(0, 4).join(' ')} "..."`);
 
     const result = await execFileAsync('wsl.exe', wslArgs, {
       encoding,
@@ -161,10 +164,11 @@ export function spawnGit(
   const wslContext = getWSLGitContext(cwd);
 
   if (wslContext.useWSL && wslContext.distro) {
-    // Spawn git through WSL
-    const wslArgs = ['-d', wslContext.distro, '--cd', wslContext.linuxCwd, 'git', ...args];
+    // Spawn git through WSL using -e with shell command
+    const gitCommand = `cd '${wslContext.linuxCwd}' && git ${args.map(a => `'${a}'`).join(' ')}`;
+    const wslArgs = ['-d', wslContext.distro, '-e', 'sh', '-c', gitCommand];
 
-    console.log(`[WSL-Git] Spawning: wsl.exe ${wslArgs.join(' ')}`);
+    console.log(`[WSL-Git] Spawning: wsl.exe ${wslArgs.slice(0, 4).join(' ')} "..."`);
 
     return spawn('wsl.exe', wslArgs, {
       env,
