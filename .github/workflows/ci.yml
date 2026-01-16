@@ -27,7 +27,7 @@ jobs:
   # Python Backend Tests - All Platforms
   # --------------------------------------------------------------------------
   test-python:
-    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    name: test-python (${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -98,7 +98,7 @@ jobs:
   # Frontend Tests - All Platforms
   # --------------------------------------------------------------------------
   test-frontend:
-    name: Frontend on ${{ matrix.os }}
+    name: test-frontend (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -151,7 +151,7 @@ jobs:
   # Platform-Specific Integration Tests
   # --------------------------------------------------------------------------
   test-platform-integration:
-    name: Platform Integration Tests on ${{ matrix.os }}
+    name: test-integration (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
 
     # Only run integration tests after basic tests pass
