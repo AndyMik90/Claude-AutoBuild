@@ -27,7 +27,7 @@ from claude_agent_sdk import AgentDefinition
 
 try:
     from ...core.client import create_client
-    from ...phase_config import get_thinking_budget
+    from ...phase_config import get_thinking_budget, resolve_model_id
     from ..context_gatherer import PRContext, PRContextGatherer, _validate_git_ref
     from ..gh_client import GHClient
     from ..models import (
@@ -57,7 +57,7 @@ except (ImportError, ValueError, SystemError):
         PRReviewResult,
         ReviewSeverity,
     )
-    from phase_config import get_thinking_budget
+    from phase_config import get_thinking_budget, resolve_model_id
     from services.category_utils import map_category
     from services.io_utils import safe_print
     from services.pr_worktree_manager import PRWorktreeManager
@@ -598,7 +598,9 @@ The SDK will run invoked agents in parallel automatically.
             prompt = self._build_orchestrator_prompt(context)
 
             # Use model and thinking level from config (user settings)
-            model = self.config.model or "claude-sonnet-4-5-20250929"
+            # Resolve model shorthand via environment variable override if configured
+            model_shorthand = self.config.model or "sonnet"
+            model = resolve_model_id(model_shorthand)
             thinking_level = self.config.thinking_level or "medium"
             thinking_budget = get_thinking_budget(thinking_level)
 

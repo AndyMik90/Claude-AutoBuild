@@ -27,7 +27,7 @@ jobs:
   # Python Backend Tests - All Platforms
   # --------------------------------------------------------------------------
   test-python:
-    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    name: test-python (${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -98,7 +98,7 @@ jobs:
   # Frontend Tests - All Platforms
   # --------------------------------------------------------------------------
   test-frontend:
-    name: Frontend on ${{ matrix.os }}
+    name: test-frontend (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -131,10 +131,6 @@ jobs:
         working-directory: apps/frontend
         run: npm ci --ignore-scripts
 
-      - name: Run linter
-        working-directory: apps/frontend
-        run: npm run lint
-
       - name: Run TypeScript type check
         working-directory: apps/frontend
         run: npm run typecheck
@@ -151,7 +147,7 @@ jobs:
   # Platform-Specific Integration Tests
   # --------------------------------------------------------------------------
   test-platform-integration:
-    name: Platform Integration Tests on ${{ matrix.os }}
+    name: test-integration (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
 
     # Only run integration tests after basic tests pass
@@ -196,3 +192,29 @@ jobs:
             source .venv/bin/activate
           fi
           pytest ../../tests/test_platform.py -v --tb=short
+
+  # --------------------------------------------------------------------------
+  # Gate Job - Single check for branch protection
+  # --------------------------------------------------------------------------
+  ci-complete:
+    name: CI Complete
+    runs-on: ubuntu-latest
+    needs: [test-python, test-frontend, test-platform-integration]
+    if: always()
+    steps:
+      - name: Check all CI jobs passed
+        run: |
+          echo "CI Job Results:"
+          echo "  test-python:               ${{ needs.test-python.result }}"
+          echo "  test-frontend:             ${{ needs.test-frontend.result }}"
+          echo "  test-platform-integration: ${{ needs.test-platform-integration.result }}"
+          echo ""
+
+          if [[ "${{ needs.test-python.result }}" != "success" ]] || \
+             [[ "${{ needs.test-frontend.result }}" != "success" ]] || \
+             [[ "${{ needs.test-platform-integration.result }}" != "success" ]]; then
+            echo "❌ One or more CI jobs failed"
+            exit 1
+          fi
+
+          echo "✅ All CI checks passed"

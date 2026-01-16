@@ -197,12 +197,19 @@ export function Terminal({
         e.stopPropagation();
         onClose();
       }
+
+      // Cmd/Ctrl+Shift+E to toggle expand/collapse
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        e.stopPropagation();
+        onToggleExpand?.();
+      }
     };
 
     // Use capture phase to get the event before xterm
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isActive, onClose]);
+  }, [isActive, onClose, onToggleExpand]);
 
   // Cleanup on unmount
   useEffect(() => {

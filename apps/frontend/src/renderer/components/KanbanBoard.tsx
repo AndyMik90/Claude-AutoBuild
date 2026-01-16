@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, AlertCircle } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -145,12 +145,6 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
         message: t('kanban.emptyDone'),
         subtext: t('kanban.emptyDoneHint')
       };
-    case 'error':
-      return {
-        icon: <AlertCircle className="h-6 w-6 text-destructive/50" />,
-        message: t('kanban.emptyError'),
-        subtext: t('kanban.emptyErrorHint')
-      };
     default:
       return {
         icon: <Inbox className="h-6 w-6 text-muted-foreground/50" />,
@@ -211,8 +205,6 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
         return 'column-human-review';
       case 'done':
         return 'column-done';
-      case 'error':
-        return 'column-error';
       default:
         return 'border-t-muted-foreground/30';
     }
@@ -392,7 +384,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const tasksByStatus = useMemo(() => {
     // Note: pr_created tasks are shown in the 'done' column since they're essentially complete
     const grouped: Record<typeof TASK_STATUS_COLUMNS[number], Task[]> = {
-      error: [],
       backlog: [],
       in_progress: [],
       ai_review: [],
