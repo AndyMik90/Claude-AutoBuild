@@ -469,10 +469,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
             >
               {/* tri-state icon: isAllSelected -> CheckSquare, isSomeSelected -> Minus, none -> Square */}
               {isAllSelected ? <CheckSquare className="h-4 w-4 text-primary" /> : isSomeSelected ? <Minus className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-              {isAllSelected ? 'Deselect all' : 'Select all'}
+              {isAllSelected ? t('common:selection.clearSelection') : t('common:selection.selectAll')}
             </button>
             <span className="text-xs text-muted-foreground">
-              {selectedCount} of {totalWorktrees} selected
+              {t('common:selection.selectedOfTotal', { selected: selectedCount, total: totalWorktrees })}
             </span>
           </div>
           <div className="flex items-center gap-2">

@@ -99,7 +99,8 @@
     "selected": "{{count}} selected",
     "selectAll": "Select All",
     "clearSelection": "Clear Selection",
-    "deleteSelected": "Delete Selected"
+    "deleteSelected": "Delete Selected",
+    "selectedOfTotal": "{{selected}} of {{total}} selected"
   },
   "time": {
     "justNow": "Just now",

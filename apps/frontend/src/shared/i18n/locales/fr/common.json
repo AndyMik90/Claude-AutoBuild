@@ -99,7 +99,8 @@
     "selected": "{{count}} sélectionné(s)",
     "selectAll": "Tout sélectionner",
     "clearSelection": "Effacer la sélection",
-    "deleteSelected": "Supprimer la sélection"
+    "deleteSelected": "Supprimer la sélection",
+    "selectedOfTotal": "{{selected}} sur {{total}} sélectionné(s)"
   },
   "time": {
     "justNow": "À l'instant",
