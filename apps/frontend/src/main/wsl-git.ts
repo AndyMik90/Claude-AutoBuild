@@ -29,6 +29,14 @@ export interface GitExecResult {
 }
 
 /**
+ * Escape a string for use in a single-quoted shell argument.
+ * Replaces ' with '\'' (end quote, escaped quote, start quote)
+ */
+function escapeShellArg(arg: string): string {
+  return arg.replace(/'/g, "'\\''");
+}
+
+/**
  * Determine the WSL context for a given path
  */
 function getWSLGitContext(cwd: string): {
@@ -78,7 +86,10 @@ export function execGitSync(args: string[], options: GitExecOptions): string {
   if (wslContext.useWSL && wslContext.distro) {
     // Run git through WSL using -e with shell command
     // This is more reliable than --cd which can timeout on WSL cold start
-    const gitCommand = `cd '${wslContext.linuxCwd}' && git ${args.map(a => `'${a}'`).join(' ')}`;
+    // Escape paths and args to prevent shell injection
+    const escapedCwd = escapeShellArg(wslContext.linuxCwd);
+    const escapedArgs = args.map(a => `'${escapeShellArg(a)}'`).join(' ');
+    const gitCommand = `cd '${escapedCwd}' && git ${escapedArgs}`;
     const wslArgs = ['-d', wslContext.distro, '-e', 'sh', '-c', gitCommand];
 
     return execFileSync('wsl.exe', wslArgs, {
@@ -113,7 +124,10 @@ export async function execGitAsync(args: string[], options: GitExecOptions): Pro
 
   if (wslContext.useWSL && wslContext.distro) {
     // Run git through WSL using -e with shell command
-    const gitCommand = `cd '${wslContext.linuxCwd}' && git ${args.map(a => `'${a}'`).join(' ')}`;
+    // Escape paths and args to prevent shell injection
+    const escapedCwd = escapeShellArg(wslContext.linuxCwd);
+    const escapedArgs = args.map(a => `'${escapeShellArg(a)}'`).join(' ');
+    const gitCommand = `cd '${escapedCwd}' && git ${escapedArgs}`;
     const wslArgs = ['-d', wslContext.distro, '-e', 'sh', '-c', gitCommand];
 
     const result = await execFileAsync('wsl.exe', wslArgs, {
@@ -154,7 +168,10 @@ export function spawnGit(
 
   if (wslContext.useWSL && wslContext.distro) {
     // Spawn git through WSL using -e with shell command
-    const gitCommand = `cd '${wslContext.linuxCwd}' && git ${args.map(a => `'${a}'`).join(' ')}`;
+    // Escape paths and args to prevent shell injection
+    const escapedCwd = escapeShellArg(wslContext.linuxCwd);
+    const escapedArgs = args.map(a => `'${escapeShellArg(a)}'`).join(' ');
+    const gitCommand = `cd '${escapedCwd}' && git ${escapedArgs}`;
     const wslArgs = ['-d', wslContext.distro, '-e', 'sh', '-c', gitCommand];
 
     return spawn('wsl.exe', wslArgs, {
