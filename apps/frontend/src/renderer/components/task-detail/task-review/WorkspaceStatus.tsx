@@ -23,7 +23,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
 import { cn } from '../../../lib/utils';
 import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal } from '../../../../shared/types';
 import { useSettingsStore } from '../../../stores/settings-store';
-import { useToast } from '../../ui/use-toast';
+import { useToast } from '../../../hooks/use-toast';
 
 interface WorkspaceStatusProps {
   worktreeStatus: WorktreeStatus;
