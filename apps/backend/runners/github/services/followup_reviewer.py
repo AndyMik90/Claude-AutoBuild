@@ -683,9 +683,10 @@ Analyze this follow-up review context and provide your structured response.
             # Use Claude Agent SDK query() with structured outputs
             # Reference: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
             from claude_agent_sdk import ClaudeAgentOptions, query
-            from phase_config import get_thinking_budget
+            from phase_config import get_thinking_budget, resolve_model_id
 
-            model = self.config.model or "claude-sonnet-4-5-20250929"
+            model_shorthand = self.config.model or "sonnet"
+            model = resolve_model_id(model_shorthand)
             thinking_level = self.config.thinking_level or "medium"
             thinking_budget = get_thinking_budget(thinking_level)
 
