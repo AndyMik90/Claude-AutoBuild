@@ -117,11 +117,9 @@ def translate_cwd_for_wsl(cwd: str | Path | None) -> str | None:
     if linux_path != cwd_str:
         return linux_path
 
-    # Fall back to WSL project path if available
-    wsl_project_path = get_wsl_project_path()
-    if wsl_project_path:
-        return wsl_project_path
-
+    # If the path couldn't be converted (not a WSL UNC path), return None
+    # Don't fall back to project path as that could cause commands to run
+    # in an unintended directory
     return None
 
 

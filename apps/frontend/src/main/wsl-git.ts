@@ -36,16 +36,11 @@ function getWSLGitContext(cwd: string): {
   distro: string | null;
   linuxCwd: string;
 } {
-  console.log(`[WSL-Git] getWSLGitContext called with cwd: ${cwd}`);
-  console.log(`[WSL-Git] platform: ${process.platform}`);
-
   if (process.platform !== 'win32') {
-    console.log('[WSL-Git] Not win32, skipping WSL');
     return { useWSL: false, distro: null, linuxCwd: cwd };
   }
 
   const isWSL = isWSLPath(cwd);
-  console.log(`[WSL-Git] isWSLPath result: ${isWSL}`);
 
   if (!isWSL) {
     return { useWSL: false, distro: null, linuxCwd: cwd };
@@ -54,8 +49,6 @@ function getWSLGitContext(cwd: string): {
   // Extract distro from path, fall back to default
   const distro = getWSLDistroFromPath(cwd) || getDefaultWSLDistro();
   const linuxCwd = windowsToWSLPath(cwd);
-
-  console.log(`[WSL-Git] WSL context: distro=${distro}, linuxCwd=${linuxCwd}`);
 
   return {
     useWSL: true,
@@ -87,8 +80,6 @@ export function execGitSync(args: string[], options: GitExecOptions): string {
     // This is more reliable than --cd which can timeout on WSL cold start
     const gitCommand = `cd '${wslContext.linuxCwd}' && git ${args.map(a => `'${a}'`).join(' ')}`;
     const wslArgs = ['-d', wslContext.distro, '-e', 'sh', '-c', gitCommand];
-
-    console.log(`[WSL-Git] Running: wsl.exe ${wslArgs.slice(0, 4).join(' ')} "..."`);
 
     return execFileSync('wsl.exe', wslArgs, {
       encoding,
@@ -124,8 +115,6 @@ export async function execGitAsync(args: string[], options: GitExecOptions): Pro
     // Run git through WSL using -e with shell command
     const gitCommand = `cd '${wslContext.linuxCwd}' && git ${args.map(a => `'${a}'`).join(' ')}`;
     const wslArgs = ['-d', wslContext.distro, '-e', 'sh', '-c', gitCommand];
-
-    console.log(`[WSL-Git] Running async: wsl.exe ${wslArgs.slice(0, 4).join(' ')} "..."`);
 
     const result = await execFileAsync('wsl.exe', wslArgs, {
       encoding,
@@ -167,8 +156,6 @@ export function spawnGit(
     // Spawn git through WSL using -e with shell command
     const gitCommand = `cd '${wslContext.linuxCwd}' && git ${args.map(a => `'${a}'`).join(' ')}`;
     const wslArgs = ['-d', wslContext.distro, '-e', 'sh', '-c', gitCommand];
-
-    console.log(`[WSL-Git] Spawning: wsl.exe ${wslArgs.slice(0, 4).join(' ')} "..."`);
 
     return spawn('wsl.exe', wslArgs, {
       env,

@@ -204,7 +204,7 @@ export async function listWSLDistros(): Promise<WSLDistroInfo[]> {
       const isDefault = cleanLine.startsWith('*');
       // Parse: "* Ubuntu    Running    2" or "  Debian    Stopped    2"
       const parts = cleanLine
-        .replace('*', '')
+        .replace(/\*/g, '')
         .trim()
         .split(/\s+/);
 

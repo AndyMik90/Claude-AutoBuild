@@ -845,8 +845,8 @@ def create_client(
 
     # WSL support: detect if project is on WSL filesystem and translate paths
     wsl_mode = is_wsl_mode()
-    wsl_distro = get_wsl_distro() if wsl_mode else None
-    wsl_project_path = get_wsl_project_path() if wsl_mode else None
+    wsl_distro = get_wsl_distro()
+    wsl_project_path = get_wsl_project_path()
 
     if wsl_mode and wsl_project_path:
         # For security settings inside WSL, use the Linux paths

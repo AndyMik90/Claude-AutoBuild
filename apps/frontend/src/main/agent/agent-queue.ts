@@ -31,6 +31,27 @@ function normalizePathForPython(p: string): string {
   return p;
 }
 
+/**
+ * Set up WSL environment variables for Python backend when project is on WSL filesystem.
+ * These env vars tell client.py to use WSL mode and the WSL wrapper for Claude CLI.
+ *
+ * @param env - Environment object to modify
+ * @param projectPath - Path to the project
+ * @param logPrefix - Prefix for debug log messages
+ */
+function setupWSLEnv(env: Record<string, string>, projectPath: string, logPrefix: string): void {
+  if (isWSLPath(projectPath)) {
+    const distro = getWSLDistroFromPath(projectPath);
+    const linuxPath = windowsToWSLPath(projectPath);
+    if (distro && linuxPath) {
+      env['AUTO_CLAUDE_WSL_MODE'] = 'true';
+      env['AUTO_CLAUDE_WSL_DISTRO'] = distro;
+      env['AUTO_CLAUDE_WSL_PROJECT_PATH'] = linuxPath;
+      debugLog(`${logPrefix} WSL mode enabled:`, { distro, linuxPath });
+    }
+  }
+}
+
 /** Maximum length for status messages displayed in progress UI */
 const STATUS_MESSAGE_MAX_LENGTH = 200;
 
@@ -320,17 +341,7 @@ export class AgentQueueManager {
     };
 
     // WSL support: Set env vars for Python backend when project is on WSL filesystem
-    // These env vars tell client.py to use WSL mode and the WSL wrapper for Claude CLI
-    if (isWSLPath(projectPath)) {
-      const distro = getWSLDistroFromPath(projectPath);
-      const linuxPath = windowsToWSLPath(projectPath);
-      if (distro && linuxPath) {
-        finalEnv['AUTO_CLAUDE_WSL_MODE'] = 'true';
-        finalEnv['AUTO_CLAUDE_WSL_DISTRO'] = distro;
-        finalEnv['AUTO_CLAUDE_WSL_PROJECT_PATH'] = linuxPath;
-        debugLog('[Agent Queue] WSL mode enabled for ideation:', { distro, linuxPath });
-      }
-    }
+    setupWSLEnv(finalEnv, projectPath, '[Agent Queue] ideation');
 
     // Debug: Show OAuth token source (token values intentionally omitted for security - AC4)
     const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
@@ -660,17 +671,7 @@ export class AgentQueueManager {
     };
 
     // WSL support: Set env vars for Python backend when project is on WSL filesystem
-    // These env vars tell client.py to use WSL mode and the WSL wrapper for Claude CLI
-    if (isWSLPath(projectPath)) {
-      const distro = getWSLDistroFromPath(projectPath);
-      const linuxPath = windowsToWSLPath(projectPath);
-      if (distro && linuxPath) {
-        finalEnv['AUTO_CLAUDE_WSL_MODE'] = 'true';
-        finalEnv['AUTO_CLAUDE_WSL_DISTRO'] = distro;
-        finalEnv['AUTO_CLAUDE_WSL_PROJECT_PATH'] = linuxPath;
-        debugLog('[Agent Queue] WSL mode enabled for roadmap:', { distro, linuxPath });
-      }
-    }
+    setupWSLEnv(finalEnv, projectPath, '[Agent Queue] roadmap');
 
     // Debug: Show OAuth token source (token values intentionally omitted for security - AC4)
     const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']

@@ -21,7 +21,22 @@
 
 const { spawn, execSync } = require('child_process');
 
-const distro = process.env.AUTO_CLAUDE_WSL_DISTRO;
+/**
+ * Validate and sanitize WSL distro name to prevent command injection.
+ * WSL distro names can only contain alphanumeric characters, hyphens, underscores, and periods.
+ */
+function validateDistroName(name) {
+  if (!name) return null;
+  // WSL distro names follow similar rules to Windows folder names
+  // Only allow safe characters
+  if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
+    console.error('ERROR: Invalid WSL distro name. Only alphanumeric characters, hyphens, underscores, and periods are allowed.');
+    process.exit(1);
+  }
+  return name;
+}
+
+const distro = validateDistroName(process.env.AUTO_CLAUDE_WSL_DISTRO);
 const projectPath = process.env.AUTO_CLAUDE_WSL_PROJECT_PATH;
 const token = process.env.CLAUDE_CODE_OAUTH_TOKEN || '';
 
