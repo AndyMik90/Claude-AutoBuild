@@ -5,7 +5,7 @@
 import type { ThinkingLevel, PhaseModelConfig, PhaseThinkingConfig } from './settings';
 import type { ExecutionPhase as ExecutionPhaseType, CompletablePhase } from '../constants/phase-protocol';
 
-export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'pr_created' | 'done' | 'error';
+export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'pr_created' | 'done';
 
 // Reason why a task is in human_review status
 // - 'completed': All subtasks done and QA passed, ready for final approval/merge
@@ -240,12 +240,6 @@ export interface TaskMetadata {
   archivedInVersion?: string;  // Version in which task was archived (from changelog)
 }
 
-// Structured error information for tasks with parse errors
-export interface TaskErrorInfo {
-  key: string;  // Translation key (e.g., 'errors:task.parseImplementationPlan')
-  meta?: { specId?: string; error?: string };  // Error context for substitution in translation
-}
-
 export interface Task {
   id: string;
   specId: string;
@@ -258,7 +252,6 @@ export interface Task {
   qaReport?: QAReport;
   logs: string[];
   metadata?: TaskMetadata;  // Rich metadata from ideation or manual entry
-  errorInfo?: TaskErrorInfo;  // Structured error information for i18n (set when status is 'error')
   executionProgress?: ExecutionProgress;  // Real-time execution progress
   releasedInVersion?: string;  // Version in which this task was released
   stagedInMainProject?: boolean;  // True if changes were staged to main project (worktree merged with --no-commit)

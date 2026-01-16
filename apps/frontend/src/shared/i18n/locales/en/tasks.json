@@ -53,7 +53,6 @@
     "description": "Create your first task to get started"
   },
   "columns": {
-    "error": "Error",
     "backlog": "Planning",
     "in_progress": "In Progress",
     "ai_review": "AI Review",
@@ -72,8 +71,6 @@
     "emptyHumanReviewHint": "Tasks await your approval here",
     "emptyDone": "No completed tasks",
     "emptyDoneHint": "Approved tasks appear here",
-    "emptyError": "No error tasks",
-    "emptyErrorHint": "Error tasks will appear here when parsing fails",
     "emptyDefault": "No tasks",
     "dropHere": "Drop here",
     "showArchived": "Show archived",
