@@ -1069,7 +1069,9 @@ def create_client(
     # Build system prompt
     # Show WSL project path if running in WSL mode
     working_dir_display = (
-        wsl_project_path if (wsl_mode and wsl_project_path) else str(project_dir.resolve())
+        wsl_project_path
+        if (wsl_mode and wsl_project_path)
+        else str(project_dir.resolve())
     )
     base_prompt = (
         f"You are an expert full-stack developer building production-quality software. "

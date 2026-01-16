@@ -39,7 +39,7 @@ function normalizePathForPython(p: string): string {
  * @param projectPath - Path to the project
  * @param logPrefix - Prefix for debug log messages
  */
-function setupWSLEnv(env: Record<string, string>, projectPath: string, logPrefix: string): void {
+function setupWSLEnv(env: Record<string, string | undefined>, projectPath: string, logPrefix: string): void {
   if (isWSLPath(projectPath)) {
     const distro = getWSLDistroFromPath(projectPath);
     const linuxPath = windowsToWSLPath(projectPath);
