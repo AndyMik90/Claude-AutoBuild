@@ -645,6 +645,32 @@ function installPackages(pythonBin, requirementsPath, targetSitePackages) {
   console.log(`[download-python] Packages installed successfully`);
 
   // Strip unnecessary files
+
+  // Run pywin32 post-install script if on Windows (required for DLL setup)
+  const pywin32PostInstall = path.join(targetSitePackages, 'win32', 'scripts', 'pywin32_postinstall.py');
+  if (fs.existsSync(pywin32PostInstall)) {
+    console.log(`[download-python] Running pywin32 post-install script...`);
+    const postInstallResult = spawnSync(
+      pythonBin,
+      [pywin32PostInstall, '-install', '-silent', '-destination', targetSitePackages],
+      {
+        stdio: 'inherit',
+        env: {
+          ...process.env,
+          PYTHONPATH: targetSitePackages,
+          PYTHONDONTWRITEBYTECODE: '1',
+        },
+      }
+    );
+
+    if (postInstallResult.error) {
+      console.warn(`[download-python] Warning: pywin32 post-install failed: ${postInstallResult.error.message}`);
+    } else if (postInstallResult.status === 0) {
+      console.log(`[download-python] pywin32 post-install completed successfully`);
+    } else {
+      console.warn(`[download-python] Warning: pywin32 post-install exited with code ${postInstallResult.status}`);
+    }
+  }
   stripSitePackages(targetSitePackages);
 
   // Remove bin/Scripts directory (we don't need console scripts)
