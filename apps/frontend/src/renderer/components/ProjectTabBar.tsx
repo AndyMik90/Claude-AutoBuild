@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
+import { Plus, RefreshCw, Archive } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { SortableProjectTab } from './SortableProjectTab';
 import { UsageIndicator } from './UsageIndicator';
 import type { Project } from '../../shared/types';
@@ -16,6 +17,12 @@ interface ProjectTabBarProps {
   className?: string;
   // Control props for active tab
   onSettingsClick?: () => void;
+  // Kanban board controls (only displayed when Kanban view is active)
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  showArchived?: boolean;
+  onToggleArchived?: () => void;
+  archivedCount?: number;
 }
 
 export function ProjectTabBar({
@@ -25,9 +32,14 @@ export function ProjectTabBar({
   onProjectClose,
   onAddProject,
   className,
-  onSettingsClick
+  onSettingsClick,
+  onRefresh,
+  isRefreshing = false,
+  showArchived = false,
+  onToggleArchived,
+  archivedCount = 0
 }: ProjectTabBarProps) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'tasks']);
 
   // Keyboard shortcuts for tab navigation
   useEffect(() => {
@@ -85,11 +97,12 @@ export function ProjectTabBar({
 
   return (
     <div className={cn(
-      'flex items-center border-b border-border bg-background',
+      'flex items-center justify-between border-b border-border bg-background',
       'overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent',
       className
     )}>
-      <div className="flex items-center flex-1 min-w-0">
+      {/* Left side: Project tabs + Add Project button */}
+      <div className="flex items-center gap-2 px-2 min-w-0">
         {projects.map((project, index) => {
           const isActiveTab = activeProjectId === project.id;
           return (
@@ -109,19 +122,79 @@ export function ProjectTabBar({
             />
           );
         })}
+
+        {/* Add project button with tooltip - stays next to tabs */}
+        <Tooltip delayDuration={200}>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 flex-shrink-0"
+              onClick={onAddProject}
+              aria-label={t('common:projectTab.addProjectAriaLabel')}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <span>{t('common:projectTab.addNewProject')}</span>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
-      <div className="flex items-center gap-2 px-2 py-1">
+      {/* Right side: Usage indicator + Refresh + Show Archived - anchored to right */}
+      <div className="flex items-center gap-2 px-2 flex-shrink-0">
         <UsageIndicator />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={onAddProject}
-          aria-label={t('projectTab.addProjectAriaLabel')}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+
+        {/* Refresh button */}
+        {onRefresh && (
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 flex-shrink-0"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                aria-label={t('common:accessibility.refreshAriaLabel')}
+              >
+                <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <span>{t('common:projectTab.refreshTasks')}</span>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {/* Show Archived button */}
+        {onToggleArchived && archivedCount > 0 && (
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8 relative flex-shrink-0",
+                  showArchived
+                    ? "text-primary bg-primary/10 hover:bg-primary/20"
+                    : "hover:bg-muted-foreground/10 hover:text-muted-foreground"
+                )}
+                onClick={onToggleArchived}
+                aria-pressed={showArchived}
+                aria-label={t('common:accessibility.toggleShowArchivedAriaLabel')}
+              >
+                <Archive className="h-4 w-4" />
+                <span className="absolute -top-1 -right-1 text-[10px] font-medium bg-muted rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
+                  {archivedCount}
+                </span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <span>{showArchived ? t('common:projectTab.hideArchived') : t('common:projectTab.showArchived')}</span>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </div>
   );

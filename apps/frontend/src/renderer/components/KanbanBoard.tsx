@@ -1,6 +1,5 @@
 import { useState, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useViewState } from '../contexts/ViewStateContext';
 import {
   DndContext,
   DragOverlay,
@@ -19,10 +18,9 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, AlertCircle } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, AlertCircle } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
@@ -42,8 +40,7 @@ interface KanbanBoardProps {
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   onNewTaskClick?: () => void;
-  onRefresh?: () => void;
-  isRefreshing?: boolean;
+  showArchived?: boolean;
 }
 
 interface DroppableColumnProps {
@@ -54,9 +51,6 @@ interface DroppableColumnProps {
   isOver: boolean;
   onAddClick?: () => void;
   onArchiveAll?: () => void;
-  archivedCount?: number;
-  showArchived?: boolean;
-  onToggleArchived?: () => void;
 }
 
 /**
@@ -97,9 +91,6 @@ function droppableColumnPropsAreEqual(
   if (prevProps.onStatusChange !== nextProps.onStatusChange) return false;
   if (prevProps.onAddClick !== nextProps.onAddClick) return false;
   if (prevProps.onArchiveAll !== nextProps.onArchiveAll) return false;
-  if (prevProps.archivedCount !== nextProps.archivedCount) return false;
-  if (prevProps.showArchived !== nextProps.showArchived) return false;
-  if (prevProps.onToggleArchived !== nextProps.onToggleArchived) return false;
 
   // Deep compare tasks
   const tasksEqual = tasksAreEquivalent(prevProps.tasks, nextProps.tasks);
@@ -159,7 +150,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -252,7 +243,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
               <Plus className="h-4 w-4" />
             </Button>
           )}
-          {status === 'done' && onArchiveAll && tasks.length > 0 && !showArchived && (
+          {status === 'done' && onArchiveAll && tasks.length > 0 && (
             <Button
               variant="ghost"
               size="icon"
@@ -262,33 +253,6 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
             >
               <Archive className="h-4 w-4" />
             </Button>
-          )}
-          {status === 'done' && archivedCount !== undefined && archivedCount > 0 && onToggleArchived && (
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    'h-7 w-7 transition-colors relative',
-                    showArchived
-                      ? 'text-primary bg-primary/10 hover:bg-primary/20'
-                      : 'hover:bg-muted-foreground/10 hover:text-muted-foreground'
-                  )}
-                  onClick={onToggleArchived}
-                  aria-pressed={showArchived}
-                  aria-label={t('common:accessibility.toggleShowArchivedAriaLabel')}
-                >
-                  <Archive className="h-4 w-4" />
-                  <span className="absolute -top-1 -right-1 text-[10px] font-medium bg-muted rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
-                    {archivedCount}
-                  </span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {showArchived ? t('common:projectTab.hideArchived') : t('common:projectTab.showArchived')}
-              </TooltipContent>
-            </Tooltip>
           )}
         </div>
       </div>
@@ -340,12 +304,11 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
   );
 }, droppableColumnPropsAreEqual);
 
-export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, showArchived = false }: KanbanBoardProps) {
   const { t } = useTranslation(['tasks', 'dialogs', 'common']);
   const { toast } = useToast();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
-  const { showArchived, toggleShowArchived } = useViewState();
 
   // Worktree cleanup dialog state
   const [worktreeCleanupDialog, setWorktreeCleanupDialog] = useState<{
@@ -363,20 +326,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     isProcessing: false,
     error: undefined
   });
-
-  // Calculate archived count for Done column button
-  const archivedCount = useMemo(() =>
-    tasks.filter(t => t.metadata?.archivedAt).length,
-    [tasks]
-  );
-
-  // Filter tasks based on archive status
-  const filteredTasks = useMemo(() => {
-    if (showArchived) {
-      return tasks; // Show all tasks including archived
-    }
-    return tasks.filter((t) => !t.metadata?.archivedAt);
-  }, [tasks, showArchived]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -400,7 +349,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       done: []
     };
 
-    filteredTasks.forEach((task) => {
+    tasks.forEach((task) => {
+      // Filter out archived tasks when showArchived is false
+      if (!showArchived && task.metadata?.archivedAt) {
+        return;
+      }
+
       // Map pr_created tasks to the done column
       const targetColumn = task.status === 'pr_created' ? 'done' : task.status;
       if (grouped[targetColumn]) {
@@ -418,7 +372,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     });
 
     return grouped;
-  }, [filteredTasks]);
+  }, [tasks, showArchived]);
 
   const handleArchiveAll = async () => {
     // Get projectId from the first task (all tasks should have the same projectId)
@@ -566,21 +520,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   return (
     <div className="flex h-full flex-col">
-      {/* Kanban header with refresh button */}
-      {onRefresh && (
-        <div className="flex items-center justify-end px-6 pt-4 pb-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="gap-2 text-muted-foreground hover:text-foreground"
-          >
-            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-            {isRefreshing ? t('common:buttons.refreshing') : t('tasks:refreshTasks')}
-          </Button>
-        </div>
-      )}
       {/* Kanban columns */}
       <DndContext
         sensors={sensors}
@@ -600,9 +539,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
-              archivedCount={status === 'done' ? archivedCount : undefined}
-              showArchived={status === 'done' ? showArchived : undefined}
-              onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
             />
           ))}
         </div>

@@ -74,6 +74,11 @@ interface ProjectTabBarWithContextProps {
   onProjectClose: (projectId: string) => void;
   onAddProject: () => void;
   onSettingsClick: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  showArchived?: boolean;
+  onToggleArchived?: () => void;
+  archivedCount?: number;
 }
 
 function ProjectTabBarWithContext({
@@ -82,7 +87,12 @@ function ProjectTabBarWithContext({
   onProjectSelect,
   onProjectClose,
   onAddProject,
-  onSettingsClick
+  onSettingsClick,
+  onRefresh,
+  isRefreshing,
+  showArchived,
+  onToggleArchived,
+  archivedCount
 }: ProjectTabBarWithContextProps) {
   return (
     <ProjectTabBar
@@ -92,6 +102,11 @@ function ProjectTabBarWithContext({
       onProjectClose={onProjectClose}
       onAddProject={onAddProject}
       onSettingsClick={onSettingsClick}
+      onRefresh={onRefresh}
+      isRefreshing={isRefreshing}
+      showArchived={showArchived}
+      onToggleArchived={onToggleArchived}
+      archivedCount={archivedCount}
     />
   );
 }
@@ -110,6 +125,7 @@ export function App() {
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
   const reorderTabs = useProjectStore((state) => state.reorderTabs);
   const tasks = useTaskStore((state) => state.tasks);
+  const isLoadingTasks = useTaskStore((state) => state.isLoading);
   const settings = useSettingsStore((state) => state.settings);
   const settingsLoading = useSettingsStore((state) => state.isLoading);
 
@@ -128,7 +144,7 @@ export function App() {
   const [settingsInitialProjectSection, setSettingsInitialProjectSection] = useState<ProjectSettingsSection | undefined>(undefined);
   const [activeView, setActiveView] = useState<SidebarView>('kanban');
   const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
-  const [isRefreshingTasks, setIsRefreshingTasks] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   // Initialize dialog state
   const [showInitDialog, setShowInitDialog] = useState(false);
@@ -526,17 +542,6 @@ export function App() {
     setSelectedTask(task);
   };
 
-  const handleRefreshTasks = async () => {
-    const currentProjectId = activeProjectId || selectedProjectId;
-    if (!currentProjectId) return;
-    setIsRefreshingTasks(true);
-    try {
-      await loadTasks(currentProjectId);
-    } finally {
-      setIsRefreshingTasks(false);
-    }
-  };
-
   const handleCloseTaskDetail = () => {
     setSelectedTask(null);
   };
@@ -753,6 +758,24 @@ export function App() {
     }
   };
 
+  // Handle refresh tasks
+  const handleRefreshTasks = async () => {
+    const currentProjectId = activeProjectId || selectedProjectId;
+    if (currentProjectId) {
+      await loadTasks(currentProjectId);
+    }
+  };
+
+  // Handle toggle archived visibility
+  const handleToggleArchived = () => {
+    setShowArchived((prev) => !prev);
+  };
+
+  // Calculate archived task count
+  const archivedCount = tasks.filter(
+    (task) => task.metadata?.archivedAt
+  ).length;
+
   return (
     <ViewStateProvider>
       <TooltipProvider>
@@ -784,6 +807,12 @@ export function App() {
                   onProjectClose={handleProjectTabClose}
                   onAddProject={handleAddProject}
                   onSettingsClick={() => setIsSettingsDialogOpen(true)}
+                  // Only show refresh/archived controls on kanban view
+                  onRefresh={activeView === 'kanban' ? handleRefreshTasks : undefined}
+                  isRefreshing={activeView === 'kanban' ? isLoadingTasks : undefined}
+                  showArchived={activeView === 'kanban' ? showArchived : undefined}
+                  onToggleArchived={activeView === 'kanban' ? handleToggleArchived : undefined}
+                  archivedCount={activeView === 'kanban' ? archivedCount : undefined}
                 />
               </SortableContext>
 
@@ -810,8 +839,7 @@ export function App() {
                     tasks={tasks}
                     onTaskClick={handleTaskClick}
                     onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
-                    onRefresh={handleRefreshTasks}
-                    isRefreshing={isRefreshingTasks}
+                    showArchived={showArchived}
                   />
                 )}
                 {/* TerminalGrid is always mounted but hidden when not active to preserve terminal state */}

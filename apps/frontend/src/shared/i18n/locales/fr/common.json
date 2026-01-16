@@ -7,7 +7,9 @@
     "hideArchivedTasks": "Masquer les tâches archivées",
     "closeTab": "Fermer l'onglet",
     "closeTabAriaLabel": "Fermer l'onglet (retire le projet de l'application)",
-    "addProjectAriaLabel": "Ajouter un projet"
+    "addProjectAriaLabel": "Ajouter un projet",
+    "refreshTasks": "Actualiser les tâches",
+    "addNewProject": "Ajouter un nouveau projet"
   },
   "accessibility": {
     "deleteFeatureAriaLabel": "Supprimer la fonctionnalité",
