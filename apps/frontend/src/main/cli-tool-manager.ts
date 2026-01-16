@@ -957,7 +957,9 @@ class CLIToolManager {
         }
         const cmdExe = process.env.ComSpec
           || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
-        const cmdLine = `""${unquotedCmd}" --version"`;
+        // Use chcp 65001 to set UTF-8 code page, then run the command with proper quoting.
+        // This prevents garbled error messages when paths contain special characters.
+        const cmdLine = `chcp 65001 >nul && ""${unquotedCmd}" --version"`;
         const execOptions: ExecFileSyncOptionsWithVerbatim = {
           encoding: 'utf-8',
           timeout: 5000,
@@ -1096,7 +1098,9 @@ class CLIToolManager {
         }
         const cmdExe = process.env.ComSpec
           || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
-        const cmdLine = `""${unquotedCmd}" --version"`;
+        // Use chcp 65001 to set UTF-8 code page, then run the command with proper quoting.
+        // This prevents garbled error messages when paths contain special characters.
+        const cmdLine = `chcp 65001 >nul && ""${unquotedCmd}" --version"`;
         const execOptions: ExecFileAsyncOptionsWithVerbatim = {
           encoding: 'utf-8',
           timeout: 5000,
