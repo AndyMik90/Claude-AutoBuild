@@ -219,8 +219,13 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
     // Use requestAnimationFrame to wait for layout, then fit
     // This is more reliable than a fixed timeout
+    // Fallback to setTimeout for test environments where requestAnimationFrame may not be defined
+    const raf = typeof requestAnimationFrame !== 'undefined'
+      ? requestAnimationFrame
+      : (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 0) as unknown as number;
+
     const performInitialFit = () => {
-      requestAnimationFrame(() => {
+      raf(() => {
         if (fitAddonRef.current && xtermRef.current && terminalRef.current) {
           // Check if container has valid dimensions
           const rect = terminalRef.current.getBoundingClientRect();
