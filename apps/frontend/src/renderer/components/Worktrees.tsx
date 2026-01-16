@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   GitBranch,
@@ -79,6 +79,42 @@ export function Worktrees({ projectId }: WorktreesProps) {
   const [showCreatePRDialog, setShowCreatePRDialog] = useState(false);
   const [prWorktree, setPrWorktree] = useState<WorktreeListItem | null>(null);
   const [prTask, setPrTask] = useState<Task | null>(null);
+
+  // Selection state
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedWorktreeIds, setSelectedWorktreeIds] = useState<Set<string>>(new Set());
+
+  // Selection callbacks
+  const toggleWorktree = useCallback((specName: string) => {
+    setSelectedWorktreeIds(prev => {
+      const next = new Set(prev);
+      if (next.has(specName)) {
+        next.delete(specName);
+      } else {
+        next.add(specName);
+      }
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedWorktreeIds(new Set(worktrees.map(w => w.specName)));
+  }, [worktrees]);
+
+  const deselectAll = useCallback(() => {
+    setSelectedWorktreeIds(new Set());
+  }, []);
+
+  // Computed selection values
+  const isAllSelected = useMemo(
+    () => worktrees.length > 0 && worktrees.every(w => selectedWorktreeIds.has(w.specName)),
+    [worktrees, selectedWorktreeIds]
+  );
+
+  const isSomeSelected = useMemo(
+    () => worktrees.some(w => selectedWorktreeIds.has(w.specName)) && !isAllSelected,
+    [worktrees, selectedWorktreeIds, isAllSelected]
+  );
 
   // Load worktrees (both task and terminal worktrees)
   const loadWorktrees = useCallback(async () => {
