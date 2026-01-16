@@ -5,5 +5,13 @@
       "titleSuffix": "(Erreur JSON)",
       "description": "⚠️ Erreur d'analyse JSON : {{error}}\n\nLe fichier implementation_plan.json est malformé. Exécutez la correction automatique du backend ou réparez le fichier manuellement."
     }
+  },
+  "merge": {
+    "success": "Fusion réussie",
+    "failed": "Échec de la fusion",
+    "timeout": "Le processus de fusion a expiré.",
+    "timeoutWithOutput": "Le processus de fusion a expiré. Une sortie a été reçue - veuillez exécuter `git status` dans le répertoire de votre projet pour vérifier si la fusion s'est partiellement terminée.",
+    "timeoutNoOutput": "Le processus de fusion a expiré. Aucune sortie reçue - la fusion n'a peut-être pas démarré.",
+    "timeoutLastError": "Dernière erreur : {{lastError}}"
   }
 }

@@ -148,7 +148,7 @@ function createSpecFiles(
     status: 'backlog',
     planStatus: 'pending',
     phases: [],
-    workflow_type: 'development',
+    workflow_type: 'feature',
     services_involved: [],
     final_acceptance: [],
     spec_file: 'spec.md'
