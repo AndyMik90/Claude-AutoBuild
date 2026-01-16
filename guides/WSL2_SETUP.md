@@ -600,4 +600,4 @@ WSL2/WSLg compatibility work by:
 
 ## License
 
-Same as Auto Claude project license (MIT).
+Same as Auto Claude project license (AGPL-3.0).

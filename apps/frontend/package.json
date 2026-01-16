@@ -17,11 +17,13 @@
     "node": ">=24.0.0",
     "npm": ">=10.0.0"
   },
-  "//": "NOTE: --no-sandbox flag required for WSL2/WSLg compatibility. This disables Chromium's sandbox security feature, only use in development environments. Production builds do not use this flag.",
+  "//": "NOTE: Use 'dev:wsl2' scripts for WSL2 environments. The --no-sandbox flag disables Chromium's sandbox security feature and should ONLY be used in WSL2. Regular 'dev' scripts are safe for macOS/Windows/Linux. Production builds never use --no-sandbox.",
   "scripts": {
     "postinstall": "node scripts/postinstall.cjs",
-    "dev": "electron-vite dev -- --no-sandbox",
-    "dev:debug": "cross-env DEBUG=true electron-vite dev -- --no-sandbox",
+    "dev": "electron-vite dev",
+    "dev:debug": "cross-env DEBUG=true electron-vite dev",
+    "dev:wsl2": "node scripts/check-wsl2.cjs && electron-vite dev -- --no-sandbox",
+    "dev:debug:wsl2": "node scripts/check-wsl2.cjs && cross-env DEBUG=true electron-vite dev -- --no-sandbox",
     "dev:mcp": "electron-vite dev -- --remote-debugging-port=9222",
     "build": "electron-vite build",
     "start": "electron .",

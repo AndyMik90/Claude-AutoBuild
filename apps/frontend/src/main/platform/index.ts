@@ -63,6 +63,54 @@ export function isUnix(): boolean {
 }
 
 /**
+ * Check if running in development mode (not packaged)
+ *
+ * Note: Requires the 'app' module from Electron to be ready.
+ * Use lazy evaluation when calling from module-level code.
+ */
+export function isDev(): boolean {
+  try {
+    const { app } = require('electron');
+    return !app.isPackaged;
+  } catch {
+    // If app is not ready, check NODE_ENV
+    return process.env.NODE_ENV !== 'production';
+  }
+}
+
+/**
+ * Check if running in WSL2 environment
+ *
+ * Detects Windows Subsystem for Linux 2 by checking:
+ * 1. WSL_DISTRO_NAME environment variable
+ * 2. /proc/version for WSL2 signature (Linux only)
+ * 3. wsl.exe in PATH (WSL interop)
+ */
+export function isWSL2(): boolean {
+  // Method 1: Check WSL_DISTRO_NAME environment variable
+  if (process.env.WSL_DISTRO_NAME) {
+    return true;
+  }
+
+  // Method 2: Check /proc/version for WSL2 signature (Linux only)
+  if (isLinux()) {
+    try {
+      const versionInfo = existsSync('/proc/version')
+        ? require('fs').readFileSync('/proc/version', 'utf8').toLowerCase()
+        : '';
+      // WSL2 typically contains 'microsoft' in kernel version
+      if (versionInfo.includes('microsoft')) {
+        return true;
+      }
+    } catch {
+      // /proc/version doesn't exist or can't be read
+    }
+  }
+
+  return false;
+}
+
+/**
  * Get path configuration for the current platform
  */
 export function getPathConfig(): PathConfig {

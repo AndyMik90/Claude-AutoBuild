@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
+import { getSettingsPath } from '../../settings-utils';
 
 export interface EnvironmentVars {
   [key: string]: string;
@@ -9,13 +10,6 @@ export interface EnvironmentVars {
 export interface GlobalSettings {
   autoBuildPath?: string;
   globalOpenAIApiKey?: string;
-}
-
-/**
- * Get settings path (lazy-loaded for WSL2 compatibility)
- */
-function getSettingsPath(): string {
-  return path.join(app.getPath('userData'), 'settings.json');
 }
 
 /**

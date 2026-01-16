@@ -28,13 +28,15 @@ for (const envPath of possibleEnvPaths) {
 import { app, BrowserWindow, shell, nativeImage, session, screen } from 'electron';
 import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
+import { isDev, isMacOS, isWindows, isLinux } from './platform';
 
-// Lazy-loaded platform info to avoid initialization issues with @electron-toolkit/utils on WSL2
+// Platform detection wrapper for backward compatibility
+// Uses centralized platform module (apps/frontend/src/main/platform/)
 const is = {
-  get dev() { return !app.isPackaged; },
-  get mac() { return process.platform === 'darwin'; },
-  get windows() { return process.platform === 'win32'; },
-  get linux() { return process.platform === 'linux'; }
+  get dev() { return isDev(); },
+  get mac() { return isMacOS(); },
+  get windows() { return isWindows(); },
+  get linux() { return isLinux(); }
 };
 import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';

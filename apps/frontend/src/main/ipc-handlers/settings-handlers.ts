@@ -3,13 +3,15 @@ import { existsSync, writeFileSync, mkdirSync, statSync, readFileSync } from 'fs
 import { execFileSync } from 'node:child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { isDev, isMacOS, isWindows, isLinux } from '../platform';
 
-// Lazy-loaded platform info to avoid initialization issues with @electron-toolkit/utils on WSL2
+// Platform detection wrapper for backward compatibility
+// Uses centralized platform module (apps/frontend/src/main/platform/)
 const is = {
-  get dev() { return !app.isPackaged; },
-  get mac() { return process.platform === 'darwin'; },
-  get windows() { return process.platform === 'win32'; },
-  get linux() { return process.platform === 'linux'; }
+  get dev() { return isDev(); },
+  get mac() { return isMacOS(); },
+  get windows() { return isWindows(); },
+  get linux() { return isLinux(); }
 };
 
 // ESM-compatible __dirname

@@ -19,7 +19,7 @@
 
 import { app, net } from 'electron';
 import type { BrowserWindow } from 'electron';
-import type { UpdateInfo, ProgressInfo, UpdateDownloadedEvent } from 'electron-updater';
+import type { AppUpdater, UpdateInfo, ProgressInfo, UpdateDownloadedEvent } from 'electron-updater';
 import { IPC_CHANNELS } from '../shared/constants';
 import type { AppUpdateInfo } from '../shared/types';
 import { compareVersions } from './updater/version-manager';
@@ -56,7 +56,7 @@ let mainWindow: BrowserWindow | null = null;
 let downloadedUpdateInfo: AppUpdateInfo | null = null;
 
 // Lazy-loaded autoUpdater instance (WSL2 compatibility)
-let autoUpdater: any = null;
+let autoUpdater: AppUpdater | null = null;
 
 /**
  * Initialize the app updater system
@@ -72,6 +72,11 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
   if (!autoUpdater) {
     const updaterModule = require('electron-updater');
     autoUpdater = updaterModule.autoUpdater;
+  }
+
+  // TypeScript guard: autoUpdater is guaranteed to be non-null after initialization above
+  if (!autoUpdater) {
+    throw new Error('[app-updater] Failed to initialize autoUpdater');
   }
 
   // Configure electron-updater
@@ -187,7 +192,7 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
 
   setTimeout(() => {
     console.warn('[app-updater] Performing initial update check');
-    autoUpdater.checkForUpdates().catch((error: Error) => {
+    autoUpdater!.checkForUpdates().catch((error: Error) => {
       console.error('[app-updater] ❌ Initial update check failed:', error.message);
       if (DEBUG_UPDATER) {
         console.error('[app-updater:debug] Full error:', error);
@@ -201,7 +206,7 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
 
   setInterval(() => {
     console.warn('[app-updater] Performing periodic update check');
-    autoUpdater.checkForUpdates().catch((error: Error) => {
+    autoUpdater!.checkForUpdates().catch((error: Error) => {
       console.error('[app-updater] ❌ Periodic update check failed:', error.message);
       if (DEBUG_UPDATER) {
         console.error('[app-updater:debug] Full error:', error);

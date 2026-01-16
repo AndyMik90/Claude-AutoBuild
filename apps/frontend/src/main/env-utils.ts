@@ -15,8 +15,8 @@ import * as fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import { execFileSync, execFile } from 'child_process';
 import { promisify } from 'util';
-// import { getSentryEnvForSubprocess } from './sentry'; // Disabled for WSL2 compatibility
-import { isWindows, isUnix, getPathDelimiter } from './platform';
+import { getSentryEnvForSubprocess } from './sentry';
+import { isWindows, isUnix, getPathDelimiter, isWSL2 } from './platform';
 
 const execFileAsync = promisify(execFile);
 
@@ -240,9 +240,11 @@ export function getAugmentedEnv(additionalPaths?: string[]): Record<string, stri
 
   // Add Sentry environment variables for Python subprocesses
   // These are embedded at build time and need to be passed explicitly
-  // Disabled for WSL2 compatibility
-  // const sentryEnv = getSentryEnvForSubprocess();
-  // Object.assign(env, sentryEnv);
+  // Skip Sentry in WSL2 to avoid initialization issues
+  if (!isWSL2()) {
+    const sentryEnv = getSentryEnvForSubprocess();
+    Object.assign(env, sentryEnv);
+  }
 
   return env;
 }
@@ -405,9 +407,11 @@ export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<
 
   // Add Sentry environment variables for Python subprocesses
   // These are embedded at build time and need to be passed explicitly
-  // Disabled for WSL2 compatibility
-  // const sentryEnv = getSentryEnvForSubprocess();
-  // Object.assign(env, sentryEnv);
+  // Skip Sentry in WSL2 to avoid initialization issues
+  if (!isWSL2()) {
+    const sentryEnv = getSentryEnvForSubprocess();
+    Object.assign(env, sentryEnv);
+  }
 
   return env;
 }
