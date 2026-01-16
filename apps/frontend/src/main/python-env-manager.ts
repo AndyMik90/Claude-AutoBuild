@@ -4,6 +4,7 @@ import path from 'path';
 import { EventEmitter } from 'events';
 import { app } from 'electron';
 import { findPythonCommand, getBundledPythonPath } from './python-detector';
+import { isWindows } from './platform';
 
 export interface PythonEnvStatus {
   ready: boolean;
@@ -67,7 +68,7 @@ export class PythonEnvManager extends EventEmitter {
     if (!venvPath) return null;
 
     const venvPython =
-      process.platform === 'win32'
+      isWindows()
         ? path.join(venvPath, 'Scripts', 'python.exe')
         : path.join(venvPath, 'bin', 'python');
 
@@ -126,14 +127,22 @@ export class PythonEnvManager extends EventEmitter {
     // This fixes GitHub issue #416 where marker exists but packages are missing
     // Note: Same list exists in download-python.cjs - keep them in sync
     // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
-    const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core'];
+    // pywin32 is platform-critical for Windows (ACS-306) - required by MCP library
+    // Note: We check for 'pywintypes' instead of 'pywin32' because pywin32 installs
+    // top-level modules (pywintypes, win32api, win32con, win32com) without a pywin32/__init__.py
+    const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core']
+      .concat(isWindows() ? ['pywintypes'] : []);
 
-    // Check each package exists with valid structure (directory + __init__.py)
+    // Check each package exists with valid structure
+    // For traditional packages: directory + __init__.py
+    // For single-file modules (like pywintypes.py): just the .py file
     const missingPackages = criticalPackages.filter((pkg) => {
       const pkgPath = path.join(sitePackagesPath, pkg);
       const initPath = path.join(pkgPath, '__init__.py');
-      // Package is valid if directory and __init__.py both exist
-      return !existsSync(pkgPath) || !existsSync(initPath);
+      // For single-file modules (like pywintypes.py), check for the file directly
+      const moduleFile = path.join(sitePackagesPath, `${pkg}.py`);
+      // Package is valid if directory+__init__.py exists OR single-file module exists
+      return !existsSync(initPath) && !existsSync(moduleFile);
     });
 
     // Log missing packages for debugging
@@ -551,7 +560,7 @@ if sys.version_info >= (3, 12):
       // For venv, site-packages is inside the venv
       const venvBase = this.getVenvBasePath();
       if (venvBase) {
-        if (process.platform === 'win32') {
+        if (isWindows()) {
           // Windows venv structure: Lib/site-packages (no python version subfolder)
           this.sitePackagesPath = path.join(venvBase, 'Lib', 'site-packages');
         } else {

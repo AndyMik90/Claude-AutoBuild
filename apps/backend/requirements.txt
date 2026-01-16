@@ -14,10 +14,14 @@ secretstorage>=3.3.3; sys_platform == "linux"
 # Requires Python 3.12+ (no Docker required)
 real_ladybug>=0.13.0; python_version >= "3.12"
 graphiti-core>=0.5.0; python_version >= "3.12"
+# pandas is required by real_ladybug for get_as_df() method
+# pandas 2.2.0+ required for pre-built wheels on Python 3.12
+pandas>=2.2.0; python_version >= "3.12"
 
 # Windows-specific dependency for LadybugDB/Graphiti
 # pywin32 provides Windows system bindings required by real_ladybug
-pywin32>=306; sys_platform == "win32" and python_version >= "3.12"
+# Required on all Python versions on Windows (ACS-306) - MCP library unconditionally imports win32api
+pywin32>=306; sys_platform == "win32"
 
 # Google AI (optional - for Gemini LLM and embeddings)
 google-generativeai>=0.8.0

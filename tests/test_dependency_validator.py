@@ -4,10 +4,9 @@ Tests for dependency_validator module.
 
 Tests cover:
 - Platform-specific dependency validation
-- pywin32 validation on Windows Python 3.12+
+- pywin32 validation on Windows (all Python versions, ACS-306)
 - Helpful error messages for missing dependencies
 - No validation on non-Windows platforms
-- No validation on Python < 3.12
 """
 
 import sys
@@ -76,16 +75,31 @@ class TestValidatePlatformDependencies:
             # Should not raise SystemExit
             validate_platform_dependencies()
 
-    def test_windows_python_311_skips_validation(self):
-        """Windows + Python < 3.12 should skip pywin32 validation."""
+    def test_windows_python_311_validates_pywin32(self):
+        """
+        Windows + Python 3.11 should validate pywin32 (ACS-306).
+
+        Previously, validation only happened on Python 3.12+, but the MCP
+        library requires pywin32 on all Python versions on Windows.
+        """
+        import builtins
+
         with patch("sys.platform", "win32"), \
              patch("sys.version_info", (3, 11, 0)), \
-             patch("builtins.__import__") as mock_import:
-            # Even if pywintypes is not available, should not exit
-            mock_import.side_effect = ImportError("No module named 'pywintypes'")
+             patch("core.dependency_validator._exit_with_pywin32_error") as mock_exit:
 
-            # Should not raise SystemExit
-            validate_platform_dependencies()
+            original_import = builtins.__import__
+
+            def mock_import(name, *args, **kwargs):
+                if name == "pywintypes":
+                    raise ImportError("No module named 'pywintypes'")
+                return original_import(name, *args, **kwargs)
+
+            with patch("builtins.__import__", side_effect=mock_import):
+                validate_platform_dependencies()
+
+            # Should have called the error exit function (changed from skipping)
+            mock_exit.assert_called_once()
 
     def test_linux_skips_validation(self):
         """Non-Windows platforms should skip pywin32 validation."""
@@ -130,15 +144,31 @@ class TestValidatePlatformDependencies:
             # Should have called the error exit function
             mock_exit.assert_called_once()
 
-    def test_windows_python_310_skips_validation(self):
-        """Windows + Python 3.10 should skip pywin32 validation."""
+    def test_windows_python_310_validates_pywin32(self):
+        """
+        Windows + Python 3.10 should validate pywin32 (ACS-306).
+
+        Previously, validation only happened on Python 3.12+, but the MCP
+        library requires pywin32 on all Python versions on Windows.
+        """
+        import builtins
+
         with patch("sys.platform", "win32"), \
              patch("sys.version_info", (3, 10, 0)), \
-             patch("builtins.__import__") as mock_import:
-            mock_import.side_effect = ImportError("No module named 'pywintypes'")
+             patch("core.dependency_validator._exit_with_pywin32_error") as mock_exit:
 
-            # Should not raise SystemExit
-            validate_platform_dependencies()
+            original_import = builtins.__import__
+
+            def mock_import(name, *args, **kwargs):
+                if name == "pywintypes":
+                    raise ImportError("No module named 'pywintypes'")
+                return original_import(name, *args, **kwargs)
+
+            with patch("builtins.__import__", side_effect=mock_import):
+                validate_platform_dependencies()
+
+            # Should have called the error exit function (changed from skipping)
+            mock_exit.assert_called_once()
 
 
 # =============================================================================
@@ -150,7 +180,7 @@ class TestExitWithPywin32Error:
     """Tests for _exit_with_pywin32_error function."""
 
     def test_exit_message_contains_helpful_instructions(self):
-        """Error message should include installation instructions."""
+        """Error message should include installation instructions and mention MCP library."""
         with patch("sys.exit") as mock_exit:
             _exit_with_pywin32_error()
 
@@ -163,11 +193,15 @@ class TestExitWithPywin32Error:
             assert "pip install" in message.lower()
             assert "windows" in message.lower()
             assert "python" in message.lower()
+            # Should mention MCP library (ACS-306)
+            assert "mcp" in message.lower()
 
     def test_exit_message_contains_venv_path(self):
-        """Error message should include the virtual environment path."""
+        """Error message should include the virtual environment path when activate script exists."""
+        # Mock existsSync to return True for the activate script path
         with patch("sys.exit") as mock_exit, \
-             patch("sys.prefix", "/path/to/venv"):
+             patch("sys.prefix", "/path/to/venv"), \
+             patch("pathlib.Path.exists", return_value=True):
 
             _exit_with_pywin32_error()
 
@@ -181,6 +215,29 @@ class TestExitWithPywin32Error:
             expected_path = str(Path("/path/to/venv"))
             assert expected_path in message or "/path/to/venv" in message
             assert "Scripts" in message
+
+    def test_exit_message_without_venv_activate(self):
+        """Error message should not include venv path when activate script doesn't exist."""
+        # Mock existsSync to return False (simulate system Python or missing activate)
+        # Also mock Path.exists to make the test deterministic
+        with patch("sys.exit") as mock_exit, \
+             patch("sys.prefix", "/usr"), \
+             patch("pathlib.Path.exists", return_value=False):
+
+            _exit_with_pywin32_error()
+
+            # Get the message passed to sys.exit
+            call_args = mock_exit.call_args[0][0]
+            message = str(call_args)
+
+            # Should NOT reference Scripts/activate when it doesn't exist
+            # Note: "Scripts" may appear in sys.executable path, so check specifically for activate references
+            assert "Scripts/activate" not in message and "Scripts\\activate" not in message
+            # Also check that "1. Activate your virtual environment" step is not present
+            assert "Activate your virtual environment" not in message
+            # Should still show installation instructions
+            assert "pip install" in message
+            assert "pywin32" in message
 
     def test_exit_message_contains_python_executable(self):
         """Error message should include the current Python executable."""
