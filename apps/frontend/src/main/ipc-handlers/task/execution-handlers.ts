@@ -17,6 +17,7 @@ import {
 } from './plan-file-utils';
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
+import { withSpecNumberLock } from '../../utils/spec-number-lock';
 
 /**
  * Atomic file write to prevent TOCTOU race conditions.
@@ -1264,31 +1265,20 @@ export function registerTaskExecutionHandlers(
       // Optionally recreate the task for retry
       if (options?.recreate && taskTitle && taskDescription) {
         try {
-          const { readdir, mkdir, writeFile } = await import('fs/promises');
+          const { mkdir, writeFile } = await import('fs/promises');
           const specsDir = path.join(project.path, getSpecsDir(project.autoBuildPath));
-          let specNum = 1;
 
-          // Find next spec number (readdir throws if dir doesn't exist)
-          try {
-            const dirents = await readdir(specsDir, { withFileTypes: true });
-            const nums = dirents
-              .filter(d => d.isDirectory())
-              .map(d => {
-                const m = d.name.match(/^(\d+)/);
-                return m ? parseInt(m[1], 10) : 0;
-              })
-              .filter(n => n > 0);
-
-            if (nums.length > 0) {
-              specNum = Math.max(...nums) + 1;
+          // Use spec number lock to prevent race conditions when calculating next spec number
+          // This ensures concurrent recreate operations get unique spec numbers
+          const { newSpecId, newSpecDir } = await withSpecNumberLock(
+            project.path,
+            (lock) => {
+              const specNum = lock.getNextSpecNumber(project.autoBuildPath);
+              const newSpecId = generateSpecId(specNum, taskTitle);
+              const newSpecDir = path.join(specsDir, newSpecId);
+              return { newSpecId, newSpecDir };
             }
-          } catch {
-            // Directory doesn't exist yet, use default specNum = 1
-          }
-
-          // Create new spec directory
-          const newSpecId = generateSpecId(specNum, taskTitle);
-          const newSpecDir = path.join(specsDir, newSpecId);
+          );
 
           await mkdir(newSpecDir, { recursive: true });
 
