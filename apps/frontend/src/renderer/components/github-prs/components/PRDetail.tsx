@@ -51,11 +51,11 @@ interface PRDetailProps {
   onCheckNewCommits: () => Promise<NewCommitsCheck>;
   onCancelReview: () => void;
   onPostReview: (selectedFindingIds?: string[], options?: { forceApprove?: boolean }) => Promise<boolean>;
-  onPostComment: (body: string) => void;
+  onPostComment: (body: string) => Promise<boolean>;
   onMergePR: (mergeMethod?: 'merge' | 'squash' | 'rebase') => void;
   onAssignPR: (username: string) => void;
   onGetLogs: () => Promise<PRLogsType | null>;
-  onMarkReviewPosted?: () => Promise<void>;
+  onMarkReviewPosted?: (prNumber: number) => Promise<void>;
 }
 
 function getStatusColor(status: PRReviewResult['overallStatus']): string {
@@ -711,14 +711,17 @@ ${reviewResult.summary}
 
 ${t('prReview.blockedStatusMessageFooter')}`;
 
-      await Promise.resolve(onPostComment(blockedStatusMessage));
+      const success = await onPostComment(blockedStatusMessage);
 
-      // Only mark as posted on success if PR hasn't changed
-      if (pr.number === currentPr) {
+      // Only mark as posted on success if PR hasn't changed AND comment was posted successfully
+      if (success && pr.number === currentPr) {
         setBlockedStatusPosted(true);
         setBlockedStatusError(null);
         // Update the store to mark review as posted so PR list reflects the change
-        await onMarkReviewPosted?.();
+        // Pass prNumber explicitly to avoid race conditions with PR selection changes
+        await onMarkReviewPosted?.(currentPr);
+      } else if (!success && pr.number === currentPr) {
+        setBlockedStatusError('Failed to post comment');
       }
     } catch (err) {
       console.error('Failed to post blocked status comment:', err);

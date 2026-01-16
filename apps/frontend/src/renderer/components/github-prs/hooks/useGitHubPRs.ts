@@ -507,14 +507,28 @@ export function useGitHubPRs(
       const success = await window.electronAPI.github.markReviewPosted(projectId, prNumber);
       if (!success) return;
 
-      // Then update the in-memory store
+      // Get the current timestamp for consistent update
+      const postedAt = new Date().toISOString();
+
+      // Update the in-memory store
       const existingState = getPRReviewState(projectId, prNumber);
       if (existingState?.result) {
+        // If we have the result loaded, update it with hasPostedFindings and postedAt
         usePRReviewStore.getState().setPRReviewResult(
           projectId,
-          { ...existingState.result, hasPostedFindings: true },
+          { ...existingState.result, hasPostedFindings: true, postedAt },
           { preserveNewCommitsCheck: true }
         );
+      } else {
+        // If result not loaded yet (race condition), reload from disk to get updated state
+        const result = await window.electronAPI.github.getPRReview(projectId, prNumber);
+        if (result) {
+          usePRReviewStore.getState().setPRReviewResult(
+            projectId,
+            result,
+            { preserveNewCommitsCheck: true }
+          );
+        }
       }
     },
     [projectId, getPRReviewState]

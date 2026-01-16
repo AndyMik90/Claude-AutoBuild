@@ -141,10 +141,11 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
   );
 
   const handlePostComment = useCallback(
-    async (body: string) => {
+    async (body: string): Promise<boolean> => {
       if (selectedPRNumber) {
-        await postComment(selectedPRNumber, body);
+        return await postComment(selectedPRNumber, body);
       }
+      return false;
     },
     [selectedPRNumber, postComment]
   );
@@ -174,11 +175,9 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     return null;
   }, [selectedProjectId, selectedPRNumber]);
 
-  const handleMarkReviewPosted = useCallback(async () => {
-    if (selectedPRNumber) {
-      await markReviewPosted(selectedPRNumber);
-    }
-  }, [selectedPRNumber, markReviewPosted]);
+  const handleMarkReviewPosted = useCallback(async (prNumber: number) => {
+    await markReviewPosted(prNumber);
+  }, [markReviewPosted]);
 
   // Not connected state
   if (!isConnected) {
