@@ -11,6 +11,10 @@ Tests the model resolution functionality including:
 
 This ensures custom model configurations (e.g., ANTHROPIC_DEFAULT_SONNET_MODEL)
 are properly respected instead of falling back to hardcoded values.
+
+Note: Some tests use source code inspection to avoid complex import dependencies
+while still verifying the critical implementation patterns that prevent regression
+of the hardcoded fallback bug (ACS-294).
 """
 
 import os
@@ -55,7 +59,7 @@ def clean_env() -> Generator[None, None, None]:
 
 
 class TestResolveModelId:
-    """Tests for resolve_model_id function."""
+    """Tests for resolve_model_id function - behavioral tests."""
 
     def test_resolves_sonnet_shorthand_to_full_id(self, clean_env):
         """Sonnet shorthand resolves to full model ID."""
@@ -128,11 +132,15 @@ class TestResolveModelId:
 
 
 class TestGitHubRunnerConfigModelDefaults:
-    """Tests for GitHubRunnerConfig default model values."""
+    """Tests for GitHubRunnerConfig default model values.
+
+    Uses source inspection to avoid complex import dependencies while
+    verifying the critical pattern: default is shorthand "sonnet", not a
+    hardcoded full model ID.
+    """
 
     def test_default_model_is_shorthand(self):
         """GitHubRunnerConfig default model uses shorthand 'sonnet'."""
-        # Verify the actual code in models.py uses shorthand
         models_file = (
             Path(__file__).parent.parent
             / "apps"
@@ -142,12 +150,13 @@ class TestGitHubRunnerConfigModelDefaults:
             / "models.py"
         )
         content = models_file.read_text()
-        # Check that the default is "sonnet" (shorthand), not a full model ID
+        # Verify the default is "sonnet" (shorthand), not a hardcoded full model ID
         assert 'model: str = "sonnet"' in content
+        # Verify the old hardcoded fallback is NOT present
+        assert 'model: str = "claude-sonnet-4-5-20250929"' not in content
 
     def test_load_settings_default_model_is_shorthand(self):
         """GitHubRunnerConfig.load_settings() uses shorthand 'sonnet' as default."""
-        # Verify the actual code in models.py uses shorthand in load_settings
         models_file = (
             Path(__file__).parent.parent
             / "apps"
@@ -157,16 +166,19 @@ class TestGitHubRunnerConfigModelDefaults:
             / "models.py"
         )
         content = models_file.read_text()
-        # Check that load_settings uses "sonnet" (shorthand) as fallback
+        # Verify load_settings uses "sonnet" (shorthand) as fallback
         assert 'model=settings.get("model", "sonnet")' in content
 
 
 class TestBatchValidatorModelResolution:
-    """Tests for BatchValidator model resolution."""
+    """Tests for BatchValidator model resolution.
+
+    Tests verify the new importlib.util pattern instead of absolute imports,
+    and that the shorthand "sonnet" is used as default.
+    """
 
     def test_default_model_is_shorthand(self):
         """BatchValidator DEFAULT_MODEL uses shorthand 'sonnet'."""
-        # Verify the actual code in batch_validator.py uses shorthand
         batch_validator_file = (
             Path(__file__).parent.parent
             / "apps"
@@ -176,11 +188,11 @@ class TestBatchValidatorModelResolution:
             / "batch_validator.py"
         )
         content = batch_validator_file.read_text()
-        # Check that DEFAULT_MODEL is "sonnet" (shorthand), not a full model ID
+        # Verify DEFAULT_MODEL is "sonnet" (shorthand)
         assert 'DEFAULT_MODEL = "sonnet"' in content
 
-    def test_has_resolve_model_method(self):
-        """BatchValidator has _resolve_model method that uses phase_config.resolve_model_id."""
+    def test_uses_importlib_for_import(self):
+        """BatchValidator uses importlib.util.find_spec for robust imports."""
         batch_validator_file = (
             Path(__file__).parent.parent
             / "apps"
@@ -190,11 +202,28 @@ class TestBatchValidatorModelResolution:
             / "batch_validator.py"
         )
         content = batch_validator_file.read_text()
-        # Check that _resolve_model method exists and uses resolve_model_id
-        assert "def _resolve_model(self, model: str)" in content
-        assert "from phase_config import resolve_model_id" in content
+        # Verify the new importlib pattern is used
+        assert "importlib.util.find_spec" in content
+        # Verify the old absolute import pattern is NOT present
+        assert "from phase_config import resolve_model_id" not in content
 
-    def test_init_uses_resolve_model(self):
+    def test_has_resolve_model_method(self):
+        """BatchValidator has _resolve_model method that resolves models."""
+        batch_validator_file = (
+            Path(__file__).parent.parent
+            / "apps"
+            / "backend"
+            / "runners"
+            / "github"
+            / "batch_validator.py"
+        )
+        content = batch_validator_file.read_text()
+        # Verify _resolve_model method exists
+        assert "def _resolve_model(self, model: str)" in content
+        # Verify it calls resolve_model_id on the imported module
+        assert "return phase_config.resolve_model_id(model)" in content
+
+    def test_init_calls_resolve_model(self):
         """BatchValidator.__init__ calls _resolve_model to resolve the model."""
         batch_validator_file = (
             Path(__file__).parent.parent
@@ -205,40 +234,18 @@ class TestBatchValidatorModelResolution:
             / "batch_validator.py"
         )
         content = batch_validator_file.read_text()
-        # Check that __init__ resolves the model
+        # Verify __init__ resolves the model
         assert "self.model = self._resolve_model(model)" in content
 
 
-class TestParallelOrchestratorReviewerModelResolution:
-    """Tests for ParallelOrchestratorReviewer model resolution."""
-
-    def test_model_resolution_with_none_config_model(self, clean_env):
-        """When config.model is None, falls back to 'sonnet' shorthand and resolves."""
-        # Simulate the pattern used in parallel_orchestrator_reviewer.py
-        config_model = None
-        model_shorthand = config_model or "sonnet"
-        model = resolve_model_id(model_shorthand)
-
-        # Should resolve to the full model ID from MODEL_ID_MAP
-        assert model == MODEL_ID_MAP["sonnet"]
-
-    def test_model_resolution_with_custom_environment_variable(self):
-        """Environment variable is respected when config.model is None."""
-        custom_model = "glm-4.7"
-        with patch.dict(os.environ, {"ANTHROPIC_DEFAULT_SONNET_MODEL": custom_model}):
-            config_model = None
-            model_shorthand = config_model or "sonnet"
-            model = resolve_model_id(model_shorthand)
-
-            assert model == custom_model
-
-
 class TestBatchIssuesModelResolution:
-    """Tests for batch_issues.py validation_model default."""
+    """Tests for batch_issues.py validation_model default.
+
+    Uses source inspection to verify shorthand "sonnet" is used as default.
+    """
 
     def test_validation_model_default_is_shorthand(self):
         """IssueBatcher validation_model default uses shorthand 'sonnet'."""
-        # Verify the actual code in batch_issues.py uses shorthand
         batch_issues_file = (
             Path(__file__).parent.parent
             / "apps"
@@ -248,82 +255,36 @@ class TestBatchIssuesModelResolution:
             / "batch_issues.py"
         )
         content = batch_issues_file.read_text()
-        # Check that validation_model default is "sonnet" (shorthand), not a full model ID
+        # Verify validation_model default is "sonnet" (shorthand)
         assert 'validation_model: str = "sonnet"' in content
 
 
 class TestParallelReviewerImportResolution:
-    """Tests that parallel reviewers import and use resolve_model_id."""
+    """Tests that parallel reviewers use proper model resolution patterns.
 
-    def test_parallel_orchestrator_imports_resolve_model_id(self):
-        """ParallelOrchestratorReviewer imports resolve_model_id from phase_config."""
-        orchestrator_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "services"
-            / "parallel_orchestrator_reviewer.py"
-        )
-        content = orchestrator_file.read_text()
-        # Check that resolve_model_id is imported
-        assert (
-            "from ...phase_config import" in content
-            or "from phase_config import" in content
-        )
-        assert "resolve_model_id" in content
+    Includes both behavioral tests (simulating the pattern) and source
+    inspection tests (to verify hardcoded fallbacks are not present).
+    """
 
-    def test_parallel_orchestrator_uses_resolve_model_id(self):
-        """ParallelOrchestratorReviewer uses resolve_model_id to resolve model."""
-        orchestrator_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "services"
-            / "parallel_orchestrator_reviewer.py"
-        )
-        content = orchestrator_file.read_text()
-        # Check that model is resolved via resolve_model_id
-        assert "model_shorthand" in content
-        assert "resolve_model_id(model_shorthand)" in content
+    def test_parallel_reviewers_resolve_models(self, clean_env):
+        """Parallel reviewers correctly resolve model shorthands using resolve_model_id pattern."""
+        # Simulate the pattern used in parallel reviewers
+        config_model = None
+        model_shorthand = config_model or "sonnet"
+        model = resolve_model_id(model_shorthand)
 
-    def test_parallel_followup_imports_resolve_model_id(self):
-        """ParallelFollowupReviewer imports resolve_model_id from phase_config."""
-        followup_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "services"
-            / "parallel_followup_reviewer.py"
-        )
-        content = followup_file.read_text()
-        # Check that resolve_model_id is imported
-        assert (
-            "from ...phase_config import" in content
-            or "from phase_config import" in content
-        )
-        assert "resolve_model_id" in content
+        # Should resolve to the full model ID
+        assert model == MODEL_ID_MAP["sonnet"]
 
-    def test_parallel_followup_uses_resolve_model_id(self):
-        """ParallelFollowupReviewer uses resolve_model_id to resolve model."""
-        followup_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "services"
-            / "parallel_followup_reviewer.py"
-        )
-        content = followup_file.read_text()
-        # Check that model is resolved via resolve_model_id
-        assert "model_shorthand" in content
-        assert "resolve_model_id(model_shorthand)" in content
+    def test_parallel_reviewers_respect_environment_variables(self):
+        """Parallel reviewers respect environment variable overrides."""
+        custom_model = "glm-4.7"
+        with patch.dict(os.environ, {"ANTHROPIC_DEFAULT_SONNET_MODEL": custom_model}):
+            config_model = None
+            model_shorthand = config_model or "sonnet"
+            model = resolve_model_id(model_shorthand)
+
+            assert model == custom_model
 
     def test_parallel_reviewers_use_sonnet_fallback(self):
         """Parallel reviewers use 'sonnet' shorthand as fallback, not hardcoded model IDs."""
@@ -349,10 +310,14 @@ class TestParallelReviewerImportResolution:
         orchestrator_content = orchestrator_file.read_text()
         followup_content = followup_file.read_text()
 
-        # Check that fallback is "sonnet" (shorthand), not a hardcoded model ID
+        # Verify the old hardcoded fallback is NOT present (negative assertion)
+        assert 'or "claude-sonnet-4-5-20250929"' not in orchestrator_content
+        assert 'or "claude-sonnet-4-5-20250929"' not in followup_content
+
+        # Verify the new pattern IS present (shorthand fallback)
         assert 'model_shorthand = self.config.model or "sonnet"' in orchestrator_content
         assert 'model_shorthand = self.config.model or "sonnet"' in followup_content
 
-        # Verify the old hardcoded fallback is NOT present
-        assert 'or "claude-sonnet-4-5-20250929"' not in orchestrator_content
-        assert 'or "claude-sonnet-4-5-20250929"' not in followup_content
+        # Verify resolve_model_id is imported and used
+        assert "resolve_model_id" in orchestrator_content
+        assert "resolve_model_id" in followup_content

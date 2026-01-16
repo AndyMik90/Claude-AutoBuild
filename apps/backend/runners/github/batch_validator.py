@@ -127,12 +127,17 @@ class BatchValidator:
     def _resolve_model(self, model: str) -> str:
         """Resolve model shorthand via phase_config.resolve_model_id()."""
         try:
-            from phase_config import resolve_model_id
-
-            return resolve_model_id(model)
-        except ImportError:
-            # Fallback if phase_config is not available
-            return model
+            # Try to import phase_config from the backend directory
+            # Use importlib for a more robust import that doesn't rely on sys.path
+            spec = importlib.util.find_spec("phase_config")
+            if spec is not None:
+                phase_config = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(phase_config)
+                return phase_config.resolve_model_id(model)
+        except (ImportError, AttributeError):
+            pass
+        # Fallback if phase_config is not available or resolve_model_id doesn't exist
+        return model
 
     def _format_issues(self, issues: list[dict[str, Any]]) -> str:
         """Format issues for the prompt."""
