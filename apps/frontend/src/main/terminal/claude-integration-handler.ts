@@ -89,7 +89,9 @@ function buildPathPrefix(pathEnv: string): string {
 /**
  * Escape a command for safe use in shell commands.
  *
- * On Windows, escapes special characters and wraps in double quotes for cmd.exe.
+ * On Windows, wraps in double quotes for cmd.exe. Since the value is inside
+ * double quotes, we use escapeForWindowsDoubleQuote() (only escapes embedded
+ * double quotes as ""). Caret escaping is NOT used inside double quotes.
  * On Unix/macOS, wraps in single quotes for bash.
  *
  * @param cmd - The command to escape
@@ -97,8 +99,9 @@ function buildPathPrefix(pathEnv: string): string {
  */
 function escapeShellCommand(cmd: string): string {
   if (process.platform === 'win32') {
-    // Windows: Escape special characters and wrap in double quotes for cmd.exe
-    const escapedCmd = escapeShellArgWindows(cmd);
+    // Windows: Wrap in double quotes and escape only embedded double quotes
+    // Inside double quotes, caret is literal, so use escapeForWindowsDoubleQuote()
+    const escapedCmd = escapeForWindowsDoubleQuote(cmd);
     return `"${escapedCmd}"`;
   }
   // Unix/macOS: Wrap in single quotes for bash
