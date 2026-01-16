@@ -568,6 +568,38 @@ export function registerGetGitLabBranches(): void {
 }
 
 /**
+ * Get GitLab namespace ID from path
+ * Converts a namespace path (e.g., "mygroup" or "mygroup/subgroup") to its numeric ID
+ */
+async function getNamespaceIdFromPath(namespacePath: string, hostname?: string): Promise<number | null> {
+  try {
+    const args = ['api', `namespaces/${encodeURIComponent(namespacePath)}`, '--jq', '.id'];
+    if (hostname && hostname !== 'gitlab.com') {
+      args.push('--hostname', hostname);
+    }
+
+    debugLog('Getting namespace ID from path with: glab', args);
+    const output = execFileSync('glab', args, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      env: getAugmentedEnv()
+    });
+
+    const namespaceId = parseInt(output.trim(), 10);
+    if (isNaN(namespaceId)) {
+      debugLog('Failed to parse namespace ID from output:', output);
+      return null;
+    }
+
+    debugLog('Got namespace ID:', namespaceId);
+    return namespaceId;
+  } catch (error) {
+    debugLog('Failed to get namespace ID:', error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+/**
  * Create a new GitLab project
  */
 export function registerCreateGitLabProject(): void {
@@ -576,7 +608,7 @@ export function registerCreateGitLabProject(): void {
     async (
       _event,
       projectName: string,
-      options: { description?: string; visibility?: string; projectPath: string; namespace?: string; instanceUrl?: string }
+      options: { description?: string; visibility?: string; projectPath: string; namespacePath?: string; hostname?: string }
     ): Promise<IPCResult<{ pathWithNamespace: string; webUrl: string }>> => {
       debugLog('createGitLabProject handler called', { projectName, options });
 
@@ -587,7 +619,7 @@ export function registerCreateGitLabProject(): void {
         };
       }
 
-      const hostname = options.instanceUrl ? getHostnameFromUrl(options.instanceUrl) : 'gitlab.com';
+      const hostname = options.hostname ? getHostnameFromUrl(options.hostname) : 'gitlab.com';
 
       try {
         const args = ['repo', 'create', projectName, '--source', options.projectPath];
@@ -602,8 +634,18 @@ export function registerCreateGitLabProject(): void {
           args.push('--description', options.description);
         }
 
-        if (options.namespace) {
-          args.push('--group', options.namespace);
+        // Convert namespace path to ID if provided
+        if (options.namespacePath) {
+          const namespaceId = await getNamespaceIdFromPath(options.namespacePath, hostname);
+          if (namespaceId !== null) {
+            args.push('--group', String(namespaceId));
+          } else {
+            debugLog('Failed to resolve namespace ID from path:', options.namespacePath);
+            return {
+              success: false,
+              error: `Failed to resolve namespace: ${options.namespacePath}`
+            };
+          }
         }
 
         if (hostname !== 'gitlab.com') {
@@ -622,8 +664,8 @@ export function registerCreateGitLabProject(): void {
 
         // Parse output to get project info
         const urlMatch = output.match(/https?:\/\/[^\s]+/);
-        const webUrl = urlMatch ? urlMatch[0] : `https://${hostname}/${options.namespace || ''}/${projectName}`;
-        const pathWithNamespace = options.namespace ? `${options.namespace}/${projectName}` : projectName;
+        const webUrl = urlMatch ? urlMatch[0] : `https://${hostname}/${projectName}`;
+        const pathWithNamespace = projectName;
 
         return {
           success: true,
@@ -704,6 +746,76 @@ export function registerAddGitLabRemote(): void {
 }
 
 /**
+ * Link to an existing GitLab project and add remote to local repository
+ */
+export function registerLinkGitLabProject(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITLAB_LINK_PROJECT,
+    async (
+      _event,
+      projectPath: string,
+      existingProject: string,
+      instanceUrl?: string
+    ): Promise<IPCResult<{ pathWithNamespace: string; webUrl: string }>> => {
+      debugLog('linkGitLabProject handler called', { projectPath, existingProject, instanceUrl });
+
+      if (!isValidGitLabProject(existingProject)) {
+        return {
+          success: false,
+          error: 'Invalid project format. Use group/project or project'
+        };
+      }
+
+      const hostname = instanceUrl ? getHostnameFromUrl(instanceUrl) : 'gitlab.com';
+      const baseUrl = (instanceUrl || DEFAULT_GITLAB_URL).replace(/\/$/, '');
+
+      try {
+        // Verify the project exists using glab API
+        const apiArgs = ['api', `projects/${encodeURIComponent(existingProject)}`, '--jq', '{path_with_namespace, web_url}'];
+        if (hostname !== 'gitlab.com') {
+          apiArgs.push('--hostname', hostname);
+        }
+
+        debugLog('Verifying project exists with: glab', apiArgs);
+        const projectInfo = execFileSync('glab', apiArgs, {
+          encoding: 'utf-8',
+          stdio: 'pipe',
+          env: getAugmentedEnv()
+        });
+
+        debugLog('Project info:', projectInfo);
+
+        const { path_with_namespace, web_url } = JSON.parse(projectInfo);
+
+        // Add remote to local git repository
+        const remoteUrl = `${baseUrl}/${existingProject}.git`;
+        execFileSync('git', ['remote', 'add', 'origin', remoteUrl], {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          stdio: 'pipe'
+        });
+
+        debugLog('Added remote:', remoteUrl);
+
+        return {
+          success: true,
+          data: {
+            pathWithNamespace: path_with_namespace,
+            webUrl: web_url
+          }
+        };
+      } catch (error) {
+        debugLog('Failed to link project:', error instanceof Error ? error.message : error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to link project'
+        };
+      }
+    }
+  );
+}
+
+/**
  * List user's GitLab groups
  */
 export function registerListGitLabGroups(): void {
@@ -772,6 +884,7 @@ export function registerGitlabOAuthHandlers(): void {
   registerDetectGitLabProject();
   registerGetGitLabBranches();
   registerCreateGitLabProject();
+  registerLinkGitLabProject();
   registerAddGitLabRemote();
   registerListGitLabGroups();
   debugLog('GitLab OAuth handlers registered');

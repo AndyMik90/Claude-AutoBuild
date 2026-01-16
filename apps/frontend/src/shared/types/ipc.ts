@@ -522,7 +522,12 @@ export interface ElectronAPI {
   getGitLabBranches: (projectPath: string, token: string, instanceUrl?: string) => Promise<IPCResult<string[]>>;
   createGitLabProject: (
     projectName: string,
-    options: { description?: string; visibility?: 'private' | 'internal' | 'public'; projectPath: string; namespaceId?: number; hostname?: string }
+    options: { description?: string; visibility?: 'private' | 'internal' | 'public'; projectPath: string; namespacePath?: string; instanceUrl?: string }
+  ) => Promise<IPCResult<{ pathWithNamespace: string; webUrl: string }>>;
+  linkGitLabProject: (
+    projectPath: string,
+    existingProject: string,
+    instanceUrl?: string
   ) => Promise<IPCResult<{ pathWithNamespace: string; webUrl: string }>>;
   addGitLabRemote: (
     projectPath: string,

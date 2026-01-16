@@ -267,6 +267,7 @@ export const IPC_CHANNELS = {
   GITLAB_GET_BRANCHES: 'gitlab:getBranches',
   GITLAB_CREATE_PROJECT: 'gitlab:createProject',
   GITLAB_ADD_REMOTE: 'gitlab:addRemote',
+  GITLAB_LINK_PROJECT: 'gitlab:linkProject',
   GITLAB_LIST_GROUPS: 'gitlab:listGroups',
 
   // GitLab events (main -> renderer)

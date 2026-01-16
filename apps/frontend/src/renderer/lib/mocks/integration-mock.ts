@@ -365,6 +365,11 @@ export const integrationMock = {
     error: 'Not available in browser mock'
   }),
 
+  linkGitLabProject: async () => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
   addGitLabRemote: async () => ({
     success: false,
     error: 'Not available in browser mock'
