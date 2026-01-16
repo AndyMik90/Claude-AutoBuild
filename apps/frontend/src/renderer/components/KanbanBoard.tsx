@@ -17,7 +17,8 @@ import {
 import {
   SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy
+  verticalListSortingStrategy,
+  arrayMove
 } from '@dnd-kit/sortable';
 import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
@@ -27,7 +28,7 @@ import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, archiveTasks } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks, useTaskStore } from '../stores/task-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import type { Task, TaskStatus } from '../../shared/types';
@@ -518,6 +519,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   };
 
+  // Get task order actions from store
+  const reorderTasksInColumn = useTaskStore((state) => state.reorderTasksInColumn);
+  const saveTaskOrder = useTaskStore((state) => state.saveTaskOrder);
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
@@ -542,16 +547,29 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       return;
     }
 
-    // Check if dropped on another task - move to that task's column
+    // Check if dropped on another task
     const overTask = tasks.find((t) => t.id === overId);
     if (overTask) {
       const task = tasks.find((t) => t.id === activeTaskId);
-      if (task && task.status !== overTask.status) {
-        // Persist status change to file and update local state
-        handleStatusChange(activeTaskId, overTask.status, task).catch((err) =>
-          console.error('[KanbanBoard] Status change failed:', err)
-        );
+      if (!task) return;
+
+      // Same column: reorder within column using arrayMove
+      if (task.status === overTask.status) {
+        // Reorder tasks within the same column
+        reorderTasksInColumn(task.status, activeTaskId, overId);
+
+        // Get projectId for persistence
+        const projectId = task.projectId;
+        if (projectId) {
+          saveTaskOrder(projectId);
+        }
+        return;
       }
+
+      // Different column: move to that task's column (status change)
+      handleStatusChange(activeTaskId, overTask.status, task).catch((err) =>
+        console.error('[KanbanBoard] Status change failed:', err)
+      );
     }
   };
 
