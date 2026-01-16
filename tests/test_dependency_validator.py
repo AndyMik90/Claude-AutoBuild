@@ -280,7 +280,9 @@ class TestLinuxSecretstorageValidation:
             return original_import(name, *args, **kwargs)
 
         with (
+            patch("core.dependency_validator.is_windows", return_value=True),
             patch("core.dependency_validator.is_linux", return_value=False),
+            patch("sys.version_info", (3, 12, 0)),
             patch(
                 "core.dependency_validator._warn_missing_secretstorage"
             ) as mock_warning,
@@ -348,18 +350,39 @@ class TestExitWithSecretstorageWarning:
         assert ".env" in message
         assert "continue" in message.lower()
 
-    def test_warning_message_contains_venv_path(self, capsys):
-        """Warning message should include the virtual environment path."""
-        with patch("sys.prefix", "/path/to/venv"):
+    def test_warning_message_contains_venv_path(self, capsys, tmp_path):
+        """Warning message should include the virtual environment path when activate script exists."""
+        # Create a temporary venv-like structure with activate script
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        activate_script = bin_dir / "activate"
+        activate_script.write_text("#!/bin/bash\n")
+
+        with patch("sys.prefix", str(tmp_path)):
             _warn_missing_secretstorage()
 
             captured = capsys.readouterr()
             message = captured.err
 
-            # Should reference the full venv bin/activate path
-            expected_path = str(Path("/path/to/venv"))
-            assert expected_path in message or "/path/to/venv" in message
+            # Should reference the full venv bin/activate path since it exists
+            assert str(tmp_path) in message
             assert "bin" in message
+            assert "activate" in message
+
+    def test_warning_message_omits_activation_when_no_script(self, capsys, tmp_path):
+        """Warning message should omit activation instruction when activate script doesn't exist."""
+        # Use tmp_path without creating bin/activate script
+        with patch("sys.prefix", str(tmp_path)):
+            _warn_missing_secretstorage()
+
+            captured = capsys.readouterr()
+            message = captured.err
+
+            # Should NOT include activation instruction since activate script doesn't exist
+            assert "Activate your virtual environment" not in message
+            assert "source" not in message or "source" not in message.split("\n")
+            # Should still have the install instructions
+            assert "Install secretstorage" in message
 
     def test_warning_does_not_exit(self, capsys):
         """Warning function should write to stderr but not exit."""

@@ -96,6 +96,12 @@ def _warn_missing_secretstorage() -> None:
     """
     # Use sys.prefix to detect the virtual environment path
     venv_activate = Path(sys.prefix) / "bin" / "activate"
+    # Only include activation instruction if venv script actually exists
+    activation_prefix = (
+        f"1. Activate your virtual environment:\n   source {venv_activate}\n\n"
+        if venv_activate.exists()
+        else ""
+    )
 
     sys.stderr.write(
         "Warning: Linux dependency 'secretstorage' is not installed.\n"
@@ -105,9 +111,7 @@ def _warn_missing_secretstorage() -> None:
         "will be stored in plaintext in your .env file.\n"
         "\n"
         "To enable keyring integration:\n"
-        "1. Activate your virtual environment:\n"
-        f"   source {venv_activate}\n"
-        "\n"
+        f"{activation_prefix}"
         "2. Install secretstorage:\n"
         "   pip install 'secretstorage>=3.3.3'\n"
         "\n"

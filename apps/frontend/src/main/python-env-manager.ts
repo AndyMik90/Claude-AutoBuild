@@ -128,28 +128,35 @@ export class PythonEnvManager extends EventEmitter {
     // Note: Same list exists in download-python.cjs - keep them in sync
     // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
     // pywin32 is platform-critical for Windows (ACS-306) - required by MCP library
-    // secretstorage is platform-critical for Linux (ACS-310) - required for OAuth token storage
     const platformCriticalPackages: Record<string, string[]> = {
-      win32: ['pywintypes'],   // Check for 'pywintypes' instead of 'pywin32' (pywin32 installs top-level modules)
+      win32: ['pywintypes'] // Check for 'pywintypes' instead of 'pywin32' (pywin32 installs top-level modules)
+    };
+    // secretstorage is optional for Linux (ACS-310) - nice to have for keyring integration
+    // but app falls back to .env file storage if missing, so don't block bundled packages
+    const platformOptionalPackages: Record<string, string[]> = {
       linux: ['secretstorage'] // Linux OAuth token storage via Freedesktop.org Secret Service
     };
+
     const criticalPackages = [
       'claude_agent_sdk',
       'dotenv',
       'pydantic_core',
-      ...(isWindows() ? platformCriticalPackages.win32 : []),
-      ...(isLinux() ? platformCriticalPackages.linux : [])
+      ...(isWindows() ? platformCriticalPackages.win32 : [])
     ];
+    const optionalPackages = isLinux() ? platformOptionalPackages.linux : [];
 
     // Check each package exists with valid structure (directory + __init__.py or single-file module)
-    const missingPackages = criticalPackages.filter((pkg) => {
+    const packageExists = (pkg: string): boolean => {
       const pkgPath = path.join(sitePackagesPath, pkg);
       const initPath = path.join(pkgPath, '__init__.py');
       // For single-file modules (like pywintypes.py), check for the file directly
       const moduleFile = path.join(sitePackagesPath, `${pkg}.py`);
       // Package is valid if directory+__init__.py exists OR single-file module exists
-      return !(existsSync(pkgPath) && existsSync(initPath)) && !existsSync(moduleFile);
-    });
+      return (existsSync(pkgPath) && existsSync(initPath)) || existsSync(moduleFile);
+    };
+
+    const missingPackages = criticalPackages.filter((pkg) => !packageExists(pkg));
+    const missingOptional = optionalPackages.filter((pkg) => !packageExists(pkg));
 
     // Log missing packages for debugging
     for (const pkg of missingPackages) {
@@ -157,8 +164,14 @@ export class PythonEnvManager extends EventEmitter {
         `[PythonEnvManager] Missing critical package: ${pkg} at ${path.join(sitePackagesPath, pkg)}`
       );
     }
+    // Log warnings for missing optional packages (non-blocking)
+    for (const pkg of missingOptional) {
+      console.warn(
+        `[PythonEnvManager] Optional package missing: ${pkg} at ${path.join(sitePackagesPath, pkg)}`
+      );
+    }
 
-    // All packages must exist - don't rely solely on marker file
+    // All critical packages must exist - don't rely solely on marker file
     if (missingPackages.length === 0) {
       // Also check marker for logging purposes
       const markerPath = path.join(sitePackagesPath, '.bundled');
