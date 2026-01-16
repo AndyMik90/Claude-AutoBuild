@@ -5,6 +5,11 @@ python-dotenv>=1.0.0
 # TOML parsing fallback for Python < 3.11
 tomli>=2.0.0; python_version < "3.11"
 
+# Linux Secret Service support for credential storage
+# Provides access to the Freedesktop.org Secret Service API via DBus
+# Used on Linux to store OAuth tokens in gnome-keyring/kwallet
+secretstorage>=3.3.3; sys_platform == "linux"
+
 # Memory Integration - LadybugDB (embedded graph database)
 # Requires Python 3.12+ (no Docker required)
 real_ladybug>=0.13.0; python_version >= "3.12"
