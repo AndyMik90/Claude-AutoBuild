@@ -176,7 +176,10 @@ class TestExitWithPywin32Error:
             message = str(call_args)
 
             # Should reference the full venv Scripts/activate path
-            assert "/path/to/venv" in message
+            # Path separators differ by platform: / on Unix, \ on Windows
+            # pathlib normalizes /path/to/venv to \path\to\venv on Windows
+            expected_path = str(Path("/path/to/venv"))
+            assert expected_path in message or "/path/to/venv" in message
             assert "Scripts" in message
 
     def test_exit_message_contains_python_executable(self):
