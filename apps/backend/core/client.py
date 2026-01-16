@@ -293,10 +293,11 @@ def find_claude_cli() -> str | None:
 
     Uses cross-platform detection with the following priority:
     1. CLAUDE_CLI_PATH environment variable (user override)
-    2. shutil.which() - system PATH lookup
-    3. Homebrew paths (macOS)
-    4. NVM paths (Unix - checks Node.js version manager)
-    5. Platform-specific standard locations
+    2. Native local installation (~/.local/bin/claude or claude.exe)
+    3. shutil.which() - system PATH lookup
+    4. Homebrew paths (macOS)
+    5. NVM paths (Unix - checks Node.js version manager)
+    6. Platform-specific standard locations
 
     Returns:
         Path to Claude CLI if found and valid, None otherwise
@@ -324,7 +325,24 @@ def find_claude_cli() -> str | None:
                 return env_path
         logger.warning(f"CLAUDE_CLI_PATH is set but invalid: {env_path}")
 
-    # 2. Try shutil.which() - most reliable cross-platform PATH lookup
+    # 2. Native local installation - check ~/.local/bin/ first (preferred location)
+    home_dir = Path.home()
+    if is_windows:
+        native_local_path = home_dir / ".local" / "bin" / "claude.exe"
+    else:
+        native_local_path = home_dir / ".local" / "bin" / "claude"
+
+    if native_local_path.exists():
+        valid, version = _validate_claude_cli(str(native_local_path))
+        if valid:
+            logger.info(
+                f"Found Claude CLI (native local): {native_local_path} (v{version})"
+            )
+            with _CLI_CACHE_LOCK:
+                _CLAUDE_CLI_CACHE[cache_key] = str(native_local_path)
+            return str(native_local_path)
+
+    # 3. Try shutil.which() - most reliable cross-platform PATH lookup
     which_path = shutil.which("claude")
     if which_path:
         valid, version = _validate_claude_cli(which_path)
@@ -334,7 +352,7 @@ def find_claude_cli() -> str | None:
                 _CLAUDE_CLI_CACHE[cache_key] = which_path
             return which_path
 
-    # 3. Homebrew paths (macOS)
+    # 4. Homebrew paths (macOS)
     if platform.system() == "Darwin":
         for hb_path in paths["homebrew"]:
             if Path(hb_path).exists():
@@ -345,7 +363,7 @@ def find_claude_cli() -> str | None:
                         _CLAUDE_CLI_CACHE[cache_key] = hb_path
                     return hb_path
 
-    # 4. NVM paths (Unix only) - check Node.js version manager installations
+    # 5. NVM paths (Unix only) - check Node.js version manager installations
     if not is_windows:
         nvm_dir = Path(paths["nvm_versions_dir"])
         if nvm_dir.exists():
@@ -381,7 +399,7 @@ def find_claude_cli() -> str | None:
             except OSError as e:
                 logger.debug(f"Error scanning NVM directory: {e}")
 
-    # 5. Platform-specific standard locations
+    # 6. Platform-specific standard locations
     for plat_path in paths["platform"]:
         if Path(plat_path).exists():
             valid, version = _validate_claude_cli(plat_path)
