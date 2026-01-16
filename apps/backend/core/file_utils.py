@@ -44,6 +44,8 @@ _WINDOWS_INVALID_CHARS_MAP = str.maketrans(
         ">": "_",
         ":": "-",  # Common in timestamps, replace with dash
         '"': "'",
+        "/": "_",  # Path separator - invalid in filenames
+        "\\": "_",  # Path separator - invalid in filenames
         "|": "_",
         "?": "_",
         "*": "_",
