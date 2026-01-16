@@ -288,6 +288,18 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
       if (activeId !== overId && terminals.some(t => t.id === overId)) {
         reorderTerminals(activeId, overId);
 
+        // Persist the new order to disk so it survives app restarts
+        // Use a microtask to ensure the store has updated before we read the new order
+        if (projectPath) {
+          queueMicrotask(() => {
+            const updatedTerminals = useTerminalStore.getState().terminals;
+            const orders = updatedTerminals
+              .filter(t => t.projectPath === projectPath || !t.projectPath)
+              .map(t => ({ terminalId: t.id, displayOrder: t.displayOrder ?? 0 }));
+            window.electronAPI.updateTerminalDisplayOrders(projectPath, orders);
+          });
+        }
+
         // Trigger fit on all terminals after reorder completes
         // Use setTimeout to allow DOM to update before fitting
         setTimeout(() => {

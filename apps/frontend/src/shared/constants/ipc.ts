@@ -78,6 +78,7 @@ export const IPC_CHANNELS = {
   TERMINAL_GET_SESSIONS_FOR_DATE: 'terminal:getSessionsForDate',
   TERMINAL_RESTORE_FROM_DATE: 'terminal:restoreFromDate',
   TERMINAL_CHECK_PTY_ALIVE: 'terminal:checkPtyAlive',
+  TERMINAL_UPDATE_DISPLAY_ORDERS: 'terminal:updateDisplayOrders',  // Persist terminal display order after drag-drop reorder
 
   // Terminal worktree operations (isolated development in worktrees)
   TERMINAL_WORKTREE_CREATE: 'terminal:worktreeCreate',

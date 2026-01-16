@@ -526,6 +526,30 @@ export class TerminalSessionStore {
   }
 
   /**
+   * Update display orders for multiple terminals (after drag-drop reorder).
+   * This updates the displayOrder property for matching sessions in today's bucket.
+   */
+  updateDisplayOrders(projectPath: string, orders: Array<{ terminalId: string; displayOrder: number }>): void {
+    const todaySessions = this.getTodaysSessions();
+    const sessions = todaySessions[projectPath];
+    if (!sessions) return;
+
+    let hasChanges = false;
+    for (const { terminalId, displayOrder } of orders) {
+      const session = sessions.find(s => s.id === terminalId);
+      if (session && session.displayOrder !== displayOrder) {
+        session.displayOrder = displayOrder;
+        session.lastActiveAt = new Date().toISOString();
+        hasChanges = true;
+      }
+    }
+
+    if (hasChanges) {
+      this.save();
+    }
+  }
+
+  /**
    * Save a terminal session asynchronously (non-blocking)
    *
    * Mirrors saveSession() but uses async disk write to avoid blocking
