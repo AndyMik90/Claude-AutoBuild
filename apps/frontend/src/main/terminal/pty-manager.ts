@@ -7,40 +7,14 @@ import * as pty from '@lydell/node-pty';
 import * as os from 'os';
 import { existsSync } from 'fs';
 import type { TerminalProcess, WindowGetter } from './types';
+import { isWindows, getWindowsShellPaths } from '../platform';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { readSettingsFile } from '../settings-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import type { SupportedTerminal } from '../../shared/types/settings';
 
-/**
- * Windows shell paths for different terminal preferences
- */
-const WINDOWS_SHELL_PATHS: Record<string, string[]> = {
-  powershell: [
-    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',  // PowerShell 7 (Core)
-    'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',  // Windows PowerShell 5.1
-  ],
-  windowsterminal: [
-    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',  // Prefer PowerShell Core in Windows Terminal
-    'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
-  ],
-  cmd: [
-    'C:\\Windows\\System32\\cmd.exe',
-  ],
-  gitbash: [
-    'C:\\Program Files\\Git\\bin\\bash.exe',
-    'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
-  ],
-  cygwin: [
-    'C:\\cygwin64\\bin\\bash.exe',
-    'C:\\cygwin\\bin\\bash.exe',
-  ],
-  msys2: [
-    'C:\\msys64\\usr\\bin\\bash.exe',
-    'C:\\msys32\\usr\\bin\\bash.exe',
-  ],
-};
+// Windows shell paths are now imported from the platform module via getWindowsShellPaths()
 
 /**
  * Get the Windows shell executable based on preferred terminal setting
@@ -51,8 +25,9 @@ function getWindowsShell(preferredTerminal: SupportedTerminal | undefined): stri
     return process.env.COMSPEC || 'cmd.exe';
   }
 
-  // Check if we have paths defined for this terminal type
-  const paths = WINDOWS_SHELL_PATHS[preferredTerminal];
+  // Check if we have paths defined for this terminal type (from platform module)
+  const windowsShellPaths = getWindowsShellPaths();
+  const paths = windowsShellPaths[preferredTerminal];
   if (paths) {
     // Find the first existing shell
     for (const shellPath of paths) {
@@ -79,11 +54,11 @@ export function spawnPtyProcess(
   const settings = readSettingsFile();
   const preferredTerminal = settings?.preferredTerminal as SupportedTerminal | undefined;
 
-  const shell = process.platform === 'win32'
+  const shell = isWindows()
     ? getWindowsShell(preferredTerminal)
     : process.env.SHELL || '/bin/zsh';
 
-  const shellArgs = process.platform === 'win32' ? [] : ['-l'];
+  const shellArgs = isWindows() ? [] : ['-l'];
 
   debugLog('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ')');
 
