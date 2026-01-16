@@ -29,6 +29,7 @@ interface TaskState {
   reorderTasksInColumn: (status: TaskStatus, activeId: string, overId: string) => void;
   loadTaskOrder: (projectId: string) => void;
   saveTaskOrder: (projectId: string) => void;
+  clearTaskOrder: (projectId: string) => void;
 
   // Selectors
   getSelectedTask: () => Task | undefined;
@@ -487,6 +488,16 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       localStorage.setItem(key, JSON.stringify(state.taskOrder));
     } catch (error) {
       console.error('Failed to save task order:', error);
+    }
+  },
+
+  clearTaskOrder: (projectId) => {
+    try {
+      const key = getTaskOrderKey(projectId);
+      localStorage.removeItem(key);
+      set({ taskOrder: null });
+    } catch (error) {
+      console.error('Failed to clear task order:', error);
     }
   },
 
