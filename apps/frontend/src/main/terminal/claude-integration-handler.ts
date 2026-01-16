@@ -568,7 +568,7 @@ export function invokeClaude(
       isDefault: activeProfile?.isDefault
     });
 
-    const cwdCommand = buildCdCommand(cwd);
+    const cwdCommand = buildCdCommand(cwd, terminal.shellType);
     const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
     const escapedClaudeCmd = escapeShellCommand(claudeCmd);
     const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
@@ -775,7 +775,7 @@ export async function invokeClaudeAsync(
     });
 
     // Async CLI invocation - non-blocking
-    const cwdCommand = buildCdCommand(cwd);
+    const cwdCommand = buildCdCommand(cwd, terminal.shellType);
 
     // Add timeout protection for CLI detection (10s timeout)
     const cliInvocationPromise = getClaudeCliInvocationAsync();

@@ -2,6 +2,14 @@
  * Terminal-related types
  */
 
+/**
+ * Shell type for Windows terminals.
+ * Used to determine correct command chaining syntax:
+ * - 'powershell': Uses ';' (PowerShell 5.1 doesn't support '&&')
+ * - 'cmd': Uses '&&' (cmd.exe, PowerShell 7+, bash, etc.)
+ */
+export type WindowsShellType = 'powershell' | 'cmd';
+
 export interface TerminalCreateOptions {
   id: string;
   cwd?: string;
