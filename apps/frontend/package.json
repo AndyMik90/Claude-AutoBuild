@@ -17,6 +17,7 @@
     "node": ">=24.0.0",
     "npm": ">=10.0.0"
   },
+  "//": "NOTE: --no-sandbox flag required for WSL2/WSLg compatibility. This disables Chromium's sandbox security feature, only use in development environments. Production builds do not use this flag.",
   "scripts": {
     "postinstall": "node scripts/postinstall.cjs",
     "dev": "electron-vite dev -- --no-sandbox",

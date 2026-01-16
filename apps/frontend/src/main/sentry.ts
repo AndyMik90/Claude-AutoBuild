@@ -121,7 +121,7 @@ export function initSentryMain(): void {
   }
 
   // Get version safely for WSL2 compatibility
-  let appVersion = 'unknown';
+  let appVersion: string;
   try {
     appVersion = app.getVersion();
   } catch (error) {

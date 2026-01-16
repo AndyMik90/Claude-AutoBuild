@@ -121,20 +121,22 @@ export class ChangelogService extends EventEmitter {
       return this.autoBuildSourcePath;
     }
 
-    const possiblePaths = [
-      // Apps structure: from out/main -> apps/backend
-      path.resolve(__dirname, '..', '..', '..', 'backend'),
-      path.resolve(process.cwd(), 'apps', 'backend')
-    ];
-
+    const appPathSegment: string[] = [];
     // Add app path if app is ready (WSL2 compatibility)
     try {
       if (app && app.getAppPath) {
-        possiblePaths.splice(1, 0, path.resolve(app.getAppPath(), '..', 'backend'));
+        appPathSegment.push(path.resolve(app.getAppPath(), '..', 'backend'));
       }
     } catch (e) {
       // App not ready yet, continue without app path
     }
+
+    const possiblePaths = [
+      // Apps structure: from out/main -> apps/backend
+      path.resolve(__dirname, '..', '..', '..', 'backend'),
+      ...appPathSegment,
+      path.resolve(process.cwd(), 'apps', 'backend'),
+    ];
 
     for (const p of possiblePaths) {
       if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
