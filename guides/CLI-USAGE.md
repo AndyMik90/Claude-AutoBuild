@@ -214,3 +214,48 @@ cp .env.example .env
 | `GRAPHITI_EMBEDDER_PROVIDER` | No | Embedder: openai, voyage, ollama, google, openrouter |
 
 See `.env.example` for complete configuration options including provider-specific settings.
+
+## Troubleshooting
+
+### API Error: 404 Model Not Found
+
+If you see an error like:
+```
+API Error: 404 {"type":"error","error":{"type":"not_found_error","message":"model: claude-sonnet-4-5-20241022"}}
+```
+
+This means a stale/invalid model ID is being used. The issue is typically caused by a per-project `.env` file overriding the correct model ID.
+
+**Solution:**
+
+1. Check your project's `.auto-claude/.env` file for `AUTO_BUILD_MODEL`:
+   ```bash
+   cat <your-project>/.auto-claude/.env | grep AUTO_BUILD_MODEL
+   ```
+
+2. If it contains an outdated model ID (e.g., `claude-sonnet-4-5-20241022`), either:
+   - **Comment it out** to use the default from `phase_config.py`:
+     ```bash
+     # AUTO_BUILD_MODEL=claude-sonnet-4-5-20241022
+     ```
+   - **Update it** to the correct model ID:
+     ```bash
+     AUTO_BUILD_MODEL=claude-sonnet-4-5-20250929
+     ```
+
+**Recommendation:** Let `phase_config.py` be the single source of truth for model IDs. Only use `AUTO_BUILD_MODEL` in your project's `.auto-claude/.env` for special testing scenarios.
+
+**Valid Model IDs (as of January 2026):**
+- `claude-opus-4-5-20251101`
+- `claude-sonnet-4-5-20250929`
+- `claude-haiku-4-5-20251001`
+
+### Windows: Stale Process Issues
+
+Windows does not always clean up PTY daemon and child processes when Auto Claude closes. If builds fail to start or hang, kill stale processes:
+
+```bash
+taskkill /F /IM python.exe /IM node.exe /IM electron.exe 2>nul
+```
+
+Then restart Auto Claude.
