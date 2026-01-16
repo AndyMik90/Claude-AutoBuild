@@ -20,7 +20,6 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { cn } from '../../lib/utils';
-import { ScrollArea } from '../ui/scroll-area';
 import { useProjectStore } from '../../stores/project-store';
 
 interface WorktreeSelectorProps {
@@ -173,8 +172,8 @@ export function WorktreeSelector({
         {/* Fixed separator between "Create New" and scrollable content */}
         <DropdownMenuSeparator />
 
-        {/* Scrollable content */}
-        <ScrollArea className="max-h-[300px]">
+        {/* Scrollable content with native browser scrolling */}
+        <div className="max-h-[300px] overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-2">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -254,7 +253,7 @@ export function WorktreeSelector({
               )}
             </>
           )}
-        </ScrollArea>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
 
