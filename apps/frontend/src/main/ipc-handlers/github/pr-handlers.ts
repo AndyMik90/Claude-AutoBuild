@@ -2329,6 +2329,45 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
     }
   );
 
+  // Update PR branch (sync with base branch)
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_UPDATE_BRANCH,
+    async (_, projectId: string, prNumber: number): Promise<{ success: boolean; error?: string }> => {
+      debugLog("updateBranch handler called", { projectId, prNumber });
+
+      const updateResult = await withProjectOrNull(projectId, async (project) => {
+        try {
+          const { execFileSync } = await import("child_process");
+          debugLog("Updating PR branch", { prNumber });
+
+          // Validate prNumber to prevent command injection
+          if (!Number.isInteger(prNumber) || prNumber <= 0) {
+            throw new Error("Invalid PR number");
+          }
+
+          // Use gh pr update-branch to sync with base branch
+          // --rebase is not used to avoid force-push requirements
+          execFileSync("gh", ["pr", "update-branch", String(prNumber)], {
+            cwd: project.path,
+            env: getAugmentedEnv(),
+          });
+
+          debugLog("PR branch updated successfully", { prNumber });
+          return { success: true };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          debugLog("Failed to update PR branch", {
+            prNumber,
+            error: errorMessage,
+          });
+          return { success: false, error: errorMessage };
+        }
+      });
+
+      return updateResult ?? { success: false, error: "Project not found" };
+    }
+  );
+
   // Run follow-up review
   ipcMain.on(
     IPC_CHANNELS.GITHUB_PR_FOLLOWUP_REVIEW,
