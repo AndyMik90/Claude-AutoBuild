@@ -134,7 +134,11 @@ class BatchValidator:
                 phase_config = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(phase_config)
                 return phase_config.resolve_model_id(model)
-        except (ImportError, AttributeError):
+        except Exception:
+            # Catch any exception during import/resolution (ImportError, AttributeError,
+            # RuntimeError, etc.) and fall back to returning the original model.
+            # This ensures BatchValidator remains functional even if phase_config
+            # is unavailable or has runtime errors.
             pass
         # Fallback if phase_config is not available or resolve_model_id doesn't exist
         return model
