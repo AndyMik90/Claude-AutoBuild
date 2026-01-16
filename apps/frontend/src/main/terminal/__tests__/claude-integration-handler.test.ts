@@ -240,12 +240,26 @@ describe('claude-integration-handler', () => {
     const tokenContents = vi.mocked(writeFileSync).mock.calls[0]?.[1] as string;
     const tokenPrefix = path.join(tmpdir(), '.claude-token-1234-');
     expect(tokenPath).toMatch(new RegExp(`^${escapeForRegex(tokenPrefix)}[0-9a-f]{16}$`));
-    expect(tokenContents).toBe("export CLAUDE_CODE_OAUTH_TOKEN='token-value'\n");
+    // Platform-specific expectations: Windows vs Unix temp file format
+    if (process.platform === 'win32') {
+      expect(tokenContents).toBe('@echo off\r\nset "CLAUDE_CODE_OAUTH_TOKEN=token-value"\r\n');
+    } else {
+      expect(tokenContents).toBe("export CLAUDE_CODE_OAUTH_TOKEN='token-value'\n");
+    }
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
-    expect(written).toContain("HISTFILE= HISTCONTROL=ignorespace ");
-    expect(written).toContain(`source '${tokenPath}'`);
-    expect(written).toContain(`rm -f '${tokenPath}'`);
-    expect(written).toContain(`exec '${command}'`);
+    const clearCmd = process.platform === 'win32' ? 'cls' : 'clear';
+    const histPrefix = process.platform === 'win32' ? '' : "HISTFILE= HISTCONTROL=ignorespace ";
+    const cmdQuote = process.platform === 'win32' ? '"' : "'";
+    expect(written).toContain(histPrefix);
+    expect(written).toContain(clearCmd);
+    if (process.platform === 'win32') {
+      expect(written).toContain(`call "${tokenPath}"`);
+      expect(written).toContain(`& del "${tokenPath}"`);
+    } else {
+      expect(written).toContain(`source '${tokenPath}'`);
+      expect(written).toContain(`rm -f '${tokenPath}'`);
+    }
+    expect(written).toContain(`${cmdQuote}${command}${cmdQuote}`);
     expect(profileManager.getProfile).toHaveBeenCalledWith('prof-1');
     expect(mockPersistSession).toHaveBeenCalledWith(terminal);
 
@@ -342,11 +356,22 @@ describe('claude-integration-handler', () => {
     const tokenContents = vi.mocked(writeFileSync).mock.calls[0]?.[1] as string;
     const tokenPrefix = path.join(tmpdir(), '.claude-token-5678-');
     expect(tokenPath).toMatch(new RegExp(`^${escapeForRegex(tokenPrefix)}[0-9a-f]{16}$`));
-    expect(tokenContents).toBe("export CLAUDE_CODE_OAUTH_TOKEN='token-value'\n");
+    // Platform-specific expectations: Windows vs Unix temp file format
+    if (process.platform === 'win32') {
+      expect(tokenContents).toBe('@echo off\r\nset "CLAUDE_CODE_OAUTH_TOKEN=token-value"\r\n');
+    } else {
+      expect(tokenContents).toBe("export CLAUDE_CODE_OAUTH_TOKEN='token-value'\n");
+    }
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
-    expect(written).toContain(`source '${tokenPath}'`);
-    expect(written).toContain(`rm -f '${tokenPath}'`);
-    expect(written).toContain(`exec '${command}'`);
+    const cmdQuote = process.platform === 'win32' ? '"' : "'";
+    if (process.platform === 'win32') {
+      expect(written).toContain(`call "${tokenPath}"`);
+      expect(written).toContain(`& del "${tokenPath}"`);
+    } else {
+      expect(written).toContain(`source '${tokenPath}'`);
+      expect(written).toContain(`rm -f '${tokenPath}'`);
+    }
+    expect(written).toContain(`${cmdQuote}${command}${cmdQuote}`);
     expect(written).not.toContain('CLAUDE_CONFIG_DIR=');
     expect(profileManager.getProfile).toHaveBeenCalledWith('prof-both');
     expect(mockPersistSession).toHaveBeenCalledWith(terminal);
@@ -376,7 +401,9 @@ describe('claude-integration-handler', () => {
     invokeClaude(terminal, '/tmp/project', 'missing', () => null, vi.fn());
 
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
-    expect(written).toContain(`'${command}'`);
+    // Platform-specific expectations: Windows uses double quotes, Unix uses single quotes
+    const cmdQuote = process.platform === 'win32' ? '"' : "'";
+    expect(written).toContain(`${cmdQuote}${command}${cmdQuote}`);
     expect(profileManager.getProfile).toHaveBeenCalledWith('missing');
     expect(profileManager.markProfileUsed).not.toHaveBeenCalled();
   });
@@ -407,9 +434,22 @@ describe('claude-integration-handler', () => {
     invokeClaude(terminal, '/tmp/project', 'prof-2', () => null, vi.fn());
 
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
-    expect(written).toContain("HISTFILE= HISTCONTROL=ignorespace ");
-    expect(written).toContain("CLAUDE_CONFIG_DIR='/tmp/claude-config'");
-    expect(written).toContain(`exec '${command}'`);
+    // Platform-specific expectations: Windows uses double quotes, Unix uses single quotes
+    const cmdQuote = process.platform === 'win32' ? '"' : "'";
+    const pathPrefix = process.platform === 'win32'
+      ? 'set "PATH=/opt/claude/bin:/usr/bin" && '
+      : "PATH='/opt/claude/bin:/usr/bin' ";
+    const configDir = process.platform === 'win32'
+      ? 'set "CLAUDE_CONFIG_DIR=/tmp/claude-config"'
+      : "CLAUDE_CONFIG_DIR='/tmp/claude-config'";
+    const clearCmd = process.platform === 'win32' ? 'cls' : 'clear';
+    const histPrefix = process.platform === 'win32' ? '' : "HISTFILE= HISTCONTROL=ignorespace ";
+
+    expect(written).toContain(histPrefix);
+    expect(written).toContain(configDir);
+    expect(written).toContain(pathPrefix);
+    expect(written).toContain(`${cmdQuote}${command}${cmdQuote}`);
+    expect(written).toContain(clearCmd);
     expect(profileManager.getProfile).toHaveBeenCalledWith('prof-2');
     expect(profileManager.markProfileUsed).toHaveBeenCalledWith('prof-2');
     expect(mockPersistSession).toHaveBeenCalledWith(terminal);
@@ -440,8 +480,13 @@ describe('claude-integration-handler', () => {
     invokeClaude(terminal, '/tmp/project', 'prof-3', () => null, vi.fn());
 
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
-    expect(written).toContain(`'${command}'`);
-    expect(written).toContain("PATH='/opt/claude/bin:/usr/bin' ");
+    // Platform-specific expectations: Windows uses double quotes, Unix uses single quotes
+    const cmdQuote = process.platform === 'win32' ? '"' : "'";
+    const pathPrefix = process.platform === 'win32'
+      ? 'set "PATH=/opt/claude/bin:/usr/bin" && '
+      : "PATH='/opt/claude/bin:/usr/bin' ";
+    expect(written).toContain(`${cmdQuote}${command}${cmdQuote}`);
+    expect(written).toContain(pathPrefix);
     expect(profileManager.getProfile).toHaveBeenCalledWith('prof-3');
     expect(profileManager.markProfileUsed).toHaveBeenCalledWith('prof-3');
     expect(mockPersistSession).toHaveBeenCalledWith(terminal);
@@ -465,8 +510,13 @@ describe('claude-integration-handler', () => {
     resumeClaude(terminal, 'abc123', () => null);
 
     const resumeCall = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
-    expect(resumeCall).toContain("PATH='/opt/claude/bin:/usr/bin' ");
-    expect(resumeCall).toContain("'/opt/claude/bin/claude' --continue");
+    // Platform-specific expectations: Windows uses double quotes, Unix uses single quotes
+    const cmdQuote = process.platform === 'win32' ? '"' : "'";
+    const pathPrefix = process.platform === 'win32'
+      ? 'set "PATH=/opt/claude/bin:/usr/bin" && '
+      : "PATH='/opt/claude/bin:/usr/bin' ";
+    expect(resumeCall).toContain(pathPrefix);
+    expect(resumeCall).toContain(`${cmdQuote}/opt/claude/bin/claude${cmdQuote} --continue`);
     expect(resumeCall).not.toContain('--resume');
     // sessionId is cleared because --continue doesn't track specific sessions
     expect(terminal.claudeSessionId).toBeUndefined();
@@ -479,7 +529,9 @@ describe('claude-integration-handler', () => {
     terminal.isClaudeMode = false;
     resumeClaude(terminal, undefined, () => null);
     const continueCall = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
-    expect(continueCall).toContain("'/opt/claude/bin/claude' --continue");
+    // Platform-specific expectations: Windows uses double quotes, Unix uses single quotes
+    // (cmdQuote already declared above in this function scope)
+    expect(continueCall).toContain(`${cmdQuote}/opt/claude/bin/claude${cmdQuote} --continue`);
     expect(terminal.isClaudeMode).toBe(true);
     expect(terminal.claudeSessionId).toBeUndefined();
     expect(mockPersistSession).not.toHaveBeenCalled();
