@@ -138,9 +138,34 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   setTasks: (tasks) => set({ tasks }),
 
   addTask: (task) =>
-    set((state) => ({
-      tasks: [...state.tasks, task]
-    })),
+    set((state) => {
+      // Determine which column the task belongs to based on its status
+      const status = task.status || 'backlog';
+
+      // Update task order if it exists - new tasks go to top of their column
+      let taskOrder = state.taskOrder;
+      if (taskOrder) {
+        const newTaskOrder = { ...taskOrder };
+
+        // Add task ID to the top of the appropriate column
+        if (newTaskOrder[status]) {
+          // Ensure the task isn't already in the array (safety check)
+          newTaskOrder[status] = newTaskOrder[status].filter(id => id !== task.id);
+          // Add to top (index 0)
+          newTaskOrder[status] = [task.id, ...newTaskOrder[status]];
+        } else {
+          // Initialize column order array if it doesn't exist
+          newTaskOrder[status] = [task.id];
+        }
+
+        taskOrder = newTaskOrder;
+      }
+
+      return {
+        tasks: [...state.tasks, task],
+        taskOrder
+      };
+    }),
 
   updateTask: (taskId, updates) =>
     set((state) => {
