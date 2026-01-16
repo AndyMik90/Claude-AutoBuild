@@ -3,7 +3,14 @@ import { existsSync, writeFileSync, mkdirSync, statSync, readFileSync } from 'fs
 import { execFileSync } from 'node:child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { is } from '@electron-toolkit/utils';
+
+// Lazy-loaded platform info to avoid initialization issues with @electron-toolkit/utils on WSL2
+const is = {
+  get dev() { return !app.isPackaged; },
+  get mac() { return process.platform === 'darwin'; },
+  get windows() { return process.platform === 'win32'; },
+  get linux() { return process.platform === 'linux'; }
+};
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -21,8 +28,6 @@ import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-upd
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
 import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
 import { parseEnvFile } from './utils';
-
-const settingsPath = getSettingsPath();
 
 /**
  * Auto-detect the auto-claude source path relative to the app location.
@@ -161,7 +166,7 @@ export function registerSettingsHandlers(
       // Persist migration changes
       if (needsSave) {
         try {
-          writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+          writeFileSync(getSettingsPath(), JSON.stringify(settings, null, 2));
         } catch (error) {
           console.error('[SETTINGS_GET] Failed to persist migration:', error);
           // Continue anyway - settings will be migrated in-memory for this session
@@ -202,7 +207,7 @@ export function registerSettingsHandlers(
           }
         }
 
-        writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2));
+        writeFileSync(getSettingsPath(), JSON.stringify(newSettings, null, 2));
 
         // Apply Python path if changed
         if (settings.pythonPath || settings.autoBuildPath) {

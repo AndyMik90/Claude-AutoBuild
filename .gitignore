@@ -169,3 +169,6 @@ OPUS_ANALYSIS_AND_IDEAS.md
 # Auto Claude generated files
 .security-key
 /shared_docs
+
+# Auto Claude generated files
+logs/security/

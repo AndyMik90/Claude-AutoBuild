@@ -120,10 +120,24 @@ export function initSentryMain(): void {
     console.log('[Sentry] To enable: set SENTRY_DSN environment variable');
   }
 
+  // Get version safely for WSL2 compatibility
+  let appVersion = 'unknown';
+  try {
+    appVersion = app.getVersion();
+  } catch (error) {
+    // WSL2: app may not be ready yet, use fallback
+    try {
+      const pkg = require('../../../package.json');
+      appVersion = pkg.version || 'unknown';
+    } catch {
+      appVersion = 'dev';
+    }
+  }
+
   Sentry.init({
     dsn: cachedDsn,
     environment: app.isPackaged ? 'production' : 'development',
-    release: `auto-claude@${app.getVersion()}`,
+    release: `auto-claude@${appVersion}`,
 
     beforeSend(event: Sentry.ErrorEvent) {
       if (!sentryEnabledState) {

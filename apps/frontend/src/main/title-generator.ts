@@ -68,9 +68,17 @@ export class TitleGenerator extends EventEmitter {
     const possiblePaths = [
       // Apps structure: from out/main -> apps/backend
       path.resolve(__dirname, '..', '..', '..', 'backend'),
-      path.resolve(app.getAppPath(), '..', 'backend'),
       path.resolve(process.cwd(), 'apps', 'backend')
     ];
+
+    // Add app path if app is ready (WSL2 compatibility)
+    try {
+      if (app && app.getAppPath) {
+        possiblePaths.splice(1, 0, path.resolve(app.getAppPath(), '..', 'backend'));
+      }
+    } catch (e) {
+      // App not ready yet, continue without app path
+    }
 
     for (const p of possiblePaths) {
       if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
@@ -316,5 +324,15 @@ asyncio.run(generate_title())
   }
 }
 
-// Export singleton instance
-export const titleGenerator = new TitleGenerator();
+// Lazy-initialized singleton instance (WSL2 compatible)
+let _titleGenerator: TitleGenerator | null = null;
+
+export const titleGenerator = new Proxy({} as TitleGenerator, {
+  get(target, prop) {
+    if (!_titleGenerator) {
+      _titleGenerator = new TitleGenerator();
+    }
+    const value = _titleGenerator[prop as keyof TitleGenerator];
+    return typeof value === 'function' ? value.bind(_titleGenerator) : value;
+  }
+});

@@ -17,7 +17,6 @@
  * - APP_UPDATE_ERROR: Error during update process
  */
 
-import { autoUpdater } from 'electron-updater';
 import { app, net } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../shared/constants';
@@ -31,10 +30,6 @@ const GITHUB_REPO = 'Auto-Claude';
 // Debug mode - DEBUG_UPDATER=true or development mode
 const DEBUG_UPDATER = process.env.DEBUG_UPDATER === 'true' || process.env.NODE_ENV === 'development';
 
-// Configure electron-updater
-autoUpdater.autoDownload = true;  // Automatically download updates when available
-autoUpdater.autoInstallOnAppQuit = true;  // Automatically install on app quit
-
 // Update channels: 'latest' for stable, 'beta' for pre-release
 type UpdateChannel = 'latest' | 'beta';
 
@@ -45,7 +40,8 @@ type UpdateChannel = 'latest' | 'beta';
  *
  * @param channel - The update channel to use
  */
-export function setUpdateChannel(channel: UpdateChannel): void {
+export function setUpdateChannel(channel: UpdateChannel, updater?: any): void {
+  const autoUpdater = updater || require('electron-updater').autoUpdater;
   autoUpdater.channel = channel;
   // Clear any downloaded update info when channel changes to prevent showing
   // an Install button for an update from a different channel
@@ -53,20 +49,13 @@ export function setUpdateChannel(channel: UpdateChannel): void {
   console.warn(`[app-updater] Update channel set to: ${channel}`);
 }
 
-// Enable more verbose logging in debug mode
-if (DEBUG_UPDATER) {
-  autoUpdater.logger = {
-    info: (msg: string) => console.warn('[app-updater:debug]', msg),
-    warn: (msg: string) => console.warn('[app-updater:debug]', msg),
-    error: (msg: string) => console.error('[app-updater:debug]', msg),
-    debug: (msg: string) => console.warn('[app-updater:debug]', msg)
-  };
-}
-
 let mainWindow: BrowserWindow | null = null;
 
 // Track downloaded update state so it persists across Settings page navigations
 let downloadedUpdateInfo: AppUpdateInfo | null = null;
+
+// Lazy-loaded autoUpdater instance (WSL2 compatibility)
+let autoUpdater: any = null;
 
 /**
  * Initialize the app updater system
@@ -78,11 +67,31 @@ let downloadedUpdateInfo: AppUpdateInfo | null = null;
  * @param betaUpdates - Whether to receive beta/pre-release updates
  */
 export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false): void {
+  // Lazy-load electron-updater to avoid initialization before app is ready (WSL2 compatibility)
+  if (!autoUpdater) {
+    const updaterModule = require('electron-updater');
+    autoUpdater = updaterModule.autoUpdater;
+  }
+
+  // Configure electron-updater
+  autoUpdater.autoDownload = true;  // Automatically download updates when available
+  autoUpdater.autoInstallOnAppQuit = true;  // Automatically install on app quit
+
+  // Enable more verbose logging in debug mode
+  if (DEBUG_UPDATER) {
+    autoUpdater.logger = {
+      info: (msg: string) => console.warn('[app-updater:debug]', msg),
+      warn: (msg: string) => console.warn('[app-updater:debug]', msg),
+      error: (msg: string) => console.error('[app-updater:debug]', msg),
+      debug: (msg: string) => console.warn('[app-updater:debug]', msg)
+    };
+  }
+
   mainWindow = window;
 
   // Set update channel based on user preference
   const channel = betaUpdates ? 'beta' : 'latest';
-  setUpdateChannel(channel);
+  setUpdateChannel(channel, autoUpdater);
 
   // Log updater configuration
   console.warn('[app-updater] ========================================');
@@ -207,6 +216,10 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
  * Called from IPC handler when user requests manual check
  */
 export async function checkForUpdates(): Promise<AppUpdateInfo | null> {
+  if (!autoUpdater) {
+    console.error('[app-updater] autoUpdater not initialized');
+    return null;
+  }
   try {
     console.warn('[app-updater] Manual update check requested');
     const result = await autoUpdater.checkForUpdates();
@@ -245,6 +258,10 @@ export async function checkForUpdates(): Promise<AppUpdateInfo | null> {
  * Called from IPC handler when user requests manual download
  */
 export async function downloadUpdate(): Promise<void> {
+  if (!autoUpdater) {
+    console.error('[app-updater] autoUpdater not initialized');
+    throw new Error('autoUpdater not initialized');
+  }
   try {
     console.warn('[app-updater] Manual update download requested');
     await autoUpdater.downloadUpdate();
@@ -259,15 +276,20 @@ export async function downloadUpdate(): Promise<void> {
  * Called from IPC handler when user confirms installation
  */
 export function quitAndInstall(): void {
+  if (!autoUpdater) {
+    console.error('[app-updater] autoUpdater not initialized');
+    return;
+  }
   console.warn('[app-updater] Quitting and installing update');
   autoUpdater.quitAndInstall(false, true);
 }
 
 /**
  * Get current app version
+ * WSL2 compatibility: Use app.getVersion() instead of autoUpdater since autoUpdater is lazy-loaded
  */
 export function getCurrentVersion(): string {
-  return autoUpdater.currentVersion.version;
+  return app.getVersion();
 }
 
 /**
@@ -444,6 +466,10 @@ export async function setUpdateChannelWithDowngradeCheck(
   channel: UpdateChannel,
   triggerDowngradeCheck = false
 ): Promise<AppUpdateInfo | null> {
+  if (!autoUpdater) {
+    console.error('[app-updater] autoUpdater not initialized');
+    return null;
+  }
   autoUpdater.channel = channel;
   // Clear any downloaded update info when channel changes to prevent showing
   // an Install button for an update from a different channel
@@ -470,6 +496,10 @@ export async function setUpdateChannelWithDowngradeCheck(
  * Uses electron-updater with allowDowngrade enabled to download older stable versions
  */
 export async function downloadStableVersion(): Promise<void> {
+  if (!autoUpdater) {
+    console.error('[app-updater] autoUpdater not initialized');
+    throw new Error('autoUpdater not initialized');
+  }
   // Switch to stable channel
   autoUpdater.channel = 'latest';
   // Enable downgrade to allow downloading older versions (e.g., stable when on beta)

@@ -124,9 +124,17 @@ export class ChangelogService extends EventEmitter {
     const possiblePaths = [
       // Apps structure: from out/main -> apps/backend
       path.resolve(__dirname, '..', '..', '..', 'backend'),
-      path.resolve(app.getAppPath(), '..', 'backend'),
       path.resolve(process.cwd(), 'apps', 'backend')
     ];
+
+    // Add app path if app is ready (WSL2 compatibility)
+    try {
+      if (app && app.getAppPath) {
+        possiblePaths.splice(1, 0, path.resolve(app.getAppPath(), '..', 'backend'));
+      }
+    } catch (e) {
+      // App not ready yet, continue without app path
+    }
 
     for (const p of possiblePaths) {
       if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
@@ -522,5 +530,15 @@ export class ChangelogService extends EventEmitter {
   }
 }
 
-// Export singleton instance
-export const changelogService = new ChangelogService();
+// Lazy-initialized singleton instance (WSL2 compatible)
+let _changelogService: ChangelogService | null = null;
+
+export const changelogService = new Proxy({} as ChangelogService, {
+  get(target, prop) {
+    if (!_changelogService) {
+      _changelogService = new ChangelogService();
+    }
+    const value = _changelogService[prop as keyof ChangelogService];
+    return typeof value === 'function' ? value.bind(_changelogService) : value;
+  }
+});

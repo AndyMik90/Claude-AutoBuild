@@ -28,7 +28,14 @@ for (const envPath of possibleEnvPaths) {
 import { app, BrowserWindow, shell, nativeImage, session, screen } from 'electron';
 import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
-import { electronApp, optimizer, is } from '@electron-toolkit/utils';
+
+// Lazy-loaded platform info to avoid initialization issues with @electron-toolkit/utils on WSL2
+const is = {
+  get dev() { return !app.isPackaged; },
+  get mac() { return process.platform === 'darwin'; },
+  get windows() { return process.platform === 'win32'; },
+  get linux() { return process.platform === 'linux'; }
+};
 import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
 import { TerminalManager } from './terminal-manager';
@@ -64,7 +71,8 @@ const DEFAULT_SCREEN_HEIGHT: number = 1080;
 // Setup error logging early (captures uncaught exceptions)
 setupErrorLogging();
 
-// Initialize Sentry for error tracking (respects user's sentryEnabled setting)
+// Initialize Sentry for error tracking (must be before app.whenReady())
+// WSL2 compatible: uses safe version detection with fallback to package.json
 initSentryMain();
 
 /**
@@ -181,7 +189,7 @@ function createWindow(): void {
     trafficLightPosition: { x: 15, y: 10 },
     icon: getIconPath(),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
@@ -219,23 +227,39 @@ function createWindow(): void {
 }
 
 // Set app name before ready (for dock tooltip on macOS in dev mode)
-app.setName('Auto Claude');
-if (process.platform === 'darwin') {
-  // Force the name to appear in dock on macOS
-  app.name = 'Auto Claude';
-}
+// WSL2 compatibility: wrap in try-catch since app may not be initialized yet
+try {
+  app.setName('Auto Claude');
+  if (process.platform === 'darwin') {
+    // Force the name to appear in dock on macOS
+    app.name = 'Auto Claude';
+  }
 
-// Fix Windows GPU cache permission errors (0x5 Access Denied)
-if (process.platform === 'win32') {
-  app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
-  app.commandLine.appendSwitch('disable-gpu-program-cache');
-  console.log('[main] Applied Windows GPU cache fixes');
+  // Fix Windows GPU cache permission errors (0x5 Access Denied)
+  if (process.platform === 'win32') {
+    app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
+    app.commandLine.appendSwitch('disable-gpu-program-cache');
+    console.log('[main] Applied Windows GPU cache fixes');
+  }
+} catch (e) {
+  // App not ready yet (WSL2), will be set in whenReady handler
+  console.warn('[main] App not ready for pre-initialization, will set name after ready');
 }
 
 // Initialize the application
 app.whenReady().then(() => {
+  // Set app name (in case pre-init failed on WSL2)
+  try {
+    app.setName('Auto Claude');
+    if (process.platform === 'darwin') {
+      app.name = 'Auto Claude';
+    }
+  } catch (e) {
+    // Ignore - already set
+  }
+
   // Set app user model id for Windows
-  electronApp.setAppUserModelId('com.autoclaude.ui');
+  app.setAppUserModelId('com.autoclaude.ui');
 
   // Clear cache on Windows to prevent permission errors from stale cache
   if (process.platform === 'win32') {
@@ -264,7 +288,22 @@ app.whenReady().then(() => {
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
   app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window);
+    // F12 toggles DevTools in development
+    if (is.dev) {
+      window.webContents.on('before-input-event', (_, input) => {
+        if (input.type === 'keyDown' && input.key === 'F12') {
+          window.webContents.toggleDevTools();
+        }
+      });
+    }
+    // Disable Ctrl/Cmd+R refresh in production
+    if (!is.dev) {
+      window.webContents.on('before-input-event', (event, input) => {
+        if (input.type === 'keyDown' && input.key === 'r' && (input.control || input.meta)) {
+          event.preventDefault();
+        }
+      });
+    }
   });
 
   // Initialize agent manager

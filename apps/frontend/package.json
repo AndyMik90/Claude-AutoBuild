@@ -1,7 +1,6 @@
 {
   "name": "auto-claude-ui",
   "version": "2.7.4",
-  "type": "module",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
   "homepage": "https://github.com/AndyMik90/Auto-Claude",
   "repository": {
@@ -20,8 +19,8 @@
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.cjs",
-    "dev": "electron-vite dev",
-    "dev:debug": "cross-env DEBUG=true electron-vite dev",
+    "dev": "electron-vite dev -- --no-sandbox",
+    "dev:debug": "cross-env DEBUG=true electron-vite dev -- --no-sandbox",
     "dev:mcp": "electron-vite dev -- --remote-debugging-port=9222",
     "build": "electron-vite build",
     "start": "electron .",

@@ -33,10 +33,10 @@ export class ProjectStore {
   private tasksCache: Map<string, TasksCacheEntry> = new Map();
   private readonly CACHE_TTL_MS = 3000; // 3 seconds TTL for task cache
 
-  constructor() {
-    // Store in app's userData directory
-    const userDataPath = app.getPath('userData');
-    const storeDir = path.join(userDataPath, 'store');
+  constructor(userDataPath?: string) {
+    // Store in app's userData directory (lazy initialization for WSL2 compatibility)
+    const actualUserDataPath = userDataPath || app.getPath('userData');
+    const storeDir = path.join(actualUserDataPath, 'store');
 
     // Ensure directory exists
     if (!existsSync(storeDir)) {
@@ -849,5 +849,15 @@ export class ProjectStore {
   }
 }
 
-// Singleton instance
-export const projectStore = new ProjectStore();
+// Lazy-initialized singleton instance (WSL2 compatible)
+let _projectStore: ProjectStore | null = null;
+
+export const projectStore = new Proxy({} as ProjectStore, {
+  get(target, prop) {
+    if (!_projectStore) {
+      _projectStore = new ProjectStore();
+    }
+    const value = _projectStore[prop as keyof ProjectStore];
+    return typeof value === 'function' ? value.bind(_projectStore) : value;
+  }
+});

@@ -22,7 +22,7 @@ import os from 'os';
 
 // Configure electron-log (wrapped in try-catch for re-import scenarios in tests)
 try {
-  log.initialize();
+  log.initialize({ preload: false }); // Disable preload to avoid WSL2 path issues
 } catch {
   // Already initialized, ignore
 }
@@ -42,15 +42,19 @@ log.transports.console.format = '[{h}:{i}:{s}] [{level}] {text}';
 // Determine if this is a beta version
 function isBetaVersion(): boolean {
   try {
+    // WSL2 compatibility: app may not be ready yet at module load time
+    if (!app || typeof app.getVersion !== 'function') {
+      return false;
+    }
     const version = app.getVersion();
     return version.includes('-beta') || version.includes('-alpha') || version.includes('-rc');
   } catch (error) {
-    log.warn('Failed to detect beta version:', error);
+    // Silently fail if app is not ready yet - this is called at module load time
     return false;
   }
 }
 
-// Enhanced logging for beta versions
+// Enhanced logging for beta versions (lazy check - safe for WSL2)
 if (isBetaVersion()) {
   log.transports.file.level = 'debug';
   log.info('Beta version detected - enhanced logging enabled');
