@@ -2908,11 +2908,16 @@ export function registerWorktreeHandlers(
           proc.unref();
         } else if (platform === 'darwin') {
           // macOS: Use osascript to open Terminal.app with the command
-          // Use escaped path with single quotes
+          // For AppleScript, we need to escape both:
+          // 1. Single quotes for bash (already done by escapedPath using '\'' pattern)
+          // 2. Double quotes and backslashes for AppleScript string context
+          const appleScriptEscaped = escapedPath
+            .replace(/\\/g, '\\\\')  // Escape backslashes for AppleScript
+            .replace(/"/g, '\\"');   // Escape double quotes for AppleScript
           const script = `
             tell application "Terminal"
               activate
-              do script "cd '${escapedPath}' && ${devCommand}"
+              do script "cd '${appleScriptEscaped}' && ${devCommand}"
             end tell
           `;
           const proc = spawn('osascript', ['-e', script], {
@@ -2966,9 +2971,9 @@ export function registerWorktreeHandlers(
                   stdio: 'ignore'
                 });
               } else if (term === 'xfce4-terminal') {
-                // xfce4-terminal: use -e with separate arguments to avoid shell escaping issues
-                // Pass bash -c as a single argument, with path properly quoted inside single quotes
-                proc = spawn(term, ['-e', `bash -c 'cd '\\''${escapedPath}'\\'' && ${devCommand}; exec bash'`], {
+                // xfce4-terminal: use -x (--execute) to pass command and args separately
+                // This avoids shell escaping issues with -e flag
+                proc = spawn(term, ['-x', 'bash', '-c', `cd '${escapedPath}' && ${devCommand}; exec bash`], {
                   detached: true,
                   stdio: 'ignore'
                 });
