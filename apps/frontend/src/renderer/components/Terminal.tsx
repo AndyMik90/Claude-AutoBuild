@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useDroppable, useDndContext } from '@dnd-kit/core';
 import '@xterm/xterm/css/xterm.css';
 import { FileDown } from 'lucide-react';
@@ -20,7 +20,17 @@ import { useTerminalFileDrop } from './terminal/useTerminalFileDrop';
 const MIN_COLS = 10;
 const MIN_ROWS = 3;
 
-export function Terminal({
+/**
+ * Handle interface exposed by Terminal component for external control.
+ * Used by parent components (e.g., SortableTerminalWrapper) to trigger operations
+ * like refitting the terminal after container size changes.
+ */
+export interface TerminalHandle {
+  /** Refit the terminal to its container size */
+  fit: () => void;
+}
+
+export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Terminal({
   id,
   cwd,
   projectPath,
@@ -34,7 +44,7 @@ export function Terminal({
   isDragging,
   isExpanded,
   onToggleExpand,
-}: TerminalProps) {
+}, ref) {
   const isMountedRef = useRef(true);
   const isCreatedRef = useRef(false);
   // Track deliberate terminal recreation (e.g., worktree switching)
@@ -103,6 +113,7 @@ export function Terminal({
   const {
     terminalRef,
     xtermRef: _xtermRef,
+    fit,
     write,
     writeln,
     focus,
@@ -119,6 +130,12 @@ export function Terminal({
     },
     onDimensionsReady: handleDimensionsReady,
   });
+
+  // Expose fit method to parent components via ref
+  // This allows external triggering of terminal resize (e.g., after drag-drop reorder)
+  useImperativeHandle(ref, () => ({
+    fit,
+  }), [fit]);
 
   // Use ready dimensions for PTY creation (wait until xterm has measured)
   // This prevents creating PTY with default 80x24 when container is smaller
@@ -429,4 +446,4 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
       )}
     </div>
   );
-}
+});
