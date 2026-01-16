@@ -30,6 +30,42 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from phase_config import MODEL_ID_MAP, resolve_model_id
 
+# Common paths - extracted to avoid duplication and ease maintenance
+GITHUB_RUNNER_DIR = (
+    Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github"
+)
+GITHUB_RUNNER_SERVICES_DIR = GITHUB_RUNNER_DIR / "services"
+
+
+@pytest.fixture
+def models_file() -> Path:
+    """Path to models.py in GitHub runner directory."""
+    return GITHUB_RUNNER_DIR / "models.py"
+
+
+@pytest.fixture
+def batch_validator_file() -> Path:
+    """Path to batch_validator.py in GitHub runner directory."""
+    return GITHUB_RUNNER_DIR / "batch_validator.py"
+
+
+@pytest.fixture
+def batch_issues_file() -> Path:
+    """Path to batch_issues.py in GitHub runner directory."""
+    return GITHUB_RUNNER_DIR / "batch_issues.py"
+
+
+@pytest.fixture
+def orchestrator_file() -> Path:
+    """Path to parallel_orchestrator_reviewer.py in GitHub runner services."""
+    return GITHUB_RUNNER_SERVICES_DIR / "parallel_orchestrator_reviewer.py"
+
+
+@pytest.fixture
+def followup_file() -> Path:
+    """Path to parallel_followup_reviewer.py in GitHub runner services."""
+    return GITHUB_RUNNER_SERVICES_DIR / "parallel_followup_reviewer.py"
+
 
 @pytest.fixture
 def clean_env() -> Generator[None, None, None]:
@@ -139,16 +175,8 @@ class TestGitHubRunnerConfigModelDefaults:
     hardcoded full model ID.
     """
 
-    def test_default_model_is_shorthand(self):
+    def test_default_model_is_shorthand(self, models_file: Path):
         """GitHubRunnerConfig default model uses shorthand 'sonnet'."""
-        models_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "models.py"
-        )
         # Explicit UTF-8 encoding required for Windows compatibility (default encoding varies by platform)
         content = models_file.read_text(encoding="utf-8")
         # Verify the default is "sonnet" (shorthand), not a hardcoded full model ID
@@ -156,16 +184,8 @@ class TestGitHubRunnerConfigModelDefaults:
         # Verify the old hardcoded fallback is NOT present
         assert 'model: str = "claude-sonnet-4-5-20250929"' not in content
 
-    def test_load_settings_default_model_is_shorthand(self):
+    def test_load_settings_default_model_is_shorthand(self, models_file: Path):
         """GitHubRunnerConfig.load_settings() uses shorthand 'sonnet' as default."""
-        models_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "models.py"
-        )
         content = models_file.read_text(encoding="utf-8")
         # Verify load_settings uses "sonnet" (shorthand) as fallback
         assert 'model=settings.get("model", "sonnet")' in content
@@ -174,66 +194,43 @@ class TestGitHubRunnerConfigModelDefaults:
 class TestBatchValidatorModelResolution:
     """Tests for BatchValidator model resolution.
 
-    Tests verify the new importlib.util pattern instead of absolute imports,
-    and that the shorthand "sonnet" is used as default.
+    Tests verify the try/except import pattern (matching the established
+    codebase convention) and that the shorthand "sonnet" is used as default.
     """
 
-    def test_default_model_is_shorthand(self):
+    def test_default_model_is_shorthand(self, batch_validator_file: Path):
         """BatchValidator DEFAULT_MODEL uses shorthand 'sonnet'."""
-        batch_validator_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "batch_validator.py"
-        )
         content = batch_validator_file.read_text(encoding="utf-8")
         # Verify DEFAULT_MODEL is "sonnet" (shorthand)
         assert 'DEFAULT_MODEL = "sonnet"' in content
 
-    def test_uses_importlib_for_import(self):
-        """BatchValidator uses importlib.util.find_spec for robust imports."""
-        batch_validator_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "batch_validator.py"
-        )
-        content = batch_validator_file.read_text(encoding="utf-8")
-        # Verify the new importlib pattern is used
-        assert "importlib.util.find_spec" in content
-        # Verify the old absolute import pattern is NOT present
-        assert "from phase_config import resolve_model_id" not in content
+    def test_uses_try_except_import_pattern(self, batch_validator_file: Path):
+        """BatchValidator uses try/except import pattern (established codebase convention).
 
-    def test_has_resolve_model_method(self):
+        This is an implementation-detail test that guards against import patterns
+        causing circular dependencies. The try/except pattern (relative imports
+        falling back to absolute imports) is the established convention across
+        runners/github/services/ and ensures proper module caching in sys.modules.
+        """
+        content = batch_validator_file.read_text(encoding="utf-8")
+        # Verify the try/except pattern IS present (relative import first)
+        assert "from .phase_config import resolve_model_id" in content
+        # Verify fallback to absolute import is present
+        assert "except (ImportError, ValueError, SystemError):" in content
+        assert 'from phase_config import resolve_model_id' in content
+        # Verify debug logging is present for error diagnosis
+        assert "logger.debug" in content
+
+    def test_has_resolve_model_method(self, batch_validator_file: Path):
         """BatchValidator has _resolve_model method that resolves models."""
-        batch_validator_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "batch_validator.py"
-        )
         content = batch_validator_file.read_text(encoding="utf-8")
         # Verify _resolve_model method exists
         assert "def _resolve_model(self, model: str)" in content
-        # Verify it calls resolve_model_id on the imported module
-        assert "return phase_config.resolve_model_id(model)" in content
+        # Verify it calls resolve_model_id
+        assert "return resolve_model_id(model)" in content
 
-    def test_init_calls_resolve_model(self):
+    def test_init_calls_resolve_model(self, batch_validator_file: Path):
         """BatchValidator.__init__ calls _resolve_model to resolve the model."""
-        batch_validator_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "batch_validator.py"
-        )
         content = batch_validator_file.read_text(encoding="utf-8")
         # Verify __init__ resolves the model
         assert "self.model = self._resolve_model(model)" in content
@@ -245,16 +242,8 @@ class TestBatchIssuesModelResolution:
     Uses source inspection to verify shorthand "sonnet" is used as default.
     """
 
-    def test_validation_model_default_is_shorthand(self):
+    def test_validation_model_default_is_shorthand(self, batch_issues_file: Path):
         """IssueBatcher validation_model default uses shorthand 'sonnet'."""
-        batch_issues_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "batch_issues.py"
-        )
         content = batch_issues_file.read_text(encoding="utf-8")
         # Verify validation_model default is "sonnet" (shorthand)
         assert 'validation_model: str = "sonnet"' in content
@@ -267,16 +256,8 @@ class TestClaudeBatchAnalyzerModelResolution:
     has been replaced with resolve_model_id() pattern.
     """
 
-    def test_batch_analyzer_resolves_model(self):
+    def test_batch_analyzer_resolves_model(self, batch_issues_file: Path):
         """ClaudeBatchAnalyzer uses resolve_model_id() instead of hardcoded model ID."""
-        batch_issues_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "batch_issues.py"
-        )
         content = batch_issues_file.read_text(encoding="utf-8")
 
         # Verify the old hardcoded model is NOT present
@@ -287,16 +268,8 @@ class TestClaudeBatchAnalyzerModelResolution:
         assert "from phase_config import resolve_model_id" in content
         assert "model = resolve_model_id" in content
 
-    def test_batch_analyzer_uses_sonnet_shorthand(self):
+    def test_batch_analyzer_uses_sonnet_shorthand(self, batch_issues_file: Path):
         """ClaudeBatchAnalyzer uses 'sonnet' shorthand, not full model ID."""
-        batch_issues_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "batch_issues.py"
-        )
         content = batch_issues_file.read_text(encoding="utf-8")
 
         # Verify the pattern: model = resolve_model_id("sonnet")
@@ -330,27 +303,8 @@ class TestParallelReviewerImportResolution:
 
             assert model == custom_model
 
-    def test_parallel_reviewers_use_sonnet_fallback(self):
+    def test_parallel_reviewers_use_sonnet_fallback(self, orchestrator_file: Path, followup_file: Path):
         """Parallel reviewers use 'sonnet' shorthand as fallback, not hardcoded model IDs."""
-        orchestrator_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "services"
-            / "parallel_orchestrator_reviewer.py"
-        )
-        followup_file = (
-            Path(__file__).parent.parent
-            / "apps"
-            / "backend"
-            / "runners"
-            / "github"
-            / "services"
-            / "parallel_followup_reviewer.py"
-        )
-
         orchestrator_content = orchestrator_file.read_text(encoding="utf-8")
         followup_content = followup_file.read_text(encoding="utf-8")
 

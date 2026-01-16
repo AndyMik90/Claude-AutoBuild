@@ -127,21 +127,23 @@ class BatchValidator:
     def _resolve_model(self, model: str) -> str:
         """Resolve model shorthand via phase_config.resolve_model_id()."""
         try:
-            # Try to import phase_config from the backend directory
-            # Use importlib for a more robust import that doesn't rely on sys.path
-            spec = importlib.util.find_spec("phase_config")
-            if spec is not None:
-                phase_config = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(phase_config)
-                return phase_config.resolve_model_id(model)
-        except Exception:
-            # Catch any exception during import/resolution (ImportError, AttributeError,
-            # RuntimeError, etc.) and fall back to returning the original model.
-            # This ensures BatchValidator remains functional even if phase_config
-            # is unavailable or has runtime errors.
-            pass
-        # Fallback if phase_config is not available or resolve_model_id doesn't exist
-        return model
+            # Use the established try/except pattern for imports (matching
+            # parallel_orchestrator_reviewer.py and other files in runners/github/services/)
+            # This ensures consistency across the codebase and proper caching in sys.modules.
+            from .phase_config import resolve_model_id
+
+            return resolve_model_id(model)
+        except (ImportError, ValueError, SystemError):
+            from phase_config import resolve_model_id
+
+            return resolve_model_id(model)
+        except Exception as e:
+            # Log at debug level to aid diagnosis without polluting normal output
+            logger.debug(
+                f"Model resolution via phase_config failed, using original model: {e}"
+            )
+            # Fallback to returning the original model string
+            return model
 
     def _format_issues(self, issues: list[dict[str, Any]]) -> str:
         """Format issues for the prompt."""
