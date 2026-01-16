@@ -79,7 +79,7 @@ export async function readSettingsFileAsync(): Promise<Record<string, unknown> |
   } catch (e) {
     // Return undefined if file doesn't exist or on parse error - caller will use defaults
     // ENOENT means file doesn't exist, which is expected on first run
-    if (e && typeof e === 'object' && 'code' in e && e.code !== 'ENOENT') {
+    if (e && typeof e === 'object' && 'code' in e && (e as NodeJS.ErrnoException).code !== 'ENOENT') {
       // Log unexpected errors (but not missing file, which is normal)
       console.warn('[settings-utils] Failed to read settings file:', e);
     }
