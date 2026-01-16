@@ -86,6 +86,10 @@ vi.mock("../cli-tool-manager", () => ({
   getToolPath: vi.fn((tool: string) => tool),
   deriveGitBashPath: vi.fn(() => null),
   clearCache: vi.fn(),
+  clearToolCache: vi.fn(),
+  configureTools: vi.fn(),
+  preWarmToolCache: vi.fn(() => Promise.resolve()),
+  getToolPathAsync: vi.fn((tool: string) => Promise.resolve(tool)),
 }));
 
 // Mock modules before importing
