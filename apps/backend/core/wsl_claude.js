@@ -100,23 +100,32 @@ if (projectPath) {
 
 // Use -e for direct execution (no shell)
 // Set HOME so Claude can find its config
-args.push('-e', '/usr/bin/env', `HOME=${wslHome}`);
-
-if (token) {
-  args.push(`CLAUDE_CODE_OAUTH_TOKEN=${token}`);
-}
-
-// Add the Claude CLI command
-args.push(claudePath);
+args.push('-e', '/usr/bin/env', `HOME=${wslHome}`, claudePath);
 
 // Pass through any arguments (e.g., --output-format stream-json)
 args.push(...process.argv.slice(2));
 
+// Build environment with WSLENV to propagate token securely
+// WSLENV tells WSL which Windows env vars to forward to Linux
+// The /u flag converts Windows paths to Linux paths (not needed for token, but harmless)
+const spawnEnv = { ...process.env };
+if (token) {
+  spawnEnv.CLAUDE_CODE_OAUTH_TOKEN = token;
+  // Append to existing WSLENV or create new one
+  const existingWslenv = spawnEnv.WSLENV || '';
+  const vars = existingWslenv ? existingWslenv.split(':') : [];
+  if (!vars.includes('CLAUDE_CODE_OAUTH_TOKEN')) {
+    vars.push('CLAUDE_CODE_OAUTH_TOKEN');
+  }
+  spawnEnv.WSLENV = vars.join(':');
+}
+
 // Spawn wsl.exe with inherited stdio
-// This is the key - 'inherit' passes the pipe handles directly
+// Token is passed via environment (not visible in process listing)
 const proc = spawn('wsl.exe', args, {
   stdio: 'inherit',
-  windowsHide: true
+  windowsHide: true,
+  env: spawnEnv
 });
 
 proc.on('error', (err) => {
