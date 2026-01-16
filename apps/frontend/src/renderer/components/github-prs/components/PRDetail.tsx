@@ -379,6 +379,40 @@ export function PRDetail({
     setWorkflowsAwaiting(result);
   }, [pr.number, workflowsAwaiting]);
 
+  // Handler to update PR branch when behind base
+  const handleUpdateBranch = useCallback(async () => {
+    // Capture current PR number to prevent state leaks across PR switches
+    const currentPr = pr.number;
+
+    setIsUpdatingBranch(true);
+    setBranchUpdateError(null);
+    setBranchUpdateSuccess(false);
+
+    try {
+      const result = await window.electronAPI.github.updatePRBranch(projectId, pr.number);
+
+      // Only update state if PR hasn't changed
+      if (pr.number === currentPr) {
+        if (result.success) {
+          setBranchUpdateSuccess(true);
+          // Trigger merge readiness refresh to update the UI
+          setMergeReadinessRefreshKey(prev => prev + 1);
+        } else {
+          setBranchUpdateError(result.error || t('prReview.branchUpdateFailed'));
+        }
+      }
+    } catch (err) {
+      if (pr.number === currentPr) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setBranchUpdateError(errorMessage);
+      }
+    } finally {
+      if (pr.number === currentPr) {
+        setIsUpdatingBranch(false);
+      }
+    }
+  }, [pr.number, projectId, t]);
+
   // Count selected findings by type for the button label
   const selectedCount = selectedFindingIds.size;
 
