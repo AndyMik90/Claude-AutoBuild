@@ -709,12 +709,18 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
       // Without this check, corrupted caches with missing packages would be accepted
       // Note: Same list exists in python-env-manager.ts - keep them in sync
       // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
-      const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core'];
+      // pywin32 is platform-critical for Windows (ACS-306) - required by MCP library
+      // Note: We check for 'pywintypes' instead of 'pywin32' because pywin32 installs
+      // top-level modules (pywintypes, win32api, win32con, win32com) without a pywin32/__init__.py
+      const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core']
+        .concat(info.nodePlatform === 'win32' ? ['pywintypes'] : []);
       const missingPackages = criticalPackages.filter(pkg => {
         const pkgPath = path.join(sitePackagesDir, pkg);
-        // Check both directory and __init__.py for more robust validation
         const initFile = path.join(pkgPath, '__init__.py');
-        return !fs.existsSync(pkgPath) || !fs.existsSync(initFile);
+        // For single-file modules (like pywintypes.py), check for the file directly
+        const moduleFile = path.join(sitePackagesDir, pkg + '.py');
+        // Package is valid if directory+__init__.py exists OR single-file module exists
+        return !fs.existsSync(initFile) && !fs.existsSync(moduleFile);
       });
 
       if (missingPackages.length > 0) {
@@ -812,11 +818,18 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
       // Verify critical packages were installed before creating marker (fixes #416)
       // Note: Same list exists in python-env-manager.ts - keep them in sync
       // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
-      const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core'];
+      // pywin32 is platform-critical for Windows (ACS-306) - required by MCP library
+      // Note: We check for 'pywintypes' instead of 'pywin32' because pywin32 installs
+      // top-level modules (pywintypes, win32api, win32con, win32com) without a pywin32/__init__.py
+      const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core']
+        .concat(info.nodePlatform === 'win32' ? ['pywintypes'] : []);
       const postInstallMissing = criticalPackages.filter(pkg => {
         const pkgPath = path.join(sitePackagesDir, pkg);
         const initFile = path.join(pkgPath, '__init__.py');
-        return !fs.existsSync(pkgPath) || !fs.existsSync(initFile);
+        // For single-file modules (like pywintypes.py), check for the file directly
+        const moduleFile = path.join(sitePackagesDir, pkg + '.py');
+        // Package is valid if directory+__init__.py exists OR single-file module exists
+        return !fs.existsSync(initFile) && !fs.existsSync(moduleFile);
       });
 
       if (postInstallMissing.length > 0) {
