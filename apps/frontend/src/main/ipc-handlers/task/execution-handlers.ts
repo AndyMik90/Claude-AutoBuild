@@ -7,7 +7,7 @@ import { spawnSync, execFileSync } from 'child_process';
 import { getToolPath } from '../../cli-tool-manager';
 import { AgentManager } from '../../agent';
 import { fileWatcher } from '../../file-watcher';
-import { findTaskAndProject } from './shared';
+import { findTaskAndProject, generateSpecId } from './shared';
 import { checkGitStatus } from '../../project-initializer';
 import { initializeClaudeProfileManager, type ClaudeProfileManager } from '../../claude-profile-manager';
 import {
@@ -1217,7 +1217,10 @@ export function registerTaskExecutionHandlers(
             timeout: 30000
           });
 
-          // Delete the associated branch
+          // Worktree is successfully removed at this point
+          cleanedUpWorktree = true;
+
+          // Delete the associated branch (best-effort)
           try {
             execFileSync(getToolPath('git'), ['branch', '-D', branch], {
               cwd: project.path,
@@ -1229,16 +1232,18 @@ export function registerTaskExecutionHandlers(
             console.warn(`[TASK_DELETE_AND_RETRY] Could not delete branch '${branch}'. It may not exist or be the current branch.`, error);
           }
 
-          // Prune dangling worktrees
-          execFileSync(getToolPath('git'), ['worktree', 'prune'], {
-            cwd: project.path,
-            encoding: 'utf-8',
-            timeout: 30000
-          });
-
-          cleanedUpWorktree = true;
-        } catch (e) {
-          console.error('[TASK_DELETE_AND_RETRY] Worktree cleanup error:', e);
+          // Prune dangling worktrees (best-effort)
+          try {
+            execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+              cwd: project.path,
+              encoding: 'utf-8',
+              timeout: 30000
+            });
+          } catch (error) {
+            console.warn('[TASK_DELETE_AND_RETRY] Worktree prune failed:', error);
+          }
+        } catch (error) {
+          console.error('[TASK_DELETE_AND_RETRY] Worktree cleanup error:', error);
         }
       }
 
@@ -1282,11 +1287,7 @@ export function registerTaskExecutionHandlers(
           }
 
           // Create new spec directory
-          const slug = taskTitle.toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '')
-            .substring(0, 50);
-          const newSpecId = `${String(specNum).padStart(3, '0')}-${slug}`;
+          const newSpecId = generateSpecId(specNum, taskTitle);
           const newSpecDir = path.join(specsDir, newSpecId);
 
           await mkdir(newSpecDir, { recursive: true });
