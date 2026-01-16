@@ -77,6 +77,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     postComment,
     mergePR,
     assignPR,
+    markReviewPosted,
     refresh,
     loadMore,
     isConnected,
@@ -173,6 +174,12 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     return null;
   }, [selectedProjectId, selectedPRNumber]);
 
+  const handleMarkReviewPosted = useCallback(async () => {
+    if (selectedPRNumber) {
+      await markReviewPosted(selectedPRNumber);
+    }
+  }, [selectedPRNumber, markReviewPosted]);
+
   // Not connected state
   if (!isConnected) {
     return <NotConnectedState error={error} onOpenSettings={onOpenSettings} t={t} />;
@@ -259,6 +266,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
               onMergePR={handleMergePR}
               onAssignPR={handleAssignPR}
               onGetLogs={handleGetLogs}
+              onMarkReviewPosted={handleMarkReviewPosted}
             />
           ) : (
             <EmptyState message={t("prReview.selectPRToView")} />

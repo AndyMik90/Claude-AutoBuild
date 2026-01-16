@@ -55,6 +55,7 @@ interface PRDetailProps {
   onMergePR: (mergeMethod?: 'merge' | 'squash' | 'rebase') => void;
   onAssignPR: (username: string) => void;
   onGetLogs: () => Promise<PRLogsType | null>;
+  onMarkReviewPosted?: () => Promise<void>;
 }
 
 function getStatusColor(status: PRReviewResult['overallStatus']): string {
@@ -88,6 +89,7 @@ export function PRDetail({
   onMergePR,
   onAssignPR: _onAssignPR,
   onGetLogs,
+  onMarkReviewPosted,
 }: PRDetailProps) {
   const { t } = useTranslation('common');
   // Selection state for findings
@@ -715,6 +717,8 @@ ${t('prReview.blockedStatusMessageFooter')}`;
       if (pr.number === currentPr) {
         setBlockedStatusPosted(true);
         setBlockedStatusError(null);
+        // Update the store to mark review as posted so PR list reflects the change
+        await onMarkReviewPosted?.();
       }
     } catch (err) {
       console.error('Failed to post blocked status comment:', err);
