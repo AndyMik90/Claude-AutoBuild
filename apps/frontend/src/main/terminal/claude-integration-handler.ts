@@ -13,7 +13,7 @@ import { getClaudeProfileManager, initializeClaudeProfileManager } from '../clau
 import * as OutputParser from './output-parser';
 import * as SessionHandler from './session-handler';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
-import { escapeShellArg, escapeShellArgWindows, buildCdCommand } from '../../shared/utils/shell-escape';
+import { escapeShellArg, escapeShellArgWindows, escapeForWindowsDoubleQuote, buildCdCommand } from '../../shared/utils/shell-escape';
 import { getClaudeCliInvocation, getClaudeCliInvocationAsync } from '../claude-cli-utils';
 import type {
   TerminalProcess,
@@ -183,8 +183,10 @@ export function buildClaudeShellCommand(
         // names with cryptographic nonces and have restrictive permissions
         // (0600) to mitigate exposure risk.
         //
-        // Use escapeShellArgWindows() to properly escape special characters
-        const escapedTempFile = escapeShellArgWindows(config.tempFile);
+        // For paths inside double quotes (call "..." and del "..."), use
+        // escapeForWindowsDoubleQuote() instead of escapeShellArgWindows()
+        // because caret is literal inside double quotes in cmd.exe.
+        const escapedTempFile = escapeForWindowsDoubleQuote(config.tempFile);
         return `cls && ${cwdCommand}${pathPrefix}call "${escapedTempFile}" && ${fullCmd} & del "${escapedTempFile}"\r`;
       } else {
         // Unix/macOS: Use bash with source command and history-safe prefixes
@@ -195,8 +197,10 @@ export function buildClaudeShellCommand(
     case 'config-dir':
       if (isWindows) {
         // Windows: Set environment variable using double-quote syntax
-        // Use escapeShellArgWindows() to properly escape special characters
-        const escapedConfigDir = escapeShellArgWindows(config.configDir);
+        // For values inside double quotes (set "VAR=value"), use
+        // escapeForWindowsDoubleQuote() because caret is literal inside
+        // double quotes in cmd.exe (only double quotes need escaping).
+        const escapedConfigDir = escapeForWindowsDoubleQuote(config.configDir);
         return `cls && ${cwdCommand}set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && ${pathPrefix}${fullCmd}\r`;
       } else {
         // Unix/macOS: Use bash with config dir and history-safe prefixes

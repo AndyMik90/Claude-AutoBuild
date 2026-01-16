@@ -92,6 +92,37 @@ export function escapeShellArgWindows(arg: string): string {
 }
 
 /**
+ * Escape a string for safe use inside Windows cmd.exe double-quoted strings.
+ *
+ * Inside double quotes in cmd.exe, the escaping rules are different:
+ * - Caret (^) is a LITERAL character, not an escape character
+ * - Only double quotes need escaping, done by doubling them ("")
+ * - Other special chars (& | < > %) are protected by the surrounding quotes
+ * - Newlines/carriage returns still need removal (command terminators)
+ *
+ * Use this for values in set commands like: set "VAR=value"
+ *
+ * Examples:
+ * - "hello" → "hello"
+ * - "it's" → "it's"
+ * - 'path with "quotes"' → 'path with ""quotes""'
+ * - "C:\Company & Co" → "C:\Company & Co" (ampersand protected by quotes)
+ *
+ * @param arg - The argument to escape
+ * @returns The escaped argument (caller should wrap in double quotes)
+ */
+export function escapeForWindowsDoubleQuote(arg: string): string {
+  // Inside double quotes, only escape embedded double quotes by doubling them.
+  // Also remove newlines/carriage returns as they terminate commands.
+  const escaped = arg
+    .replace(/\r/g, '')        // Remove carriage returns (command terminators)
+    .replace(/\n/g, '')        // Remove newlines (command terminators)
+    .replace(/"/g, '""');      // Escape double quotes by doubling
+
+  return escaped;
+}
+
+/**
  * Validate that a path doesn't contain obviously malicious patterns.
  * This is a defense-in-depth measure - escaping should handle all cases,
  * but this can catch obvious attack attempts early.
