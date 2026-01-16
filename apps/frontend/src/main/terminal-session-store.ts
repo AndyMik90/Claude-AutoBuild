@@ -1,6 +1,6 @@
 import { app } from 'electron';
 import { join } from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, promises as fsPromises } from 'fs';
 import type { TerminalWorktreeConfig } from '../shared/types';
 
 /**
@@ -134,6 +134,19 @@ export class TerminalSessionStore {
   private save(): void {
     try {
       writeFileSync(this.storePath, JSON.stringify(this.data, null, 2));
+    } catch (error) {
+      console.error('[TerminalSessionStore] Error saving sessions:', error);
+    }
+  }
+
+  /**
+   * Save sessions to disk asynchronously (non-blocking)
+   *
+   * Safe to call from Electron main process without blocking the event loop.
+   */
+  private async saveAsync(): Promise<void> {
+    try {
+      await fsPromises.writeFile(this.storePath, JSON.stringify(this.data, null, 2));
     } catch (error) {
       console.error('[TerminalSessionStore] Error saving sessions:', error);
     }
