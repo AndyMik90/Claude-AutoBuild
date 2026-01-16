@@ -32,6 +32,8 @@ Note:
     when spec/__init__.py imports SpecOrchestrator at module level.
 """
 
+from typing import Any
+
 from .complexity import (
     Complexity,
     ComplexityAnalyzer,
@@ -57,7 +59,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     """Lazy imports to avoid circular dependencies with core.client.
 
     The spec.pipeline module imports from core.client (via agent_runner.py),
@@ -67,9 +69,13 @@ def __getattr__(name: str):
 
     By deferring these imports via __getattr__, the import chain only
     executes when these symbols are actually accessed, breaking the cycle.
+
+    Imported objects are cached in globals() to avoid repeated imports.
     """
     if name in ("SpecOrchestrator", "get_specs_dir"):
         from .pipeline import SpecOrchestrator, get_specs_dir
 
-        return locals()[name]
+        # Cache in globals so subsequent accesses bypass __getattr__
+        globals().update(SpecOrchestrator=SpecOrchestrator, get_specs_dir=get_specs_dir)
+        return globals()[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
