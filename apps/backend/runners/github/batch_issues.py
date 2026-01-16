@@ -408,7 +408,8 @@ class IssueBatcher:
         api_key: str | None = None,
         # AI validation settings
         validate_batches: bool = True,
-        validation_model: str = "claude-sonnet-4-5-20250929",
+        # Note: validation_model uses shorthand which gets resolved via BatchValidator._resolve_model()
+        validation_model: str = "sonnet",
         validation_thinking_budget: int = 10000,  # Medium thinking
     ):
         self.github_dir = github_dir

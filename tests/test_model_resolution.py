@@ -1,0 +1,286 @@
+#!/usr/bin/env python3
+"""
+Tests for Model Resolution
+===========================
+
+Tests the model resolution functionality including:
+- resolve_model_id() function from phase_config
+- Environment variable overrides
+- Model shorthand to full ID mapping
+- Default model values in GitHub runner services
+
+This ensures custom model configurations (e.g., ANTHROPIC_DEFAULT_SONNET_MODEL)
+are properly respected instead of falling back to hardcoded values.
+"""
+
+import os
+import sys
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+# Add backend to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
+
+from phase_config import MODEL_ID_MAP, resolve_model_id
+
+
+class TestResolveModelId:
+    """Tests for resolve_model_id function."""
+
+    def test_resolves_sonnet_shorthand_to_full_id(self):
+        """Sonnet shorthand resolves to full model ID."""
+        # Clear any environment variables that might interfere
+        env_backup = {k: os.environ.pop(k, None) for k in [
+            "ANTHROPIC_DEFAULT_SONNET_MODEL",
+            "ANTHROPIC_DEFAULT_OPUS_MODEL",
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        ]}
+        try:
+            result = resolve_model_id("sonnet")
+            assert result == MODEL_ID_MAP["sonnet"]
+        finally:
+            # Restore environment variables
+            for k, v in env_backup.items():
+                if v is not None:
+                    os.environ[k] = v
+
+    def test_resolves_opus_shorthand_to_full_id(self):
+        """Opus shorthand resolves to full model ID."""
+        # Clear any environment variables that might interfere
+        env_backup = {k: os.environ.pop(k, None) for k in [
+            "ANTHROPIC_DEFAULT_SONNET_MODEL",
+            "ANTHROPIC_DEFAULT_OPUS_MODEL",
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        ]}
+        try:
+            result = resolve_model_id("opus")
+            assert result == MODEL_ID_MAP["opus"]
+        finally:
+            # Restore environment variables
+            for k, v in env_backup.items():
+                if v is not None:
+                    os.environ[k] = v
+
+    def test_resolves_haiku_shorthand_to_full_id(self):
+        """Haiku shorthand resolves to full model ID."""
+        # Clear any environment variables that might interfere
+        env_backup = {k: os.environ.pop(k, None) for k in [
+            "ANTHROPIC_DEFAULT_SONNET_MODEL",
+            "ANTHROPIC_DEFAULT_OPUS_MODEL",
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        ]}
+        try:
+            result = resolve_model_id("haiku")
+            assert result == MODEL_ID_MAP["haiku"]
+        finally:
+            # Restore environment variables
+            for k, v in env_backup.items():
+                if v is not None:
+                    os.environ[k] = v
+
+    def test_passes_through_full_model_id(self):
+        """Full model IDs are passed through unchanged."""
+        custom_model = "glm-4.7"
+        result = resolve_model_id(custom_model)
+        assert result == custom_model
+
+    def test_passes_through_unknown_shorthand(self):
+        """Unknown shorthands are passed through unchanged."""
+        unknown = "unknown-model"
+        result = resolve_model_id(unknown)
+        assert result == unknown
+
+    def test_environment_variable_override_sonnet(self):
+        """ANTHROPIC_DEFAULT_SONNET_MODEL overrides sonnet shorthand."""
+        custom_model = "glm-4.7"
+        with patch.dict(os.environ, {"ANTHROPIC_DEFAULT_SONNET_MODEL": custom_model}):
+            result = resolve_model_id("sonnet")
+            assert result == custom_model
+
+    def test_environment_variable_override_opus(self):
+        """ANTHROPIC_DEFAULT_OPUS_MODEL overrides opus shorthand."""
+        custom_model = "glm-4.7"
+        with patch.dict(os.environ, {"ANTHROPIC_DEFAULT_OPUS_MODEL": custom_model}):
+            result = resolve_model_id("opus")
+            assert result == custom_model
+
+    def test_environment_variable_override_haiku(self):
+        """ANTHROPIC_DEFAULT_HAIKU_MODEL overrides haiku shorthand."""
+        custom_model = "glm-4.7"
+        with patch.dict(os.environ, {"ANTHROPIC_DEFAULT_HAIKU_MODEL": custom_model}):
+            result = resolve_model_id("haiku")
+            assert result == custom_model
+
+    def test_environment_variable_takes_precedence_over_hardcoded_map(self):
+        """Environment variable overrides take precedence over MODEL_ID_MAP."""
+        custom_model = "custom-sonnet-model"
+        with patch.dict(os.environ, {"ANTHROPIC_DEFAULT_SONNET_MODEL": custom_model}):
+            result = resolve_model_id("sonnet")
+            assert result == custom_model
+            assert result != MODEL_ID_MAP["sonnet"]
+
+    def test_empty_environment_variable_is_ignored(self):
+        """Empty environment variable is ignored, falls back to MODEL_ID_MAP."""
+        with patch.dict(os.environ, {"ANTHROPIC_DEFAULT_SONNET_MODEL": ""}):
+            result = resolve_model_id("sonnet")
+            assert result == MODEL_ID_MAP["sonnet"]
+
+    def test_full_model_id_not_affected_by_environment_variable(self):
+        """Full model IDs are not affected by environment variables."""
+        custom_model = "my-custom-model-123"
+        with patch.dict(os.environ, {"ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7"}):
+            result = resolve_model_id(custom_model)
+            assert result == custom_model
+
+
+class TestGitHubRunnerConfigModelDefaults:
+    """Tests for GitHubRunnerConfig default model values."""
+
+    def test_default_model_is_shorthand(self):
+        """GitHubRunnerConfig default model uses shorthand 'sonnet'."""
+        # Verify the actual code in models.py uses shorthand
+        models_file = Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github" / "models.py"
+        content = models_file.read_text()
+        # Check that the default is "sonnet" (shorthand), not a full model ID
+        assert 'model: str = "sonnet"' in content
+
+    def test_load_settings_default_model_is_shorthand(self):
+        """GitHubRunnerConfig.load_settings() uses shorthand 'sonnet' as default."""
+        # Verify the actual code in models.py uses shorthand in load_settings
+        models_file = Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github" / "models.py"
+        content = models_file.read_text()
+        # Check that load_settings uses "sonnet" (shorthand) as fallback
+        assert 'model=settings.get("model", "sonnet")' in content
+
+
+class TestBatchValidatorModelResolution:
+    """Tests for BatchValidator model resolution."""
+
+    def test_default_model_is_shorthand(self):
+        """BatchValidator DEFAULT_MODEL uses shorthand 'sonnet'."""
+        # Verify the actual code in batch_validator.py uses shorthand
+        batch_validator_file = Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github" / "batch_validator.py"
+        content = batch_validator_file.read_text()
+        # Check that DEFAULT_MODEL is "sonnet" (shorthand), not a full model ID
+        assert 'DEFAULT_MODEL = "sonnet"' in content
+
+    def test_has_resolve_model_method(self):
+        """BatchValidator has _resolve_model method that uses phase_config.resolve_model_id."""
+        batch_validator_file = Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github" / "batch_validator.py"
+        content = batch_validator_file.read_text()
+        # Check that _resolve_model method exists and uses resolve_model_id
+        assert "def _resolve_model(self, model: str)" in content
+        assert "from phase_config import resolve_model_id" in content
+
+    def test_init_uses_resolve_model(self):
+        """BatchValidator.__init__ calls _resolve_model to resolve the model."""
+        batch_validator_file = Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github" / "batch_validator.py"
+        content = batch_validator_file.read_text()
+        # Check that __init__ resolves the model
+        assert "self.model = self._resolve_model(model)" in content
+
+
+class TestParallelOrchestratorReviewerModelResolution:
+    """Tests for ParallelOrchestratorReviewer model resolution."""
+
+    def test_model_resolution_with_none_config_model(self):
+        """When config.model is None, falls back to 'sonnet' shorthand and resolves."""
+        from phase_config import resolve_model_id
+
+        # Clear any environment variables that might interfere
+        env_backup = {k: os.environ.pop(k, None) for k in [
+            "ANTHROPIC_DEFAULT_SONNET_MODEL",
+            "ANTHROPIC_DEFAULT_OPUS_MODEL",
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        ]}
+        try:
+            # Simulate the pattern used in parallel_orchestrator_reviewer.py
+            config_model = None
+            model_shorthand = config_model or "sonnet"
+            model = resolve_model_id(model_shorthand)
+
+            # Should resolve to the full model ID from MODEL_ID_MAP
+            assert model == MODEL_ID_MAP["sonnet"]
+        finally:
+            # Restore environment variables
+            for k, v in env_backup.items():
+                if v is not None:
+                    os.environ[k] = v
+
+    def test_model_resolution_with_custom_environment_variable(self):
+        """Environment variable is respected when config.model is None."""
+        from phase_config import resolve_model_id
+
+        custom_model = "glm-4.7"
+        with patch.dict(os.environ, {"ANTHROPIC_DEFAULT_SONNET_MODEL": custom_model}):
+            config_model = None
+            model_shorthand = config_model or "sonnet"
+            model = resolve_model_id(model_shorthand)
+
+            assert model == custom_model
+
+
+class TestBatchIssuesModelResolution:
+    """Tests for batch_issues.py validation_model default."""
+
+    def test_validation_model_default_is_shorthand(self):
+        """IssueBatcher validation_model default uses shorthand 'sonnet'."""
+        # Verify the actual code in batch_issues.py uses shorthand
+        batch_issues_file = Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github" / "batch_issues.py"
+        content = batch_issues_file.read_text()
+        # Check that validation_model default is "sonnet" (shorthand), not a full model ID
+        assert 'validation_model: str = "sonnet"' in content
+
+
+class TestParallelReviewerImportResolution:
+    """Tests that parallel reviewers import and use resolve_model_id."""
+
+    def test_parallel_orchestrator_imports_resolve_model_id(self):
+        """ParallelOrchestratorReviewer imports resolve_model_id from phase_config."""
+        orchestrator_file = Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github" / "services" / "parallel_orchestrator_reviewer.py"
+        content = orchestrator_file.read_text()
+        # Check that resolve_model_id is imported
+        assert "from ...phase_config import" in content or "from phase_config import" in content
+        assert "resolve_model_id" in content
+
+    def test_parallel_orchestrator_uses_resolve_model_id(self):
+        """ParallelOrchestratorReviewer uses resolve_model_id to resolve model."""
+        orchestrator_file = Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github" / "services" / "parallel_orchestrator_reviewer.py"
+        content = orchestrator_file.read_text()
+        # Check that model is resolved via resolve_model_id
+        assert "model_shorthand" in content
+        assert "resolve_model_id(model_shorthand)" in content
+
+    def test_parallel_followup_imports_resolve_model_id(self):
+        """ParallelFollowupReviewer imports resolve_model_id from phase_config."""
+        followup_file = Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github" / "services" / "parallel_followup_reviewer.py"
+        content = followup_file.read_text()
+        # Check that resolve_model_id is imported
+        assert "from ...phase_config import" in content or "from phase_config import" in content
+        assert "resolve_model_id" in content
+
+    def test_parallel_followup_uses_resolve_model_id(self):
+        """ParallelFollowupReviewer uses resolve_model_id to resolve model."""
+        followup_file = Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github" / "services" / "parallel_followup_reviewer.py"
+        content = followup_file.read_text()
+        # Check that model is resolved via resolve_model_id
+        assert "model_shorthand" in content
+        assert "resolve_model_id(model_shorthand)" in content
+
+    def test_parallel_reviewers_use_sonnet_fallback(self):
+        """Parallel reviewers use 'sonnet' shorthand as fallback, not hardcoded model IDs."""
+        orchestrator_file = Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github" / "services" / "parallel_orchestrator_reviewer.py"
+        followup_file = Path(__file__).parent.parent / "apps" / "backend" / "runners" / "github" / "services" / "parallel_followup_reviewer.py"
+
+        orchestrator_content = orchestrator_file.read_text()
+        followup_content = followup_file.read_text()
+
+        # Check that fallback is "sonnet" (shorthand), not a hardcoded model ID
+        assert 'model_shorthand = self.config.model or "sonnet"' in orchestrator_content
+        assert 'model_shorthand = self.config.model or "sonnet"' in followup_content
+
+        # Verify the old hardcoded fallback is NOT present
+        assert 'or "claude-sonnet-4-5-20250929"' not in orchestrator_content
+        assert 'or "claude-sonnet-4-5-20250929"' not in followup_content

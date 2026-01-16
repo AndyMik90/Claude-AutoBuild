@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 CLAUDE_SDK_AVAILABLE = importlib.util.find_spec("claude_agent_sdk") is not None
 
 # Default model and thinking configuration
-DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+# Note: Default uses shorthand "sonnet" which gets resolved via resolve_model_id()
+# to respect environment variable overrides (e.g., ANTHROPIC_DEFAULT_SONNET_MODEL)
+DEFAULT_MODEL = "sonnet"
 DEFAULT_THINKING_BUDGET = 10000  # Medium thinking
 
 
@@ -112,7 +114,8 @@ class BatchValidator:
         model: str = DEFAULT_MODEL,
         thinking_budget: int = DEFAULT_THINKING_BUDGET,
     ):
-        self.model = model
+        # Resolve model shorthand via environment variable override if configured
+        self.model = self._resolve_model(model)
         self.thinking_budget = thinking_budget
         self.project_dir = project_dir or Path.cwd()
 
@@ -120,6 +123,16 @@ class BatchValidator:
             logger.warning(
                 "claude-agent-sdk not available. Batch validation will be skipped."
             )
+
+    def _resolve_model(self, model: str) -> str:
+        """Resolve model shorthand via phase_config.resolve_model_id()."""
+        try:
+            from phase_config import resolve_model_id
+
+            return resolve_model_id(model)
+        except ImportError:
+            # Fallback if phase_config is not available
+            return model
 
     def _format_issues(self, issues: list[dict[str, Any]]) -> str:
         """Format issues for the prompt."""
