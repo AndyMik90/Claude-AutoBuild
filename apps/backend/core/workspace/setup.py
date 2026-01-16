@@ -204,8 +204,21 @@ def symlink_node_modules_to_worktree(
     """
     symlinked = []
 
-    # Directories to symlink: (source_relative, target_relative)
-    # These are the standard locations for npm/yarn/pnpm workspaces
+    # Node modules locations to symlink for TypeScript and tooling support.
+    # These are the standard locations for this monorepo structure.
+    #
+    # Design rationale:
+    # - Hardcoded paths are intentional for simplicity and reliability
+    # - Dynamic discovery (reading workspaces from package.json) would add complexity
+    #   and potential failure points without significant benefit
+    # - This monorepo uses npm workspaces with hoisting, so dependencies are primarily
+    #   in root node_modules with workspace-specific deps in apps/frontend/node_modules
+    #
+    # To add new workspace locations:
+    # 1. Add (source_rel, target_rel) tuple below
+    # 2. Update the parallel TypeScript implementation in
+    #    apps/frontend/src/main/ipc-handlers/terminal/worktree-handlers.ts
+    # 3. Update the pre-commit hook check in .husky/pre-commit if needed
     node_modules_locations = [
         ("node_modules", "node_modules"),
         ("apps/frontend/node_modules", "apps/frontend/node_modules"),

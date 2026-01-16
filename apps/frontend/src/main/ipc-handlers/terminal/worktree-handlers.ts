@@ -204,7 +204,20 @@ function getDefaultBranch(projectPath: string): string {
 function symlinkNodeModulesToWorktree(projectPath: string, worktreePath: string): string[] {
   const symlinked: string[] = [];
 
-  // Standard locations for npm/yarn/pnpm workspaces
+  // Node modules locations to symlink for TypeScript and tooling support.
+  // These are the standard locations for this monorepo structure.
+  //
+  // Design rationale:
+  // - Hardcoded paths are intentional for simplicity and reliability
+  // - Dynamic discovery (reading workspaces from package.json) would add complexity
+  //   and potential failure points without significant benefit
+  // - This monorepo uses npm workspaces with hoisting, so dependencies are primarily
+  //   in root node_modules with workspace-specific deps in apps/frontend/node_modules
+  //
+  // To add new workspace locations:
+  // 1. Add [sourceRelPath, targetRelPath] tuple below
+  // 2. Update the parallel Python implementation in apps/backend/core/workspace/setup.py
+  // 3. Update the pre-commit hook check in .husky/pre-commit if needed
   const nodeModulesLocations = [
     ['node_modules', 'node_modules'],
     ['apps/frontend/node_modules', 'apps/frontend/node_modules'],

@@ -185,7 +185,9 @@ if git diff --cached --name-only | grep -q "^apps/frontend/"; then
   # @lydell/node-pty is required for terminal code and is a common source of TypeScript errors
   # It may be in root node_modules (hoisted) or apps/frontend/node_modules
   # Note: -d follows symlinks automatically, so this works for both real dirs and symlinks
-  if [ ! -d "node_modules/@lydell" ] && [ ! -d "apps/frontend/node_modules/@lydell" ]; then
+  # We check for the full package path (@lydell/node-pty) rather than just the namespace
+  # for precise detection - ensures the actual dependency is installed, not just any @lydell package
+  if [ ! -d "node_modules/@lydell/node-pty" ] && [ ! -d "apps/frontend/node_modules/@lydell/node-pty" ]; then
     DEPS_AVAILABLE=false
   fi
 
