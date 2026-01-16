@@ -89,6 +89,25 @@ export function escapeShellArgWindows(arg: string): string {
 }
 
 /**
+ * Escape a value for use inside Windows `set "VAR=VALUE"` command.
+ *
+ * IMPORTANT: This is different from escapeShellArgWindows!
+ * Inside `set "VAR=VALUE"`, the double quotes already protect special characters
+ * like &, |, <, >, so we DON'T add caret escapes (they would become literal).
+ *
+ * Only % needs escaping (as %%) because variable expansion still occurs inside quotes.
+ * Double quotes cannot appear in the value (would break the set syntax).
+ *
+ * @param value - The value to escape
+ * @returns The escaped value safe for use in set "VAR=VALUE"
+ */
+export function escapeForWindowsSet(value: string): string {
+  return value
+    .replace(/%/g, '%%')      // Escape percent (variable expansion still works in quotes)
+    .replace(/"/g, '');       // Remove double quotes (would break set "..." syntax)
+}
+
+/**
  * Validate that a path doesn't contain obviously malicious patterns.
  * This is a defense-in-depth measure - escaping should handle all cases,
  * but this can catch obvious attack attempts early.
