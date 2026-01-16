@@ -118,6 +118,10 @@ export function registerEnvHandlers(
     if (config.githubAutoSync !== undefined) {
       existingVars['GITHUB_AUTO_SYNC'] = config.githubAutoSync ? 'true' : 'false';
     }
+    // Store githubEnabled explicitly so it persists independently of GITHUB_TOKEN
+    if (config.githubEnabled !== undefined) {
+      existingVars['GITHUB_ENABLED'] = config.githubEnabled ? 'true' : 'false';
+    }
     // GitLab Integration
     if (config.gitlabEnabled !== undefined) {
       existingVars[GITLAB_ENV_KEYS.ENABLED] = config.gitlabEnabled ? 'true' : 'false';
@@ -248,6 +252,8 @@ ${existingVars['LINEAR_REALTIME_SYNC'] !== undefined ? `LINEAR_REALTIME_SYNC=${e
 # =============================================================================
 # GITHUB INTEGRATION (OPTIONAL)
 # =============================================================================
+# Enable GitHub integration (default: true if GITHUB_TOKEN is set)
+${existingVars['GITHUB_ENABLED'] !== undefined ? `GITHUB_ENABLED=${existingVars['GITHUB_ENABLED']}` : '# GITHUB_ENABLED=true'}
 ${existingVars['GITHUB_TOKEN'] ? `GITHUB_TOKEN=${existingVars['GITHUB_TOKEN']}` : '# GITHUB_TOKEN='}
 ${existingVars['GITHUB_REPO'] ? `GITHUB_REPO=${existingVars['GITHUB_REPO']}` : '# GITHUB_REPO=owner/repo'}
 ${existingVars['GITHUB_AUTO_SYNC'] !== undefined ? `GITHUB_AUTO_SYNC=${existingVars['GITHUB_AUTO_SYNC']}` : '# GITHUB_AUTO_SYNC=false'}
@@ -419,9 +425,14 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         config.linearRealtimeSync = true;
       }
 
-      // GitHub config
-      if (vars['GITHUB_TOKEN']) {
+      // GitHub config - check GITHUB_ENABLED explicitly, fallback to GITHUB_TOKEN presence
+      const githubEnabledValue = vars['GITHUB_ENABLED']?.toLowerCase();
+      if (githubEnabledValue === 'true' || githubEnabledValue === 'false') {
+        config.githubEnabled = githubEnabledValue === 'true';
+      } else if (vars['GITHUB_TOKEN']) {
         config.githubEnabled = true;
+      }
+      if (vars['GITHUB_TOKEN']) {
         config.githubToken = vars['GITHUB_TOKEN'];
       }
       if (vars['GITHUB_REPO']) {
