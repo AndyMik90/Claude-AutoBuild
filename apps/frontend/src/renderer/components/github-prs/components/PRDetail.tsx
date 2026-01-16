@@ -165,30 +165,40 @@ export function PRDetail({
       return;
     }
 
+    // Check for new commits if we have ANY successful review with a commit SHA
+    // This includes follow-up reviews that resolved all issues (no new findings)
+    // New commits = new code that needs to be reviewed, regardless of posting status
+    if (!reviewResult?.success || !reviewResult.reviewedCommitSha) {
+      return;
+    }
+
+    // Skip if we already have a fresh newCommitsCheck from initialNewCommitsCheck (store)
+    // that matches the current review's commit SHA. This prevents redundant API calls
+    // when the useGitHubPRs hook has already checked for new commits on PR selection.
+    // The `lastReviewedCommit` field indicates which commit SHA the check was performed against.
+    if (newCommitsCheck?.lastReviewedCommit === reviewResult.reviewedCommitSha) {
+      return;
+    }
+
     // Cancel any pending check
     if (checkNewCommitsAbortRef.current) {
       checkNewCommitsAbortRef.current.abort();
     }
     checkNewCommitsAbortRef.current = new AbortController();
 
-    // Check for new commits if we have ANY successful review with a commit SHA
-    // This includes follow-up reviews that resolved all issues (no new findings)
-    // New commits = new code that needs to be reviewed, regardless of posting status
-    if (reviewResult?.success && reviewResult.reviewedCommitSha) {
-      isCheckingNewCommitsRef.current = true;
-      try {
-        const result = await onCheckNewCommits();
-        // Only update state if not aborted
-        if (!checkNewCommitsAbortRef.current?.signal.aborted) {
-          setNewCommitsCheck(result);
-        }
-      } finally {
-        if (!checkNewCommitsAbortRef.current?.signal.aborted) {
-          isCheckingNewCommitsRef.current = false;
-        }
+    isCheckingNewCommitsRef.current = true;
+    try {
+      const result = await onCheckNewCommits();
+      // Only update state if not aborted
+      if (!checkNewCommitsAbortRef.current?.signal.aborted) {
+        setNewCommitsCheck(result);
+      }
+    } finally {
+      if (!checkNewCommitsAbortRef.current?.signal.aborted) {
+        isCheckingNewCommitsRef.current = false;
       }
     }
-  }, [reviewResult, onCheckNewCommits]);
+  }, [reviewResult, onCheckNewCommits, newCommitsCheck]);
 
   useEffect(() => {
     checkForNewCommits();
