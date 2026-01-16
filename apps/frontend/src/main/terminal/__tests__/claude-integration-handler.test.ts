@@ -223,7 +223,7 @@ describe('claude-integration-handler', () => {
       const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
       expect(written).toContain(buildCdCommand('/tmp/project'));
       expect(written).toContain(getPathPrefixExpectation(platform, '/opt/claude/bin:/usr/bin'));
-      expect(written).toContain("'/opt/claude bin/claude'\\''s'");
+      expect(written).toContain(getQuotedCommand(platform, "/opt/claude bin/claude's"));
       expect(mockReleaseSessionId).toHaveBeenCalledWith('term-1');
       expect(mockPersistSession).toHaveBeenCalledWith(terminal);
       expect(profileManager.getActiveProfile).toHaveBeenCalled();
