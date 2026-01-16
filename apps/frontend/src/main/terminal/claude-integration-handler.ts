@@ -15,7 +15,7 @@ import * as SessionHandler from './session-handler';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { escapeShellArg, escapeForWindowsDoubleQuote, buildCdCommand } from '../../shared/utils/shell-escape';
 import { getClaudeCliInvocation, getClaudeCliInvocationAsync } from '../claude-cli-utils';
-import { isWindows } from './platform';
+import { isWindows } from '../platform';
 import type {
   TerminalProcess,
   WindowGetter,
@@ -670,43 +670,55 @@ export function resumeClaude(
   _sessionId: string | undefined,
   getWindow: WindowGetter
 ): void {
-  terminal.isClaudeMode = true;
-  SessionHandler.releaseSessionId(terminal.id);
+  // Track terminal state for cleanup on error
+  const wasClaudeMode = terminal.isClaudeMode;
+  const prevClaudeSessionId = terminal.claudeSessionId;
 
-  const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
-  const escapedClaudeCmd = escapeShellCommand(claudeCmd);
-  const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
+  try {
+    terminal.isClaudeMode = true;
+    SessionHandler.releaseSessionId(terminal.id);
 
-  // Always use --continue which resumes the most recent session in the current directory.
-  // This is more reliable than --resume with session IDs since Auto Claude already restores
-  // terminals to their correct cwd/projectPath.
-  //
-  // Note: We clear claudeSessionId because --continue doesn't track specific sessions,
-  // and we don't want stale IDs persisting through SessionHandler.persistSession().
-  terminal.claudeSessionId = undefined;
+    const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
+    const escapedClaudeCmd = escapeShellCommand(claudeCmd);
+    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
 
-  // Deprecation warning for callers still passing sessionId
-  if (_sessionId) {
-    console.warn('[ClaudeIntegration:resumeClaude] sessionId parameter is deprecated and ignored; using claude --continue instead');
-  }
+    // Always use --continue which resumes the most recent session in the current directory.
+    // This is more reliable than --resume with session IDs since Auto Claude already restores
+    // terminals to their correct cwd/projectPath.
+    //
+    // Note: We clear claudeSessionId because --continue doesn't track specific sessions,
+    // and we don't want stale IDs persisting through SessionHandler.persistSession().
+    terminal.claudeSessionId = undefined;
 
-  const command = `${pathPrefix}${escapedClaudeCmd} --continue`;
-
-  terminal.pty.write(`${command}\r`);
-
-  // Only auto-rename if terminal has default name
-  // This preserves user-customized names and prevents renaming on every resume
-  if (shouldAutoRenameTerminal(terminal.title)) {
-    terminal.title = 'Claude';
-    const win = getWindow();
-    if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
+    // Deprecation warning for callers still passing sessionId
+    if (_sessionId) {
+      console.warn('[ClaudeIntegration:resumeClaude] sessionId parameter is deprecated and ignored; using claude --continue instead');
     }
-  }
 
-  // Persist session
-  if (terminal.projectPath) {
-    SessionHandler.persistSession(terminal);
+    const command = `${pathPrefix}${escapedClaudeCmd} --continue`;
+
+    terminal.pty.write(`${command}\r`);
+
+    // Only auto-rename if terminal has default name
+    // This preserves user-customized names and prevents renaming on every resume
+    if (shouldAutoRenameTerminal(terminal.title)) {
+      terminal.title = 'Claude';
+      const win = getWindow();
+      if (win) {
+        win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
+      }
+    }
+
+    // Persist session
+    if (terminal.projectPath) {
+      SessionHandler.persistSession(terminal);
+    }
+  } catch (error) {
+    // Reset terminal state on error to prevent inconsistent state
+    terminal.isClaudeMode = wasClaudeMode;
+    terminal.claudeSessionId = prevClaudeSessionId;
+    debugError('[ClaudeIntegration:resumeClaude] Resume failed:', error);
+    throw error; // Re-throw to allow caller to handle
   }
 }
 

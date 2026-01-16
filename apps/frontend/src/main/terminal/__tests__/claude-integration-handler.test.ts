@@ -6,13 +6,13 @@ import type * as pty from '@lydell/node-pty';
 import type { TerminalProcess } from '../types';
 import { buildCdCommand, escapeShellArg } from '../../../shared/utils/shell-escape';
 
-// Mock the platform module (terminal/platform.ts re-exports from shared/platform)
+// Mock the platform module (main/platform/index.ts)
 vi.mock('../platform', () => ({
   isWindows: vi.fn(() => false),
-  isMac: vi.fn(() => false),
+  isMacOS: vi.fn(() => false),
   isLinux: vi.fn(() => false),
   isUnix: vi.fn(() => false),
-  getCurrentPlatform: vi.fn(() => 'linux'),
+  getCurrentOS: vi.fn(() => 'linux'),
 }));
 
 import { isWindows } from '../platform';

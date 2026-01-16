@@ -42,7 +42,7 @@ export function isWindows(): boolean {
  *
  * @returns true if running on macOS
  */
-export function isMac(): boolean {
+export function isMacOS(): boolean {
   return getCurrentPlatform() === 'darwin';
 }
 
@@ -61,5 +61,5 @@ export function isLinux(): boolean {
  * @returns true if running on a Unix-like platform
  */
 export function isUnix(): boolean {
-  return isMac() || isLinux();
+  return isMacOS() || isLinux();
 }
