@@ -9,6 +9,8 @@ import os
 import subprocess
 from pathlib import Path
 
+from core.git_executable import get_git_executable
+
 logger = logging.getLogger(__name__)
 
 # All entries that should be added to .gitignore for auto-claude projects
@@ -85,7 +87,7 @@ def _is_git_repo(project_dir: Path) -> bool:
     """Check if the directory is a git repository."""
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
+            [get_git_executable(), "rev-parse", "--is-inside-work-tree"],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -118,7 +120,7 @@ def _commit_gitignore(project_dir: Path) -> bool:
 
         # Stage .gitignore
         result = subprocess.run(
-            ["git", "add", ".gitignore"],
+            [get_git_executable(), "add", ".gitignore"],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -132,7 +134,7 @@ def _commit_gitignore(project_dir: Path) -> bool:
         # committing other staged files the user may have
         result = subprocess.run(
             [
-                "git",
+                get_git_executable(),
                 "commit",
                 ".gitignore",
                 "-m",
