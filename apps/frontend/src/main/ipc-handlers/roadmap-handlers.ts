@@ -30,7 +30,7 @@ import { safeSendToRenderer } from "./utils";
 /**
  * Read feature settings from the settings file
  */
-function getFeatureSettings(): { model?: string; thinkingLevel?: string } {
+function getFeatureSettings(): { model?: string; thinkingLevel?: string; language?: string } {
   const settingsPath = path.join(app.getPath("userData"), "settings.json");
 
   try {
@@ -45,6 +45,7 @@ function getFeatureSettings(): { model?: string; thinkingLevel?: string } {
       return {
         model: featureModels.roadmap,
         thinkingLevel: featureThinking.roadmap,
+        language: settings.language || "en",
       };
     }
   } catch (error) {
@@ -55,6 +56,7 @@ function getFeatureSettings(): { model?: string; thinkingLevel?: string } {
   return {
     model: DEFAULT_FEATURE_MODELS.roadmap,
     thinkingLevel: DEFAULT_FEATURE_THINKING.roadmap,
+    language: "en",
   };
 }
 
@@ -239,6 +241,7 @@ export function registerRoadmapHandlers(
       const config: RoadmapConfig = {
         model: featureSettings.model,
         thinkingLevel: featureSettings.thinkingLevel,
+        language: featureSettings.language,
       };
 
       debugLog("[Roadmap Handler] Generate request:", {
@@ -301,6 +304,7 @@ export function registerRoadmapHandlers(
       const config: RoadmapConfig = {
         model: featureSettings.model,
         thinkingLevel: featureSettings.thinkingLevel,
+        language: featureSettings.language,
       };
 
       debugLog("[Roadmap Handler] Refresh request:", {
