@@ -61,6 +61,7 @@ export function SortableTerminalWrapper({
         'h-full',
         isDragging && 'opacity-50'
       )}
+      data-dnd-kit-draggable="true"
       {...attributes}
     >
       <Terminal

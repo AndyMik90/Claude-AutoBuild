@@ -61,6 +61,7 @@
     "pr_created": "PR créée"
   },
   "kanban": {
+    "boardRegion": "Tableau de tâches avec colonnes déplaçables",
     "emptyBacklog": "Aucune tâche planifiée",
     "emptyBacklogHint": "Ajoutez une tâche pour commencer",
     "emptyInProgress": "Rien en cours",

@@ -57,6 +57,7 @@ export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, 
         isDragging && 'dragging-placeholder opacity-40 scale-[0.98]',
         isOver && !isDragging && 'ring-2 ring-primary/30 ring-offset-2 ring-offset-background rounded-xl'
       )}
+      data-dnd-kit-draggable="true"
       {...attributes}
       {...listeners}
     >

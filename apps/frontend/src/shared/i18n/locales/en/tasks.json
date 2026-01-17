@@ -61,6 +61,7 @@
     "pr_created": "PR Created"
   },
   "kanban": {
+    "boardRegion": "Task board with draggable columns",
     "emptyBacklog": "No tasks planned",
     "emptyBacklogHint": "Add a task to get started",
     "emptyInProgress": "Nothing running",

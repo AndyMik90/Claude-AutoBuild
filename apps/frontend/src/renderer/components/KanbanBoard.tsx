@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from 'react';
+import { useState, useMemo, useRef, memo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
@@ -339,6 +339,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const { showArchived, toggleShowArchived } = useViewState();
 
+  // Click-and-drag horizontal scrolling state
+  const [isScrollDragging, setIsScrollDragging] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const dragStartX = useRef(0);
+  const dragStartScrollLeft = useRef(0);
+
   // Worktree cleanup dialog state
   const [worktreeCleanupDialog, setWorktreeCleanupDialog] = useState<{
     open: boolean;
@@ -555,6 +561,65 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   };
 
+  /**
+   * Handle mouse move for click-and-drag horizontal scrolling
+   * Calculates drag distance and scrolls the container horizontally
+   * Wrapped in useCallback for stable reference in window event listeners
+   */
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isScrollDragging || !scrollContainerRef.current) return;
+
+    e.preventDefault();
+    const x = e.clientX - dragStartX.current;
+    const scrollLeft = dragStartScrollLeft.current - x;
+    scrollContainerRef.current.scrollLeft = scrollLeft;
+  }, [isScrollDragging]);
+
+  /**
+   * Handle mouse up for click-and-drag horizontal scrolling
+   * Resets the dragging state
+   * Wrapped in useCallback for stable reference in window event listeners
+   */
+  const handleMouseUp = useCallback(() => {
+    setIsScrollDragging(false);
+  }, []);
+
+  /**
+   * Handle mouse down for click-and-drag horizontal scrolling
+   * Only activates if not clicking on a button or draggable task card
+   */
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Only activate if not clicking on a button or task card
+    if (e.target instanceof HTMLElement && (
+      e.target.closest('button') ||
+      e.target.closest('[data-dnd-kit-draggable]')
+    )) {
+      return;
+    }
+
+    setIsScrollDragging(true);
+    dragStartX.current = e.clientX;
+    dragStartScrollLeft.current = scrollContainerRef.current?.scrollLeft || 0;
+  };
+
+  /**
+   * Setup window event listeners for drag operations
+   * Ensures drag continues even when mouse leaves the container
+   */
+  useEffect(() => {
+    if (isScrollDragging) {
+      // Add window-level listeners when drag starts
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+
+      // Cleanup: remove listeners when drag ends or component unmounts
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isScrollDragging, handleMouseMove, handleMouseUp]);
+
   return (
     <div className="flex h-full flex-col">
       {/* Kanban header with refresh button */}
@@ -580,7 +645,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+        <section
+          ref={scrollContainerRef}
+          onMouseDown={handleMouseDown}
+          aria-label={t('tasks:kanban.boardRegion')}
+          className={cn(
+            "flex flex-1 gap-4 overflow-x-auto p-6 cursor-grab select-none",
+            isScrollDragging && "cursor-grabbing active:cursor-grabbing"
+          )}
+        >
           {TASK_STATUS_COLUMNS.map((status) => (
             <DroppableColumn
               key={status}
@@ -596,7 +669,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
             />
           ))}
-        </div>
+        </section>
 
         {/* Drag overlay - enhanced visual feedback */}
         <DragOverlay>

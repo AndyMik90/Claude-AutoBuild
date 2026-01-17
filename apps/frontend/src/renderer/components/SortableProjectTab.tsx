@@ -64,6 +64,7 @@ export function SortableProjectTab({
         'touch-none transition-all duration-200',
         isDragging && 'opacity-60 scale-[0.98] shadow-lg'
       )}
+      data-dnd-kit-draggable="true"
       {...attributes}
     >
       <Tooltip delayDuration={200}>
