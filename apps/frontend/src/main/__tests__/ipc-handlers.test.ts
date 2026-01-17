@@ -662,7 +662,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
       );
     });
 
-    it("should forward exit events with status change on failure", async () => {
+    it("should forward exit events with status change on failure (no subtasks -> backlog)", async () => {
       const { setupIpcHandlers } = await import("../ipc-handlers");
       setupIpcHandlers(
         mockAgentManager as never,
@@ -674,7 +674,9 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
       // Add project first
       await ipcMain.invokeHandler("project:add", {}, TEST_PROJECT_PATH);
 
-      // Create a spec/task directory with implementation_plan.json
+      // Create a spec/task directory with implementation_plan.json but NO subtasks
+      // FIX (#1102): Tasks without subtasks go to backlog on failure (not human_review)
+      // This allows users to retry tasks that failed during planning
       const specDir = path.join(TEST_PROJECT_PATH, ".auto-claude", "specs", "task-1");
       mkdirSync(specDir, { recursive: true });
       writeFileSync(
@@ -687,7 +689,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
         "task:statusChange",
         "task-1",
-        "human_review",
+        "backlog",
         expect.any(String) // projectId for multi-project filtering
       );
     });

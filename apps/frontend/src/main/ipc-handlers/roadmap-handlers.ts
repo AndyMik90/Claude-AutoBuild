@@ -565,6 +565,11 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         );
 
         // Create requirements.json
+        // NOTE: We do NOT create spec.md here - let spec_runner.py create it properly
+        // This ensures the task goes through the full planning flow:
+        // 1. User starts task -> spec_runner.py reads requirements.json
+        // 2. spec_runner.py creates AI-generated spec.md with proper structure
+        // 3. spec_runner.py chains to run.py for implementation planning
         const requirements = {
           task_description: taskDescription,
           workflow_type: "feature",
@@ -573,9 +578,6 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
           JSON.stringify(requirements, null, 2)
         );
-
-        // Create spec.md (required by backend spec creation process)
-        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), taskDescription);
 
         // Build metadata
         const metadata: TaskMetadata = {

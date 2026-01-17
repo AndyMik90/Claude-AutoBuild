@@ -251,16 +251,38 @@ export function registerAgenteventsHandlers(
             );
           }
         } else {
+          // Process exited with error
+          // FIX (#1102): Only move to human_review if subtasks exist (planning was at least partially complete)
+          // If no subtasks exist, the planning phase failed before creating any work - set to backlog for retry
+          // This prevents roadmap/ideation tasks from jumping to human_review with empty phases
+          const hasSubtasksOnError = task.subtasks && task.subtasks.length > 0;
+
           notificationService.notifyTaskFailed(taskTitle, project.id, taskId);
-          persistStatus("human_review");
-          // Include projectId for multi-project filtering (issue #723)
-          safeSendToRenderer(
-            getMainWindow,
-            IPC_CHANNELS.TASK_STATUS_CHANGE,
-            taskId,
-            "human_review" as TaskStatus,
-            projectId
-          );
+
+          if (hasSubtasksOnError) {
+            // Some work was done - move to human_review for manual intervention
+            persistStatus("human_review");
+            safeSendToRenderer(
+              getMainWindow,
+              IPC_CHANNELS.TASK_STATUS_CHANGE,
+              taskId,
+              "human_review" as TaskStatus,
+              projectId
+            );
+          } else {
+            // No subtasks created - planning failed, set to backlog so user can retry
+            console.warn(
+              `[Task ${taskId}] Process failed but no subtasks created yet - setting to backlog for retry`
+            );
+            persistStatus("backlog");
+            safeSendToRenderer(
+              getMainWindow,
+              IPC_CHANNELS.TASK_STATUS_CHANGE,
+              taskId,
+              "backlog" as TaskStatus,
+              projectId
+            );
+          }
         }
       }
     } catch (error) {
