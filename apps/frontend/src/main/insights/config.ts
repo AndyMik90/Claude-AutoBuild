@@ -5,8 +5,9 @@ import { getAPIProfileEnv } from '../services/profile';
 import { getOAuthModeClearVars } from '../agent/env-utils';
 import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
 import { getValidatedPythonPath } from '../python-detector';
-import { getAugmentedEnv, deriveGitBashPath } from '../env-utils';
-import { getToolInfo } from '../cli-tool-manager';
+import { getAugmentedEnv, getGitBashEnv } from '../env-utils';
+import { getToolInfo, type CLITool } from '../cli-tool-manager';
+import { isWindows } from '../platform';
 import { getEffectiveSourcePath } from '../updater/path-resolver';
 
 /**
@@ -122,11 +123,11 @@ export class InsightsConfig {
 
     if (autoBuildSource) {
       const normalizedAutoBuildSource = path.resolve(autoBuildSource);
-      const autoBuildComparator = process.platform === 'win32'
+      const autoBuildComparator = isWindows()
         ? normalizedAutoBuildSource.toLowerCase()
         : normalizedAutoBuildSource;
       const hasAutoBuildSource = pythonPathParts.some((entry) => {
-        const candidate = process.platform === 'win32' ? entry.toLowerCase() : entry;
+        const candidate = isWindows() ? entry.toLowerCase() : entry;
         return candidate === autoBuildComparator;
       });
 
@@ -142,22 +143,12 @@ export class InsightsConfig {
     const augmentedEnv = getAugmentedEnv();
 
     // On Windows, detect and pass git-bash path for Claude Code CLI
-    // Use direct import + process.platform check to avoid lazy-loading issues with bundlers
-    const gitBashEnv: Record<string, string> = {};
-    if (process.platform === 'win32' && !process.env.CLAUDE_CODE_GIT_BASH_PATH) {
-      try {
-        const gitInfo = getToolInfo('git');
-        if (gitInfo.found && gitInfo.path) {
-          const bashPath = deriveGitBashPath(gitInfo.path);
-          if (bashPath) {
-            gitBashEnv['CLAUDE_CODE_GIT_BASH_PATH'] = bashPath;
-            console.log('[InsightsConfig] Setting CLAUDE_CODE_GIT_BASH_PATH:', bashPath);
-          }
-        }
-      } catch (error) {
-        console.warn('[InsightsConfig] Failed to detect git-bash path:', error);
-      }
-    }
+    // Use dependency injection to avoid lazy-loading issues with bundlers
+    // Adapter converts path?: string to path: string | null for type compatibility
+    const gitBashEnv = getGitBashEnv((tool) => {
+      const result = getToolInfo(tool as CLITool);
+      return { ...result, path: result.path ?? null };
+    });
 
     return {
       ...augmentedEnv,
