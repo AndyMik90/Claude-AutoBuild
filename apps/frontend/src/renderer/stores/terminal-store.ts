@@ -93,6 +93,7 @@ export interface Terminal {
   worktreeConfig?: TerminalWorktreeConfig;  // Associated worktree for isolated development
   isClaudeBusy?: boolean;  // Whether Claude Code is actively processing (for visual indicator)
   pendingClaudeResume?: boolean;  // Whether this terminal has a pending Claude resume (deferred until tab activated)
+  displayOrder?: number;  // Display order for tab persistence (lower = further left)
 }
 
 interface TerminalLayout {
@@ -159,6 +160,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       isClaudeMode: false,
       // outputBuffer removed - managed by terminalBufferManager
       projectPath,
+      displayOrder: state.terminals.length,  // New terminals appear at the end
     };
 
     set((state) => ({
@@ -193,6 +195,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       projectPath: session.projectPath,
       // Worktree config is validated in main process before restore
       worktreeConfig: session.worktreeConfig,
+      // Restore displayOrder for tab position persistence (falls back to end if not set)
+      displayOrder: session.displayOrder ?? state.terminals.length,
     };
 
     // Restore buffer to buffer manager
@@ -234,6 +238,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       createdAt: new Date(),
       isClaudeMode: false,
       projectPath,
+      displayOrder: state.terminals.length,  // New terminals appear at the end
     };
 
     set((state) => ({
@@ -355,8 +360,15 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         return state;
       }
 
+      // Reorder terminals and update displayOrder values based on new positions
+      const reorderedTerminals = arrayMove(state.terminals, oldIndex, newIndex);
+      const terminalsWithOrder = reorderedTerminals.map((terminal, index) => ({
+        ...terminal,
+        displayOrder: index,
+      }));
+
       return {
-        terminals: arrayMove(state.terminals, oldIndex, newIndex),
+        terminals: terminalsWithOrder,
       };
     });
   },
@@ -460,8 +472,16 @@ export async function restoreTerminalSessions(projectPath: string): Promise<void
       return;
     }
 
-    // Add terminals to the store (they'll be created in the TerminalGrid component)
-    for (const session of result.data) {
+    // Sort sessions by displayOrder before restoring (lower = further left)
+    // Sessions without displayOrder are placed at the end
+    const sortedSessions = [...result.data].sort((a, b) => {
+      const orderA = a.displayOrder ?? Number.MAX_SAFE_INTEGER;
+      const orderB = b.displayOrder ?? Number.MAX_SAFE_INTEGER;
+      return orderA - orderB;
+    });
+
+    // Add terminals to the store in correct order (they'll be created in the TerminalGrid component)
+    for (const session of sortedSessions) {
       store.addRestoredTerminal(session);
     }
 

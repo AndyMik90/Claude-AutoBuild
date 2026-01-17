@@ -36,6 +36,9 @@ const mockProcess = Object.assign(new EventEmitter(), {
   killed: false,
   kill: vi.fn(() => {
     mockProcess.killed = true;
+    // Emit exit event synchronously to simulate process termination
+    // (needed for killAllProcesses wait - using nextTick for more predictable timing)
+    process.nextTick(() => mockProcess.emit('exit', 0, null));
     return true;
   })
 });
@@ -329,7 +332,12 @@ describe('Subprocess Spawn Integration', () => {
       const result = manager.killTask('task-1');
 
       expect(result).toBe(true);
-      expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM');
+      // On Windows, kill() is called without arguments; on Unix, kill('SIGTERM') is used
+      if (process.platform === 'win32') {
+        expect(mockProcess.kill).toHaveBeenCalled();
+      } else {
+        expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM');
+      }
       expect(manager.isRunning('task-1')).toBe(false);
     });
 

@@ -283,6 +283,17 @@ export function getSessionsForDate(date: string, projectPath: string): TerminalS
 }
 
 /**
+ * Update display orders for terminals after drag-drop reorder
+ */
+export function updateDisplayOrders(
+  projectPath: string,
+  orders: Array<{ terminalId: string; displayOrder: number }>
+): void {
+  const store = getTerminalSessionStore();
+  store.updateDisplayOrders(projectPath, orders);
+}
+
+/**
  * Attempt to capture Claude session ID by polling the session directory.
  * Uses the claim mechanism to prevent race conditions when multiple terminals
  * invoke Claude simultaneously - each terminal will get a unique session ID.

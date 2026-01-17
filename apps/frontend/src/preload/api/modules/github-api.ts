@@ -272,6 +272,7 @@ export interface GitHubAPI {
   postPRComment: (projectId: string, prNumber: number, body: string) => Promise<boolean>;
   mergePR: (projectId: string, prNumber: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
   assignPR: (projectId: string, prNumber: number, username: string) => Promise<boolean>;
+  markReviewPosted: (projectId: string, prNumber: number) => Promise<boolean>;
   getPRReview: (projectId: string, prNumber: number) => Promise<PRReviewResult | null>;
   getPRReviewsBatch: (projectId: string, prNumbers: number[]) => Promise<Record<number, PRReviewResult | null>>;
 
@@ -677,6 +678,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   assignPR: (projectId: string, prNumber: number, username: string): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_ASSIGN, projectId, prNumber, username),
+
+  markReviewPosted: (projectId: string, prNumber: number): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_MARK_REVIEW_POSTED, projectId, prNumber),
 
   getPRReview: (projectId: string, prNumber: number): Promise<PRReviewResult | null> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_GET_REVIEW, projectId, prNumber),

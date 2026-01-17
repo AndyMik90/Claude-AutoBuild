@@ -211,6 +211,10 @@ export interface ElectronAPI {
   restoreTerminalSessionsFromDate: (date: string, projectPath: string, cols?: number, rows?: number) => Promise<IPCResult<SessionDateRestoreResult>>;
   saveTerminalBuffer: (terminalId: string, serialized: string) => Promise<void>;
   checkTerminalPtyAlive: (terminalId: string) => Promise<IPCResult<{ alive: boolean }>>;
+  updateTerminalDisplayOrders: (
+    projectPath: string,
+    orders: Array<{ terminalId: string; displayOrder: number }>
+  ) => Promise<IPCResult>;
 
   // Terminal worktree operations (isolated development)
   createTerminalWorktree: (request: CreateTerminalWorktreeRequest) => Promise<TerminalWorktreeResult>;

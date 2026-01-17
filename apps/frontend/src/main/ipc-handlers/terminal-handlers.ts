@@ -661,6 +661,26 @@ export function registerTerminalHandlers(
       }
     }
   );
+
+  // Update terminal display orders after drag-drop reorder
+  ipcMain.handle(
+    IPC_CHANNELS.TERMINAL_UPDATE_DISPLAY_ORDERS,
+    async (
+      _,
+      projectPath: string,
+      orders: Array<{ terminalId: string; displayOrder: number }>
+    ): Promise<IPCResult> => {
+      try {
+        terminalManager.updateDisplayOrders(projectPath, orders);
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to update display orders'
+        };
+      }
+    }
+  );
 }
 
 /**

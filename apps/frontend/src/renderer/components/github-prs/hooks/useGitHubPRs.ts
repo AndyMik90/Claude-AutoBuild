@@ -52,6 +52,7 @@ interface UseGitHubPRsResult {
   postComment: (prNumber: number, body: string) => Promise<boolean>;
   mergePR: (prNumber: number, mergeMethod?: "merge" | "squash" | "rebase") => Promise<boolean>;
   assignPR: (prNumber: number, username: string) => Promise<boolean>;
+  markReviewPosted: (prNumber: number) => Promise<void>;
   getReviewStateForPR: (prNumber: number) => {
     isReviewing: boolean;
     startedAt: string | null;
@@ -557,6 +558,41 @@ export function useGitHubPRs(
     [projectId, fetchPRs]
   );
 
+  const markReviewPosted = useCallback(
+    async (prNumber: number): Promise<void> => {
+      if (!projectId) return;
+
+      // Persist to disk first
+      const success = await window.electronAPI.github.markReviewPosted(projectId, prNumber);
+      if (!success) return;
+
+      // Get the current timestamp for consistent update
+      const postedAt = new Date().toISOString();
+
+      // Update the in-memory store
+      const existingState = getPRReviewState(projectId, prNumber);
+      if (existingState?.result) {
+        // If we have the result loaded, update it with hasPostedFindings and postedAt
+        usePRReviewStore.getState().setPRReviewResult(
+          projectId,
+          { ...existingState.result, hasPostedFindings: true, postedAt },
+          { preserveNewCommitsCheck: true }
+        );
+      } else {
+        // If result not loaded yet (race condition), reload from disk to get updated state
+        const result = await window.electronAPI.github.getPRReview(projectId, prNumber);
+        if (result) {
+          usePRReviewStore.getState().setPRReviewResult(
+            projectId,
+            result,
+            { preserveNewCommitsCheck: true }
+          );
+        }
+      }
+    },
+    [projectId, getPRReviewState]
+  );
+
   return {
     prs,
     isLoading,
@@ -585,6 +621,7 @@ export function useGitHubPRs(
     postComment,
     mergePR,
     assignPR,
+    markReviewPosted,
     getReviewStateForPR,
   };
 }
