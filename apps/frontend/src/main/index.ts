@@ -350,30 +350,10 @@ app.whenReady().then(() => {
   terminalManager = new TerminalManager(() => mainWindow);
 
   // Setup IPC handlers (pass pythonEnvManager for Python path management)
-  const setupStartTime = Date.now();
-  console.warn(`[main:index] ========== STARTING IPC HANDLER SETUP ==========`);
-  console.warn(`[main:index] Setup started at: ${new Date(setupStartTime).toISOString()}`);
-  console.warn(`[main:index] Timestamp: ${setupStartTime}`);
-
   setupIpcHandlers(agentManager, terminalManager, () => mainWindow, pythonEnvManager);
 
-  const setupEndTime = Date.now();
-  console.warn(`[main:index] ========== IPC HANDLER SETUP COMPLETE ==========`);
-  console.warn(`[main:index] Setup completed at: ${new Date(setupEndTime).toISOString()}`);
-  console.warn(`[main:index] Setup took: ${setupEndTime - setupStartTime}ms`);
-
   // Create window
-  const windowStartTime = Date.now();
-  console.warn(`[main:index] ========== CREATING WINDOW ==========`);
-  console.warn(`[main:index] Window creation started at: ${new Date(windowStartTime).toISOString()}`);
-  console.warn(`[main:index] Time since handler setup: ${windowStartTime - setupEndTime}ms`);
-
   createWindow();
-
-  const windowEndTime = Date.now();
-  console.warn(`[main:index] ========== WINDOW CREATED ==========`);
-  console.warn(`[main:index] Window created at: ${new Date(windowEndTime).toISOString()}`);
-  console.warn(`[main:index] Window creation took: ${windowEndTime - windowStartTime}ms`);
 
   // Pre-warm CLI tool cache in background (non-blocking)
   // This ensures CLI detection is done before user needs it

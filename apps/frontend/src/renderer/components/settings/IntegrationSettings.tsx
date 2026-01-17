@@ -130,9 +130,20 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         setActiveProfileId(result.data.activeProfileId);
         // Also update the global store
         await loadGlobalClaudeProfiles();
+      } else if (!result.success) {
+        toast({
+          variant: 'destructive',
+          title: t('integrations.toast.loadProfilesFailed'),
+          description: result.error || t('integrations.toast.tryAgain'),
+        });
       }
     } catch (err) {
-      // Silently handle errors
+      console.warn('[IntegrationSettings] Failed to load Claude profiles:', err);
+      toast({
+        variant: 'destructive',
+        title: t('integrations.toast.loadProfilesFailed'),
+        description: t('integrations.toast.tryAgain'),
+      });
     } finally {
       setIsLoadingProfiles(false);
     }
@@ -167,11 +178,11 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
           // Users can see the 'claude setup-token' output directly
         } else {
           await loadClaudeProfiles();
+          setNewProfileName('');
 
-          // Provide specific error messages based on error type
           const errorMessage = initResult.error || '';
-          let title = t('integrations.toast.authStartFailed');
-          let description = t('integrations.toast.tryAgain');
+          let title = t('integrations.toast.profileCreatedAuthFailed');
+          let description = t('integrations.toast.profileCreatedAuthFailedDescription');
 
           if (errorMessage.toLowerCase().includes('max terminals')) {
             title = t('integrations.toast.maxTerminalsReached');
@@ -182,12 +193,6 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
           } else if (errorMessage.toLowerCase().includes('terminal')) {
             title = t('integrations.toast.terminalError');
             description = t('integrations.toast.terminalErrorDescription', { error: errorMessage });
-          } else if (errorMessage) {
-            title = t('integrations.toast.authProcessFailed');
-            description = errorMessage;
-          } else {
-            title = t('integrations.toast.authProcessFailed');
-            description = t('integrations.toast.authProcessFailedDescription');
           }
 
           toast({
