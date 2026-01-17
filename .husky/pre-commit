@@ -140,18 +140,31 @@ if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
   (
     cd apps/backend
     # Tests to skip: graphiti (external deps), merge_file_tracker/service_orchestrator/worktree/workspace (Windows path/git issues)
-    IGNORE_TESTS="--ignore=../../tests/test_graphiti.py --ignore=../../tests/test_merge_file_tracker.py --ignore=../../tests/test_service_orchestrator.py --ignore=../../tests/test_worktree.py --ignore=../../tests/test_workspace.py"
-    if [ -d ".venv" ]; then
-      # Use venv if it exists
-      if [ -f ".venv/bin/pytest" ]; then
-        PYTHONPATH=. .venv/bin/pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
-      elif [ -f ".venv/Scripts/pytest.exe" ]; then
-        # Windows
-        PYTHONPATH=. .venv/Scripts/pytest.exe ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
+    # Also skip tests that require optional dependencies (pydantic structured outputs)
+    IGNORE_TESTS="--ignore=../../tests/test_graphiti.py --ignore=../../tests/test_merge_file_tracker.py --ignore=../../tests/test_service_orchestrator.py --ignore=../../tests/test_worktree.py --ignore=../../tests/test_workspace.py --ignore=../../tests/test_finding_validation.py --ignore=../../tests/test_sdk_structured_output.py --ignore=../../tests/test_structured_outputs.py"
+    
+    # Determine Python executable from venv
+    VENV_PYTHON=""
+    if [ -f ".venv/bin/python" ]; then
+      VENV_PYTHON=".venv/bin/python"
+    elif [ -f ".venv/Scripts/python.exe" ]; then
+      VENV_PYTHON=".venv/Scripts/python.exe"
+    fi
+    
+    if [ -n "$VENV_PYTHON" ]; then
+      # Check if pytest is installed in venv
+      if $VENV_PYTHON -c "import pytest" 2>/dev/null; then
+        PYTHONPATH=. $VENV_PYTHON -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
       else
-        PYTHONPATH=. python -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
+        echo "Warning: pytest not installed in venv. Installing test dependencies..."
+        $VENV_PYTHON -m pip install -q -r ../../tests/requirements-test.txt
+        PYTHONPATH=. $VENV_PYTHON -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
       fi
+    elif [ -d ".venv" ]; then
+      echo "Warning: venv exists but Python not found in it, using system Python"
+      PYTHONPATH=. python -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
     else
+      echo "Warning: No .venv found in apps/backend, using system Python"
       PYTHONPATH=. python -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
     fi
   )

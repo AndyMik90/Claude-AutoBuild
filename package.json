@@ -43,5 +43,8 @@
   ],
   "devDependencies": {
     "jsdom": "^27.4.0"
+  },
+  "overrides": {
+    "tar": "^7.5.3"
   }
 }
