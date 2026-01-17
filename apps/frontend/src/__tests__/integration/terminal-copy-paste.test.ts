@@ -69,16 +69,6 @@ describe('Terminal copy/paste integration', () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
 
-    // Mock requestAnimationFrame to prevent async operations after test teardown
-    // Using setTimeout with fake timers instead of callback.call(window, 0) which
-    // fails when jsdom window is destroyed after test completion
-    global.requestAnimationFrame = vi.fn((callback) => {
-      return setTimeout(callback, 0) as unknown as number;
-    });
-    global.cancelAnimationFrame = vi.fn((id) => {
-      clearTimeout(id);
-    });
-
     // Mock ResizeObserver
     global.ResizeObserver = vi.fn().mockImplementation(function() {
       return {
@@ -89,12 +79,13 @@ describe('Terminal copy/paste integration', () => {
     });
 
     // Mock requestAnimationFrame for xterm.js integration tests
+    // Synchronously execute the callback to avoid timing issues in tests
+    // Just pass timestamp directly - this context isn't used by RAF callbacks
     global.requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
-      // Synchronously execute the callback to avoid timing issues in tests
-      // Just pass timestamp directly - this context isn't used by RAF callbacks
       callback(0);
       return 0;
     }) as unknown as Mock;
+    global.cancelAnimationFrame = vi.fn();
 
     // Mock navigator.clipboard
     mockClipboard = {
