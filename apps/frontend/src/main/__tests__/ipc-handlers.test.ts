@@ -84,7 +84,6 @@ vi.mock("electron-log/main.js", () => ({
 vi.mock("../cli-tool-manager", () => ({
   getToolInfo: vi.fn(() => ({ found: false, path: null, source: "mock" })),
   getToolPath: vi.fn((tool: string) => tool),
-  deriveGitBashPath: vi.fn(() => null),
   clearCache: vi.fn(),
   clearToolCache: vi.fn(),
   configureTools: vi.fn(),

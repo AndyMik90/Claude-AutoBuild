@@ -15,6 +15,7 @@ import * as fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import { execFileSync, execFile } from 'child_process';
 import { promisify } from 'util';
+import { createRequire } from 'module';
 import { getSentryEnvForSubprocess } from './sentry';
 import { isWindows, isUnix, getPathDelimiter } from './platform';
 
@@ -562,4 +563,136 @@ export function getSpawnCommand(command: string): string {
     return trimmed.slice(1, -1);
   }
   return trimmed;
+}
+
+/**
+ * Derive git-bash (bash.exe) path from git executable path on Windows.
+ *
+ * Git for Windows installs bash.exe in Git/bin/ directory. This function
+ * handles various git.exe locations:
+ * - .../Git/cmd/git.exe -> .../Git/bin/bash.exe
+ * - .../Git/bin/git.exe -> .../Git/bin/bash.exe
+ * - .../Git/mingw64/bin/git.exe -> .../Git/bin/bash.exe
+ *
+ * @param gitExePath - Path to git.exe (e.g., D:\Program Files\Git\mingw64\bin\git.exe)
+ * @returns Path to bash.exe if found, null otherwise
+ */
+function formatPathForLogs(filePath: string): string {
+  if (!filePath) {
+    return '';
+  }
+  return path.win32.basename(filePath) || path.basename(filePath);
+}
+
+function formatErrorForLogs(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === 'string' || typeof code === 'number' ? String(code) : 'unknown';
+  }
+  if (error instanceof Error) {
+    return error.name;
+  }
+  return 'unknown';
+}
+
+export function deriveGitBashPath(gitExePath: string): string | null {
+  if (!isWindows()) {
+    return null;
+  }
+
+  try {
+    // Use win32 path ops to correctly parse Windows-style paths on non-Windows runners
+    const winPath = path.win32;
+    const gitDir = winPath.dirname(gitExePath);  // e.g., D:\...\Git\mingw64\bin
+    const gitDirName = winPath.basename(gitDir).toLowerCase();
+
+    // Find Git installation root
+    let gitRoot: string;
+
+    if (gitDirName === 'cmd') {
+      // .../Git/cmd/git.exe -> .../Git
+      gitRoot = winPath.dirname(gitDir);
+    } else if (gitDirName === 'bin') {
+      // Could be .../Git/bin/git.exe OR .../Git/mingw64/bin/git.exe
+      const parent = winPath.dirname(gitDir);
+      const parentName = winPath.basename(parent).toLowerCase();
+      if (parentName === 'mingw64' || parentName === 'mingw32') {
+        // .../Git/mingw64/bin/git.exe -> .../Git
+        gitRoot = winPath.dirname(parent);
+      } else {
+        // .../Git/bin/git.exe -> .../Git
+        gitRoot = parent;
+      }
+    } else {
+      // Unknown structure - try to find 'bin' sibling
+      gitRoot = winPath.dirname(gitDir);
+    }
+
+    // Bash.exe is in Git/bin/bash.exe
+    const bashPath = winPath.join(gitRoot, 'bin', 'bash.exe');
+
+    if (fs.existsSync(bashPath)) {
+      return bashPath;
+    }
+
+    // Fallback: check one level up if gitRoot didn't work
+    const altBashPath = winPath.join(winPath.dirname(gitRoot), 'bin', 'bash.exe');
+    if (fs.existsSync(altBashPath)) {
+      return altBashPath;
+    }
+
+    console.warn('[deriveGitBashPath] bash.exe not found in standard locations.');
+    return null;
+  } catch (error) {
+    console.warn('[deriveGitBashPath] Error deriving git-bash path:', formatErrorForLogs(error));
+    return null;
+  }
+}
+
+// Lazy import to avoid circular dependency (cli-tool-manager imports env-utils)
+const require = createRequire(import.meta.url);
+let _getToolInfo: ((tool: string) => { found: boolean; path: string | null; source: string }) | null = null;
+function getToolInfoLazy(tool: string): { found: boolean; path: string | null; source: string } {
+  if (!_getToolInfo) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    _getToolInfo = require('./cli-tool-manager').getToolInfo;
+  }
+  return _getToolInfo!(tool);
+}
+
+/**
+ * Get Git Bash environment variables for Windows.
+ *
+ * On Windows, Claude Code CLI requires git-bash (bash.exe) to execute shell commands.
+ * This function detects the git-bash path and returns it as an environment variable.
+ *
+ * This is a shared utility to avoid code duplication between AgentProcess and InsightsConfig.
+ *
+ * @param toolInfoFn - Optional function to get tool info (for testing/dependency injection)
+ * @returns Record containing CLAUDE_CODE_GIT_BASH_PATH if detected, empty object otherwise
+ */
+export function getGitBashEnv(
+  toolInfoFn?: (tool: string) => { found: boolean; path: string | null; source: string }
+): Record<string, string> {
+  const gitBashEnv: Record<string, string> = {};
+
+  if (!isWindows() || process.env.CLAUDE_CODE_GIT_BASH_PATH) {
+    return gitBashEnv;
+  }
+
+  try {
+    const getToolInfoImpl = toolInfoFn ?? getToolInfoLazy;
+    const gitInfo = getToolInfoImpl('git');
+    if (gitInfo.found && gitInfo.path) {
+      const bashPath = deriveGitBashPath(gitInfo.path);
+      if (bashPath) {
+        gitBashEnv['CLAUDE_CODE_GIT_BASH_PATH'] = bashPath;
+        console.log('[env-utils] Setting CLAUDE_CODE_GIT_BASH_PATH:', formatPathForLogs(bashPath));
+      }
+    }
+  } catch (error) {
+    console.warn('[env-utils] Failed to detect git-bash path:', formatErrorForLogs(error));
+  }
+
+  return gitBashEnv;
 }

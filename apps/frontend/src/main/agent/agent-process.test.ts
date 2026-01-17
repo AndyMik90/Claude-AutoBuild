@@ -114,13 +114,13 @@ vi.mock('electron', () => ({
 // Mock cli-tool-manager to avoid blocking tool detection on Windows
 vi.mock('../cli-tool-manager', () => ({
   getToolInfo: vi.fn(() => ({ found: false, path: null, source: 'mock' })),
-  deriveGitBashPath: vi.fn(() => null),
   clearCache: vi.fn()
 }));
 
 // Mock env-utils to avoid blocking environment augmentation
 vi.mock('../env-utils', () => ({
-  getAugmentedEnv: vi.fn(() => ({ ...process.env }))
+  getAugmentedEnv: vi.fn(() => ({ ...process.env })),
+  getGitBashEnv: vi.fn(() => ({}))
 }));
 
 // Mock fs.existsSync for getAutoBuildSourcePath path validation

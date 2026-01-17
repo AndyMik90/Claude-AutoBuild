@@ -1,5 +1,39 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { shouldUseShell, getSpawnOptions, getSpawnCommand } from '../env-utils';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+
+// Mock fs module BEFORE importing env-utils to ensure mock is in place
+// (Vitest hoists vi.mock but explicit ordering is clearer)
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs')>();
+  return {
+    ...actual,
+    existsSync: vi.fn(actual.existsSync),
+  };
+});
+
+// Mock platform module to allow dynamic control of isWindows() and isUnix()
+// This is necessary because the platform module checks process.platform at import time
+// and we need to test Windows-specific behavior on non-Windows CI runners
+// Default to non-Windows behavior; tests will override as needed
+vi.mock('../platform', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../platform')>();
+  return {
+    ...actual,
+    // Default to non-Windows - tests will override with mockReturnValue
+    isWindows: vi.fn().mockReturnValue(false),
+    isUnix: vi.fn().mockReturnValue(true),
+  };
+});
+
+// Import modules after mock setup
+import * as fs from 'fs';
+import * as platform from '../platform';
+import { shouldUseShell, getSpawnOptions, getSpawnCommand, deriveGitBashPath, getGitBashEnv } from '../env-utils';
+
+// Helper to set platform mock values based on simulated platform
+function setPlatformMock(simulatedPlatform: string): void {
+  vi.mocked(platform.isWindows).mockReturnValue(simulatedPlatform === 'win32');
+  vi.mocked(platform.isUnix).mockReturnValue(simulatedPlatform !== 'win32');
+}
 
 describe('shouldUseShell', () => {
   const originalPlatform = process.platform;
@@ -11,6 +45,7 @@ describe('shouldUseShell', () => {
       writable: true,
       configurable: true,
     });
+    vi.restoreAllMocks();
   });
 
   describe('Windows platform', () => {
@@ -20,10 +55,11 @@ describe('shouldUseShell', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('win32');
     });
 
     it('should return true for .cmd files', () => {
-      expect(shouldUseShell('D:\\Program Files\\nodejs\\claude.cmd')).toBe(true);
+      expect(shouldUseShell('D:\\Tools\\nodejs\\claude.cmd')).toBe(true);
       expect(shouldUseShell('C:\\Users\\admin\\AppData\\Roaming\\npm\\claude.cmd')).toBe(true);
     });
 
@@ -48,9 +84,9 @@ describe('shouldUseShell', () => {
     });
 
     it('should handle paths with spaces and special characters', () => {
-      expect(shouldUseShell('D:\\Program Files (x86)\\tool.cmd')).toBe(true);
+      expect(shouldUseShell('D:\\Tools (x86)\\tool.cmd')).toBe(true);
       expect(shouldUseShell('D:\\Path&Name\\tool.cmd')).toBe(true);
-      expect(shouldUseShell('D:\\Program Files (x86)\\tool.exe')).toBe(false);
+      expect(shouldUseShell('D:\\Tools (x86)\\tool.exe')).toBe(false);
     });
   });
 
@@ -61,8 +97,9 @@ describe('shouldUseShell', () => {
         writable: true,
         configurable: true,
       });
-      expect(shouldUseShell('/usr/local/bin/claude')).toBe(false);
-      expect(shouldUseShell('/opt/homebrew/bin/claude.cmd')).toBe(false);
+      setPlatformMock('darwin');
+      expect(shouldUseShell('/tmp/tools/bin/claude')).toBe(false);
+      expect(shouldUseShell('/tmp/homebrew/bin/claude.cmd')).toBe(false);
     });
 
     it('should return false on Linux', () => {
@@ -71,7 +108,8 @@ describe('shouldUseShell', () => {
         writable: true,
         configurable: true,
       });
-      expect(shouldUseShell('/usr/bin/claude')).toBe(false);
+      setPlatformMock('linux');
+      expect(shouldUseShell('/tmp/system/bin/claude')).toBe(false);
       expect(shouldUseShell('/home/user/.local/bin/claude.bat')).toBe(false);
     });
   });
@@ -87,6 +125,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    vi.restoreAllMocks();
   });
 
   it('should set shell: true for .cmd files on Windows', () => {
@@ -95,6 +134,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    setPlatformMock('win32');
 
     const opts = getSpawnOptions('D:\\nodejs\\claude.cmd', {
       cwd: 'D:\\project',
@@ -114,6 +154,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    setPlatformMock('win32');
 
     const opts = getSpawnOptions('C:\\Windows\\git.exe', {
       cwd: 'D:\\project',
@@ -131,6 +172,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    setPlatformMock('win32');
 
     const opts = getSpawnOptions('D:\\tool.cmd', {
       cwd: 'D:\\project',
@@ -156,6 +198,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    setPlatformMock('win32');
 
     const opts = getSpawnOptions('D:\\tool.cmd');
 
@@ -170,8 +213,9 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    setPlatformMock('darwin');
 
-    const opts = getSpawnOptions('/usr/local/bin/claude', {
+    const opts = getSpawnOptions('/tmp/tools/bin/claude', {
       cwd: '/project',
     });
 
@@ -187,6 +231,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    setPlatformMock('win32');
 
     const opts = getSpawnOptions('C:\\scripts\\setup.bat', {
       cwd: 'D:\\project',
@@ -209,6 +254,7 @@ describe('getSpawnCommand', () => {
       writable: true,
       configurable: true,
     });
+    vi.restoreAllMocks();
   });
 
   describe('Windows platform', () => {
@@ -218,6 +264,7 @@ describe('getSpawnCommand', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('win32');
     });
 
     it('should quote .cmd files with spaces', () => {
@@ -231,13 +278,13 @@ describe('getSpawnCommand', () => {
     });
 
     it('should quote .bat files with spaces', () => {
-      const cmd = getSpawnCommand('D:\\Program Files (x86)\\scripts\\setup.bat');
-      expect(cmd).toBe('"D:\\Program Files (x86)\\scripts\\setup.bat"');
+      const cmd = getSpawnCommand('D:\\Tools (x86)\\scripts\\setup.bat');
+      expect(cmd).toBe('"D:\\Tools (x86)\\scripts\\setup.bat"');
     });
 
     it('should NOT quote .exe files', () => {
-      const cmd = getSpawnCommand('C:\\Program Files\\Git\\cmd\\git.exe');
-      expect(cmd).toBe('C:\\Program Files\\Git\\cmd\\git.exe');
+      const cmd = getSpawnCommand('C:\\Tools\\Git\\cmd\\git.exe');
+      expect(cmd).toBe('C:\\Tools\\Git\\cmd\\git.exe');
     });
 
     it('should NOT quote extensionless files', () => {
@@ -256,8 +303,8 @@ describe('getSpawnCommand', () => {
     });
 
     it('should be idempotent - already quoted .bat files stay quoted', () => {
-      const cmd = getSpawnCommand('"D:\\Program Files\\scripts\\setup.bat"');
-      expect(cmd).toBe('"D:\\Program Files\\scripts\\setup.bat"');
+      const cmd = getSpawnCommand('"D:\\Tools\\scripts\\setup.bat"');
+      expect(cmd).toBe('"D:\\Tools\\scripts\\setup.bat"');
     });
 
     it('should be idempotent - double-quoting does not occur', () => {
@@ -278,8 +325,8 @@ describe('getSpawnCommand', () => {
     });
 
     it('should strip quotes from .exe files (defensive: no quotes with shell:false)', () => {
-      const cmd = getSpawnCommand('"C:\\Program Files\\Git\\cmd\\git.exe"');
-      expect(cmd).toBe('C:\\Program Files\\Git\\cmd\\git.exe');
+      const cmd = getSpawnCommand('"C:\\Tools\\Git\\cmd\\git.exe"');
+      expect(cmd).toBe('C:\\Tools\\Git\\cmd\\git.exe');
     });
 
     it('should strip quotes from extensionless files (defensive: no quotes with shell:false)', () => {
@@ -288,8 +335,8 @@ describe('getSpawnCommand', () => {
     });
 
     it('should strip quotes and trim whitespace from .exe files', () => {
-      const cmd = getSpawnCommand('  "C:\\Program Files\\Git\\cmd\\git.exe"  ');
-      expect(cmd).toBe('C:\\Program Files\\Git\\cmd\\git.exe');
+      const cmd = getSpawnCommand('  "C:\\Tools\\Git\\cmd\\git.exe"  ');
+      expect(cmd).toBe('C:\\Tools\\Git\\cmd\\git.exe');
     });
   });
 
@@ -300,8 +347,9 @@ describe('getSpawnCommand', () => {
         writable: true,
         configurable: true,
       });
-      expect(getSpawnCommand('/usr/local/bin/claude')).toBe('/usr/local/bin/claude');
-      expect(getSpawnCommand('/opt/homebrew/bin/claude.cmd')).toBe('/opt/homebrew/bin/claude.cmd');
+      setPlatformMock('darwin');
+      expect(getSpawnCommand('/tmp/tools/bin/claude')).toBe('/tmp/tools/bin/claude');
+      expect(getSpawnCommand('/tmp/homebrew/bin/claude.cmd')).toBe('/tmp/homebrew/bin/claude.cmd');
     });
 
     it('should NOT quote commands on Linux', () => {
@@ -310,7 +358,8 @@ describe('getSpawnCommand', () => {
         writable: true,
         configurable: true,
       });
-      expect(getSpawnCommand('/usr/bin/claude')).toBe('/usr/bin/claude');
+      setPlatformMock('linux');
+      expect(getSpawnCommand('/tmp/system/bin/claude')).toBe('/tmp/system/bin/claude');
       expect(getSpawnCommand('/home/user/.local/bin/claude.bat')).toBe('/home/user/.local/bin/claude.bat');
     });
 
@@ -320,8 +369,9 @@ describe('getSpawnCommand', () => {
         writable: true,
         configurable: true,
       });
-      expect(getSpawnCommand('  /usr/local/bin/claude  ')).toBe('/usr/local/bin/claude');
-      expect(getSpawnCommand('\t/opt/homebrew/bin/claude\t')).toBe('/opt/homebrew/bin/claude');
+      setPlatformMock('darwin');
+      expect(getSpawnCommand('  /tmp/tools/bin/claude  ')).toBe('/tmp/tools/bin/claude');
+      expect(getSpawnCommand('\t/tmp/homebrew/bin/claude\t')).toBe('/tmp/homebrew/bin/claude');
     });
 
     it('should trim whitespace on Linux', () => {
@@ -330,7 +380,8 @@ describe('getSpawnCommand', () => {
         writable: true,
         configurable: true,
       });
-      expect(getSpawnCommand('  /usr/bin/claude  ')).toBe('/usr/bin/claude');
+      setPlatformMock('linux');
+      expect(getSpawnCommand('  /tmp/system/bin/claude  ')).toBe('/tmp/system/bin/claude');
       expect(getSpawnCommand('\t/home/user/.local/bin/claude\t')).toBe('/home/user/.local/bin/claude');
     });
   });
@@ -346,6 +397,7 @@ describe('shouldUseShell with quoted paths', () => {
       writable: true,
       configurable: true,
     });
+    vi.restoreAllMocks();
   });
 
   describe('Windows platform', () => {
@@ -355,6 +407,7 @@ describe('shouldUseShell with quoted paths', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('win32');
     });
 
     it('should detect .cmd files in quoted paths', () => {
@@ -364,15 +417,237 @@ describe('shouldUseShell with quoted paths', () => {
 
     it('should detect .bat files in quoted paths', () => {
       expect(shouldUseShell('"C:\\Scripts\\setup.bat"')).toBe(true);
-      expect(shouldUseShell('"D:\\Program Files\\script.BAT"')).toBe(true);
+      expect(shouldUseShell('"D:\\Tools\\script.BAT"')).toBe(true);
     });
 
     it('should NOT detect .exe files in quoted paths', () => {
-      expect(shouldUseShell('"C:\\Program Files\\git.exe"')).toBe(false);
+      expect(shouldUseShell('"C:\\Tools\\git.exe"')).toBe(false);
     });
 
     it('should handle whitespace around quoted paths', () => {
       expect(shouldUseShell('  "C:\\Users\\admin\\npm\\claude.cmd"  ')).toBe(true);
+    });
+  });
+});
+
+describe('deriveGitBashPath', () => {
+  const originalPlatform = process.platform;
+
+  afterEach(() => {
+    // Restore original platform after each test
+    Object.defineProperty(process, 'platform', {
+      value: originalPlatform,
+      writable: true,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  describe('Non-Windows platforms', () => {
+    it('should return null on macOS', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'darwin',
+        writable: true,
+        configurable: true,
+      });
+      setPlatformMock('darwin');
+      expect(deriveGitBashPath('/tmp/tools/bin/git')).toBeNull();
+    });
+
+    it('should return null on Linux', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'linux',
+        writable: true,
+        configurable: true,
+      });
+      setPlatformMock('linux');
+      expect(deriveGitBashPath('/tmp/system/bin/git')).toBeNull();
+    });
+  });
+
+  describe('Windows platform', () => {
+    beforeEach(() => {
+      Object.defineProperty(process, 'platform', {
+        value: 'win32',
+        writable: true,
+        configurable: true,
+      });
+      setPlatformMock('win32');
+    });
+
+    it('should derive bash.exe from Git/cmd/git.exe', () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'C:\\Tools\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('C:\\Tools\\Git\\cmd\\git.exe');
+      expect(result).toBe('C:\\Tools\\Git\\bin\\bash.exe');
+    });
+
+    it('should derive bash.exe from Git/bin/git.exe', () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'C:\\Tools\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('C:\\Tools\\Git\\bin\\git.exe');
+      expect(result).toBe('C:\\Tools\\Git\\bin\\bash.exe');
+    });
+
+    it('should derive bash.exe from Git/mingw64/bin/git.exe', () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'D:\\Tools\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('D:\\Tools\\Git\\mingw64\\bin\\git.exe');
+      expect(result).toBe('D:\\Tools\\Git\\bin\\bash.exe');
+    });
+
+    it('should derive bash.exe from Git/mingw32/bin/git.exe', () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'C:\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('C:\\Git\\mingw32\\bin\\git.exe');
+      expect(result).toBe('C:\\Git\\bin\\bash.exe');
+    });
+
+    it('should try alternate path if primary path not found', () => {
+      let callCount = 0;
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        callCount++;
+        // First call (primary path) returns false, second call (alternate) returns true
+        if (callCount === 1) return false;
+        return p === 'C:\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('C:\\Git\\some\\other\\git.exe');
+      // Should try alternate path
+      expect(result).toBe('C:\\Git\\bin\\bash.exe');
+    });
+
+    it('should return null if bash.exe not found in any path', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+
+      const result = deriveGitBashPath('C:\\Unknown\\Path\\git.exe');
+      expect(result).toBeNull();
+    });
+
+    it('should handle paths with spaces', () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'D:\\Tools (x86)\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('D:\\Tools (x86)\\Git\\cmd\\git.exe');
+      expect(result).toBe('D:\\Tools (x86)\\Git\\bin\\bash.exe');
+    });
+
+    it('should handle custom Git installation paths', () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'E:\\Tools\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('E:\\Tools\\Git\\cmd\\git.exe');
+      expect(result).toBe('E:\\Tools\\Git\\bin\\bash.exe');
+    });
+  });
+});
+
+describe('getGitBashEnv', () => {
+  const originalPlatform = process.platform;
+  const originalEnv = process.env.CLAUDE_CODE_GIT_BASH_PATH;
+
+  // Mock function for dependency injection
+  const mockGetToolInfo = vi.fn() as ReturnType<typeof vi.fn> & ((tool: string) => { found: boolean; path: string | null; source: string });
+
+  afterEach(() => {
+    // Restore original platform and env after each test
+    Object.defineProperty(process, 'platform', {
+      value: originalPlatform,
+      writable: true,
+      configurable: true,
+    });
+    if (originalEnv === undefined) {
+      delete process.env.CLAUDE_CODE_GIT_BASH_PATH;
+    } else {
+      process.env.CLAUDE_CODE_GIT_BASH_PATH = originalEnv;
+    }
+    vi.restoreAllMocks();
+    mockGetToolInfo.mockReset();
+  });
+
+  describe('Non-Windows platforms', () => {
+    it('should return empty object on macOS', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'darwin',
+        writable: true,
+        configurable: true,
+      });
+      setPlatformMock('darwin');
+      expect(getGitBashEnv(mockGetToolInfo)).toEqual({});
+      expect(mockGetToolInfo).not.toHaveBeenCalled();
+    });
+
+    it('should return empty object on Linux', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'linux',
+        writable: true,
+        configurable: true,
+      });
+      setPlatformMock('linux');
+      expect(getGitBashEnv(mockGetToolInfo)).toEqual({});
+      expect(mockGetToolInfo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Windows platform', () => {
+    beforeEach(() => {
+      Object.defineProperty(process, 'platform', {
+        value: 'win32',
+        writable: true,
+        configurable: true,
+      });
+      setPlatformMock('win32');
+      delete process.env.CLAUDE_CODE_GIT_BASH_PATH;
+    });
+
+    it('should return empty object if env var already set', () => {
+      process.env.CLAUDE_CODE_GIT_BASH_PATH = 'C:\\existing\\bash.exe';
+      expect(getGitBashEnv(mockGetToolInfo)).toEqual({});
+      expect(mockGetToolInfo).not.toHaveBeenCalled();
+    });
+
+    it('should return empty object if git not found', () => {
+      mockGetToolInfo.mockReturnValue({ found: false, path: null, source: 'mock' });
+      expect(getGitBashEnv(mockGetToolInfo)).toEqual({});
+      expect(mockGetToolInfo).toHaveBeenCalledWith('git');
+    });
+
+    it('should return CLAUDE_CODE_GIT_BASH_PATH if git found and bash exists', () => {
+      mockGetToolInfo.mockReturnValue({
+        found: true,
+        path: 'C:\\Tools\\Git\\cmd\\git.exe',
+        source: 'system-path'
+      });
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'C:\\Tools\\Git\\bin\\bash.exe';
+      });
+
+      const result = getGitBashEnv(mockGetToolInfo);
+      expect(result).toEqual({
+        'CLAUDE_CODE_GIT_BASH_PATH': 'C:\\Tools\\Git\\bin\\bash.exe'
+      });
+      expect(mockGetToolInfo).toHaveBeenCalledWith('git');
+    });
+
+    it('should return empty object if bash.exe not found', () => {
+      mockGetToolInfo.mockReturnValue({
+        found: true,
+        path: 'C:\\Tools\\Git\\cmd\\git.exe',
+        source: 'system-path'
+      });
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+
+      expect(getGitBashEnv(mockGetToolInfo)).toEqual({});
     });
   });
 });
