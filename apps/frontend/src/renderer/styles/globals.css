@@ -1140,6 +1140,10 @@ body {
   border-top-color: var(--muted-foreground);
 }
 
+.column-queue {
+  border-top-color: #22d3ee;
+}
+
 .column-in-progress {
   border-top-color: var(--info);
 }

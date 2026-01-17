@@ -54,15 +54,17 @@
   },
   "columns": {
     "backlog": "Planification",
+    "queue": "File d'attente",
     "in_progress": "En cours",
     "ai_review": "Révision IA",
     "human_review": "Révision humaine",
-    "done": "Terminé",
-    "pr_created": "PR créée"
+    "done": "Terminé"
   },
   "kanban": {
     "emptyBacklog": "Aucune tâche planifiée",
     "emptyBacklogHint": "Ajoutez une tâche pour commencer",
+    "emptyQueue": "La file d'attente est vide",
+    "emptyQueueHint": "Les tâches attendront ici lorsque la limite de tâches parallèles sera atteinte",
     "emptyInProgress": "Rien en cours",
     "emptyInProgressHint": "Démarrez une tâche depuis le Backlog",
     "emptyAiReview": "Aucune tâche en révision",
@@ -75,6 +77,7 @@
     "dropHere": "Déposer ici",
     "showArchived": "Afficher les archivées",
     "addTaskAriaLabel": "Ajouter une nouvelle tâche au backlog",
+    "queueAllAriaLabel": "Déplacer toutes les tâches vers la file d'attente",
     "closeTaskDetailsAriaLabel": "Fermer les détails de la tâche",
     "editTask": "Modifier la tâche",
     "cannotEditWhileRunning": "Impossible de modifier pendant l'exécution",
@@ -83,7 +86,16 @@
     "worktreeCleanupNotStaged": "Cette tâche possède un worktree avec des changements non fusionnés. Supprimez le worktree pour marquer comme terminé, ou annulez pour réviser les changements d'abord.",
     "keepWorktree": "Garder le Worktree",
     "deleteWorktree": "Supprimer le Worktree & Marquer Terminé",
-    "refreshTasks": "Actualiser les tâches"
+    "refreshTasks": "Actualiser les tâches",
+    "queueSettings": "Paramètres de la file d'attente"
+  },
+  "queue": {
+    "limitReached": "Limite de tâches parallèles atteinte ({{current}}/{{max}}). Tâche déplacée vers la file d'attente.",
+    "movedToQueue": "Tâche déplacée vers la file d'attente.",
+    "autoPromoted": "Tâche auto-promue de la file d'attente vers En cours.",
+    "capacityAvailable": "{{count}} emplacement(s) disponible(s) dans En cours.",
+    "queueAll": "Tout ajouter à la file d'attente",
+    "queueAllSuccess": "{{count}} tâches déplacées vers la file d'attente."
   },
   "execution": {
     "phases": {

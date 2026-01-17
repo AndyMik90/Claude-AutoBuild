@@ -54,17 +54,19 @@
   },
   "columns": {
     "backlog": "Planning",
+    "queue": "Queue",
     "in_progress": "In Progress",
     "ai_review": "AI Review",
     "human_review": "Human Review",
-    "done": "Done",
-    "pr_created": "PR Created"
+    "done": "Done"
   },
   "kanban": {
     "emptyBacklog": "No tasks planned",
     "emptyBacklogHint": "Add a task to get started",
+    "emptyQueue": "Queue is empty",
+    "emptyQueueHint": "Tasks will wait here when parallel task limit is reached",
     "emptyInProgress": "Nothing running",
-    "emptyInProgressHint": "Start a task from Backlog",
+    "emptyInProgressHint": "Start a task from Planning",
     "emptyAiReview": "No tasks in review",
     "emptyAiReviewHint": "AI will review completed tasks",
     "emptyHumanReview": "Nothing to review",
@@ -75,6 +77,7 @@
     "dropHere": "Drop here",
     "showArchived": "Show archived",
     "addTaskAriaLabel": "Add new task to backlog",
+    "queueAllAriaLabel": "Move all tasks to queue",
     "closeTaskDetailsAriaLabel": "Close task details",
     "editTask": "Edit task",
     "cannotEditWhileRunning": "Cannot edit while task is running",
@@ -83,7 +86,16 @@
     "worktreeCleanupNotStaged": "This task has a worktree with changes that have not been merged. Delete the worktree to mark as done, or cancel to review the changes first.",
     "keepWorktree": "Keep Worktree",
     "deleteWorktree": "Delete Worktree & Mark Done",
-    "refreshTasks": "Refresh Tasks"
+    "refreshTasks": "Refresh Tasks",
+    "queueSettings": "Queue Settings"
+  },
+  "queue": {
+    "limitReached": "Parallel task limit reached ({{current}}/{{max}}). Task moved to queue.",
+    "movedToQueue": "Task moved to queue.",
+    "autoPromoted": "Task auto-promoted from queue to In Progress.",
+    "capacityAvailable": "{{count}} slot(s) available in In Progress.",
+    "queueAll": "Add All to Queue",
+    "queueAllSuccess": "Moved {{count}} tasks to queue."
   },
   "execution": {
     "phases": {
