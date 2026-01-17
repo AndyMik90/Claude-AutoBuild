@@ -278,6 +278,7 @@ export interface GitHubAPI {
   // Follow-up review operations
   checkNewCommits: (projectId: string, prNumber: number) => Promise<NewCommitsCheck>;
   checkMergeReadiness: (projectId: string, prNumber: number) => Promise<MergeReadiness>;
+  updatePRBranch: (projectId: string, prNumber: number) => Promise<{ success: boolean; error?: string }>;
   runFollowupReview: (projectId: string, prNumber: number) => void;
 
   // PR logs
@@ -689,6 +690,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   checkMergeReadiness: (projectId: string, prNumber: number): Promise<MergeReadiness> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_CHECK_MERGE_READINESS, projectId, prNumber),
+
+  updatePRBranch: (projectId: string, prNumber: number): Promise<{ success: boolean; error?: string }> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_UPDATE_BRANCH, projectId, prNumber),
 
   runFollowupReview: (projectId: string, prNumber: number): void =>
     sendIpc(IPC_CHANNELS.GITHUB_PR_FOLLOWUP_REVIEW, projectId, prNumber),

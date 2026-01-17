@@ -5,6 +5,7 @@ import {
   Send,
   XCircle,
   Loader2,
+  GitBranch,
   GitMerge,
   CheckCircle,
   RefreshCw,
@@ -121,6 +122,12 @@ export function PRDetail({
   const [mergeReadiness, setMergeReadiness] = useState<MergeReadiness | null>(null);
   const mergeReadinessAbortRef = useRef<AbortController | null>(null);
 
+  // Branch update state (for updating PR branch when behind base)
+  const [isUpdatingBranch, setIsUpdatingBranch] = useState(false);
+  const [branchUpdateError, setBranchUpdateError] = useState<string | null>(null);
+  const [branchUpdateSuccess, setBranchUpdateSuccess] = useState(false);
+  const [mergeReadinessRefreshKey, setMergeReadinessRefreshKey] = useState(0);
+
   // Workflows awaiting approval state (for fork PRs)
   const [workflowsAwaiting, setWorkflowsAwaiting] = useState<WorkflowsAwaitingApprovalResult | null>(null);
   const [isApprovingWorkflow, setIsApprovingWorkflow] = useState<number | null>(null);
@@ -208,6 +215,14 @@ export function PRDetail({
     }
   }, [postSuccess]);
 
+  // Clear branch update success message after 3 seconds
+  useEffect(() => {
+    if (branchUpdateSuccess) {
+      const timer = setTimeout(() => setBranchUpdateSuccess(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [branchUpdateSuccess]);
+
   // Auto-expand logs section when review starts
   useEffect(() => {
     if (isReviewing) {
@@ -278,6 +293,10 @@ export function PRDetail({
     setBlockedStatusPosted(false);
     setBlockedStatusError(null);
     setIsPostingBlockedStatus(false);
+    // Reset branch update state as well
+    setBranchUpdateError(null);
+    setBranchUpdateSuccess(false);
+    setIsUpdatingBranch(false);
   }, [pr.number]);
 
   // Check for workflows awaiting approval (fork PRs) when PR changes or review completes
@@ -333,7 +352,7 @@ export function PRDetail({
         mergeReadinessAbortRef.current.abort();
       }
     };
-  }, [pr.number, projectId]);
+  }, [pr.number, projectId, mergeReadinessRefreshKey]);
 
   // Handler to approve a workflow
   const handleApproveWorkflow = useCallback(async (runId: number) => {
@@ -368,6 +387,40 @@ export function PRDetail({
     const result = await window.electronAPI.github.getWorkflowsAwaitingApproval('', pr.number);
     setWorkflowsAwaiting(result);
   }, [pr.number, workflowsAwaiting]);
+
+  // Handler to update PR branch when behind base
+  const handleUpdateBranch = useCallback(async () => {
+    // Capture current PR number to prevent state leaks across PR switches
+    const currentPr = pr.number;
+
+    setIsUpdatingBranch(true);
+    setBranchUpdateError(null);
+    setBranchUpdateSuccess(false);
+
+    try {
+      const result = await window.electronAPI.github.updatePRBranch(projectId, pr.number);
+
+      // Only update state if PR hasn't changed
+      if (pr.number === currentPr) {
+        if (result.success) {
+          setBranchUpdateSuccess(true);
+          // Trigger merge readiness refresh to update the UI
+          setMergeReadinessRefreshKey(prev => prev + 1);
+        } else {
+          setBranchUpdateError(result.error || t('prReview.branchUpdateFailed'));
+        }
+      }
+    } catch (err) {
+      if (pr.number === currentPr) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setBranchUpdateError(errorMessage);
+      }
+    } finally {
+      if (pr.number === currentPr) {
+        setIsUpdatingBranch(false);
+      }
+    }
+  }, [pr.number, projectId, t]);
 
   // Count selected findings by type for the button label
   const selectedCount = selectedFindingIds.size;
@@ -765,6 +818,29 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                       </li>
                     ))}
                   </ul>
+                  {mergeReadiness.isBehind && (
+                    <div className="flex items-center gap-3 mt-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-warning/50 text-warning hover:bg-warning/20"
+                        onClick={handleUpdateBranch}
+                        disabled={isUpdatingBranch}
+                      >
+                        {isUpdatingBranch ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            {t('prReview.updatingBranch')}
+                          </>
+                        ) : (
+                          <>
+                            <GitBranch className="h-4 w-4 mr-2" />
+                            {t('prReview.updateBranch')}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                   <p className="text-xs text-warning/70 mt-2">
                     {t('prReview.rerunReviewSuggestion', 'Consider re-running the review after resolving these issues.')}
                   </p>
@@ -772,6 +848,18 @@ ${t('prReview.blockedStatusMessageFooter')}`;
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {branchUpdateSuccess && (
+          <div className="flex items-center gap-2 text-xs text-success animate-in fade-in duration-200">
+            <CheckCircle className="h-3 w-3" />
+            {t('prReview.branchUpdated')}
+          </div>
+        )}
+        {branchUpdateError && (
+          <div className="text-xs text-destructive animate-in fade-in duration-200">
+            {branchUpdateError}
+          </div>
         )}
 
         {/* Review Status & Actions */}
