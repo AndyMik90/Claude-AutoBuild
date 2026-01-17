@@ -2971,15 +2971,15 @@ export function registerWorktreeHandlers(
                   stdio: 'ignore'
                 });
               } else if (term === 'xfce4-terminal') {
-                // xfce4-terminal: use -x (--execute) to pass command and args separately
-                // This avoids shell escaping issues with -e flag
-                proc = spawn(term, ['-x', 'bash', '-c', `cd '${escapedPath}' && ${devCommand}; exec bash`], {
+                // xfce4-terminal: use --working-directory to set the directory directly
+                // This avoids shell escaping issues entirely by passing the path as an option value
+                proc = spawn(term, ['--working-directory', worktreePath, '-x', 'bash', '-c', `${devCommand}; exec bash`], {
                   detached: true,
                   stdio: 'ignore'
                 });
               } else {
-                // xterm and other terminals: use the same approach as gnome-terminal
-                // Pass arguments separately so the path with '\'' escaping works correctly
+                // xterm and other terminals: use same approach as gnome-terminal
+                // escapedPath has single quotes properly escaped with '\'' pattern
                 proc = spawn(term, ['-e', 'bash', '-c', `cd '${escapedPath}' && ${devCommand}; exec bash`], {
                   detached: true,
                   stdio: 'ignore'
