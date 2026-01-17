@@ -390,7 +390,7 @@ export function Insights({ projectId }: InsightsProps) {
               onClick={handleStop}
               variant="destructive"
               className="self-end"
-              title="Stop generation"
+              title={t('accessibility.stopGenerationAriaLabel')}
             >
               <X className="h-4 w-4" />
             </Button>

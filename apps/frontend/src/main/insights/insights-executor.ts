@@ -13,6 +13,7 @@ import type {
 import { MODEL_ID_MAP } from '../../shared/constants';
 import { InsightsConfig } from './config';
 import { detectRateLimit, createSDKRateLimitInfo } from '../rate-limit-detector';
+import { getSpawnOptions } from '../env-utils';
 
 /**
  * Message processor result
@@ -125,11 +126,11 @@ export class InsightsExecutor extends EventEmitter {
     }
 
     // Spawn Python process
-    const proc = spawn(this.config.getPythonPath(), args, {
+    const pythonPath = this.config.getPythonPath();
+    const proc = spawn(pythonPath, args, getSpawnOptions(pythonPath, {
       cwd: autoBuildSource,
-      env: processEnv,
-      ...(process.platform === 'win32' && { windowsHide: true })
-    });
+      env: processEnv
+    }));
 
     this.activeSessions.set(projectId, proc);
 

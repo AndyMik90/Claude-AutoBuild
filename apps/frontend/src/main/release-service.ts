@@ -15,6 +15,7 @@ import type {
 } from '../shared/types';
 import { DEFAULT_CHANGELOG_PATH } from '../shared/constants';
 import { getToolPath } from './cli-tool-manager';
+import { getSpawnOptions, getSpawnCommand } from './env-utils';
 
 /**
  * Service for creating GitHub releases with worktree-aware pre-flight checks.
@@ -702,11 +703,11 @@ export class ReleaseService extends EventEmitter {
       }
 
       // Use spawn for better handling of the notes content
+      const ghPath = getToolPath('gh');
       const result = await new Promise<string>((resolve, reject) => {
-        const child = spawn('gh', args, {
-          cwd: projectPath,
-          stdio: ['pipe', 'pipe', 'pipe'],
-          ...(process.platform === 'win32' && { windowsHide: true })
+        const child = spawn(getSpawnCommand(ghPath), args, {
+          ...getSpawnOptions(ghPath, { cwd: projectPath }),
+          stdio: ['pipe', 'pipe', 'pipe']
         });
 
         let stdout = '';

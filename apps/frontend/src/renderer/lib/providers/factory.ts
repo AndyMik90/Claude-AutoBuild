@@ -6,7 +6,16 @@
  * Maps provider types to their IPC handlers.
  */
 
-import type { ProviderType, ProviderOAuthHandlers } from './types';
+import type {
+  ProviderType,
+  ProviderOAuthHandlers,
+  EnvironmentConfig,
+  ProviderSpecificConfig,
+  ProviderEnvConfig,
+  GitHubProviderConfig,
+  GitLabProviderConfig,
+} from './types';
+import i18n from '../../../shared/i18n';
 
 /**
  * Get OAuth handlers for a specific provider.
@@ -46,7 +55,7 @@ export function getProviderOAuthHandlers(
         getToken: async () => {
           const result = await window.electronAPI.getGitHubToken();
           if (!result.success || !result.data?.token) {
-            throw new Error('Failed to get GitHub token');
+            throw new Error(i18n.t('common:errors.failedToGetGitHubToken'));
           }
           return { token: result.data.token };
         },
@@ -80,7 +89,7 @@ export function getProviderOAuthHandlers(
         getToken: async (instanceUrl?: string) => {
           const result = await window.electronAPI.getGitLabToken(instanceUrl);
           if (!result.success || !result.data?.token) {
-            throw new Error('Failed to get GitLab token');
+            throw new Error(i18n.t('common:errors.failedToGetGitLabToken'));
           }
           return { token: result.data.token };
         },
@@ -96,12 +105,12 @@ export function getProviderOAuthHandlers(
         startAuth: async () => ({ success: false }),
         checkAuth: async () => ({ authenticated: false, username: undefined }),
         getToken: async () => {
-          throw new Error(`${provider} not yet implemented`);
+          throw new Error(i18n.t('common:errors.providerNotImplemented', { provider }));
         },
       };
 
     default:
-      throw new Error(`Unknown provider: ${provider}`);
+      throw new Error(i18n.t('common:errors.unknownProvider', { provider }));
   }
 }
 
@@ -120,7 +129,7 @@ export function getProviderRepositoryFetcher(provider: ProviderType) {
           name: repo.name,
           fullName: repo.full_name,
           description: repo.description,
-          visibility: repo.visibility || repo.private ? 'private' : 'public',
+          visibility: repo.visibility ?? (repo.private ? 'private' : 'public'),
           url: repo.html_url,
         }));
       };
@@ -149,8 +158,8 @@ export function getProviderRepositoryFetcher(provider: ProviderType) {
  */
 export function envConfigToProviderConfig(
   provider: ProviderType,
-  envConfig: any
-): any {
+  envConfig: EnvironmentConfig
+): ProviderSpecificConfig {
   switch (provider) {
     case 'github':
       return {
@@ -158,7 +167,7 @@ export function envConfigToProviderConfig(
         token: envConfig.githubToken,
         repo: envConfig.githubRepo,
         defaultBranch: envConfig.defaultBranch,
-      };
+      } satisfies GitHubProviderConfig;
 
     case 'gitlab':
       return {
@@ -167,7 +176,7 @@ export function envConfigToProviderConfig(
         project: envConfig.gitlabProject,
         instanceUrl: envConfig.gitlabInstanceUrl || 'https://gitlab.com',
         defaultBranch: envConfig.defaultBranch,
-      };
+      } satisfies GitLabProviderConfig;
 
     default:
       return { enabled: false };
@@ -179,25 +188,29 @@ export function envConfigToProviderConfig(
  */
 export function providerConfigToEnvConfig(
   provider: ProviderType,
-  config: any
-): any {
+  config: ProviderSpecificConfig
+): ProviderEnvConfig {
   switch (provider) {
-    case 'github':
+    case 'github': {
+      const githubConfig = config as GitHubProviderConfig;
       return {
-        githubEnabled: config.enabled,
-        githubToken: config.token,
-        githubRepo: config.repo,
-        defaultBranch: config.defaultBranch,
+        githubEnabled: githubConfig.enabled,
+        githubToken: githubConfig.token,
+        githubRepo: githubConfig.repo,
+        defaultBranch: githubConfig.defaultBranch,
       };
+    }
 
-    case 'gitlab':
+    case 'gitlab': {
+      const gitlabConfig = config as GitLabProviderConfig;
       return {
-        gitlabEnabled: config.enabled,
-        gitlabToken: config.token,
-        gitlabProject: config.project,
-        gitlabInstanceUrl: config.instanceUrl,
-        defaultBranch: config.defaultBranch,
+        gitlabEnabled: gitlabConfig.enabled,
+        gitlabToken: gitlabConfig.token,
+        gitlabProject: gitlabConfig.project,
+        gitlabInstanceUrl: gitlabConfig.instanceUrl,
+        defaultBranch: gitlabConfig.defaultBranch,
       };
+    }
 
     default:
       return {};

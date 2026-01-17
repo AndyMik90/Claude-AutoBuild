@@ -178,10 +178,11 @@ export class AgentEvents {
     let message: string | undefined;
 
     // Check for granular progress markers from discovery agent
-    const progressMatch = log.match(/\[ROADMAP_PROGRESS\]\s+(\d+)\s+(.+)/);
+    // Supports both "[ROADMAP_PROGRESS] 50 message" and "[ROADMAP_PROGRESS] 50" (no message)
+    const progressMatch = log.match(/\[ROADMAP_PROGRESS\]\s+(\d+)(?:\s+(.*))?/);
     if (progressMatch) {
       const newProgress = parseInt(progressMatch[1], 10);
-      const progressMessage = progressMatch[2].trim();
+      const progressMessage = progressMatch[2]?.trim() || 'Processing...';
 
       // Only update if progress is moving forward
       if (newProgress > currentProgress) {
@@ -191,6 +192,10 @@ export class AgentEvents {
         // Update phase based on progress value
         if (newProgress >= 40 && newProgress < 70) {
           phase = 'discovering';
+        } else if (newProgress >= 70 && newProgress < 100) {
+          phase = 'generating';
+        } else if (newProgress >= 100) {
+          phase = 'complete';
         }
       }
 

@@ -22,6 +22,7 @@ You are the **first agent** in an autonomous development process. Your job is to
 - When in doubt, create MORE subtasks rather than fewer
 
 **Example MINIMUM acceptable plan:**
+
 ```json
 {
   "feature": "Feature name",

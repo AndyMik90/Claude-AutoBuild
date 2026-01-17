@@ -82,10 +82,13 @@ def get_provider_config(
     Returns:
         GitProvider enum value (never returns AUTO_DETECT)
     """
+    # Normalize provider setting to lowercase for case-insensitive comparison
+    normalized_setting = provider_setting.lower() if provider_setting else None
+
     # If user explicitly chose a provider (not auto), use it
-    if provider_setting and provider_setting != "auto":
+    if normalized_setting and normalized_setting != "auto":
         try:
-            return GitProvider(provider_setting.lower())
+            return GitProvider(normalized_setting)
         except ValueError:
             pass  # Invalid value, fall through to auto-detect
 

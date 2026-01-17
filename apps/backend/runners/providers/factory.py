@@ -11,10 +11,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ..github.providers.protocol import GitProvider, ProviderType
 from ..github.providers.github_provider import GitHubProvider
-from ..gitlab.providers.gitlab_provider import GitLabProvider
+from ..github.providers.protocol import GitProvider, ProviderType
 from ..gitlab.glab_client import GitLabConfig
+from ..gitlab.providers.gitlab_provider import GitLabProvider
 
 
 @dataclass
@@ -31,7 +31,9 @@ class ProviderConfig:
 
     # GitHub-specific
     github_repo: str | None = None
-    github_token: str | None = None  # Optional - uses gh CLI auth if not provided
+    # NOTE: github_token is a placeholder for future API-based auth.
+    # Currently GitHubProvider uses gh CLI which handles its own authentication.
+    github_token: str | None = None
 
     # GitLab-specific
     gitlab_project: str | None = None

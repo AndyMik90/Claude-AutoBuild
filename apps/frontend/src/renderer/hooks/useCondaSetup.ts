@@ -171,15 +171,14 @@ export function useCondaSetup(options: UseCondaSetupOptions): UseCondaSetupRetur
           throw new Error(result.error);
         }
       }
+      // For successful completion, the progress event handler sets
+      // isRunning to false when step becomes 'complete'.
     } catch (err) {
       if (isMountedRef.current) {
         const errorMessage = err instanceof Error ? err.message : 'Setup failed';
         setError(errorMessage);
         setStep('error');
         setMessage(errorMessage);
-      }
-    } finally {
-      if (isMountedRef.current) {
         setIsRunning(false);
       }
     }

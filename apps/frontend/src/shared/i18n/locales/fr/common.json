@@ -52,7 +52,8 @@
     "hideTokenEntryAriaLabel": "Masquer la saisie du jeton",
     "enterTokenManuallyAriaLabel": "Saisir le jeton manuellement",
     "renameProfileAriaLabel": "Renommer le profil",
-    "deleteProfileAriaLabel": "Supprimer le profil"
+    "deleteProfileAriaLabel": "Supprimer le profil",
+    "stopGenerationAriaLabel": "Arrêter la génération"
   },
   "buttons": {
     "save": "Enregistrer",
@@ -105,7 +106,11 @@
     "operationFailed": "Opération échouée",
     "networkError": "Erreur réseau",
     "notFound": "Non trouvé",
-    "unauthorized": "Non autorisé"
+    "unauthorized": "Non autorisé",
+    "unknownProvider": "Fournisseur inconnu : {{provider}}",
+    "providerNotImplemented": "{{provider}} pas encore implémenté",
+    "failedToGetGitHubToken": "Échec de récupération du jeton GitHub",
+    "failedToGetGitLabToken": "Échec de récupération du jeton GitLab"
   },
   "notification": {
     "accountSwitched": "Compte changé",

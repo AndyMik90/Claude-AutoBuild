@@ -1,3 +1,4 @@
+import * as path from 'path';
 import type { Task, Project } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 
@@ -19,4 +20,13 @@ export const findTaskAndProject = (taskId: string): { task: Task | undefined; pr
   }
 
   return { task, project };
+};
+
+/**
+ * Get the spec directory path for a task
+ * Uses worktree path if task is in a worktree, otherwise uses project path
+ */
+export const getSpecDir = (task: Task, project: Project): string => {
+  const basePath = task.worktreePath || project.path;
+  return path.join(basePath, '.auto-claude', 'specs', task.specId);
 };

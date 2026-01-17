@@ -247,7 +247,12 @@
     "autoNameTerminalsDescription": "Utiliser l'IA pour générer des noms descriptifs pour les onglets de terminal en fonction de leur activité",
     "browse": "Parcourir",
     "selectPythonExecutable": "Sélectionner l'exécutable Python",
-    "selectActivationScript": "Sélectionner le script d'activation"
+    "selectActivationScript": "Sélectionner le script d'activation",
+    "fileFilter": {
+      "pythonExecutable": "Exécutable Python",
+      "activationScripts": "Scripts d'activation",
+      "allFiles": "Tous les fichiers"
+    }
   },
   "theme": {
     "title": "Apparence",
@@ -392,6 +397,13 @@
   "python": {
     "title": "Python",
     "condaInstallation": "Installation Conda",
+    "condaTypes": {
+      "miniconda": "Miniconda",
+      "anaconda": "Anaconda",
+      "mambaforge": "Mambaforge",
+      "miniforge": "Miniforge",
+      "unknown": "Conda"
+    },
     "detected": "Détecté",
     "detecting": "Détection...",
     "notDetected": "Aucune installation conda trouvée",
@@ -579,6 +591,50 @@
       "title": "Aucun projet sélectionné",
       "description": "Sélectionnez un projet dans la barre latérale pour configurer ses paramètres."
     }
+  },
+  "gitProvider": {
+    "title": "Paramètres du fournisseur Git",
+    "providerLabel": "Fournisseur de Pull Request / Merge Request",
+    "providerDescription": "Choisissez quelle plateforme git utiliser pour la création de PR/MR",
+    "autoDetectPlaceholder": "Détection automatique depuis le remote",
+    "autoDetectHint": "Le fournisseur sera détecté automatiquement depuis l'URL de votre remote git lors de la création de PR/MR",
+    "options": {
+      "auto": "Détection automatique depuis le remote git"
+    }
+  },
+  "providerIntegration": {
+    "loadingConfiguration": "Chargement de la configuration...",
+    "enableIssues": "Activer les issues {{provider}}",
+    "syncIssuesDescription": "Synchroniser les issues depuis {{provider}} et créer des tâches automatiquement",
+    "instanceLabel": "Instance {{provider}}",
+    "instanceDescription": "Utilisez {{defaultUrl}} ou l'URL de votre instance auto-hébergée",
+    "connectedViaCli": "Connecté via {{provider}} CLI",
+    "authenticatedAs": "Authentifié en tant que {{username}}",
+    "useManualToken": "Utiliser un token manuel",
+    "selectRepo": "Sélectionner {{repoType}}",
+    "loadingRepos": "Chargement des {{repoType}}s...",
+    "selectRepoPlaceholder": "Sélectionner {{repoType}}",
+    "authentication": "Authentification {{provider}}",
+    "completeAuthInBrowser": "Complétez l'authentification dans votre navigateur",
+    "cliRequired": "{{provider}} CLI requis",
+    "cliRequiredDescription": "Le CLI {{provider}} ({{cliName}}) est requis pour l'authentification OAuth.",
+    "installationCommandExecuted": "Commande d'installation exécutée",
+    "installing": "Installation...",
+    "installCli": "Installer {{cliName}}",
+    "learnMore": "En savoir plus",
+    "cliInstalled": "{{cliName}} CLI installé",
+    "authenticated": "Authentifié",
+    "notAuthenticatedHint": "Non authentifié - l'authentification se fera lors de l'enregistrement de votre token",
+    "personalAccessToken": "Token d'accès personnel",
+    "useOAuth": "Utiliser OAuth",
+    "createTokenHint": "Créez un token avec le scope <code>api</code> depuis",
+    "providerSettings": "Paramètres {{provider}}",
+    "repoFormatHint": "Format : {{format}} (ex. {{example}})",
+    "defaultBranch": "Branche par défaut",
+    "refresh": "Actualiser",
+    "baseBranchDescription": "Branche de base pour créer les worktrees de tâches",
+    "loadingBranches": "Chargement des branches...",
+    "noBranchesFound": "Aucune branche trouvée"
   },
   "mcp": {
     "title": "Aperçu des serveurs MCP",

@@ -247,7 +247,12 @@
     "autoNameTerminalsDescription": "Use AI to generate descriptive names for terminal tabs based on their activity",
     "browse": "Browse",
     "selectPythonExecutable": "Select Python Executable",
-    "selectActivationScript": "Select Activation Script"
+    "selectActivationScript": "Select Activation Script",
+    "fileFilter": {
+      "pythonExecutable": "Python Executable",
+      "activationScripts": "Activation Scripts",
+      "allFiles": "All Files"
+    }
   },
   "theme": {
     "title": "Appearance",
@@ -393,6 +398,13 @@
     "title": "Python",
     "pathPlaceholder": "C:\\path\\to\\conda",
     "condaInstallation": "Conda Installation",
+    "condaTypes": {
+      "miniconda": "Miniconda",
+      "anaconda": "Anaconda",
+      "mambaforge": "Mambaforge",
+      "miniforge": "Miniforge",
+      "unknown": "Conda"
+    },
     "detected": "Detected",
     "detecting": "Detecting...",
     "notDetected": "No conda installation found",
@@ -580,6 +592,50 @@
       "title": "No Project Selected",
       "description": "Select a project from the sidebar to configure its settings."
     }
+  },
+  "gitProvider": {
+    "title": "Git Provider Settings",
+    "providerLabel": "Pull Request / Merge Request Provider",
+    "providerDescription": "Choose which git platform to use for PR/MR creation",
+    "autoDetectPlaceholder": "Auto-detect from remote",
+    "autoDetectHint": "Provider will be auto-detected from your git remote URL when creating PRs/MRs",
+    "options": {
+      "auto": "Auto-detect from git remote"
+    }
+  },
+  "providerIntegration": {
+    "loadingConfiguration": "Loading configuration...",
+    "enableIssues": "Enable {{provider}} Issues",
+    "syncIssuesDescription": "Sync issues from {{provider}} and create tasks automatically",
+    "instanceLabel": "{{provider}} Instance",
+    "instanceDescription": "Use {{defaultUrl}} or your self-hosted instance URL",
+    "connectedViaCli": "Connected via {{provider}} CLI",
+    "authenticatedAs": "Authenticated as {{username}}",
+    "useManualToken": "Use Manual Token",
+    "selectRepo": "Select {{repoType}}",
+    "loadingRepos": "Loading {{repoType}}s...",
+    "selectRepoPlaceholder": "Select {{repoType}}",
+    "authentication": "{{provider}} Authentication",
+    "completeAuthInBrowser": "Complete the authentication in your browser",
+    "cliRequired": "{{provider}} CLI Required",
+    "cliRequiredDescription": "The {{provider}} CLI ({{cliName}}) is required for OAuth authentication.",
+    "installationCommandExecuted": "Installation command executed",
+    "installing": "Installing...",
+    "installCli": "Install {{cliName}}",
+    "learnMore": "Learn more",
+    "cliInstalled": "{{cliName}} CLI installed",
+    "authenticated": "Authenticated",
+    "notAuthenticatedHint": "Not authenticated - will authenticate when you save your token",
+    "personalAccessToken": "Personal Access Token",
+    "useOAuth": "Use OAuth",
+    "createTokenHint": "Create a token with <code>api</code> scope from",
+    "providerSettings": "{{provider}} Settings",
+    "repoFormatHint": "Format: {{format}} (e.g. {{example}})",
+    "defaultBranch": "Default Branch",
+    "refresh": "Refresh",
+    "baseBranchDescription": "Base branch for creating task worktrees",
+    "loadingBranches": "Loading branches...",
+    "noBranchesFound": "No branches found"
   },
   "mcp": {
     "title": "MCP Server Overview",

@@ -251,12 +251,13 @@ async def run_autonomous_agent(
 
             # Log feedback detection to task_logs.json (visible in UI)
             task_logger = get_task_logger(spec_dir)
-            task_logger.log(
-                content=f"📢 USER FEEDBACK DETECTED - {len(unread_feedback)} unread feedback item(s) will be incorporated into this subtask",
-                entry_type=LogEntryType.INFO,
-                phase=LogPhase.CODING,
-                print_to_console=True,
-            )
+            if task_logger:
+                task_logger.log(
+                    content=f"📢 USER FEEDBACK DETECTED - {len(unread_feedback)} unread feedback item(s) will be incorporated into this subtask",
+                    entry_type=LogEntryType.INFO,
+                    phase=LogPhase.CODING,
+                    print_to_console=True,
+                )
 
         # Update status for this session
         status_manager.update_session(iteration)
@@ -601,7 +602,7 @@ CRITICAL: Mark feedback as read when you have FULLY ADDRESSED it in any way:
                 plan_file = spec_dir / "implementation_plan.json"
                 if plan_file.exists():
                     try:
-                        with open(plan_file) as f:
+                        with open(plan_file, encoding="utf-8") as f:
                             plan_data = json.load(f)
                         plan_data["status"] = "human_review"
                         plan_data["reviewReason"] = "errors"
@@ -618,7 +619,7 @@ CRITICAL: Mark feedback as read when you have FULLY ADDRESSED it in any way:
                             "  3. Delete this task and create a new one with an improved spec\n"
                         )
                         plan_data["updated_at"] = datetime.now().isoformat()
-                        with open(plan_file, "w") as f:
+                        with open(plan_file, "w", encoding="utf-8") as f:
                             json.dump(plan_data, f, indent=2)
                         print()
                         print_status(

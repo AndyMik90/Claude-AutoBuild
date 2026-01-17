@@ -71,6 +71,88 @@ export interface ProviderMetadata {
   };
 }
 
+/**
+ * Environment config shape (from backend .env)
+ */
+export interface EnvironmentConfig {
+  githubEnabled?: boolean;
+  githubToken?: string;
+  githubRepo?: string;
+  gitlabEnabled?: boolean;
+  gitlabToken?: string;
+  gitlabProject?: string;
+  gitlabInstanceUrl?: string;
+  defaultBranch?: string;
+}
+
+/**
+ * Base provider config with common optional properties
+ */
+export interface BaseProviderConfig {
+  enabled: boolean;
+  token?: string;
+  instanceUrl?: string;
+  defaultBranch?: string;
+}
+
+/**
+ * GitHub-specific provider config
+ */
+export interface GitHubProviderConfig extends BaseProviderConfig {
+  repo?: string;
+}
+
+/**
+ * GitLab-specific provider config
+ */
+export interface GitLabProviderConfig extends BaseProviderConfig {
+  project?: string;
+}
+
+/**
+ * Default/disabled provider config
+ */
+export interface DisabledProviderConfig {
+  enabled: false;
+  token?: undefined;
+  instanceUrl?: undefined;
+  defaultBranch?: undefined;
+}
+
+/**
+ * Union type for all provider configs
+ */
+export type ProviderSpecificConfig =
+  | GitHubProviderConfig
+  | GitLabProviderConfig
+  | DisabledProviderConfig;
+
+/**
+ * GitHub environment config subset
+ */
+export interface GitHubEnvConfig {
+  githubEnabled?: boolean;
+  githubToken?: string;
+  githubRepo?: string;
+  defaultBranch?: string;
+}
+
+/**
+ * GitLab environment config subset
+ */
+export interface GitLabEnvConfig {
+  gitlabEnabled?: boolean;
+  gitlabToken?: string;
+  gitlabProject?: string;
+  gitlabInstanceUrl?: string;
+  defaultBranch?: string;
+}
+
+/**
+ * Union type for provider env config subsets
+ */
+export type ProviderEnvConfig = GitHubEnvConfig | GitLabEnvConfig | Record<string, never>;
+
 export const PROVIDER_METADATA: Record<ProviderType, ProviderMetadata> = {
   github: {
     name: 'github',

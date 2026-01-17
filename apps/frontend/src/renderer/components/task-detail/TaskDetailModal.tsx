@@ -488,13 +488,13 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     value="configuration"
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
                   >
-                    Configuration
+                    {t('tasks:tabs.configuration')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="feedback"
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
                   >
-                    Feedback
+                    {t('tasks:tabs.feedback')}
                   </TabsTrigger>
                 </TabsList>
 

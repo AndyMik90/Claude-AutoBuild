@@ -22,6 +22,7 @@ import type {
   CondaDetectionResult,
   CondaDistributionType,
 } from '../shared/types/conda';
+import { isWindows } from './python-path-utils';
 
 const execFileAsync = promisify(execFile);
 
@@ -45,7 +46,8 @@ const CONDA_SEARCH_PATHS: Record<string, string[]> = {
     'C:\\ProgramData\\Anaconda3',
     path.join(os.homedir(), 'mambaforge'),
     path.join(os.homedir(), 'miniforge3'),
-    path.join(process.env.LOCALAPPDATA || '', 'miniconda3'),
+    // Only include LOCALAPPDATA path if the env var is defined (prevents relative path search)
+    ...(process.env.LOCALAPPDATA ? [path.join(process.env.LOCALAPPDATA, 'miniconda3')] : []),
   ],
   darwin: [
     path.join(os.homedir(), 'miniconda3'),
@@ -81,7 +83,7 @@ let detectionCache: CondaDetectionResult | null = null;
  * @returns Full path to conda executable
  */
 function getCondaExecutablePath(condaPath: string): string {
-  if (process.platform === 'win32') {
+  if (isWindows()) {
     return path.join(condaPath, 'Scripts', 'conda.exe');
   }
   return path.join(condaPath, 'bin', 'conda');
@@ -237,10 +239,22 @@ export async function validateCondaPath(
 }
 
 /**
+ * Get the platform key for CONDA_SEARCH_PATHS lookup.
+ * Uses platform abstraction instead of direct process.platform access.
+ */
+function getPlatformKey(): string {
+  if (isWindows()) {
+    return 'win32';
+  }
+  // For non-Windows, use process.platform directly (darwin, linux, etc.)
+  return process.platform;
+}
+
+/**
  * Get the search paths for Conda installations, filtering out empty paths
  */
 function getValidSearchPaths(): string[] {
-  const searchPaths = CONDA_SEARCH_PATHS[process.platform] || [];
+  const searchPaths = CONDA_SEARCH_PATHS[getPlatformKey()] || [];
   return searchPaths.filter((p) => p && p.length > 0);
 }
 

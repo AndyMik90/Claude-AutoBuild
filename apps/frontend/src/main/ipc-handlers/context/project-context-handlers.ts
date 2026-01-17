@@ -23,7 +23,7 @@ import {
 import { loadFileBasedMemories } from './memory-data-handlers';
 import { parsePythonCommand } from '../../python-detector';
 import { getConfiguredPythonPath } from '../../python-env-manager';
-import { getAugmentedEnv } from '../../env-utils';
+import { getAugmentedEnv, getSpawnOptions } from '../../env-utils';
 
 /**
  * Load project index from file
@@ -177,11 +177,10 @@ export function registerProjectContextHandlers(
             analyzerPath,
             '--project-dir', project.path,
             '--output', indexOutputPath
-          ], {
+          ], getSpawnOptions(pythonCommand, {
             cwd: project.path,
-            env: getAugmentedEnv(),
-            ...(process.platform === 'win32' && { windowsHide: true })
-          });
+            env: getAugmentedEnv()
+          }));
 
           proc.stdout?.on('data', (data) => {
             stdout += data.toString();

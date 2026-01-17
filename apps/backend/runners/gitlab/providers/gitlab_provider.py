@@ -8,7 +8,6 @@ Wraps the existing GitLabClient functionality.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -28,7 +27,6 @@ from ...github.providers.protocol import (
     PRFilters,
     ProviderType,
     ReviewData,
-    ReviewFinding,
 )
 
 
@@ -268,7 +266,12 @@ class GitLabProvider:
         issue_or_pr_number: int,
         body: str,
     ) -> int:
-        """Add a comment to an issue or MR."""
+        """
+        Add a comment to a merge request.
+
+        Note: Currently only supports MRs. Issue comment support requires
+        implementing issue operations in glab_client first.
+        """
         result = self.glab_client.post_mr_note(issue_or_pr_number, body)
         return result.get("id", 0)
 
@@ -336,6 +339,10 @@ class GitLabProvider:
         params: dict[str, Any] | None = None,
     ) -> Any:
         """Make a GET request to the GitLab API."""
+        if params:
+            from urllib.parse import urlencode
+            query_string = urlencode(params)
+            endpoint = f"{endpoint}?{query_string}" if "?" not in endpoint else f"{endpoint}&{query_string}"
         return self.glab_client._fetch(endpoint, method="GET")
 
     async def api_post(

@@ -131,7 +131,7 @@ if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
       echo "$STAGED_PY_FILES" | xargs git add
     fi
   else
-    echo "Warning: ruff not found, skipping Python linting. Install with: uv pip install ruff"
+    echo "⚠️  Warning: ruff not found, skipping Python linting. Install with: uv pip install ruff"
   fi
 
   # Run pytest (skip slow/integration tests and Windows-incompatible tests for pre-commit speed)

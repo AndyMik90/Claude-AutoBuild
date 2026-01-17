@@ -18,7 +18,7 @@ except ImportError:
     tool = None
 
 
-def create_feedback_tools(spec_dir: Path, project_dir: Path) -> list:
+def create_feedback_tools(spec_dir: Path, _project_dir: Path) -> list:
     """
     Create feedback management tools.
 
@@ -46,12 +46,7 @@ def create_feedback_tools(spec_dir: Path, project_dir: Path) -> list:
     )
     async def mark_feedback_read(args: dict[str, Any]) -> dict[str, Any]:
         """Mark specific feedback entries as read in task_metadata.json."""
-        # Debug logging
-        print(f"[DEBUG] mark_feedback_read called with args: {args}")
-        print(f"[DEBUG] spec_dir: {spec_dir}")
-
         feedback_indices_str = args.get("feedback_indices", "")
-        print(f"[DEBUG] feedback_indices_str: '{feedback_indices_str}', type: {type(feedback_indices_str)}")
 
         # Parse comma-separated string into list of integers
         try:
@@ -66,10 +61,8 @@ def create_feedback_tools(spec_dir: Path, project_dir: Path) -> list:
                 }
 
             feedback_indices = [int(idx.strip()) for idx in feedback_indices_str.split(",")]
-            print(f"[DEBUG] Parsed indices: {feedback_indices}")
         except ValueError as e:
             error_msg = f"Error: feedback_indices must be comma-separated integers (e.g., '0' or '0,1,2'), got '{feedback_indices_str}'"
-            print(f"[DEBUG] {error_msg}")
             return {
                 "content": [
                     {

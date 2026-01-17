@@ -348,7 +348,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
                 const filePath = await window.electronAPI.selectFile({
                   title: t('general.selectPythonExecutable'),
                   filters: isWindows
-                    ? [{ name: 'Python Executable', extensions: ['exe'] }]
+                    ? [{ name: t('general.fileFilter.pythonExecutable'), extensions: ['exe'] }]
                     : []
                 });
                 if (filePath) {
@@ -395,10 +395,10 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
                   title: t('general.selectActivationScript'),
                   filters: isWindows
                     ? [
-                        { name: 'Activation Scripts', extensions: ['bat', 'cmd', 'ps1'] },
-                        { name: 'All Files', extensions: ['*'] }
+                        { name: t('general.fileFilter.activationScripts'), extensions: ['bat', 'cmd', 'ps1'] },
+                        { name: t('general.fileFilter.allFiles'), extensions: ['*'] }
                       ]
-                    : [{ name: 'All Files', extensions: ['*'] }]
+                    : [{ name: t('general.fileFilter.allFiles'), extensions: ['*'] }]
                 });
                 if (filePath) {
                   onSettingsChange({ ...settings, pythonActivationScript: filePath });

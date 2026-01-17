@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Zap,
   Eye,
@@ -75,6 +76,8 @@ export function IntegrationSettings({
   githubExpanded,
   onGitHubToggle
 }: IntegrationSettingsProps) {
+  const { t } = useTranslation(['settings']);
+
   // Branch selection state
   const [branches, setBranches] = useState<string[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
@@ -490,12 +493,13 @@ export function IntegrationSettings({
       {/* Git Provider Section - NEW */}
       <section className="space-y-3">
         <button
+          type="button"
           onClick={() => setGitProviderExpanded(!gitProviderExpanded)}
           className="w-full flex items-center justify-between text-sm font-semibold text-foreground hover:text-foreground/80"
         >
           <div className="flex items-center gap-2">
             <GitBranch className="h-4 w-4" />
-            Git Provider Settings
+            {t('settings:gitProvider.title')}
             {settings.gitProvider && settings.gitProvider !== 'auto' && (
               <span className="px-2 py-0.5 text-xs bg-primary/10 text-primary rounded-full">
                 {settings.gitProvider === 'github' ? 'GitHub' : 'GitLab'}
@@ -512,9 +516,9 @@ export function IntegrationSettings({
         {gitProviderExpanded && (
           <div className="space-y-4 pl-6 pt-2">
             <div className="space-y-2">
-              <Label className="font-normal text-foreground">Pull Request / Merge Request Provider</Label>
+              <Label className="font-normal text-foreground">{t('settings:gitProvider.providerLabel')}</Label>
               <p className="text-xs text-muted-foreground">
-                Choose which git platform to use for PR/MR creation
+                {t('settings:gitProvider.providerDescription')}
               </p>
               <Select
                 value={settings.gitProvider || 'auto'}
@@ -523,13 +527,13 @@ export function IntegrationSettings({
                 }
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Auto-detect from remote" />
+                  <SelectValue placeholder={t('settings:gitProvider.autoDetectPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">
                     <div className="flex items-center gap-2">
                       <Radio className="h-3 w-3" />
-                      Auto-detect from git remote
+                      {t('settings:gitProvider.options.auto')}
                     </div>
                   </SelectItem>
                   <SelectItem value="github">
@@ -551,7 +555,7 @@ export function IntegrationSettings({
               {settings.gitProvider === 'auto' && (
                 <div className="mt-2 p-2 bg-muted/50 rounded-md">
                   <p className="text-xs text-muted-foreground">
-                    Provider will be auto-detected from your git remote URL when creating PRs/MRs
+                    {t('settings:gitProvider.autoDetectHint')}
                   </p>
                 </div>
               )}

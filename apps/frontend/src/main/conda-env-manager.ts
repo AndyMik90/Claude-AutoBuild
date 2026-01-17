@@ -24,7 +24,7 @@ import type {
   ActivationScripts,
 } from '../shared/types/conda';
 import { detectCondaInstallations } from './conda-detector';
-import { getCondaPythonPath, getPipPath } from './python-path-utils';
+import { getCondaPythonPath, getCondaPipPath } from './python-path-utils';
 
 const execFileAsync = promisify(execFile);
 
@@ -658,7 +658,7 @@ export async function verifyEnvironment(
   // Get package count (with short timeout to avoid blocking)
   // This is informational only - don't block verification on it
   let packageCount: number | undefined;
-  const pipExe = getPipPath(envPath);
+  const pipExe = getCondaPipPath(envPath);
   try {
     // Short 5-second timeout for pip list - if it takes longer, skip it
     const { stdout } = await runCommand(pipExe, ['list', '--format=json'], { timeout: 5000 });
@@ -714,7 +714,7 @@ export async function* installDependencies(
     return;
   }
 
-  const pipExe = getPipPath(envPath);
+  const pipExe = getCondaPipPath(envPath);
 
   // Verify pip exists
   try {
@@ -968,7 +968,7 @@ export async function checkDependencyCompatibility(
     };
   }
 
-  const pipExe = getPipPath(envPath);
+  const pipExe = getCondaPipPath(envPath);
 
   // Verify pip exists
   try {

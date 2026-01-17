@@ -220,5 +220,49 @@
   },
   "subtasks": {
     "untitled": "Sous-tâche sans titre"
+  },
+  "tabs": {
+    "configuration": "Configuration",
+    "feedback": "Commentaires"
+  },
+  "configuration": {
+    "title": "Configuration de la tache",
+    "descriptionRunning": "Configurez le modele et les niveaux de reflexion par phase. Les modifications s'appliqueront aux phases suivantes.",
+    "descriptionNotRunning": "Configurez le modele et les niveaux de reflexion par phase. Les modifications sont enregistrees automatiquement.",
+    "taskRunningWarning": "Tache en cours (phase {{phase}})",
+    "changesApplyFrom": "Les modifications s'appliqueront a partir de la phase {{phase}}",
+    "currentPhaseComplete": "La phase actuelle se terminera avec les parametres d'origine",
+    "pendingChanges": "Modifications en attente",
+    "pendingChangesHint": "Cliquez sur \"Appliquer les modifications\" pour enregistrer. Les modifications prendront effet a la prochaine phase.",
+    "profile": "Profil : {{name}}",
+    "resetToDefaults": "Reinitialiser aux valeurs par defaut",
+    "customProfile": "Personnalise",
+    "customProfileDescription": "Configuration par phase",
+    "defaultProfile": "Par defaut",
+    "defaultProfileDescription": "Utilisation des valeurs par defaut du systeme",
+    "phaseConfiguration": "Configuration des phases",
+    "phaseConfigurationHint": "Ajustez le modele et l'effort de reflexion pour chaque phase. Des niveaux de reflexion plus eleves utilisent plus de jetons mais fournissent une analyse plus approfondie.",
+    "phases": {
+      "spec": "Spec",
+      "planning": "Planification",
+      "coding": "Codage",
+      "qa": "QA"
+    },
+    "phaseLabel": "Phase {{phase}}",
+    "currentPhase": "Actuelle",
+    "willApplyChanges": "Appliquera les modifications",
+    "model": "Modele",
+    "thinkingLevel": "Niveau de reflexion",
+    "thinkingLabels": {
+      "none": "Aucun",
+      "low": "Faible",
+      "medium": "Moyen",
+      "high": "Eleve",
+      "ultra": "Ultra"
+    },
+    "tokens": "{{count}} jetons",
+    "tokensK": "{{count}}K jetons",
+    "applyChanges": "Appliquer les modifications",
+    "cancel": "Annuler"
   }
 }

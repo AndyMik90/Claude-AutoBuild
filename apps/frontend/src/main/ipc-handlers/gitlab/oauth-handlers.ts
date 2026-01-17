@@ -10,6 +10,7 @@ import type { IPCResult } from '../../../shared/types';
 import { getAugmentedEnv, findExecutable } from '../../env-utils';
 import { openTerminalWithCommand } from '../claude-code-handlers';
 import type { GitLabAuthStartResult } from './types';
+import { isWindows, isMac } from '../../python-path-utils';
 
 const DEFAULT_GITLAB_URL = 'https://gitlab.com';
 
@@ -99,7 +100,7 @@ export function registerCheckGlabCli(): void {
         // Get version using version command (more reliable than --version flag)
         let version: string | undefined;
         try {
-          const versionOutput = execFileSync('glab', ['version'], {
+          const versionOutput = execFileSync(glabPath, ['version'], {
             encoding: 'utf-8',
             stdio: 'pipe',
             env: getAugmentedEnv()
@@ -114,7 +115,7 @@ export function registerCheckGlabCli(): void {
         } catch (versionError) {
           // Fallback to --version flag
           try {
-            const versionOutput = execFileSync('glab', ['--version'], {
+            const versionOutput = execFileSync(glabPath, ['--version'], {
               encoding: 'utf-8',
               stdio: 'pipe',
               env: getAugmentedEnv()
@@ -156,13 +157,12 @@ export function registerInstallGlabCli(): void {
     async (): Promise<IPCResult<{ command: string }>> => {
       debugLog('installGitLabCli handler called');
       try {
-        const platform = process.platform;
         let command: string;
 
-        if (platform === 'darwin') {
+        if (isMac()) {
           // macOS: Use Homebrew
           command = 'brew install glab';
-        } else if (platform === 'win32') {
+        } else if (isWindows()) {
           // Windows: Use winget
           command = 'winget install --id GLab.GLab';
         } else {
@@ -291,7 +291,7 @@ export function registerStartGlabAuth(): void {
           const glabProcess = spawn('glab', args, {
             stdio: ['pipe', 'pipe', 'pipe'],
             env: getAugmentedEnv(),
-            ...(process.platform === 'win32' && { windowsHide: true })
+            ...(isWindows() && { windowsHide: true })
           });
 
           let output = '';

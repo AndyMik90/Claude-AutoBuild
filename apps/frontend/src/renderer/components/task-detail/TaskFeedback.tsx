@@ -5,7 +5,6 @@
  * The agent checks for unread feedback at natural checkpoints and incorporates corrections with highest priority.
  */
 import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { MessageSquarePlus, Send, Clock, AlertCircle, CheckCircle2, Loader2, Zap, Trash2, Edit2, X, Check } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
@@ -36,7 +35,6 @@ interface FeedbackEntry {
 }
 
 export function TaskFeedback({ task }: TaskFeedbackProps) {
-  const { t } = useTranslation(['tasks', 'common']);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [metadata, setMetadata] = useState<any>(null);

@@ -199,9 +199,6 @@ export function RoadmapGenerationProgress({
   const reducedMotion = useReducedMotion();
   const [isStopping, setIsStopping] = useState(false);
 
-  // Debug logging
-  console.log('[RoadmapProgress]', { phase, progress, message });
-
   /**
    * Handle stop button click with error handling and double-click prevention
    */

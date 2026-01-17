@@ -220,5 +220,49 @@
   },
   "subtasks": {
     "untitled": "Untitled subtask"
+  },
+  "tabs": {
+    "configuration": "Configuration",
+    "feedback": "Feedback"
+  },
+  "configuration": {
+    "title": "Task Configuration",
+    "descriptionRunning": "Configure model and thinking levels per phase. Changes will apply to upcoming phases.",
+    "descriptionNotRunning": "Configure model and thinking levels per phase. Changes are saved automatically.",
+    "taskRunningWarning": "Task is Running ({{phase}} phase)",
+    "changesApplyFrom": "Changes will apply starting from the {{phase}} phase",
+    "currentPhaseComplete": "Current phase will complete with original settings",
+    "pendingChanges": "Pending Changes",
+    "pendingChangesHint": "Click \"Apply Changes\" to save. Changes will take effect on the next phase.",
+    "profile": "Profile: {{name}}",
+    "resetToDefaults": "Reset to Defaults",
+    "customProfile": "Custom",
+    "customProfileDescription": "Per-phase configuration",
+    "defaultProfile": "Default",
+    "defaultProfileDescription": "Using system defaults",
+    "phaseConfiguration": "Phase Configuration",
+    "phaseConfigurationHint": "Adjust model and thinking effort for each phase. Higher thinking levels use more tokens but provide deeper analysis.",
+    "phases": {
+      "spec": "Spec",
+      "planning": "Planning",
+      "coding": "Coding",
+      "qa": "QA"
+    },
+    "phaseLabel": "{{phase}} Phase",
+    "currentPhase": "Current",
+    "willApplyChanges": "Will apply changes",
+    "model": "Model",
+    "thinkingLevel": "Thinking Level",
+    "thinkingLabels": {
+      "none": "None",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "ultra": "Ultra"
+    },
+    "tokens": "{{count}} tokens",
+    "tokensK": "{{count}}K tokens",
+    "applyChanges": "Apply Changes",
+    "cancel": "Cancel"
   }
 }

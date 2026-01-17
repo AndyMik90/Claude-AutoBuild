@@ -1,6 +1,7 @@
 import path from 'path';
 import { getAugmentedEnv, getAugmentedEnvAsync } from './env-utils';
 import { getToolPath, getToolPathAsync } from './cli-tool-manager';
+import { isWindows, getPathDelimiter } from './python-path-utils';
 
 export type ClaudeCliInvocation = {
   command: string;
@@ -19,12 +20,12 @@ function ensureCommandDirInPath(command: string, env: Record<string, string>): P
     return { env, wasModified: false };
   }
 
-  const pathSeparator = process.platform === 'win32' ? ';' : ':';
+  const pathSeparator = getPathDelimiter();
   const commandDir = path.dirname(command);
   const currentPath = env.PATH || '';
   const pathEntries = currentPath.split(pathSeparator);
   const normalizedCommandDir = path.normalize(commandDir);
-  const hasCommandDir = process.platform === 'win32'
+  const hasCommandDir = isWindows()
     ? pathEntries
       .map((entry) => path.normalize(entry).toLowerCase())
       .includes(normalizedCommandDir.toLowerCase())

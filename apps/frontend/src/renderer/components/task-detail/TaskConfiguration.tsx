@@ -6,9 +6,10 @@
  *
  * For running tasks, changes are pending until applied and take effect on next phase.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Settings2, RotateCcw, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import debounce from 'lodash/debounce';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Slider } from '../ui/slider';
@@ -38,12 +39,8 @@ interface TaskConfigurationProps {
 
 const PHASE_KEYS: Array<keyof PhaseModelConfig> = ['spec', 'planning', 'coding', 'qa'];
 
-const PHASE_LABELS: Record<keyof PhaseModelConfig, string> = {
-  spec: 'Spec',
-  planning: 'Planning',
-  coding: 'Coding',
-  qa: 'QA'
-};
+// Debounce delay for auto-save (ms)
+const AUTO_SAVE_DEBOUNCE_MS = 500;
 
 // Map thinking level to slider position (0-4)
 const THINKING_LEVEL_TO_INDEX: Record<string, number> = {
@@ -67,14 +64,31 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [metadata, setMetadata] = useState<any>(null);
+  const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
   const [savedPhaseModels, setSavedPhaseModels] = useState<PhaseModelConfig>(DEFAULT_PHASE_MODELS);
   const [savedPhaseThinking, setSavedPhaseThinking] = useState<PhaseThinkingConfig>(DEFAULT_PHASE_THINKING);
   const [pendingPhaseModels, setPendingPhaseModels] = useState<PhaseModelConfig>(DEFAULT_PHASE_MODELS);
   const [pendingPhaseThinking, setPendingPhaseThinking] = useState<PhaseThinkingConfig>(DEFAULT_PHASE_THINKING);
   const [hasPendingChanges, setHasPendingChanges] = useState(false);
 
+  // Refs to track latest state for debounced saves
+  const latestPendingModels = useRef<PhaseModelConfig>(pendingPhaseModels);
+  const latestPendingThinking = useRef<PhaseThinkingConfig>(pendingPhaseThinking);
+  const latestMetadata = useRef<Record<string, unknown> | null>(metadata);
+
+  // Keep refs in sync
+  useEffect(() => {
+    latestPendingModels.current = pendingPhaseModels;
+    latestPendingThinking.current = pendingPhaseThinking;
+    latestMetadata.current = metadata;
+  }, [pendingPhaseModels, pendingPhaseThinking, metadata]);
+
   const isTaskRunning = task.status === 'in_progress' || task.status === 'planning';
+
+  // Helper function to get phase label using i18n
+  const getPhaseLabel = useCallback((phase: keyof PhaseModelConfig): string => {
+    return t(`tasks:configuration.phases.${phase}`);
+  }, [t]);
 
   // Determine current phase from task
   const getCurrentPhase = (): keyof PhaseModelConfig | null => {
@@ -148,57 +162,82 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
     }
   };
 
-  const handlePhaseModelChange = (phase: keyof PhaseModelConfig, value: ModelTypeShort) => {
-    const newPhaseModels = { ...pendingPhaseModels, [phase]: value };
-    setPendingPhaseModels(newPhaseModels);
-
-    // If task is not running, auto-save
-    if (!isTaskRunning) {
-      saveChanges(newPhaseModels, pendingPhaseThinking);
-    }
-  };
-
-  const handlePhaseThinkingChange = (phase: keyof PhaseThinkingConfig, value: ThinkingLevel) => {
-    const newPhaseThinking = { ...pendingPhaseThinking, [phase]: value };
-    setPendingPhaseThinking(newPhaseThinking);
-
-    // If task is not running, auto-save
-    if (!isTaskRunning) {
-      saveChanges(pendingPhaseModels, newPhaseThinking);
-    }
-  };
-
-  const saveChanges = async (models: PhaseModelConfig, thinking: PhaseThinkingConfig) => {
+  // Core save function with null guard for metadata
+  const saveChangesCore = useCallback(async (models: PhaseModelConfig, thinking: PhaseThinkingConfig) => {
     setIsSaving(true);
     try {
-      await window.electronAPI.updateTaskMetadata(task.id, {
-        ...metadata,
+      // Use latest metadata from ref to prevent stale state issues
+      const currentMetadata = latestMetadata.current ?? {};
+      const updatedMetadata = {
+        ...currentMetadata,
         phaseModels: models,
         phaseThinking: thinking,
         isAutoProfile: true // Mark as using phase-specific config
-      });
+      };
+      await window.electronAPI.updateTaskMetadata(task.id, updatedMetadata);
       setSavedPhaseModels(models);
       setSavedPhaseThinking(thinking);
-      setMetadata({ ...metadata, phaseModels: models, phaseThinking: thinking, isAutoProfile: true });
+      setMetadata(updatedMetadata);
     } catch (error) {
       console.error('Failed to save task metadata:', error);
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [task.id]);
 
-  const handleApplyChanges = async () => {
-    await saveChanges(pendingPhaseModels, pendingPhaseThinking);
-  };
+  // Debounced auto-save function that uses latest state from refs
+  const debouncedAutoSave = useMemo(
+    () =>
+      debounce(() => {
+        saveChangesCore(latestPendingModels.current, latestPendingThinking.current);
+      }, AUTO_SAVE_DEBOUNCE_MS),
+    [saveChangesCore]
+  );
 
-  const handleCancelChanges = () => {
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      debouncedAutoSave.cancel();
+    };
+  }, [debouncedAutoSave]);
+
+  const handlePhaseModelChange = useCallback((phase: keyof PhaseModelConfig, value: ModelTypeShort) => {
+    setPendingPhaseModels(prev => ({ ...prev, [phase]: value }));
+
+    // If task is not running, trigger debounced auto-save
+    if (!isTaskRunning) {
+      debouncedAutoSave();
+    }
+  }, [isTaskRunning, debouncedAutoSave]);
+
+  const handlePhaseThinkingChange = useCallback((phase: keyof PhaseThinkingConfig, value: ThinkingLevel) => {
+    setPendingPhaseThinking(prev => ({ ...prev, [phase]: value }));
+
+    // If task is not running, trigger debounced auto-save
+    if (!isTaskRunning) {
+      debouncedAutoSave();
+    }
+  }, [isTaskRunning, debouncedAutoSave]);
+
+  const handleApplyChanges = useCallback(async () => {
+    // Cancel any pending debounced save
+    debouncedAutoSave.cancel();
+    await saveChangesCore(pendingPhaseModels, pendingPhaseThinking);
+  }, [debouncedAutoSave, saveChangesCore, pendingPhaseModels, pendingPhaseThinking]);
+
+  const handleCancelChanges = useCallback(() => {
+    // Cancel any pending debounced save
+    debouncedAutoSave.cancel();
     setPendingPhaseModels(savedPhaseModels);
     setPendingPhaseThinking(savedPhaseThinking);
-  };
+  }, [debouncedAutoSave, savedPhaseModels, savedPhaseThinking]);
 
-  const handleResetToDefaults = async () => {
+  const handleResetToDefaults = useCallback(async () => {
     const resetModels = DEFAULT_PHASE_MODELS;
     const resetThinking = DEFAULT_PHASE_THINKING;
+
+    // Cancel any pending debounced save
+    debouncedAutoSave.cancel();
 
     setPendingPhaseModels(resetModels);
     setPendingPhaseThinking(resetThinking);
@@ -206,8 +245,10 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
     if (!isTaskRunning) {
       setIsSaving(true);
       try {
+        // Guard against null metadata
+        const currentMetadata = metadata ?? {};
         // Reset to profile defaults by removing custom phase config
-        const resetMetadata = { ...metadata };
+        const resetMetadata = { ...currentMetadata };
         delete resetMetadata.phaseThinking;
         delete resetMetadata.phaseModels;
         delete resetMetadata.isAutoProfile;
@@ -222,11 +263,14 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
         setIsSaving(false);
       }
     }
-  };
+  }, [debouncedAutoSave, isTaskRunning, metadata, task.id]);
 
-  const getProfileInfo = () => {
+  const getProfileInfo = useCallback(() => {
     if (metadata?.isAutoProfile && (metadata?.phaseThinking || metadata?.phaseModels)) {
-      return { name: 'Custom', description: 'Per-phase configuration' };
+      return {
+        name: t('tasks:configuration.customProfile'),
+        description: t('tasks:configuration.customProfileDescription')
+      };
     }
     const matchingProfile = DEFAULT_AGENT_PROFILES.find(p =>
       PHASE_KEYS.every(phase =>
@@ -236,25 +280,23 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
     );
     return matchingProfile
       ? { name: matchingProfile.name, description: matchingProfile.description }
-      : { name: 'Default', description: 'Using system defaults' };
-  };
+      : {
+          name: t('tasks:configuration.defaultProfile'),
+          description: t('tasks:configuration.defaultProfileDescription')
+        };
+  }, [metadata, savedPhaseModels, savedPhaseThinking, t]);
 
-  const getModelLabel = (model: string): string => {
-    const modelInfo = AVAILABLE_MODELS.find(m => m.value === model);
-    return modelInfo?.label || model;
-  };
-
-  const getThinkingLabel = (level: string): string => {
+  const getThinkingLabel = useCallback((level: string): string => {
     const thinking = THINKING_LEVELS.find(t => t.value === level);
     return thinking?.label || level;
-  };
+  }, []);
 
-  const getThinkingTokens = (level: string): string => {
+  const getThinkingTokens = useCallback((level: string): string => {
     const tokens = THINKING_BUDGET_MAP[level];
-    if (tokens === null) return '0 tokens';
-    if (tokens >= 1024) return `${(tokens / 1024).toFixed(0)}K tokens`;
-    return `${tokens} tokens`;
-  };
+    if (tokens === null) return t('tasks:configuration.tokens', { count: 0 });
+    if (tokens >= 1024) return t('tasks:configuration.tokensK', { count: (tokens / 1024).toFixed(0) });
+    return t('tasks:configuration.tokens', { count: tokens });
+  }, [t]);
 
   if (isLoading) {
     return (
@@ -273,12 +315,12 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Settings2 className="h-5 w-5 text-muted-foreground" />
-            <h3 className="text-lg font-semibold">Task Configuration</h3>
+            <h3 className="text-lg font-semibold">{t('tasks:configuration.title')}</h3>
           </div>
           <p className="text-sm text-muted-foreground">
             {isTaskRunning
-              ? 'Configure model and thinking levels per phase. Changes will apply to upcoming phases.'
-              : 'Configure model and thinking levels per phase. Changes are saved automatically.'}
+              ? t('tasks:configuration.descriptionRunning')
+              : t('tasks:configuration.descriptionNotRunning')}
           </p>
         </div>
 
@@ -289,12 +331,12 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
               <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5" />
               <div className="flex-1 space-y-1">
                 <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
-                  Task is Running ({currentPhase && PHASE_LABELS[currentPhase]} phase)
+                  {t('tasks:configuration.taskRunningWarning', { phase: currentPhase ? getPhaseLabel(currentPhase) : '' })}
                 </p>
                 <p className="text-xs text-orange-700 dark:text-orange-300">
                   {nextPhase
-                    ? `Changes will apply starting from the ${PHASE_LABELS[nextPhase]} phase`
-                    : 'Current phase will complete with original settings'}
+                    ? t('tasks:configuration.changesApplyFrom', { phase: getPhaseLabel(nextPhase) })
+                    : t('tasks:configuration.currentPhaseComplete')}
                 </p>
               </div>
             </div>
@@ -308,10 +350,10 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
               <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                  Pending Changes
+                  {t('tasks:configuration.pendingChanges')}
                 </p>
                 <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                  Click "Apply Changes" to save. Changes will take effect on the next phase.
+                  {t('tasks:configuration.pendingChangesHint')}
                 </p>
               </div>
             </div>
@@ -322,7 +364,7 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
         <div className="rounded-lg border border-border bg-muted/50 p-4">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Profile: {profileInfo.name}</p>
+              <p className="text-sm font-medium">{t('tasks:configuration.profile', { name: profileInfo.name })}</p>
               <p className="text-xs text-muted-foreground">{profileInfo.description}</p>
             </div>
             <Button
@@ -333,7 +375,7 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
               className="text-xs h-8"
             >
               <RotateCcw className="h-3 w-3 mr-1.5" />
-              Reset to Defaults
+              {t('tasks:configuration.resetToDefaults')}
             </Button>
           </div>
         </div>
@@ -341,9 +383,9 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
         {/* Phase Configuration */}
         <div className="space-y-6">
           <div className="space-y-1">
-            <h4 className="text-sm font-medium">Phase Configuration</h4>
+            <h4 className="text-sm font-medium">{t('tasks:configuration.phaseConfiguration')}</h4>
             <p className="text-xs text-muted-foreground">
-              Adjust model and thinking effort for each phase. Higher thinking levels use more tokens but provide deeper analysis.
+              {t('tasks:configuration.phaseConfigurationHint')}
             </p>
           </div>
 
@@ -370,16 +412,16 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
                         <Label className="text-sm font-medium capitalize">
-                          {PHASE_LABELS[phase]} Phase
+                          {t('tasks:configuration.phaseLabel', { phase: getPhaseLabel(phase) })}
                         </Label>
                         {isCurrentPhase && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
-                            Current
+                            {t('tasks:configuration.currentPhase')}
                           </span>
                         )}
                         {!isCurrentPhase && willReceiveChanges && hasPendingChanges && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                            Will apply changes
+                            {t('tasks:configuration.willApplyChanges')}
                           </span>
                         )}
                       </div>
@@ -388,7 +430,7 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
 
                   {/* Model Selection */}
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Model</Label>
+                    <Label className="text-xs text-muted-foreground">{t('tasks:configuration.model')}</Label>
                     <Select
                       value={currentModel}
                       onValueChange={(value) => handlePhaseModelChange(phase, value as ModelTypeShort)}
@@ -410,7 +452,7 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
                   {/* Thinking Level */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs text-muted-foreground">Thinking Level</Label>
+                      <Label className="text-xs text-muted-foreground">{t('tasks:configuration.thinkingLevel')}</Label>
                       <div className="text-right">
                         <p className="text-xs font-medium">{getThinkingLabel(currentLevel)}</p>
                         <p className="text-xs text-muted-foreground">{getThinkingTokens(currentLevel)}</p>
@@ -435,11 +477,11 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
                       />
                       {/* Labels */}
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>None</span>
-                        <span>Low</span>
-                        <span>Medium</span>
-                        <span>High</span>
-                        <span>Ultra</span>
+                        <span>{t('tasks:configuration.thinkingLabels.none')}</span>
+                        <span>{t('tasks:configuration.thinkingLabels.low')}</span>
+                        <span>{t('tasks:configuration.thinkingLabels.medium')}</span>
+                        <span>{t('tasks:configuration.thinkingLabels.high')}</span>
+                        <span>{t('tasks:configuration.thinkingLabels.ultra')}</span>
                       </div>
                     </div>
 
@@ -465,12 +507,12 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
+                  {t('common:buttons.saving')}
                 </>
               ) : (
                 <>
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  Apply Changes
+                  {t('tasks:configuration.applyChanges')}
                 </>
               )}
             </Button>
@@ -479,7 +521,7 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
               onClick={handleCancelChanges}
               disabled={isSaving}
             >
-              Cancel
+              {t('tasks:configuration.cancel')}
             </Button>
           </div>
         )}
@@ -488,7 +530,7 @@ export function TaskConfiguration({ task }: TaskConfigurationProps) {
         {!isTaskRunning && isSaving && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Saving...</span>
+            <span>{t('common:buttons.saving')}</span>
           </div>
         )}
       </div>

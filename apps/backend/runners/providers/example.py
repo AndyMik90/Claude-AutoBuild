@@ -5,7 +5,6 @@ Provider Factory Examples
 Examples showing how to use the provider factory for different git hosts.
 """
 
-import asyncio
 from pathlib import Path
 
 from .factory import create_provider, ProviderConfig

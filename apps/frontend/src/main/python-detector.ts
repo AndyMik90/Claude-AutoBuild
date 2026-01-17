@@ -489,6 +489,7 @@ export function isValidActivationScript(scriptPath: string): boolean {
     /^[A-Za-z]:\\.*\\miniconda\d*\\Scripts\\activate\.bat$/i,
     /^[A-Za-z]:\\.*\\anaconda\d*\\envs\\[^\\]+\\Scripts\\activate\.bat$/i,
     /^[A-Za-z]:\\.*\\miniconda\d*\\envs\\[^\\]+\\Scripts\\activate\.bat$/i,
+    /^[A-Za-z]:\\.*\\\.conda\\envs\\[^\\]+\\Scripts\\activate\.bat$/i,
     // Unix conda
     /^.*\/anaconda\d*\/bin\/activate$/,
     /^.*\/miniconda\d*\/bin\/activate$/,

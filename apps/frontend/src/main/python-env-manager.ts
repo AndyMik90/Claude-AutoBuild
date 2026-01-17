@@ -1267,7 +1267,8 @@ export function getEnvironmentPathFromScript(activationScript: string): string |
     const scriptContent = readFileSync(activationScript, 'utf-8');
 
     // Detect script type
-    const isWindowsScript = activationScript.endsWith('.bat') || activationScript.endsWith('.cmd');
+    const isWindowsScript = activationScript.endsWith('.bat') || activationScript.endsWith('.cmd') || activationScript.endsWith('.ps1');
+    const isPowerShellScript = activationScript.endsWith('.ps1');
 
     for (const line of scriptContent.split('\n')) {
       const trimmedLine = line.trim();
@@ -1277,13 +1278,13 @@ export function getEnvironmentPathFromScript(activationScript: string): string |
         continue;
       }
 
-      // Skip Windows comments (:: or REM)
-      if (isWindowsScript && (trimmedLine.startsWith('::') || trimmedLine.startsWith('REM'))) {
+      // Skip Windows batch comments (:: or REM)
+      if (isWindowsScript && !isPowerShellScript && (trimmedLine.startsWith('::') || trimmedLine.startsWith('REM'))) {
         continue;
       }
 
-      // Skip Unix comments (#)
-      if (!isWindowsScript && trimmedLine.startsWith('#')) {
+      // Skip Unix and PowerShell comments (#)
+      if ((!isWindowsScript || isPowerShellScript) && trimmedLine.startsWith('#')) {
         continue;
       }
 
@@ -1344,6 +1345,62 @@ export function getEnvironmentPathFromScript(activationScript: string): string |
             envPath = expandEnvironmentVariables(envPath);
             return envPath;
           }
+        }
+      }
+
+      // Pattern 6 (PowerShell): $env:CONDA_PREFIX = "<path>"
+      if (isPowerShellScript && trimmedLine.includes('$env:CONDA_PREFIX')) {
+        const match = trimmedLine.match(/\$env:CONDA_PREFIX\s*=\s*(.+)/i);
+        if (match) {
+          let envPath = match[1].trim().replace(/['"]/g, '').replace(/\s+$/, '');
+          if (envPath) {
+            envPath = expandEnvironmentVariables(envPath);
+            return envPath;
+          }
+        }
+      }
+
+      // Pattern 7 (PowerShell): & conda.exe activate "<path>" or & "<path>\conda.exe" activate "<env>"
+      if (isPowerShellScript && trimmedLine.includes('conda') && trimmedLine.includes('activate')) {
+        // Match: & "path\conda.exe" activate "envpath"
+        const match = trimmedLine.match(/&\s*["']?[^"']*conda(?:\.exe)?["']?\s+activate\s+["']?([^"']+)["']?/i);
+        if (match) {
+          let envPath = match[1].trim().replace(/['"]/g, '').replace(/\s+$/, '');
+          if (envPath) {
+            envPath = expandEnvironmentVariables(envPath);
+            return envPath;
+          }
+        }
+      }
+
+      // Pattern 8: Extract path from script location (if script is in envs\<name>\Scripts\)
+      // This handles cases where the script itself indicates the environment location
+      if (isPowerShellScript || isWindowsScript) {
+        // Check if we can derive env path from the activation script path itself
+        // e.g., C:\Users\Jason\miniconda3\envs\auto-claude\Scripts\auto-claude-init.ps1
+        //       -> C:\Users\Jason\miniconda3\envs\auto-claude
+        const scriptDir = path.dirname(activationScript);
+        if (scriptDir.toLowerCase().endsWith('scripts')) {
+          const potentialEnvPath = path.dirname(scriptDir);
+          // Verify it looks like a conda env (has conda-meta folder or python.exe)
+          const condaMetaPath = path.join(potentialEnvPath, 'conda-meta');
+          const pythonPath = path.join(potentialEnvPath, 'python.exe');
+          if (existsSync(condaMetaPath) || existsSync(pythonPath)) {
+            return potentialEnvPath;
+          }
+        }
+      }
+    }
+
+    // Fallback: Try to derive from script path for Windows conda environments
+    if (isWindowsScript) {
+      const scriptDir = path.dirname(activationScript);
+      if (scriptDir.toLowerCase().endsWith('scripts')) {
+        const potentialEnvPath = path.dirname(scriptDir);
+        const condaMetaPath = path.join(potentialEnvPath, 'conda-meta');
+        const pythonPath = path.join(potentialEnvPath, 'python.exe');
+        if (existsSync(condaMetaPath) || existsSync(pythonPath)) {
+          return potentialEnvPath;
         }
       }
     }

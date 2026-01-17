@@ -13,6 +13,7 @@ import { getOAuthModeClearVars } from './env-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { parsePythonCommand } from '../python-detector';
 import { pythonEnvManager } from '../python-env-manager';
+import { isWindows, getPathDelimiter } from '../python-path-utils';
 import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ipc-handlers/ideation/transformers';
 import { transformRoadmapFromSnakeCase } from '../ipc-handlers/roadmap/transformers';
 import type { RawIdea } from '../ipc-handlers/ideation/types';
@@ -275,7 +276,7 @@ export class AgentQueueManager {
     if (autoBuildSource) {
       pythonPathParts.push(autoBuildSource);
     }
-    const combinedPythonPath = pythonPathParts.join(process.platform === 'win32' ? ';' : ':');
+    const combinedPythonPath = pythonPathParts.join(getPathDelimiter());
 
     // Build final environment with proper precedence:
     // 1. process.env (system)
@@ -312,7 +313,7 @@ export class AgentQueueManager {
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: finalEnv,
-      ...(process.platform === 'win32' && { windowsHide: true })
+      ...(isWindows() && { windowsHide: true })
     });
 
     this.state.addProcess(projectId, {
@@ -603,7 +604,7 @@ export class AgentQueueManager {
     if (autoBuildSource) {
       pythonPathParts.push(autoBuildSource);
     }
-    const combinedPythonPath = pythonPathParts.join(process.platform === 'win32' ? ';' : ':');
+    const combinedPythonPath = pythonPathParts.join(getPathDelimiter());
 
     // Build final environment with proper precedence:
     // 1. process.env (system)
@@ -640,7 +641,7 @@ export class AgentQueueManager {
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: finalEnv,
-      ...(process.platform === 'win32' && { windowsHide: true })
+      ...(isWindows() && { windowsHide: true })
     });
 
     this.state.addProcess(projectId, {
@@ -725,7 +726,10 @@ export class AgentQueueManager {
         }
 
         progressPhase = progressUpdate.phase;
-        progressPercent = progressUpdate.progress;
+        // Avoid regressing progress after tool-driven bumps - only update if new progress > current
+        if (progressUpdate.progress > progressPercent) {
+          progressPercent = progressUpdate.progress;
+        }
 
         this.emitter.emit('roadmap-progress', projectId, {
           phase: progressPhase,

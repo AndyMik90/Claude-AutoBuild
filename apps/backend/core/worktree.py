@@ -32,6 +32,71 @@ from debug import debug_warning
 
 T = TypeVar("T")
 
+# Cached CLI executable paths
+_cached_glab_path: str | None = None
+
+
+def get_glab_executable() -> str:
+    """Find the glab CLI executable, with platform-specific fallbacks.
+
+    Returns the path to glab executable. On Windows, checks multiple sources:
+    1. shutil.which (if glab is in PATH)
+    2. Common installation locations (scoop, chocolatey)
+
+    Caches the result after first successful find.
+    """
+    global _cached_glab_path
+
+    # Return cached result if available
+    if _cached_glab_path is not None:
+        return _cached_glab_path
+
+    # 1. Try shutil.which (works if glab is in PATH)
+    glab_path = shutil.which("glab")
+    if glab_path:
+        _cached_glab_path = glab_path
+        return glab_path
+
+    # 2. Windows-specific: check common installation locations
+    if os.name == "nt":
+        common_paths = [
+            # Scoop installation
+            os.path.expandvars(r"%USERPROFILE%\scoop\shims\glab.exe"),
+            # Chocolatey installation
+            os.path.expandvars(r"%PROGRAMDATA%\chocolatey\bin\glab.exe"),
+            # Manual installation in Program Files
+            os.path.expandvars(r"%PROGRAMFILES%\glab\glab.exe"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\glab\glab.exe"),
+        ]
+        for path in common_paths:
+            try:
+                if os.path.isfile(path):
+                    _cached_glab_path = path
+                    return path
+            except OSError:
+                continue
+
+        # 3. Try 'where' command with shell=True (more reliable on Windows)
+        try:
+            result = subprocess.run(
+                "where glab",
+                capture_output=True,
+                text=True,
+                timeout=5,
+                shell=True,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                found_path = result.stdout.strip().split("\n")[0].strip()
+                if found_path and os.path.isfile(found_path):
+                    _cached_glab_path = found_path
+                    return found_path
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+
+    # Default fallback - let subprocess handle it (may fail)
+    _cached_glab_path = "glab"
+    return "glab"
+
 
 def _is_retryable_network_error(stderr: str) -> bool:
     """Check if an error is a retryable network/connection issue."""
@@ -1083,7 +1148,7 @@ class WorktreeManager:
 
         # Build glab mr create command
         glab_args = [
-            "glab",
+            get_glab_executable(),
             "mr",
             "create",
             "--target-branch",
@@ -1197,7 +1262,7 @@ class WorktreeManager:
 
             result = subprocess.run(
                 [
-                    "glab",
+                    get_glab_executable(),
                     "mr",
                     "list",
                     "--source-branch",

@@ -226,7 +226,7 @@ export function registerCondaHandlers(
           const userVersionProgress: SetupProgress = {
             step: 'analyzing',
             message: `Using Python ${pythonVersionToUse}`,
-            detail: 'Selected by user',
+            detail: `Detected from: ${pythonVersionSource}`,
             progress: 30,
             timestamp: new Date().toISOString(),
           };

@@ -6,6 +6,6 @@ Factory for creating provider instances based on configuration.
 Provides a unified interface for GitHub, GitLab, Bitbucket, etc.
 """
 
-from .factory import create_provider, ProviderConfig
+from .factory import ProviderConfig, create_provider
 
-__all__ = ["create_provider", "ProviderConfig"]
+__all__ = ["ProviderConfig", "create_provider"]

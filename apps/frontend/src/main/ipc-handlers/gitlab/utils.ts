@@ -122,11 +122,14 @@ export function authenticateGlabCli(token: string, instanceUrl?: string): boolea
     const args = ['auth', 'login', '--stdin', '--hostname', hostname];
 
     // Use execFileSync with input option for secure token passing
+    // Use explicit stdio array for cross-platform compatibility with input option
+    // Add timeout to prevent UI hangs if glab is unresponsive
     execFileSync('glab', args, {
       input: safeToken + '\n',
       encoding: 'utf-8',
-      stdio: 'pipe',
-      env: getAugmentedEnv()
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...getAugmentedEnv(), GLAB_NO_PROMPT: '1' },
+      timeout: 30000 // 30 second timeout to prevent UI hangs
     });
 
     return true;

@@ -282,6 +282,7 @@ Auto Claude supports both **GitHub** and **GitLab** for pull request / merge req
 3. Choose: Auto-detect (recommended), GitHub, or GitLab
 
 *In `.env` file:*
+
 ```bash
 # Set git provider (optional, defaults to auto-detect)
 GIT_PROVIDER=auto    # auto | github | gitlab

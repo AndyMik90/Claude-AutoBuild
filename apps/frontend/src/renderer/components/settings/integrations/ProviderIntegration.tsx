@@ -15,7 +15,6 @@ import {
   AlertCircle,
   Terminal,
   ExternalLink,
-  ChevronDown,
 } from 'lucide-react';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -72,6 +71,7 @@ export function ProviderIntegration({
     installCli,
     switchToManual,
     switchToOAuth,
+    fetchBranches,
     selectRepository,
     selectBranch,
   } = useProviderIntegration({
@@ -84,7 +84,7 @@ export function ProviderIntegration({
   if (!envConfig) {
     return (
       <div className="rounded-lg border border-warning/30 bg-warning/10 p-4">
-        <p className="text-sm text-muted-foreground">Loading configuration...</p>
+        <p className="text-sm text-muted-foreground">{t('settings:providerIntegration.loadingConfiguration')}</p>
       </div>
     );
   }
@@ -98,20 +98,18 @@ export function ProviderIntegration({
       <div className="flex items-center justify-between rounded-lg border p-4">
         <div className="space-y-0.5">
           <div className="text-sm font-medium">
-            {metadata.icon} Enable {metadata.displayName} Issues
+            {metadata.icon} {t('settings:providerIntegration.enableIssues', { provider: metadata.displayName })}
           </div>
           <div className="text-xs text-muted-foreground">
-            Sync issues from {metadata.displayName} and create tasks automatically
+            {t('settings:providerIntegration.syncIssuesDescription', { provider: metadata.displayName })}
           </div>
         </div>
         <Switch
           checked={providerConfig.enabled}
           onCheckedChange={(checked) => {
-            console.log(`[ProviderIntegration] Toggle ${provider} integration:`, checked);
             const updates = {
               [provider === 'github' ? 'githubEnabled' : 'gitlabEnabled']: checked,
             };
-            console.log(`[ProviderIntegration] Calling updateEnvConfig with:`, updates);
             updateEnvConfig(updates);
           }}
         />
@@ -123,10 +121,10 @@ export function ProviderIntegration({
           {metadata.instanceUrl.supportsCustom && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">
-                {metadata.displayName} Instance
+                {t('settings:providerIntegration.instanceLabel', { provider: metadata.displayName })}
               </Label>
               <p className="text-xs text-muted-foreground">
-                Use {metadata.instanceUrl.default} or your self-hosted instance URL
+                {t('settings:providerIntegration.instanceDescription', { defaultUrl: metadata.instanceUrl.default })}
               </p>
               <Input
                 type="url"
@@ -154,36 +152,36 @@ export function ProviderIntegration({
                   <CheckCircle2 className="h-5 w-5 text-success" />
                   <div>
                     <p className="text-sm font-medium text-success">
-                      Connected via {metadata.displayName} CLI
+                      {t('settings:providerIntegration.connectedViaCli', { provider: metadata.displayName })}
                     </p>
                     {oauthUsername && (
                       <p className="text-xs text-success/80 mt-0.5">
-                        Authenticated as {oauthUsername}
+                        {t('settings:providerIntegration.authenticatedAs', { username: oauthUsername })}
                       </p>
                     )}
                   </div>
                 </div>
                 <Button variant="ghost" size="sm" onClick={switchToManual}>
-                  Use Manual Token
+                  {t('settings:providerIntegration.useManualToken')}
                 </Button>
               </div>
 
               {/* Repository Selection */}
               <div className="mt-4 space-y-2">
                 <Label className="text-sm font-medium">
-                  Select {metadata.terminology.repo}
+                  {t('settings:providerIntegration.selectRepo', { repoType: metadata.terminology.repo })}
                 </Label>
                 {isLoadingRepositories ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading {metadata.terminology.repo.toLowerCase()}s...
+                    {t('settings:providerIntegration.loadingRepos', { repoType: metadata.terminology.repo.toLowerCase() })}
                   </div>
                 ) : repositoriesError ? (
                   <p className="text-sm text-destructive">{repositoriesError}</p>
                 ) : (
                   <Select value={selectedRepo || ''} onValueChange={selectRepository}>
                     <SelectTrigger>
-                      <SelectValue placeholder={`Select ${metadata.terminology.repo.toLowerCase()}`} />
+                      <SelectValue placeholder={t('settings:providerIntegration.selectRepoPlaceholder', { repoType: metadata.terminology.repo.toLowerCase() })} />
                     </SelectTrigger>
                     <SelectContent>
                       {repositories.map((repo) => (
@@ -211,14 +209,14 @@ export function ProviderIntegration({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-info">
-                    {metadata.displayName} Authentication
+                    {t('settings:providerIntegration.authentication', { provider: metadata.displayName })}
                   </p>
                   <p className="text-xs text-info/80 mt-1">
-                    Complete the authentication in your browser
+                    {t('settings:providerIntegration.completeAuthInBrowser')}
                   </p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={switchToManual}>
-                  Use Manual Token
+                  {t('settings:providerIntegration.useManualToken')}
                 </Button>
               </div>
             </div>
@@ -235,11 +233,10 @@ export function ProviderIntegration({
                     <div className="flex-1 space-y-3">
                       <div>
                         <p className="text-sm font-medium">
-                          {metadata.displayName} CLI Required
+                          {t('settings:providerIntegration.cliRequired', { provider: metadata.displayName })}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          The {metadata.displayName} CLI ({metadata.cliName}) is required for OAuth
-                          authentication.
+                          {t('settings:providerIntegration.cliRequiredDescription', { provider: metadata.displayName, cliName: metadata.cliName })}
                         </p>
                       </div>
                       {cliInstallSuccess ? (
@@ -247,7 +244,7 @@ export function ProviderIntegration({
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <CheckCircle2 className="h-4 w-4 text-success" />
-                              <p className="text-xs text-success">Installation command executed</p>
+                              <p className="text-xs text-success">{t('settings:providerIntegration.installationCommandExecuted')}</p>
                             </div>
                             <Button
                               variant="ghost"
@@ -259,7 +256,7 @@ export function ProviderIntegration({
                               <RefreshCw
                                 className={`h-3 w-3 ${isCheckingCli ? 'animate-spin' : ''}`}
                               />
-                              {t('settings.cli.refresh')}
+                              {t('settings:providerIntegration.refresh')}
                             </Button>
                           </div>
                         </div>
@@ -275,22 +272,22 @@ export function ProviderIntegration({
                             {isInstallingCli ? (
                               <>
                                 <Loader2 className="h-3 w-3 animate-spin" />
-                                Installing...
+                                {t('settings:providerIntegration.installing')}
                               </>
                             ) : (
                               <>
                                 <Terminal className="h-3 w-3" />
-                                Install {metadata.cliName}
+                                {t('settings:providerIntegration.installCli', { cliName: metadata.cliName })}
                               </>
                             )}
                           </Button>
                           <a
-                            href={`https://${provider}.com/cli#installation`}
+                            href={provider === 'github' ? 'https://cli.github.com' : 'https://gitlab.com/gitlab-org/cli'}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs text-info hover:underline flex items-center gap-1"
                           >
-                            Learn more
+                            {t('settings:providerIntegration.learnMore')}
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         </div>
@@ -306,7 +303,7 @@ export function ProviderIntegration({
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-success" />
                     <p className="text-xs text-success">
-                      {metadata.cliName} CLI installed <span className="font-mono">{cliVersion}</span>
+                      {t('settings:providerIntegration.cliInstalled', { cliName: metadata.cliName })} <span className="font-mono">{cliVersion}</span>
                     </p>
                   </div>
                   {/* CLI Authentication Status */}
@@ -316,19 +313,19 @@ export function ProviderIntegration({
                       <p className="text-xs text-muted-foreground">
                         {cliAuthUsername ? (
                           <>
-                            Authenticated as <span className="font-mono text-success">{cliAuthUsername}</span>
+                            {t('settings:providerIntegration.authenticatedAs', { username: '' })}<span className="font-mono text-success">{cliAuthUsername}</span>
                           </>
                         ) : (
-                          <span className="text-success">Authenticated</span>
+                          <span className="text-success">{t('settings:providerIntegration.authenticated')}</span>
                         )}
                       </p>
                     </div>
                   )}
-                  {cliInstalled && !cliAuthenticated && (
+                  {!cliAuthenticated && (
                     <div className="flex items-center gap-2 mt-2 pl-6">
                       <AlertCircle className="h-3 w-3 text-warning" />
                       <p className="text-xs text-muted-foreground">
-                        Not authenticated - will authenticate when you save your token
+                        {t('settings:providerIntegration.notAuthenticatedHint')}
                       </p>
                     </div>
                   )}
@@ -338,7 +335,7 @@ export function ProviderIntegration({
               {/* Token Input */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Personal Access Token</Label>
+                  <Label className="text-sm font-medium">{t('settings:providerIntegration.personalAccessToken')}</Label>
                   {metadata.oauth.supported && (
                     <Button
                       variant="outline"
@@ -352,23 +349,23 @@ export function ProviderIntegration({
                       ) : (
                         <KeyRound className="h-3 w-3" />
                       )}
-                      Use OAuth
+                      {t('settings:providerIntegration.useOAuth')}
                     </Button>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Create a token with <code className="px-1 bg-muted rounded">api</code> scope from{' '}
+                  {t('settings:providerIntegration.createTokenHint')}{' '}
                   <a
-                    href={`${
-                      provider === 'gitlab'
-                        ? envConfig.gitlabInstanceUrl || metadata.instanceUrl.default
-                        : metadata.instanceUrl.default
-                    }/-/user_settings/personal_access_tokens`}
+                    href={
+                      provider === 'github'
+                        ? 'https://github.com/settings/tokens'
+                        : `${envConfig.gitlabInstanceUrl || metadata.instanceUrl.default}/-/user_settings/personal_access_tokens`
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-info hover:underline"
                   >
-                    {metadata.displayName} Settings
+                    {t('settings:providerIntegration.providerSettings', { provider: metadata.displayName })}
                   </a>
                 </p>
                 <PasswordInput
@@ -390,8 +387,10 @@ export function ProviderIntegration({
                   {metadata.terminology.repo}
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Format: {provider === 'github' ? 'owner/repo' : 'group/project'} (e.g.{' '}
-                  {provider === 'github' ? 'octocat/hello-world' : 'gitlab-org/gitlab'})
+                  {t('settings:providerIntegration.repoFormatHint', {
+                    format: provider === 'github' ? 'owner/repo' : 'group/project',
+                    example: provider === 'github' ? 'octocat/hello-world' : 'gitlab-org/gitlab'
+                  })}
                 </p>
                 <Input
                   type="text"
@@ -412,27 +411,25 @@ export function ProviderIntegration({
           {(selectedRepo || authMode === 'oauth-success') && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Default Branch</Label>
+                <Label className="text-sm font-medium">{t('settings:providerIntegration.defaultBranch')}</Label>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    /* fetchBranches() */
-                  }}
+                  onClick={fetchBranches}
                   disabled={isLoadingBranches}
                   className="h-7 gap-1.5"
                 >
                   <RefreshCw className={`h-3 w-3 ${isLoadingBranches ? 'animate-spin' : ''}`} />
-                  Refresh
+                  {t('settings:providerIntegration.refresh')}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Base branch for creating task worktrees
+                {t('settings:providerIntegration.baseBranchDescription')}
               </p>
               {isLoadingBranches ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading branches...
+                  {t('settings:providerIntegration.loadingBranches')}
                 </div>
               ) : branchesError ? (
                 <p className="text-sm text-destructive">{branchesError}</p>
@@ -450,7 +447,7 @@ export function ProviderIntegration({
                   </SelectContent>
                 </Select>
               ) : (
-                <p className="text-xs text-muted-foreground">No branches found</p>
+                <p className="text-xs text-muted-foreground">{t('settings:providerIntegration.noBranchesFound')}</p>
               )}
             </div>
           )}
