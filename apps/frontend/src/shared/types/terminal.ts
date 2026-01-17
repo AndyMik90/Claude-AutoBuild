@@ -2,6 +2,14 @@
  * Terminal-related types
  */
 
+/**
+ * Shell type for Windows terminals.
+ * Used to determine correct command chaining syntax:
+ * - 'powershell': Uses ';' (PowerShell 5.1 doesn't support '&&')
+ * - 'cmd': Uses '&&' (cmd.exe, PowerShell 7+, bash, etc.)
+ */
+export type WindowsShellType = 'powershell' | 'cmd';
+
 export interface TerminalCreateOptions {
   id: string;
   cwd?: string;
@@ -29,6 +37,8 @@ export interface TerminalSession {
   outputBuffer: string;
   createdAt: string;
   lastActiveAt: string;
+  /** Display order for tab persistence (lower = further left) */
+  displayOrder?: number;
   /** Associated worktree configuration (validated on restore) */
   worktreeConfig?: TerminalWorktreeConfig;
 }
@@ -187,4 +197,19 @@ export interface TerminalWorktreeResult {
   success: boolean;
   config?: TerminalWorktreeConfig;
   error?: string;
+}
+
+/**
+ * Information about a worktree not managed by Auto Claude
+ * Discovered via `git worktree list` excluding Auto Claude paths
+ */
+export interface OtherWorktreeInfo {
+  /** Full path to the worktree */
+  path: string;
+  /** Git branch name, or null if in detached HEAD state */
+  branch: string | null;
+  /** Short commit SHA (first 8 chars) */
+  commitSha: string;
+  /** Display name (last directory component of path) */
+  displayName: string;
 }

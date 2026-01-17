@@ -70,9 +70,12 @@ export interface IssueListProps {
   issues: GitHubIssue[];
   selectedIssueNumber: number | null;
   isLoading: boolean;
+  isLoadingMore?: boolean;
+  hasMore?: boolean;
   error: string | null;
   onSelectIssue: (issueNumber: number) => void;
   onInvestigate: (issue: GitHubIssue) => void;
+  onLoadMore?: () => void;
 }
 
 export interface EmptyStateProps {

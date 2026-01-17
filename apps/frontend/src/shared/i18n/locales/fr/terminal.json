@@ -12,6 +12,7 @@
     "createNew": "Nouveau Worktree",
     "existing": "Worktrees Terminal",
     "taskWorktrees": "Worktrees de Taches",
+    "otherWorktrees": "Autres",
     "createTitle": "Creer un Worktree Terminal",
     "createDescription": "Creer un espace de travail isole pour ce terminal. Tout le travail se fera dans le repertoire du worktree.",
     "name": "Nom du Worktree",
@@ -34,6 +35,7 @@
     "maxReached": "Maximum de 12 worktrees terminal atteint",
     "alreadyExists": "Un worktree avec ce nom existe deja",
     "deleteTitle": "Supprimer le Worktree?",
-    "deleteDescription": "Ceci supprimera definitivement le worktree et sa branche. Les modifications non committées seront perdues."
+    "deleteDescription": "Ceci supprimera definitivement le worktree et sa branche. Les modifications non committées seront perdues.",
+    "detached": "(détaché)"
   }
 }

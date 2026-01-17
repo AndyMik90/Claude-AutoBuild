@@ -164,7 +164,7 @@ const browserMockAPI: ElectronAPI = {
   // GitHub API
   github: {
     getGitHubRepositories: async () => ({ success: true, data: [] }),
-    getGitHubIssues: async () => ({ success: true, data: [] }),
+    getGitHubIssues: async () => ({ success: true, data: { issues: [], hasMore: false } }),
     getGitHubIssue: async () => ({ success: true, data: null as any }),
     getIssueComments: async () => ({ success: true, data: [] }),
     checkGitHubConnection: async () => ({ success: true, data: { connected: false, repoFullName: undefined, error: undefined } }),
@@ -204,11 +204,13 @@ const browserMockAPI: ElectronAPI = {
     postPRComment: async () => true,
     mergePR: async () => true,
     assignPR: async () => true,
+    markReviewPosted: async () => true,
     getPRReview: async () => null,
     getPRReviewsBatch: async () => ({}),
     deletePRReview: async () => true,
     checkNewCommits: async () => ({ hasNewCommits: false, newCommitCount: 0 }),
     checkMergeReadiness: async () => ({ isDraft: false, mergeable: 'UNKNOWN' as const, isBehind: false, ciStatus: 'none' as const, blockers: [] }),
+    updatePRBranch: async () => ({ success: true }),
     runFollowupReview: () => {},
     getPRLogs: async () => null,
     getWorkflowsAwaitingApproval: async () => ({ awaiting_approval: 0, workflow_runs: [], can_approve: false }),
@@ -291,6 +293,10 @@ const browserMockAPI: ElectronAPI = {
   removeTerminalWorktree: async () => ({
     success: false,
     error: 'Not available in browser mode'
+  }),
+  listOtherWorktrees: async () => ({
+    success: true,
+    data: []
   }),
 
   // MCP Server Health Check Operations

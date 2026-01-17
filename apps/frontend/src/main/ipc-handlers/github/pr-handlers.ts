@@ -172,6 +172,12 @@ export interface NewCommitsCheck {
   currentHeadCommit?: string;
   /** Whether new commits happened AFTER findings were posted (for "Ready for Follow-up" status) */
   hasCommitsAfterPosting?: boolean;
+  /** Whether new commits touch files that had findings (requires verification) */
+  hasOverlapWithFindings?: boolean;
+  /** Files from new commits that overlap with finding files */
+  overlappingFiles?: string[];
+  /** Whether this appears to be a merge from base branch (develop/main) */
+  isMergeFromBase?: boolean;
 }
 
 /**
@@ -1771,6 +1777,47 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
     }
   );
 
+  // Mark review as posted (persists has_posted_findings to disk)
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_MARK_REVIEW_POSTED,
+    async (_, projectId: string, prNumber: number): Promise<boolean> => {
+      debugLog("markReviewPosted handler called", { projectId, prNumber });
+      const result = await withProjectOrNull(projectId, async (project) => {
+        try {
+          const reviewPath = path.join(getGitHubDir(project), "pr", `review_${prNumber}.json`);
+
+          // Read file directly without separate existence check to avoid TOCTOU race condition
+          // If file doesn't exist, readFileSync will throw ENOENT which we handle below
+          const rawData = fs.readFileSync(reviewPath, "utf-8");
+          // Sanitize data before parsing (review may contain data from GitHub API)
+          const sanitizedData = sanitizeNetworkData(rawData);
+          const data = JSON.parse(sanitizedData);
+
+          // Mark as posted
+          data.has_posted_findings = true;
+          data.posted_at = new Date().toISOString();
+
+          fs.writeFileSync(reviewPath, JSON.stringify(data, null, 2), "utf-8");
+          debugLog("Marked review as posted", { prNumber });
+
+          return true;
+        } catch (error) {
+          // Handle file not found (ENOENT) separately for clearer logging
+          if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+            debugLog("Review file not found", { prNumber });
+            return false;
+          }
+          debugLog("Failed to mark review as posted", {
+            prNumber,
+            error: error instanceof Error ? error.message : error,
+          });
+          return false;
+        }
+      });
+      return result ?? false;
+    }
+  );
+
   // Post comment to PR
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_POST_COMMENT,
@@ -2073,14 +2120,18 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
         // Try to get detailed comparison
         try {
-          // Get comparison to count new commits
+          // Get comparison to count new commits and see what files changed
           const comparison = (await githubFetch(
             config.token,
             `/repos/${config.repo}/compare/${reviewedCommitSha}...${currentHeadSha}`
           )) as {
             ahead_by?: number;
             total_commits?: number;
-            commits?: Array<{ commit: { committer: { date: string } } }>;
+            commits?: Array<{
+              commit: { committer: { date: string }; message: string };
+              parents?: Array<{ sha: string }>;
+            }>;
+            files?: Array<{ filename: string }>;
           };
 
           // Check if findings have been posted and if new commits are after the posting date
@@ -2107,12 +2158,46 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             hasCommitsAfterPosting = false;
           }
 
+          // Check if this looks like a merge from base branch (develop/main)
+          // Merge commits always have 2+ parents, so we check for that AND a merge-like message
+          // Pattern matches: "Merge branch", "Merge pull request", "Merge remote-tracking",
+          // "Merge 'develop' into", "Merge develop into", GitHub's "Update branch" button, etc.
+          const isMergeFromBase = comparison.commits?.some((c) => {
+            const hasTwoParents = (c.parents?.length ?? 0) >= 2;
+            const isMergeMessage = /^merge\s+/i.test(c.commit.message);
+            return hasTwoParents && isMergeMessage;
+          }) ?? false;
+
+          // Get files that had findings from the review
+          const findingFiles = new Set<string>(
+            (review.findings || []).map((f) => f.file).filter(Boolean)
+          );
+
+          // Get files changed in the new commits
+          const newCommitFiles = (comparison.files || []).map((f) => f.filename);
+
+          // Check for overlap between new commit files and finding files
+          const overlappingFiles = newCommitFiles.filter((f) => findingFiles.has(f));
+          const hasOverlapWithFindings = overlappingFiles.length > 0;
+
+          debugLog("File overlap check", {
+            prNumber,
+            findingFilesCount: findingFiles.size,
+            newCommitFilesCount: newCommitFiles.length,
+            overlappingFiles,
+            hasOverlapWithFindings,
+            isMergeFromBase,
+          });
+
           return {
             hasNewCommits: true,
             newCommitCount: comparison.ahead_by || comparison.total_commits || 1,
             lastReviewedCommit: reviewedCommitSha,
             currentHeadCommit: currentHeadSha,
             hasCommitsAfterPosting,
+            hasOverlapWithFindings,
+            overlappingFiles: overlappingFiles.length > 0 ? overlappingFiles : undefined,
+            isMergeFromBase,
           };
         } catch (error) {
           // Comparison failed (e.g., force push made old commit unreachable)
@@ -2126,6 +2211,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
               error: error instanceof Error ? error.message : error,
             }
           );
+          // Note: hasOverlapWithFindings, overlappingFiles, isMergeFromBase intentionally omitted
+          // since we can't determine them without the comparison API. UI defaults to safe behavior
+          // (hasOverlapWithFindings ?? true) which prompts user to verify.
           return {
             hasNewCommits: true,
             newCommitCount: 1, // Unknown count due to force push
@@ -2279,6 +2367,65 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
       });
 
       return result ?? defaultResult;
+    }
+  );
+
+  // Update PR branch (sync with base branch)
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_UPDATE_BRANCH,
+    async (_, projectId: string, prNumber: number): Promise<{ success: boolean; error?: string }> => {
+      debugLog("updateBranch handler called", { projectId, prNumber });
+
+      const updateResult = await withProjectOrNull(projectId, async (project) => {
+        try {
+          const { execFile } = await import("child_process");
+          const { promisify } = await import("util");
+          const execFileAsync = promisify(execFile);
+          debugLog("Updating PR branch", { prNumber });
+
+          // Validate prNumber to prevent command injection
+          if (!Number.isInteger(prNumber) || prNumber <= 0) {
+            throw new Error("Invalid PR number");
+          }
+
+          // Use gh pr update-branch to sync with base branch (async to avoid blocking main process)
+          // --rebase is not used to avoid force-push requirements
+          await execFileAsync("gh", ["pr", "update-branch", String(prNumber)], {
+            cwd: project.path,
+            env: getAugmentedEnv(),
+          });
+
+          debugLog("PR branch updated successfully", { prNumber });
+          return { success: true };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          debugLog("Failed to update PR branch", { prNumber, error: errorMessage });
+
+          // Map common error patterns to user-friendly messages
+          let friendlyError = errorMessage;
+          if (errorMessage.includes("permission") || errorMessage.includes("403")) {
+            friendlyError = "You don't have permission to update this branch.";
+          } else if (errorMessage.includes("401") || errorMessage.toLowerCase().includes("auth") || errorMessage.toLowerCase().includes("token")) {
+            friendlyError = "Authentication failed. Try running 'gh auth login' to re-authenticate.";
+          } else if (errorMessage.includes("404") || errorMessage.includes("not found")) {
+            friendlyError = "Pull request not found. It may have been closed or deleted.";
+          } else if (errorMessage.includes("429") || errorMessage.toLowerCase().includes("rate limit")) {
+            friendlyError = "GitHub API rate limit exceeded. Please wait and try again.";
+          } else if (errorMessage.includes("conflict")) {
+            friendlyError = "Cannot update branch due to merge conflicts. Resolve conflicts manually.";
+          } else if (errorMessage.toLowerCase().includes("protected") || errorMessage.toLowerCase().includes("branch protection")) {
+            friendlyError = "Branch protection rules prevent this update.";
+          } else if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("ETIMEDOUT")) {
+            friendlyError = "Network error. Check your internet connection and try again.";
+          } else if (errorMessage.toLowerCase().includes("already up to date")) {
+            return { success: true }; // Not an error
+          }
+
+          return { success: false, error: friendlyError };
+        }
+      });
+
+      return updateResult ?? { success: false, error: "Project not found" };
     }
   );
 

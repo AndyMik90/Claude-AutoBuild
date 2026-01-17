@@ -8,7 +8,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { execFileSync, spawn, execFile } from 'child_process';
+import { exec, execFileSync, spawn, execFile } from 'child_process';
 import { existsSync, promises as fsPromises } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -16,7 +16,7 @@ import { promisify } from 'util';
 import { IPC_CHANNELS, DEFAULT_APP_SETTINGS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
 import type { ClaudeCodeVersionInfo, ClaudeInstallationList, ClaudeInstallationInfo } from '../../shared/types/cli';
-import { getToolInfo, configureTools, sortNvmVersionDirs, getClaudeDetectionPaths } from '../cli-tool-manager';
+import { getToolInfo, configureTools, sortNvmVersionDirs, getClaudeDetectionPaths, type ExecFileAsyncOptionsWithVerbatim } from '../cli-tool-manager';
 import { readSettingsFile, writeSettingsFile } from '../settings-utils';
 import { isSecurePath } from '../utils/windows-paths';
 import semver from 'semver';
@@ -38,6 +38,11 @@ async function validateClaudeCliAsync(cliPath: string): Promise<[boolean, string
   try {
     const isWindows = process.platform === 'win32';
 
+    // Security validation: reject paths with shell metacharacters or directory traversal
+    if (isWindows && !isSecurePath(cliPath)) {
+      throw new Error(`Claude CLI path failed security validation: ${cliPath}`);
+    }
+
     // Augment PATH with the CLI directory for proper resolution
     const cliDir = path.dirname(cliPath);
     const env = {
@@ -56,12 +61,14 @@ async function validateClaudeCliAsync(cliPath: string): Promise<[boolean, string
         || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
       // Use double-quoted command line for paths with spaces
       const cmdLine = `""${cliPath}" --version"`;
-      const result = await execFileAsync(cmdExe, ['/d', '/s', '/c', cmdLine], {
+      const execOptions: ExecFileAsyncOptionsWithVerbatim = {
         encoding: 'utf-8',
         timeout: 5000,
         windowsHide: true,
+        windowsVerbatimArguments: true,
         env,
-      });
+      };
+      const result = await execFileAsync(cmdExe, ['/d', '/s', '/c', cmdLine], execOptions);
       stdout = result.stdout;
     } else {
       const result = await execFileAsync(cliPath, ['--version'], {
@@ -495,8 +502,6 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
 
     // For Windows, use exec with a properly formed command string
     // This is more reliable than spawn for complex PowerShell commands with pipes
-    const { exec } = require('child_process');
-
     const runWindowsCommand = (cmdString: string): Promise<void> => {
       return new Promise((resolve) => {
         console.log(`[Claude Code] Executing: ${cmdString}`);

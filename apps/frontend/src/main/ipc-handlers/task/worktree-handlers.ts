@@ -20,6 +20,7 @@ import {
   findTaskWorktree,
 } from '../../worktree-paths';
 import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
+import { killProcessGracefully } from '../../platform';
 
 // Regex pattern for validating git branch names
 const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
@@ -2006,27 +2007,11 @@ export function registerWorktreeHandlers(
               debug('TIMEOUT: Merge process exceeded', MERGE_TIMEOUT_MS, 'ms, killing...');
               resolved = true;
 
-              // Platform-specific process termination
-              if (process.platform === 'win32') {
-                // On Windows, .kill() without signal terminates the process tree
-                // SIGTERM/SIGKILL are not supported the same way on Windows
-                try {
-                  mergeProcess.kill();
-                } catch {
-                  // Process may already be dead
-                }
-              } else {
-                // On Unix-like systems, use SIGTERM first, then SIGKILL as fallback
-                mergeProcess.kill('SIGTERM');
-                // Give it a moment to clean up, then force kill
-                setTimeout(() => {
-                  try {
-                    mergeProcess.kill('SIGKILL');
-                  } catch {
-                    // Process may already be dead
-                  }
-                }, 5000);
-              }
+              // Platform-specific process termination with fallback
+              killProcessGracefully(mergeProcess, {
+                debugPrefix: '[MERGE]',
+                debug: isDebugMode
+              });
 
               // Check if merge might have succeeded before the hang
               // Look for success indicators in the output
@@ -3002,6 +2987,9 @@ export function registerWorktreeHandlers(
           // Get Python environment for bundled packages
           const pythonEnv = pythonEnvManagerSingleton.getPythonEnv();
 
+          // Get gh CLI path to pass to Python backend
+          const ghCliPath = getToolPath('gh');
+
           // Parse Python command to handle space-separated commands like "py -3"
           const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
           const createPRProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
@@ -3010,6 +2998,7 @@ export function registerWorktreeHandlers(
               ...process.env,
               ...pythonEnv,
               ...profileEnv,
+              GITHUB_CLI_PATH: ghCliPath,
               PYTHONUNBUFFERED: '1',
               PYTHONUTF8: '1'
             },
@@ -3026,35 +3015,10 @@ export function registerWorktreeHandlers(
               resolved = true;
 
               // Platform-specific process termination with fallback
-              if (process.platform === 'win32') {
-                try {
-                  createPRProcess.kill();
-                  // Fallback: forcefully kill with taskkill if process ignores initial kill
-                  if (createPRProcess.pid) {
-                    setTimeout(() => {
-                      try {
-                        spawn('taskkill', ['/pid', createPRProcess.pid!.toString(), '/f', '/t'], {
-                          stdio: 'ignore',
-                          detached: true
-                        }).unref();
-                      } catch {
-                        // Process may already be dead
-                      }
-                    }, 5000);
-                  }
-                } catch {
-                  // Process may already be dead
-                }
-              } else {
-                createPRProcess.kill('SIGTERM');
-                setTimeout(() => {
-                  try {
-                    createPRProcess.kill('SIGKILL');
-                  } catch {
-                    // Process may already be dead
-                  }
-                }, 5000);
-              }
+              killProcessGracefully(createPRProcess, {
+                debugPrefix: '[PR_CREATION]',
+                debug: isDebugMode
+              });
 
               resolve({
                 success: false,

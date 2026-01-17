@@ -10,6 +10,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, ChildProcess } from 'child_process';
 import { app } from 'electron';
+import { isWindows, GRACEFUL_KILL_TIMEOUT_MS } from '../platform';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -402,6 +403,36 @@ class PtyDaemonClient {
    */
   shutdown(): void {
     this.isShuttingDown = true;
+
+    // Kill the daemon process if we spawned it
+    if (this.daemonProcess && this.daemonProcess.pid) {
+      try {
+        if (isWindows()) {
+          // Windows: use taskkill to force kill process tree
+          spawn('taskkill', ['/pid', this.daemonProcess.pid.toString(), '/f', '/t'], {
+            stdio: 'ignore',
+            detached: true
+          }).unref();
+        } else {
+          // Unix: SIGTERM then SIGKILL
+          this.daemonProcess.kill('SIGTERM');
+          const daemonProc = this.daemonProcess;
+          setTimeout(() => {
+            try {
+              if (daemonProc) {
+                daemonProc.kill('SIGKILL');
+              }
+            } catch {
+              // Process may already be dead
+            }
+          }, GRACEFUL_KILL_TIMEOUT_MS);
+        }
+      } catch {
+        // Process may already be dead
+      }
+      this.daemonProcess = null;
+    }
+
     this.disconnect();
     this.pendingRequests.clear();
     this.dataHandlers.clear();

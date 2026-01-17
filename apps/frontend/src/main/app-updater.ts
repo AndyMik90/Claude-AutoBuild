@@ -38,6 +38,9 @@ autoUpdater.autoInstallOnAppQuit = true;  // Automatically install on app quit
 // Update channels: 'latest' for stable, 'beta' for pre-release
 type UpdateChannel = 'latest' | 'beta';
 
+// Store interval ID for cleanup during shutdown
+let periodicCheckIntervalId: ReturnType<typeof setInterval> | null = null;
+
 /**
  * Set the update channel for electron-updater.
  * - 'latest': Only receive stable releases (default)
@@ -189,7 +192,7 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
   const FOUR_HOURS = 4 * 60 * 60 * 1000;
   console.warn(`[app-updater] Periodic checks scheduled every ${FOUR_HOURS / 1000 / 60 / 60} hours`);
 
-  setInterval(() => {
+  periodicCheckIntervalId = setInterval(() => {
     console.warn('[app-updater] Performing periodic update check');
     autoUpdater.checkForUpdates().catch((error) => {
       console.error('[app-updater] ❌ Periodic update check failed:', error.message);
@@ -490,5 +493,16 @@ export async function downloadStableVersion(): Promise<void> {
   } finally {
     // Reset allowDowngrade to prevent unintended downgrades in normal update checks
     autoUpdater.allowDowngrade = false;
+  }
+}
+
+/**
+ * Stop periodic update checks - called during app shutdown
+ */
+export function stopPeriodicUpdates(): void {
+  if (periodicCheckIntervalId) {
+    clearInterval(periodicCheckIntervalId);
+    periodicCheckIntervalId = null;
+    console.warn('[app-updater] Periodic update checks stopped');
   }
 }

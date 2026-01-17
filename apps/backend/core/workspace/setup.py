@@ -7,7 +7,9 @@ Functions for setting up and initializing workspaces.
 """
 
 import json
+import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -181,6 +183,106 @@ def copy_env_files_to_worktree(project_dir: Path, worktree_path: Path) -> list[s
     return copied
 
 
+def symlink_node_modules_to_worktree(
+    project_dir: Path, worktree_path: Path
+) -> list[str]:
+    """
+    Symlink node_modules directories from project root to worktree.
+
+    This ensures the worktree has access to dependencies for TypeScript checks
+    and other tooling without requiring a separate npm install.
+
+    Works with npm workspace hoisting where dependencies are hoisted to root
+    and workspace-specific dependencies remain in nested node_modules.
+
+    Args:
+        project_dir: The main project directory
+        worktree_path: Path to the worktree
+
+    Returns:
+        List of symlinked paths (relative to worktree)
+    """
+    symlinked = []
+
+    # Node modules locations to symlink for TypeScript and tooling support.
+    # These are the standard locations for this monorepo structure.
+    #
+    # Design rationale:
+    # - Hardcoded paths are intentional for simplicity and reliability
+    # - Dynamic discovery (reading workspaces from package.json) would add complexity
+    #   and potential failure points without significant benefit
+    # - This monorepo uses npm workspaces with hoisting, so dependencies are primarily
+    #   in root node_modules with workspace-specific deps in apps/frontend/node_modules
+    #
+    # To add new workspace locations:
+    # 1. Add (source_rel, target_rel) tuple below
+    # 2. Update the parallel TypeScript implementation in
+    #    apps/frontend/src/main/ipc-handlers/terminal/worktree-handlers.ts
+    # 3. Update the pre-commit hook check in .husky/pre-commit if needed
+    node_modules_locations = [
+        ("node_modules", "node_modules"),
+        ("apps/frontend/node_modules", "apps/frontend/node_modules"),
+    ]
+
+    for source_rel, target_rel in node_modules_locations:
+        source_path = project_dir / source_rel
+        target_path = worktree_path / target_rel
+
+        # Skip if source doesn't exist
+        if not source_path.exists():
+            debug(MODULE, f"Skipping {source_rel} - source does not exist")
+            continue
+
+        # Skip if target already exists (don't overwrite existing node_modules)
+        if target_path.exists():
+            debug(MODULE, f"Skipping {target_rel} - target already exists")
+            continue
+
+        # Also skip if target is a symlink (even if broken - exists() returns False for broken symlinks)
+        if target_path.is_symlink():
+            debug(
+                MODULE,
+                f"Skipping {target_rel} - symlink already exists (possibly broken)",
+            )
+            continue
+
+        # Ensure parent directory exists
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            if sys.platform == "win32":
+                # On Windows, use junctions instead of symlinks (no admin rights required)
+                # Junctions require absolute paths
+                result = subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", str(target_path), str(source_path)],
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode != 0:
+                    raise OSError(result.stderr or "mklink /J failed")
+            else:
+                # On macOS/Linux, use relative symlinks for portability
+                relative_source = os.path.relpath(source_path, target_path.parent)
+                os.symlink(relative_source, target_path)
+            symlinked.append(target_rel)
+            debug(MODULE, f"Symlinked {target_rel} -> {source_path}")
+        except OSError as e:
+            # Symlink/junction creation can fail on some systems (e.g., FAT32 filesystem)
+            # Log warning but don't fail - worktree is still usable, just without
+            # TypeScript checking
+            debug_warning(
+                MODULE,
+                f"Could not symlink {target_rel}: {e}. TypeScript checks may fail.",
+            )
+            # Warn user - pre-commit hooks may fail without dependencies
+            print_status(
+                f"Warning: Could not link {target_rel} - TypeScript checks may fail",
+                "warning",
+            )
+
+    return symlinked
+
+
 def copy_spec_to_worktree(
     source_spec_dir: Path,
     worktree_path: Path,
@@ -267,6 +369,14 @@ def setup_workspace(
         print_status(
             f"Environment files copied: {', '.join(copied_env_files)}", "success"
         )
+
+    # Symlink node_modules to worktree for TypeScript and tooling support
+    # This allows pre-commit hooks to run typecheck without npm install in worktree
+    symlinked_modules = symlink_node_modules_to_worktree(
+        project_dir, worktree_info.path
+    )
+    if symlinked_modules:
+        print_status(f"Dependencies linked: {', '.join(symlinked_modules)}", "success")
 
     # Copy security configuration files if they exist
     # Note: Unlike env files, security files always overwrite to ensure

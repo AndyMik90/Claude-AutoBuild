@@ -16,6 +16,7 @@ import type {
   CreateTerminalWorktreeRequest,
   TerminalWorktreeConfig,
   TerminalWorktreeResult,
+  OtherWorktreeInfo,
 } from '../../shared/types';
 
 /** Type for proactive swap notification events */
@@ -59,11 +60,16 @@ export interface TerminalAPI {
     rows?: number
   ) => Promise<IPCResult<import('../../shared/types').SessionDateRestoreResult>>;
   checkTerminalPtyAlive: (terminalId: string) => Promise<IPCResult<{ alive: boolean }>>;
+  updateTerminalDisplayOrders: (
+    projectPath: string,
+    orders: Array<{ terminalId: string; displayOrder: number }>
+  ) => Promise<IPCResult>;
 
   // Terminal Worktree Operations (isolated development)
   createTerminalWorktree: (request: CreateTerminalWorktreeRequest) => Promise<TerminalWorktreeResult>;
   listTerminalWorktrees: (projectPath: string) => Promise<IPCResult<TerminalWorktreeConfig[]>>;
   removeTerminalWorktree: (projectPath: string, name: string, deleteBranch?: boolean) => Promise<IPCResult>;
+  listOtherWorktrees: (projectPath: string) => Promise<IPCResult<OtherWorktreeInfo[]>>;
 
   // Terminal Event Listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
@@ -170,6 +176,12 @@ export const createTerminalAPI = (): TerminalAPI => ({
   checkTerminalPtyAlive: (terminalId: string): Promise<IPCResult<{ alive: boolean }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_CHECK_PTY_ALIVE, terminalId),
 
+  updateTerminalDisplayOrders: (
+    projectPath: string,
+    orders: Array<{ terminalId: string; displayOrder: number }>
+  ): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_UPDATE_DISPLAY_ORDERS, projectPath, orders),
+
   // Terminal Worktree Operations (isolated development)
   createTerminalWorktree: (request: CreateTerminalWorktreeRequest): Promise<TerminalWorktreeResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_WORKTREE_CREATE, request),
@@ -179,6 +191,9 @@ export const createTerminalAPI = (): TerminalAPI => ({
 
   removeTerminalWorktree: (projectPath: string, name: string, deleteBranch: boolean = false): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_WORKTREE_REMOVE, projectPath, name, deleteBranch),
+
+  listOtherWorktrees: (projectPath: string): Promise<IPCResult<OtherWorktreeInfo[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_WORKTREE_LIST_OTHER, projectPath),
 
   // Terminal Event Listeners
   onTerminalOutput: (
