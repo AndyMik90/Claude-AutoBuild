@@ -80,7 +80,8 @@ class TestGHClientGhExecutableDetection:
                 await client.run(["--version"])
 
             assert "not found" in str(exc_info.value)
-            assert "cli.github.com" in str(exc_info.value)
+            # Test verifies error message mentions GitHub CLI for user guidance
+            assert "GitHub CLI" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_run_uses_detected_gh_executable(self, client):
@@ -97,7 +98,7 @@ class TestGHClientGhExecutableDetection:
                 mock_proc.returncode = 0
                 mock_subprocess.return_value = mock_proc
 
-                result = await client.run(["--version"])
+                await client.run(["--version"])
 
                 # Verify the correct gh path was used
                 mock_subprocess.assert_called_once()
@@ -108,19 +109,25 @@ class TestGHClientGhExecutableDetection:
     async def test_run_with_github_cli_path_env_var(self, client, monkeypatch):
         """Test that run() respects GITHUB_CLI_PATH environment variable."""
         # Set the environment variable
-        monkeypatch.setenv("GITHUB_CLI_PATH", "/usr/local/bin/gh")
+        env_path = "/custom/env/path/gh"
+        monkeypatch.setenv("GITHUB_CLI_PATH", env_path)
 
-        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
-            # Mock the subprocess to return immediately
-            mock_proc = MagicMock()
-            mock_proc.communicate = AsyncMock(return_value=(b"gh version 2.0.0\n", b""))
-            mock_proc.returncode = 0
-            mock_subprocess.return_value = mock_proc
+        with patch("gh_client.get_gh_executable", return_value=env_path):
+            with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+                # Mock the subprocess to return immediately
+                mock_proc = MagicMock()
+                mock_proc.communicate = AsyncMock(
+                    return_value=(b"gh version 2.0.0\n", b"")
+                )
+                mock_proc.returncode = 0
+                mock_subprocess.return_value = mock_proc
 
-            result = await client.run(["--version"])
+                await client.run(["--version"])
 
-            # Verify a command was executed (the exact path depends on get_gh_executable)
-            assert mock_subprocess.called
+                # Verify the env var path was used
+                mock_subprocess.assert_called_once()
+                called_cmd = mock_subprocess.call_args[0][0]
+                assert called_cmd == env_path
 
 
 if __name__ == "__main__":
