@@ -1,6 +1,10 @@
 /**
  * Integration tests for subprocess spawning
  * Tests AgentManager spawning Python processes correctly
+ *
+ * NOTE: Some pre-existing test failures in the full test suite (e.g., @testing-library/react
+ * v16 missing exports) are NOT related to changes in this file. This test file focuses on
+ * subprocess spawning and AgentManager functionality only.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
