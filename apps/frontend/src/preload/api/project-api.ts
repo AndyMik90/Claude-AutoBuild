@@ -31,6 +31,7 @@ export interface ProjectAPI {
     settings: Partial<ProjectSettings>
   ) => Promise<IPCResult>;
   initializeProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
+  updateProjectAutoBuild: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   checkProjectVersion: (projectId: string) => Promise<IPCResult<AutoBuildVersionInfo>>;
 
   // Tab State (persisted in main process for reliability)
@@ -105,12 +106,6 @@ export interface ProjectAPI {
     version?: string;
     message?: string;
   }>>;
-  checkOllamaInstalled: () => Promise<IPCResult<{
-    installed: boolean;
-    path?: string;
-    version?: string;
-  }>>;
-  installOllama: () => Promise<IPCResult<{ command: string }>>;
   listOllamaModels: (baseUrl?: string) => Promise<IPCResult<{
     models: Array<{
       name: string;
@@ -159,6 +154,9 @@ export const createProjectAPI = (): ProjectAPI => ({
 
   initializeProject: (projectId: string): Promise<IPCResult<InitializationResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_INITIALIZE, projectId),
+
+  updateProjectAutoBuild: (projectId: string): Promise<IPCResult<InitializationResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_UPDATE_AUTOBUILD, projectId),
 
   checkProjectVersion: (projectId: string): Promise<IPCResult<AutoBuildVersionInfo>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CHECK_VERSION, projectId),
@@ -280,12 +278,6 @@ export const createProjectAPI = (): ProjectAPI => ({
   // Ollama Model Detection
   checkOllamaStatus: (baseUrl?: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_CHECK_STATUS, baseUrl),
-
-  checkOllamaInstalled: () =>
-    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_CHECK_INSTALLED),
-
-  installOllama: () =>
-    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_INSTALL),
 
   listOllamaModels: (baseUrl?: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_LIST_MODELS, baseUrl),
