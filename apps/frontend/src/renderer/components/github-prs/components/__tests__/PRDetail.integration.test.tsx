@@ -127,7 +127,7 @@ describe('PRDetail - Clean Review State Reset Integration', () => {
       newCommitCount: 0
     });
     // Resolve successfully by default
-    mockOnPostComment.mockResolvedValue(undefined);
+    mockOnPostComment.mockResolvedValue(true);
   });
 
   it('should reset cleanReviewPosted state when pr.number changes', async () => {
