@@ -43,7 +43,7 @@ import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager } from './claude-profile-manager';
-import { isWindows } from './platform';
+import { isWindows, isMacOS } from './platform';
 import type { AppSettings } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -176,10 +176,10 @@ function getIconPath(): string {
     : join(process.resourcesPath);
 
   let iconName: string;
-  if (process.platform === 'darwin') {
+  if (isMacOS()) {
     // Use PNG in dev mode (works better), ICNS in production
     iconName = is.dev ? 'icon-256.png' : 'icon.icns';
-  } else if (process.platform === 'win32') {
+  } else if (isWindows()) {
     iconName = 'icon.ico';
   } else {
     iconName = 'icon.png';
@@ -300,13 +300,13 @@ function createWindow(): void {
 
 // Set app name before ready (for dock tooltip on macOS in dev mode)
 app.setName('Auto Claude');
-if (process.platform === 'darwin') {
+if (isMacOS()) {
   // Force the name to appear in dock on macOS
   app.name = 'Auto Claude';
 }
 
 // Fix Windows GPU cache permission errors (0x5 Access Denied)
-if (process.platform === 'win32') {
+if (isWindows()) {
   app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
   app.commandLine.appendSwitch('disable-gpu-program-cache');
   console.log('[main] Applied Windows GPU cache fixes');
@@ -318,7 +318,7 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.autoclaude.ui');
 
   // Clear cache on Windows to prevent permission errors from stale cache
-  if (process.platform === 'win32') {
+  if (isWindows()) {
     session.defaultSession.clearCache()
       .then(() => console.log('[main] Cleared cache on startup'))
       .catch((err) => console.warn('[main] Failed to clear cache:', err));
@@ -333,7 +333,7 @@ app.whenReady().then(() => {
   cleanupStaleUpdateMetadata();
 
   // Set dock icon on macOS
-  if (process.platform === 'darwin') {
+  if (isMacOS()) {
     const iconPath = getIconPath();
     try {
       const icon = nativeImage.createFromPath(iconPath);
@@ -517,7 +517,7 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (!isMacOS()) {
     app.quit();
   }
 });
