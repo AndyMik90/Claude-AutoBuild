@@ -1,11 +1,52 @@
 #!/bin/sh
 
-# Preserve git worktree context - prevent HEAD corruption in worktrees
+# =============================================================================
+# GIT WORKTREE CONTEXT HANDLING
+# =============================================================================
+# When running in a worktree, we need to preserve git context to prevent HEAD
+# corruption. However, we must also CLEAR these variables when NOT in a worktree
+# to prevent cross-worktree contamination (files leaking between worktrees).
+#
+# The bug: If GIT_DIR/GIT_WORK_TREE are set from a previous worktree session
+# and this hook runs in the main repo (where .git is a directory, not a file),
+# git commands will target the wrong repository, causing files to appear as
+# untracked in the wrong location.
+#
+# Fix: Explicitly unset these variables when NOT in a worktree context.
+# =============================================================================
+
 if [ -f ".git" ]; then
-  WORKTREE_GIT_DIR=$(sed 's/^gitdir: //' .git)
-  if [ -n "$WORKTREE_GIT_DIR" ]; then
+  # We're in a worktree (.git is a file pointing to the actual git dir)
+  # Use -n with /p to only print lines that match the gitdir: prefix, head -1 for safety
+  WORKTREE_GIT_DIR=$(sed -n 's/^gitdir: //p' .git | head -1)
+  if [ -n "$WORKTREE_GIT_DIR" ] && [ -d "$WORKTREE_GIT_DIR" ]; then
     export GIT_DIR="$WORKTREE_GIT_DIR"
     export GIT_WORK_TREE="$(pwd)"
+  else
+    # .git file exists but is malformed or points to non-existent directory
+    # CRITICAL: Clear any inherited GIT_DIR/GIT_WORK_TREE to prevent cross-worktree leakage
+    unset GIT_DIR
+    unset GIT_WORK_TREE
+  fi
+else
+  # We're in the main repo (.git is a directory)
+  # CRITICAL: Clear any inherited GIT_DIR/GIT_WORK_TREE to prevent cross-worktree leakage
+  unset GIT_DIR
+  unset GIT_WORK_TREE
+fi
+
+# =============================================================================
+# SAFETY CHECK: Detect and fix corrupted core.worktree configuration
+# =============================================================================
+# If core.worktree is set in the main repo's config (pointing to a worktree),
+# this indicates previous corruption. Fix it automatically.
+if [ ! -f ".git" ]; then
+  CORE_WORKTREE=$(git config --get core.worktree 2>/dev/null || true)
+  if [ -n "$CORE_WORKTREE" ]; then
+    echo "Warning: Detected corrupted core.worktree setting, removing it..."
+    if ! git config --unset core.worktree 2>/dev/null; then
+      echo "Warning: Failed to unset core.worktree. Manual intervention may be needed."
+    fi
   fi
 fi
 

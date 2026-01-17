@@ -20,6 +20,7 @@ import {
   findTaskWorktree,
 } from '../../worktree-paths';
 import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
+import { getIsolatedGitEnv } from '../../utils/git-isolation';
 import { killProcessGracefully } from '../../platform';
 
 // Regex pattern for validating git branch names
@@ -1893,9 +1894,10 @@ export function registerWorktreeHandlers(
 
         // Check if changes are already staged (for stage-only mode)
         if (options?.noCommit) {
-          const stagedResult = spawnSync('git', ['diff', '--staged', '--name-only'], {
+          const stagedResult = spawnSync(getToolPath('git'), ['diff', '--staged', '--name-only'], {
             cwd: project.path,
-            encoding: 'utf-8'
+            encoding: 'utf-8',
+            env: getIsolatedGitEnv()
           });
 
           if (stagedResult.status === 0 && stagedResult.stdout?.trim()) {
@@ -1985,17 +1987,16 @@ export function registerWorktreeHandlers(
           const mergeProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
             cwd: sourcePath,
             env: {
-              ...process.env,
-              ...pythonEnv, // Include bundled packages PYTHONPATH
-              ...profileEnv, // Include active Claude profile OAuth token
+              ...getIsolatedGitEnv(),
+              ...pythonEnv,
+              ...profileEnv,
               PYTHONUNBUFFERED: '1',
               PYTHONUTF8: '1',
-              // Utility feature settings for merge resolver
               UTILITY_MODEL: utilitySettings.model,
               UTILITY_MODEL_ID: utilitySettings.modelId,
               UTILITY_THINKING_BUDGET: utilitySettings.thinkingBudget === null ? '' : (utilitySettings.thinkingBudget?.toString() || '')
             },
-            stdio: ['ignore', 'pipe', 'pipe'] // Don't connect stdin to avoid blocking
+            stdio: ['ignore', 'pipe', 'pipe']
           });
 
           let stdout = '';
@@ -2467,7 +2468,7 @@ export function registerWorktreeHandlers(
           const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
           const previewProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
             cwd: sourcePath,
-            env: { ...process.env, ...previewPythonEnv, ...previewProfileEnv, PYTHONUNBUFFERED: '1', PYTHONUTF8: '1', DEBUG: 'true' }
+            env: { ...getIsolatedGitEnv(), ...previewPythonEnv, ...previewProfileEnv, PYTHONUNBUFFERED: '1', PYTHONUTF8: '1', DEBUG: 'true' }
           });
 
           let stdout = '';
@@ -2995,7 +2996,7 @@ export function registerWorktreeHandlers(
           const createPRProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
             cwd: sourcePath,
             env: {
-              ...process.env,
+              ...getIsolatedGitEnv(),
               ...pythonEnv,
               ...profileEnv,
               GITHUB_CLI_PATH: ghCliPath,

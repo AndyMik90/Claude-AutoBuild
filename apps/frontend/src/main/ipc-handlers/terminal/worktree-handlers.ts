@@ -21,6 +21,8 @@ import {
   getTerminalWorktreeMetadataDir,
   getTerminalWorktreeMetadataPath,
 } from '../../worktree-paths';
+import { getIsolatedGitEnv } from '../../utils/git-isolation';
+import { getToolPath } from '../../cli-tool-manager';
 
 // Promisify execFile for async operations
 const execFileAsync = promisify(execFile);
@@ -52,9 +54,9 @@ function fixMisconfiguredBareRepo(projectPath: string): boolean {
   try {
     // Check if bare=true is set
     const bareConfig = execFileSync(
-      'git',
+      getToolPath('git'),
       ['config', '--get', 'core.bare'],
-      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], env: getIsolatedGitEnv() }
     ).trim().toLowerCase();
 
     if (bareConfig !== 'true') {
@@ -133,9 +135,9 @@ function fixMisconfiguredBareRepo(projectPath: string): boolean {
     // Fix the misconfiguration
     debugLog('[TerminalWorktree] Detected misconfigured bare repository with source files. Auto-fixing by unsetting core.bare...');
     execFileSync(
-      'git',
+      getToolPath('git'),
       ['config', '--unset', 'core.bare'],
-      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], env: getIsolatedGitEnv() }
     );
     debugLog('[TerminalWorktree] Fixed: core.bare has been unset. Git operations should now work correctly.');
     return true;
@@ -180,10 +182,11 @@ function getDefaultBranch(projectPath: string): string {
 
   for (const branch of ['main', 'master']) {
     try {
-      execFileSync('git', ['rev-parse', '--verify', branch], {
+      execFileSync(getToolPath('git'), ['rev-parse', '--verify', branch], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Auto-detected branch:', branch);
       return branch;
@@ -194,10 +197,11 @@ function getDefaultBranch(projectPath: string): string {
 
   // Fallback to current branch - wrap in try-catch
   try {
-    const currentBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+    const currentBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: getIsolatedGitEnv(),
     }).trim();
     debugLog('[TerminalWorktree] Falling back to current branch:', currentBranch);
     return currentBranch;
@@ -396,10 +400,11 @@ async function createTerminalWorktree(
 
     // Fetch the branch from remote
     try {
-      execFileSync('git', ['fetch', 'origin', remoteBranchName], {
+      execFileSync(getToolPath('git'), ['fetch', 'origin', remoteBranchName], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Fetched latest from origin/' + remoteBranchName);
     } catch {
@@ -415,10 +420,11 @@ async function createTerminalWorktree(
     } else {
       // Check if remote version exists and use it for latest code
       try {
-        execFileSync('git', ['rev-parse', '--verify', `origin/${baseBranch}`], {
+        execFileSync(getToolPath('git'), ['rev-parse', '--verify', `origin/${baseBranch}`], {
           cwd: projectPath,
           encoding: 'utf-8',
           stdio: ['pipe', 'pipe', 'pipe'],
+          env: getIsolatedGitEnv(),
         });
         baseRef = `origin/${baseBranch}`;
         debugLog('[TerminalWorktree] Using remote ref:', baseRef);
@@ -428,17 +434,19 @@ async function createTerminalWorktree(
     }
 
     if (createGitBranch) {
-      execFileSync('git', ['worktree', 'add', '-b', branchName, worktreePath, baseRef], {
+      execFileSync(getToolPath('git'), ['worktree', 'add', '-b', branchName, worktreePath, baseRef], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Created worktree with branch:', branchName, 'from', baseRef);
     } else {
-      execFileSync('git', ['worktree', 'add', '--detach', worktreePath, baseRef], {
+      execFileSync(getToolPath('git'), ['worktree', 'add', '--detach', worktreePath, baseRef], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Created worktree in detached HEAD mode from', baseRef);
     }
@@ -475,10 +483,11 @@ async function createTerminalWorktree(
         debugLog('[TerminalWorktree] Cleaned up failed worktree directory:', worktreePath);
         // Also prune stale worktree registrations in case git worktree add partially succeeded
         try {
-          execFileSync('git', ['worktree', 'prune'], {
+          execFileSync(getToolPath('git'), ['worktree', 'prune'], {
             cwd: projectPath,
             encoding: 'utf-8',
             stdio: ['pipe', 'pipe', 'pipe'],
+            env: getIsolatedGitEnv(),
           });
           debugLog('[TerminalWorktree] Pruned stale worktree registrations');
         } catch {
@@ -591,10 +600,11 @@ async function listOtherWorktrees(projectPath: string): Promise<OtherWorktreeInf
   ];
 
   try {
-    const { stdout: output } = await execFileAsync('git', ['worktree', 'list', '--porcelain'], {
+    const { stdout: output } = await execFileAsync(getToolPath('git'), ['worktree', 'list', '--porcelain'], {
       cwd: projectPath,
       encoding: 'utf-8',
       timeout: 30000,
+      env: getIsolatedGitEnv(),
     });
 
     // Parse porcelain output
@@ -699,10 +709,11 @@ async function removeTerminalWorktree(
 
   try {
     if (existsSync(worktreePath)) {
-      execFileSync('git', ['worktree', 'remove', '--force', worktreePath], {
+      execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Removed git worktree');
     }
@@ -713,10 +724,11 @@ async function removeTerminalWorktree(
         debugError('[TerminalWorktree] Invalid branch name in config:', config.branchName);
       } else {
         try {
-          execFileSync('git', ['branch', '-D', config.branchName], {
+          execFileSync(getToolPath('git'), ['branch', '-D', config.branchName], {
             cwd: projectPath,
             encoding: 'utf-8',
             stdio: ['pipe', 'pipe', 'pipe'],
+            env: getIsolatedGitEnv(),
           });
           debugLog('[TerminalWorktree] Deleted branch:', config.branchName);
         } catch {
