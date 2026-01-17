@@ -58,7 +58,7 @@ interface WorktreesProps {
 }
 
 export function Worktrees({ projectId }: WorktreesProps) {
-  const { t } = useTranslation(['common', 'dialogs']);
+  const { t } = useTranslation(['common', 'dialogs', 'errors']);
   const projects = useProjectStore((state) => state.projects);
   const selectedProject = projects.find((p) => p.id === projectId);
   const tasks = useTaskStore((state) => state.tasks);
@@ -813,9 +813,19 @@ export function Worktrees({ projectId }: WorktreesProps) {
                   )}
                   <div>
                     <p className={`font-medium ${mergeResult.success ? 'text-success' : 'text-destructive'}`}>
-                      {mergeResult.success ? 'Merge Successful' : 'Merge Failed'}
+                      {mergeResult.success ? t('errors:merge.success') : t('errors:merge.failed')}
                     </p>
-                    <p className="text-muted-foreground mt-1">{mergeResult.message}</p>
+                    <p className="text-muted-foreground mt-1">
+                      {mergeResult.messageKey
+                        ? t(mergeResult.messageKey, mergeResult.messageParams || {})
+                        : mergeResult.message}
+                      {/* Append last error if present (separate line for clarity) */}
+                      {mergeResult.messageParams?.lastError && (
+                        <span className="block mt-1 text-xs font-mono">
+                          {t('errors:merge.timeoutLastError', { lastError: mergeResult.messageParams.lastError })}
+                        </span>
+                      )}
+                    </p>
                     {mergeResult.conflictFiles && mergeResult.conflictFiles.length > 0 && (
                       <div className="mt-2">
                         <p className="text-xs font-medium">Conflicting files:</p>

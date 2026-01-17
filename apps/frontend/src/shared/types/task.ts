@@ -382,6 +382,9 @@ export interface MergeStats {
 export interface WorktreeMergeResult {
   success: boolean;
   message: string;
+  // i18n translation key and params (renderer will translate if present)
+  messageKey?: string;
+  messageParams?: Record<string, string>;
   merged?: boolean;
   conflictFiles?: string[];
   staged?: boolean;

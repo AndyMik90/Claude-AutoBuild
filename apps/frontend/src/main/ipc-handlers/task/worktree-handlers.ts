@@ -2014,30 +2014,36 @@ export function registerWorktreeHandlers(
                 debug: isDebugMode
               });
 
-              // Check if merge might have succeeded before the hang
-              // Look for success indicators in the output
-              const mayHaveSucceeded = stdout.includes('staged') ||
-                                       stdout.includes('Successfully merged') ||
-                                       stdout.includes('Changes from');
+              // FIX (#1089): Don't assume success based on pattern matching
+              // Pattern matching stdout for "staged" or "Successfully merged" can cause false positives
+              // when the process times out partway through, leaving the repo in an inconsistent state.
+              // Instead, always treat timeout as a failure requiring user verification.
+              const hasOutput = stdout.length > 0 || stderr.length > 0;
+              debug('TIMEOUT: Process hung. stdout length:', stdout.length, 'stderr length:', stderr.length);
 
-              if (mayHaveSucceeded) {
-                debug('TIMEOUT: Process hung but merge may have succeeded based on output');
-                const isStageOnly = options?.noCommit === true;
-                resolve({
-                  success: true,
-                  data: {
-                    success: true,
-                    message: 'Changes staged (process timed out but merge appeared successful)',
-                    staged: isStageOnly,
-                    projectPath: isStageOnly ? project.path : undefined
+              // Build error response with i18n translation keys for the renderer
+              // Use structured error with messageKey/messageParams for proper localization
+              const messageKey = hasOutput ? 'errors:merge.timeoutWithOutput' : 'errors:merge.timeoutNoOutput';
+              let messageParams: Record<string, string> | undefined;
+
+              // Extract last error from stderr if available for the "with output" case
+              if (hasOutput && stderr.length > 0) {
+                  const lastStderrLine = stderr.trim().split('\n').pop() || '';
+                  if (lastStderrLine.length > 0 && lastStderrLine.length < 200) {
+                    messageParams = { lastError: lastStderrLine };
                   }
-                });
-              } else {
-                resolve({
-                  success: false,
-                  error: 'Merge process timed out. Check git status to see if merge completed.'
-                });
               }
+
+              resolve({
+                success: true,  // Outer success=true so renderer uses i18n handling
+                error: messageKey,  // Fallback for non-i18n consumers
+                data: {
+                  success: false,  // Inner success=false indicates actual failure
+                  message: messageKey,  // Fallback message
+                  messageKey,
+                  messageParams
+                }
+              });
             }
           }, MERGE_TIMEOUT_MS);
 
@@ -2179,8 +2185,9 @@ export function registerWorktreeHandlers(
                         encoding: 'utf-8'
                       });
                       debug('Task branch deleted:', taskBranch);
-                    } catch {
-                      // Branch might not exist or already deleted
+                    } catch (branchDeleteErr) {
+                      // Branch might not exist or already deleted - log for debugging
+                      debug('Branch deletion skipped (non-fatal):', taskBranch, branchDeleteErr instanceof Error ? branchDeleteErr.message : branchDeleteErr);
                     }
                   }
                 } catch (cleanupErr) {
