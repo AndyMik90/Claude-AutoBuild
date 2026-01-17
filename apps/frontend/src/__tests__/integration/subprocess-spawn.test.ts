@@ -8,13 +8,19 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
-import { mkdirSync, rmSync, existsSync, writeFileSync } from 'fs';
+import { mkdirSync, rmSync, existsSync, writeFileSync, mkdtempSync } from 'fs';
+import { tmpdir } from 'os';
 import path from 'path';
 import { findPythonCommand, parsePythonCommand } from '../../main/python-detector';
 
-// Test directories
-const TEST_DIR = '/tmp/subprocess-spawn-test';
-const TEST_PROJECT_PATH = path.join(TEST_DIR, 'test-project');
+// Test directories - use secure temp directory with random suffix
+let TEST_DIR: string;
+let TEST_PROJECT_PATH: string;
+
+function initTestDirectories(): void {
+  TEST_DIR = mkdtempSync(path.join(tmpdir(), 'subprocess-spawn-test-'));
+  TEST_PROJECT_PATH = path.join(TEST_DIR, 'test-project');
+}
 
 // Detect the Python command that will actually be used
 const DETECTED_PYTHON_CMD = findPythonCommand() || 'python';
@@ -73,10 +79,12 @@ vi.mock('../../main/python-env-manager', () => ({
 }));
 
 // Auto-claude source path (for getAutoBuildSourcePath to find)
-const AUTO_CLAUDE_SOURCE = path.join(TEST_DIR, 'auto-claude-source');
+let AUTO_CLAUDE_SOURCE: string;
 
 // Setup test directories
 function setupTestDirs(): void {
+  initTestDirectories();
+  AUTO_CLAUDE_SOURCE = path.join(TEST_DIR, 'auto-claude-source');
   mkdirSync(TEST_PROJECT_PATH, { recursive: true });
 
   // Create auto-claude source directory that getAutoBuildSourcePath looks for
@@ -99,7 +107,7 @@ function setupTestDirs(): void {
 
 // Cleanup test directories
 function cleanupTestDirs(): void {
-  if (existsSync(TEST_DIR)) {
+  if (TEST_DIR && existsSync(TEST_DIR)) {
     rmSync(TEST_DIR, { recursive: true, force: true });
   }
 }

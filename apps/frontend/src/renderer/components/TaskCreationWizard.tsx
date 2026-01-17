@@ -177,8 +177,12 @@ export function TaskCreationWizard({
         setImages([]);
         setReferencedFiles([]);
         setRequireReviewBeforeCoding(false);
+        setBaseBranch(PROJECT_DEFAULT_BRANCH);
+        setUseWorktree(true);
         setIsDraftRestored(false);
         setShowClassification(false);
+        setShowFileExplorer(false);
+        setShowGitOptions(false);
       }
     }
   }, [open, projectId, settings.selectedAgentProfile, settings.customPhaseModels, settings.customPhaseThinking, selectedProfile.model, selectedProfile.thinkingLevel, selectedProfile.phaseModels, selectedProfile.phaseThinking]);
