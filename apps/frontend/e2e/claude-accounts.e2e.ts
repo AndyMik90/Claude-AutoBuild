@@ -8,25 +8,27 @@
  * To run: npx playwright test claude-accounts.spec.ts --config=e2e/playwright.config.ts
  */
 import { test, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test';
-import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from 'fs';
+import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync, mkdtempSync } from 'fs';
+import { tmpdir } from 'os';
 import path from 'path';
 
-// Test data directory
-const TEST_DATA_DIR = '/tmp/auto-claude-accounts-e2e';
-const TEST_CONFIG_DIR = path.join(TEST_DATA_DIR, 'config');
+// Test data directory - use secure temp directory with random suffix
+let TEST_DATA_DIR: string;
+let TEST_CONFIG_DIR: string;
 
-// Setup test environment
+function initTestDirectories(): void {
+  // Create a unique temp directory with secure random naming
+  TEST_DATA_DIR = mkdtempSync(path.join(tmpdir(), 'auto-claude-accounts-e2e-'));
+  TEST_CONFIG_DIR = path.join(TEST_DATA_DIR, 'config');
+}
+
 function setupTestEnvironment(): void {
-  if (existsSync(TEST_DATA_DIR)) {
-    rmSync(TEST_DATA_DIR, { recursive: true, force: true });
-  }
-  mkdirSync(TEST_DATA_DIR, { recursive: true });
+  initTestDirectories();
   mkdirSync(TEST_CONFIG_DIR, { recursive: true });
 }
 
-// Cleanup test environment
 function cleanupTestEnvironment(): void {
-  if (existsSync(TEST_DATA_DIR)) {
+  if (TEST_DATA_DIR && existsSync(TEST_DATA_DIR)) {
     rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
 }

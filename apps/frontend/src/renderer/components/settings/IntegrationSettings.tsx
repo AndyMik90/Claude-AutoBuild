@@ -303,10 +303,9 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
     try {
       const initResult = await window.electronAPI.initializeClaudeProfile(profileId);
       if (!initResult.success) {
-        // Provide specific error messages based on error type
         const errorMessage = initResult.error || '';
-        let title = t('integrations.toast.authStartFailed');
-        let description = t('integrations.toast.tryAgain');
+        let title: string;
+        let description: string;
 
         if (errorMessage.toLowerCase().includes('max terminals')) {
           title = t('integrations.toast.maxTerminalsReached');
