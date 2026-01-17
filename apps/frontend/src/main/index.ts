@@ -195,8 +195,12 @@ function createWindow(): void {
   });
 
   // Handle external links
+  // Note: Terminal links now use IPC via WebLinksAddon callback, but this handler
+  // catches any other window.open() calls (e.g., from third-party libraries)
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    shell.openExternal(details.url).catch((error) => {
+      console.warn('[main] Failed to open external URL:', details.url, error);
+    });
     return { action: 'deny' };
   });
 
