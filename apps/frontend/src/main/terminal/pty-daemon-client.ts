@@ -10,7 +10,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, ChildProcess } from 'child_process';
 import { app } from 'electron';
-import { isWindows } from '../platform';
+import { isWindows, GRACEFUL_KILL_TIMEOUT_MS } from '../platform';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -425,7 +425,7 @@ class PtyDaemonClient {
             } catch {
               // Process may already be dead
             }
-          }, 2000);
+          }, GRACEFUL_KILL_TIMEOUT_MS);
         }
       } catch {
         // Process may already be dead

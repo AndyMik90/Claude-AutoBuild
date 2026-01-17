@@ -24,7 +24,7 @@ import type { AppSettings } from '../../shared/types/settings';
 import { getOAuthModeClearVars } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo } from '../cli-tool-manager';
-import { isWindows } from '../platform';
+import { isWindows, killProcessGracefully } from '../platform';
 
 /**
  * Type for supported CLI tools
@@ -720,52 +720,19 @@ export class AgentProcessManager {
    */
   killProcess(taskId: string): boolean {
     const agentProcess = this.state.getProcess(taskId);
-    if (agentProcess) {
-      try {
-        // Mark this specific spawn as killed so its exit handler knows to ignore
-        this.state.markSpawnAsKilled(agentProcess.spawnId);
+    if (!agentProcess) return false;
 
-        if (isWindows()) {
-          // Windows: .kill() then taskkill fallback
-          // SIGTERM/SIGKILL are ignored on Windows, so we use taskkill /f /t
-          try {
-            agentProcess.process.kill();
-            if (agentProcess.process.pid) {
-              const pid = agentProcess.process.pid;
-              setTimeout(() => {
-                try {
-                  // taskkill /f = force kill, /t = kill child processes tree
-                  spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], {
-                    stdio: 'ignore',
-                    detached: true
-                  }).unref();
-                } catch {
-                  // Process may already be dead
-                }
-              }, 5000);
-            }
-          } catch {
-            // Process may already be dead
-          }
-        } else {
-          // Unix: SIGTERM then SIGKILL
-          agentProcess.process.kill('SIGTERM');
-          setTimeout(() => {
-            try {
-              agentProcess.process.kill('SIGKILL');
-            } catch {
-              // Process may already be dead
-            }
-          }, 5000);
-        }
+    // Mark this specific spawn as killed so its exit handler knows to ignore
+    this.state.markSpawnAsKilled(agentProcess.spawnId);
 
-        this.state.deleteProcess(taskId);
-        return true;
-      } catch {
-        return false;
-      }
-    }
-    return false;
+    // Use shared platform-aware kill utility
+    killProcessGracefully(agentProcess.process, {
+      debugPrefix: '[AgentProcess]',
+      debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development'
+    });
+
+    this.state.deleteProcess(taskId);
+    return true;
   }
 
   /**
