@@ -33,7 +33,9 @@ except ImportError:
 from core.auth import ensure_claude_code_oauth_token, get_auth_token
 
 # Default model for insight extraction (fast and cheap)
-DEFAULT_EXTRACTION_MODEL = "claude-3-5-haiku-latest"
+# Note: Using Haiku 4.5 for fast, cheap extraction. Haiku does not support
+# extended thinking, so thinking_default is set to "none" in models.py
+DEFAULT_EXTRACTION_MODEL = "claude-haiku-4-5-20251001"
 
 # Maximum diff size to send to the LLM (avoid context limits)
 MAX_DIFF_CHARS = 15000

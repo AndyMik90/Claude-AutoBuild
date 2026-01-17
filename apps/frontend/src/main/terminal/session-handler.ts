@@ -146,6 +146,25 @@ export function findClaudeSessionAfter(
 }
 
 /**
+ * Create a TerminalSession object from a TerminalProcess.
+ * Shared helper used by both persistSession and persistSessionAsync.
+ */
+function createSessionObject(terminal: TerminalProcess): TerminalSession {
+  return {
+    id: terminal.id,
+    title: terminal.title,
+    cwd: terminal.cwd,
+    projectPath: terminal.projectPath!,
+    isClaudeMode: terminal.isClaudeMode,
+    claudeSessionId: terminal.claudeSessionId,
+    outputBuffer: terminal.outputBuffer,
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    worktreeConfig: terminal.worktreeConfig,
+  };
+}
+
+/**
  * Persist a terminal session to disk
  */
 export function persistSession(terminal: TerminalProcess): void {
@@ -154,27 +173,50 @@ export function persistSession(terminal: TerminalProcess): void {
   }
 
   const store = getTerminalSessionStore();
-  const session: TerminalSession = {
-    id: terminal.id,
-    title: terminal.title,
-    cwd: terminal.cwd,
-    projectPath: terminal.projectPath,
-    isClaudeMode: terminal.isClaudeMode,
-    claudeSessionId: terminal.claudeSessionId,
-    outputBuffer: terminal.outputBuffer,
-    createdAt: new Date().toISOString(),
-    lastActiveAt: new Date().toISOString(),
-    worktreeConfig: terminal.worktreeConfig,
-  };
-  store.saveSession(session);
+  store.saveSession(createSessionObject(terminal));
 }
 
 /**
- * Persist all active sessions
+ * Persist a terminal session to disk asynchronously (fire-and-forget).
+ * This is non-blocking and prevents the main process from freezing during disk writes.
+ */
+export function persistSessionAsync(terminal: TerminalProcess): void {
+  if (!terminal.projectPath) {
+    return;
+  }
+
+  const store = getTerminalSessionStore();
+  store.saveSessionAsync(createSessionObject(terminal)).catch((error) => {
+    debugError('[SessionHandler] Failed to persist session:', error);
+  });
+}
+
+/**
+ * Persist all active sessions asynchronously
+ *
+ * Uses async persistence to avoid blocking the main process when saving
+ * multiple sessions (e.g., on app quit).
+ */
+export async function persistAllSessionsAsync(terminals: Map<string, TerminalProcess>): Promise<void> {
+  const store = getTerminalSessionStore();
+
+  const savePromises: Promise<void>[] = [];
+  terminals.forEach((terminal) => {
+    if (terminal.projectPath) {
+      savePromises.push(store.saveSessionAsync(createSessionObject(terminal)));
+    }
+  });
+
+  await Promise.all(savePromises);
+}
+
+/**
+ * Persist all active sessions (blocking sync version)
+ *
+ * @deprecated Use persistAllSessionsAsync for non-blocking persistence.
+ * This function is kept for backwards compatibility with existing callers.
  */
 export function persistAllSessions(terminals: Map<string, TerminalProcess>): void {
-  const _store = getTerminalSessionStore();
-
   terminals.forEach((terminal) => {
     if (terminal.projectPath) {
       persistSession(terminal);

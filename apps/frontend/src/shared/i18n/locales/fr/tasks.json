@@ -53,7 +53,6 @@
     "description": "Créez votre première tâche pour commencer"
   },
   "columns": {
-    "error": "Erreur",
     "backlog": "Planification",
     "in_progress": "En cours",
     "ai_review": "Révision IA",
@@ -72,8 +71,6 @@
     "emptyHumanReviewHint": "Les tâches attendent votre approbation ici",
     "emptyDone": "Aucune tâche terminée",
     "emptyDoneHint": "Les tâches approuvées apparaissent ici",
-    "emptyError": "Aucune tâche en erreur",
-    "emptyErrorHint": "Les tâches en erreur apparaîtront ici en cas d'échec d'analyse",
     "emptyDefault": "Aucune tâche",
     "dropHere": "Déposer ici",
     "showArchived": "Afficher les archivées",
@@ -154,6 +151,8 @@
       "baseBranchLabel": "Branche de base (optionnel)",
       "useProjectDefault": "Utiliser la branche par défaut du projet",
       "useProjectDefaultWithBranch": "Utiliser la branche par défaut du projet ({{branch}})",
+      "searchBranches": "Rechercher des branches...",
+      "noBranchesFound": "Aucune branche trouvée",
       "helpText": "Remplacez la branche à partir de laquelle le worktree de cette tâche sera créé. Laissez vide pour utiliser la branche par défaut configurée du projet.",
       "useWorktreeLabel": "Utiliser un espace de travail isolé (recommandé)",
       "useWorktreeDescription": "Crée les changements dans un worktree git séparé pour une révision sécurisée avant la fusion. Désactivez pour travailler directement dans votre projet (plus rapide mais risqué)."

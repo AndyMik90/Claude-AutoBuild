@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from ...phase_config import resolve_model_id
     from ..context_gatherer import PRContext
     from ..models import (
         AICommentTriage,
@@ -33,6 +34,7 @@ except (ImportError, ValueError, SystemError):
         ReviewPass,
         StructuralIssue,
     )
+    from phase_config import resolve_model_id
     from services.io_utils import safe_print
     from services.prompt_manager import PromptManager
     from services.response_parsers import ResponseParser
@@ -228,10 +230,12 @@ class PRReviewEngine:
             else self.project_dir
         )
 
+        # Resolve model shorthand (e.g., "sonnet") to full model ID for API compatibility
+        model = resolve_model_id(self.config.model or "sonnet")
         client = create_client(
             project_dir=project_root,
             spec_dir=self.github_dir,
-            model=self.config.model,
+            model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
         )
 
@@ -491,10 +495,12 @@ class PRReviewEngine:
             else self.project_dir
         )
 
+        # Resolve model shorthand (e.g., "sonnet") to full model ID for API compatibility
+        model = resolve_model_id(self.config.model or "sonnet")
         client = create_client(
             project_dir=project_root,
             spec_dir=self.github_dir,
-            model=self.config.model,
+            model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
         )
 
@@ -549,10 +555,12 @@ class PRReviewEngine:
             else self.project_dir
         )
 
+        # Resolve model shorthand (e.g., "sonnet") to full model ID for API compatibility
+        model = resolve_model_id(self.config.model or "sonnet")
         client = create_client(
             project_dir=project_root,
             spec_dir=self.github_dir,
-            model=self.config.model,
+            model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
         )
 
@@ -580,18 +588,39 @@ class PRReviewEngine:
             "",
             f"Found {len(context.ai_bot_comments)} comments from AI code review tools:",
             "",
+            "**IMPORTANT: Check the timeline! AI comments were made at specific times.",
+            "If a later commit fixed the issue the AI flagged, use ADDRESSED (not FALSE_POSITIVE).**",
+            "",
         ]
 
         for i, comment in enumerate(context.ai_bot_comments, 1):
             lines.append(f"### Comment {i}: {comment.tool_name}")
             lines.append(f"- **Comment ID**: {comment.comment_id}")
             lines.append(f"- **Author**: {comment.author}")
+            lines.append(
+                f"- **Commented At**: {comment.created_at}"
+            )  # Include timestamp
             lines.append(f"- **File**: {comment.file or 'General'}")
             if comment.line:
                 lines.append(f"- **Line**: {comment.line}")
             lines.append("")
             lines.append("**Comment:**")
             lines.append(comment.body)
+            lines.append("")
+
+        # Add commit timeline for reference
+        if context.commits:
+            lines.append("## Commit Timeline (for reference)")
+            lines.append("")
+            lines.append(
+                "Use this to determine if issues were fixed AFTER AI comments:"
+            )
+            lines.append("")
+            for commit in context.commits:
+                sha = commit.get("oid", "")[:8]
+                message = commit.get("messageHeadline", "")
+                committed_at = commit.get("committedDate", "")
+                lines.append(f"- `{sha}` ({committed_at}): {message}")
             lines.append("")
 
         return "\n".join(lines)

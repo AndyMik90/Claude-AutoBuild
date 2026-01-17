@@ -10,6 +10,17 @@ import json
 import os
 import platform
 import subprocess
+from typing import TYPE_CHECKING
+
+# Optional import for Linux secret-service support
+# secretstorage provides access to the Freedesktop.org Secret Service API via DBus
+if TYPE_CHECKING:
+    import secretstorage
+else:
+    try:
+        import secretstorage  # type: ignore[import-untyped]
+    except ImportError:
+        secretstorage = None  # type: ignore[assignment]
 
 # Priority order for auth token resolution
 # NOTE: We intentionally do NOT fall back to ANTHROPIC_API_KEY.
@@ -48,7 +59,7 @@ def get_token_from_keychain() -> str | None:
     Reads Claude Code credentials from:
     - macOS: Keychain
     - Windows: Credential Manager
-    - Linux: Not yet supported (use env var)
+    - Linux: Secret Service API (via dbus/secretstorage)
 
     Returns:
         Token string if found, None otherwise
@@ -60,8 +71,8 @@ def get_token_from_keychain() -> str | None:
     elif system == "Windows":
         return _get_token_from_windows_credential_files()
     else:
-        # Linux: secret-service not yet implemented
-        return None
+        # Linux: use secret-service API via DBus
+        return _get_token_from_linux_secret_service()
 
 
 def _get_token_from_macos_keychain() -> str | None:
@@ -131,6 +142,82 @@ def _get_token_from_windows_credential_files() -> str | None:
         return None
 
 
+def _get_token_from_linux_secret_service() -> str | None:
+    """Get token from Linux Secret Service API via DBus.
+
+    Claude Code on Linux stores credentials in the Secret Service API
+    using the 'org.freedesktop.secrets' collection. This implementation
+    uses the secretstorage library which communicates via DBus.
+
+    The credential is stored with:
+    - Label: "Claude Code-credentials"
+    - Attributes: {application: "claude-code"}
+
+    Returns:
+        Token string if found, None otherwise
+    """
+    if secretstorage is None:
+        # secretstorage not installed, fall back to env var
+        return None
+
+    try:
+        # Get the default collection (typically "login" keyring)
+        # secretstorage handles DBus communication internally
+        try:
+            collection = secretstorage.get_default_collection(None)
+        except (
+            AttributeError,
+            secretstorage.exceptions.SecretServiceNotAvailableException,
+        ):
+            # DBus not available or secret-service not running
+            return None
+
+        if collection.is_locked():
+            # Try to unlock the collection (may prompt user for password)
+            try:
+                collection.unlock()
+            except secretstorage.exceptions.SecretStorageException:
+                # User cancelled or unlock failed
+                return None
+
+        # Search for items with our application attribute
+        items = collection.search_items({"application": "claude-code"})
+
+        for item in items:
+            # Check if this is the Claude Code credentials item
+            label = item.get_label()
+            # Use exact match for "Claude Code-credentials" to avoid false positives
+            if label == "Claude Code-credentials":
+                # Get the secret (stored as JSON string)
+                secret = item.get_secret()
+                if not secret:
+                    continue
+
+                try:
+                    # Explicitly decode bytes to string if needed
+                    if isinstance(secret, bytes):
+                        secret = secret.decode("utf-8")
+                    data = json.loads(secret)
+                    token = data.get("claudeAiOauth", {}).get("accessToken")
+
+                    if token and token.startswith("sk-ant-oat01-"):
+                        return token
+                except json.JSONDecodeError:
+                    continue
+
+        return None
+
+    except (
+        secretstorage.exceptions.SecretStorageException,
+        json.JSONDecodeError,
+        KeyError,
+        AttributeError,
+        TypeError,
+    ):
+        # Any error with secret-service, fall back to env var
+        return None
+
+
 def get_auth_token() -> str | None:
     """
     Get authentication token from environment variables or system credential store.
@@ -138,7 +225,7 @@ def get_auth_token() -> str | None:
     Checks multiple sources in priority order:
     1. CLAUDE_CODE_OAUTH_TOKEN (env var)
     2. ANTHROPIC_AUTH_TOKEN (CCR/proxy env var for enterprise setups)
-    3. System credential store (macOS Keychain, Windows Credential Manager)
+    3. System credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service)
 
     NOTE: ANTHROPIC_API_KEY is intentionally NOT supported to prevent
     silent billing to user's API credits when OAuth is misconfigured.
@@ -171,7 +258,7 @@ def get_auth_token_source() -> str | None:
         elif system == "Windows":
             return "Windows Credential Files"
         else:
-            return "System Credential Store"
+            return "Linux Secret Service"
 
     return None
 
@@ -208,10 +295,12 @@ def require_auth_token() -> str:
                 "Check: %LOCALAPPDATA%\\Claude\\credentials.json"
             )
         else:
+            # Linux
             error_msg += (
                 "To authenticate:\n"
                 "  1. Run: claude setup-token\n"
-                "  2. Set CLAUDE_CODE_OAUTH_TOKEN in your .env file"
+                "  2. The token will be saved to the system secret service (gnome-keyring/kwallet)\n\n"
+                "If secret-service is not available, set CLAUDE_CODE_OAUTH_TOKEN in your .env file."
             )
         raise ValueError(error_msg)
     return token
@@ -320,6 +409,16 @@ def get_sdk_env_vars() -> dict[str, str]:
         bash_path = _find_git_bash_path()
         if bash_path:
             env["CLAUDE_CODE_GIT_BASH_PATH"] = bash_path
+
+    # Explicitly unset PYTHONPATH in SDK subprocess environment to prevent
+    # pollution of agent subprocess environments. This fixes ACS-251 where
+    # external projects with different Python versions would fail due to
+    # inheriting Auto-Claude's PYTHONPATH (which points to Python 3.12 packages).
+    #
+    # The SDK merges os.environ with the env dict we provide, so setting
+    # PYTHONPATH to an empty string here overrides any inherited value.
+    # The empty string ensures Python doesn't add any extra paths to sys.path.
+    env["PYTHONPATH"] = ""
 
     return env
 

@@ -95,11 +95,62 @@ vi.mock('../python-detector', () => ({
   parsePythonCommand: vi.fn(() => ['python', []])
 }));
 
+// Mock python-env-manager for ensurePythonEnvReady tests
+vi.mock('../python-env-manager', () => ({
+  pythonEnvManager: {
+    isEnvReady: vi.fn(() => true),
+    initialize: vi.fn(() => Promise.resolve({ ready: true })),
+    getPythonEnv: vi.fn(() => ({}))
+  },
+  getConfiguredPythonPath: vi.fn(() => 'python3')
+}));
+
 vi.mock('electron', () => ({
   app: {
     getAppPath: vi.fn(() => '/fake/app/path')
   }
 }));
+
+// Mock cli-tool-manager to avoid blocking tool detection on Windows
+vi.mock('../cli-tool-manager', () => ({
+  getToolInfo: vi.fn((tool: string) => {
+    if (tool === 'gh') {
+      // Default: gh CLI not found
+      return { found: false, path: undefined, source: 'user-config', message: 'gh CLI not found' };
+    }
+    if (tool === 'claude') {
+      return { found: false, path: undefined, source: 'user-config', message: 'Claude CLI not found' };
+    }
+    return { found: false, path: undefined, source: 'user-config', message: `${tool} not found` };
+  }),
+  deriveGitBashPath: vi.fn(() => null),
+  clearCache: vi.fn()
+}));
+
+// Mock env-utils to avoid blocking environment augmentation
+vi.mock('../env-utils', () => ({
+  getAugmentedEnv: vi.fn(() => ({ ...process.env }))
+}));
+
+// Mock fs.existsSync for getAutoBuildSourcePath path validation
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs')>();
+  return {
+    ...actual,
+    existsSync: vi.fn((inputPath: string) => {
+      // Normalize path separators for cross-platform compatibility
+      // path.join() uses backslashes on Windows, so we normalize to forward slashes
+      const normalizedPath = inputPath.replace(/\\/g, '/');
+      // Return true for the fake auto-build path and its expected files
+      if (normalizedPath === '/fake/auto-build' ||
+          normalizedPath === '/fake/auto-build/runners' ||
+          normalizedPath === '/fake/auto-build/runners/spec_runner.py') {
+        return true;
+      }
+      return false;
+    })
+  };
+});
 
 // Import AFTER all mocks are set up
 import { AgentProcessManager } from './agent-process';
@@ -107,6 +158,8 @@ import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import * as profileService from '../services/profile';
 import * as rateLimitDetector from '../rate-limit-detector';
+import { pythonEnvManager } from '../python-env-manager';
+import { getToolInfo } from '../cli-tool-manager';
 
 describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
   let processManager: AgentProcessManager;
@@ -170,10 +223,10 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
 
     it('should inject model env vars when active profile has models configured', async () => {
       const mockApiProfileEnv = {
-        ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022',
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-3-5-haiku-20241022',
-        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-3-5-sonnet-20241022',
-        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-3-5-opus-20241022'
+        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5-20251001',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-5-20251101'
       };
 
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue(mockApiProfileEnv);
@@ -182,10 +235,10 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
 
       expect(spawnCalls).toHaveLength(1);
       expect(spawnCalls[0].options.env).toMatchObject({
-        ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022',
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-3-5-haiku-20241022',
-        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-3-5-sonnet-20241022',
-        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-3-5-opus-20241022'
+        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5-20251001',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-5-20251101'
       });
     });
 
@@ -489,6 +542,237 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       // Should have clearing vars (falls back to OAuth mode on error)
       expect(envArg.ANTHROPIC_AUTH_TOKEN).toBe('');
       expect(envArg.ANTHROPIC_BASE_URL).toBe('');
+    });
+  });
+
+  describe('ensurePythonEnvReady - Python Environment Readiness (ACS-254)', () => {
+    let testProcessManager: AgentProcessManager;
+
+    beforeEach(() => {
+      // Reset all mocks
+      vi.clearAllMocks();
+      spawnCalls.length = 0;
+
+      // Create fresh process manager for these tests
+      state = new AgentState();
+      events = new AgentEvents();
+      emitter = new EventEmitter();
+      testProcessManager = new AgentProcessManager(state, events, emitter);
+    });
+
+    it('should return ready: true when Python environment is already ready', async () => {
+      vi.mocked(pythonEnvManager.isEnvReady).mockReturnValue(true);
+
+      // Configure with valid autoBuildSource
+      testProcessManager.configure(undefined, '/fake/auto-build');
+
+      const result = await testProcessManager.ensurePythonEnvReady('TestContext');
+
+      expect(result.ready).toBe(true);
+      expect(result.error).toBeUndefined();
+      expect(pythonEnvManager.initialize).not.toHaveBeenCalled();
+    });
+
+    it('should initialize Python environment when not ready', async () => {
+      vi.mocked(pythonEnvManager.isEnvReady).mockReturnValue(false);
+      vi.mocked(pythonEnvManager.initialize).mockResolvedValue({
+        ready: true,
+        pythonPath: '/fake/python',
+        sitePackagesPath: '/fake/site-packages',
+        venvExists: true,
+        depsInstalled: true,
+        usingBundledPackages: false
+      });
+
+      testProcessManager.configure(undefined, '/fake/auto-build');
+
+      const result = await testProcessManager.ensurePythonEnvReady('TestContext');
+
+      expect(result.ready).toBe(true);
+      expect(result.error).toBeUndefined();
+      expect(pythonEnvManager.initialize).toHaveBeenCalledWith('/fake/auto-build');
+    });
+
+    it('should return error when autoBuildSource is not found', async () => {
+      vi.mocked(pythonEnvManager.isEnvReady).mockReturnValue(false);
+
+      // Don't configure - autoBuildSource will be null
+      const result = await testProcessManager.ensurePythonEnvReady('TestContext');
+
+      expect(result.ready).toBe(false);
+      expect(result.error).toBe('auto-build source not found');
+      expect(pythonEnvManager.initialize).not.toHaveBeenCalled();
+    });
+
+    it('should return error when Python initialization fails', async () => {
+      vi.mocked(pythonEnvManager.isEnvReady).mockReturnValue(false);
+      vi.mocked(pythonEnvManager.initialize).mockResolvedValue({
+        ready: false,
+        pythonPath: null,
+        sitePackagesPath: null,
+        venvExists: false,
+        depsInstalled: false,
+        usingBundledPackages: false,
+        error: 'Failed to create venv: permission denied'
+      });
+
+      testProcessManager.configure(undefined, '/fake/auto-build');
+
+      const result = await testProcessManager.ensurePythonEnvReady('TestContext');
+
+      expect(result.ready).toBe(false);
+      expect(result.error).toBe('Failed to create venv: permission denied');
+    });
+
+    it('should return error when Python initialization fails without message', async () => {
+      vi.mocked(pythonEnvManager.isEnvReady).mockReturnValue(false);
+      vi.mocked(pythonEnvManager.initialize).mockResolvedValue({
+        ready: false,
+        pythonPath: null,
+        sitePackagesPath: null,
+        venvExists: false,
+        depsInstalled: false,
+        usingBundledPackages: false
+        // No error field
+      });
+
+      testProcessManager.configure(undefined, '/fake/auto-build');
+
+      const result = await testProcessManager.ensurePythonEnvReady('TestContext');
+
+      expect(result.ready).toBe(false);
+      expect(result.error).toBe('initialization failed');
+      expect(pythonEnvManager.initialize).toHaveBeenCalledWith('/fake/auto-build');
+    });
+  });
+
+  describe('GITHUB_CLI_PATH Environment Variable (ACS-321)', () => {
+    let originalEnv: NodeJS.ProcessEnv;
+
+    beforeEach(() => {
+      // Save original environment before each test
+      originalEnv = { ...process.env };
+      // Clear GITHUB_CLI_PATH if set
+      delete process.env.GITHUB_CLI_PATH;
+    });
+
+    afterEach(() => {
+      // Restore original environment after each test
+      process.env = originalEnv;
+    });
+
+    it('should NOT set GITHUB_CLI_PATH when gh CLI is not found', async () => {
+      // Mock gh CLI as not found
+      vi.mocked(getToolInfo).mockReturnValue({
+        found: false,
+        path: undefined,
+        source: 'user-config',
+        message: 'gh CLI not found'
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // GITHUB_CLI_PATH should not be set
+      expect(envArg.GITHUB_CLI_PATH).toBeUndefined();
+    });
+
+    it('should set GITHUB_CLI_PATH when gh CLI is found by getToolInfo', async () => {
+      // Mock gh CLI as found
+      vi.mocked(getToolInfo).mockReturnValue({
+        found: true,
+        path: '/opt/homebrew/bin/gh',
+        source: 'homebrew',
+        message: 'gh CLI found via Homebrew'
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // GITHUB_CLI_PATH should be set to the detected path
+      expect(envArg.GITHUB_CLI_PATH).toBe('/opt/homebrew/bin/gh');
+    });
+
+    it('should NOT override existing GITHUB_CLI_PATH from process.env', async () => {
+      // Set GITHUB_CLI_PATH in process environment
+      process.env.GITHUB_CLI_PATH = '/existing/path/to/gh';
+
+      // Mock gh CLI as found at different path
+      vi.mocked(getToolInfo).mockReturnValue({
+        found: true,
+        path: '/opt/homebrew/bin/gh',
+        source: 'homebrew',
+        message: 'gh CLI found via Homebrew'
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // Should use existing GITHUB_CLI_PATH from process.env, not detected one
+      expect(envArg.GITHUB_CLI_PATH).toBe('/existing/path/to/gh');
+    });
+
+    it('should detect gh CLI from system-path source', async () => {
+      // Mock gh CLI found in system PATH
+      vi.mocked(getToolInfo).mockReturnValue({
+        found: true,
+        path: 'C:\\Program Files\\GitHub CLI\\gh.exe',
+        source: 'system-path',
+        message: 'gh CLI found in system PATH'
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      expect(envArg.GITHUB_CLI_PATH).toBe('C:\\Program Files\\GitHub CLI\\gh.exe');
+    });
+
+    it('should handle getToolInfo errors gracefully', async () => {
+      // Mock getToolInfo to throw an error
+      vi.mocked(getToolInfo).mockImplementation(() => {
+        throw new Error('Tool detection failed');
+      });
+
+      // Should not throw - should fall back to not setting GITHUB_CLI_PATH
+      await expect(
+        processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution')
+      ).resolves.not.toThrow();
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // GITHUB_CLI_PATH should not be set on error
+      expect(envArg.GITHUB_CLI_PATH).toBeUndefined();
+    });
+
+    it('should set GITHUB_CLI_PATH with same precedence as CLAUDE_CLI_PATH', async () => {
+      // Mock both Claude CLI and gh CLI as found
+      vi.mocked(getToolInfo).mockImplementation((tool: string) => {
+        if (tool === 'claude') {
+          return { found: true, path: '/opt/homebrew/bin/claude', source: 'homebrew', message: 'Claude CLI found via Homebrew' };
+        }
+        if (tool === 'gh') {
+          return { found: true, path: '/opt/homebrew/bin/gh', source: 'homebrew', message: 'gh CLI found via Homebrew' };
+        }
+        return { found: false, path: undefined, source: 'user-config', message: `${tool} not found` };
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // Both should be set
+      expect(envArg.CLAUDE_CLI_PATH).toBe('/opt/homebrew/bin/claude');
+      expect(envArg.GITHUB_CLI_PATH).toBe('/opt/homebrew/bin/gh');
     });
   });
 });

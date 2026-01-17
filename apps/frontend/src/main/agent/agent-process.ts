@@ -25,6 +25,20 @@ import { getOAuthModeClearVars } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo } from '../cli-tool-manager';
 
+/**
+ * Type for supported CLI tools
+ */
+type CliTool = 'claude' | 'gh';
+
+/**
+ * Mapping of CLI tools to their environment variable names
+ * This ensures type safety - tools cannot be mismatched with env vars.
+ */
+const CLI_TOOL_ENV_MAP: Readonly<Record<CliTool, string>> = {
+  claude: 'CLAUDE_CLI_PATH',
+  gh: 'GITHUB_CLI_PATH'
+} as const;
+
 
 function deriveGitBashPath(gitExePath: string): string | null {
   if (process.platform !== 'win32') {
@@ -114,6 +128,31 @@ export class AgentProcessManager {
     }
   }
 
+  /**
+   * Detects and sets CLI tool path in environment variables.
+   * Common issue: CLI tools installed via Homebrew or other non-standard locations
+   * are not in subprocess PATH when app launches from Finder/Dock.
+   *
+   * @param toolName - Name of the CLI tool (e.g., 'claude', 'gh')
+   * @returns Record with env var set if tool was detected
+   */
+  private detectAndSetCliPath(toolName: CliTool): Record<string, string> {
+    const env: Record<string, string> = {};
+    const envVarName = CLI_TOOL_ENV_MAP[toolName];
+    if (!process.env[envVarName]) {
+      try {
+        const toolInfo = getToolInfo(toolName);
+        if (toolInfo.found && toolInfo.path) {
+          env[envVarName] = toolInfo.path;
+          console.log(`[AgentProcess] Setting ${envVarName}:`, toolInfo.path, `(source: ${toolInfo.source})`);
+        }
+      } catch (error) {
+        console.warn(`[AgentProcess] Failed to detect ${toolName} CLI path:`, error instanceof Error ? error.message : String(error));
+      }
+    }
+    return env;
+  }
+
   private setupProcessEnvironment(
     extraEnv: Record<string, string>
   ): NodeJS.ProcessEnv {
@@ -140,9 +179,15 @@ export class AgentProcessManager {
       }
     }
 
+    // Detect and pass CLI tool paths to Python backend
+    const claudeCliEnv = this.detectAndSetCliPath('claude');
+    const ghCliEnv = this.detectAndSetCliPath('gh');
+
     return {
       ...augmentedEnv,
       ...gitBashEnv,
+      ...claudeCliEnv,
+      ...ghCliEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
@@ -299,6 +344,38 @@ export class AgentProcessManager {
       }
     }
     return null;
+  }
+
+  /**
+   * Ensure Python environment is ready before spawning processes.
+   * This is a shared method used by AgentManager and AgentQueueManager
+   * to prevent race conditions where tasks start before venv initialization completes.
+   *
+   * @param context - Context identifier for logging (e.g., 'AgentManager', 'AgentQueue')
+   * @returns Object with ready status and optional error message
+   */
+  async ensurePythonEnvReady(context: string): Promise<{ ready: boolean; error?: string }> {
+    if (pythonEnvManager.isEnvReady()) {
+      return { ready: true };
+    }
+
+    console.log(`[${context}] Python environment not ready, waiting for initialization...`);
+
+    const autoBuildSource = this.getAutoBuildSourcePath();
+    if (!autoBuildSource) {
+      const error = 'auto-build source not found';
+      console.error(`[${context}] Cannot initialize Python - ${error}`);
+      return { ready: false, error };
+    }
+
+    const status = await pythonEnvManager.initialize(autoBuildSource);
+    if (!status.ready) {
+      console.error(`[${context}] Python environment initialization failed:`, status.error);
+      return { ready: false, error: status.error || 'initialization failed' };
+    }
+
+    console.log(`[${context}] Python environment now ready`);
+    return { ready: true };
   }
 
   /**

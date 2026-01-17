@@ -6,6 +6,7 @@ Tests the BotDetector class to ensure it correctly prevents infinite loops.
 """
 
 import json
+import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -411,6 +412,124 @@ class TestEdgeCases:
 
         # Should not crash, should return False
         assert is_cooling is False
+
+
+class TestGhExecutableDetection:
+    """Test gh executable detection in bot_detector._get_bot_username."""
+
+    def test_get_bot_username_with_gh_not_found(self, temp_state_dir):
+        """Test _get_bot_username when gh CLI is not found."""
+        with patch("bot_detection.get_gh_executable", return_value=None):
+            detector = BotDetector(
+                state_dir=temp_state_dir,
+                bot_token="fake-token",
+                review_own_prs=False,
+            )
+
+            # Should not crash, username should be None
+            assert detector.bot_username is None
+
+    def test_get_bot_username_with_detected_gh(self, temp_state_dir):
+        """Test _get_bot_username when gh CLI is found."""
+        mock_gh_path = str(temp_state_dir / "gh")
+        with patch("bot_detection.get_gh_executable", return_value=mock_gh_path):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(
+                    returncode=0,
+                    stdout=json.dumps({"login": "test-bot-user"}),
+                )
+
+                detector = BotDetector(
+                    state_dir=temp_state_dir,
+                    bot_token="fake-token",
+                    review_own_prs=False,
+                )
+
+                # Should use the detected gh path
+                assert detector.bot_username == "test-bot-user"
+
+                # Verify subprocess was called with the correct gh path
+                mock_run.assert_called_once()
+                called_cmd_list = mock_run.call_args[0][0]
+                assert called_cmd_list[0] == mock_gh_path
+                assert called_cmd_list[1:] == ["api", "user"]
+
+    def test_get_bot_username_uses_get_gh_executable_return_value(self, temp_state_dir):
+        """Test that _get_bot_username uses the path returned by get_gh_executable."""
+        # Note: GITHUB_CLI_PATH env var is tested by get_gh_executable's own tests
+        # This test verifies _get_bot_username uses whatever get_gh_executable returns
+        mock_gh_path = str(temp_state_dir / "gh")
+
+        with patch("bot_detection.get_gh_executable", return_value=mock_gh_path):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(
+                    returncode=0,
+                    stdout=json.dumps({"login": "env-bot-user"}),
+                )
+
+                detector = BotDetector(
+                    state_dir=temp_state_dir,
+                    bot_token="fake-token",
+                    review_own_prs=False,
+                )
+
+                # Verify the command was run with the path from get_gh_executable
+                assert detector.bot_username == "env-bot-user"
+
+                # Verify subprocess was called with the correct path
+                mock_run.assert_called_once()
+                called_cmd_list = mock_run.call_args[0][0]
+                assert called_cmd_list[0] == mock_gh_path
+                assert called_cmd_list[1:] == ["api", "user"]
+
+    def test_get_bot_username_with_api_error(self, temp_state_dir):
+        """Test _get_bot_username when gh api command fails."""
+        mock_gh_path = str(temp_state_dir / "gh")
+        with patch("bot_detection.get_gh_executable", return_value=mock_gh_path):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(
+                    returncode=1,
+                    stderr="Authentication failed",
+                )
+
+                detector = BotDetector(
+                    state_dir=temp_state_dir,
+                    bot_token="invalid-token",
+                    review_own_prs=False,
+                )
+
+                # Should handle error gracefully, username should be None
+                assert detector.bot_username is None
+
+    def test_get_bot_username_with_subprocess_timeout(self, temp_state_dir):
+        """Test _get_bot_username when subprocess times out."""
+        mock_gh_path = str(temp_state_dir / "gh")
+        with patch("bot_detection.get_gh_executable", return_value=mock_gh_path):
+            with patch(
+                "subprocess.run", side_effect=subprocess.TimeoutExpired("gh", 5)
+            ):
+                detector = BotDetector(
+                    state_dir=temp_state_dir,
+                    bot_token="fake-token",
+                    review_own_prs=False,
+                )
+
+                # Should handle timeout gracefully, username should be None
+                assert detector.bot_username is None
+
+    def test_get_bot_username_without_token(self, temp_state_dir):
+        """Test _get_bot_username when no bot token is provided."""
+        with patch("subprocess.run") as mock_run:
+            detector = BotDetector(
+                state_dir=temp_state_dir,
+                bot_token=None,
+                review_own_prs=False,
+            )
+
+            # Should return None without trying to call gh
+            assert detector.bot_username is None
+            # Verify subprocess.run was not called (no gh CLI invocation)
+            mock_run.assert_not_called()
 
 
 if __name__ == "__main__":

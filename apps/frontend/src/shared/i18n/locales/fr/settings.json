@@ -104,10 +104,10 @@
       "haikuLabel": "Modèle Haiku (optionnel)",
       "sonnetLabel": "Modèle Sonnet (optionnel)",
       "opusLabel": "Modèle Opus (optionnel)",
-      "defaultPlaceholder": "ex. : claude-3-5-sonnet-20241022",
-      "haikuPlaceholder": "ex. : claude-3-5-haiku-20241022",
-      "sonnetPlaceholder": "ex. : claude-3-5-sonnet-20241022",
-      "opusPlaceholder": "ex. : claude-3-5-opus-20241022"
+      "defaultPlaceholder": "ex. : claude-sonnet-4-5-20250929",
+      "haikuPlaceholder": "ex. : claude-haiku-4-5-20251001",
+      "sonnetPlaceholder": "ex. : claude-sonnet-4-5-20250929",
+      "opusPlaceholder": "ex. : claude-opus-4-5-20251101"
     },
     "empty": {
       "title": "Aucun profil API configuré",
@@ -167,7 +167,7 @@
   },
   "modelSelect": {
     "placeholder": "Sélectionner un modèle ou saisir manuellement",
-    "placeholderManual": "Saisir le nom du modèle (ex. : claude-3-5-sonnet-20241022)",
+    "placeholderManual": "Saisir le nom du modèle (ex. : claude-sonnet-4-5-20250929)",
     "searchPlaceholder": "Rechercher des modèles...",
     "noResults": "Aucun modèle ne correspond à votre recherche",
     "discoveryNotAvailable": "Découverte de modèles indisponible. Saisissez le nom du modèle manuellement."

@@ -100,6 +100,10 @@ export function PRDetail({
   const [cleanReviewPosted, setCleanReviewPosted] = useState(false);
   const [cleanReviewError, setCleanReviewError] = useState<string | null>(null);
   const [showCleanReviewErrorDetails, setShowCleanReviewErrorDetails] = useState(false);
+  // Blocked status posting state (for BLOCKED/NEEDS_REVISION verdicts with no findings)
+  const [isPostingBlockedStatus, setIsPostingBlockedStatus] = useState(false);
+  const [blockedStatusPosted, setBlockedStatusPosted] = useState(false);
+  const [blockedStatusError, setBlockedStatusError] = useState<string | null>(null);
   const [isMerging, setIsMerging] = useState(false);
   // Initialize with store value, then sync and update via local checks
   const [newCommitsCheck, setNewCommitsCheck] = useState<NewCommitsCheck | null>(initialNewCommitsCheck ?? null);
@@ -270,6 +274,10 @@ export function PRDetail({
     setCleanReviewError(null);
     setIsPostingCleanReview(false);
     setShowCleanReviewErrorDetails(false);
+    // Reset blocked status state as well
+    setBlockedStatusPosted(false);
+    setBlockedStatusError(null);
+    setIsPostingBlockedStatus(false);
   }, [pr.number]);
 
   // Check for workflows awaiting approval (fork PRs) when PR changes or review completes
@@ -681,6 +689,46 @@ ${t('prReview.cleanReviewMessageFooter')}`;
     }
   };
 
+  // Post blocked status comment when verdict is BLOCKED/NEEDS_REVISION but no findings
+  // This handles the edge case where structured output parsing fails but we still have a verdict
+  const handlePostBlockedStatus = async () => {
+    if (!reviewResult) return;
+
+    // Capture current PR number to prevent state leaks across PR switches
+    const currentPr = pr.number;
+
+    setIsPostingBlockedStatus(true);
+    setBlockedStatusError(null);
+    try {
+      // Format the blocked status comment - post the summary which contains blockers
+      const blockedStatusMessage = `${t('prReview.blockedStatusMessageTitle')}
+
+${reviewResult.summary}
+
+---
+
+${t('prReview.blockedStatusMessageFooter')}`;
+
+      await Promise.resolve(onPostComment(blockedStatusMessage));
+
+      // Only mark as posted on success if PR hasn't changed
+      if (pr.number === currentPr) {
+        setBlockedStatusPosted(true);
+        setBlockedStatusError(null);
+      }
+    } catch (err) {
+      console.error('Failed to post blocked status comment:', err);
+      const fullError = err instanceof Error ? err.message : String(err);
+      if (pr.number === currentPr) {
+        setBlockedStatusError(fullError);
+      }
+    } finally {
+      if (pr.number === currentPr) {
+        setIsPostingBlockedStatus(false);
+      }
+    }
+  };
+
   const handleMerge = async () => {
     setIsMerging(true);
     try {
@@ -777,6 +825,29 @@ ${t('prReview.cleanReviewMessageFooter')}`;
                     <>
                       <MessageSquare className="h-4 w-4 mr-2" />
                       {t('prReview.postCleanReview')}
+                    </>
+                  )}
+                </Button>
+             )}
+
+             {/* Post Blocked Status button - shows when verdict is BLOCKED/NEEDS_REVISION but no findings */}
+             {/* This handles the edge case where structured output parsing fails but we still have a verdict */}
+             {selectedCount === 0 && !hasPostedFindings && !blockedStatusPosted && reviewResult?.overallStatus === 'request_changes' && (
+                <Button
+                  onClick={handlePostBlockedStatus}
+                  disabled={isPostingBlockedStatus || isPosting}
+                  variant="secondary"
+                  className="flex-1 sm:flex-none"
+                >
+                  {isPostingBlockedStatus ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {t('prReview.postingBlockedStatus')}
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      {t('prReview.postBlockedStatus')}
                     </>
                   )}
                 </Button>
@@ -895,6 +966,22 @@ ${t('prReview.cleanReviewMessageFooter')}`;
                  title={cleanReviewError}
                >
                  {cleanReviewError}
+               </div>
+             )}
+
+             {/* Blocked status posted success message */}
+             {blockedStatusPosted && !postSuccess && !cleanReviewPosted && (
+               <div className="ml-auto flex items-center gap-2 text-amber-600 text-sm font-medium animate-pulse">
+                 <CheckCircle className="h-4 w-4" />
+                 {t('prReview.blockedStatusPosted')}
+               </div>
+             )}
+
+             {/* Blocked status error display */}
+             {blockedStatusError && (
+               <div className="ml-auto flex items-center gap-2 text-destructive text-sm font-medium">
+                 <XCircle className="h-4 w-4" />
+                 {t('prReview.failedPostBlockedStatus')}
                </div>
              )}
           </div>
