@@ -2022,21 +2022,15 @@ export function registerWorktreeHandlers(
 
               // Build error response with i18n translation keys for the renderer
               // Use structured error with messageKey/messageParams for proper localization
-              let messageKey = 'errors:merge.timeout';
-              let messageParams: Record<string, string> = {};
-              let lastError = '';
+              const messageKey = hasOutput ? 'errors:merge.timeoutWithOutput' : 'errors:merge.timeoutNoOutput';
+              let messageParams: Record<string, string> | undefined;
 
-              if (hasOutput) {
-                messageKey = 'errors:merge.timeoutWithOutput';
-                if (stderr.length > 0) {
+              // Extract last error from stderr if available for the "with output" case
+              if (hasOutput && stderr.length > 0) {
                   const lastStderrLine = stderr.trim().split('\n').pop() || '';
                   if (lastStderrLine.length > 0 && lastStderrLine.length < 200) {
-                    lastError = lastStderrLine;
-                    messageParams = { lastError };
+                    messageParams = { lastError: lastStderrLine };
                   }
-                }
-              } else {
-                messageKey = 'errors:merge.timeoutNoOutput';
               }
 
               resolve({
@@ -2046,7 +2040,7 @@ export function registerWorktreeHandlers(
                   success: false,
                   message: messageKey,  // Fallback message
                   messageKey,
-                  messageParams: lastError ? messageParams : undefined
+                  messageParams
                 }
               });
             }
