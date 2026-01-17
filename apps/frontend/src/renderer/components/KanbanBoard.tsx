@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from 'react';
+import { useState, useMemo, memo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
@@ -19,7 +19,8 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X } from 'lucide-react';
+import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -30,6 +31,7 @@ import { cn } from '../lib/utils';
 import { persistTaskStatus, forceCompleteTask, archiveTasks } from '../stores/task-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
+import { BulkPRDialog } from './BulkPRDialog';
 import type { Task, TaskStatus } from '../../shared/types';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
@@ -57,6 +59,11 @@ interface DroppableColumnProps {
   archivedCount?: number;
   showArchived?: boolean;
   onToggleArchived?: () => void;
+  // Selection props for human_review column
+  selectedTaskIds?: Set<string>;
+  onSelectAll?: () => void;
+  onDeselectAll?: () => void;
+  onToggleSelect?: (taskId: string) => void;
 }
 
 /**
@@ -100,6 +107,20 @@ function droppableColumnPropsAreEqual(
   if (prevProps.archivedCount !== nextProps.archivedCount) return false;
   if (prevProps.showArchived !== nextProps.showArchived) return false;
   if (prevProps.onToggleArchived !== nextProps.onToggleArchived) return false;
+  if (prevProps.onSelectAll !== nextProps.onSelectAll) return false;
+  if (prevProps.onDeselectAll !== nextProps.onDeselectAll) return false;
+  if (prevProps.onToggleSelect !== nextProps.onToggleSelect) return false;
+
+  // Compare selectedTaskIds Set
+  if (prevProps.selectedTaskIds !== nextProps.selectedTaskIds) {
+    // If one is undefined and other isn't, different
+    if (!prevProps.selectedTaskIds || !nextProps.selectedTaskIds) return false;
+    // Compare Set contents
+    if (prevProps.selectedTaskIds.size !== nextProps.selectedTaskIds.size) return false;
+    for (const id of prevProps.selectedTaskIds) {
+      if (!nextProps.selectedTaskIds.has(id)) return false;
+    }
+  }
 
   // Deep compare tasks
   const tasksEqual = tasksAreEquivalent(prevProps.tasks, nextProps.tasks);
@@ -153,11 +174,34 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
   });
+
+  // Calculate selection state for human_review column
+  const isHumanReview = status === 'human_review';
+  const selectedCount = selectedTaskIds?.size ?? 0;
+  const taskCount = tasks.length;
+  const isAllSelected = isHumanReview && taskCount > 0 && selectedCount === taskCount;
+  const isSomeSelected = isHumanReview && selectedCount > 0 && selectedCount < taskCount;
+
+  // Determine checkbox checked state: true (all), 'indeterminate' (some), false (none)
+  const selectAllCheckedState: boolean | 'indeterminate' = isAllSelected
+    ? true
+    : isSomeSelected
+      ? 'indeterminate'
+      : false;
+
+  // Handle select all checkbox change
+  const handleSelectAllChange = useCallback(() => {
+    if (isAllSelected) {
+      onDeselectAll?.();
+    } else {
+      onSelectAll?.();
+    }
+  }, [isAllSelected, onSelectAll, onDeselectAll]);
 
   // Memoize taskIds to prevent SortableContext from re-rendering unnecessarily
   const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
@@ -180,18 +224,32 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
     return handlers;
   }, [tasks, onStatusChange]);
 
+  // Create stable onToggleSelect handlers for each task (only for human_review column)
+  const onToggleSelectHandlers = useMemo(() => {
+    if (!onToggleSelect) return null;
+    const handlers = new Map<string, () => void>();
+    tasks.forEach((task) => {
+      handlers.set(task.id, () => onToggleSelect(task.id));
+    });
+    return handlers;
+  }, [tasks, onToggleSelect]);
+
   // Memoize task card elements to prevent recreation on every render
   const taskCards = useMemo(() => {
     if (tasks.length === 0) return null;
+    const isSelectable = !!onToggleSelectHandlers;
     return tasks.map((task) => (
       <SortableTaskCard
         key={task.id}
         task={task}
         onClick={onClickHandlers.get(task.id)!}
         onStatusChange={onStatusChangeHandlers.get(task.id)}
+        isSelectable={isSelectable}
+        isSelected={isSelectable ? selectedTaskIds?.has(task.id) : undefined}
+        onToggleSelect={onToggleSelectHandlers?.get(task.id)}
       />
     ));
-  }, [tasks, onClickHandlers, onStatusChangeHandlers]);
+  }, [tasks, onClickHandlers, onStatusChangeHandlers, onToggleSelectHandlers, selectedTaskIds]);
 
   const getColumnBorderColor = (): string => {
     switch (status) {
@@ -225,6 +283,25 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
       {/* Column header - enhanced styling */}
       <div className="flex items-center justify-between p-4 border-b border-white/5">
         <div className="flex items-center gap-2.5">
+          {/* Select All checkbox for human_review column */}
+          {isHumanReview && onSelectAll && onDeselectAll && (
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <div className="flex items-center">
+                  <Checkbox
+                    checked={selectAllCheckedState}
+                    onCheckedChange={handleSelectAllChange}
+                    disabled={taskCount === 0}
+                    aria-label={isAllSelected ? t('kanban.deselectAll') : t('kanban.selectAll')}
+                    className="h-4 w-4"
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isAllSelected ? t('kanban.deselectAll') : t('kanban.selectAll')}
+              </TooltipContent>
+            </Tooltip>
+          )}
           <h2 className="font-semibold text-sm text-foreground">
             {t(TASK_STATUS_LABELS[status])}
           </h2>
@@ -339,6 +416,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const { showArchived, toggleShowArchived } = useViewState();
 
+  // Selection state for bulk actions (Human Review column)
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+
+  // Bulk PR dialog state
+  const [bulkPRDialogOpen, setBulkPRDialogOpen] = useState(false);
+
   // Worktree cleanup dialog state
   const [worktreeCleanupDialog, setWorktreeCleanupDialog] = useState<{
     open: boolean;
@@ -410,6 +493,55 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     return grouped;
   }, [filteredTasks]);
+
+  // Prune stale IDs when tasks move out of human_review column
+  useEffect(() => {
+    const validIds = new Set(tasksByStatus.human_review.map(t => t.id));
+    setSelectedTaskIds(prev => {
+      const filtered = new Set([...prev].filter(id => validIds.has(id)));
+      return filtered.size === prev.size ? prev : filtered;
+    });
+  }, [tasksByStatus.human_review]);
+
+  // Selection callbacks for bulk actions (Human Review column)
+  const toggleTaskSelection = useCallback((taskId: string) => {
+    setSelectedTaskIds(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  }, []);
+
+  const selectAllTasks = useCallback(() => {
+    const humanReviewTasks = tasksByStatus.human_review;
+    const allIds = new Set(humanReviewTasks.map(t => t.id));
+    setSelectedTaskIds(allIds);
+  }, [tasksByStatus.human_review]);
+
+  const deselectAllTasks = useCallback(() => {
+    setSelectedTaskIds(new Set());
+  }, []);
+
+  // Get selected task objects for the BulkPRDialog
+  const selectedTasks = useMemo(() => {
+    return tasksByStatus.human_review.filter(task => selectedTaskIds.has(task.id));
+  }, [tasksByStatus.human_review, selectedTaskIds]);
+
+  // Handle opening the bulk PR dialog
+  const handleOpenBulkPRDialog = useCallback(() => {
+    if (selectedTaskIds.size > 0) {
+      setBulkPRDialogOpen(true);
+    }
+  }, [selectedTaskIds.size]);
+
+  // Handle bulk PR dialog completion - clear selection
+  const handleBulkPRComplete = useCallback(() => {
+    deselectAllTasks();
+  }, [deselectAllTasks]);
 
   const handleArchiveAll = async () => {
     // Get projectId from the first task (all tasks should have the same projectId)
@@ -594,6 +726,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               archivedCount={status === 'done' ? archivedCount : undefined}
               showArchived={status === 'done' ? showArchived : undefined}
               onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
+              selectedTaskIds={status === 'human_review' ? selectedTaskIds : undefined}
+              onSelectAll={status === 'human_review' ? selectAllTasks : undefined}
+              onDeselectAll={status === 'human_review' ? deselectAllTasks : undefined}
+              onToggleSelect={status === 'human_review' ? toggleTaskSelection : undefined}
             />
           ))}
         </div>
@@ -608,6 +744,35 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         </DragOverlay>
       </DndContext>
 
+      {selectedTaskIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-border bg-card shadow-lg backdrop-blur-sm">
+            <span className="text-sm font-medium text-foreground">
+              {t('kanban.selectedCountOther', { count: selectedTaskIds.size })}
+            </span>
+            <div className="w-px h-5 bg-border" />
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-2"
+              onClick={handleOpenBulkPRDialog}
+            >
+              <GitPullRequest className="h-4 w-4" />
+              {t('kanban.createPRs')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground hover:text-foreground"
+              onClick={deselectAllTasks}
+            >
+              <X className="h-4 w-4" />
+              {t('kanban.clearSelection')}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Worktree cleanup confirmation dialog */}
       <WorktreeCleanupDialog
         open={worktreeCleanupDialog.open}
@@ -621,6 +786,14 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           }
         }}
         onConfirm={handleWorktreeCleanupConfirm}
+      />
+
+      {/* Bulk PR creation dialog */}
+      <BulkPRDialog
+        open={bulkPRDialogOpen}
+        tasks={selectedTasks}
+        onOpenChange={setBulkPRDialogOpen}
+        onComplete={handleBulkPRComplete}
       />
     </div>
   );

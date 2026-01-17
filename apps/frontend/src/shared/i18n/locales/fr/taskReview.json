@@ -62,5 +62,22 @@
       "targetBranch": "Laissez vide pour utiliser la branche par défaut",
       "prTitle": "Laissez vide pour utiliser le titre de la tâche"
     }
+  },
+  "bulkPR": {
+    "title": "Créer des Pull Requests",
+    "description": "Créer des pull requests pour {{count}} tâches sélectionnées",
+    "creating": "Création de la PR {{current}} sur {{total}}...",
+    "creatingPR": "Création de la PR {{current}} sur {{total}}",
+    "resultsDescription": "{{success}} réussies, {{failed}} échouées",
+    "tasksToProcess": "Tâches à traiter",
+    "targetBranchHint": "Laissez vide pour utiliser la branche par défaut de chaque tâche. Ceci sera appliqué à toutes les PRs.",
+    "createAll": "Créer {{count}} PRs",
+    "completed": "terminées",
+    "succeeded": "réussies",
+    "failed": "échouées",
+    "skipped": "ignorées",
+    "alreadyExisted": "existait déjà",
+    "noWorktree": "Aucun worktree trouvé pour cette tâche",
+    "resultsDescriptionWithSkipped": "{{success}} réussies, {{skipped}} ignorées, {{failed}} échouées"
   }
 }

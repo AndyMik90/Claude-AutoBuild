@@ -107,7 +107,7 @@ dmypy.json
 # ===========================
 # Node.js (apps/frontend)
 # ===========================
-node_modules/
+node_modules
 .npm
 .yarn/
 .pnp.*
