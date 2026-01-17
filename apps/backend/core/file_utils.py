@@ -52,6 +52,9 @@ _WINDOWS_INVALID_CHARS_MAP = str.maketrans(
     }
 )
 
+# Windows MAX_PATH limit (260 characters including null terminator)
+_WINDOWS_MAX_PATH = 260
+
 # Windows reserved filenames (case-insensitive)
 _WINDOWS_RESERVED_NAMES = frozenset(
     [
@@ -116,9 +119,9 @@ def normalize_path(filepath: str | Path) -> Path:
     if is_windows():
         path_str = str(path)
 
-        # Handle long paths on Windows (>260 chars)
+        # Handle long paths on Windows (>MAX_PATH chars)
         # The \\?\ prefix allows paths up to ~32,767 chars
-        if len(path_str) > 260 and not path_str.startswith("\\\\?\\"):
+        if len(path_str) > _WINDOWS_MAX_PATH and not path_str.startswith("\\\\?\\"):
             if path_str.startswith("\\\\"):
                 # UNC path (\\server\share) needs \\?\UNC\server\share format
                 path = Path("\\\\?\\UNC\\" + path_str[2:])
@@ -188,9 +191,10 @@ def safe_path(filepath: str | Path) -> Path:
 
         for i, part in enumerate(parts):
             # Don't sanitize the drive/root component
-            # pathlib returns 'C:\\' (length 3) for absolute paths, or '\\\\server\\share' for UNC
+            # pathlib returns 'C:\\' (length 3) for absolute paths, 'C:' (length 2) for
+            # drive-relative paths, or '\\\\server\\share' for UNC paths
             if i == 0 and (
-                (len(part) == 3 and part[1] == ":" and part[2] == "\\")  # Drive: C:\
+                (len(part) >= 2 and part[0].isalpha() and part[1] == ":")  # Drive: C:\ or C:
                 or part.startswith("\\\\")  # UNC path anchor
             ):
                 sanitized_parts.append(part)
