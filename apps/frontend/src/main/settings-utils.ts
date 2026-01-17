@@ -30,15 +30,17 @@ export function getSettingsPath(): string {
 export function readSettingsFile(): Record<string, unknown> | undefined {
   const settingsPath = getSettingsPath();
 
-  if (!existsSync(settingsPath)) {
-    return undefined;
-  }
-
   try {
+    // Read file directly without checking existence first to avoid TOCTOU race condition
     const content = readFileSync(settingsPath, 'utf-8');
     return JSON.parse(content);
-  } catch {
-    // Return undefined on parse error - caller will use defaults
+  } catch (e) {
+    // Return undefined if file doesn't exist or on parse error - caller will use defaults
+    // ENOENT means file doesn't exist, which is expected on first run
+    if (e && typeof e === 'object' && 'code' in e && e.code !== 'ENOENT') {
+      // Log unexpected errors (but not missing file, which is normal)
+      console.warn('[settings-utils] Failed to read settings file:', e);
+    }
     return undefined;
   }
 }
