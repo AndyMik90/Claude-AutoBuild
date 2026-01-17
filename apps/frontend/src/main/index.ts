@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
+import { homedir } from 'os';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -27,7 +28,7 @@ for (const envPath of possibleEnvPaths) {
 
 import { app, BrowserWindow, shell, nativeImage, session, screen } from 'electron';
 import { join } from 'path';
-import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
+import { accessSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
@@ -42,6 +43,7 @@ import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager } from './claude-profile-manager';
+import { isWindows, isMacOS } from './platform';
 import type { AppSettings } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -102,6 +104,69 @@ function cleanupStaleUpdateMetadata(): void {
   }
 }
 
+/**
+ * Fix corrupted or empty known_marketplaces.json in Claude CLI config.
+ *
+ * On Windows, an empty or array-containing known_marketplaces.json file causes
+ * Claude CLI crashes. This file must contain a valid JSON object (at minimum `{}`).
+ *
+ * This fix runs before any Claude CLI calls to prevent crashes.
+ */
+function fixKnownMarketplacesJson(): void {
+  if (!isWindows()) {
+    return;
+  }
+
+  const pluginsDir = join(homedir(), '.claude', 'plugins');
+  const marketplacesPath = join(pluginsDir, 'known_marketplaces.json');
+
+  // Ensure plugins directory exists (mkdirSync with recursive is idempotent)
+  try {
+    mkdirSync(pluginsDir, { recursive: true });
+  } catch (e) {
+    console.warn('[main] Failed to create plugins directory:', e);
+    return;
+  }
+
+  // Check if file needs fixing by trying to read it directly
+  // (avoids TOCTOU race condition from existsSync + readFileSync)
+  let needsFix = false;
+  try {
+    const content = readFileSync(marketplacesPath, 'utf-8').trim();
+    // Fix if empty, contains only whitespace, or is an array instead of object
+    if (content === '' || content === '[]') {
+      needsFix = true;
+      console.log('[main] Detected corrupted known_marketplaces.json:', content || '(empty)');
+    } else {
+      // Validate it's a proper JSON object (not array)
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        needsFix = true;
+        console.log('[main] known_marketplaces.json contains array instead of object');
+      }
+    }
+  } catch (e) {
+    // File doesn't exist or can't be read/parsed - create it
+    needsFix = true;
+    const errCode = (e as NodeJS.ErrnoException).code;
+    if (errCode !== 'ENOENT') {
+      console.warn('[main] Failed to read known_marketplaces.json:', e);
+    }
+  }
+
+  if (needsFix) {
+    try {
+      // Note: There's a theoretical TOCTOU race between reading (line 137) and writing here,
+      // but it's benign: if another process fixed the file in between, we just overwrite
+      // valid JSON with `{}` which is also valid JSON. The write is idempotent.
+      writeFileSync(marketplacesPath, '{}', 'utf-8');
+      console.log('[main] Fixed known_marketplaces.json with empty object');
+    } catch (e) {
+      console.warn('[main] Failed to fix known_marketplaces.json:', e);
+    }
+  }
+}
+
 // Get icon path based on platform
 function getIconPath(): string {
   // In dev mode, __dirname is out/main, so we go up to project root then into resources
@@ -111,10 +176,10 @@ function getIconPath(): string {
     : join(process.resourcesPath);
 
   let iconName: string;
-  if (process.platform === 'darwin') {
+  if (isMacOS()) {
     // Use PNG in dev mode (works better), ICNS in production
     iconName = is.dev ? 'icon-256.png' : 'icon.icns';
-  } else if (process.platform === 'win32') {
+  } else if (isWindows()) {
     iconName = 'icon.ico';
   } else {
     iconName = 'icon.png';
@@ -235,13 +300,13 @@ function createWindow(): void {
 
 // Set app name before ready (for dock tooltip on macOS in dev mode)
 app.setName('Auto Claude');
-if (process.platform === 'darwin') {
+if (isMacOS()) {
   // Force the name to appear in dock on macOS
   app.name = 'Auto Claude';
 }
 
 // Fix Windows GPU cache permission errors (0x5 Access Denied)
-if (process.platform === 'win32') {
+if (isWindows()) {
   app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
   app.commandLine.appendSwitch('disable-gpu-program-cache');
   console.log('[main] Applied Windows GPU cache fixes');
@@ -253,18 +318,22 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.autoclaude.ui');
 
   // Clear cache on Windows to prevent permission errors from stale cache
-  if (process.platform === 'win32') {
+  if (isWindows()) {
     session.defaultSession.clearCache()
       .then(() => console.log('[main] Cleared cache on startup'))
       .catch((err) => console.warn('[main] Failed to clear cache:', err));
   }
+
+  // Fix corrupted known_marketplaces.json on Windows before any Claude CLI calls
+  // This prevents crashes when the file is empty or contains [] instead of {}
+  fixKnownMarketplacesJson();
 
   // Clean up stale update metadata from the old source updater system
   // This prevents version display desync after electron-updater installs a new version
   cleanupStaleUpdateMetadata();
 
   // Set dock icon on macOS
-  if (process.platform === 'darwin') {
+  if (isMacOS()) {
     const iconPath = getIconPath();
     try {
       const icon = nativeImage.createFromPath(iconPath);
@@ -448,7 +517,7 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (!isMacOS()) {
     app.quit();
   }
 });
