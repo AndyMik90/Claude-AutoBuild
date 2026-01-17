@@ -514,7 +514,7 @@ describe('getGitBashEnv', () => {
   const originalEnv = process.env.CLAUDE_CODE_GIT_BASH_PATH;
 
   // Mock function for dependency injection
-  const mockGetToolInfo = vi.fn<[string], { found: boolean; path: string | null; source: string }>();
+  const mockGetToolInfo = vi.fn() as ReturnType<typeof vi.fn> & ((tool: string) => { found: boolean; path: string | null; source: string });
 
   afterEach(() => {
     // Restore original platform and env after each test
