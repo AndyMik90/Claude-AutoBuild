@@ -575,40 +575,42 @@ export function deriveGitBashPath(gitExePath: string): string | null {
   }
 
   try {
-    const gitDir = path.dirname(gitExePath);  // e.g., D:\...\Git\mingw64\bin
-    const gitDirName = path.basename(gitDir).toLowerCase();
+    // Use win32 path ops to correctly parse Windows-style paths on non-Windows runners
+    const winPath = path.win32;
+    const gitDir = winPath.dirname(gitExePath);  // e.g., D:\...\Git\mingw64\bin
+    const gitDirName = winPath.basename(gitDir).toLowerCase();
 
     // Find Git installation root
     let gitRoot: string;
 
     if (gitDirName === 'cmd') {
       // .../Git/cmd/git.exe -> .../Git
-      gitRoot = path.dirname(gitDir);
+      gitRoot = winPath.dirname(gitDir);
     } else if (gitDirName === 'bin') {
       // Could be .../Git/bin/git.exe OR .../Git/mingw64/bin/git.exe
-      const parent = path.dirname(gitDir);
-      const parentName = path.basename(parent).toLowerCase();
+      const parent = winPath.dirname(gitDir);
+      const parentName = winPath.basename(parent).toLowerCase();
       if (parentName === 'mingw64' || parentName === 'mingw32') {
         // .../Git/mingw64/bin/git.exe -> .../Git
-        gitRoot = path.dirname(parent);
+        gitRoot = winPath.dirname(parent);
       } else {
         // .../Git/bin/git.exe -> .../Git
         gitRoot = parent;
       }
     } else {
       // Unknown structure - try to find 'bin' sibling
-      gitRoot = path.dirname(gitDir);
+      gitRoot = winPath.dirname(gitDir);
     }
 
     // Bash.exe is in Git/bin/bash.exe
-    const bashPath = path.join(gitRoot, 'bin', 'bash.exe');
+    const bashPath = winPath.join(gitRoot, 'bin', 'bash.exe');
 
     if (fs.existsSync(bashPath)) {
       return bashPath;
     }
 
     // Fallback: check one level up if gitRoot didn't work
-    const altBashPath = path.join(path.dirname(gitRoot), 'bin', 'bash.exe');
+    const altBashPath = winPath.join(winPath.dirname(gitRoot), 'bin', 'bash.exe');
     if (fs.existsSync(altBashPath)) {
       return altBashPath;
     }
