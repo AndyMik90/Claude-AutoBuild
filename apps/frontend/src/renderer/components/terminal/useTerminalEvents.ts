@@ -79,7 +79,7 @@ export function useTerminalEvents({
     });
 
     return cleanup;
-  }, [terminalId]);
+  }, [terminalId, isRecreatingRef]);
 
   // Handle terminal title change
   useEffect(() => {
