@@ -146,8 +146,11 @@ describe('PythonEnvManager', () => {
       // Access private property for testing
       (manager as any).sitePackagesPath = sitePackagesPath;
 
-      // Set a lowercase 'Path' variable in the environment
-      vi.stubEnv('Path', 'C:\\Windows\\System32');
+      // Save and clear existing PATH, then set lowercase 'Path'
+      // This simulates a Windows environment where the system has 'Path' instead of 'PATH'
+      const originalPath = process.env.PATH;
+      delete process.env.PATH;
+      process.env.Path = 'C:\\Windows\\System32';
 
       try {
         const env = manager.getPythonEnv();
@@ -163,7 +166,11 @@ describe('PythonEnvManager', () => {
         expect(pathKeys.length).toBe(1);
         expect(pathKeys[0]).toBe('PATH');
       } finally {
-        vi.unstubAllEnvs();
+        // Restore original PATH
+        delete process.env.Path;
+        if (originalPath !== undefined) {
+          process.env.PATH = originalPath;
+        }
       }
     });
   });
