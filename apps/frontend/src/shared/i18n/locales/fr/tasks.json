@@ -86,7 +86,12 @@
     "deleteWorktree": "Supprimer le Worktree & Marquer Terminé",
     "refreshTasks": "Actualiser les tâches",
     "selectAll": "Tout sélectionner",
-    "deselectAll": "Tout désélectionner"
+    "deselectAll": "Tout désélectionner",
+    "selectedCount": "{{count}} sélectionné(s)",
+    "selectedCountOne": "{{count}} tâche sélectionnée",
+    "selectedCountOther": "{{count}} tâches sélectionnées",
+    "createPRs": "Créer les PRs",
+    "clearSelection": "Effacer la sélection"
   },
   "execution": {
     "phases": {

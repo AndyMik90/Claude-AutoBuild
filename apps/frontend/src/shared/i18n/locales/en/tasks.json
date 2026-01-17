@@ -86,7 +86,12 @@
     "deleteWorktree": "Delete Worktree & Mark Done",
     "refreshTasks": "Refresh Tasks",
     "selectAll": "Select all",
-    "deselectAll": "Deselect all"
+    "deselectAll": "Deselect all",
+    "selectedCount": "{{count}} selected",
+    "selectedCountOne": "{{count}} task selected",
+    "selectedCountOther": "{{count}} tasks selected",
+    "createPRs": "Create PRs",
+    "clearSelection": "Clear Selection"
   },
   "execution": {
     "phases": {

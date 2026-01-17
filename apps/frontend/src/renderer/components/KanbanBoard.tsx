@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -713,6 +713,38 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Floating action bar for bulk selection */}
+      {selectedTaskIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#232323] bg-[#121216] shadow-lg backdrop-blur-sm">
+            <span className="text-sm font-medium text-foreground">
+              {t('kanban.selectedCountOther', { count: selectedTaskIds.size })}
+            </span>
+            <div className="w-px h-5 bg-[#232323]" />
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-2"
+              onClick={() => {
+                // TODO: Open BulkPRDialog (will be implemented in subtask 3-2)
+              }}
+            >
+              <GitPullRequest className="h-4 w-4" />
+              {t('kanban.createPRs')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground hover:text-foreground"
+              onClick={deselectAllTasks}
+            >
+              <X className="h-4 w-4" />
+              {t('kanban.clearSelection')}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Worktree cleanup confirmation dialog */}
       <WorktreeCleanupDialog
