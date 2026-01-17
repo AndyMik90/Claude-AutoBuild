@@ -13,7 +13,8 @@ import { initializeClaudeProfileManager, type ClaudeProfileManager } from '../..
 import {
   getPlanPath,
   persistPlanStatus,
-  createPlanIfNotExists
+  createPlanIfNotExists,
+  clearPlanSubtasks
 } from './plan-file-utils';
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
@@ -680,6 +681,13 @@ export function registerTaskExecutionHandlers(
           await createPlanIfNotExists(planPath, task, status);
           // Invalidate cache after creating new plan
           projectStore.invalidateTasksCache(project.id);
+        }
+
+        // When resetting to backlog, also clear subtasks from the plan file
+        // This ensures the agent will re-plan on restart instead of executing a stale plan
+        if (status === 'backlog') {
+          await clearPlanSubtasks(planPath, project.id);
+          console.warn('[TASK_UPDATE_STATUS] Cleared subtasks for reset to backlog:', taskId);
         }
 
         // Auto-stop task when status changes AWAY from 'in_progress' and process IS running

@@ -272,6 +272,48 @@ export async function createPlanIfNotExists(
 }
 
 /**
+ * Clear subtasks/tasks from the plan file when resetting to backlog.
+ * This ensures the agent will re-plan on restart instead of executing a stale plan.
+ *
+ * @param planPath - Path to the implementation_plan.json file
+ * @param projectId - Optional project ID to invalidate cache
+ * @returns true if subtasks were cleared, false if file doesn't exist or failed
+ */
+export async function clearPlanSubtasks(planPath: string, projectId?: string): Promise<boolean> {
+  return withPlanLock(planPath, async () => {
+    try {
+      console.warn(`[plan-file-utils] Clearing subtasks from implementation_plan.json`, { planPath });
+      const planContent = readFileSync(planPath, 'utf-8');
+      const plan = JSON.parse(planContent);
+
+      // Clear the phases array (which contains subtasks)
+      // This ensures agent will re-plan on restart
+      if (Array.isArray(plan.phases)) {
+        plan.phases = [];
+      }
+      plan.updated_at = new Date().toISOString();
+
+      writeFileSync(planPath, JSON.stringify(plan, null, 2));
+      console.warn(`[plan-file-utils] Successfully cleared subtasks from implementation_plan.json`);
+
+      // Invalidate tasks cache
+      if (projectId) {
+        projectStore.invalidateTasksCache(projectId);
+      }
+
+      return true;
+    } catch (err) {
+      if (isFileNotFoundError(err)) {
+        console.warn(`[plan-file-utils] implementation_plan.json not found at ${planPath} - no subtasks to clear`);
+        return false;
+      }
+      console.warn(`[plan-file-utils] Could not clear subtasks from ${planPath}:`, err);
+      return false;
+    }
+  });
+}
+
+/**
  * Update task_metadata.json to add PR URL.
  * This is a simple JSON file update (no locking needed as it's rarely updated concurrently).
  *

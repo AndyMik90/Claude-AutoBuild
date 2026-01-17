@@ -58,7 +58,9 @@ def import_dotenv():
 load_dotenv = import_dotenv()
 # NOTE: graphiti_config is imported lazily in validate_environment() to avoid
 # triggering graphiti_core -> real_ladybug -> pywintypes import chain before
-# platform dependency validation can run. See ACS-253.
+# platform dependency validation can run. On Windows without pywin32, this chain
+# causes ImportError that would crash before we can show a helpful error message.
+# See ACS-253.
 from linear_integration import LinearManager
 from linear_updater import is_linear_enabled
 from spec.pipeline import get_specs_dir

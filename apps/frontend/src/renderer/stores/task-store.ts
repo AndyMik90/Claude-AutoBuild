@@ -735,6 +735,29 @@ export async function forceCompleteTask(taskId: string): Promise<PersistStatusRe
 }
 
 /**
+ * Reset a stuck task to backlog status so it can be retried
+ * FIX (#1117): Tasks that fail before completing any work get stuck in human_review
+ * This allows users to reset them to backlog and try again
+ *
+ * IMPORTANT: Also clears subtasks so the agent will re-plan on restart
+ * instead of executing a stale plan from the previous failed attempt.
+ */
+export async function resetToBacklog(taskId: string): Promise<PersistStatusResult> {
+  const store = useTaskStore.getState();
+
+  // First persist the status change
+  const result = await persistTaskStatus(taskId, 'backlog');
+
+  if (result.success) {
+    // Clear subtasks so the agent will re-plan on restart
+    // This prevents executing a stale plan from a previous failed attempt
+    store.updateTask(taskId, { subtasks: [] });
+  }
+
+  return result;
+}
+
+/**
  * Update task title/description/metadata and persist to file
  */
 export async function persistUpdateTask(

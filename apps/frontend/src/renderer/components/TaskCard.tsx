@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
+import { useToast } from '../hooks/use-toast';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
 import {
   TASK_CATEGORY_LABELS,
@@ -31,7 +32,7 @@ import {
   JSON_ERROR_PREFIX,
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
-import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks } from '../stores/task-store';
+import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, resetToBacklog } from '../stores/task-store';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
 // Category icon mapping
@@ -134,8 +135,10 @@ export const TaskCard = memo(function TaskCard({
   onToggleSelect
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
+  const { toast } = useToast();
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
     timeout: null,
     interval: null
@@ -298,6 +301,23 @@ export const TaskCard = memo(function TaskCard({
     const result = await archiveTasks(task.projectId, [task.id]);
     if (!result.success) {
       console.error('[TaskCard] Failed to archive task:', task.id, result.error);
+    }
+  };
+
+  const handleResetToBacklog = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsResetting(true);
+    try {
+      const result = await resetToBacklog(task.id);
+      if (!result.success) {
+        toast({
+          title: t('errors:resetFailed') || 'Reset Failed',
+          description: result.error || t('errors:unknownError') || 'An unknown error occurred',
+          variant: 'destructive'
+        });
+      }
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -575,15 +595,31 @@ export const TaskCard = memo(function TaskCard({
                 )}
               </Button>
             ) : isIncomplete ? (
-              <Button
-                variant="default"
-                size="sm"
-                className="h-7 px-2.5"
-                onClick={handleStartStop}
-              >
-                <Play className="mr-1.5 h-3 w-3" />
-                {t('actions.resume')}
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-7 px-2.5"
+                  onClick={handleStartStop}
+                >
+                  <Play className="mr-1.5 h-3 w-3" />
+                  {t('actions.resume')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2.5"
+                  onClick={handleResetToBacklog}
+                  disabled={isResetting}
+                  title={t('tooltips.resetToBacklog') || 'Reset to backlog to retry from scratch'}
+                >
+                  {isResetting ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-3 w-3" />
+                  )}
+                </Button>
+              </div>
             ) : task.status === 'pr_created' ? (
               <div className="flex gap-1">
                 {task.metadata?.prUrl && (
