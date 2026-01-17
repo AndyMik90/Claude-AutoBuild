@@ -455,14 +455,14 @@ class TestGhExecutableDetection:
                 assert called_cmd_list[0] == mock_gh_path
                 assert called_cmd_list[1:] == ["api", "user"]
 
-    def test_get_bot_username_uses_github_cli_path_env_var(
+    def test_get_bot_username_uses_get_gh_executable_return_value(
         self, temp_state_dir, monkeypatch
     ):
-        """Test that _get_bot_username respects GITHUB_CLI_PATH environment variable."""
-        # Set the environment variable
+        """Test that _get_bot_username uses the path returned by get_gh_executable."""
         env_path = "/custom/path/to/gh"
+        # Note: GITHUB_CLI_PATH env var is tested by get_gh_executable's own tests
+        # This test verifies _get_bot_username uses whatever get_gh_executable returns
         monkeypatch.setenv("GITHUB_CLI_PATH", env_path)
-        monkeypatch.setenv("GH_TOKEN", "fake-token")
 
         with patch("bot_detection.get_gh_executable", return_value=env_path):
             with patch("subprocess.run") as mock_run:
@@ -477,13 +477,14 @@ class TestGhExecutableDetection:
                     review_own_prs=False,
                 )
 
-                # Verify the command was run with the env var path
+                # Verify the command was run with the path from get_gh_executable
                 assert detector.bot_username == "env-bot-user"
 
-                # Verify subprocess was called with the env var path
+                # Verify subprocess was called with the correct path
                 mock_run.assert_called_once()
                 called_cmd_list = mock_run.call_args[0][0]
                 assert called_cmd_list[0] == env_path
+                assert called_cmd_list[1:] == ["api", "user"]
 
     def test_get_bot_username_with_api_error(self, temp_state_dir):
         """Test _get_bot_username when gh api command fails."""
@@ -520,14 +521,17 @@ class TestGhExecutableDetection:
 
     def test_get_bot_username_without_token(self, temp_state_dir):
         """Test _get_bot_username when no bot token is provided."""
-        detector = BotDetector(
-            state_dir=temp_state_dir,
-            bot_token=None,
-            review_own_prs=False,
-        )
+        with patch("subprocess.run") as mock_run:
+            detector = BotDetector(
+                state_dir=temp_state_dir,
+                bot_token=None,
+                review_own_prs=False,
+            )
 
-        # Should return None without trying to call gh
-        assert detector.bot_username is None
+            # Should return None without trying to call gh
+            assert detector.bot_username is None
+            # Verify subprocess.run was not called (no gh CLI invocation)
+            mock_run.assert_not_called()
 
 
 if __name__ == "__main__":
