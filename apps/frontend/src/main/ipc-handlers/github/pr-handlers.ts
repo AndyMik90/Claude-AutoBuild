@@ -2337,7 +2337,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
       const updateResult = await withProjectOrNull(projectId, async (project) => {
         try {
-          const { execFileSync } = await import("child_process");
+          const { execFile } = await import("child_process");
+          const { promisify } = await import("util");
+          const execFileAsync = promisify(execFile);
           debugLog("Updating PR branch", { prNumber });
 
           // Validate prNumber to prevent command injection
@@ -2345,9 +2347,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             throw new Error("Invalid PR number");
           }
 
-          // Use gh pr update-branch to sync with base branch
+          // Use gh pr update-branch to sync with base branch (async to avoid blocking main process)
           // --rebase is not used to avoid force-push requirements
-          execFileSync("gh", ["pr", "update-branch", String(prNumber)], {
+          await execFileAsync("gh", ["pr", "update-branch", String(prNumber)], {
             cwd: project.path,
             env: getAugmentedEnv(),
           });
@@ -2358,11 +2360,22 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           const errorMessage = error instanceof Error ? error.message : String(error);
           debugLog("Failed to update PR branch", { prNumber, error: errorMessage });
 
+          // Map common error patterns to user-friendly messages
           let friendlyError = errorMessage;
           if (errorMessage.includes("permission") || errorMessage.includes("403")) {
             friendlyError = "You don't have permission to update this branch.";
+          } else if (errorMessage.includes("401") || errorMessage.toLowerCase().includes("auth") || errorMessage.toLowerCase().includes("token")) {
+            friendlyError = "Authentication failed. Try running 'gh auth login' to re-authenticate.";
+          } else if (errorMessage.includes("404") || errorMessage.includes("not found")) {
+            friendlyError = "Pull request not found. It may have been closed or deleted.";
+          } else if (errorMessage.includes("429") || errorMessage.toLowerCase().includes("rate limit")) {
+            friendlyError = "GitHub API rate limit exceeded. Please wait and try again.";
           } else if (errorMessage.includes("conflict")) {
-            friendlyError = "Cannot update branch due to merge conflicts.";
+            friendlyError = "Cannot update branch due to merge conflicts. Resolve conflicts manually.";
+          } else if (errorMessage.toLowerCase().includes("protected") || errorMessage.toLowerCase().includes("branch protection")) {
+            friendlyError = "Branch protection rules prevent this update.";
+          } else if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("ETIMEDOUT")) {
+            friendlyError = "Network error. Check your internet connection and try again.";
           } else if (errorMessage.includes("already up to date")) {
             return { success: true }; // Not an error
           }

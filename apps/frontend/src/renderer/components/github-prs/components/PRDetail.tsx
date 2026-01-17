@@ -818,7 +818,6 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                       </li>
                     ))}
                   </ul>
-                  {/* Update Branch button - only show when branch is behind base */}
                   {mergeReadiness.isBehind && (
                     <div className="flex items-center gap-3 mt-3">
                       <Button
@@ -840,17 +839,17 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                           </>
                         )}
                       </Button>
-                      {branchUpdateSuccess && (
-                        <span className="text-xs text-success flex items-center gap-1">
-                          <CheckCircle className="h-3 w-3" />
-                          {t('prReview.branchUpdated')}
-                        </span>
-                      )}
-                      {branchUpdateError && (
-                        <span className="text-xs text-destructive">
-                          {branchUpdateError}
-                        </span>
-                      )}
+                    </div>
+                  )}
+                  {branchUpdateSuccess && (
+                    <div className="flex items-center gap-2 mt-2 text-xs text-success animate-in fade-in duration-200">
+                      <CheckCircle className="h-3 w-3" />
+                      {t('prReview.branchUpdated')}
+                    </div>
+                  )}
+                  {branchUpdateError && (
+                    <div className="text-xs text-destructive mt-2 animate-in fade-in duration-200">
+                      {branchUpdateError}
                     </div>
                   )}
                   <p className="text-xs text-warning/70 mt-2">
