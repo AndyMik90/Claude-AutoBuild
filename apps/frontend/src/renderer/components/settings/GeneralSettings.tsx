@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState, useCallback } from 'react';
-import { CheckCircle2, AlertTriangle, Settings2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Settings2, FolderOpen } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -332,6 +332,42 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
               t={t}
             />
           )}
+        </div>
+
+        {/* Python Activation Script */}
+        <div className="space-y-3">
+          <Label htmlFor="pythonActivationScript" className="text-sm font-medium text-foreground">
+            {t('general.pythonActivationScript')}
+          </Label>
+          <p className="text-sm text-muted-foreground">
+            {t('general.pythonActivationScriptDescription')}
+          </p>
+          <div className="flex gap-2 w-full max-w-lg">
+            <Input
+              id="pythonActivationScript"
+              placeholder={t('general.pythonActivationScriptPlaceholder')}
+              className="flex-1"
+              value={settings.pythonActivationScript || ''}
+              onChange={(e) => onSettingsChange({ ...settings, pythonActivationScript: e.target.value })}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              onClick={async () => {
+                const path = await window.electronAPI.selectDirectory();
+                if (path) {
+                  onSettingsChange({ ...settings, pythonActivationScript: path });
+                }
+              }}
+            >
+              <FolderOpen className="h-4 w-4 mr-2" />
+              {t('general.browse')}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t('general.pythonActivationScriptHint')}
+          </p>
         </div>
 
         <div className="space-y-3">

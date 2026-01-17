@@ -284,6 +284,9 @@ export interface AppSettings {
   // Anonymous error reporting (Sentry) - enabled by default to help improve the app
   sentryEnabled?: boolean;
 
+  /** Optional Python activation script (e.g., conda activate script or venv activate) */
+  pythonActivationScript?: string;
+
   // ============================================
   // Conda Configuration (App-level)
   // ============================================
