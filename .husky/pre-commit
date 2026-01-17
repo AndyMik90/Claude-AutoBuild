@@ -22,6 +22,11 @@ if [ -f ".git" ]; then
   if [ -n "$WORKTREE_GIT_DIR" ] && [ -d "$WORKTREE_GIT_DIR" ]; then
     export GIT_DIR="$WORKTREE_GIT_DIR"
     export GIT_WORK_TREE="$(pwd)"
+  else
+    # .git file exists but is malformed or points to non-existent directory
+    # CRITICAL: Clear any inherited GIT_DIR/GIT_WORK_TREE to prevent cross-worktree leakage
+    unset GIT_DIR
+    unset GIT_WORK_TREE
   fi
 else
   # We're in the main repo (.git is a directory)
