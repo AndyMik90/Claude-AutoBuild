@@ -4,6 +4,13 @@
  */
 
 // ============================================
+// Terminal Timing Constants
+// ============================================
+
+/** Delay for DOM updates before terminal operations (refit, resize) */
+export const TERMINAL_DOM_UPDATE_DELAY_MS = 50;
+
+// ============================================
 // UI Scale Constants
 // ============================================
 

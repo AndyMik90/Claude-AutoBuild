@@ -8,6 +8,7 @@ import { useSettingsStore } from '../stores/settings-store';
 import { useToast } from '../hooks/use-toast';
 import type { TerminalProps } from './terminal/types';
 import type { TerminalWorktreeConfig } from '../../shared/types';
+import { TERMINAL_DOM_UPDATE_DELAY_MS } from '../../shared/constants';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { CreateWorktreeDialog } from './terminal/CreateWorktreeDialog';
 import { useXterm } from './terminal/useXterm';
@@ -192,12 +193,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   }, [isActive, focus]);
 
   // Refit terminal when expansion state changes
-  // This ensures terminal content fills the new container size after expand/collapse
   useEffect(() => {
-    // Small delay to allow the DOM to update before fitting
     const timeoutId = setTimeout(() => {
       fit();
-    }, 50);
+    }, TERMINAL_DOM_UPDATE_DELAY_MS);
     return () => clearTimeout(timeoutId);
   }, [isExpanded, fit]);
 

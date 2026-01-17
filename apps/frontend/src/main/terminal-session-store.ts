@@ -258,11 +258,16 @@ export class TerminalSessionStore {
     // Update existing or add new
     const existingIndex = todaySessions[projectPath].findIndex(s => s.id === session.id);
     if (existingIndex >= 0) {
+      // Preserve displayOrder from existing session if not provided in incoming session
+      // This prevents periodic saves (which don't include displayOrder) from losing tab order
+      const existingSession = todaySessions[projectPath][existingIndex];
       todaySessions[projectPath][existingIndex] = {
         ...session,
         // Limit output buffer size
         outputBuffer: session.outputBuffer.slice(-MAX_OUTPUT_BUFFER),
-        lastActiveAt: new Date().toISOString()
+        lastActiveAt: new Date().toISOString(),
+        // Preserve existing displayOrder if incoming session doesn't have it
+        displayOrder: session.displayOrder ?? existingSession.displayOrder,
       };
     } else {
       todaySessions[projectPath].push({

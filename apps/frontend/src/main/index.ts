@@ -194,10 +194,21 @@ function createWindow(): void {
     mainWindow?.show();
   });
 
-  // Handle external links
+  // Handle external links with URL scheme allowlist for security
   // Note: Terminal links now use IPC via WebLinksAddon callback, but this handler
   // catches any other window.open() calls (e.g., from third-party libraries)
+  const ALLOWED_URL_SCHEMES = ['http:', 'https:', 'mailto:'];
   mainWindow.webContents.setWindowOpenHandler((details) => {
+    try {
+      const url = new URL(details.url);
+      if (!ALLOWED_URL_SCHEMES.includes(url.protocol)) {
+        console.warn('[main] Blocked URL with disallowed scheme:', details.url);
+        return { action: 'deny' };
+      }
+    } catch {
+      console.warn('[main] Blocked invalid URL:', details.url);
+      return { action: 'deny' };
+    }
     shell.openExternal(details.url).catch((error) => {
       console.warn('[main] Failed to open external URL:', details.url, error);
     });
