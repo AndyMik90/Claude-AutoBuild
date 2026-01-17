@@ -219,9 +219,20 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       const result = await window.electronAPI.deleteClaudeProfile(profileId);
       if (result.success) {
         await loadClaudeProfiles();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('integrations.toast.deleteProfileFailed'),
+          description: result.error || t('integrations.toast.tryAgain'),
+        });
       }
     } catch (err) {
-      // Silently handle errors
+      console.warn('[IntegrationSettings] Failed to delete profile:', err);
+      toast({
+        variant: 'destructive',
+        title: t('integrations.toast.deleteProfileFailed'),
+        description: t('integrations.toast.tryAgain'),
+      });
     } finally {
       setDeletingProfileId(null);
     }
@@ -244,9 +255,20 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       const result = await window.electronAPI.renameClaudeProfile(editingProfileId, editingProfileName.trim());
       if (result.success) {
         await loadClaudeProfiles();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('integrations.toast.renameProfileFailed'),
+          description: result.error || t('integrations.toast.tryAgain'),
+        });
       }
     } catch (err) {
-      // Silently handle errors
+      console.warn('[IntegrationSettings] Failed to rename profile:', err);
+      toast({
+        variant: 'destructive',
+        title: t('integrations.toast.renameProfileFailed'),
+        description: t('integrations.toast.tryAgain'),
+      });
     } finally {
       setEditingProfileId(null);
       setEditingProfileName('');
@@ -259,9 +281,20 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       if (result.success) {
         setActiveProfileId(profileId);
         await loadGlobalClaudeProfiles();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('integrations.toast.setActiveProfileFailed'),
+          description: result.error || t('integrations.toast.tryAgain'),
+        });
       }
     } catch (err) {
-      // Silently handle errors
+      console.warn('[IntegrationSettings] Failed to set active profile:', err);
+      toast({
+        variant: 'destructive',
+        title: t('integrations.toast.setActiveProfileFailed'),
+        description: t('integrations.toast.tryAgain'),
+      });
     }
   };
 
