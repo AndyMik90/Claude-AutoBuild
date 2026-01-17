@@ -301,3 +301,17 @@ export interface SourceEnvCheckResult {
   sourcePath?: string;
   error?: string;
 }
+
+/**
+ * Python environment status information
+ * FIX (#1106): Exported for UI to show Python setup status
+ */
+export interface PythonEnvStatus {
+  ready: boolean;
+  pythonPath: string | null;
+  sitePackagesPath: string | null;
+  venvExists: boolean;
+  depsInstalled: boolean;
+  usingBundledPackages: boolean;
+  error?: string;
+}

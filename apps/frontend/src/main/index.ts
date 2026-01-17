@@ -351,6 +351,30 @@ app.whenReady().then(() => {
         autoBuildPath: validAutoBuildPath
       });
       agentManager.configure(settings.pythonPath, validAutoBuildPath);
+
+      // FIX (#1106): Proactively initialize Python environment at startup
+      // This ensures venv is created and dependencies installed BEFORE user tries to run tasks
+      // Previously, initialization only happened on first task start, leading to confusing errors
+      if (validAutoBuildPath) {
+        setImmediate(async () => {
+          console.log('[main] Proactively initializing Python environment...');
+          try {
+            const status = await pythonEnvManager.initialize(validAutoBuildPath);
+            if (status.ready) {
+              console.log('[main] Python environment ready:', {
+                pythonPath: status.pythonPath,
+                usingBundled: status.usingBundledPackages
+              });
+            } else {
+              console.warn('[main] Python environment initialization failed:', status.error);
+              // The error will be shown to user when they try to run a task
+              // This early init at least ensures the error is logged early
+            }
+          } catch (err) {
+            console.warn('[main] Python environment initialization error:', err);
+          }
+        });
+      }
     }
   } catch (error: unknown) {
     // ENOENT means no settings file yet - that's fine, use defaults

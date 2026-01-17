@@ -9,7 +9,7 @@
  */
 
 import { app } from 'electron';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { promises as fsPromises } from 'fs';
 import path from 'path';
 
@@ -30,15 +30,16 @@ export function getSettingsPath(): string {
 export function readSettingsFile(): Record<string, unknown> | undefined {
   const settingsPath = getSettingsPath();
 
-  if (!existsSync(settingsPath)) {
-    return undefined;
-  }
-
   try {
+    // Read file directly without checking existence first to avoid TOCTOU race condition
     const content = readFileSync(settingsPath, 'utf-8');
     return JSON.parse(content);
-  } catch {
-    // Return undefined on parse error - caller will use defaults
+  } catch (e) {
+    // Return undefined if file doesn't exist or on parse error - caller will use defaults
+    // ENOENT means file doesn't exist, which is expected on first run
+    if (e && typeof e === 'object' && 'code' in e && (e as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.warn('[settings-utils] Failed to read settings file:', e);
+    }
     return undefined;
   }
 }
@@ -51,11 +52,9 @@ export function readSettingsFile(): Record<string, unknown> | undefined {
 export function writeSettingsFile(settings: Record<string, unknown>): void {
   const settingsPath = getSettingsPath();
 
-  // Ensure the directory exists
+  // Ensure the directory exists (mkdirSync with recursive:true is idempotent, avoids TOCTOU)
   const dir = path.dirname(settingsPath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+  mkdirSync(dir, { recursive: true });
 
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
 }
@@ -74,16 +73,16 @@ export async function readSettingsFileAsync(): Promise<Record<string, unknown> |
   const settingsPath = getSettingsPath();
 
   try {
-    await fsPromises.access(settingsPath);
-  } catch {
-    return undefined;
-  }
-
-  try {
+    // Read file directly without checking existence first to avoid TOCTOU race condition
     const content = await fsPromises.readFile(settingsPath, 'utf-8');
     return JSON.parse(content);
-  } catch {
-    // Return undefined on parse error - caller will use defaults
+  } catch (e) {
+    // Return undefined if file doesn't exist or on parse error - caller will use defaults
+    // ENOENT means file doesn't exist, which is expected on first run
+    if (e && typeof e === 'object' && 'code' in e && (e as NodeJS.ErrnoException).code !== 'ENOENT') {
+      // Log unexpected errors (but not missing file, which is normal)
+      console.warn('[settings-utils] Failed to read settings file:', e);
+    }
     return undefined;
   }
 }
