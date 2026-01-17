@@ -107,6 +107,17 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | undefined;
 
+    // IMPORTANT: Check !isActiveTask FIRST before any phase checks
+    // This ensures hasCheckedRunning is always reset when task stops,
+    // even if the task stops while in 'planning' phase
+    if (!isActiveTask) {
+      setIsStuck(false);
+      setHasCheckedRunning(false);
+      return;
+    }
+
+    // Task is active from here on
+
     // 'planning' phase: Skip stuck check but don't set hasCheckedRunning
     // (allows stuck detection when task transitions to 'coding')
     if (executionPhase === 'planning') {
@@ -121,7 +132,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
       return;
     }
 
-    if (isActiveTask && !hasCheckedRunning) {
+    // Active task in coding/validation phase - check if stuck
+    if (!hasCheckedRunning) {
       // Wait 2 seconds before checking - gives process time to spawn and register
       timeoutId = setTimeout(() => {
         checkTaskRunning(task.id).then((actuallyRunning) => {
@@ -135,9 +147,6 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
           setHasCheckedRunning(true);
         });
       }, 2000);
-    } else if (!isActiveTask) {
-      setIsStuck(false);
-      setHasCheckedRunning(false);
     }
 
     return () => {
