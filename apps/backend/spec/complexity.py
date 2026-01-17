@@ -7,11 +7,14 @@ Determines which phases should run based on task scope.
 """
 
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+
+from core.file_utils import safe_open
 
 
 class Complexity(Enum):
@@ -364,7 +367,7 @@ async def run_ai_complexity_assessment(
     # Load requirements if available
     requirements_file = spec_dir / "requirements.json"
     if requirements_file.exists():
-        with open(requirements_file) as f:
+        with safe_open(requirements_file) as f:
             req = json.load(f)
             context += f"""
 ## Requirements (from user)
@@ -397,7 +400,7 @@ async def run_ai_complexity_assessment(
         )
 
         if success and assessment_file.exists():
-            with open(assessment_file) as f:
+            with safe_open(assessment_file) as f:
                 data = json.load(f)
 
             # Parse AI assessment into ComplexityAssessment
@@ -431,16 +434,20 @@ async def run_ai_complexity_assessment(
 
         return None
 
-    except Exception:
+    except Exception as e:
+        logging.warning(f"AI complexity assessment failed: {e}", exc_info=True)
         return None
 
 
 def save_assessment(spec_dir: Path, assessment: ComplexityAssessment) -> Path:
-    """Save complexity assessment to file."""
+    """Save complexity assessment to file.
+
+    Uses safe_open for Windows compatibility to prevent [Errno 22] errors.
+    """
     assessment_file = spec_dir / "complexity_assessment.json"
     phases = assessment.phases_to_run()
 
-    with open(assessment_file, "w") as f:
+    with safe_open(assessment_file, "w") as f:
         json.dump(
             {
                 "complexity": assessment.complexity.value,

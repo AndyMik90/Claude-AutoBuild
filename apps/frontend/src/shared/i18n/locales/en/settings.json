@@ -591,5 +591,22 @@
       "openai": "This looks like an OpenAI API. You'll need an API key.",
       "createOpenaiKey": "Create OpenAI API Key"
     }
+  },
+  "errors": {
+    "getFailed": "Failed to get settings",
+    "saveFailed": "Failed to save settings",
+    "cliToolsInfoFailed": "Failed to get CLI tools info",
+    "locationNameRequired": "Location and name are required",
+    "invalidProjectName": "Invalid project name",
+    "createFolderFailed": "Failed to create project folder",
+    "directoryPathRequired": "Directory path is required and must be a non-empty string",
+    "noTerminalEmulator": "No supported terminal emulator found. Please install gnome-terminal, konsole, xfce4-terminal, or xterm.",
+    "openTerminalFailed": "Failed to open terminal: {{error}}",
+    "getSourceEnvFailed": "Failed to get source env",
+    "sourcePathNotConfigured": "Auto-build source path not configured. Please set it in Settings.",
+    "updateSourceEnvFailed": "Failed to update source env",
+    "checkSourceTokenFailed": "Failed to check source token",
+    "noEnvFilesToReload": "No .env files found to reload",
+    "reloadConfigFailed": "Failed to reload configuration"
   }
 }

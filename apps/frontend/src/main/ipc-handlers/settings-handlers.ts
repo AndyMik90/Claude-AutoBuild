@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { is } from '@electron-toolkit/utils';
+import { config as dotenvConfig } from 'dotenv';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -21,6 +22,8 @@ import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-upd
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
 import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
 import { parseEnvFile } from './utils';
+import { logger } from '../app-logger';
+import { getCurrentOS, isWindows, isMacOS, isLinux } from '../platform';
 
 const settingsPath = getSettingsPath();
 
@@ -61,12 +64,12 @@ const detectAutoBuildSourcePath = (): string | null => {
   const debug = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
 
   if (debug) {
-    console.warn('[detectAutoBuildSourcePath] Platform:', process.platform);
-    console.warn('[detectAutoBuildSourcePath] Is dev:', is.dev);
-    console.warn('[detectAutoBuildSourcePath] __dirname:', __dirname);
-    console.warn('[detectAutoBuildSourcePath] app.getAppPath():', app.getAppPath());
-    console.warn('[detectAutoBuildSourcePath] process.cwd():', process.cwd());
-    console.warn('[detectAutoBuildSourcePath] Checking paths:', possiblePaths);
+    logger.warn('[detectAutoBuildSourcePath] Platform:', getCurrentOS());
+    logger.warn('[detectAutoBuildSourcePath] Is dev:', is.dev);
+    logger.warn('[detectAutoBuildSourcePath] __dirname:', __dirname);
+    logger.warn('[detectAutoBuildSourcePath] app.getAppPath():', app.getAppPath());
+    logger.warn('[detectAutoBuildSourcePath] process.cwd():', process.cwd());
+    logger.warn('[detectAutoBuildSourcePath] Checking paths:', possiblePaths);
   }
 
   for (const p of possiblePaths) {
@@ -76,17 +79,17 @@ const detectAutoBuildSourcePath = (): string | null => {
     const exists = existsSync(p) && existsSync(markerPath);
 
     if (debug) {
-      console.warn(`[detectAutoBuildSourcePath] Checking ${p}: ${exists ? '✓ FOUND' : '✗ not found'}`);
+      logger.warn(`[detectAutoBuildSourcePath] Checking ${p}: ${exists ? '✓ FOUND' : '✗ not found'}`);
     }
 
     if (exists) {
-      console.warn(`[detectAutoBuildSourcePath] Auto-detected source path: ${p}`);
+      logger.warn(`[detectAutoBuildSourcePath] Auto-detected source path: ${p}`);
       return p;
     }
   }
 
-  console.warn('[detectAutoBuildSourcePath] Could not auto-detect Auto Claude source path. Please configure manually in settings.');
-  console.warn('[detectAutoBuildSourcePath] Set DEBUG=1 environment variable for detailed path checking.');
+  logger.warn('[detectAutoBuildSourcePath] Could not auto-detect Auto Claude source path. Please configure manually in settings.');
+  logger.warn('[detectAutoBuildSourcePath] Set DEBUG=1 environment variable for detailed path checking.');
   return null;
 };
 
@@ -104,84 +107,91 @@ export function registerSettingsHandlers(
   ipcMain.handle(
     IPC_CHANNELS.SETTINGS_GET,
     async (): Promise<IPCResult<AppSettings>> => {
-      // Load settings using shared helper and merge with defaults
-      const savedSettings = readSettingsFile();
-      const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
-      let needsSave = false;
+      try {
+        // Load settings using shared helper and merge with defaults
+        const savedSettings = readSettingsFile();
+        const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
+        let needsSave = false;
 
-      // Migration: Set agent profile to 'auto' for users who haven't made a selection (one-time)
-      // This ensures new users get the optimized 'auto' profile as the default
-      // while preserving existing user preferences
-      if (!settings._migratedAgentProfileToAuto) {
-        // Only set 'auto' if user hasn't made a selection yet
-        if (!settings.selectedAgentProfile) {
-          settings.selectedAgentProfile = 'auto';
-        }
-        settings._migratedAgentProfileToAuto = true;
-        needsSave = true;
-      }
-
-      // Migration: Sync defaultModel with selectedAgentProfile (#414)
-      // Fixes bug where defaultModel was stuck at 'opus' regardless of profile selection
-      if (!settings._migratedDefaultModelSync) {
-        if (settings.selectedAgentProfile) {
-          const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === settings.selectedAgentProfile);
-          if (profile) {
-            settings.defaultModel = profile.model;
+        // Migration: Set agent profile to 'auto' for users who haven't made a selection (one-time)
+        // This ensures new users get the optimized 'auto' profile as the default
+        // while preserving existing user preferences
+        if (!settings._migratedAgentProfileToAuto) {
+          // Only set 'auto' if user hasn't made a selection yet
+          if (!settings.selectedAgentProfile) {
+            settings.selectedAgentProfile = 'auto';
           }
-        }
-        settings._migratedDefaultModelSync = true;
-        needsSave = true;
-      }
-
-      // Migration: Clear CLI tool paths that are from a different platform
-      // Fixes issue where Windows paths persisted on macOS (and vice versa)
-      // when settings were synced/transferred between platforms
-      // See: https://github.com/AndyMik90/Auto-Claude/issues/XXX
-      const pathFields = ['pythonPath', 'gitPath', 'githubCLIPath', 'claudePath', 'autoBuildPath'] as const;
-      for (const field of pathFields) {
-        const pathValue = settings[field];
-        if (pathValue && isPathFromWrongPlatform(pathValue)) {
-          console.warn(
-            `[SETTINGS_GET] Clearing ${field} - path from different platform: ${pathValue}`
-          );
-          delete settings[field];
+          settings._migratedAgentProfileToAuto = true;
           needsSave = true;
         }
-      }
 
-      // If no manual autoBuildPath is set, try to auto-detect
-      if (!settings.autoBuildPath) {
-        const detectedPath = detectAutoBuildSourcePath();
-        if (detectedPath) {
-          settings.autoBuildPath = detectedPath;
+        // Migration: Sync defaultModel with selectedAgentProfile (#414)
+        // Fixes bug where defaultModel was stuck at 'opus' regardless of profile selection
+        if (!settings._migratedDefaultModelSync) {
+          if (settings.selectedAgentProfile) {
+            const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === settings.selectedAgentProfile);
+            if (profile) {
+              settings.defaultModel = profile.model;
+            }
+          }
+          settings._migratedDefaultModelSync = true;
+          needsSave = true;
         }
-      }
 
-      // Persist migration changes
-      if (needsSave) {
-        try {
-          writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-        } catch (error) {
-          console.error('[SETTINGS_GET] Failed to persist migration:', error);
-          // Continue anyway - settings will be migrated in-memory for this session
+        // Migration: Clear CLI tool paths that are from a different platform
+        // Fixes issue where Windows paths persisted on macOS (and vice versa)
+        // when settings were synced/transferred between platforms
+        const pathFields = ['pythonPath', 'gitPath', 'githubCLIPath', 'claudePath', 'autoBuildPath'] as const;
+        for (const field of pathFields) {
+          const pathValue = settings[field];
+          if (pathValue && isPathFromWrongPlatform(pathValue)) {
+            logger.warn(
+              `[SETTINGS_GET] Clearing ${field} - path from different platform: ${pathValue}`
+            );
+            delete settings[field];
+            needsSave = true;
+          }
         }
+
+        // If no manual autoBuildPath is set, try to auto-detect
+        if (!settings.autoBuildPath) {
+          const detectedPath = detectAutoBuildSourcePath();
+          if (detectedPath) {
+            settings.autoBuildPath = detectedPath;
+          }
+        }
+
+        // Persist migration changes
+        if (needsSave) {
+          try {
+            writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+          } catch (error) {
+            logger.error('[SETTINGS_GET] Failed to persist migration:', error);
+            // Continue anyway - settings will be migrated in-memory for this session
+          }
+        }
+
+        // Configure CLI tools with current settings
+        configureTools({
+          pythonPath: settings.pythonPath,
+          gitPath: settings.gitPath,
+          githubCLIPath: settings.githubCLIPath,
+          claudePath: settings.claudePath,
+        });
+
+        // Re-warm cache asynchronously after configuring (non-blocking)
+        preWarmToolCache(['claude']).catch((error) => {
+          logger.warn('[SETTINGS_GET] Failed to re-warm CLI cache:', error);
+        });
+
+        return { success: true, data: settings as AppSettings };
+      } catch (error) {
+        logger.error('[SETTINGS_GET] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'settings:errors.getFailed'
+        };
       }
-
-      // Configure CLI tools with current settings
-      configureTools({
-        pythonPath: settings.pythonPath,
-        gitPath: settings.gitPath,
-        githubCLIPath: settings.githubCLIPath,
-        claudePath: settings.claudePath,
-      });
-
-      // Re-warm cache asynchronously after configuring (non-blocking)
-      preWarmToolCache(['claude']).catch((error) => {
-        console.warn('[SETTINGS_GET] Failed to re-warm CLI cache:', error);
-      });
-
-      return { success: true, data: settings as AppSettings };
     }
   );
 
@@ -225,7 +235,7 @@ export function registerSettingsHandlers(
 
           // Re-warm cache asynchronously after configuring (non-blocking)
           preWarmToolCache(['claude']).catch((error) => {
-            console.warn('[SETTINGS_SAVE] Failed to re-warm CLI cache:', error);
+            logger.warn('[SETTINGS_SAVE] Failed to re-warm CLI cache:', error);
           });
         }
 
@@ -238,7 +248,7 @@ export function registerSettingsHandlers(
             // Disabling beta updates - switch to stable and check if downgrade is available
             // This will notify the renderer if user is on a prerelease and stable version exists
             setUpdateChannelWithDowngradeCheck('latest', true).catch((err) => {
-              console.error('[settings-handlers] Failed to check for stable downgrade:', err);
+              logger.error('[settings-handlers] Failed to check for stable downgrade:', err);
             });
           }
         }
@@ -247,7 +257,7 @@ export function registerSettingsHandlers(
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to save settings'
+          error: error instanceof Error ? error.message : 'settings:errors.saveFailed'
         };
       }
     }
@@ -274,7 +284,7 @@ export function registerSettingsHandlers(
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to get CLI tools info',
+          error: error instanceof Error ? error.message : 'settings:errors.cliToolsInfoFailed',
         };
       }
     }
@@ -314,7 +324,7 @@ export function registerSettingsHandlers(
       try {
         // Validate inputs
         if (!location || !name) {
-          return { success: false, error: 'Location and name are required' };
+          return { success: false, error: 'settings:errors.locationNameRequired' };
         }
 
         // Sanitize project name (convert to kebab-case, remove invalid chars)
@@ -326,7 +336,7 @@ export function registerSettingsHandlers(
           .replace(/^-|-$/g, '');
 
         if (!sanitizedName) {
-          return { success: false, error: 'Invalid project name' };
+          return { success: false, error: 'settings:errors.invalidProjectName' };
         }
 
         const projectPath = path.join(location, sanitizedName);
@@ -347,7 +357,7 @@ export function registerSettingsHandlers(
             gitInitialized = true;
           } catch {
             // Git init failed, but folder was created - continue without git
-            console.warn('Failed to initialize git repository');
+            logger.warn('[DIALOG_CREATE_PROJECT_FOLDER] Failed to initialize git repository');
           }
         }
 
@@ -362,7 +372,7 @@ export function registerSettingsHandlers(
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to create project folder'
+          error: error instanceof Error ? error.message : 'settings:errors.createFolderFailed'
         };
       }
     }
@@ -402,7 +412,7 @@ export function registerSettingsHandlers(
   ipcMain.handle(IPC_CHANNELS.APP_VERSION, async (): Promise<string> => {
     // Return the actual bundled version from package.json
     const version = app.getVersion();
-    console.log('[settings-handlers] APP_VERSION returning:', version);
+    logger.info('[settings-handlers] APP_VERSION returning:', version);
     return version;
   });
 
@@ -417,14 +427,14 @@ export function registerSettingsHandlers(
       try {
         const parsedUrl = new URL(url);
         if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-          console.warn(`[SHELL_OPEN_EXTERNAL] Blocked URL with unsafe protocol: ${parsedUrl.protocol}`);
+          logger.warn(`[SHELL_OPEN_EXTERNAL] Blocked URL with unsafe protocol: ${parsedUrl.protocol}`);
           throw new Error(`Unsafe URL protocol: ${parsedUrl.protocol}`);
         }
         await shell.openExternal(url);
       } catch (error) {
         if (error instanceof TypeError) {
           // Invalid URL format
-          console.warn(`[SHELL_OPEN_EXTERNAL] Invalid URL format: ${url}`);
+          logger.warn(`[SHELL_OPEN_EXTERNAL] Invalid URL format: ${url}`);
           throw new Error('Invalid URL format');
         }
         throw error;
@@ -440,7 +450,7 @@ export function registerSettingsHandlers(
         if (!dirPath || typeof dirPath !== 'string' || dirPath.trim() === '') {
           return {
             success: false,
-            error: 'Directory path is required and must be a non-empty string'
+            error: 'settings:errors.directoryPathRequired'
           };
         }
 
@@ -470,12 +480,10 @@ export function registerSettingsHandlers(
           };
         }
 
-        const platform = process.platform;
-
-        if (platform === 'darwin') {
+        if (isMacOS()) {
           // macOS: Use execFileSync with argument array to prevent injection
           execFileSync('open', ['-a', 'Terminal', resolvedPath], { stdio: 'ignore' });
-        } else if (platform === 'win32') {
+        } else if (isWindows()) {
           // Windows: Use cmd.exe directly with argument array
           // /C tells cmd to execute the command and terminate
           // /K keeps the window open after executing cd
@@ -512,7 +520,7 @@ export function registerSettingsHandlers(
           if (!opened) {
             return {
               success: false,
-              error: 'No supported terminal emulator found. Please install gnome-terminal, konsole, xfce4-terminal, or xterm.'
+              error: 'settings:errors.noTerminalEmulator'
             };
           }
         }
@@ -522,7 +530,7 @@ export function registerSettingsHandlers(
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
         return {
           success: false,
-          error: `Failed to open terminal: ${errorMsg}`
+          error: `Failed to open terminal: ${errorMsg}`,
         };
       }
     }
@@ -630,10 +638,10 @@ export function registerSettingsHandlers(
         };
       } catch (error) {
         // Log the error for debugging in production
-        console.error('[AUTOBUILD_SOURCE_ENV_GET] Error:', error);
+        logger.error('[AUTOBUILD_SOURCE_ENV_GET] Error:', error);
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to get source env'
+          error: error instanceof Error ? error.message : 'settings:errors.getSourceEnvFailed'
         };
       }
     }
@@ -648,7 +656,7 @@ export function registerSettingsHandlers(
         if (!sourcePath || !envPath) {
           return {
             success: false,
-            error: 'Auto-build source path not configured. Please set it in Settings.'
+            error: 'settings:errors.sourcePathNotConfigured'
           };
         }
 
@@ -690,7 +698,7 @@ export function registerSettingsHandlers(
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to update source env'
+          error: error instanceof Error ? error.message : 'settings:errors.updateSourceEnvFailed'
         };
       }
     }
@@ -753,10 +761,91 @@ export function registerSettingsHandlers(
         };
       } catch (error) {
         // Log the error for debugging in production
-        console.error('[AUTOBUILD_SOURCE_ENV_CHECK_TOKEN] Error:', error);
+        logger.error('[AUTOBUILD_SOURCE_ENV_CHECK_TOKEN] Error:', error);
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to check source token'
+          error: error instanceof Error ? error.message : 'settings:errors.checkSourceTokenFailed'
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // Configuration Hot-Reload Operations
+  // ============================================
+
+  /**
+   * Reload configuration from .env files without restarting the app.
+   * Re-reads both frontend and backend .env files, updating process.env.
+   * Useful when CLAUDE_CODE_OAUTH_TOKEN or other env vars are changed.
+   *
+   * IMPORTANT: This only updates process.env in the main Electron process.
+   * Already-running child processes (Python backends, etc.) will NOT see
+   * these changes - they inherit environment at spawn time. Users must
+   * restart running tasks/processes for changes to take effect.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.CONFIG_RELOAD,
+    async (): Promise<IPCResult<{ reloadedFiles: string[] }>> => {
+      try {
+        const reloadedFiles: string[] = [];
+
+        // Reload frontend .env (development only)
+        // In production, frontend env vars are baked in at build time and can't be hot-reloaded.
+        // The __dirname in production points inside app.asar where .env files don't exist.
+        if (is.dev) {
+          // In dev mode, __dirname is apps/frontend/out/main/ipc-handlers
+          // So we need to go up properly to reach the .env files:
+          // - 3 levels up (ipc-handlers -> main -> out) gets to apps/frontend/
+          // - 4 levels up gets to apps/
+          const possibleFrontendEnvPaths = [
+            path.resolve(__dirname, '../../../.env'),      // from out/main/ipc-handlers -> apps/frontend/.env
+            path.resolve(__dirname, '../../../../.env'),   // from out/main/ipc-handlers -> apps/.env
+            path.resolve(process.cwd(), 'apps/frontend/.env'),  // From repo root as fallback
+          ];
+
+          for (const envPath of possibleFrontendEnvPaths) {
+            if (existsSync(envPath)) {
+              const result = dotenvConfig({ path: envPath, override: true });
+              if (!result.error) {
+                logger.info(`[CONFIG_RELOAD] Reloaded frontend environment from: ${envPath}`);
+                reloadedFiles.push(envPath);
+              } else {
+                logger.warn(`[CONFIG_RELOAD] Failed to parse frontend .env at ${envPath}:`, result.error.message);
+              }
+              break;
+            }
+          }
+        } else {
+          logger.info('[CONFIG_RELOAD] Skipping frontend .env reload in production (vars are baked in at build time)');
+        }
+
+        // Reload backend .env
+        const { envPath: backendEnvPath } = getSourceEnvPath();
+        if (backendEnvPath && existsSync(backendEnvPath)) {
+          const result = dotenvConfig({ path: backendEnvPath, override: true });
+          if (!result.error) {
+            logger.info(`[CONFIG_RELOAD] Reloaded backend environment from: ${backendEnvPath}`);
+            reloadedFiles.push(backendEnvPath);
+          } else {
+            logger.warn(`[CONFIG_RELOAD] Failed to parse backend .env at ${backendEnvPath}:`, result.error.message);
+          }
+        }
+
+        if (reloadedFiles.length === 0) {
+          return { success: false, error: 'settings:errors.noEnvFilesToReload' };
+        }
+
+        // NOTE: This reload only affects the main Electron process and newly-spawned
+        // child processes. Already-running child processes (like Python backend agents)
+        // will continue using their original environment. Users should stop running
+        // tasks before reloading config, then start new tasks to use the updated values.
+        return { success: true, data: { reloadedFiles } };
+      } catch (error) {
+        logger.error('[CONFIG_RELOAD] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'settings:errors.reloadConfigFailed'
         };
       }
     }

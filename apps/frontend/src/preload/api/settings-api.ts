@@ -29,6 +29,9 @@ export interface SettingsAPI {
   updateSourceEnv: (config: { claudeOAuthToken?: string }) => Promise<IPCResult>;
   checkSourceToken: () => Promise<IPCResult<SourceEnvCheckResult>>;
 
+  // Configuration hot-reload (re-read .env without restart)
+  reloadConfig: () => Promise<IPCResult<{ reloadedFiles: string[] }>>;
+
   // Sentry error reporting
   notifySentryStateChanged: (enabled: boolean) => void;
   getSentryDsn: () => Promise<string>;
@@ -65,6 +68,10 @@ export const createSettingsAPI = (): SettingsAPI => ({
 
   checkSourceToken: (): Promise<IPCResult<SourceEnvCheckResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.AUTOBUILD_SOURCE_ENV_CHECK_TOKEN),
+
+  // Configuration hot-reload
+  reloadConfig: (): Promise<IPCResult<{ reloadedFiles: string[] }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_RELOAD),
 
   // Sentry error reporting - notify main process when setting changes
   notifySentryStateChanged: (enabled: boolean): void =>

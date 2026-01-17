@@ -591,5 +591,22 @@
       "openai": "Ceci ressemble à une API OpenAI. Vous aurez besoin d'une clé API.",
       "createOpenaiKey": "Créer une clé API OpenAI"
     }
+  },
+  "errors": {
+    "getFailed": "Échec de la récupération des paramètres",
+    "saveFailed": "Échec de l'enregistrement des paramètres",
+    "cliToolsInfoFailed": "Échec de la récupération des infos outils CLI",
+    "locationNameRequired": "L'emplacement et le nom sont requis",
+    "invalidProjectName": "Nom de projet invalide",
+    "createFolderFailed": "Échec de la création du dossier projet",
+    "directoryPathRequired": "Le chemin du répertoire est requis et doit être une chaîne non vide",
+    "noTerminalEmulator": "Aucun émulateur de terminal supporté trouvé. Veuillez installer gnome-terminal, konsole, xfce4-terminal ou xterm.",
+    "openTerminalFailed": "Échec de l'ouverture du terminal : {{error}}",
+    "getSourceEnvFailed": "Échec de la récupération de l'env source",
+    "sourcePathNotConfigured": "Chemin source Auto-build non configuré. Veuillez le définir dans les Paramètres.",
+    "updateSourceEnvFailed": "Échec de la mise à jour de l'env source",
+    "checkSourceTokenFailed": "Échec de la vérification du token source",
+    "noEnvFilesToReload": "Aucun fichier .env trouvé à recharger",
+    "reloadConfigFailed": "Échec du rechargement de la configuration"
   }
 }

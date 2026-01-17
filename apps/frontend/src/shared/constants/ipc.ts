@@ -502,6 +502,9 @@ export const IPC_CHANNELS = {
   // Release events (main -> renderer)
   RELEASE_PROGRESS: 'release:progress',
 
+  // Configuration hot-reload (re-read .env without restart)
+  CONFIG_RELOAD: 'config:reload',
+
   // Debug operations
   DEBUG_GET_INFO: 'debug:getInfo',
   DEBUG_OPEN_LOGS_FOLDER: 'debug:openLogsFolder',
