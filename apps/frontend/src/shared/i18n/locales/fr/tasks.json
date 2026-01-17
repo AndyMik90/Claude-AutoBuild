@@ -85,6 +85,8 @@
     "keepWorktree": "Garder le Worktree",
     "deleteWorktree": "Supprimer le Worktree & Marquer Terminé",
     "refreshTasks": "Actualiser les tâches",
+    "orderSaveFailedTitle": "Réorganisation non enregistrée",
+    "orderSaveFailedDescription": "Votre changement d'ordre des tâches a été appliqué mais n'a pas pu être sauvegardé. Il sera perdu lors du rafraîchissement.",
     "selectAll": "Tout sélectionner",
     "deselectAll": "Tout désélectionner",
     "selectedCount": "{{count}} sélectionné(s)",

@@ -1,4 +1,4 @@
-import { useState, useMemo, memo, useCallback, useEffect } from 'react';
+import { useState, useMemo, memo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
@@ -28,16 +28,25 @@ import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, archiveTasks } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks, useTaskStore } from '../stores/task-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import { BulkPRDialog } from './BulkPRDialog';
-import type { Task, TaskStatus } from '../../shared/types';
+import type { Task, TaskStatus, TaskOrderState } from '../../shared/types';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
 const VALID_DROP_COLUMNS = new Set<string>(TASK_STATUS_COLUMNS);
 function isValidDropColumn(id: string): id is typeof TASK_STATUS_COLUMNS[number] {
   return VALID_DROP_COLUMNS.has(id);
+}
+
+/**
+ * Get the visual column for a task status.
+ * pr_created tasks are displayed in the 'done' column, so we map them accordingly.
+ * This is used to compare visual positions during drag-and-drop operations.
+ */
+function getVisualColumn(status: TaskStatus): typeof TASK_STATUS_COLUMNS[number] {
+  return status === 'pr_created' ? 'done' : status;
 }
 
 interface KanbanBoardProps {
@@ -464,6 +473,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     })
   );
 
+  // Get task order from store for custom ordering
+  const taskOrder = useTaskStore((state) => state.taskOrder);
+
   const tasksByStatus = useMemo(() => {
     // Note: pr_created tasks are shown in the 'done' column since they're essentially complete
     const grouped: Record<typeof TASK_STATUS_COLUMNS[number], Task[]> = {
@@ -482,17 +494,51 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       }
     });
 
-    // Sort tasks within each column by createdAt (newest first)
+    // Sort tasks within each column
     Object.keys(grouped).forEach((status) => {
-      grouped[status as typeof TASK_STATUS_COLUMNS[number]].sort((a, b) => {
-        const dateA = new Date(a.createdAt).getTime();
-        const dateB = new Date(b.createdAt).getTime();
-        return dateB - dateA; // Descending order (newest first)
-      });
+      const statusKey = status as typeof TASK_STATUS_COLUMNS[number];
+      const columnTasks = grouped[statusKey];
+      const columnOrder = taskOrder?.[statusKey];
+
+      if (columnOrder && columnOrder.length > 0) {
+        // Custom order exists: sort by order index
+        // 1. Create a set of current task IDs for fast lookup (filters stale IDs)
+        const currentTaskIds = new Set(columnTasks.map(t => t.id));
+
+        // 2. Create valid order by filtering out stale IDs
+        const validOrder = columnOrder.filter(id => currentTaskIds.has(id));
+        const validOrderSet = new Set(validOrder);
+
+        // 3. Find new tasks not in order (prepend at top)
+        const newTasks = columnTasks.filter(t => !validOrderSet.has(t.id));
+        // Sort new tasks by createdAt (newest first)
+        newTasks.sort((a, b) => {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateB - dateA;
+        });
+
+        // 4. Sort ordered tasks by their index in validOrder
+        // Pre-compute index map for O(n) sorting instead of O(n²) with indexOf
+        const indexMap = new Map(validOrder.map((id, idx) => [id, idx]));
+        const orderedTasks = columnTasks
+          .filter(t => validOrderSet.has(t.id))
+          .sort((a, b) => (indexMap.get(a.id) ?? 0) - (indexMap.get(b.id) ?? 0));
+
+        // 5. Prepend new tasks at top, then ordered tasks
+        grouped[statusKey] = [...newTasks, ...orderedTasks];
+      } else {
+        // No custom order: fallback to createdAt sort (newest first)
+        grouped[statusKey].sort((a, b) => {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateB - dateA;
+        });
+      }
     });
 
     return grouped;
-  }, [filteredTasks]);
+  }, [filteredTasks, taskOrder]);
 
   // Prune stale IDs when tasks move out of human_review column
   useEffect(() => {
@@ -650,6 +696,73 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   };
 
+  // Get task order actions from store
+  const reorderTasksInColumn = useTaskStore((state) => state.reorderTasksInColumn);
+  const moveTaskToColumnTop = useTaskStore((state) => state.moveTaskToColumnTop);
+  const saveTaskOrderToStorage = useTaskStore((state) => state.saveTaskOrder);
+  const loadTaskOrder = useTaskStore((state) => state.loadTaskOrder);
+  const setTaskOrder = useTaskStore((state) => state.setTaskOrder);
+
+  // Get projectId from tasks (all tasks in KanbanBoard share the same project)
+  const projectId = useMemo(() => tasks[0]?.projectId ?? null, [tasks]);
+
+  const saveTaskOrder = useCallback((projectIdToSave: string) => {
+    const success = saveTaskOrderToStorage(projectIdToSave);
+    if (!success) {
+      toast({
+        title: t('kanban.orderSaveFailedTitle'),
+        description: t('kanban.orderSaveFailedDescription'),
+        variant: 'destructive'
+      });
+    }
+    return success;
+  }, [saveTaskOrderToStorage, toast, t]);
+
+  // Load task order on mount and when project changes
+  useEffect(() => {
+    if (projectId) {
+      loadTaskOrder(projectId);
+    }
+  }, [projectId, loadTaskOrder]);
+
+  // Clean up stale task IDs from order when tasks change (e.g., after deletion)
+  // This ensures the persisted order doesn't contain IDs for deleted tasks
+  useEffect(() => {
+    if (!projectId || !taskOrder) return;
+
+    // Build a set of current task IDs for fast lookup
+    const currentTaskIds = new Set(tasks.map(t => t.id));
+
+    // Check each column for stale IDs
+    let hasStaleIds = false;
+    const cleanedOrder: typeof taskOrder = {
+      backlog: [],
+      in_progress: [],
+      ai_review: [],
+      human_review: [],
+      pr_created: [],
+      done: []
+    };
+
+    for (const status of Object.keys(taskOrder) as Array<keyof typeof taskOrder>) {
+      const columnOrder = taskOrder[status] || [];
+      const cleanedColumnOrder = columnOrder.filter(id => currentTaskIds.has(id));
+
+      cleanedOrder[status] = cleanedColumnOrder;
+
+      // Check if any IDs were removed
+      if (cleanedColumnOrder.length !== columnOrder.length) {
+        hasStaleIds = true;
+      }
+    }
+
+    // If stale IDs were found, update the order and persist
+    if (hasStaleIds) {
+      setTaskOrder(cleanedOrder);
+      saveTaskOrder(projectId);
+    }
+  }, [tasks, taskOrder, projectId, setTaskOrder, saveTaskOrder]);
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
@@ -666,6 +779,14 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const task = tasks.find((t) => t.id === activeTaskId);
 
       if (task && task.status !== newStatus) {
+        // Move task to top of target column's order array
+        moveTaskToColumnTop(activeTaskId, newStatus, task.status);
+
+        // Persist task order
+        if (projectId) {
+          saveTaskOrder(projectId);
+        }
+
         // Persist status change to file and update local state
         handleStatusChange(activeTaskId, newStatus, task).catch((err) =>
           console.error('[KanbanBoard] Status change failed:', err)
@@ -674,16 +795,55 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       return;
     }
 
-    // Check if dropped on another task - move to that task's column
+    // Check if dropped on another task
     const overTask = tasks.find((t) => t.id === overId);
     if (overTask) {
       const task = tasks.find((t) => t.id === activeTaskId);
-      if (task && task.status !== overTask.status) {
-        // Persist status change to file and update local state
-        handleStatusChange(activeTaskId, overTask.status, task).catch((err) =>
-          console.error('[KanbanBoard] Status change failed:', err)
-        );
+      if (!task) return;
+
+      // Compare visual columns (pr_created maps to 'done' visually)
+      const taskVisualColumn = getVisualColumn(task.status);
+      const overTaskVisualColumn = getVisualColumn(overTask.status);
+
+      // Same visual column: reorder within column
+      if (taskVisualColumn === overTaskVisualColumn) {
+        // Ensure both tasks are in the order array before reordering
+        // This handles tasks that existed before ordering was enabled
+        const currentColumnOrder = taskOrder?.[taskVisualColumn] ?? [];
+        const activeInOrder = currentColumnOrder.includes(activeTaskId);
+        const overInOrder = currentColumnOrder.includes(overId);
+
+        if (!activeInOrder || !overInOrder) {
+          // Sync the current visual order to the stored order
+          // This ensures existing tasks can be reordered
+          const visualOrder = tasksByStatus[taskVisualColumn].map(t => t.id);
+          setTaskOrder({
+            ...taskOrder,
+            [taskVisualColumn]: visualOrder
+          } as TaskOrderState);
+        }
+
+        // Reorder tasks within the same column using the visual column key
+        reorderTasksInColumn(taskVisualColumn, activeTaskId, overId);
+
+        if (projectId) {
+          saveTaskOrder(projectId);
+        }
+        return;
       }
+
+      // Different visual column: move to that task's column (status change)
+      // Use the visual column key for ordering to ensure consistency
+      moveTaskToColumnTop(activeTaskId, overTaskVisualColumn, taskVisualColumn);
+
+      // Persist task order
+      if (projectId) {
+        saveTaskOrder(projectId);
+      }
+
+      handleStatusChange(activeTaskId, overTask.status, task).catch((err) =>
+        console.error('[KanbanBoard] Status change failed:', err)
+      );
     }
   };
 
