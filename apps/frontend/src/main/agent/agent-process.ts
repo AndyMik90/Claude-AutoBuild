@@ -156,10 +156,27 @@ export class AgentProcessManager {
       }
     }
 
+    // Detect and pass gh CLI path to Python backend
+    // Common issue: gh CLI installed via Homebrew at /opt/homebrew/bin/gh (macOS)
+    // or other non-standard locations not in subprocess PATH when app launches from Finder/Dock
+    const ghCliEnv: Record<string, string> = {};
+    if (!process.env.GITHUB_CLI_PATH) {
+      try {
+        const ghInfo = getToolInfo('gh');
+        if (ghInfo.found && ghInfo.path) {
+          ghCliEnv['GITHUB_CLI_PATH'] = ghInfo.path;
+          console.log('[AgentProcess] Setting GITHUB_CLI_PATH:', ghInfo.path, `(source: ${ghInfo.source})`);
+        }
+      } catch (error) {
+        console.warn('[AgentProcess] Failed to detect gh CLI path:', error);
+      }
+    }
+
     return {
       ...augmentedEnv,
       ...gitBashEnv,
       ...claudeCliEnv,
+      ...ghCliEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
