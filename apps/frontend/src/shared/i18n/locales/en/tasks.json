@@ -85,6 +85,8 @@
     "keepWorktree": "Keep Worktree",
     "deleteWorktree": "Delete Worktree & Mark Done",
     "refreshTasks": "Refresh Tasks",
+    "orderSaveFailedTitle": "Reorder not saved",
+    "orderSaveFailedDescription": "Your task order change was applied but couldn't be saved to storage. It will be lost on refresh.",
     "selectAll": "Select all",
     "deselectAll": "Deselect all",
     "selectedCount": "{{count}} selected",

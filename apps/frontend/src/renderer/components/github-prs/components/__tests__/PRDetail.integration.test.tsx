@@ -185,7 +185,7 @@ describe('PRDetail - Clean Review State Reset Integration', () => {
     const postCleanReviewButtonAfterChange = screen.queryByRole('button', { name: /post clean review/i });
     expect(postCleanReviewButtonAfterChange).toBeInTheDocument();
     unmount();
-  });
+  }, 15000); // Increased timeout for slower CI environments (Windows)
 
   it('should show clean review success message after posting clean review', async () => {
     const { unmount } = renderPRDetail();
