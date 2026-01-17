@@ -477,12 +477,10 @@ export function registerSettingsHandlers(
           };
         }
 
-        const platform = process.platform;
-
-        if (platform === 'darwin') {
+        if (is.mac) {
           // macOS: Use execFileSync with argument array to prevent injection
           execFileSync('open', ['-a', 'Terminal', resolvedPath], { stdio: 'ignore' });
-        } else if (platform === 'win32') {
+        } else if (is.windows) {
           // Windows: Use cmd.exe directly with argument array
           // /C tells cmd to execute the command and terminate
           // /K keeps the window open after executing cd
