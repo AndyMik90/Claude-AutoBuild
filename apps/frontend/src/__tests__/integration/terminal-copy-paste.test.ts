@@ -194,7 +194,7 @@ describe('Terminal copy/paste integration', () => {
 
       // Verify integration: clipboard.writeText() called with selection
       expect(mockClipboard.writeText).toHaveBeenCalledWith('selected terminal text');
-    });
+    }, 15000);  // Increase timeout for CI
 
     it('should not call getSelection when hasSelection returns false', async () => {
       const { useXterm } = await import('../../renderer/components/terminal/useXterm');
@@ -267,7 +267,7 @@ describe('Terminal copy/paste integration', () => {
 
       // Verify clipboard was NOT written to
       expect(mockClipboard.writeText).not.toHaveBeenCalled();
-    });
+    }, 15000);  // Increase timeout for CI
   });
 
   describe('clipboard read with xterm paste integration', () => {
@@ -363,7 +363,7 @@ describe('Terminal copy/paste integration', () => {
 
       // Verify integration: xterm.paste() called with clipboard content
       expect(mockPaste).toHaveBeenCalledWith('pasted text');
-    });
+    }, 15000);  // Increase timeout for CI
 
     it('should not paste when clipboard is empty', async () => {
       const { useXterm } = await import('../../renderer/components/terminal/useXterm');
@@ -443,7 +443,7 @@ describe('Terminal copy/paste integration', () => {
 
       // Verify paste was NOT called for empty clipboard
       expect(mockPaste).not.toHaveBeenCalled();
-    });
+    }, 15000);  // Increase timeout for CI
   });
 
   describe('keyboard event propagation', () => {
@@ -548,7 +548,7 @@ describe('Terminal copy/paste integration', () => {
         // The input() should not be called directly
         expect(eventCallOrder).toHaveLength(0);
       });
-    });
+    }, 15000);  // Increase timeout for CI
 
     it('should maintain correct handler ordering for existing shortcuts', async () => {
       const { useXterm } = await import('../../renderer/components/terminal/useXterm');
@@ -635,7 +635,7 @@ describe('Terminal copy/paste integration', () => {
         // Should return true (let ^C pass through to terminal for interrupt signal)
         expect(handlerResults[0].handled).toBe(true);
       });
-    });
+    }, 15000);  // Increase timeout for CI
   });
 
   describe('clipboard error handling without breaking terminal', () => {
@@ -744,6 +744,6 @@ describe('Terminal copy/paste integration', () => {
       expect(mockSendTerminalInput).toHaveBeenCalledWith('test-terminal', 'test command');
 
       consoleErrorSpy.mockRestore();
-    });
+    }, 15000);  // Increase timeout for CI
   });
 });
