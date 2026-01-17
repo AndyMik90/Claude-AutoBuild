@@ -22,7 +22,7 @@ import { buildMemoryEnvVars } from '../memory-env-builder';
 import { readSettingsFile } from '../settings-utils';
 import type { AppSettings } from '../../shared/types/settings';
 import { getOAuthModeClearVars } from './env-utils';
-import { getAugmentedEnv, deriveGitBashPath } from '../env-utils';
+import { getAugmentedEnv, getGitBashEnv } from '../env-utils';
 import { getToolInfo } from '../cli-tool-manager';
 
 
@@ -69,22 +69,7 @@ export class AgentProcessManager {
     const augmentedEnv = getAugmentedEnv();
 
     // On Windows, detect and pass git-bash path for Claude Code CLI
-    // Electron can detect git via where.exe, but Python subprocess may not have the same PATH
-    const gitBashEnv: Record<string, string> = {};
-    if (process.platform === 'win32' && !process.env.CLAUDE_CODE_GIT_BASH_PATH) {
-      try {
-        const gitInfo = getToolInfo('git');
-        if (gitInfo.found && gitInfo.path) {
-          const bashPath = deriveGitBashPath(gitInfo.path);
-          if (bashPath) {
-            gitBashEnv['CLAUDE_CODE_GIT_BASH_PATH'] = bashPath;
-            console.log('[AgentProcess] Setting CLAUDE_CODE_GIT_BASH_PATH:', bashPath);
-          }
-        }
-      } catch (error) {
-        console.warn('[AgentProcess] Failed to detect git-bash path:', error);
-      }
-    }
+    const gitBashEnv = getGitBashEnv();
 
     // Detect and pass Claude CLI path to Python backend
     // Common issue: Claude CLI installed via Homebrew at /opt/homebrew/bin/claude (macOS)

@@ -620,3 +620,50 @@ export function deriveGitBashPath(gitExePath: string): string | null {
     return null;
   }
 }
+
+// Lazy import to avoid circular dependency (cli-tool-manager imports env-utils)
+let _getToolInfo: ((tool: string) => { found: boolean; path: string | null; source: string }) | null = null;
+function getToolInfoLazy(tool: string): { found: boolean; path: string | null; source: string } {
+  if (!_getToolInfo) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    _getToolInfo = require('./cli-tool-manager').getToolInfo;
+  }
+  return _getToolInfo!(tool);
+}
+
+/**
+ * Get Git Bash environment variables for Windows.
+ *
+ * On Windows, Claude Code CLI requires git-bash (bash.exe) to execute shell commands.
+ * This function detects the git-bash path and returns it as an environment variable.
+ *
+ * This is a shared utility to avoid code duplication between AgentProcess and InsightsConfig.
+ *
+ * @param toolInfoFn - Optional function to get tool info (for testing/dependency injection)
+ * @returns Record containing CLAUDE_CODE_GIT_BASH_PATH if detected, empty object otherwise
+ */
+export function getGitBashEnv(
+  toolInfoFn?: (tool: string) => { found: boolean; path: string | null; source: string }
+): Record<string, string> {
+  const gitBashEnv: Record<string, string> = {};
+
+  if (!isWindows() || process.env.CLAUDE_CODE_GIT_BASH_PATH) {
+    return gitBashEnv;
+  }
+
+  try {
+    const getToolInfoImpl = toolInfoFn ?? getToolInfoLazy;
+    const gitInfo = getToolInfoImpl('git');
+    if (gitInfo.found && gitInfo.path) {
+      const bashPath = deriveGitBashPath(gitInfo.path);
+      if (bashPath) {
+        gitBashEnv['CLAUDE_CODE_GIT_BASH_PATH'] = bashPath;
+        console.log('[env-utils] Setting CLAUDE_CODE_GIT_BASH_PATH:', bashPath);
+      }
+    }
+  } catch (error) {
+    console.warn('[env-utils] Failed to detect git-bash path:', error);
+  }
+
+  return gitBashEnv;
+}

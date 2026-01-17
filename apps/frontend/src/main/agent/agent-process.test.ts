@@ -120,7 +120,7 @@ vi.mock('../cli-tool-manager', () => ({
 // Mock env-utils to avoid blocking environment augmentation
 vi.mock('../env-utils', () => ({
   getAugmentedEnv: vi.fn(() => ({ ...process.env })),
-  deriveGitBashPath: vi.fn(() => null)
+  getGitBashEnv: vi.fn(() => ({}))
 }));
 
 // Mock fs.existsSync for getAutoBuildSourcePath path validation

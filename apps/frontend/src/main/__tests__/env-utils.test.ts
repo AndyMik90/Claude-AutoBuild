@@ -12,7 +12,7 @@ vi.mock('fs', async (importOriginal) => {
 
 // Import modules after mock setup
 import * as fs from 'fs';
-import { shouldUseShell, getSpawnOptions, getSpawnCommand, deriveGitBashPath } from '../env-utils';
+import { shouldUseShell, getSpawnOptions, getSpawnCommand, deriveGitBashPath, getGitBashEnv } from '../env-utils';
 
 describe('shouldUseShell', () => {
   const originalPlatform = process.platform;
@@ -505,6 +505,103 @@ describe('deriveGitBashPath', () => {
 
       const result = deriveGitBashPath('E:\\Tools\\Git\\cmd\\git.exe');
       expect(result).toBe('E:\\Tools\\Git\\bin\\bash.exe');
+    });
+  });
+});
+
+describe('getGitBashEnv', () => {
+  const originalPlatform = process.platform;
+  const originalEnv = process.env.CLAUDE_CODE_GIT_BASH_PATH;
+
+  // Mock function for dependency injection
+  const mockGetToolInfo = vi.fn<[string], { found: boolean; path: string | null; source: string }>();
+
+  afterEach(() => {
+    // Restore original platform and env after each test
+    Object.defineProperty(process, 'platform', {
+      value: originalPlatform,
+      writable: true,
+      configurable: true,
+    });
+    if (originalEnv === undefined) {
+      delete process.env.CLAUDE_CODE_GIT_BASH_PATH;
+    } else {
+      process.env.CLAUDE_CODE_GIT_BASH_PATH = originalEnv;
+    }
+    vi.restoreAllMocks();
+    mockGetToolInfo.mockReset();
+  });
+
+  describe('Non-Windows platforms', () => {
+    it('should return empty object on macOS', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'darwin',
+        writable: true,
+        configurable: true,
+      });
+      expect(getGitBashEnv(mockGetToolInfo)).toEqual({});
+      expect(mockGetToolInfo).not.toHaveBeenCalled();
+    });
+
+    it('should return empty object on Linux', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'linux',
+        writable: true,
+        configurable: true,
+      });
+      expect(getGitBashEnv(mockGetToolInfo)).toEqual({});
+      expect(mockGetToolInfo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Windows platform', () => {
+    beforeEach(() => {
+      Object.defineProperty(process, 'platform', {
+        value: 'win32',
+        writable: true,
+        configurable: true,
+      });
+      delete process.env.CLAUDE_CODE_GIT_BASH_PATH;
+    });
+
+    it('should return empty object if env var already set', () => {
+      process.env.CLAUDE_CODE_GIT_BASH_PATH = 'C:\\existing\\bash.exe';
+      expect(getGitBashEnv(mockGetToolInfo)).toEqual({});
+      expect(mockGetToolInfo).not.toHaveBeenCalled();
+    });
+
+    it('should return empty object if git not found', () => {
+      mockGetToolInfo.mockReturnValue({ found: false, path: null, source: 'mock' });
+      expect(getGitBashEnv(mockGetToolInfo)).toEqual({});
+      expect(mockGetToolInfo).toHaveBeenCalledWith('git');
+    });
+
+    it('should return CLAUDE_CODE_GIT_BASH_PATH if git found and bash exists', () => {
+      mockGetToolInfo.mockReturnValue({
+        found: true,
+        path: 'C:\\Program Files\\Git\\cmd\\git.exe',
+        source: 'system-path'
+      });
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'C:\\Program Files\\Git\\bin\\bash.exe';
+      });
+
+      const result = getGitBashEnv(mockGetToolInfo);
+      expect(result).toEqual({
+        'CLAUDE_CODE_GIT_BASH_PATH': 'C:\\Program Files\\Git\\bin\\bash.exe'
+      });
+      expect(mockGetToolInfo).toHaveBeenCalledWith('git');
+    });
+
+    it('should return empty object if bash.exe not found', () => {
+      mockGetToolInfo.mockReturnValue({
+        found: true,
+        path: 'C:\\Program Files\\Git\\cmd\\git.exe',
+        source: 'system-path'
+      });
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+
+      expect(getGitBashEnv(mockGetToolInfo)).toEqual({});
     });
   });
 });

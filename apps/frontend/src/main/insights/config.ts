@@ -5,9 +5,8 @@ import { getAPIProfileEnv } from '../services/profile';
 import { getOAuthModeClearVars } from '../agent/env-utils';
 import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
 import { getValidatedPythonPath } from '../python-detector';
-import { getAugmentedEnv, deriveGitBashPath } from '../env-utils';
+import { getAugmentedEnv, getGitBashEnv } from '../env-utils';
 import { getEffectiveSourcePath } from '../updater/path-resolver';
-import { getToolInfo } from '../cli-tool-manager';
 
 /**
  * Configuration manager for insights service
@@ -142,23 +141,7 @@ export class InsightsConfig {
     const augmentedEnv = getAugmentedEnv();
 
     // On Windows, detect and pass git-bash path for Claude Code CLI
-    // Electron can detect git via where.exe, but Python subprocess may not have the same PATH
-    // This mirrors the logic in AgentProcess.setupProcessEnvironment()
-    const gitBashEnv: Record<string, string> = {};
-    if (process.platform === 'win32' && !process.env.CLAUDE_CODE_GIT_BASH_PATH) {
-      try {
-        const gitInfo = getToolInfo('git');
-        if (gitInfo.found && gitInfo.path) {
-          const bashPath = deriveGitBashPath(gitInfo.path);
-          if (bashPath) {
-            gitBashEnv['CLAUDE_CODE_GIT_BASH_PATH'] = bashPath;
-            console.log('[InsightsConfig] Setting CLAUDE_CODE_GIT_BASH_PATH:', bashPath);
-          }
-        }
-      } catch (error) {
-        console.warn('[InsightsConfig] Failed to detect git-bash path:', error);
-      }
-    }
+    const gitBashEnv = getGitBashEnv();
 
     return {
       ...augmentedEnv,
