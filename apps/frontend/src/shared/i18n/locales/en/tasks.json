@@ -151,6 +151,8 @@
       "baseBranchLabel": "Base Branch (optional)",
       "useProjectDefault": "Use project default",
       "useProjectDefaultWithBranch": "Use project default ({{branch}})",
+      "searchBranches": "Search branches...",
+      "noBranchesFound": "No branches found",
       "helpText": "Override the branch this task's worktree will be created from. Leave empty to use the project's configured default branch.",
       "useWorktreeLabel": "Use isolated workspace (recommended)",
       "useWorktreeDescription": "Creates changes in a separate git worktree for safe review before merging. Disable to build directly in your project (faster but riskier)."

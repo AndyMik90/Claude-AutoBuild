@@ -15,13 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch, Info } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from './ui/select';
+import { Combobox, type ComboboxOption } from './ui/combobox';
 import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
 import { type FileReferenceData } from './task-form/useImageUpload';
@@ -82,6 +76,22 @@ export function TaskCreationWizard({
     const project = projects.find((p) => p.id === projectId);
     return project?.path ?? null;
   }, [projects, projectId]);
+
+  // Convert branches to ComboboxOption[] format for searchable dropdown
+  const branchOptions: ComboboxOption[] = useMemo(() => {
+    const options: ComboboxOption[] = [
+      {
+        value: PROJECT_DEFAULT_BRANCH,
+        label: projectDefaultBranch
+          ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
+          : t('tasks:wizard.gitOptions.useProjectDefault')
+      }
+    ];
+    branches.forEach((branch) => {
+      options.push({ value: branch, label: branch });
+    });
+    return options;
+  }, [branches, projectDefaultBranch, t]);
 
   // Classification fields
   const [category, setCategory] = useState<TaskCategory | ''>('');
@@ -684,31 +694,20 @@ export function TaskCreationWizard({
               <Label htmlFor="base-branch" className="text-sm font-medium text-foreground">
                 {t('tasks:wizard.gitOptions.baseBranchLabel')}
               </Label>
-              <Select
+              <Combobox
+                id="base-branch"
                 value={baseBranch}
                 onValueChange={setBaseBranch}
+                options={branchOptions}
+                placeholder={projectDefaultBranch
+                  ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
+                  : t('tasks:wizard.gitOptions.useProjectDefault')
+                }
+                searchPlaceholder={t('tasks:wizard.gitOptions.searchBranches')}
+                emptyMessage={t('tasks:wizard.gitOptions.noBranchesFound')}
                 disabled={isCreating || isLoadingBranches}
-              >
-                <SelectTrigger id="base-branch" className="h-9">
-                  <SelectValue placeholder={projectDefaultBranch
-                    ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
-                    : t('tasks:wizard.gitOptions.useProjectDefault')
-                  } />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={PROJECT_DEFAULT_BRANCH}>
-                    {projectDefaultBranch
-                      ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
-                      : t('tasks:wizard.gitOptions.useProjectDefault')
-                    }
-                  </SelectItem>
-                  {branches.map((branch) => (
-                    <SelectItem key={branch} value={branch}>
-                      {branch}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                className="h-9"
+              />
               <p className="text-xs text-muted-foreground">
                 {t('tasks:wizard.gitOptions.helpText')}
               </p>
