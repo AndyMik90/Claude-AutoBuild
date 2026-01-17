@@ -46,10 +46,22 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
   useEffect(() => {
     if (!terminalRef.current || xtermRef.current) return;
 
+    // Calculate optimal font size based on device pixel ratio (Windows DPI scaling)
+    // devicePixelRatio > 1 indicates high-DPI displays (125%, 150%, 200% scaling)
+    // Base size: 13px for 100% scaling (devicePixelRatio = 1)
+    const baseFontSize = 13;
+    const scaleFactor = window.devicePixelRatio || 1;
+    // Adjust font size inversely to pixel ratio to maintain visual consistency
+    // For 150% scaling (1.5x), use 13 * (1 / 1.5) ≈ 8.67 logical pixels
+    // But we cap the reduction to prevent too-small fonts
+    const adjustedFontSize = scaleFactor > 1
+      ? Math.max(baseFontSize * (1 / Math.sqrt(scaleFactor)), 11)
+      : baseFontSize;
+
     const xterm = new XTerm({
       cursorBlink: true,
       cursorStyle: 'block',
-      fontSize: 13,
+      fontSize: Math.round(adjustedFontSize),
       fontFamily: 'var(--font-mono), "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
       lineHeight: 1.2,
       letterSpacing: 0,
@@ -340,6 +352,47 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       return () => resizeObserver.disconnect();
     }
   }, [onDimensionsReady]);
+
+  // Handle DPI/scale changes (Windows display scaling, moving between monitors)
+  useEffect(() => {
+    const handleDPIChange = debounce(() => {
+      if (xtermRef.current) {
+        const baseFontSize = 13;
+        const scaleFactor = window.devicePixelRatio || 1;
+        const adjustedFontSize = scaleFactor > 1
+          ? Math.max(baseFontSize * (1 / Math.sqrt(scaleFactor)), 11)
+          : baseFontSize;
+
+        // Update font size dynamically
+        xtermRef.current.options.fontSize = Math.round(adjustedFontSize);
+
+        // Trigger a fit to recalculate terminal dimensions with new font size
+        if (fitAddonRef.current && terminalRef.current) {
+          const rect = terminalRef.current.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            fitAddonRef.current.fit();
+          }
+        }
+      }
+    }, 200); // Debounce DPI changes to avoid excessive recalculations
+
+    // Listen for DPI/scale changes via matchMedia
+    // This fires when user moves window between monitors with different DPI
+    // or changes Windows display scaling settings
+    const mediaQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+
+    // Modern API: addEventListener
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleDPIChange);
+      return () => mediaQuery.removeEventListener('change', handleDPIChange);
+    }
+
+    // Fallback for older browsers: addListener (deprecated)
+    if (mediaQuery.addListener) {
+      mediaQuery.addListener(handleDPIChange);
+      return () => mediaQuery.removeListener?.(handleDPIChange);
+    }
+  }, []);
 
   const fit = useCallback(() => {
     if (fitAddonRef.current && xtermRef.current) {

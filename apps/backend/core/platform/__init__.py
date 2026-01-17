@@ -514,3 +514,22 @@ def get_platform_description() -> str:
 
     arch = platform.machine()
     return f"{os_name} ({arch})"
+
+
+def get_windows_system_path() -> str | None:
+    """
+    Get the full Windows system PATH environment variable.
+
+    This retrieves the complete PATH from the Windows environment, including
+    all user and system paths. Useful for ensuring Bash sessions have access
+    to all installed Windows tools.
+
+    Returns:
+        Full PATH string on Windows, None on other platforms
+    """
+    if not is_windows():
+        return None
+
+    # Get PATH from environment - Windows is case-insensitive for env vars
+    path = os.environ.get("PATH") or os.environ.get("Path") or os.environ.get("path")
+    return path

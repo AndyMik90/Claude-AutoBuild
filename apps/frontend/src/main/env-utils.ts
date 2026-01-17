@@ -108,9 +108,13 @@ export const COMMON_BIN_PATHS: Record<string, string[]> = {
     '/usr/sbin',              // System admin binaries
   ],
   win32: [
-    // Windows usually handles PATH better, but we can add common locations
+    // User-local binaries
+    '~/.local/bin',           // User-local binaries (Claude CLI installed here)
+    // Common development tools
     'C:\\Program Files\\Git\\cmd',
+    'C:\\Program Files\\Git\\bin',
     'C:\\Program Files\\GitHub CLI',
+    'C:\\Program Files\\ddev',  // DDEV local development
     // Node.js and npm paths - critical for packaged Electron apps that don't inherit full PATH
     'C:\\Program Files\\nodejs',                  // Standard Node.js installer (64-bit)
     'C:\\Program Files (x86)\\nodejs',            // 32-bit Node.js on 64-bit Windows
@@ -118,6 +122,9 @@ export const COMMON_BIN_PATHS: Record<string, string[]> = {
     '~\\AppData\\Roaming\\npm',                   // npm global scripts (claude.cmd lives here)
     '~\\scoop\\apps\\nodejs\\current',            // Scoop package manager
     'C:\\ProgramData\\chocolatey\\bin',           // Chocolatey package manager
+    // Common system paths
+    'C:\\Windows\\System32',
+    'C:\\Windows',
   ],
 };
 
