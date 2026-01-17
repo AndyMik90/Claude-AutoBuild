@@ -20,8 +20,8 @@ import {
   findTaskWorktree,
 } from '../../worktree-paths';
 import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
-import { killProcessGracefully } from '../../platform';
-import { escapePathForShell } from './shell-escape';
+import { escapePathForShell, escapePathForAppleScript } from './shell-escape';
+import { killProcessGracefully, isWindows, isMacOS } from '../../platform';
 
 // Regex pattern for validating git branch names
 const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
@@ -2834,6 +2834,7 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Worktree path does not exist' };
         }
 
+        // Use platform helpers for OS detection
         const platform = process.platform;
 
         // Validate and escape the path to prevent command injection
@@ -2875,10 +2876,8 @@ export function registerWorktreeHandlers(
         }
 
         // Open a terminal and run the dev command
-        // Use the user's preferred terminal
-        const { spawn } = await import('child_process');
-
-        if (platform === 'win32') {
+        // Use the user's preferred terminal (spawn is already imported at the top)
+        if (isWindows()) {
           // Windows: Open Windows Terminal or cmd with the command
           // Use escaped path in double quotes
           const proc = spawn('cmd.exe', ['/c', 'start', 'cmd.exe', '/k', `cd /d "${escapedPath}" && ${devCommand}`], {
@@ -2906,14 +2905,19 @@ export function registerWorktreeHandlers(
           }
 
           proc.unref();
-        } else if (platform === 'darwin') {
+        } else if (isMacOS()) {
           // macOS: Use osascript to open Terminal.app with the command
           // For AppleScript, we need to escape both:
           // 1. Single quotes for bash (already done by escapedPath using '\'' pattern)
           // 2. Double quotes and backslashes for AppleScript string context
-          const appleScriptEscaped = escapedPath
-            .replace(/\\/g, '\\\\')  // Escape backslashes for AppleScript
-            .replace(/"/g, '\\"');   // Escape double quotes for AppleScript
+          // Use escapePathForAppleScript to properly handle double quotes and backslashes
+          const appleScriptEscaped = escapePathForAppleScript(escapedPath);
+          if (appleScriptEscaped === null) {
+            return {
+              success: false,
+              error: 'Invalid path: contains characters unsafe for AppleScript'
+            };
+          }
           const script = `
             tell application "Terminal"
               activate
@@ -2925,21 +2929,20 @@ export function registerWorktreeHandlers(
             stdio: 'ignore'
           });
 
-          // Handle spawn errors
-          let spawnFailed = false;
-          let spawnError: Error | undefined;
-          proc.once('error', (err) => {
-            spawnFailed = true;
-            spawnError = err;
+          // Wait for either 'spawn' event (success) or 'error' event (failure)
+          const spawnResult = await new Promise<{ success: boolean; error?: Error }>((resolve) => {
+            proc.once('spawn', () => {
+              resolve({ success: true });
+            });
+            proc.once('error', (err) => {
+              resolve({ success: false, error: err });
+            });
           });
 
-          // Give a brief moment for synchronous spawn errors to propagate
-          await new Promise(resolve => setImmediate(resolve));
-
-          if (spawnFailed) {
+          if (!spawnResult.success) {
             return {
               success: false,
-              error: `Failed to launch terminal: ${spawnError?.message ?? 'Unknown error'}`
+              error: `Failed to launch terminal: ${spawnResult.error?.message ?? 'Unknown error'}`
             };
           }
 
@@ -2947,7 +2950,6 @@ export function registerWorktreeHandlers(
         } else {
           // Linux: Try common terminal emulators
           // First check which terminals are actually installed using 'which'
-          const { execSync } = await import('child_process');
           const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm'];
           let launched = false;
           let lastError: Error | null = null;
@@ -2986,19 +2988,20 @@ export function registerWorktreeHandlers(
                 });
               }
 
-              // Handle spawn errors - spawn itself doesn't throw synchronously for most errors,
-              // but emits an 'error' event. We listen briefly to catch immediate failures.
-              let spawnFailed = false;
-              proc.once('error', (err) => {
-                spawnFailed = true;
-                lastError = err;
+              // Wait for either 'spawn' event (success) or 'error' event (failure)
+              // This properly handles async spawn errors instead of using unreliable timeouts
+              const spawnResult = await new Promise<{ success: boolean; error?: Error }>((resolve) => {
+                proc.once('spawn', () => {
+                  resolve({ success: true });
+                });
+                proc.once('error', (err) => {
+                  resolve({ success: false, error: err });
+                });
               });
 
-              // Give a brief moment for synchronous spawn errors to propagate
-              await new Promise(resolve => setImmediate(resolve));
-
-              if (spawnFailed) {
-                // Spawn failed immediately, try next terminal
+              if (!spawnResult.success) {
+                // Spawn failed, try next terminal
+                lastError = spawnResult.error || new Error('Spawn failed');
                 continue;
               }
 

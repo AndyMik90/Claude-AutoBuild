@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { escapePathForShell } from './shell-escape';
+import { escapePathForShell, escapePathForAppleScript } from './shell-escape';
 
 describe('escapePathForShell', () => {
   describe('null byte injection prevention', () => {
@@ -173,6 +173,98 @@ describe('escapePathForShell', () => {
     it('should block null byte truncation attacks', () => {
       // Attacker might try: /safe/path\0/../../etc/passwd
       expect(escapePathForShell('/safe/path\0/../../etc/passwd', 'linux')).toBeNull();
+    });
+  });
+});
+
+describe('escapePathForAppleScript', () => {
+  describe('null byte injection prevention', () => {
+    it('should reject paths containing null bytes', () => {
+      expect(escapePathForAppleScript('/path/with\0null')).toBeNull();
+    });
+
+    it('should reject null byte at start of path', () => {
+      expect(escapePathForAppleScript('\0/path')).toBeNull();
+    });
+
+    it('should reject null byte at end of path', () => {
+      expect(escapePathForAppleScript('/path\0')).toBeNull();
+    });
+  });
+
+  describe('newline injection prevention', () => {
+    it('should reject paths containing LF newlines', () => {
+      expect(escapePathForAppleScript('/path/with\nnewline')).toBeNull();
+    });
+
+    it('should reject paths containing CR newlines', () => {
+      expect(escapePathForAppleScript('/path/with\rnewline')).toBeNull();
+    });
+
+    it('should reject paths containing CRLF', () => {
+      expect(escapePathForAppleScript('/path/with\r\nnewline')).toBeNull();
+    });
+  });
+
+  describe('AppleScript escaping', () => {
+    it('should escape backslashes', () => {
+      expect(escapePathForAppleScript('/path\\with\\backslashes')).toBe('/path\\\\with\\\\backslashes');
+    });
+
+    it('should escape double quotes', () => {
+      expect(escapePathForAppleScript('/path/with"quotes"')).toBe('/path/with\\"quotes\\"');
+    });
+
+    it('should escape both backslashes and double quotes', () => {
+      expect(escapePathForAppleScript('/path\\"complex"')).toBe('/path\\\\\\"complex\\"');
+    });
+
+    it('should pass through safe paths unchanged', () => {
+      expect(escapePathForAppleScript('/Users/name/project')).toBe('/Users/name/project');
+    });
+
+    it('should allow paths with spaces', () => {
+      expect(escapePathForAppleScript('/path/with spaces/file')).toBe('/path/with spaces/file');
+    });
+
+    it('should allow single quotes (safe in AppleScript double-quoted strings)', () => {
+      expect(escapePathForAppleScript("/path/with'quote")).toBe("/path/with'quote");
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle empty string', () => {
+      expect(escapePathForAppleScript('')).toBe('');
+    });
+
+    it('should handle path with only double quotes', () => {
+      expect(escapePathForAppleScript('"""')).toBe('\\"\\"\\"');
+    });
+
+    it('should handle path with only backslashes', () => {
+      expect(escapePathForAppleScript('\\\\\\')).toBe('\\\\\\\\\\\\');
+    });
+
+    it('should handle Unicode characters', () => {
+      expect(escapePathForAppleScript('/path/日本語/файл')).toBe('/path/日本語/файл');
+    });
+
+    it('should handle emoji in paths', () => {
+      expect(escapePathForAppleScript('/path/📁/file')).toBe('/path/📁/file');
+    });
+  });
+
+  describe('command injection prevention', () => {
+    it('should escape double quotes used in injection attempts', () => {
+      // Attacker might try to break out of the AppleScript string
+      const result = escapePathForAppleScript('/path" & do shell script "evil"');
+      expect(result).toBe('/path\\" & do shell script \\"evil\\"');
+    });
+
+    it('should escape backslash escape attempts', () => {
+      // Attacker might try to use backslash to escape the escaping
+      const result = escapePathForAppleScript('/path\\"');
+      expect(result).toBe('/path\\\\\\"');
     });
   });
 });

@@ -40,3 +40,29 @@ export function escapePathForShell(filePath: string, platform: NodeJS.Platform):
     return filePath.replace(/'/g, "'\\''");
   }
 }
+
+/**
+ * Escape a path for use in AppleScript double-quoted strings.
+ * AppleScript uses different escaping rules than POSIX shells.
+ *
+ * @param filePath - The path to escape (should already be validated)
+ * @returns Escaped path string safe for AppleScript double-quoted context
+ */
+export function escapePathForAppleScript(filePath: string): string | null {
+  // Reject paths with null bytes (always dangerous)
+  if (filePath.includes('\0')) {
+    return null;
+  }
+
+  // Reject paths with newlines (can break command structure)
+  if (filePath.includes('\n') || filePath.includes('\r')) {
+    return null;
+  }
+
+  // AppleScript double-quoted strings require escaping:
+  // 1. Backslashes must be escaped as \\
+  // 2. Double quotes must be escaped as \"
+  return filePath
+    .replace(/\\/g, '\\\\')  // Escape backslashes first
+    .replace(/"/g, '\\"');   // Then escape double quotes
+}
