@@ -451,31 +451,39 @@ class TestGhExecutableDetection:
 
                 # Verify subprocess was called with the correct gh path
                 mock_run.assert_called_once()
-                called_cmd = mock_run.call_args[0][0]
-                assert called_cmd == mock_gh_path
+                called_cmd_list = mock_run.call_args[0][0]
+                assert called_cmd_list[0] == mock_gh_path
+                assert called_cmd_list[1:] == ["api", "user"]
 
     def test_get_bot_username_uses_github_cli_path_env_var(
         self, temp_state_dir, monkeypatch
     ):
         """Test that _get_bot_username respects GITHUB_CLI_PATH environment variable."""
         # Set the environment variable
-        monkeypatch.setenv("GITHUB_CLI_PATH", "/custom/path/to/gh")
+        env_path = "/custom/path/to/gh"
+        monkeypatch.setenv("GITHUB_CLI_PATH", env_path)
         monkeypatch.setenv("GH_TOKEN", "fake-token")
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps({"login": "env-bot-user"}),
-            )
+        with patch("bot_detection.get_gh_executable", return_value=env_path):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(
+                    returncode=0,
+                    stdout=json.dumps({"login": "env-bot-user"}),
+                )
 
-            detector = BotDetector(
-                state_dir=temp_state_dir,
-                bot_token="fake-token",
-                review_own_prs=False,
-            )
+                detector = BotDetector(
+                    state_dir=temp_state_dir,
+                    bot_token="fake-token",
+                    review_own_prs=False,
+                )
 
-            # Verify the command was run (get_gh_executable should find the env var path)
-            assert detector.bot_username == "env-bot-user"
+                # Verify the command was run with the env var path
+                assert detector.bot_username == "env-bot-user"
+
+                # Verify subprocess was called with the env var path
+                mock_run.assert_called_once()
+                called_cmd_list = mock_run.call_args[0][0]
+                assert called_cmd_list[0] == env_path
 
     def test_get_bot_username_with_api_error(self, temp_state_dir):
         """Test _get_bot_username when gh api command fails."""
