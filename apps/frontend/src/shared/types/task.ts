@@ -180,6 +180,7 @@ export interface TaskMetadata {
   sourceType?: 'ideation' | 'manual' | 'imported' | 'insights' | 'roadmap' | 'linear' | 'github' | 'gitlab';
   ideationType?: string;  // e.g., 'code_improvements', 'security_hardening'
   ideaId?: string;  // Reference to original idea if converted
+  retriedFrom?: string;  // Original task specId if this task was created from a retry
   featureId?: string;  // Reference to roadmap feature if from roadmap
   linearIssueId?: string;  // Reference to Linear issue if from Linear
   linearIdentifier?: string;  // Linear issue identifier (e.g., 'ABC-123')

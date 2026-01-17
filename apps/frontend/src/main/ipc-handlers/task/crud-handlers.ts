@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync } from 
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
-import { findTaskAndProject } from './shared';
+import { findTaskAndProject, generateSpecId } from './shared';
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
@@ -90,12 +90,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       }
 
       // Create spec ID with zero-padded number and slugified title
-      const slugifiedTitle = finalTitle
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-        .substring(0, 50);
-      const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+      const specId = generateSpecId(specNumber, finalTitle);
 
       // Create spec directory
       const specDir = path.join(specsDir, specId);
