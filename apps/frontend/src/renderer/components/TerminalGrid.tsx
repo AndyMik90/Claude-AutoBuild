@@ -78,6 +78,11 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   // Expanded terminal state - when set, this terminal takes up the full grid space
   const [expandedTerminalId, setExpandedTerminalId] = useState<string | null>(null);
 
+  // Reset expanded terminal when project changes
+  useEffect(() => {
+    setExpandedTerminalId(null);
+  }, [projectPath]);
+
   // Fetch available session dates when project changes
   useEffect(() => {
     if (!projectPath) {

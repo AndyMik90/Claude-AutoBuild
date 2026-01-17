@@ -4,6 +4,7 @@ import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
+import { Checkbox } from './ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +51,10 @@ interface TaskCardProps {
   task: Task;
   onClick: () => void;
   onStatusChange?: (newStatus: TaskStatus) => unknown;
+  // Optional selectable mode props for multi-selection
+  isSelectable?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 // Custom comparator for React.memo - only re-render when relevant task data changes
@@ -57,9 +62,24 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
   const prevTask = prevProps.task;
   const nextTask = nextProps.task;
 
-  // Fast path: same reference
-  if (prevTask === nextTask && prevProps.onClick === nextProps.onClick && prevProps.onStatusChange === nextProps.onStatusChange) {
+  // Fast path: same reference (include selectable props)
+  if (
+    prevTask === nextTask &&
+    prevProps.onClick === nextProps.onClick &&
+    prevProps.onStatusChange === nextProps.onStatusChange &&
+    prevProps.isSelectable === nextProps.isSelectable &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.onToggleSelect === nextProps.onToggleSelect
+  ) {
     return true;
+  }
+
+  // Check selectable props first (cheap comparison)
+  if (
+    prevProps.isSelectable !== nextProps.isSelectable ||
+    prevProps.isSelected !== nextProps.isSelected
+  ) {
+    return false;
   }
 
   // Compare only the fields that affect rendering
@@ -97,7 +117,14 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
   return isEqual;
 }
 
-export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }: TaskCardProps) {
+export const TaskCard = memo(function TaskCard({
+  task,
+  onClick,
+  onStatusChange,
+  isSelectable,
+  isSelected,
+  onToggleSelect
+}: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
@@ -333,18 +360,33 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
         'card-surface task-card-enhanced cursor-pointer',
         isRunning && !isStuck && 'ring-2 ring-primary border-primary task-running-pulse',
         isStuck && 'ring-2 ring-warning border-warning task-stuck-pulse',
-        isArchived && 'opacity-60 hover:opacity-80'
+        isArchived && 'opacity-60 hover:opacity-80',
+        isSelectable && isSelected && 'ring-2 ring-ring border-ring bg-accent/10'
       )}
       onClick={onClick}
     >
       <CardContent className="p-4">
-        {/* Title - full width, no wrapper */}
-        <h3
-          className="font-semibold text-sm text-foreground line-clamp-2 leading-snug"
-          title={displayTitle}
-        >
-          {displayTitle}
-        </h3>
+        <div className={isSelectable ? 'flex gap-3' : undefined}>
+          {/* Checkbox for selectable mode - stops event propagation */}
+          {isSelectable && (
+            <div className="flex-shrink-0 pt-0.5">
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={onToggleSelect}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={t('tasks:actions.selectTask', { title: displayTitle })}
+              />
+            </div>
+          )}
+
+          <div className={isSelectable ? 'flex-1 min-w-0' : undefined}>
+            {/* Title - full width, no wrapper */}
+            <h3
+              className="font-semibold text-sm text-foreground line-clamp-2 leading-snug"
+              title={displayTitle}
+            >
+              {displayTitle}
+            </h3>
 
         {/* Description - sanitized to handle markdown content (memoized) */}
         {sanitizedDescription && (
@@ -613,6 +655,10 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
               </DropdownMenu>
             )}
           </div>
+        </div>
+        {/* Close content wrapper for selectable mode */}
+        </div>
+        {/* Close flex container for selectable mode */}
         </div>
       </CardContent>
     </Card>

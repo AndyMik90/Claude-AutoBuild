@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
+import { registerOutputCallback, unregisterOutputCallback } from '../../stores/terminal-store';
 
 // Type augmentation for navigator.userAgentData (modern User-Agent Client Hints API)
 interface NavigatorUAData {
@@ -288,6 +289,28 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       // Cleanup handled by parent component
     };
   }, [terminalId, onCommandEnter, onResize, onDimensionsReady]);
+
+  // Register xterm write callback with terminal-store for global output listener
+  // This allows the global listener to write directly to xterm when terminal is visible
+  useEffect(() => {
+    // Only register if xterm is ready
+    if (!xtermRef.current) return;
+
+    // Create a write function that writes directly to this xterm instance
+    const writeCallback = (data: string) => {
+      if (xtermRef.current && !isDisposedRef.current) {
+        xtermRef.current.write(data);
+      }
+    };
+
+    // Register the callback so global listener can write to this terminal
+    registerOutputCallback(terminalId, writeCallback);
+
+    // Cleanup: unregister callback when component unmounts
+    return () => {
+      unregisterOutputCallback(terminalId);
+    };
+  }, [terminalId]);
 
   // Handle resize on container resize with debouncing
   useEffect(() => {
