@@ -173,7 +173,7 @@ describe('Terminal copy/paste integration', () => {
         if (keyEventHandler) {
           keyEventHandler(event);
           // Wait for clipboard write
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await vi.runAllTimersAsync();
         }
       });
 
@@ -345,7 +345,7 @@ describe('Terminal copy/paste integration', () => {
         if (keyEventHandler) {
           keyEventHandler(event);
           // Wait for clipboard read and paste
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await vi.runAllTimersAsync();
         }
       });
 
@@ -425,7 +425,7 @@ describe('Terminal copy/paste integration', () => {
         if (keyEventHandler) {
           keyEventHandler(event);
           // Wait for clipboard read
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await vi.runAllTimersAsync();
         }
       });
 
@@ -517,7 +517,7 @@ describe('Terminal copy/paste integration', () => {
         if (keyEventHandler) {
           keyEventHandler(copyEvent);
           // Wait for clipboard write
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await vi.runAllTimersAsync();
         }
 
         // Copy should not send input to terminal
@@ -532,7 +532,7 @@ describe('Terminal copy/paste integration', () => {
         if (keyEventHandler) {
           keyEventHandler(pasteEvent);
           // Wait for clipboard read
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await vi.runAllTimersAsync();
         }
 
         // Paste should use xterm.paste(), not xterm.input()
@@ -717,7 +717,7 @@ describe('Terminal copy/paste integration', () => {
         if (keyEventHandler) {
           keyEventHandler(pasteEvent);
           // Wait for clipboard error
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await vi.runAllTimersAsync();
         }
       });
 
