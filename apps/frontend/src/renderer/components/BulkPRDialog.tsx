@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
+  MinusCircle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -30,9 +31,10 @@ import type { Task, WorktreeCreatePRResult } from '../../shared/types';
 interface TaskPRResult {
   taskId: string;
   taskTitle: string;
-  status: 'pending' | 'creating' | 'success' | 'error';
+  status: 'pending' | 'creating' | 'success' | 'skipped' | 'error';
   result?: WorktreeCreatePRResult;
   error?: string;
+  alreadyExists?: boolean;
 }
 
 interface BulkPRDialogProps {
@@ -125,24 +127,38 @@ export function BulkPRDialog({
               ...r,
               status: data.success ? 'success' as const : 'error' as const,
               result: data,
+              alreadyExists: data.alreadyExists,
               error: data.success ? undefined : (data.error || t('taskReview:pr.errors.unknown'))
             } : r
           ));
         } else {
+          // Check if error is related to missing worktree
+          const errorMsg = prResult?.error || '';
+          const isWorktreeError = errorMsg.toLowerCase().includes('worktree') ||
+                                   errorMsg.toLowerCase().includes('no branch') ||
+                                   errorMsg.toLowerCase().includes('not found');
           setTaskResults(prev => prev.map((r, idx) =>
             idx === i ? {
               ...r,
-              status: 'error' as const,
-              error: prResult?.error || t('taskReview:pr.errors.unknown')
+              status: isWorktreeError ? 'skipped' as const : 'error' as const,
+              error: isWorktreeError
+                ? t('taskReview:bulkPR.noWorktree')
+                : (prResult?.error || t('taskReview:pr.errors.unknown'))
             } : r
           ));
         }
       } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : '';
+        const isWorktreeError = errorMsg.toLowerCase().includes('worktree') ||
+                                 errorMsg.toLowerCase().includes('no branch') ||
+                                 errorMsg.toLowerCase().includes('not found');
         setTaskResults(prev => prev.map((r, idx) =>
           idx === i ? {
             ...r,
-            status: 'error' as const,
-            error: err instanceof Error ? err.message : t('taskReview:pr.errors.unknown')
+            status: isWorktreeError ? 'skipped' as const : 'error' as const,
+            error: isWorktreeError
+              ? t('taskReview:bulkPR.noWorktree')
+              : (err instanceof Error ? err.message : t('taskReview:pr.errors.unknown'))
           } : r
         ));
       }
@@ -165,9 +181,10 @@ export function BulkPRDialog({
   };
 
   // Calculate progress
-  const completedCount = taskResults.filter(r => r.status === 'success' || r.status === 'error').length;
+  const completedCount = taskResults.filter(r => r.status === 'success' || r.status === 'error' || r.status === 'skipped').length;
   const successCount = taskResults.filter(r => r.status === 'success').length;
   const errorCount = taskResults.filter(r => r.status === 'error').length;
+  const skippedCount = taskResults.filter(r => r.status === 'skipped').length;
   const progress = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
 
   return (
@@ -181,7 +198,10 @@ export function BulkPRDialog({
           <DialogDescription>
             {step === 'options' && t('taskReview:bulkPR.description', { count: tasks.length })}
             {step === 'creating' && t('taskReview:bulkPR.creating', { current: currentIndex + 1, total: tasks.length })}
-            {step === 'results' && t('taskReview:bulkPR.resultsDescription', { success: successCount, failed: errorCount })}
+            {step === 'results' && (skippedCount > 0
+              ? t('taskReview:bulkPR.resultsDescriptionWithSkipped', { success: successCount, skipped: skippedCount, failed: errorCount })
+              : t('taskReview:bulkPR.resultsDescription', { success: successCount, failed: errorCount })
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -289,6 +309,12 @@ export function BulkPRDialog({
                   <span className="font-medium">{successCount} {t('taskReview:bulkPR.succeeded')}</span>
                 </div>
               )}
+              {skippedCount > 0 && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <MinusCircle className="h-5 w-5" />
+                  <span className="font-medium">{skippedCount} {t('taskReview:bulkPR.skipped')}</span>
+                </div>
+              )}
               {errorCount > 0 && (
                 <div className="flex items-center gap-2 text-destructive">
                   <XCircle className="h-5 w-5" />
@@ -344,7 +370,12 @@ function TaskResultRow({ result, index, showDetails, onOpenPR }: TaskResultRowPr
       case 'creating':
         return <Loader2 className="h-4 w-4 text-primary animate-spin" />;
       case 'success':
-        return <CheckCircle2 className="h-4 w-4 text-success" />;
+        // Show warning icon for already exists case
+        return result.alreadyExists
+          ? <AlertTriangle className="h-4 w-4 text-warning" />
+          : <CheckCircle2 className="h-4 w-4 text-success" />;
+      case 'skipped':
+        return <MinusCircle className="h-4 w-4 text-muted-foreground" />;
       case 'error':
         return <XCircle className="h-4 w-4 text-destructive" />;
     }
@@ -371,11 +402,18 @@ function TaskResultRow({ result, index, showDetails, onOpenPR }: TaskResultRowPr
             onClick={() => onOpenPR?.(result.result!.prUrl!)}
             className="text-xs text-primary hover:underline flex items-center gap-1 mt-1 bg-transparent border-none cursor-pointer p-0"
           >
-            {result.result.alreadyExists
+            {result.alreadyExists
               ? t('taskReview:pr.success.alreadyExists')
               : t('taskReview:pr.success.created')}
             <ExternalLink className="h-3 w-3" />
           </button>
+        )}
+
+        {showDetails && result.status === 'skipped' && result.error && (
+          <div className="flex items-start gap-1 mt-1">
+            <MinusCircle className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+            <span className="text-xs text-muted-foreground">{result.error}</span>
+          </div>
         )}
 
         {showDetails && result.status === 'error' && result.error && (

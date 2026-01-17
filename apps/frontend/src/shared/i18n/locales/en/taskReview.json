@@ -74,6 +74,10 @@
     "createAll": "Create {{count}} PRs",
     "completed": "completed",
     "succeeded": "succeeded",
-    "failed": "failed"
+    "failed": "failed",
+    "skipped": "skipped",
+    "alreadyExisted": "already existed",
+    "noWorktree": "No worktree found for this task",
+    "resultsDescriptionWithSkipped": "{{success}} succeeded, {{skipped}} skipped, {{failed}} failed"
   }
 }

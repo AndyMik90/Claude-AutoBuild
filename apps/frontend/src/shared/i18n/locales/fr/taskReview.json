@@ -74,6 +74,10 @@
     "createAll": "Créer {{count}} PRs",
     "completed": "terminées",
     "succeeded": "réussies",
-    "failed": "échouées"
+    "failed": "échouées",
+    "skipped": "ignorées",
+    "alreadyExisted": "existait déjà",
+    "noWorktree": "Aucun worktree trouvé pour cette tâche",
+    "resultsDescriptionWithSkipped": "{{success}} réussies, {{skipped}} ignorées, {{failed}} échouées"
   }
 }
