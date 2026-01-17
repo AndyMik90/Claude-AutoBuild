@@ -3,13 +3,19 @@
  * Tests CLAUDE_PROFILE_SAVE and CLAUDE_PROFILE_INITIALIZE IPC handlers
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, rmSync, existsSync } from 'fs';
+import { mkdirSync, rmSync, existsSync, mkdtempSync } from 'fs';
+import { tmpdir } from 'os';
 import path from 'path';
 import type { ClaudeProfile, IPCResult, TerminalCreateOptions } from '../../shared/types';
 
-// Test directories
-const TEST_DIR = '/tmp/claude-profile-ipc-test';
-const TEST_CONFIG_DIR = path.join(TEST_DIR, 'claude-config');
+// Test directories - use secure temp directory with random suffix
+let TEST_DIR: string;
+let TEST_CONFIG_DIR: string;
+
+function initTestDirectories(): void {
+  TEST_DIR = mkdtempSync(path.join(tmpdir(), 'claude-profile-ipc-test-'));
+  TEST_CONFIG_DIR = path.join(TEST_DIR, 'claude-config');
+}
 
 // Mock electron
 const mockIpcMain = {
@@ -110,12 +116,13 @@ function createTestProfile(overrides: Partial<ClaudeProfile> = {}): ClaudeProfil
 
 // Setup test directories
 function setupTestDirs(): void {
-  mkdirSync(TEST_DIR, { recursive: true });
+  initTestDirectories();
+  mkdirSync(TEST_CONFIG_DIR, { recursive: true });
 }
 
 // Cleanup test directories
 function cleanupTestDirs(): void {
-  if (existsSync(TEST_DIR)) {
+  if (TEST_DIR && existsSync(TEST_DIR)) {
     rmSync(TEST_DIR, { recursive: true, force: true });
   }
 }
