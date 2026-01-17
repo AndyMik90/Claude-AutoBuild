@@ -556,3 +556,67 @@ export function getSpawnCommand(command: string): string {
   }
   return trimmed;
 }
+
+/**
+ * Derive git-bash (bash.exe) path from git executable path on Windows.
+ *
+ * Git for Windows installs bash.exe in Git/bin/ directory. This function
+ * handles various git.exe locations:
+ * - .../Git/cmd/git.exe -> .../Git/bin/bash.exe
+ * - .../Git/bin/git.exe -> .../Git/bin/bash.exe
+ * - .../Git/mingw64/bin/git.exe -> .../Git/bin/bash.exe
+ *
+ * @param gitExePath - Path to git.exe (e.g., D:\Program Files\Git\mingw64\bin\git.exe)
+ * @returns Path to bash.exe if found, null otherwise
+ */
+export function deriveGitBashPath(gitExePath: string): string | null {
+  if (!isWindows()) {
+    return null;
+  }
+
+  try {
+    const gitDir = path.dirname(gitExePath);  // e.g., D:\...\Git\mingw64\bin
+    const gitDirName = path.basename(gitDir).toLowerCase();
+
+    // Find Git installation root
+    let gitRoot: string;
+
+    if (gitDirName === 'cmd') {
+      // .../Git/cmd/git.exe -> .../Git
+      gitRoot = path.dirname(gitDir);
+    } else if (gitDirName === 'bin') {
+      // Could be .../Git/bin/git.exe OR .../Git/mingw64/bin/git.exe
+      const parent = path.dirname(gitDir);
+      const parentName = path.basename(parent).toLowerCase();
+      if (parentName === 'mingw64' || parentName === 'mingw32') {
+        // .../Git/mingw64/bin/git.exe -> .../Git
+        gitRoot = path.dirname(parent);
+      } else {
+        // .../Git/bin/git.exe -> .../Git
+        gitRoot = parent;
+      }
+    } else {
+      // Unknown structure - try to find 'bin' sibling
+      gitRoot = path.dirname(gitDir);
+    }
+
+    // Bash.exe is in Git/bin/bash.exe
+    const bashPath = path.join(gitRoot, 'bin', 'bash.exe');
+
+    if (fs.existsSync(bashPath)) {
+      return bashPath;
+    }
+
+    // Fallback: check one level up if gitRoot didn't work
+    const altBashPath = path.join(path.dirname(gitRoot), 'bin', 'bash.exe');
+    if (fs.existsSync(altBashPath)) {
+      return altBashPath;
+    }
+
+    console.warn('[deriveGitBashPath] bash.exe not found at:', bashPath, 'or', altBashPath);
+    return null;
+  } catch (error) {
+    console.warn('[deriveGitBashPath] Error deriving git-bash path:', error);
+    return null;
+  }
+}

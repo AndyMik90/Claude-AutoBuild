@@ -1,5 +1,18 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { shouldUseShell, getSpawnOptions, getSpawnCommand } from '../env-utils';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+
+// Mock fs module BEFORE importing env-utils to ensure mock is in place
+// (Vitest hoists vi.mock but explicit ordering is clearer)
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs')>();
+  return {
+    ...actual,
+    existsSync: vi.fn(actual.existsSync),
+  };
+});
+
+// Import modules after mock setup
+import * as fs from 'fs';
+import { shouldUseShell, getSpawnOptions, getSpawnCommand, deriveGitBashPath } from '../env-utils';
 
 describe('shouldUseShell', () => {
   const originalPlatform = process.platform;
@@ -373,6 +386,125 @@ describe('shouldUseShell with quoted paths', () => {
 
     it('should handle whitespace around quoted paths', () => {
       expect(shouldUseShell('  "C:\\Users\\admin\\npm\\claude.cmd"  ')).toBe(true);
+    });
+  });
+});
+
+describe('deriveGitBashPath', () => {
+  const originalPlatform = process.platform;
+
+  afterEach(() => {
+    // Restore original platform after each test
+    Object.defineProperty(process, 'platform', {
+      value: originalPlatform,
+      writable: true,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  describe('Non-Windows platforms', () => {
+    it('should return null on macOS', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'darwin',
+        writable: true,
+        configurable: true,
+      });
+      expect(deriveGitBashPath('/usr/local/bin/git')).toBeNull();
+    });
+
+    it('should return null on Linux', () => {
+      Object.defineProperty(process, 'platform', {
+        value: 'linux',
+        writable: true,
+        configurable: true,
+      });
+      expect(deriveGitBashPath('/usr/bin/git')).toBeNull();
+    });
+  });
+
+  describe('Windows platform', () => {
+    beforeEach(() => {
+      Object.defineProperty(process, 'platform', {
+        value: 'win32',
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it('should derive bash.exe from Git/cmd/git.exe', () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'C:\\Program Files\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('C:\\Program Files\\Git\\cmd\\git.exe');
+      expect(result).toBe('C:\\Program Files\\Git\\bin\\bash.exe');
+    });
+
+    it('should derive bash.exe from Git/bin/git.exe', () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'C:\\Program Files\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('C:\\Program Files\\Git\\bin\\git.exe');
+      expect(result).toBe('C:\\Program Files\\Git\\bin\\bash.exe');
+    });
+
+    it('should derive bash.exe from Git/mingw64/bin/git.exe', () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'D:\\Program Files\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('D:\\Program Files\\Git\\mingw64\\bin\\git.exe');
+      expect(result).toBe('D:\\Program Files\\Git\\bin\\bash.exe');
+    });
+
+    it('should derive bash.exe from Git/mingw32/bin/git.exe', () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'C:\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('C:\\Git\\mingw32\\bin\\git.exe');
+      expect(result).toBe('C:\\Git\\bin\\bash.exe');
+    });
+
+    it('should try alternate path if primary path not found', () => {
+      let callCount = 0;
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        callCount++;
+        // First call (primary path) returns false, second call (alternate) returns true
+        if (callCount === 1) return false;
+        return p === 'C:\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('C:\\Git\\some\\other\\git.exe');
+      // Should try alternate path
+      expect(result).toBe('C:\\Git\\bin\\bash.exe');
+    });
+
+    it('should return null if bash.exe not found in any path', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+
+      const result = deriveGitBashPath('C:\\Unknown\\Path\\git.exe');
+      expect(result).toBeNull();
+    });
+
+    it('should handle paths with spaces', () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'D:\\Program Files (x86)\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('D:\\Program Files (x86)\\Git\\cmd\\git.exe');
+      expect(result).toBe('D:\\Program Files (x86)\\Git\\bin\\bash.exe');
+    });
+
+    it('should handle custom Git installation paths', () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return p === 'E:\\Tools\\Git\\bin\\bash.exe';
+      });
+
+      const result = deriveGitBashPath('E:\\Tools\\Git\\cmd\\git.exe');
+      expect(result).toBe('E:\\Tools\\Git\\bin\\bash.exe');
     });
   });
 });
