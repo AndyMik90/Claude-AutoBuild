@@ -62,7 +62,7 @@ def detect_provider_from_remote(project_dir: Path) -> GitProvider:
         # GitHub detection patterns (default)
         return GitProvider.GITHUB
 
-    except Exception:
+    except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.CalledProcessError):
         return GitProvider.GITHUB  # Fail-safe default
 
 
