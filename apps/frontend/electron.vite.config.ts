@@ -20,31 +20,24 @@ const sentryDefines = {
 export default defineConfig({
   main: {
     define: sentryDefines,
-    plugins: [externalizeDepsPlugin({
-      // Bundle these packages into the main process (they won't be in node_modules in packaged app)
-      exclude: [
-        'uuid',
-        'chokidar',
-        'kuzu',
-        'electron-updater',
-        '@electron-toolkit/utils',
-        // Sentry and its transitive dependencies (opentelemetry -> debug -> ms)
-        '@sentry/electron',
-        '@sentry/core',
-        '@sentry/node',
-        '@sentry/utils',
-        '@opentelemetry/instrumentation',
-        'debug',
-        'ms'
-      ]
-    })],
+    plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/main/index.ts')
         },
-        // Only node-pty needs to be external (native module rebuilt by electron-builder)
-        external: ['@lydell/node-pty']
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].js'
+        },
+        // External modules that should not be bundled
+        external: [
+          '@lydell/node-pty', // Native module
+          '@sentry/electron',  // Sentry main (causes WSL2 issues when bundled)
+          '@sentry/core',
+          '@sentry/node',
+          '@electron-toolkit/utils' // Electron utilities (access app before ready)
+        ]
       }
     }
   },
@@ -54,6 +47,10 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/preload/index.ts')
+        },
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].js'
         }
       }
     }

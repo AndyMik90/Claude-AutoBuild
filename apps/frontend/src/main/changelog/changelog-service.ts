@@ -69,8 +69,6 @@ export class ChangelogService extends EventEmitter {
     // Check process.env first
     if (
       process.env.DEBUG === 'true' ||
-      process.env.DEBUG === '1' ||
-      process.env.DEBUG === 'true' ||
       process.env.DEBUG === '1'
     ) {
       this.debugEnabled = true;
@@ -121,11 +119,21 @@ export class ChangelogService extends EventEmitter {
       return this.autoBuildSourcePath;
     }
 
+    const appPathSegment: string[] = [];
+    // Add app path if app is ready (WSL2 compatibility)
+    try {
+      if (app && app.getAppPath) {
+        appPathSegment.push(path.resolve(app.getAppPath(), '..', 'backend'));
+      }
+    } catch (e) {
+      // App not ready yet, continue without app path
+    }
+
     const possiblePaths = [
       // Apps structure: from out/main -> apps/backend
       path.resolve(__dirname, '..', '..', '..', 'backend'),
-      path.resolve(app.getAppPath(), '..', 'backend'),
-      path.resolve(process.cwd(), 'apps', 'backend')
+      ...appPathSegment,
+      path.resolve(process.cwd(), 'apps', 'backend'),
     ];
 
     for (const p of possiblePaths) {
@@ -522,5 +530,15 @@ export class ChangelogService extends EventEmitter {
   }
 }
 
-// Export singleton instance
-export const changelogService = new ChangelogService();
+// Lazy-initialized singleton instance (WSL2 compatible)
+let _changelogService: ChangelogService | null = null;
+
+export const changelogService = new Proxy({} as ChangelogService, {
+  get(target, prop) {
+    if (!_changelogService) {
+      _changelogService = new ChangelogService();
+    }
+    const value = _changelogService[prop as keyof ChangelogService];
+    return typeof value === 'function' ? value.bind(_changelogService) : value;
+  }
+});

@@ -1,3 +1,91 @@
+## Unreleased - WSL2/WSLg Compatibility
+
+### ✨ New Platform Support
+
+- **Full WSL2/WSLg compatibility** - Auto Claude Electron desktop app now runs natively on Windows 11 WSL2 with WSLg (Windows Subsystem for Linux Graphics)
+
+- Added comprehensive WSL2 setup guide and troubleshooting documentation ([guides/WSL2_SETUP.md](guides/WSL2_SETUP.md))
+
+### 🛠️ Technical Improvements
+
+**Lazy Initialization Pattern:**
+- Implemented lazy initialization for all Electron app access to handle delayed initialization on WSL2
+- Replaced direct `@electron-toolkit/utils` usage with safe platform detection
+- Added Proxy-based lazy initialization for singleton services (ProjectStore, ChangelogService, TitleGenerator)
+
+**Sentry Integration:**
+- Fixed Sentry initialization timing with safe version detection and package.json fallback
+- Sentry now initializes before app.whenReady() while remaining WSL2-compatible
+- Temporarily disabled Sentry environment propagation to subprocesses for WSL2 compatibility
+
+**electron-log:**
+- Disabled preload script to avoid WSL2 path resolution issues
+- Main logging functionality preserved and working correctly
+
+**electron-updater:**
+- Implemented lazy loading pattern with module-level variable
+- Added null checks to all autoUpdater access functions
+- Changed `getCurrentVersion()` to use `app.getVersion()` instead of autoUpdater for better reliability
+
+**Settings Management:**
+- Fixed settings path resolution by using `getSettingsPath()` function calls instead of module-level constants
+
+**Build Configuration:**
+- Ensured CJS format with `.js` extensions for main and preload bundles
+- Fixed preload script path from `.mjs` to `.js` to match build output
+- Externalized Sentry packages to avoid bundling issues
+
+**Backend Path Detection:**
+- Added safe `app.getAppPath()` access with try-catch for WSL2 compatibility
+- Multiple fallback paths for backend detection
+
+### 🐛 Bug Fixes
+
+- Fixed "app.getVersion() is not a function" errors on WSL2 startup
+- Fixed "autoUpdater is not defined" errors when accessing update functions
+- Fixed "settingsPath is not defined" error in setup wizard
+- Fixed preload script "index.mjs" not found error
+- Fixed Sentry initialization timing error: "SDK should be initialized before app ready event"
+- Fixed electron-log preload script path resolution failures
+- Fixed module-level constant initialization issues on WSL2
+- Fixed singleton service initialization timing on WSL2
+
+### 📚 Documentation
+
+- Added [WSL2_SETUP.md](guides/WSL2_SETUP.md) with:
+  - Prerequisites and installation steps
+  - Step-by-step WSLg verification guide
+  - Comprehensive troubleshooting section
+  - Technical explanations of all fixes
+  - Architecture patterns for WSL2 compatibility
+  - Testing checklist for WSL2 development
+
+### 🔧 Files Changed
+
+**Main Process:**
+- `apps/frontend/src/main/index.ts` - Lazy platform detection, safe app initialization
+- `apps/frontend/src/main/sentry.ts` - Safe version detection with fallbacks
+- `apps/frontend/src/main/app-logger.ts` - Disabled preload for WSL2
+- `apps/frontend/src/main/app-updater.ts` - Lazy loading with null checks
+- `apps/frontend/src/main/project-store.ts` - Proxy-based lazy initialization
+- `apps/frontend/src/main/changelog/changelog-service.ts` - Proxy-based lazy initialization, safe path detection
+- `apps/frontend/src/main/title-generator.ts` - Proxy-based lazy initialization, safe path detection
+- `apps/frontend/src/main/env-utils.ts` - Disabled Sentry subprocess env for WSL2
+
+**IPC Handlers:**
+- `apps/frontend/src/main/ipc-handlers/settings-handlers.ts` - Function-based path resolution
+- `apps/frontend/src/main/ipc-handlers/context/utils.ts` - WSL2-safe path handling
+- `apps/frontend/src/main/ipc-handlers/project-handlers.ts` - WSL2-safe initialization
+
+**Build Configuration:**
+- `apps/frontend/electron.vite.config.ts` - CJS format, external dependencies
+- `apps/frontend/package.json` - Updated for WSL2 compatibility
+
+**Other:**
+- `.gitignore` - Added logs/security/ exclusion
+
+---
+
 ## 2.7.4 - Terminal & Workflow Enhancements
 
 ### ✨ New Features
