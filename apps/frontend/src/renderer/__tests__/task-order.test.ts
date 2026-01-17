@@ -617,9 +617,10 @@ describe('Task Order State Management', () => {
 
       useTaskStore.getState().loadTaskOrder('project-1');
 
-      // null is valid JSON but not a valid TaskOrderState - store will set it as taskOrder
-      // This is expected behavior - the store trusts valid JSON
-      expect(useTaskStore.getState().taskOrder).toBeNull();
+      // null is valid JSON but not a valid TaskOrderState - store resets to empty order
+      const order = useTaskStore.getState().taskOrder;
+      expect(order).not.toBeNull();
+      expect(order?.backlog).toEqual([]);
     });
 
     it('should handle array instead of object stored', () => {
@@ -627,9 +628,10 @@ describe('Task Order State Management', () => {
 
       useTaskStore.getState().loadTaskOrder('project-1');
 
-      // Array is valid JSON but wrong structure - store will set it
-      // Store actions should handle this gracefully
-      expect(Array.isArray(useTaskStore.getState().taskOrder)).toBe(true);
+      // Array is valid JSON but wrong structure - store resets to empty order
+      const order = useTaskStore.getState().taskOrder;
+      expect(Array.isArray(order)).toBe(false);
+      expect(order?.backlog).toEqual([]);
     });
 
     it('should round-trip save and load with exact data preservation', () => {
