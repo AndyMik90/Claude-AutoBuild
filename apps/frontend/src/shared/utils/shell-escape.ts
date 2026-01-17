@@ -75,14 +75,19 @@ export function buildCdCommand(path: string | undefined, shellType?: WindowsShel
 
   // Windows cmd.exe uses double quotes, Unix shells use single quotes
   if (isWindows()) {
-    // On Windows, use cd /d to change drives and directories simultaneously.
+    if (shellType === 'powershell') {
+      // PowerShell: Use Set-Location (cd alias) without /d flag
+      // Use single quotes to avoid variable expansion with $
+      // Escape embedded single quotes by doubling them
+      const escaped = path.replace(/'/g, "''");
+      return `cd '${escaped}'; `;
+    }
+
+    // cmd.exe: Use cd /d to change drives and directories simultaneously.
     // For values inside double quotes, use escapeForWindowsDoubleQuote() because
     // caret is literal inside double quotes in cmd.exe (only double quotes need escaping).
     const escaped = escapeForWindowsDoubleQuote(path);
-    // PowerShell 5.1 doesn't support '&&' - use ';' instead
-    // cmd.exe uses '&&' for conditional execution
-    const separator = shellType === 'powershell' ? '; ' : ' && ';
-    return `cd /d "${escaped}"${separator}`;
+    return `cd /d "${escaped}" && `;
   }
 
   return `cd ${escapeShellPath(path)} && `;
