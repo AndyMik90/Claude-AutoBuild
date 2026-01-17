@@ -20,7 +20,8 @@ import {
   findTaskWorktree,
 } from '../../worktree-paths';
 import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
-import { killProcessGracefully } from '../../platform';
+import { escapePathForShell, escapePathForAppleScript } from './shell-escape';
+import { killProcessGracefully, isWindows, isMacOS } from '../../platform';
 
 // Regex pattern for validating git branch names
 const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
@@ -2816,6 +2817,219 @@ export function registerWorktreeHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to open in terminal'
+        };
+      }
+    }
+  );
+
+  /**
+   * Launch the app dev server from a worktree directory
+   * Detects the project type and runs the appropriate dev command
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_LAUNCH_APP,
+    async (_, worktreePath: string): Promise<IPCResult<{ launched: boolean; command: string }>> => {
+      try {
+        if (!existsSync(worktreePath)) {
+          return { success: false, error: 'Worktree path does not exist' };
+        }
+
+        // Use platform helpers for OS detection
+        const platform = process.platform;
+
+        // Validate and escape the path to prevent command injection
+        const escapedPath = escapePathForShell(worktreePath, platform);
+        if (escapedPath === null) {
+          return { success: false, error: 'Invalid path: contains unsafe characters' };
+        }
+
+        // Try to detect the dev command from package.json
+        const packageJsonPath = path.join(worktreePath, 'package.json');
+        let devCommand: string | null = null;
+
+        if (existsSync(packageJsonPath)) {
+          try {
+            const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+            const scripts = packageJson.scripts || {};
+
+            // Priority order for dev commands
+            if (scripts.dev) {
+              devCommand = 'npm run dev';
+            } else if (scripts.start) {
+              devCommand = 'npm start';
+            } else if (scripts.serve) {
+              devCommand = 'npm run serve';
+            } else if (scripts.develop) {
+              devCommand = 'npm run develop';
+            }
+          } catch {
+            // Ignore JSON parse errors
+          }
+        }
+
+        // If no valid dev script was found, return an error
+        if (!devCommand) {
+          return {
+            success: false,
+            error: 'No dev script found in package.json. Expected one of: dev, start, serve, develop'
+          };
+        }
+
+        // Open a terminal and run the dev command
+        // Use the user's preferred terminal (spawn is already imported at the top)
+        if (isWindows()) {
+          // Windows: Open Windows Terminal or cmd with the command
+          // Use escaped path in double quotes
+          const proc = spawn('cmd.exe', ['/c', 'start', 'cmd.exe', '/k', `cd /d "${escapedPath}" && ${devCommand}`], {
+            detached: true,
+            stdio: 'ignore',
+            shell: true
+          });
+
+          // Handle spawn errors
+          let spawnFailed = false;
+          let spawnError: Error | undefined;
+          proc.once('error', (err) => {
+            spawnFailed = true;
+            spawnError = err;
+          });
+
+          // Give a brief moment for synchronous spawn errors to propagate
+          await new Promise(resolve => setImmediate(resolve));
+
+          if (spawnFailed) {
+            return {
+              success: false,
+              error: `Failed to launch terminal: ${spawnError?.message ?? 'Unknown error'}`
+            };
+          }
+
+          proc.unref();
+        } else if (isMacOS()) {
+          // macOS: Use osascript to open Terminal.app with the command
+          // For AppleScript, we need to escape both:
+          // 1. Single quotes for bash (already done by escapedPath using '\'' pattern)
+          // 2. Double quotes and backslashes for AppleScript string context
+          // Use escapePathForAppleScript to properly handle double quotes and backslashes
+          const appleScriptEscaped = escapePathForAppleScript(escapedPath);
+          if (appleScriptEscaped === null) {
+            return {
+              success: false,
+              error: 'Invalid path: contains characters unsafe for AppleScript'
+            };
+          }
+          const script = `
+            tell application "Terminal"
+              activate
+              do script "cd '${appleScriptEscaped}' && ${devCommand}"
+            end tell
+          `;
+          const proc = spawn('osascript', ['-e', script], {
+            detached: true,
+            stdio: 'ignore'
+          });
+
+          // Wait for either 'spawn' event (success) or 'error' event (failure)
+          const spawnResult = await new Promise<{ success: boolean; error?: Error }>((resolve) => {
+            proc.once('spawn', () => {
+              resolve({ success: true });
+            });
+            proc.once('error', (err) => {
+              resolve({ success: false, error: err });
+            });
+          });
+
+          if (!spawnResult.success) {
+            return {
+              success: false,
+              error: `Failed to launch terminal: ${spawnResult.error?.message ?? 'Unknown error'}`
+            };
+          }
+
+          proc.unref();
+        } else {
+          // Linux: Try common terminal emulators
+          // First check which terminals are actually installed using 'which'
+          const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm'];
+          let launched = false;
+          let lastError: Error | null = null;
+
+          for (const term of terminals) {
+            try {
+              // Check if the terminal is installed before spawning
+              execSync(`which ${term}`, { stdio: 'ignore' });
+
+              // Terminal exists, spawn it with escaped path
+              let proc;
+              if (term === 'gnome-terminal') {
+                proc = spawn(term, ['--', 'bash', '-c', `cd '${escapedPath}' && ${devCommand}; exec bash`], {
+                  detached: true,
+                  stdio: 'ignore'
+                });
+              } else if (term === 'konsole') {
+                // konsole's --workdir accepts the path directly (no shell interpolation)
+                proc = spawn(term, ['--workdir', worktreePath, '-e', 'bash', '-c', `${devCommand}; exec bash`], {
+                  detached: true,
+                  stdio: 'ignore'
+                });
+              } else if (term === 'xfce4-terminal') {
+                // xfce4-terminal: use --working-directory to set the directory directly
+                // This avoids shell escaping issues entirely by passing the path as an option value
+                proc = spawn(term, ['--working-directory', worktreePath, '-x', 'bash', '-c', `${devCommand}; exec bash`], {
+                  detached: true,
+                  stdio: 'ignore'
+                });
+              } else {
+                // xterm and other terminals: use same approach as gnome-terminal
+                // escapedPath has single quotes properly escaped with '\'' pattern
+                proc = spawn(term, ['-e', 'bash', '-c', `cd '${escapedPath}' && ${devCommand}; exec bash`], {
+                  detached: true,
+                  stdio: 'ignore'
+                });
+              }
+
+              // Wait for either 'spawn' event (success) or 'error' event (failure)
+              // This properly handles async spawn errors instead of using unreliable timeouts
+              const spawnResult = await new Promise<{ success: boolean; error?: Error }>((resolve) => {
+                proc.once('spawn', () => {
+                  resolve({ success: true });
+                });
+                proc.once('error', (err) => {
+                  resolve({ success: false, error: err });
+                });
+              });
+
+              if (!spawnResult.success) {
+                // Spawn failed, try next terminal
+                lastError = spawnResult.error || new Error('Spawn failed');
+                continue;
+              }
+
+              // Detach the process so it keeps running after our app exits
+              proc.unref();
+              launched = true;
+              break;
+            } catch (e) {
+              // Terminal not found (which failed) or other error, try next one
+              lastError = e instanceof Error ? e : new Error(String(e));
+              continue;
+            }
+          }
+
+          if (!launched) {
+            const errorMsg = lastError
+              ? `No supported terminal emulator found: ${lastError.message}`
+              : 'No supported terminal emulator found';
+            return { success: false, error: errorMsg };
+          }
+        }
+
+        return { success: true, data: { launched: true, command: devCommand } };
+      } catch (error) {
+        console.error('Failed to launch app:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to launch app'
         };
       }
     }

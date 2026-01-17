@@ -13,7 +13,8 @@ import {
   CheckCircle,
   GitCommit,
   Code,
-  Terminal
+  Terminal,
+  Play
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
@@ -22,6 +23,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
 import { cn } from '../../../lib/utils';
 import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal } from '../../../../shared/types';
 import { useSettingsStore } from '../../../stores/settings-store';
+import { useToast } from '../../../hooks/use-toast';
 
 interface WorkspaceStatusProps {
   worktreeStatus: WorktreeStatus;
@@ -103,6 +105,7 @@ export function WorkspaceStatus({
 }: WorkspaceStatusProps) {
   const { t } = useTranslation(['taskReview', 'common', 'tasks']);
   const { settings } = useSettingsStore();
+  const { toast } = useToast();
   const preferredIDE = settings.preferredIDE || 'vscode';
   const preferredTerminal = settings.preferredTerminal || 'system';
 
@@ -129,6 +132,33 @@ export function WorkspaceStatus({
       );
     } catch (err) {
       console.error('Failed to open in terminal:', err);
+    }
+  };
+
+  const handleLaunchApp = async () => {
+    if (!worktreeStatus.worktreePath) return;
+    try {
+      const result = await window.electronAPI.worktreeLaunchApp(worktreeStatus.worktreePath);
+      if (result.success) {
+        toast({
+          title: t('taskReview:workspace.launchSuccess'),
+          description: result.data?.command,
+        });
+      } else {
+        console.error('Failed to launch app:', result.error);
+        toast({
+          title: t('taskReview:workspace.launchFailed'),
+          description: result.error,
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to launch app:', err);
+      toast({
+        title: t('taskReview:workspace.launchFailed'),
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -209,9 +239,19 @@ export function WorkspaceStatus({
           </div>
         )}
 
-        {/* Open in IDE/Terminal buttons */}
+        {/* Open in IDE/Terminal/Launch buttons */}
         {worktreeStatus.worktreePath && (
-          <div className="flex gap-2 mt-3">
+          <div className="flex gap-2 mt-3 flex-wrap">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleLaunchApp}
+              className="h-7 px-2 text-xs"
+              title={t('taskReview:workspace.launchAppTooltip')}
+            >
+              <Play className="h-3.5 w-3.5 mr-1" />
+              {t('taskReview:workspace.launchApp')}
+            </Button>
             <Button
               variant="outline"
               size="sm"

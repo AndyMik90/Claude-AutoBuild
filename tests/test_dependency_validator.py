@@ -13,7 +13,8 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
+# Note: pytest fixtures like temp_dir are injected automatically from conftest.py
+# No need to import pytest directly - it's available via conftest.py
 
 # Add apps/backend directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
