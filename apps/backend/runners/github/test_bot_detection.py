@@ -454,14 +454,11 @@ class TestGhExecutableDetection:
                 assert called_cmd_list[0] == mock_gh_path
                 assert called_cmd_list[1:] == ["api", "user"]
 
-    def test_get_bot_username_uses_get_gh_executable_return_value(
-        self, temp_state_dir, monkeypatch
-    ):
+    def test_get_bot_username_uses_get_gh_executable_return_value(self, temp_state_dir):
         """Test that _get_bot_username uses the path returned by get_gh_executable."""
         # Note: GITHUB_CLI_PATH env var is tested by get_gh_executable's own tests
         # This test verifies _get_bot_username uses whatever get_gh_executable returns
         mock_gh_path = str(temp_state_dir / "gh")
-        monkeypatch.setenv("GITHUB_CLI_PATH", mock_gh_path)
 
         with patch("bot_detection.get_gh_executable", return_value=mock_gh_path):
             with patch("subprocess.run") as mock_run:
