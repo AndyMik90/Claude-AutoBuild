@@ -111,8 +111,8 @@ export function Worktrees({ projectId }: WorktreesProps) {
 
   const selectAll = useCallback(() => {
     const allIds = [
-      ...worktrees.map(w => `task:${w.specName}`),
-      ...terminalWorktrees.map(wt => `terminal:${wt.name}`)
+      ...worktrees.map(w => `${TASK_PREFIX}${w.specName}`),
+      ...terminalWorktrees.map(wt => `${TERMINAL_PREFIX}${wt.name}`)
     ];
     setSelectedWorktreeIds(new Set(allIds));
   }, [worktrees, terminalWorktrees]);
@@ -126,20 +126,31 @@ export function Worktrees({ projectId }: WorktreesProps) {
 
   const isAllSelected = useMemo(
     () => totalWorktrees > 0 &&
-      worktrees.every(w => selectedWorktreeIds.has(`task:${w.specName}`)) &&
-      terminalWorktrees.every(wt => selectedWorktreeIds.has(`terminal:${wt.name}`)),
+      worktrees.every(w => selectedWorktreeIds.has(`${TASK_PREFIX}${w.specName}`)) &&
+      terminalWorktrees.every(wt => selectedWorktreeIds.has(`${TERMINAL_PREFIX}${wt.name}`)),
     [worktrees, terminalWorktrees, selectedWorktreeIds, totalWorktrees]
   );
 
   const isSomeSelected = useMemo(
     () => (
-      worktrees.some(w => selectedWorktreeIds.has(`task:${w.specName}`)) ||
-      terminalWorktrees.some(wt => selectedWorktreeIds.has(`terminal:${wt.name}`))
+      worktrees.some(w => selectedWorktreeIds.has(`${TASK_PREFIX}${w.specName}`)) ||
+      terminalWorktrees.some(wt => selectedWorktreeIds.has(`${TERMINAL_PREFIX}${wt.name}`))
     ) && !isAllSelected,
     [worktrees, terminalWorktrees, selectedWorktreeIds, isAllSelected]
   );
 
-  const selectedCount = selectedWorktreeIds.size;
+  // Compute selectedCount by filtering against current worktrees to exclude stale selections
+  const selectedCount = useMemo(() => {
+    const validTaskIds = new Set(worktrees.map(w => `${TASK_PREFIX}${w.specName}`));
+    const validTerminalIds = new Set(terminalWorktrees.map(wt => `${TERMINAL_PREFIX}${wt.name}`));
+    let count = 0;
+    selectedWorktreeIds.forEach(id => {
+      if (validTaskIds.has(id) || validTerminalIds.has(id)) {
+        count++;
+      }
+    });
+    return count;
+  }, [worktrees, terminalWorktrees, selectedWorktreeIds]);
 
   // Load worktrees (both task and terminal worktrees)
   const loadWorktrees = useCallback(async () => {
@@ -540,7 +551,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                 </h3>
                 {worktrees.map((worktree) => {
                   const task = findTaskForWorktree(worktree.specName);
-                  const taskId = `task:${worktree.specName}`;
+                  const taskId = `${TASK_PREFIX}${worktree.specName}`;
                   return (
                     <Card key={worktree.specName} className="overflow-hidden">
                       <CardHeader className="pb-3">
@@ -666,7 +677,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                   Terminal Worktrees
                 </h3>
                 {terminalWorktrees.map((wt) => {
-                  const terminalId = `terminal:${wt.name}`;
+                  const terminalId = `${TERMINAL_PREFIX}${wt.name}`;
                   return (
                     <Card key={wt.name} className="overflow-hidden">
                       <CardHeader className="pb-3">
