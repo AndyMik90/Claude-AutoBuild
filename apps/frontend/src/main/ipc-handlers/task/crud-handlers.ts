@@ -1,12 +1,13 @@
 import { ipcMain } from 'electron';
-import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
-import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
+import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir, DEFAULT_APP_SETTINGS } from '../../../shared/constants';
+import type { IPCResult, Task, TaskMetadata, ModelType, PhaseModelConfig, AppSettings } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync } from 'fs';
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
 import { findTaskAndProject } from './shared';
+import { readSettingsFile } from '../../settings-utils';
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
@@ -102,9 +103,26 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       mkdirSync(specDir, { recursive: true });
 
       // Build metadata with source type
+      // FIX (#1084): Include model settings from app settings
+      const rawSettings = readSettingsFile();
+      const settings = { ...DEFAULT_APP_SETTINGS, ...rawSettings } as AppSettings;
+
+      // Determine model configuration
+      // Priority: passed metadata > project settings > app settings > defaults
+      const projectSettings = project.settings;
+      const modelFromSettings = projectSettings?.model || settings.defaultModel || 'opus';
+      const isAutoProfile = settings.customPhaseModels !== undefined || metadata?.isAutoProfile === true;
+      const phaseModels = metadata?.phaseModels || settings.customPhaseModels;
+
       const taskMetadata: TaskMetadata = {
+        // Spread metadata first, then override with computed values
+        ...metadata,
         sourceType: 'manual',
-        ...metadata
+        // Add model configuration so backend uses correct models
+        model: (metadata?.model || modelFromSettings) as ModelType,
+        isAutoProfile,
+        phaseModels: phaseModels as PhaseModelConfig | undefined,
+        thinkingLevel: metadata?.thinkingLevel || settings.thinkingLevel,
       };
 
       // Process and save attached images
