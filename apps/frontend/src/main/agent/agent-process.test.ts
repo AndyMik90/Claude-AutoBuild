@@ -46,6 +46,36 @@ vi.mock('child_process', async (importOriginal) => {
   };
 });
 
+// Mock fs module to provide realistic test data for readFileSync calls
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs')>();
+  return {
+    ...actual,
+    existsSync: vi.fn((filePath: string) => {
+      // Return true for .env files and activation scripts in test scenarios
+      if (typeof filePath === 'string' && (filePath.endsWith('.env') || filePath.includes('terminal.cmd'))) {
+        return false; // Most tests don't need .env files
+      }
+      return actual.existsSync(filePath);
+    }),
+    readFileSync: vi.fn((filePath: unknown, encoding?: unknown) => {
+      // Provide realistic mock data for different file types
+      if (typeof filePath === 'string') {
+        if (filePath.endsWith('.env')) {
+          // Return realistic .env content instead of empty string
+          return '# Test environment file\nTEST_VAR=test_value\nANOTHER_VAR=another_value\n';
+        }
+        if (filePath.includes('terminal.cmd')) {
+          // Return realistic conda terminal.cmd content
+          return '@echo off\ncall %USERPROFILE%\\miniconda3\\condabin\\conda.bat activate "myenv"\ncmd /k\n';
+        }
+      }
+      // Fall back to actual implementation for other files
+      return actual.readFileSync(filePath as string, encoding as BufferEncoding);
+    })
+  };
+});
+
 // Mock project-initializer to avoid child_process.execSync issues
 vi.mock('../project-initializer', () => ({
   getAutoBuildPath: vi.fn(() => '/fake/auto-build'),
@@ -92,7 +122,8 @@ vi.mock('../rate-limit-detector', () => ({
 
 vi.mock('../python-detector', () => ({
   findPythonCommand: vi.fn(() => 'python'),
-  parsePythonCommand: vi.fn(() => ['python', []])
+  parsePythonCommand: vi.fn(() => ['python', []]),
+  validatePythonPath: vi.fn((path: string) => ({ valid: true, sanitizedPath: path }))
 }));
 
 // Mock python-env-manager for ensurePythonEnvReady tests

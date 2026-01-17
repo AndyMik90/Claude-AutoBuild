@@ -475,3 +475,28 @@ export function getValidatedPythonPath(providedPath: string | undefined, service
   console.error(`[${serviceName}] Invalid Python path rejected: ${validation.reason}`);
   return findPythonCommand() || 'python';
 }
+
+/**
+ * Validate that an activation script path is safe to execute.
+ * Only allows paths matching known conda environment patterns.
+ */
+export function isValidActivationScript(scriptPath: string): boolean {
+  if (!scriptPath) return true; // Empty is valid (no activation)
+
+  const CONDA_ACTIVATION_PATTERNS = [
+    // Windows conda
+    /^[A-Za-z]:\\.*\\anaconda\d*\\Scripts\\activate\.bat$/i,
+    /^[A-Za-z]:\\.*\\miniconda\d*\\Scripts\\activate\.bat$/i,
+    /^[A-Za-z]:\\.*\\anaconda\d*\\envs\\[^\\]+\\Scripts\\activate\.bat$/i,
+    /^[A-Za-z]:\\.*\\miniconda\d*\\envs\\[^\\]+\\Scripts\\activate\.bat$/i,
+    /^[A-Za-z]:\\.*\\\.conda\\envs\\[^\\]+\\Scripts\\activate\.bat$/i,
+    // Unix conda
+    /^.*\/anaconda\d*\/bin\/activate$/,
+    /^.*\/miniconda\d*\/bin\/activate$/,
+    /^.*\/anaconda\d*\/envs\/[^\/]+\/bin\/activate$/,
+    /^.*\/miniconda\d*\/envs\/[^\/]+\/bin\/activate$/,
+    /^.*\/.conda\/envs\/[^\/]+\/bin\/activate$/,
+  ];
+
+  return CONDA_ACTIVATION_PATTERNS.some(pattern => pattern.test(scriptPath));
+}

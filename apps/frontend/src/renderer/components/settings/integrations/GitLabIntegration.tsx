@@ -232,10 +232,14 @@ export function GitLabIntegration({
   };
 
   const handleStartOAuth = async () => {
+    debugLog('handleStartOAuth called');
     const hostname = envConfig?.gitlabInstanceUrl?.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    debugLog('Calling startGitLabAuth');
     const result = await window.electronAPI.startGitLabAuth(hostname);
+    debugLog('startGitLabAuth result:', { success: result.success, hasError: !!result.error });
 
     if (result.success) {
+      debugLog('Auth started successfully, polling for completion...');
       // Poll for auth completion
       const checkAuth = async () => {
         const authResult = await window.electronAPI.checkGitLabAuth(hostname);
@@ -247,6 +251,8 @@ export function GitLabIntegration({
         }
       };
       setTimeout(checkAuth, 3000);
+    } else {
+      debugLog('startGitLabAuth failed:', result.error);
     }
   };
 

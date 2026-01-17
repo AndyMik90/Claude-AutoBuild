@@ -40,6 +40,7 @@ from prompts import is_first_run
 from recovery import RecoveryManager
 from security.constants import PROJECT_DIR_ENV_VAR
 from task_logger import (
+    LogEntryType,
     LogPhase,
     get_task_logger,
 )
@@ -55,6 +56,7 @@ from ui import (
     print_key_value,
     print_status,
 )
+from user_feedback import get_unread_feedback
 
 from .base import AUTO_CONTINUE_DELAY_SECONDS, HUMAN_INTERVENTION_FILE
 from .memory_manager import debug_memory_system_status, get_graphiti_context
@@ -246,6 +248,30 @@ async def run_autonomous_agent(
         next_subtask = None if first_run else get_next_subtask(spec_dir)
         subtask_id = next_subtask.get("id") if next_subtask else None
         phase_name = next_subtask.get("phase_name") if next_subtask else None
+
+        # Check for unread user feedback before starting this subtask
+        unread_feedback = get_unread_feedback(spec_dir)
+        feedback_text = None
+        if unread_feedback:
+            # Combine all unread feedback messages with their ACTUAL indices from full list
+            # unread_feedback is now a list of (actual_index, feedback_dict) tuples
+            feedback_messages = []
+            for actual_idx, fb in unread_feedback:
+                msg = fb.get("message", "")
+                timestamp = fb.get("timestamp", "")
+                # Use actual_idx so agent knows the correct index for mark_feedback_read tool
+                feedback_messages.append(f"[Index {actual_idx}] [{timestamp}]\n{msg}")
+            feedback_text = "\n\n".join(feedback_messages)
+
+            # Log feedback detection to task_logs.json (visible in UI)
+            task_logger = get_task_logger(spec_dir)
+            if task_logger:
+                task_logger.log(
+                    content=f"USER FEEDBACK DETECTED - {len(unread_feedback)} unread feedback item(s) will be incorporated into this subtask",
+                    entry_type=LogEntryType.INFO,
+                    phase=LogPhase.CODING,
+                    print_to_console=True,
+                )
 
         # Update status for this session
         status_manager.update_session(iteration)
@@ -475,6 +501,17 @@ async def run_autonomous_agent(
             # After planning phase, sync the newly created implementation plan back to source
             if sync_spec_to_source(spec_dir, source_spec_dir):
                 print_status("Implementation plan synced to main project", "success")
+
+            # Show plan statistics
+            from implementation_plan import ImplementationPlan
+
+            plan = ImplementationPlan.load(spec_dir / "implementation_plan.json")
+            total_phases = len(plan.phases)
+            total_subtasks = sum(len(p.subtasks) for p in plan.phases)
+            print_status(
+                f"Planning complete: {total_phases} phase(s), {total_subtasks} subtask(s)",
+                "success",
+            )
 
         # Handle session status
         if status == "complete":

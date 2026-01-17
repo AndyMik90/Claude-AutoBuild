@@ -10,6 +10,7 @@ import type { IPCResult } from '../../../shared/types';
 import { getAugmentedEnv, findExecutable } from '../../env-utils';
 import { openTerminalWithCommand } from '../claude-code-handlers';
 import type { GitLabAuthStartResult } from './types';
+import { isWindows, isMac } from '../../python-path-utils';
 
 const DEFAULT_GITLAB_URL = 'https://gitlab.com';
 
@@ -96,13 +97,40 @@ export function registerCheckGlabCli(): void {
         }
         debugLog('glab CLI found at:', glabPath);
 
-        const versionOutput = execFileSync('glab', ['--version'], {
-          encoding: 'utf-8',
-          stdio: 'pipe',
-          env: getAugmentedEnv()
-        });
-        const version = versionOutput.trim().split('\n')[0];
-        debugLog('glab version:', version);
+        // Get version using version command (more reliable than --version flag)
+        let version: string | undefined;
+        try {
+          const versionOutput = execFileSync(glabPath, ['version'], {
+            encoding: 'utf-8',
+            stdio: 'pipe',
+            env: getAugmentedEnv()
+          });
+          console.log('[GitLab OAuth] Raw version output (using "version"):', versionOutput);
+
+          // Extract version from output like "glab version 1.80.4" or "1.80.4"
+          const versionMatch = versionOutput.match(/(\d+\.\d+\.\d+)/);
+          if (versionMatch) {
+            version = versionMatch[1];
+          }
+        } catch (versionError) {
+          // Fallback to --version flag
+          try {
+            const versionOutput = execFileSync(glabPath, ['--version'], {
+              encoding: 'utf-8',
+              stdio: 'pipe',
+              env: getAugmentedEnv()
+            });
+            console.log('[GitLab OAuth] Raw version output (using "--version"):', versionOutput);
+
+            const versionMatch = versionOutput.match(/(\d+\.\d+\.\d+)/);
+            if (versionMatch) {
+              version = versionMatch[1];
+            }
+          } catch {
+            console.warn('[GitLab OAuth] Could not determine glab version');
+          }
+        }
+        console.log('[GitLab OAuth] Parsed version:', version);
 
         return {
           success: true,
@@ -129,13 +157,12 @@ export function registerInstallGlabCli(): void {
     async (): Promise<IPCResult<{ command: string }>> => {
       debugLog('installGitLabCli handler called');
       try {
-        const platform = process.platform;
         let command: string;
 
-        if (platform === 'darwin') {
+        if (isMac()) {
           // macOS: Use Homebrew
           command = 'brew install glab';
-        } else if (platform === 'win32') {
+        } else if (isWindows()) {
           // Windows: Use winget
           command = 'winget install --id GitLab.glab';
         } else {
@@ -245,7 +272,7 @@ export function registerStartGlabAuth(): void {
           const glabProcess = spawn('glab', args, {
             stdio: ['pipe', 'pipe', 'pipe'],
             env: getAugmentedEnv(),
-            ...(process.platform === 'win32' && { windowsHide: true })
+            ...(isWindows() && { windowsHide: true })
           });
 
           let output = '';

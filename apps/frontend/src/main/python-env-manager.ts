@@ -1,6 +1,10 @@
 import { spawn, execSync, ChildProcess } from 'child_process';
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import path from 'path';
+import { promisify } from 'util';
+import { exec } from 'child_process';
+
+const execAsync = promisify(exec);
 import { EventEmitter } from 'events';
 import { app } from 'electron';
 import { findPythonCommand, getBundledPythonPath } from './python-detector';
@@ -780,4 +784,668 @@ export function getConfiguredPythonPath(): string {
 
   // Fall back to system/bundled Python
   return findPythonCommand() || 'python';
+}
+
+/**
+ * Get requirements.txt path (bundled in packaged app, or dev mode)
+ */
+function getRequirementsTxtPath(): string | null {
+  if (app.isPackaged) {
+    const bundled = path.join(process.resourcesPath, 'backend', 'requirements.txt');
+    if (existsSync(bundled)) return bundled;
+  }
+  const dev = path.join(__dirname, '..', '..', '..', 'backend', 'requirements.txt');
+  if (existsSync(dev)) return dev;
+  return null;
+}
+
+/**
+ * Build shell command that activates conda then runs Python
+ */
+function buildPythonCommandWithActivation(
+  pythonPath: string,
+  activationScript?: string
+): string {
+  if (!activationScript || !existsSync(activationScript)) {
+    return pythonPath;
+  }
+
+  if (process.platform === 'win32') {
+    // Check if it's a PowerShell script (.ps1)
+    if (activationScript.toLowerCase().endsWith('.ps1')) {
+      // PowerShell: & "script.ps1"; python
+      return `powershell -NoProfile -Command "& '${activationScript}'; & '${pythonPath}'"`;
+    } else {
+      // Batch file: call activate.bat && python
+      return `call "${activationScript}" && "${pythonPath}"`;
+    }
+  } else {
+    return `source "${activationScript}" && "${pythonPath}"`;
+  }
+}
+
+/**
+ * Parse requirements.txt and extract package names
+ */
+function parseRequirementsTxt(requirementsPath: string): string[] {
+  const content = readFileSync(requirementsPath, 'utf-8');
+  const packages: string[] = [];
+
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    // Skip comments and empty lines
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    // Skip packages with environment markers that won't be installed
+    // For example: tomli>=2.0.0; python_version < "3.11" won't be installed on Python 3.12
+    if (trimmed.includes('python_version < "3.11"') || trimmed.includes("python_version < '3.11'")) {
+      continue; // Skip packages only for Python < 3.11
+    }
+
+    // Extract package name (before version specifier or semicolon)
+    const match = trimmed.match(/^([a-zA-Z0-9._-]+)/);
+    if (match) {
+      packages.push(match[1]);
+    }
+  }
+
+  return packages;
+}
+
+/**
+ * Get Python installation location (where packages will be installed)
+ */
+export async function getPythonInstallLocation(
+  pythonPath: string,
+  activationScript?: string
+): Promise<string> {
+  // Use Python directly without activation for location detection
+  const pythonCmd = pythonPath;
+
+  try {
+    const { stdout, stderr } = await execAsync(`"${pythonCmd}" -c "import sys; print(sys.prefix)"`, {
+      timeout: 5000
+    });
+    return (stdout || stderr).trim();
+  } catch (error) {
+    throw new Error(`Failed to get Python installation location: ${error}`);
+  }
+}
+
+/**
+ * Validate if Python packages are installed
+ * Uses pip list to check all packages from requirements.txt efficiently
+ */
+export async function validatePythonPackages(
+  pythonPath: string,
+  activationScript?: string,
+  onProgress?: (current: number, total: number, packageName: string) => void
+): Promise<{ allInstalled: boolean; missingPackages: string[]; installLocation: string }> {
+  const requirementsPath = getRequirementsTxtPath();
+  if (!requirementsPath) {
+    throw new Error('requirements.txt not found');
+  }
+
+  // For validation/installation, use the Python executable directly
+  // without activation script. If pointing to a conda env's python.exe,
+  // it already knows its packages. Activation scripts are only needed
+  // for interactive terminals.
+  const pythonCmd = pythonPath;
+
+  // Get installation location
+  let installLocation = '';
+  try {
+    installLocation = await getPythonInstallLocation(pythonPath, activationScript);
+    console.warn('[validatePythonPackages] Install location:', installLocation);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('[validatePythonPackages] Failed to get install location:', errorMsg);
+    installLocation = `Unknown location (${errorMsg})`;
+  }
+
+  // Get list of installed packages
+  onProgress?.(1, 2, 'Getting installed packages');
+  let installedPackages: Set<string>;
+  try {
+    const { stdout } = await execAsync(`"${pythonCmd}" -m pip list --format=freeze`, {
+      timeout: 30000
+    });
+    const pipList = stdout;
+
+    // Parse pip list output (format: package-name==version)
+    installedPackages = new Set(
+      pipList
+        .split('\n')
+        .map(line => line.split('==')[0].toLowerCase().trim())
+        .filter(Boolean)
+    );
+  } catch (error) {
+    throw new Error(`Failed to get installed packages: ${error}`);
+  }
+
+  // Parse requirements.txt to get required packages
+  onProgress?.(2, 2, 'Checking requirements');
+  const requiredPackages = parseRequirementsTxt(requirementsPath);
+  const missingPackages: string[] = [];
+
+  for (const pkg of requiredPackages) {
+    const normalizedPkg = pkg.toLowerCase();
+    if (!installedPackages.has(normalizedPkg)) {
+      missingPackages.push(pkg);
+    }
+  }
+
+  return {
+    allInstalled: missingPackages.length === 0,
+    missingPackages,
+    installLocation
+  };
+}
+
+/**
+ * Install Python requirements from requirements.txt
+ */
+export async function installPythonRequirements(
+  pythonPath: string,
+  activationScript?: string,
+  onProgress?: (message: string) => void
+): Promise<void> {
+  const requirementsPath = getRequirementsTxtPath();
+  if (!requirementsPath) {
+    throw new Error('requirements.txt not found');
+  }
+
+  onProgress?.('Installing Python dependencies...');
+
+  return new Promise((resolve, reject) => {
+    // Use Python directly without shell to avoid quote issues
+    const proc = spawn(pythonPath, ['-m', 'pip', 'install', '-r', requirementsPath], {
+      stdio: 'pipe'
+    });
+
+    proc.stdout?.on('data', (data) => onProgress?.(data.toString()));
+    proc.stderr?.on('data', (data) => onProgress?.(data.toString()));
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        onProgress?.('Installation complete');
+        resolve();
+      } else {
+        reject(new Error(`pip install failed with code ${code}`));
+      }
+    });
+
+    proc.on('error', reject);
+  });
+}
+
+/**
+ * Validate Python environment (version, existence)
+ */
+export async function validatePythonEnvironment(
+  activationScript: string
+): Promise<{
+  valid: boolean;
+  pythonPath: string | null;
+  version: string | null;
+  error: string | null;
+  status: 'valid' | 'missing' | 'wrong_version' | 'error';
+}> {
+  try {
+    // Extract environment path from activation script
+    const envPath = getEnvironmentPathFromScript(activationScript);
+    if (!envPath) {
+      return {
+        valid: false,
+        pythonPath: null,
+        version: null,
+        error: 'Could not extract environment path from activation script',
+        status: 'error'
+      };
+    }
+
+    // Determine Python executable name based on platform
+    const pythonExeName = process.platform === 'win32' ? 'python.exe' : 'python';
+    const pythonPath = path.join(envPath, process.platform === 'win32' ? '' : 'bin', pythonExeName);
+
+    // Check if Python executable exists
+    if (!existsSync(pythonPath)) {
+      return {
+        valid: false,
+        pythonPath,
+        version: null,
+        error: `Python executable not found: ${pythonPath}`,
+        status: 'missing'
+      };
+    }
+
+    // Get Python version (async to avoid blocking)
+    try {
+      const { stdout, stderr } = await execAsync(`"${pythonPath}" --version`, {
+        timeout: 5000
+      });
+      const versionOutput = (stdout || stderr).trim();
+
+      // Parse version "Python 3.12.1" -> (3, 12)
+      const versionMatch = versionOutput.match(/Python (\d+)\.(\d+)/);
+      if (!versionMatch) {
+        return {
+          valid: false,
+          pythonPath,
+          version: versionOutput,
+          error: 'Could not parse Python version',
+          status: 'error'
+        };
+      }
+
+      const major = parseInt(versionMatch[1]);
+      const minor = parseInt(versionMatch[2]);
+
+      // Check version requirement (3.12+)
+      if (major < 3 || (major === 3 && minor < 12)) {
+        return {
+          valid: false,
+          pythonPath,
+          version: versionOutput,
+          error: `Python version ${versionOutput} is below required 3.12`,
+          status: 'wrong_version'
+        };
+      }
+
+      // All checks passed
+      return {
+        valid: true,
+        pythonPath,
+        version: versionOutput,
+        error: null,
+        status: 'valid'
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        pythonPath,
+        version: null,
+        error: `Failed to get Python version: ${error instanceof Error ? error.message : String(error)}`,
+        status: 'error'
+      };
+    }
+  } catch (error) {
+    return {
+      valid: false,
+      pythonPath: null,
+      version: null,
+      error: `Validation failed: ${error instanceof Error ? error.message : String(error)}`,
+      status: 'error'
+    };
+  }
+}
+
+/**
+ * Reinstall Python environment by nuking and recreating with conda
+ */
+export async function reinstallPythonEnvironment(
+  environmentPath: string,
+  pythonVersion: string = '3.12',
+  onProgress?: (step: string, completed: number, total: number) => void
+): Promise<{
+  success: boolean;
+  environmentPath: string | null;
+  pythonVersion: string | null;
+  error: string | null;
+  stepsCompleted: string[];
+}> {
+  const stepsCompleted: string[] = [];
+
+  try {
+    // Step 1: Remove existing environment
+    onProgress?.('Removing existing environment', 0, 3);
+    if (existsSync(environmentPath)) {
+      try {
+        const fs = await import('fs/promises');
+        await fs.rm(environmentPath, { recursive: true, force: true });
+        stepsCompleted.push(`Removed existing environment: ${environmentPath}`);
+      } catch (error) {
+        return {
+          success: false,
+          environmentPath,
+          pythonVersion: null,
+          error: `Failed to remove existing environment: ${error instanceof Error ? error.message : String(error)}`,
+          stepsCompleted
+        };
+      }
+    }
+
+    // Step 2: Find conda executable (cross-platform)
+    onProgress?.('Finding conda executable', 1, 3);
+
+    let condaPaths: string[];
+    if (process.platform === 'win32') {
+      // Windows: look for conda.bat in common locations
+      condaPaths = [
+        path.join(process.env.USERPROFILE || '', 'miniconda3', 'condabin', 'conda.bat'),
+        path.join(process.env.USERPROFILE || '', 'anaconda3', 'condabin', 'conda.bat'),
+        path.join(process.env.LOCALAPPDATA || '', 'miniconda3', 'condabin', 'conda.bat'),
+        path.join(process.env.LOCALAPPDATA || '', 'anaconda3', 'condabin', 'conda.bat'),
+        process.env.CONDA_EXE || ''
+      ];
+    } else {
+      // Linux/macOS: look for conda in common locations
+      const homeDir = process.env.HOME || '';
+      condaPaths = [
+        path.join(homeDir, 'miniconda3', 'bin', 'conda'),
+        path.join(homeDir, 'anaconda3', 'bin', 'conda'),
+        path.join('/opt', 'miniconda3', 'bin', 'conda'),
+        path.join('/opt', 'anaconda3', 'bin', 'conda'),
+        path.join('/usr', 'local', 'miniconda3', 'bin', 'conda'),
+        path.join('/usr', 'local', 'anaconda3', 'bin', 'conda'),
+        process.env.CONDA_EXE || ''
+      ];
+    }
+
+    let condaExe: string | null = null;
+    for (const condaPath of condaPaths) {
+      if (condaPath && existsSync(condaPath)) {
+        condaExe = condaPath;
+        break;
+      }
+    }
+
+    // If not found in specific paths, try PATH
+    if (!condaExe) {
+      try {
+        const { stdout } = await execAsync(process.platform === 'win32' ? 'where conda' : 'which conda', {
+          timeout: 5000
+        });
+        const foundPath = stdout.trim().split('\n')[0];
+        if (foundPath && existsSync(foundPath)) {
+          condaExe = foundPath;
+        }
+      } catch (error) {
+        // conda not in PATH
+      }
+    }
+
+    if (!condaExe) {
+      return {
+        success: false,
+        environmentPath,
+        pythonVersion: null,
+        error: 'Could not find conda executable. Please ensure conda is installed and in PATH.',
+        stepsCompleted
+      };
+    }
+
+    stepsCompleted.push(`Found conda: ${condaExe}`);
+
+    // Step 3: Create new conda environment (async via spawn)
+    onProgress?.('Creating new conda environment', 2, 3);
+    return new Promise((resolve) => {
+      const proc = spawn(condaExe!, [
+        'create',
+        '-p',
+        environmentPath,
+        `python=${pythonVersion}`,
+        '-y'
+      ], {
+        stdio: 'pipe',
+        shell: true  // Required for .bat/.cmd files on Windows
+      });
+
+      let stderr = '';
+      proc.stderr?.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      proc.on('close', async (code) => {
+        if (code !== 0) {
+          resolve({
+            success: false,
+            environmentPath,
+            pythonVersion: null,
+            error: `Conda create failed with code ${code}: ${stderr}`,
+            stepsCompleted
+          });
+          return;
+        }
+
+        stepsCompleted.push(`Created conda environment with Python ${pythonVersion}`);
+
+        // Step 4: Verify Python installation (cross-platform)
+        const pythonExeName = process.platform === 'win32' ? 'python.exe' : 'python';
+        const pythonExe = path.join(environmentPath, process.platform === 'win32' ? '' : 'bin', pythonExeName);
+        if (!existsSync(pythonExe)) {
+          resolve({
+            success: false,
+            environmentPath,
+            pythonVersion: null,
+            error: `Python executable not found after installation: ${pythonExe}`,
+            stepsCompleted
+          });
+          return;
+        }
+
+        // Get installed Python version
+        try {
+          const { stdout, stderr } = await execAsync(`"${pythonExe}" --version`, {
+            timeout: 5000
+          });
+          const installedVersion = (stdout || stderr).trim();
+          stepsCompleted.push(`Verified Python installation: ${installedVersion}`);
+
+          resolve({
+            success: true,
+            environmentPath,
+            pythonVersion: installedVersion,
+            error: null,
+            stepsCompleted
+          });
+        } catch (error) {
+          resolve({
+            success: false,
+            environmentPath,
+            pythonVersion: null,
+            error: `Failed to verify Python installation: ${error instanceof Error ? error.message : String(error)}`,
+            stepsCompleted
+          });
+        }
+      });
+
+      proc.on('error', (error) => {
+        resolve({
+          success: false,
+          environmentPath,
+          pythonVersion: null,
+          error: `Failed to start conda: ${error.message}`,
+          stepsCompleted
+        });
+      });
+    });
+  } catch (error) {
+    return {
+      success: false,
+      environmentPath,
+      pythonVersion: null,
+      error: `Unexpected error: ${error instanceof Error ? error.message : String(error)}`,
+      stepsCompleted
+    };
+  }
+}
+
+/**
+ * Expand environment variables in a path (cross-platform)
+ * Handles both Windows (%VAR%) and Unix ($VAR or ${VAR}) syntax
+ */
+function expandEnvironmentVariables(pathStr: string): string {
+  // Windows: Replace %VARIABLE% with the actual environment variable value
+  let expanded = pathStr.replace(/%([^%]+)%/g, (_, varName) => {
+    return process.env[varName] || `%${varName}%`;
+  });
+
+  // Unix: Replace $VARIABLE or ${VARIABLE} with the actual environment variable value
+  expanded = expanded.replace(/\$\{([^}]+)\}/g, (_, varName) => {
+    return process.env[varName] || `\${${varName}}`;
+  });
+
+  expanded = expanded.replace(/\$([A-Z_][A-Z0-9_]*)/g, (_, varName) => {
+    return process.env[varName] || `$${varName}`;
+  });
+
+  return expanded;
+}
+
+/**
+ * Extract environment path from activation script (cross-platform)
+ * Supports both Windows (.bat/.cmd) and Unix (.sh) activation scripts
+ */
+export function getEnvironmentPathFromScript(activationScript: string): string | null {
+  try {
+    if (!existsSync(activationScript)) {
+      return null;
+    }
+
+    const scriptContent = readFileSync(activationScript, 'utf-8');
+
+    // Detect script type
+    const isWindowsScript = activationScript.endsWith('.bat') || activationScript.endsWith('.cmd') || activationScript.endsWith('.ps1');
+    const isPowerShellScript = activationScript.endsWith('.ps1');
+
+    for (const line of scriptContent.split('\n')) {
+      const trimmedLine = line.trim();
+
+      // Skip empty lines and comments
+      if (!trimmedLine) {
+        continue;
+      }
+
+      // Skip Windows batch comments (:: or REM)
+      if (isWindowsScript && !isPowerShellScript && (trimmedLine.startsWith('::') || trimmedLine.startsWith('REM'))) {
+        continue;
+      }
+
+      // Skip Unix and PowerShell comments (#)
+      if ((!isWindowsScript || isPowerShellScript) && trimmedLine.startsWith('#')) {
+        continue;
+      }
+
+      // Pattern 1: conda activate <path> (works on all platforms)
+      if (trimmedLine.includes('conda activate')) {
+        const match = trimmedLine.match(/conda\s+activate\s+(.+)/i);
+        if (match) {
+          let envPath = match[1].trim().replace(/['"]/g, '').replace(/\s+$/, '');
+          if (envPath) {
+            envPath = expandEnvironmentVariables(envPath);
+            return envPath;
+          }
+        }
+      }
+
+      // Pattern 2 (Windows): call "path\to\activate.bat" <env_path>
+      if (isWindowsScript && trimmedLine.includes('activate.bat')) {
+        const match = trimmedLine.match(/activate\.bat["']?\s+(.+)/i);
+        if (match) {
+          let envPath = match[1].trim().replace(/['"]/g, '').replace(/\s+$/, '');
+          if (envPath) {
+            envPath = expandEnvironmentVariables(envPath);
+            return envPath;
+          }
+        }
+      }
+
+      // Pattern 3 (Unix): source activate <path> or . activate <path>
+      if (!isWindowsScript && (trimmedLine.includes('source activate') || /^\.\s+activate/.test(trimmedLine))) {
+        const match = trimmedLine.match(/(?:source|\.)\s+activate\s+(.+)/i);
+        if (match) {
+          let envPath = match[1].trim().replace(/['"]/g, '').replace(/\s+$/, '');
+          if (envPath) {
+            envPath = expandEnvironmentVariables(envPath);
+            return envPath;
+          }
+        }
+      }
+
+      // Pattern 4 (Windows): SET CONDA_PREFIX=<path>
+      if (isWindowsScript && (trimmedLine.startsWith('SET CONDA_PREFIX=') || trimmedLine.startsWith('set CONDA_PREFIX='))) {
+        const match = trimmedLine.match(/SET\s+CONDA_PREFIX=(.+)/i);
+        if (match) {
+          let envPath = match[1].trim().replace(/['"]/g, '').replace(/\s+$/, '');
+          if (envPath) {
+            envPath = expandEnvironmentVariables(envPath);
+            return envPath;
+          }
+        }
+      }
+
+      // Pattern 5 (Unix): export CONDA_PREFIX=<path> or CONDA_PREFIX=<path>
+      if (!isWindowsScript && trimmedLine.includes('CONDA_PREFIX=')) {
+        const match = trimmedLine.match(/(?:export\s+)?CONDA_PREFIX=(.+)/);
+        if (match) {
+          let envPath = match[1].trim().replace(/['"]/g, '').replace(/\s+$/, '');
+          if (envPath) {
+            envPath = expandEnvironmentVariables(envPath);
+            return envPath;
+          }
+        }
+      }
+
+      // Pattern 6 (PowerShell): $env:CONDA_PREFIX = "<path>"
+      if (isPowerShellScript && trimmedLine.includes('$env:CONDA_PREFIX')) {
+        const match = trimmedLine.match(/\$env:CONDA_PREFIX\s*=\s*(.+)/i);
+        if (match) {
+          let envPath = match[1].trim().replace(/['"]/g, '').replace(/\s+$/, '');
+          if (envPath) {
+            envPath = expandEnvironmentVariables(envPath);
+            return envPath;
+          }
+        }
+      }
+
+      // Pattern 7 (PowerShell): & conda.exe activate "<path>" or & "<path>\conda.exe" activate "<env>"
+      if (isPowerShellScript && trimmedLine.includes('conda') && trimmedLine.includes('activate')) {
+        // Match: & "path\conda.exe" activate "envpath"
+        const match = trimmedLine.match(/&\s*["']?[^"']*conda(?:\.exe)?["']?\s+activate\s+["']?([^"']+)["']?/i);
+        if (match) {
+          let envPath = match[1].trim().replace(/['"]/g, '').replace(/\s+$/, '');
+          if (envPath) {
+            envPath = expandEnvironmentVariables(envPath);
+            return envPath;
+          }
+        }
+      }
+
+      // Pattern 8: Extract path from script location (if script is in envs\<name>\Scripts\)
+      // This handles cases where the script itself indicates the environment location
+      if (isPowerShellScript || isWindowsScript) {
+        // Check if we can derive env path from the activation script path itself
+        // e.g., C:\Users\Jason\miniconda3\envs\auto-claude\Scripts\auto-claude-init.ps1
+        //       -> C:\Users\Jason\miniconda3\envs\auto-claude
+        const scriptDir = path.dirname(activationScript);
+        if (scriptDir.toLowerCase().endsWith('scripts')) {
+          const potentialEnvPath = path.dirname(scriptDir);
+          // Verify it looks like a conda env (has conda-meta folder or python.exe)
+          const condaMetaPath = path.join(potentialEnvPath, 'conda-meta');
+          const pythonPath = path.join(potentialEnvPath, 'python.exe');
+          if (existsSync(condaMetaPath) || existsSync(pythonPath)) {
+            return potentialEnvPath;
+          }
+        }
+      }
+    }
+
+    // Fallback: Try to derive from script path for Windows conda environments
+    if (isWindowsScript) {
+      const scriptDir = path.dirname(activationScript);
+      if (scriptDir.toLowerCase().endsWith('scripts')) {
+        const potentialEnvPath = path.dirname(scriptDir);
+        const condaMetaPath = path.join(potentialEnvPath, 'conda-meta');
+        const pythonPath = path.join(potentialEnvPath, 'python.exe');
+        if (existsSync(condaMetaPath) || existsSync(pythonPath)) {
+          return potentialEnvPath;
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
 }

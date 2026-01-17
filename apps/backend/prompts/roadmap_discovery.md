@@ -129,6 +129,12 @@ Make reasonable inferences. If the README doesn't specify, infer from:
 - A library → likely for other developers
 - An API → likely for integration/automation use cases
 
+**After completing this phase, signal progress:**
+
+```bash
+echo "[ROADMAP_PROGRESS] 52 Discovered target audience and pain points"
+```
+
 ---
 
 ## PHASE 3: ASSESS CURRENT STATE (AUTONOMOUS)

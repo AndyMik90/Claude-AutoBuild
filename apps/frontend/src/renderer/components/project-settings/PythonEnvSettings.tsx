@@ -162,8 +162,10 @@ export function PythonEnvSettings({
     const actualWorkspacePath = projectPaths?.workspacePath || `${project.path}/${workspaceFile}`;
     // Convert backslashes to forward slashes for URI
     const normalizedPath = actualWorkspacePath.replace(/\\/g, '/');
+    // Encode path to handle spaces and special characters in the deep link
+    const encodedPath = encodeURIComponent(normalizedPath);
     try {
-      await window.electronAPI.openExternal(`vscode://file/${normalizedPath}`);
+      await window.electronAPI.openExternal(`vscode://file/${encodedPath}`);
     } catch (error) {
       console.error('Failed to open VS Code:', error);
     }

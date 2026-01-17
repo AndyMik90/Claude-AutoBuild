@@ -171,8 +171,8 @@ export async function ensureGitignore(projectPath: string): Promise<void> {
   try {
     let content = '';
 
-    // Read existing .gitignore if it exists
-    if (existsSync(gitignorePath)) {
+    // Try to read existing .gitignore directly (avoid check-then-act race condition)
+    try {
       content = await fsPromises.readFile(gitignorePath, 'utf-8');
 
       // Check if .envs/ is already in .gitignore
@@ -192,6 +192,17 @@ export async function ensureGitignore(projectPath: string): Promise<void> {
       // Ensure there's a newline at the end before appending
       if (content.length > 0 && !content.endsWith('\n')) {
         content += '\n';
+      }
+    } catch (readError: unknown) {
+      // File doesn't exist, start with empty content
+      if (
+        readError instanceof Error &&
+        'code' in readError &&
+        readError.code === 'ENOENT'
+      ) {
+        content = '';
+      } else {
+        throw readError;
       }
     }
 

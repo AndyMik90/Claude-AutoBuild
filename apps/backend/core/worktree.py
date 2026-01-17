@@ -32,6 +32,71 @@ from debug import debug_warning
 
 T = TypeVar("T")
 
+# Cached CLI executable paths
+_cached_glab_path: str | None = None
+
+
+def get_glab_executable() -> str:
+    """Find the glab CLI executable, with platform-specific fallbacks.
+
+    Returns the path to glab executable. On Windows, checks multiple sources:
+    1. shutil.which (if glab is in PATH)
+    2. Common installation locations (scoop, chocolatey)
+
+    Caches the result after first successful find.
+    """
+    global _cached_glab_path
+
+    # Return cached result if available
+    if _cached_glab_path is not None:
+        return _cached_glab_path
+
+    # 1. Try shutil.which (works if glab is in PATH)
+    glab_path = shutil.which("glab")
+    if glab_path:
+        _cached_glab_path = glab_path
+        return glab_path
+
+    # 2. Windows-specific: check common installation locations
+    if os.name == "nt":
+        common_paths = [
+            # Scoop installation
+            os.path.expandvars(r"%USERPROFILE%\scoop\shims\glab.exe"),
+            # Chocolatey installation
+            os.path.expandvars(r"%PROGRAMDATA%\chocolatey\bin\glab.exe"),
+            # Manual installation in Program Files
+            os.path.expandvars(r"%PROGRAMFILES%\glab\glab.exe"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\glab\glab.exe"),
+        ]
+        for path in common_paths:
+            try:
+                if os.path.isfile(path):
+                    _cached_glab_path = path
+                    return path
+            except OSError:
+                continue
+
+        # 3. Try 'where' command with shell=True (more reliable on Windows)
+        try:
+            result = subprocess.run(
+                "where glab",
+                capture_output=True,
+                text=True,
+                timeout=5,
+                shell=True,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                found_path = result.stdout.strip().split("\n")[0].strip()
+                if found_path and os.path.isfile(found_path):
+                    _cached_glab_path = found_path
+                    return found_path
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+
+    # Default fallback - let subprocess handle it (may fail)
+    _cached_glab_path = "glab"
+    return "glab"
+
 
 def _is_retryable_network_error(stderr: str) -> bool:
     """Check if an error is a retryable network/connection issue."""
@@ -1078,6 +1143,159 @@ class WorktreeManager:
                 success=False,
                 error="gh CLI not found. Install from https://cli.github.com/",
             )
+
+    def _create_gitlab_mr(
+        self,
+        info: "WorktreeInfo",
+        target: str,
+        title: str,
+        body: str,
+        draft: bool,
+    ) -> PullRequestResult:
+        """Create GitLab MR using glab CLI."""
+        spec_name = info.spec_name
+
+        # Build glab mr create command
+        glab_args = [
+            get_glab_executable(),
+            "mr",
+            "create",
+            "--target-branch",
+            target,
+            "--source-branch",
+            info.branch,
+            "--title",
+            title,
+            "--description",
+            body,
+        ]
+        if draft:
+            glab_args.append("--draft")
+
+        def is_mr_retryable(stderr: str) -> bool:
+            """Check if MR creation error is retryable."""
+            return _is_retryable_network_error(stderr) or _is_retryable_http_error(
+                stderr
+            )
+
+        def do_create_mr() -> tuple[bool, PullRequestResult | None, str]:
+            """Execute MR creation for retry wrapper."""
+            try:
+                result = subprocess.run(
+                    glab_args,
+                    cwd=info.path,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=30,  # Same timeout as GitHub
+                )
+
+                # Check for "already exists" case
+                if result.returncode != 0 and "already exists" in result.stderr.lower():
+                    existing_url = self._get_existing_gitlab_mr_url(spec_name, target)
+                    return (
+                        True,
+                        PullRequestResult(
+                            success=True,
+                            pr_url=existing_url,
+                            already_exists=True,
+                        ),
+                        "",
+                    )
+
+                if result.returncode == 0:
+                    # Extract MR URL from output
+                    # GitLab uses /merge_requests/<iid> or /-/merge_requests/<iid>
+                    mr_url: str | None = result.stdout.strip()
+                    if not mr_url.startswith("http"):
+                        match = re.search(
+                            r"https://[^\s]+/-?/merge_requests/\d+", result.stdout
+                        )
+                        if match:
+                            mr_url = match.group(0)
+                        else:
+                            mr_url = None
+
+                    return (
+                        True,
+                        PullRequestResult(
+                            success=True,
+                            pr_url=mr_url,
+                            already_exists=False,
+                        ),
+                        "",
+                    )
+
+                return (False, None, result.stderr)
+
+            except FileNotFoundError:
+                raise  # glab CLI not installed
+
+        max_retries = 3
+        try:
+            result, last_error = _with_retry(
+                operation=do_create_mr,
+                max_retries=max_retries,
+                is_retryable=is_mr_retryable,
+            )
+
+            if result:
+                return result
+
+            if last_error == "Operation timed out":
+                return PullRequestResult(
+                    success=False,
+                    error=f"MR creation timed out after {max_retries} attempts.",
+                )
+
+            return PullRequestResult(
+                success=False,
+                error=f"Failed to create MR: {last_error}",
+            )
+
+        except FileNotFoundError:
+            return PullRequestResult(
+                success=False,
+                error="glab CLI not found. Install from https://gitlab.com/gitlab-org/cli",
+            )
+
+    def _get_existing_gitlab_mr_url(
+        self, spec_name: str, target_branch: str
+    ) -> str | None:
+        """Get URL of existing GitLab MR."""
+        try:
+            info = self.get_worktree_info(spec_name)
+            if not info:
+                return None
+
+            result = subprocess.run(
+                [
+                    get_glab_executable(),
+                    "mr",
+                    "list",
+                    "--source-branch",
+                    info.branch,
+                    "--target-branch",
+                    target_branch,
+                ],
+                cwd=info.path,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+            if result.returncode == 0:
+                # Parse glab output for MR URL
+                match = re.search(
+                    r"https://[^\s]+/-?/merge_requests/\d+", result.stdout
+                )
+                if match:
+                    return match.group(0)
+
+            return None
+        except Exception:
+            return None
 
     def _extract_spec_summary(self, spec_name: str) -> str:
         """Extract a summary from spec.md for PR body."""

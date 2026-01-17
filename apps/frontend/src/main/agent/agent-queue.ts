@@ -14,12 +14,16 @@ import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { stripAnsiCodes } from '../../shared/utils/ansi-sanitizer';
 import { parsePythonCommand } from '../python-detector';
 import { pythonEnvManager } from '../python-env-manager';
+import { isWindows, getPathDelimiter } from '../python-path-utils';
 import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ipc-handlers/ideation/transformers';
 import { transformRoadmapFromSnakeCase } from '../ipc-handlers/roadmap/transformers';
 import type { RawIdea } from '../ipc-handlers/ideation/types';
 
 /** Maximum length for status messages displayed in progress UI */
 const STATUS_MESSAGE_MAX_LENGTH = 200;
+
+/** Increment for tool-call based micro-progress (per tool call) */
+const TOOL_PROGRESS_INCREMENT = 2;
 
 /**
  * Formats a raw log line for display as a status message.
@@ -280,7 +284,7 @@ export class AgentQueueManager {
     if (autoBuildSource) {
       pythonPathParts.push(autoBuildSource);
     }
-    const combinedPythonPath = pythonPathParts.join(process.platform === 'win32' ? ';' : ':');
+    const combinedPythonPath = pythonPathParts.join(getPathDelimiter());
 
     // Build final environment with proper precedence:
     // 1. process.env (system)
@@ -317,7 +321,7 @@ export class AgentQueueManager {
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: finalEnv,
-      ...(process.platform === 'win32' && { windowsHide: true })
+      ...(isWindows() && { windowsHide: true })
     });
 
     this.state.addProcess(projectId, {
@@ -608,7 +612,7 @@ export class AgentQueueManager {
     if (autoBuildSource) {
       pythonPathParts.push(autoBuildSource);
     }
-    const combinedPythonPath = pythonPathParts.join(process.platform === 'win32' ? ';' : ':');
+    const combinedPythonPath = pythonPathParts.join(getPathDelimiter());
 
     // Build final environment with proper precedence:
     // 1. process.env (system)
@@ -645,7 +649,7 @@ export class AgentQueueManager {
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: finalEnv,
-      ...(process.platform === 'win32' && { windowsHide: true })
+      ...(isWindows() && { windowsHide: true })
     });
 
     this.state.addProcess(projectId, {
@@ -660,6 +664,8 @@ export class AgentQueueManager {
     // Track progress through output
     let progressPhase = 'analyzing';
     let progressPercent = 10;
+    // Track tool calls for micro-progress
+    let toolCallCount = 0;
     // Collect output for rate limit detection
     let allRoadmapOutput = '';
 
@@ -685,15 +691,58 @@ export class AgentQueueManager {
 
       // Parse progress using AgentEvents
       const progressUpdate = this.events.parseRoadmapProgress(log, progressPhase, progressPercent);
-      progressPhase = progressUpdate.phase;
-      progressPercent = progressUpdate.progress;
 
-      // Emit progress update
-      this.emitter.emit('roadmap-progress', projectId, {
-        phase: progressPhase,
-        progress: progressPercent,
-        message: formatStatusMessage(log)
-      });
+      // Track tool usage for micro-progress
+      const isToolCall = log.includes('[Tool:') && !log.includes('Error in hook');
+      const isHookError = log.includes('Error in hook callback');
+
+      if (isToolCall && progressPhase === 'discovering' && progressPercent >= 40 && progressPercent < 70) {
+        // Discovery phase: 40% -> 67% based on tool usage
+        toolCallCount++;
+        const toolProgress = Math.min(67, 40 + Math.floor(toolCallCount * TOOL_PROGRESS_INCREMENT));
+        if (toolProgress > progressPercent) {
+          progressPercent = toolProgress;
+          this.emitter.emit('roadmap-progress', projectId, {
+            phase: progressPhase,
+            progress: progressPercent,
+            message: `Analyzing project (${toolCallCount} operations)...`
+          });
+        }
+      } else if (isToolCall && progressPhase === 'generating' && progressPercent >= 70 && progressPercent < 100) {
+        // Feature generation phase: 70% -> 97% based on tool usage
+        toolCallCount++;
+        const toolProgress = Math.min(97, 70 + Math.floor(toolCallCount * TOOL_PROGRESS_INCREMENT));
+        if (toolProgress > progressPercent) {
+          progressPercent = toolProgress;
+          this.emitter.emit('roadmap-progress', projectId, {
+            phase: progressPhase,
+            progress: progressPercent,
+            message: `Generating features (${toolCallCount} operations)...`
+          });
+        }
+      }
+
+      // Only emit progress update if phase or progress actually changed (and not a hook error)
+      const hasProgressChanged = progressUpdate.phase !== progressPhase || progressUpdate.progress !== progressPercent;
+
+      if (hasProgressChanged && !isHookError) {
+        // Reset tool count on phase change
+        if (progressUpdate.phase !== progressPhase) {
+          toolCallCount = 0;
+        }
+
+        progressPhase = progressUpdate.phase;
+        // Avoid regressing progress after tool-driven bumps - only update if new progress > current
+        if (progressUpdate.progress > progressPercent) {
+          progressPercent = progressUpdate.progress;
+        }
+
+        this.emitter.emit('roadmap-progress', projectId, {
+          phase: progressPhase,
+          progress: progressPercent,
+          message: progressUpdate.message || log.trim().substring(0, 200) // Use parsed message if available
+        });
+      }
     });
 
     // Handle stderr - explicitly decode as UTF-8

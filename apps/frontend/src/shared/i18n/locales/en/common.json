@@ -52,7 +52,8 @@
     "hideTokenEntryAriaLabel": "Hide token entry",
     "enterTokenManuallyAriaLabel": "Enter token manually",
     "renameProfileAriaLabel": "Rename profile",
-    "deleteProfileAriaLabel": "Delete profile"
+    "deleteProfileAriaLabel": "Delete profile",
+    "stopGenerationAriaLabel": "Stop generation"
   },
   "buttons": {
     "save": "Save",
@@ -106,7 +107,11 @@
     "operationFailed": "Operation failed",
     "networkError": "Network error",
     "notFound": "Not found",
-    "unauthorized": "Unauthorized"
+    "unauthorized": "Unauthorized",
+    "unknownProvider": "Unknown provider: {{provider}}",
+    "providerNotImplemented": "{{provider}} not yet implemented",
+    "failedToGetGitHubToken": "Failed to get GitHub token",
+    "failedToGetGitLabToken": "Failed to get GitLab token"
   },
   "notification": {
     "accountSwitched": "Account Switched",

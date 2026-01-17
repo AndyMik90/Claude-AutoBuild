@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Zap,
   Eye,
@@ -75,9 +76,14 @@ export function IntegrationSettings({
   githubExpanded,
   onGitHubToggle
 }: IntegrationSettingsProps) {
+  const { t } = useTranslation(['settings']);
+
   // Branch selection state
   const [branches, setBranches] = useState<string[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
+
+  // Git provider section state
+  const [gitProviderExpanded, setGitProviderExpanded] = useState(false);
 
   // Load branches when GitHub section expands
   useEffect(() => {
@@ -478,6 +484,82 @@ export function IntegrationSettings({
                 </div>
               </>
             )}
+          </div>
+        )}
+      </section>
+
+      <Separator />
+
+      {/* Git Provider Section */}
+      <section className="space-y-3">
+        <button
+          type="button"
+          onClick={() => setGitProviderExpanded(!gitProviderExpanded)}
+          className="w-full flex items-center justify-between text-sm font-semibold text-foreground hover:text-foreground/80"
+        >
+          <div className="flex items-center gap-2">
+            <GitBranch className="h-4 w-4" />
+            {t('settings:gitProvider.title')}
+            {settings.gitProvider && settings.gitProvider !== 'auto' && (
+              <span className="px-2 py-0.5 text-xs bg-primary/10 text-primary rounded-full">
+                {settings.gitProvider === 'github' ? 'GitHub' : 'GitLab'}
+              </span>
+            )}
+          </div>
+          {gitProviderExpanded ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </button>
+
+        {gitProviderExpanded && (
+          <div className="space-y-4 pl-6 pt-2">
+            <div className="space-y-2">
+              <Label className="font-normal text-foreground">{t('settings:gitProvider.providerLabel')}</Label>
+              <p className="text-xs text-muted-foreground">
+                {t('settings:gitProvider.providerDescription')}
+              </p>
+              <Select
+                value={settings.gitProvider || 'auto'}
+                onValueChange={(value: 'auto' | 'github' | 'gitlab') =>
+                  setSettings(prev => ({ ...prev, gitProvider: value }))
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t('settings:gitProvider.autoDetectPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">
+                    <div className="flex items-center gap-2">
+                      <Radio className="h-3 w-3" />
+                      {t('settings:gitProvider.options.auto')}
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="github">
+                    <div className="flex items-center gap-2">
+                      <Github className="h-3 w-3" />
+                      GitHub
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="gitlab">
+                    <div className="flex items-center gap-2">
+                      <GitBranch className="h-3 w-3" />
+                      GitLab
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Detection result preview */}
+              {settings.gitProvider === 'auto' && (
+                <div className="mt-2 p-2 bg-muted/50 rounded-md">
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings:gitProvider.autoDetectHint')}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </section>

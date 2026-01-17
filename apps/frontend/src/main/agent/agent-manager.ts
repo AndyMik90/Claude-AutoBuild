@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import path from 'path';
-import { existsSync } from 'fs';
+import os from 'os';
+import { existsSync, writeFileSync, unlinkSync } from 'fs';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
@@ -135,7 +136,10 @@ export class AgentManager extends EventEmitter {
     const combinedEnv = this.processManager.getCombinedEnv(projectPath);
 
     // spec_runner.py will auto-start run.py after spec creation completes
-    const args = [specRunnerPath, '--task', taskDescription, '--project-dir', projectPath];
+    // Write task description to a temp file to avoid command-line quoting issues
+    const tempTaskFile = path.join(os.tmpdir(), `task-${Date.now()}-${Math.random().toString(36).substring(7)}.txt`);
+    writeFileSync(tempTaskFile, taskDescription, 'utf-8');
+    const args = [specRunnerPath, '--task-file', tempTaskFile, '--project-dir', projectPath];
 
     // Pass spec directory if provided (for UI-created tasks that already have a directory)
     if (specDir) {
@@ -177,6 +181,23 @@ export class AgentManager extends EventEmitter {
 
     // Note: This is spec-creation but it chains to task-execution via run.py
     await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+
+    // Clean up temp file when process exits or errors
+    const cleanupTempFile = () => {
+      try {
+        if (existsSync(tempTaskFile)) {
+          unlinkSync(tempTaskFile);
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+    };
+    this.once('exit', (exitTaskId: string) => {
+      if (exitTaskId === taskId) cleanupTempFile();
+    });
+    this.once('error', (errorTaskId: string) => {
+      if (errorTaskId === taskId) cleanupTempFile();
+    });
   }
 
   /**

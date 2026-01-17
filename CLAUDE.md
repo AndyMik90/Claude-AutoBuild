@@ -14,10 +14,11 @@ Auto Claude is a multi-agent autonomous coding framework that builds software th
 autonomous-coding/
 ├── apps/
 │   ├── backend/           # Python backend/CLI - ALL agent logic lives here
-│   │   ├── core/          # Client, auth, security
+│   │   ├── core/          # Client, auth, security, git provider detection
 │   │   ├── agents/        # Agent implementations
 │   │   ├── spec_agents/   # Spec creation agents
-│   │   ├── integrations/  # Graphiti, Linear, GitHub
+│   │   ├── runners/       # GitHub & GitLab automation
+│   │   ├── integrations/  # Graphiti, Linear
 │   │   └── prompts/       # Agent system prompts
 │   └── frontend/          # Electron desktop UI
 ├── guides/                # Documentation
@@ -195,6 +196,8 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
 **Integrations:**
 - **linear_updater.py** - Optional Linear integration for progress tracking
 - **runners/github/** - GitHub Issues & PRs automation
+- **runners/gitlab/** - GitLab Issues & MRs automation
+- **core/git_provider.py** - Multi-provider support (GitHub, GitLab) with auto-detection
 - **Electron MCP** - E2E testing integration for QA agents (Chrome DevTools Protocol)
   - Enabled with `ELECTRON_MCP_ENABLED=true` in `.env`
   - Allows QA agents to interact with running Electron app
@@ -237,7 +240,7 @@ main (user's branch)
 **Key principles:**
 - ONE branch per spec (`auto-claude/{spec-name}`)
 - Parallel work uses subagents (agent decides when to spawn)
-- NO automatic pushes to GitHub - user controls when to push
+- NO automatic pushes to remote (GitHub/GitLab) - user controls when to push
 - User reviews in spec worktree (`.worktrees/{spec-name}/`)
 - Final merge: spec branch → main (after user approval)
 
@@ -247,6 +250,65 @@ main (user's branch)
 3. User tests feature in `.worktrees/{spec-name}/`
 4. User runs `--merge` to add to their project
 5. User pushes to remote when ready
+
+### Git Provider Support
+
+Auto Claude supports both **GitHub** and **GitLab** for pull request / merge request creation:
+
+**Configuration:**
+- **Per-project setting** in project settings UI or `.env` file
+- **Options**: Auto-detect (default), GitHub, GitLab
+- **Auto-detection**: Parses git remote URL to determine provider
+  - `github.com` → Uses GitHub (`gh pr create`)
+  - `gitlab.com` → Uses GitLab (`glab mr create`)
+  - Self-hosted GitLab instances also supported (e.g., `gitlab.mycompany.com`)
+  - Unknown/no remote → Defaults to GitHub
+
+**CLI Requirements:**
+- **GitHub**: Requires `gh` CLI installed and authenticated
+  - Install: `brew install gh` (macOS), `scoop install gh` (Windows), `sudo apt install gh` (Linux)
+  - Authenticate: `gh auth login`
+  - More info: https://cli.github.com/
+- **GitLab**: Requires `glab` CLI installed and authenticated
+  - Install: `brew install glab` (macOS), `scoop install glab` (Windows)
+  - Download: https://gitlab.com/gitlab-org/cli/-/releases
+  - Authenticate: `glab auth login`
+
+**Configuration Options:**
+
+*In Project Settings UI:*
+1. Open project settings
+2. Expand "Git Provider Settings"
+3. Choose: Auto-detect (recommended), GitHub, or GitLab
+
+*In `.env` file:*
+
+```bash
+# Set git provider (optional, defaults to auto-detect)
+GIT_PROVIDER=auto    # auto | github | gitlab
+```
+
+**Example Usage:**
+
+```bash
+# Auto-detect provider from git remote (default)
+python run.py --spec 001 --create-pr
+
+# Works automatically with both:
+# - git@github.com:user/repo.git → Creates GitHub PR using gh CLI
+# - git@gitlab.com:user/repo.git → Creates GitLab MR using glab CLI
+```
+
+**Provider Detection Logic:**
+1. **Explicit setting** (if gitProvider is "github" or "gitlab") → Use that provider
+2. **Auto-detect** (if gitProvider is "auto" or not set) → Parse git remote URL
+3. **Fallback** (if no remote or unknown) → Default to GitHub
+
+**Implementation Details:**
+- Detection: `apps/backend/core/git_provider.py`
+- GitHub PR creation: `apps/backend/core/worktree.py` (`_create_github_pr()`)
+- GitLab MR creation: `apps/backend/core/worktree.py` (`_create_gitlab_mr()`)
+- UI settings: `apps/frontend/src/renderer/components/project-settings/IntegrationSettings.tsx`
 
 ### Contributing to Upstream
 

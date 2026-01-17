@@ -152,6 +152,23 @@ export interface GitHubInvestigationStatus {
   error?: string;
 }
 
+/**
+ * Lightweight merge readiness check result
+ * Used for real-time validation of AI verdict freshness
+ */
+export interface MergeReadiness {
+  /** PR is in draft mode */
+  isDraft: boolean;
+  /** GitHub's mergeable status */
+  mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+  /** Branch is behind base branch (out of date) */
+  isBehind: boolean;
+  /** Simplified CI status */
+  ciStatus: 'passing' | 'failing' | 'pending' | 'none';
+  /** List of blockers that contradict a "ready to merge" verdict */
+  blockers: string[];
+}
+
 // ============================================
 // GitLab Integration Types
 // ============================================

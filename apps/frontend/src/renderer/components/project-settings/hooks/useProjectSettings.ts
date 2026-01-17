@@ -368,14 +368,22 @@ export function useProjectSettings(
       try {
         const result = await window.electronAPI.updateProjectEnv(project.id, newConfig);
         if (!result.success) {
-          console.error('[useProjectSettings] Failed to auto-save env config:', result.error);
+          const errorMessage = result.error || 'Failed to save environment config';
+          console.error('[useProjectSettings] Failed to auto-save env config:', errorMessage);
+          setEnvError(errorMessage);
+          return; // Don't update local state on failure
         }
+        console.log('[useProjectSettings.updateEnvConfig] Successfully saved to backend');
+        // Notify other components (like Sidebar) that env config changed
+        window.dispatchEvent(new CustomEvent('env-config-updated'));
+        // Only update local state after successful save
+        setEnvConfig(newConfig);
       } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error saving environment config';
         console.error('[useProjectSettings] Error auto-saving env config:', err);
+        setEnvError(errorMessage);
+        // Don't update local state on exception
       }
-
-      // Then update local state (triggers effects that read from disk)
-      setEnvConfig(newConfig);
     }
   };
 

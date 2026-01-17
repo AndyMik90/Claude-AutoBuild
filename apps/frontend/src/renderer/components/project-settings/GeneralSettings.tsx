@@ -105,19 +105,19 @@ export function GeneralSettings({
         setShowDeleteEnvDialog(true);
       } else {
         // No environment exists - just toggle off without dialog
-        setSettings({ ...settings, useCondaEnv: false });
+        setSettings(prev => ({ ...prev, useCondaEnv: false }));
         onUseCondaEnvChange?.(false);
       }
     } else {
       // Turning on or just updating
-      setSettings({ ...settings, useCondaEnv: enabled });
+      setSettings(prev => ({ ...prev, useCondaEnv: enabled }));
       onUseCondaEnvChange?.(enabled);
     }
   }
 
   // Handle keeping files but disabling the setting
   function handleKeepFiles() {
-    setSettings({ ...settings, useCondaEnv: false });
+    setSettings(prev => ({ ...prev, useCondaEnv: false }));
     onUseCondaEnvChange?.(false);
     setShowDeleteEnvDialog(false);
   }
@@ -138,7 +138,7 @@ export function GeneralSettings({
     } catch (error) {
       console.error('Failed to delete environment:', error);
     }
-    setSettings({ ...settings, useCondaEnv: false });
+    setSettings(prev => ({ ...prev, useCondaEnv: false }));
     onUseCondaEnvChange?.(false);
     setShowDeleteEnvDialog(false);
     setEnvPathToDelete('');
@@ -241,7 +241,7 @@ export function GeneralSettings({
               <div>
                 <span>{t('python.deleteEnvMessage')}</span>
                 <code className="block mt-2 p-2 bg-muted rounded">
-                  .envs/{projectName}/
+                  {envPathToDelete}
                 </code>
                 <span className="block mt-2">{t('python.deleteEnvPrompt')}</span>
               </div>
@@ -282,7 +282,7 @@ export function GeneralSettings({
               <Label htmlFor="model" className="text-sm font-medium text-foreground">{t('general.model')}</Label>
               <Select
                 value={settings.model}
-                onValueChange={(value) => setSettings({ ...settings, model: value })}
+                onValueChange={(value) => setSettings(prev => ({ ...prev, model: value }))}
               >
                 <SelectTrigger id="model">
                   <SelectValue />
@@ -308,7 +308,7 @@ export function GeneralSettings({
               <Switch
                 checked={settings.useClaudeMd ?? true}
                 onCheckedChange={(checked) =>
-                  setSettings({ ...settings, useClaudeMd: checked })
+                  setSettings(prev => ({ ...prev, useClaudeMd: checked }))
                 }
               />
             </div>
@@ -325,13 +325,13 @@ export function GeneralSettings({
                 <Switch
                   checked={settings.notifications.onTaskComplete}
                   onCheckedChange={(checked) =>
-                    setSettings({
-                      ...settings,
+                    setSettings(prev => ({
+                      ...prev,
                       notifications: {
-                        ...settings.notifications,
+                        ...prev.notifications,
                         onTaskComplete: checked
                       }
-                    })
+                    }))
                   }
                 />
               </div>
@@ -340,13 +340,13 @@ export function GeneralSettings({
                 <Switch
                   checked={settings.notifications.onTaskFailed}
                   onCheckedChange={(checked) =>
-                    setSettings({
-                      ...settings,
+                    setSettings(prev => ({
+                      ...prev,
                       notifications: {
-                        ...settings.notifications,
+                        ...prev.notifications,
                         onTaskFailed: checked
                       }
-                    })
+                    }))
                   }
                 />
               </div>
@@ -355,13 +355,13 @@ export function GeneralSettings({
                 <Switch
                   checked={settings.notifications.onReviewNeeded}
                   onCheckedChange={(checked) =>
-                    setSettings({
-                      ...settings,
+                    setSettings(prev => ({
+                      ...prev,
                       notifications: {
-                        ...settings.notifications,
+                        ...prev.notifications,
                         onReviewNeeded: checked
                       }
-                    })
+                    }))
                   }
                 />
               </div>
@@ -370,13 +370,13 @@ export function GeneralSettings({
                 <Switch
                   checked={settings.notifications.sound}
                   onCheckedChange={(checked) =>
-                    setSettings({
-                      ...settings,
+                    setSettings(prev => ({
+                      ...prev,
                       notifications: {
-                        ...settings.notifications,
+                        ...prev.notifications,
                         sound: checked
                       }
-                    })
+                    }))
                   }
                 />
               </div>

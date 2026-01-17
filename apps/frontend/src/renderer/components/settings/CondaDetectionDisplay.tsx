@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   AlertTriangle
 } from 'lucide-react';
-import type { CondaDetectionResult, CondaDistributionType } from '../../../shared/types';
+import type { CondaDetectionResult } from '../../../shared/types';
 
 interface CondaDetectionDisplayProps {
   detection: CondaDetectionResult | null;
@@ -17,20 +17,6 @@ interface CondaDetectionDisplayProps {
   onBrowse?: () => void;
   manualPath?: string;
   onManualPathChange?: (path: string) => void;
-}
-
-/**
- * Formats the conda distribution type for display
- */
-function formatCondaType(type: CondaDistributionType): string {
-  const typeMap: Record<CondaDistributionType, string> = {
-    miniconda: 'Miniconda',
-    anaconda: 'Anaconda',
-    mambaforge: 'Mambaforge',
-    miniforge: 'Miniforge',
-    unknown: 'Conda'
-  };
-  return typeMap[type] || 'Conda';
 }
 
 /**
@@ -124,7 +110,7 @@ export function CondaDetectionDisplay({
 
   // Found state
   const { preferred } = detection;
-  const condaType = formatCondaType(preferred.type);
+  const condaType = t(`python.condaTypes.${preferred.type}`, { defaultValue: t('python.condaTypes.unknown') });
   const versionDisplay = preferred.version ? ` (v${preferred.version})` : '';
 
   return (

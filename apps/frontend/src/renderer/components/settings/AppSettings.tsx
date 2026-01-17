@@ -142,16 +142,15 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
   const [useCondaEnvState, setUseCondaEnvState] = useState<boolean | undefined>(undefined);
 
   // Sync useCondaEnvState when project changes or hook initializes
-  // Note: projectSettingsHook is included to catch when hook loads for new project
+  // Note: Depend on specific nested value to avoid re-running when unrelated hook properties change
+  const hookUseCondaEnv = projectSettingsHook?.settings?.useCondaEnv;
   useEffect(() => {
-    const hookValue = projectSettingsHook?.settings?.useCondaEnv;
-    const savedValue = selectedProject?.settings?.useCondaEnv;
-    const newValue = hookValue ?? savedValue;
+    const newValue = hookUseCondaEnv ?? selectedProject?.settings?.useCondaEnv;
     // Only update if we have a definite value (not undefined)
     if (newValue !== undefined) {
       setUseCondaEnvState(newValue);
     }
-  }, [selectedProject?.id, selectedProject?.settings?.useCondaEnv, projectSettingsHook]);
+  }, [selectedProject?.id, selectedProject?.settings?.useCondaEnv, hookUseCondaEnv]);
 
   // Compute project nav items dynamically (conditionally include Python Env when useCondaEnv is enabled)
   // Python Env appears 2nd (right after General) when enabled
@@ -268,10 +267,10 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         <FullScreenDialogHeader>
           <FullScreenDialogTitle className="flex items-center gap-3">
             <Settings className="h-6 w-6" />
-            {t('title')}
+            {t('settings:title')}
           </FullScreenDialogTitle>
           <FullScreenDialogDescription>
-            {t('tabs.app')} & {t('tabs.project')}
+            {t('settings:tabs.app')} & {t('settings:tabs.project')}
           </FullScreenDialogDescription>
         </FullScreenDialogHeader>
 
@@ -284,7 +283,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                   {/* APPLICATION Section */}
                   <div>
                     <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t('tabs.app')}
+                      {t('settings:tabs.app')}
                     </h3>
                     <div className="space-y-1">
                       {appNavItemsConfig.map((item) => {
@@ -306,8 +305,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                           >
                             <Icon className="h-5 w-5 mt-0.5 shrink-0" />
                             <div className="min-w-0">
-                              <div className="font-medium text-sm">{t(`sections.${item.id}.title`)}</div>
-                              <div className="text-xs text-muted-foreground truncate">{t(`sections.${item.id}.description`)}</div>
+                              <div className="font-medium text-sm">{t(`settings:sections.${item.id}.title`)}</div>
+                              <div className="text-xs text-muted-foreground truncate">{t(`settings:sections.${item.id}.description`)}</div>
                             </div>
                           </button>
                         );
@@ -328,8 +327,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                         >
                           <Sparkles className="h-5 w-5 mt-0.5 shrink-0" />
                           <div className="min-w-0">
-                            <div className="font-medium text-sm">{t('actions.rerunWizard')}</div>
-                            <div className="text-xs text-muted-foreground truncate">{t('actions.rerunWizardDescription')}</div>
+                            <div className="font-medium text-sm">{t('settings:actions.rerunWizard')}</div>
+                            <div className="text-xs text-muted-foreground truncate">{t('settings:actions.rerunWizardDescription')}</div>
                           </div>
                         </button>
                       )}
@@ -339,7 +338,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                   {/* PROJECT Section */}
                   <div>
                     <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t('tabs.project')}
+                      {t('settings:tabs.project')}
                     </h3>
 
                     {/* Project Selector */}
@@ -374,8 +373,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                           >
                             <Icon className="h-5 w-5 mt-0.5 shrink-0" />
                             <div className="min-w-0">
-                              <div className="font-medium text-sm">{t(`projectSections.${item.id}.title`)}</div>
-                              <div className="text-xs text-muted-foreground truncate">{t(`projectSections.${item.id}.description`)}</div>
+                              <div className="font-medium text-sm">{t(`settings:projectSections.${item.id}.title`)}</div>
+                              <div className="text-xs text-muted-foreground truncate">{t(`settings:projectSections.${item.id}.description`)}</div>
                             </div>
                           </button>
                         );
@@ -388,7 +387,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                 {version && (
                   <div className="mt-8 pt-4 border-t border-border">
                     <p className="text-xs text-muted-foreground text-center">
-                      {t('updates.version')} {version}
+                      {t('settings:updates.version')} {version}
                     </p>
                   </div>
                 )}
@@ -427,7 +426,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
             ) : (
               <>
                 <Save className="mr-2 h-4 w-4" />
-                {t('actions.save')}
+                {t('settings:actions.save')}
               </>
             )}
           </Button>
