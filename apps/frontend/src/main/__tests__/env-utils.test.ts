@@ -59,7 +59,7 @@ describe('shouldUseShell', () => {
     });
 
     it('should return true for .cmd files', () => {
-      expect(shouldUseShell('D:\\Program Files\\nodejs\\claude.cmd')).toBe(true);
+      expect(shouldUseShell('D:\\Tools\\nodejs\\claude.cmd')).toBe(true);
       expect(shouldUseShell('C:\\Users\\admin\\AppData\\Roaming\\npm\\claude.cmd')).toBe(true);
     });
 
@@ -84,9 +84,9 @@ describe('shouldUseShell', () => {
     });
 
     it('should handle paths with spaces and special characters', () => {
-      expect(shouldUseShell('D:\\Program Files (x86)\\tool.cmd')).toBe(true);
+      expect(shouldUseShell('D:\\Tools (x86)\\tool.cmd')).toBe(true);
       expect(shouldUseShell('D:\\Path&Name\\tool.cmd')).toBe(true);
-      expect(shouldUseShell('D:\\Program Files (x86)\\tool.exe')).toBe(false);
+      expect(shouldUseShell('D:\\Tools (x86)\\tool.exe')).toBe(false);
     });
   });
 
@@ -98,8 +98,8 @@ describe('shouldUseShell', () => {
         configurable: true,
       });
       setPlatformMock('darwin');
-      expect(shouldUseShell('/usr/local/bin/claude')).toBe(false);
-      expect(shouldUseShell('/opt/homebrew/bin/claude.cmd')).toBe(false);
+      expect(shouldUseShell('/tmp/tools/bin/claude')).toBe(false);
+      expect(shouldUseShell('/tmp/homebrew/bin/claude.cmd')).toBe(false);
     });
 
     it('should return false on Linux', () => {
@@ -109,7 +109,7 @@ describe('shouldUseShell', () => {
         configurable: true,
       });
       setPlatformMock('linux');
-      expect(shouldUseShell('/usr/bin/claude')).toBe(false);
+      expect(shouldUseShell('/tmp/system/bin/claude')).toBe(false);
       expect(shouldUseShell('/home/user/.local/bin/claude.bat')).toBe(false);
     });
   });
@@ -215,7 +215,7 @@ describe('getSpawnOptions', () => {
     });
     setPlatformMock('darwin');
 
-    const opts = getSpawnOptions('/usr/local/bin/claude', {
+    const opts = getSpawnOptions('/tmp/tools/bin/claude', {
       cwd: '/project',
     });
 
@@ -278,13 +278,13 @@ describe('getSpawnCommand', () => {
     });
 
     it('should quote .bat files with spaces', () => {
-      const cmd = getSpawnCommand('D:\\Program Files (x86)\\scripts\\setup.bat');
-      expect(cmd).toBe('"D:\\Program Files (x86)\\scripts\\setup.bat"');
+      const cmd = getSpawnCommand('D:\\Tools (x86)\\scripts\\setup.bat');
+      expect(cmd).toBe('"D:\\Tools (x86)\\scripts\\setup.bat"');
     });
 
     it('should NOT quote .exe files', () => {
-      const cmd = getSpawnCommand('C:\\Program Files\\Git\\cmd\\git.exe');
-      expect(cmd).toBe('C:\\Program Files\\Git\\cmd\\git.exe');
+      const cmd = getSpawnCommand('C:\\Tools\\Git\\cmd\\git.exe');
+      expect(cmd).toBe('C:\\Tools\\Git\\cmd\\git.exe');
     });
 
     it('should NOT quote extensionless files', () => {
@@ -303,8 +303,8 @@ describe('getSpawnCommand', () => {
     });
 
     it('should be idempotent - already quoted .bat files stay quoted', () => {
-      const cmd = getSpawnCommand('"D:\\Program Files\\scripts\\setup.bat"');
-      expect(cmd).toBe('"D:\\Program Files\\scripts\\setup.bat"');
+      const cmd = getSpawnCommand('"D:\\Tools\\scripts\\setup.bat"');
+      expect(cmd).toBe('"D:\\Tools\\scripts\\setup.bat"');
     });
 
     it('should be idempotent - double-quoting does not occur', () => {
@@ -325,8 +325,8 @@ describe('getSpawnCommand', () => {
     });
 
     it('should strip quotes from .exe files (defensive: no quotes with shell:false)', () => {
-      const cmd = getSpawnCommand('"C:\\Program Files\\Git\\cmd\\git.exe"');
-      expect(cmd).toBe('C:\\Program Files\\Git\\cmd\\git.exe');
+      const cmd = getSpawnCommand('"C:\\Tools\\Git\\cmd\\git.exe"');
+      expect(cmd).toBe('C:\\Tools\\Git\\cmd\\git.exe');
     });
 
     it('should strip quotes from extensionless files (defensive: no quotes with shell:false)', () => {
@@ -335,8 +335,8 @@ describe('getSpawnCommand', () => {
     });
 
     it('should strip quotes and trim whitespace from .exe files', () => {
-      const cmd = getSpawnCommand('  "C:\\Program Files\\Git\\cmd\\git.exe"  ');
-      expect(cmd).toBe('C:\\Program Files\\Git\\cmd\\git.exe');
+      const cmd = getSpawnCommand('  "C:\\Tools\\Git\\cmd\\git.exe"  ');
+      expect(cmd).toBe('C:\\Tools\\Git\\cmd\\git.exe');
     });
   });
 
@@ -348,8 +348,8 @@ describe('getSpawnCommand', () => {
         configurable: true,
       });
       setPlatformMock('darwin');
-      expect(getSpawnCommand('/usr/local/bin/claude')).toBe('/usr/local/bin/claude');
-      expect(getSpawnCommand('/opt/homebrew/bin/claude.cmd')).toBe('/opt/homebrew/bin/claude.cmd');
+      expect(getSpawnCommand('/tmp/tools/bin/claude')).toBe('/tmp/tools/bin/claude');
+      expect(getSpawnCommand('/tmp/homebrew/bin/claude.cmd')).toBe('/tmp/homebrew/bin/claude.cmd');
     });
 
     it('should NOT quote commands on Linux', () => {
@@ -359,7 +359,7 @@ describe('getSpawnCommand', () => {
         configurable: true,
       });
       setPlatformMock('linux');
-      expect(getSpawnCommand('/usr/bin/claude')).toBe('/usr/bin/claude');
+      expect(getSpawnCommand('/tmp/system/bin/claude')).toBe('/tmp/system/bin/claude');
       expect(getSpawnCommand('/home/user/.local/bin/claude.bat')).toBe('/home/user/.local/bin/claude.bat');
     });
 
@@ -370,8 +370,8 @@ describe('getSpawnCommand', () => {
         configurable: true,
       });
       setPlatformMock('darwin');
-      expect(getSpawnCommand('  /usr/local/bin/claude  ')).toBe('/usr/local/bin/claude');
-      expect(getSpawnCommand('\t/opt/homebrew/bin/claude\t')).toBe('/opt/homebrew/bin/claude');
+      expect(getSpawnCommand('  /tmp/tools/bin/claude  ')).toBe('/tmp/tools/bin/claude');
+      expect(getSpawnCommand('\t/tmp/homebrew/bin/claude\t')).toBe('/tmp/homebrew/bin/claude');
     });
 
     it('should trim whitespace on Linux', () => {
@@ -381,7 +381,7 @@ describe('getSpawnCommand', () => {
         configurable: true,
       });
       setPlatformMock('linux');
-      expect(getSpawnCommand('  /usr/bin/claude  ')).toBe('/usr/bin/claude');
+      expect(getSpawnCommand('  /tmp/system/bin/claude  ')).toBe('/tmp/system/bin/claude');
       expect(getSpawnCommand('\t/home/user/.local/bin/claude\t')).toBe('/home/user/.local/bin/claude');
     });
   });
@@ -417,11 +417,11 @@ describe('shouldUseShell with quoted paths', () => {
 
     it('should detect .bat files in quoted paths', () => {
       expect(shouldUseShell('"C:\\Scripts\\setup.bat"')).toBe(true);
-      expect(shouldUseShell('"D:\\Program Files\\script.BAT"')).toBe(true);
+      expect(shouldUseShell('"D:\\Tools\\script.BAT"')).toBe(true);
     });
 
     it('should NOT detect .exe files in quoted paths', () => {
-      expect(shouldUseShell('"C:\\Program Files\\git.exe"')).toBe(false);
+      expect(shouldUseShell('"C:\\Tools\\git.exe"')).toBe(false);
     });
 
     it('should handle whitespace around quoted paths', () => {
@@ -451,7 +451,7 @@ describe('deriveGitBashPath', () => {
         configurable: true,
       });
       setPlatformMock('darwin');
-      expect(deriveGitBashPath('/usr/local/bin/git')).toBeNull();
+      expect(deriveGitBashPath('/tmp/tools/bin/git')).toBeNull();
     });
 
     it('should return null on Linux', () => {
@@ -461,7 +461,7 @@ describe('deriveGitBashPath', () => {
         configurable: true,
       });
       setPlatformMock('linux');
-      expect(deriveGitBashPath('/usr/bin/git')).toBeNull();
+      expect(deriveGitBashPath('/tmp/system/bin/git')).toBeNull();
     });
   });
 
@@ -477,29 +477,29 @@ describe('deriveGitBashPath', () => {
 
     it('should derive bash.exe from Git/cmd/git.exe', () => {
       vi.mocked(fs.existsSync).mockImplementation((p) => {
-        return p === 'C:\\Program Files\\Git\\bin\\bash.exe';
+        return p === 'C:\\Tools\\Git\\bin\\bash.exe';
       });
 
-      const result = deriveGitBashPath('C:\\Program Files\\Git\\cmd\\git.exe');
-      expect(result).toBe('C:\\Program Files\\Git\\bin\\bash.exe');
+      const result = deriveGitBashPath('C:\\Tools\\Git\\cmd\\git.exe');
+      expect(result).toBe('C:\\Tools\\Git\\bin\\bash.exe');
     });
 
     it('should derive bash.exe from Git/bin/git.exe', () => {
       vi.mocked(fs.existsSync).mockImplementation((p) => {
-        return p === 'C:\\Program Files\\Git\\bin\\bash.exe';
+        return p === 'C:\\Tools\\Git\\bin\\bash.exe';
       });
 
-      const result = deriveGitBashPath('C:\\Program Files\\Git\\bin\\git.exe');
-      expect(result).toBe('C:\\Program Files\\Git\\bin\\bash.exe');
+      const result = deriveGitBashPath('C:\\Tools\\Git\\bin\\git.exe');
+      expect(result).toBe('C:\\Tools\\Git\\bin\\bash.exe');
     });
 
     it('should derive bash.exe from Git/mingw64/bin/git.exe', () => {
       vi.mocked(fs.existsSync).mockImplementation((p) => {
-        return p === 'D:\\Program Files\\Git\\bin\\bash.exe';
+        return p === 'D:\\Tools\\Git\\bin\\bash.exe';
       });
 
-      const result = deriveGitBashPath('D:\\Program Files\\Git\\mingw64\\bin\\git.exe');
-      expect(result).toBe('D:\\Program Files\\Git\\bin\\bash.exe');
+      const result = deriveGitBashPath('D:\\Tools\\Git\\mingw64\\bin\\git.exe');
+      expect(result).toBe('D:\\Tools\\Git\\bin\\bash.exe');
     });
 
     it('should derive bash.exe from Git/mingw32/bin/git.exe', () => {
@@ -534,11 +534,11 @@ describe('deriveGitBashPath', () => {
 
     it('should handle paths with spaces', () => {
       vi.mocked(fs.existsSync).mockImplementation((p) => {
-        return p === 'D:\\Program Files (x86)\\Git\\bin\\bash.exe';
+        return p === 'D:\\Tools (x86)\\Git\\bin\\bash.exe';
       });
 
-      const result = deriveGitBashPath('D:\\Program Files (x86)\\Git\\cmd\\git.exe');
-      expect(result).toBe('D:\\Program Files (x86)\\Git\\bin\\bash.exe');
+      const result = deriveGitBashPath('D:\\Tools (x86)\\Git\\cmd\\git.exe');
+      expect(result).toBe('D:\\Tools (x86)\\Git\\bin\\bash.exe');
     });
 
     it('should handle custom Git installation paths', () => {
@@ -625,16 +625,16 @@ describe('getGitBashEnv', () => {
     it('should return CLAUDE_CODE_GIT_BASH_PATH if git found and bash exists', () => {
       mockGetToolInfo.mockReturnValue({
         found: true,
-        path: 'C:\\Program Files\\Git\\cmd\\git.exe',
+        path: 'C:\\Tools\\Git\\cmd\\git.exe',
         source: 'system-path'
       });
       vi.mocked(fs.existsSync).mockImplementation((p) => {
-        return p === 'C:\\Program Files\\Git\\bin\\bash.exe';
+        return p === 'C:\\Tools\\Git\\bin\\bash.exe';
       });
 
       const result = getGitBashEnv(mockGetToolInfo);
       expect(result).toEqual({
-        'CLAUDE_CODE_GIT_BASH_PATH': 'C:\\Program Files\\Git\\bin\\bash.exe'
+        'CLAUDE_CODE_GIT_BASH_PATH': 'C:\\Tools\\Git\\bin\\bash.exe'
       });
       expect(mockGetToolInfo).toHaveBeenCalledWith('git');
     });
@@ -642,7 +642,7 @@ describe('getGitBashEnv', () => {
     it('should return empty object if bash.exe not found', () => {
       mockGetToolInfo.mockReturnValue({
         found: true,
-        path: 'C:\\Program Files\\Git\\cmd\\git.exe',
+        path: 'C:\\Tools\\Git\\cmd\\git.exe',
         source: 'system-path'
       });
       vi.mocked(fs.existsSync).mockReturnValue(false);

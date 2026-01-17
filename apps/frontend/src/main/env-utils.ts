@@ -15,6 +15,7 @@ import * as fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import { execFileSync, execFile } from 'child_process';
 import { promisify } from 'util';
+import { createRequire } from 'module';
 import { getSentryEnvForSubprocess } from './sentry';
 import { isWindows, isUnix, getPathDelimiter } from './platform';
 
@@ -624,6 +625,7 @@ export function deriveGitBashPath(gitExePath: string): string | null {
 }
 
 // Lazy import to avoid circular dependency (cli-tool-manager imports env-utils)
+const require = createRequire(import.meta.url);
 let _getToolInfo: ((tool: string) => { found: boolean; path: string | null; source: string }) | null = null;
 function getToolInfoLazy(tool: string): { found: boolean; path: string | null; source: string } {
   if (!_getToolInfo) {
