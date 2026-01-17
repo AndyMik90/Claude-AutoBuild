@@ -19,7 +19,8 @@
     "view": "Voir les détails",
     "viewPR": "Voir la PR",
     "moveTo": "Déplacer vers",
-    "taskActions": "Actions de la tâche"
+    "taskActions": "Actions de la tâche",
+    "selectTask": "Sélectionner la tâche : {{title}}"
   },
   "labels": {
     "running": "En cours",

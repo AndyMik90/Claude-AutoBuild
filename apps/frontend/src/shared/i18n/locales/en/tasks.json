@@ -19,7 +19,8 @@
     "view": "View Details",
     "viewPR": "View PR",
     "moveTo": "Move to",
-    "taskActions": "Task actions"
+    "taskActions": "Task actions",
+    "selectTask": "Select task: {{title}}"
   },
   "labels": {
     "running": "Running",
