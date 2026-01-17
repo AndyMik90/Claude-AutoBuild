@@ -17,13 +17,13 @@ import { SerializeAddon } from '@xterm/addon-serialize';
 
 // Mock xterm.js and its addons
 vi.mock('@xterm/xterm', () => ({
-  Terminal: vi.fn().mockImplementation(function() {
+  Terminal: vi.fn().mockImplementation(function () {
     return {
       open: vi.fn(),
       loadAddon: vi.fn(),
       attachCustomKeyEventHandler: vi.fn(),
-      hasSelection: vi.fn(function() { return false; }),
-      getSelection: vi.fn(function() { return ''; }),
+      hasSelection: vi.fn(function () { return false; }),
+      getSelection: vi.fn(function () { return ''; }),
       paste: vi.fn(),
       input: vi.fn(),
       onData: vi.fn(),
@@ -37,7 +37,7 @@ vi.mock('@xterm/xterm', () => ({
 }));
 
 vi.mock('@xterm/addon-fit', () => ({
-  FitAddon: vi.fn().mockImplementation(function() {
+  FitAddon: vi.fn().mockImplementation(function () {
     return {
       fit: vi.fn()
     };
@@ -45,15 +45,15 @@ vi.mock('@xterm/addon-fit', () => ({
 }));
 
 vi.mock('@xterm/addon-web-links', () => ({
-  WebLinksAddon: vi.fn().mockImplementation(function() {
+  WebLinksAddon: vi.fn().mockImplementation(function () {
     return {};
   })
 }));
 
 vi.mock('@xterm/addon-serialize', () => ({
-  SerializeAddon: vi.fn().mockImplementation(function() {
+  SerializeAddon: vi.fn().mockImplementation(function () {
     return {
-      serialize: vi.fn(function() { return ''; }),
+      serialize: vi.fn(function () { return ''; }),
       dispose: vi.fn()
     };
   })
@@ -69,7 +69,7 @@ describe('Terminal copy/paste integration', () => {
     vi.clearAllMocks();
 
     // Mock ResizeObserver
-    global.ResizeObserver = vi.fn().mockImplementation(function() {
+    global.ResizeObserver = vi.fn().mockImplementation(function () {
       return {
         observe: vi.fn(),
         unobserve: vi.fn(),
@@ -80,7 +80,7 @@ describe('Terminal copy/paste integration', () => {
     // Mock requestAnimationFrame for xterm.js integration tests
     global.requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
       // Synchronously execute the callback to avoid timing issues in tests
-      callback.call(window, 0);
+      callback(0);
       return 0;
     }) as unknown as Mock;
 
@@ -96,7 +96,7 @@ describe('Terminal copy/paste integration', () => {
     });
 
     // Mock window.electronAPI
-    (window as unknown as { electronAPI: unknown }).electronAPI = {
+    (globalThis as any).electronAPI = {
       sendTerminalInput: vi.fn()
     };
   });
@@ -110,15 +110,15 @@ describe('Terminal copy/paste integration', () => {
       const { useXterm } = await import('../../renderer/components/terminal/useXterm');
 
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
-      const mockHasSelection = vi.fn(function() { return true; });
-      const mockGetSelection = vi.fn(function() { return 'selected terminal text'; });
+      const mockHasSelection = vi.fn(function () { return true; });
+      const mockGetSelection = vi.fn(function () { return 'selected terminal text'; });
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
           hasSelection: mockHasSelection,
@@ -135,17 +135,17 @@ describe('Terminal copy/paste integration', () => {
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
+          serialize: vi.fn(function () { return ''; }),
           dispose: vi.fn()
         };
       });
@@ -186,15 +186,15 @@ describe('Terminal copy/paste integration', () => {
       const { useXterm } = await import('../../renderer/components/terminal/useXterm');
 
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
-      const mockHasSelection = vi.fn(function() { return false; });
-      const mockGetSelection = vi.fn(function() { return ''; });
+      const mockHasSelection = vi.fn(function () { return false; });
+      const mockGetSelection = vi.fn(function () { return ''; });
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
           hasSelection: mockHasSelection,
@@ -211,17 +211,17 @@ describe('Terminal copy/paste integration', () => {
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
+          serialize: vi.fn(function () { return ''; }),
           dispose: vi.fn()
         };
       });
@@ -285,11 +285,11 @@ describe('Terminal copy/paste integration', () => {
       const mockPaste = vi.fn();
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
           hasSelection: vi.fn(),
@@ -306,17 +306,17 @@ describe('Terminal copy/paste integration', () => {
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
+          serialize: vi.fn(function () { return ''; }),
           dispose: vi.fn()
         };
       });
@@ -364,11 +364,11 @@ describe('Terminal copy/paste integration', () => {
       const mockPaste = vi.fn();
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
           hasSelection: vi.fn(),
@@ -385,17 +385,17 @@ describe('Terminal copy/paste integration', () => {
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
+          serialize: vi.fn(function () { return ''; }),
           dispose: vi.fn()
         };
       });
@@ -440,17 +440,17 @@ describe('Terminal copy/paste integration', () => {
       let eventCallOrder: string[] = [];
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
-          hasSelection: vi.fn(function() { return true; }),
-          getSelection: vi.fn(function() { return 'selection'; }),
+          hasSelection: vi.fn(function () { return true; }),
+          getSelection: vi.fn(function () { return 'selection'; }),
           paste: vi.fn(),
-          input: vi.fn(function(data: string) {
+          input: vi.fn(function (data: string) {
             eventCallOrder.push(`input:${data}`);
           }),
           onData: vi.fn(),
@@ -463,17 +463,17 @@ describe('Terminal copy/paste integration', () => {
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
+          serialize: vi.fn(function () { return ''; }),
           dispose: vi.fn()
         };
       });
@@ -541,14 +541,14 @@ describe('Terminal copy/paste integration', () => {
 
       let keyEventHandler: ((event: KeyboardEvent) => boolean) | null = null;
       let handlerResults: { key: string; handled: boolean }[] = [];
-      const mockHasSelection = vi.fn(function() { return false; });
+      const mockHasSelection = vi.fn(function () { return false; });
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
           hasSelection: mockHasSelection,
@@ -565,17 +565,17 @@ describe('Terminal copy/paste integration', () => {
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
+          serialize: vi.fn(function () { return ''; }),
           dispose: vi.fn()
         };
       });
@@ -641,7 +641,7 @@ describe('Terminal copy/paste integration', () => {
       let onDataCallback: ((data: string) => void) | undefined;
       let errorLogged = false;
 
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(function(...args: unknown[]) {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(function (...args: unknown[]) {
         if (String(args[0]).includes('[useXterm]')) {
           errorLogged = true;
         }
@@ -651,23 +651,23 @@ describe('Terminal copy/paste integration', () => {
       mockClipboard.readText = vi.fn().mockRejectedValue(new Error('Clipboard denied'));
 
       // Mock window.electronAPI with sendTerminalInput
-      (window as unknown as { electronAPI: { sendTerminalInput: Mock } }).electronAPI = {
+      (globalThis as any).electronAPI = {
         sendTerminalInput: mockSendTerminalInput
       };
 
       // Override XTerm mock to be constructable
-      (XTerm as unknown as Mock).mockImplementation(function() {
+      (XTerm as unknown as Mock).mockImplementation(function () {
         return {
           open: vi.fn(),
           loadAddon: vi.fn(),
-          attachCustomKeyEventHandler: vi.fn(function(handler: (event: KeyboardEvent) => boolean) {
+          attachCustomKeyEventHandler: vi.fn(function (handler: (event: KeyboardEvent) => boolean) {
             keyEventHandler = handler;
           }),
           hasSelection: vi.fn(),
           getSelection: vi.fn(),
           paste: mockPaste,
           input: mockInput,
-          onData: vi.fn(function(callback: (data: string) => void) {
+          onData: vi.fn(function (callback: (data: string) => void) {
             onDataCallback = callback;
           }),
           onResize: vi.fn(),
@@ -679,17 +679,17 @@ describe('Terminal copy/paste integration', () => {
       });
 
       // Need to also override the addon mocks to be constructable
-      (FitAddon as unknown as Mock).mockImplementation(function() {
+      (FitAddon as unknown as Mock).mockImplementation(function () {
         return { fit: vi.fn() };
       });
 
-      (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      (WebLinksAddon as unknown as Mock).mockImplementation(function () {
         return {};
       });
 
-      (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      (SerializeAddon as unknown as Mock).mockImplementation(function () {
         return {
-          serialize: vi.fn(function() { return ''; }),
+          serialize: vi.fn(function () { return ''; }),
           dispose: vi.fn()
         };
       });
