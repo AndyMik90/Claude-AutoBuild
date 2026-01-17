@@ -60,6 +60,7 @@ import { initializeGitHubListeners } from './stores/github';
 import { initDownloadProgressListener } from './stores/download-store';
 import { GlobalDownloadIndicator } from './components/GlobalDownloadIndicator';
 import { useIpcListeners } from './hooks/useIpc';
+import { useGlobalTerminalListeners } from './hooks/useGlobalTerminalListeners';
 import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
@@ -99,6 +100,10 @@ function ProjectTabBarWithContext({
 export function App() {
   // Load IPC listeners for real-time updates
   useIpcListeners();
+
+  // Load global terminal output listeners to buffer output across project switches
+  // This ensures terminal output is captured even when the terminal component is not rendered
+  useGlobalTerminalListeners();
 
   // Stores
   const projects = useProjectStore((state) => state.projects);

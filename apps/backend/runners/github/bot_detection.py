@@ -34,6 +34,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from core.gh_executable import get_gh_executable
+
 try:
     from .file_lock import FileLock, atomic_write
 except (ImportError, ValueError, SystemError):
@@ -148,16 +150,20 @@ class BotDetector:
             return None
 
         try:
+            gh_exec = get_gh_executable()
+            if not gh_exec:
+                print(
+                    "[BotDetector] gh CLI not found, cannot identify bot user",
+                    file=sys.stderr,
+                )
+                return None
+
             # Use gh api to get authenticated user
             # Pass token via environment variable to avoid exposing it in process listings
             env = os.environ.copy()
             env["GH_TOKEN"] = self.bot_token
             result = subprocess.run(
-                [
-                    "gh",
-                    "api",
-                    "user",
-                ],
+                [gh_exec, "api", "user"],
                 capture_output=True,
                 text=True,
                 timeout=5,

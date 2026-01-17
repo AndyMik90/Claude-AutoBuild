@@ -86,6 +86,8 @@ export function useGitHubPRs(
   const hasLoadedRef = useRef(false);
   // Track the current PR being fetched (for race condition prevention)
   const currentFetchPRNumberRef = useRef<number | null>(null);
+  // AbortController for cancelling pending checkNewCommits calls on rapid PR switching
+  const checkNewCommitsAbortRef = useRef<AbortController | null>(null);
 
   // Get PR review state from the global store
   const prReviews = usePRReviewStore((state) => state.prReviews);
@@ -249,12 +251,35 @@ export function useGitHubPRs(
     setPrs([]);
     setSelectedPRNumber(null);
     setSelectedPRDetails(null);
+    currentFetchPRNumberRef.current = null;
+    // Cancel any pending checkNewCommits request
+    if (checkNewCommitsAbortRef.current) {
+      checkNewCommitsAbortRef.current.abort();
+      checkNewCommitsAbortRef.current = null;
+    }
   }, [projectId]);
+
+  // Cleanup abort controller on unmount to prevent memory leaks
+  // and avoid state updates on unmounted components
+  useEffect(() => {
+    return () => {
+      if (checkNewCommitsAbortRef.current) {
+        checkNewCommitsAbortRef.current.abort();
+      }
+    };
+  }, []);
 
   // No need for local IPC listeners - they're handled globally in github-store
 
   const selectPR = useCallback(
     (prNumber: number | null) => {
+      // Abort any pending checkNewCommits request from previous PR selection
+      // This prevents stale data from appearing when user switches PRs rapidly
+      if (checkNewCommitsAbortRef.current) {
+        checkNewCommitsAbortRef.current.abort();
+        checkNewCommitsAbortRef.current = null;
+      }
+
       setSelectedPRNumber(prNumber);
       // Note: Don't reset review result - it comes from the store now
       // and persists across navigation
@@ -290,12 +315,63 @@ export function useGitHubPRs(
             }
           });
 
+        // Helper function to check for new commits with race condition protection
+        // This is called after review state is available (from store or disk)
+        // Uses AbortController pattern to cancel pending checks when user switches PRs rapidly
+        const checkNewCommitsForPR = (reviewedCommitSha: string | undefined) => {
+          // Skip if no commit SHA to compare against
+          if (!reviewedCommitSha) {
+            return;
+          }
+
+          // Skip if user has already switched to a different PR (race condition prevention)
+          if (prNumber !== currentFetchPRNumberRef.current) {
+            return;
+          }
+
+          // Cancel any pending checkNewCommits request before starting a new one
+          if (checkNewCommitsAbortRef.current) {
+            checkNewCommitsAbortRef.current.abort();
+          }
+          checkNewCommitsAbortRef.current = new AbortController();
+          const currentAbortController = checkNewCommitsAbortRef.current;
+
+          window.electronAPI.github
+            .checkNewCommits(projectId, prNumber)
+            .then((newCommitsResult) => {
+              // Check if request was aborted (user switched PRs)
+              if (currentAbortController.signal.aborted) {
+                return;
+              }
+
+              // Final race condition check before updating store
+              if (prNumber !== currentFetchPRNumberRef.current) {
+                return;
+              }
+
+              setNewCommitsCheckAction(projectId, prNumber, newCommitsResult);
+            })
+            .catch((err) => {
+              // Don't log errors for aborted requests
+              if (currentAbortController.signal.aborted) {
+                return;
+              }
+              console.warn(`Failed to check new commits for PR #${prNumber}:`, err);
+            });
+        };
+
         // Load existing review from disk if not already in store
         const existingState = getPRReviewState(projectId, prNumber);
+
         // Only fetch from disk if we don't have a result in the store AND no review is running
         // If a review is in progress, the state is managed by IPC listeners - don't overwrite it
         if (!existingState?.result && !existingState?.isReviewing) {
           window.electronAPI.github.getPRReview(projectId, prNumber).then((result) => {
+            // Race condition check: skip if user switched PRs
+            if (prNumber !== currentFetchPRNumberRef.current) {
+              return;
+            }
+
             if (result) {
               // Update store with the loaded result
               // Preserve newCommitsCheck when loading existing review from disk
@@ -305,33 +381,16 @@ export function useGitHubPRs(
 
               // Always check for new commits when selecting a reviewed PR
               // This ensures fresh data even if we have a cached check from earlier in the session
-              const reviewedCommitSha = result.reviewedCommitSha;
-              if (reviewedCommitSha) {
-                window.electronAPI.github
-                  .checkNewCommits(projectId, prNumber)
-                  .then((newCommitsResult) => {
-                    setNewCommitsCheckAction(projectId, prNumber, newCommitsResult);
-                  })
-                  .catch((err) => {
-                    console.warn(`Failed to check new commits for PR #${prNumber}:`, err);
-                  });
-              }
+              // CRITICAL: This runs AFTER store is updated with review result
+              checkNewCommitsForPR(result.reviewedCommitSha);
             }
           });
         } else if (existingState?.result) {
           // Review already in store - always check for new commits to get fresh status
-          const reviewedCommitSha = existingState.result.reviewedCommitSha;
-          if (reviewedCommitSha) {
-            window.electronAPI.github
-              .checkNewCommits(projectId, prNumber)
-              .then((newCommitsResult) => {
-                setNewCommitsCheckAction(projectId, prNumber, newCommitsResult);
-              })
-              .catch((err) => {
-                console.warn(`Failed to check new commits for PR #${prNumber}:`, err);
-              });
-          }
+          // CRITICAL: Review state is already available, check for new commits immediately
+          checkNewCommitsForPR(existingState.result.reviewedCommitSha);
         }
+        // If existingState?.isReviewing, state is managed by IPC listeners - do nothing
       }
     },
     [projectId, getPRReviewState, setNewCommitsCheckAction]
