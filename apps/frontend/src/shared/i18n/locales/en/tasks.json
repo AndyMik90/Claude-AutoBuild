@@ -19,7 +19,8 @@
     "view": "View Details",
     "viewPR": "View PR",
     "moveTo": "Move to",
-    "taskActions": "Task actions"
+    "taskActions": "Task actions",
+    "selectTask": "Select task: {{title}}"
   },
   "labels": {
     "running": "Running",
@@ -83,7 +84,14 @@
     "worktreeCleanupNotStaged": "This task has a worktree with changes that have not been merged. Delete the worktree to mark as done, or cancel to review the changes first.",
     "keepWorktree": "Keep Worktree",
     "deleteWorktree": "Delete Worktree & Mark Done",
-    "refreshTasks": "Refresh Tasks"
+    "refreshTasks": "Refresh Tasks",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "selectedCount": "{{count}} selected",
+    "selectedCountOne": "{{count}} task selected",
+    "selectedCountOther": "{{count}} tasks selected",
+    "createPRs": "Create PRs",
+    "clearSelection": "Clear Selection"
   },
   "execution": {
     "phases": {
@@ -239,5 +247,14 @@
   },
   "subtasks": {
     "untitled": "Untitled subtask"
+  },
+  "bulkPR": {
+    "selectAllInColumn": "Select all tasks in column",
+    "deselectAllInColumn": "Deselect all tasks",
+    "selectionMode": "Selection mode active",
+    "exitSelectionMode": "Exit selection mode",
+    "noTasksToSelect": "No tasks available to select",
+    "confirmBulkAction": "Confirm bulk action for {{count}} tasks",
+    "processingTasks": "Processing selected tasks..."
   }
 }
