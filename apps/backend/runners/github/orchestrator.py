@@ -349,7 +349,9 @@ class GitHubOrchestrator:
                 # instead of creating a new empty "skipped" result
                 if "Already reviewed" in skip_reason:
                     existing_review = PRReviewResult.load(self.github_dir, pr_number)
-                    if existing_review:
+                    # Only return existing review if it was successful
+                    # A failed review should not block re-review attempts
+                    if existing_review and existing_review.success:
                         safe_print(
                             "[BOT DETECTION] Returning existing review (no new commits)",
                             flush=True,
@@ -357,18 +359,36 @@ class GitHubOrchestrator:
                         # Don't overwrite - return the existing review as-is
                         # The frontend will see "no new commits" via the newCommitsCheck
                         return existing_review
-
-                # For other skip reasons (bot-authored, cooling off), create a skip result
-                result = PRReviewResult(
-                    pr_number=pr_number,
-                    repo=self.config.repo,
-                    success=True,
-                    findings=[],
-                    summary=f"Skipped review: {skip_reason}",
-                    overall_status="comment",
-                )
-                await result.save(self.github_dir)
-                return result
+                    elif existing_review and not existing_review.success:
+                        safe_print(
+                            "[BOT DETECTION] Previous review failed, allowing re-review",
+                            flush=True,
+                        )
+                        # Fall through to perform a new review (don't return here)
+                    else:
+                        # No existing review found, create skip result
+                        result = PRReviewResult(
+                            pr_number=pr_number,
+                            repo=self.config.repo,
+                            success=True,
+                            findings=[],
+                            summary=f"Skipped review: {skip_reason}",
+                            overall_status="comment",
+                        )
+                        await result.save(self.github_dir)
+                        return result
+                else:
+                    # For other skip reasons (bot-authored, cooling off), create a skip result
+                    result = PRReviewResult(
+                        pr_number=pr_number,
+                        repo=self.config.repo,
+                        success=True,
+                        findings=[],
+                        summary=f"Skipped review: {skip_reason}",
+                        overall_status="comment",
+                    )
+                    await result.save(self.github_dir)
+                    return result
 
             self._report_progress(
                 "analyzing", 30, "Running multi-pass review...", pr_number=pr_number
