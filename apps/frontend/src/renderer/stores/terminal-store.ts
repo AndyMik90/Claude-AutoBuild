@@ -138,20 +138,33 @@ interface TerminalState {
   getWorktreeCount: () => number;
 }
 
+/**
+ * Helper function to count active (non-exited) terminals for a specific project.
+ * Extracted to avoid duplicating the counting logic across multiple methods.
+ *
+ * @param terminals - The array of all terminals
+ * @param projectPath - The project path to filter by
+ * @returns The count of active terminals for the given project
+ */
+function getActiveProjectTerminalCount(terminals: Terminal[], projectPath?: string): number {
+  return terminals.filter(t => t.status !== 'exited' && t.projectPath === projectPath).length;
+}
+
 export const useTerminalStore = create<TerminalState>((set, get) => ({
   terminals: [],
   layouts: [],
   activeTerminalId: null,
-  maxTerminals: 12, // Limit of 12 terminals per project
+  // Maximum terminals per project - limited to 12 to prevent excessive memory usage
+  // from terminal buffers (~1MB each) and PTY process resource exhaustion.
+  // Each terminal maintains a scrollback buffer and associated xterm.js state.
+  maxTerminals: 12,
   hasRestoredSessions: false,
 
   addTerminal: (cwd?: string, projectPath?: string) => {
     const state = get();
-    // Check per-project terminal limit (only count non-exited terminals for this project)
-    const projectTerminalCount = state.terminals.filter(t => 
-      t.status !== 'exited' && t.projectPath === projectPath
-    ).length;
-    if (projectTerminalCount >= state.maxTerminals) {
+    const activeCount = getActiveProjectTerminalCount(state.terminals, projectPath);
+    if (activeCount >= state.maxTerminals) {
+      debugLog(`[TerminalStore] Cannot add terminal: limit of ${state.maxTerminals} reached for project ${projectPath}`);
       return null;
     }
 
@@ -183,6 +196,11 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     if (existingTerminal) {
       return existingTerminal;
     }
+
+    // NOTE: Restored terminals are intentionally exempt from the per-project limit.
+    // This preserves user state from previous sessions - if a user had 12 terminals
+    // before closing the app, they should get all 12 back on restore.
+    // The limit only applies to newly created terminals.
 
     const restoredTerminal: Terminal = {
       id: session.id,
@@ -227,11 +245,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       return existingTerminal;
     }
 
-    // Check per-project terminal limit (only count non-exited terminals for this project)
-    const projectTerminalCount = state.terminals.filter(t => 
-      t.status !== 'exited' && t.projectPath === projectPath
-    ).length;
-    if (projectTerminalCount >= state.maxTerminals) {
+    const activeCount = getActiveProjectTerminalCount(state.terminals, projectPath);
+    if (activeCount >= state.maxTerminals) {
+      debugLog(`[TerminalStore] Cannot add external terminal: limit of ${state.maxTerminals} reached for project ${projectPath}`);
       return null;
     }
 
@@ -389,11 +405,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   canAddTerminal: (projectPath?: string) => {
     const state = get();
-    // Count only non-exited terminals for this specific project
-    const projectTerminalCount = state.terminals.filter(t => 
-      t.status !== 'exited' && t.projectPath === projectPath
-    ).length;
-    return projectTerminalCount < state.maxTerminals;
+    return getActiveProjectTerminalCount(state.terminals, projectPath) < state.maxTerminals;
   },
 
   getTerminalsForProject: (projectPath: string) => {
