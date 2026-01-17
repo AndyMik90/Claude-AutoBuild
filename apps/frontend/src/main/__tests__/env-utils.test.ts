@@ -10,9 +10,30 @@ vi.mock('fs', async (importOriginal) => {
   };
 });
 
+// Mock platform module to allow dynamic control of isWindows() and isUnix()
+// This is necessary because the platform module checks process.platform at import time
+// and we need to test Windows-specific behavior on non-Windows CI runners
+// Default to non-Windows behavior; tests will override as needed
+vi.mock('../platform', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../platform')>();
+  return {
+    ...actual,
+    // Default to non-Windows - tests will override with mockReturnValue
+    isWindows: vi.fn().mockReturnValue(false),
+    isUnix: vi.fn().mockReturnValue(true),
+  };
+});
+
 // Import modules after mock setup
 import * as fs from 'fs';
+import * as platform from '../platform';
 import { shouldUseShell, getSpawnOptions, getSpawnCommand, deriveGitBashPath, getGitBashEnv } from '../env-utils';
+
+// Helper to set platform mock values based on simulated platform
+function setPlatformMock(simulatedPlatform: string): void {
+  vi.mocked(platform.isWindows).mockReturnValue(simulatedPlatform === 'win32');
+  vi.mocked(platform.isUnix).mockReturnValue(simulatedPlatform !== 'win32');
+}
 
 describe('shouldUseShell', () => {
   const originalPlatform = process.platform;
@@ -24,6 +45,7 @@ describe('shouldUseShell', () => {
       writable: true,
       configurable: true,
     });
+    vi.restoreAllMocks();
   });
 
   describe('Windows platform', () => {
@@ -33,6 +55,7 @@ describe('shouldUseShell', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('win32');
     });
 
     it('should return true for .cmd files', () => {
@@ -74,6 +97,7 @@ describe('shouldUseShell', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('darwin');
       expect(shouldUseShell('/usr/local/bin/claude')).toBe(false);
       expect(shouldUseShell('/opt/homebrew/bin/claude.cmd')).toBe(false);
     });
@@ -84,6 +108,7 @@ describe('shouldUseShell', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('linux');
       expect(shouldUseShell('/usr/bin/claude')).toBe(false);
       expect(shouldUseShell('/home/user/.local/bin/claude.bat')).toBe(false);
     });
@@ -100,6 +125,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    vi.restoreAllMocks();
   });
 
   it('should set shell: true for .cmd files on Windows', () => {
@@ -108,6 +134,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    setPlatformMock('win32');
 
     const opts = getSpawnOptions('D:\\nodejs\\claude.cmd', {
       cwd: 'D:\\project',
@@ -127,6 +154,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    setPlatformMock('win32');
 
     const opts = getSpawnOptions('C:\\Windows\\git.exe', {
       cwd: 'D:\\project',
@@ -144,6 +172,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    setPlatformMock('win32');
 
     const opts = getSpawnOptions('D:\\tool.cmd', {
       cwd: 'D:\\project',
@@ -169,6 +198,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    setPlatformMock('win32');
 
     const opts = getSpawnOptions('D:\\tool.cmd');
 
@@ -183,6 +213,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    setPlatformMock('darwin');
 
     const opts = getSpawnOptions('/usr/local/bin/claude', {
       cwd: '/project',
@@ -200,6 +231,7 @@ describe('getSpawnOptions', () => {
       writable: true,
       configurable: true,
     });
+    setPlatformMock('win32');
 
     const opts = getSpawnOptions('C:\\scripts\\setup.bat', {
       cwd: 'D:\\project',
@@ -222,6 +254,7 @@ describe('getSpawnCommand', () => {
       writable: true,
       configurable: true,
     });
+    vi.restoreAllMocks();
   });
 
   describe('Windows platform', () => {
@@ -231,6 +264,7 @@ describe('getSpawnCommand', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('win32');
     });
 
     it('should quote .cmd files with spaces', () => {
@@ -313,6 +347,7 @@ describe('getSpawnCommand', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('darwin');
       expect(getSpawnCommand('/usr/local/bin/claude')).toBe('/usr/local/bin/claude');
       expect(getSpawnCommand('/opt/homebrew/bin/claude.cmd')).toBe('/opt/homebrew/bin/claude.cmd');
     });
@@ -323,6 +358,7 @@ describe('getSpawnCommand', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('linux');
       expect(getSpawnCommand('/usr/bin/claude')).toBe('/usr/bin/claude');
       expect(getSpawnCommand('/home/user/.local/bin/claude.bat')).toBe('/home/user/.local/bin/claude.bat');
     });
@@ -333,6 +369,7 @@ describe('getSpawnCommand', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('darwin');
       expect(getSpawnCommand('  /usr/local/bin/claude  ')).toBe('/usr/local/bin/claude');
       expect(getSpawnCommand('\t/opt/homebrew/bin/claude\t')).toBe('/opt/homebrew/bin/claude');
     });
@@ -343,6 +380,7 @@ describe('getSpawnCommand', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('linux');
       expect(getSpawnCommand('  /usr/bin/claude  ')).toBe('/usr/bin/claude');
       expect(getSpawnCommand('\t/home/user/.local/bin/claude\t')).toBe('/home/user/.local/bin/claude');
     });
@@ -359,6 +397,7 @@ describe('shouldUseShell with quoted paths', () => {
       writable: true,
       configurable: true,
     });
+    vi.restoreAllMocks();
   });
 
   describe('Windows platform', () => {
@@ -368,6 +407,7 @@ describe('shouldUseShell with quoted paths', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('win32');
     });
 
     it('should detect .cmd files in quoted paths', () => {
@@ -410,6 +450,7 @@ describe('deriveGitBashPath', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('darwin');
       expect(deriveGitBashPath('/usr/local/bin/git')).toBeNull();
     });
 
@@ -419,6 +460,7 @@ describe('deriveGitBashPath', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('linux');
       expect(deriveGitBashPath('/usr/bin/git')).toBeNull();
     });
   });
@@ -430,6 +472,7 @@ describe('deriveGitBashPath', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('win32');
     });
 
     it('should derive bash.exe from Git/cmd/git.exe', () => {
@@ -539,6 +582,7 @@ describe('getGitBashEnv', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('darwin');
       expect(getGitBashEnv(mockGetToolInfo)).toEqual({});
       expect(mockGetToolInfo).not.toHaveBeenCalled();
     });
@@ -549,6 +593,7 @@ describe('getGitBashEnv', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('linux');
       expect(getGitBashEnv(mockGetToolInfo)).toEqual({});
       expect(mockGetToolInfo).not.toHaveBeenCalled();
     });
@@ -561,6 +606,7 @@ describe('getGitBashEnv', () => {
         writable: true,
         configurable: true,
       });
+      setPlatformMock('win32');
       delete process.env.CLAUDE_CODE_GIT_BASH_PATH;
     });
 
