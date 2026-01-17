@@ -9,6 +9,7 @@ import json
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from core.file_utils import safe_open
 from task_logger import LogEntryType, LogPhase
 
 from .. import requirements, validator
@@ -86,7 +87,7 @@ class RequirementsPhaseMixin:
             )
 
             # Save hints to file
-            with open(hints_file, "w") as f:
+            with safe_open(hints_file, "w") as f:
                 json.dump(
                     {
                         "enabled": True,

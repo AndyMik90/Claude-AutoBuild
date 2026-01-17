@@ -11,6 +11,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from core.file_utils import safe_open
+
 
 def run_context_discovery(
     project_dir: Path,
@@ -73,7 +75,7 @@ def run_context_discovery(
                     else:
                         ctx["task_description"] = task_description or "unknown task"
 
-                    with open(context_file, "w") as f:
+                    with safe_open(context_file, "w") as f:
                         json.dump(ctx, f, indent=2)
             except (OSError, json.JSONDecodeError):
                 context_file.unlink(missing_ok=True)
@@ -105,7 +107,7 @@ def create_minimal_context(
         "created_at": datetime.now().isoformat(),
     }
 
-    with open(context_file, "w") as f:
+    with safe_open(context_file, "w") as f:
         json.dump(minimal_context, f, indent=2)
 
     return context_file

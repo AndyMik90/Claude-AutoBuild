@@ -13,6 +13,8 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
+from core.file_utils import safe_open
+
 
 def open_editor_for_input(field_name: str) -> str:
     """Open the user's editor for long-form text input."""
@@ -167,7 +169,7 @@ def create_requirements_from_task(task_description: str) -> dict:
 def save_requirements(spec_dir: Path, requirements: dict) -> Path:
     """Save requirements to file."""
     requirements_file = spec_dir / "requirements.json"
-    with open(requirements_file, "w") as f:
+    with safe_open(requirements_file, "w") as f:
         json.dump(requirements, f, indent=2)
     return requirements_file
 

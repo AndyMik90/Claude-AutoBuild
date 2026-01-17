@@ -9,6 +9,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from core.file_utils import safe_open
+
 
 def create_minimal_plan(spec_dir: Path, task_description: str) -> Path:
     """Create a minimal implementation plan for simple tasks."""
@@ -48,7 +50,7 @@ def create_minimal_plan(spec_dir: Path, task_description: str) -> Path:
     }
 
     plan_file = spec_dir / "implementation_plan.json"
-    with open(plan_file, "w") as f:
+    with safe_open(plan_file, "w") as f:
         json.dump(plan, f, indent=2)
 
     return plan_file

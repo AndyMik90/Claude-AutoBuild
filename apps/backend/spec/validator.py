@@ -9,12 +9,14 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from core.file_utils import safe_open
+
 
 def create_minimal_research(spec_dir: Path, reason: str = "No research needed") -> Path:
     """Create minimal research.json file."""
     research_file = spec_dir / "research.json"
 
-    with open(research_file, "w") as f:
+    with safe_open(research_file, "w") as f:
         json.dump(
             {
                 "integrations_researched": [],
@@ -35,7 +37,7 @@ def create_minimal_critique(
     """Create minimal critique_report.json file."""
     critique_file = spec_dir / "critique_report.json"
 
-    with open(critique_file, "w") as f:
+    with safe_open(critique_file, "w") as f:
         json.dump(
             {
                 "issues_found": [],
@@ -54,7 +56,7 @@ def create_empty_hints(spec_dir: Path, enabled: bool, reason: str) -> Path:
     """Create empty graph_hints.json file."""
     hints_file = spec_dir / "graph_hints.json"
 
-    with open(hints_file, "w") as f:
+    with safe_open(hints_file, "w") as f:
         json.dump(
             {
                 "enabled": enabled,
