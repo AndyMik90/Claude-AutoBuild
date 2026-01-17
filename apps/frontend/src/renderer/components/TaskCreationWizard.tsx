@@ -151,12 +151,24 @@ export function TaskCreationWizard({
           setShowClassification(true);
         }
       } else {
-        // No draft - initialize from selected profile
+        // No draft - reset to clean state for new task creation
+        // This ensures no stale data from previous task creation persists
+        setTitle('');
+        setDescription('');
+        setCategory('');
+        setPriority('');
+        setComplexity('');
+        setImpact('');
         setProfileId(settings.selectedAgentProfile || 'auto');
         setModel(selectedProfile.model);
         setThinkingLevel(selectedProfile.thinkingLevel);
         setPhaseModels(settings.customPhaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
         setPhaseThinking(settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
+        setImages([]);
+        setReferencedFiles([]);
+        setRequireReviewBeforeCoding(false);
+        setIsDraftRestored(false);
+        setShowClassification(false);
       }
     }
   }, [open, projectId, settings.selectedAgentProfile, settings.customPhaseModels, settings.customPhaseThinking, selectedProfile.model, selectedProfile.thinkingLevel, selectedProfile.phaseModels, selectedProfile.phaseThinking]);
