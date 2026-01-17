@@ -35,7 +35,7 @@ import { TerminalManager } from './terminal-manager';
 import { pythonEnvManager } from './python-env-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
 import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handlers';
-import { initializeAppUpdater } from './app-updater';
+import { initializeAppUpdater, stopPeriodicUpdates } from './app-updater';
 import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
@@ -440,6 +440,9 @@ app.on('window-all-closed', () => {
 
 // Cleanup before quit
 app.on('before-quit', async () => {
+  // Stop periodic update checks
+  stopPeriodicUpdates();
+
   // Stop usage monitor
   const usageMonitor = getUsageMonitor();
   usageMonitor.stop();

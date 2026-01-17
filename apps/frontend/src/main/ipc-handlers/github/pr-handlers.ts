@@ -1777,6 +1777,47 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
     }
   );
 
+  // Mark review as posted (persists has_posted_findings to disk)
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_MARK_REVIEW_POSTED,
+    async (_, projectId: string, prNumber: number): Promise<boolean> => {
+      debugLog("markReviewPosted handler called", { projectId, prNumber });
+      const result = await withProjectOrNull(projectId, async (project) => {
+        try {
+          const reviewPath = path.join(getGitHubDir(project), "pr", `review_${prNumber}.json`);
+
+          // Read file directly without separate existence check to avoid TOCTOU race condition
+          // If file doesn't exist, readFileSync will throw ENOENT which we handle below
+          const rawData = fs.readFileSync(reviewPath, "utf-8");
+          // Sanitize data before parsing (review may contain data from GitHub API)
+          const sanitizedData = sanitizeNetworkData(rawData);
+          const data = JSON.parse(sanitizedData);
+
+          // Mark as posted
+          data.has_posted_findings = true;
+          data.posted_at = new Date().toISOString();
+
+          fs.writeFileSync(reviewPath, JSON.stringify(data, null, 2), "utf-8");
+          debugLog("Marked review as posted", { prNumber });
+
+          return true;
+        } catch (error) {
+          // Handle file not found (ENOENT) separately for clearer logging
+          if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+            debugLog("Review file not found", { prNumber });
+            return false;
+          }
+          debugLog("Failed to mark review as posted", {
+            prNumber,
+            error: error instanceof Error ? error.message : error,
+          });
+          return false;
+        }
+      });
+      return result ?? false;
+    }
+  );
+
   // Post comment to PR
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_POST_COMMENT,

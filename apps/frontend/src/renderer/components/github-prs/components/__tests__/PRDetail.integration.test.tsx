@@ -14,8 +14,8 @@ import type { PRData, PRReviewResult } from '../../hooks/useGitHubPRs';
 import type { NewCommitsCheck } from '../../../../../preload/api/modules/github-api';
 
 // Mock window.electronAPI
-type PostCommentFn = (body: string) => void | Promise<void>;
-const mockOnPostComment = vi.fn<PostCommentFn>();
+type PostCommentFn = (body: string) => Promise<boolean>;
+const mockOnPostComment = vi.fn<PostCommentFn>().mockResolvedValue(true);
 const mockOnPostReview = vi.fn();
 const mockOnRunReview = vi.fn();
 const mockOnRunFollowupReview = vi.fn();
@@ -128,7 +128,7 @@ describe('PRDetail - Clean Review State Reset Integration', () => {
       newCommitCount: 0
     });
     // Resolve successfully by default
-    mockOnPostComment.mockResolvedValue(undefined);
+    mockOnPostComment.mockResolvedValue(true);
   });
 
   it('should reset cleanReviewPosted state when pr.number changes', async () => {
@@ -432,7 +432,7 @@ describe('PRDetail - Follow-up Review Trigger Integration', () => {
       hasCommitsAfterPosting: false,
       newCommitCount: 0
     });
-    mockOnPostComment.mockResolvedValue(undefined);
+    mockOnPostComment.mockResolvedValue(true);
   });
 
   it('should display "Ready for Follow-up" status when new commits exist after posting', async () => {
