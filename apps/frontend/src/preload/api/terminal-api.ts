@@ -16,6 +16,7 @@ import type {
   CreateTerminalWorktreeRequest,
   TerminalWorktreeConfig,
   TerminalWorktreeResult,
+  OtherWorktreeInfo,
 } from '../../shared/types';
 
 /** Type for proactive swap notification events */
@@ -64,6 +65,7 @@ export interface TerminalAPI {
   createTerminalWorktree: (request: CreateTerminalWorktreeRequest) => Promise<TerminalWorktreeResult>;
   listTerminalWorktrees: (projectPath: string) => Promise<IPCResult<TerminalWorktreeConfig[]>>;
   removeTerminalWorktree: (projectPath: string, name: string, deleteBranch?: boolean) => Promise<IPCResult>;
+  listOtherWorktrees: (projectPath: string) => Promise<IPCResult<OtherWorktreeInfo[]>>;
 
   // Terminal Event Listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
@@ -179,6 +181,9 @@ export const createTerminalAPI = (): TerminalAPI => ({
 
   removeTerminalWorktree: (projectPath: string, name: string, deleteBranch: boolean = false): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_WORKTREE_REMOVE, projectPath, name, deleteBranch),
+
+  listOtherWorktrees: (projectPath: string): Promise<IPCResult<OtherWorktreeInfo[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_WORKTREE_LIST_OTHER, projectPath),
 
   // Terminal Event Listeners
   onTerminalOutput: (

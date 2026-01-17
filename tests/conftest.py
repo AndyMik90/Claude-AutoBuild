@@ -170,31 +170,73 @@ def temp_dir() -> Generator[Path, None, None]:
 
 @pytest.fixture
 def temp_git_repo(temp_dir: Path) -> Generator[Path, None, None]:
-    """Create a temporary git repository with initial commit."""
-    # Initialize git repo
-    subprocess.run(["git", "init"], cwd=temp_dir, capture_output=True, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"],
-        cwd=temp_dir, capture_output=True
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test User"],
-        cwd=temp_dir, capture_output=True
-    )
+    """Create a temporary git repository with initial commit.
 
-    # Create initial commit
-    test_file = temp_dir / "README.md"
-    test_file.write_text("# Test Project\n")
-    subprocess.run(["git", "add", "."], cwd=temp_dir, capture_output=True)
-    subprocess.run(
-        ["git", "commit", "-m", "Initial commit"],
-        cwd=temp_dir, capture_output=True
-    )
+    IMPORTANT: This fixture properly isolates git operations by clearing
+    git environment variables that may be set by pre-commit hooks. Without
+    this isolation, git operations could affect the parent repository when
+    tests run inside a git worktree (e.g., during pre-commit validation).
 
-    # Ensure branch is named 'main' (some git configs default to 'master')
-    subprocess.run(["git", "branch", "-M", "main"], cwd=temp_dir, capture_output=True)
+    See: https://git-scm.com/docs/git#_environment_variables
+    """
+    # Save original environment values to restore later
+    orig_env = {}
 
-    yield temp_dir
+    # These git env vars may be set by pre-commit hooks and MUST be cleared
+    # to avoid git operations affecting the parent repository instead of
+    # our isolated test repo. This is critical when running inside worktrees.
+    git_vars_to_clear = [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    ]
+
+    # Clear interfering git environment variables
+    for key in git_vars_to_clear:
+        orig_env[key] = os.environ.get(key)
+        if key in os.environ:
+            del os.environ[key]
+
+    # Set GIT_CEILING_DIRECTORIES to prevent git from discovering parent .git
+    # directories. This is critical for test isolation when running inside
+    # another git repo (like during pre-commit hooks in worktrees).
+    orig_env["GIT_CEILING_DIRECTORIES"] = os.environ.get("GIT_CEILING_DIRECTORIES")
+    os.environ["GIT_CEILING_DIRECTORIES"] = str(temp_dir.parent)
+
+    try:
+        # Initialize git repo
+        subprocess.run(["git", "init"], cwd=temp_dir, capture_output=True, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=temp_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=temp_dir, capture_output=True
+        )
+
+        # Create initial commit
+        test_file = temp_dir / "README.md"
+        test_file.write_text("# Test Project\n")
+        subprocess.run(["git", "add", "."], cwd=temp_dir, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Initial commit"],
+            cwd=temp_dir, capture_output=True
+        )
+
+        # Ensure branch is named 'main' (some git configs default to 'master')
+        subprocess.run(["git", "branch", "-M", "main"], cwd=temp_dir, capture_output=True)
+
+        yield temp_dir
+    finally:
+        # Restore original environment variables
+        for key, value in orig_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 @pytest.fixture
