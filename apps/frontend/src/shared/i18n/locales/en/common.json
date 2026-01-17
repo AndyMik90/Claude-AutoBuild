@@ -93,6 +93,15 @@
     "required": "Required",
     "dismiss": "Dismiss"
   },
+  "selection": {
+    "select": "Select",
+    "done": "Done",
+    "selected": "{{count}} selected",
+    "selectAll": "Select All",
+    "clearSelection": "Clear Selection",
+    "deleteSelected": "Delete Selected",
+    "selectedOfTotal": "{{selected}} of {{total}} selected"
+  },
   "time": {
     "justNow": "Just now",
     "minutesAgo": "{{count}}m ago",
@@ -105,7 +114,12 @@
     "operationFailed": "Operation failed",
     "networkError": "Network error",
     "notFound": "Not found",
-    "unauthorized": "Unauthorized"
+    "unauthorized": "Unauthorized",
+    "bulkDeletePartialFailure": "Some worktrees could not be deleted:",
+    "taskNotFoundForWorktree": "Task not found for worktree: {{specName}}",
+    "failedToDeleteTaskWorktree": "Failed to delete task worktree: {{specName}}",
+    "terminalWorktreeNotFound": "Terminal worktree not found: {{name}}",
+    "failedToDeleteTerminalWorktree": "Failed to delete terminal worktree: {{name}}"
   },
   "notification": {
     "accountSwitched": "Account Switched",

@@ -93,6 +93,15 @@
     "required": "Requis",
     "dismiss": "Ignorer"
   },
+  "selection": {
+    "select": "Sélectionner",
+    "done": "Terminé",
+    "selected": "{{count}} sélectionné(s)",
+    "selectAll": "Tout sélectionner",
+    "clearSelection": "Effacer la sélection",
+    "deleteSelected": "Supprimer la sélection",
+    "selectedOfTotal": "{{selected}} sur {{total}} sélectionné(s)"
+  },
   "time": {
     "justNow": "À l'instant",
     "minutesAgo": "Il y a {{count}} min",
@@ -105,7 +114,12 @@
     "operationFailed": "Opération échouée",
     "networkError": "Erreur réseau",
     "notFound": "Non trouvé",
-    "unauthorized": "Non autorisé"
+    "unauthorized": "Non autorisé",
+    "bulkDeletePartialFailure": "Certains worktrees n'ont pas pu être supprimés :",
+    "taskNotFoundForWorktree": "Tâche introuvable pour le worktree : {{specName}}",
+    "failedToDeleteTaskWorktree": "Échec de la suppression du worktree de tâche : {{specName}}",
+    "terminalWorktreeNotFound": "Worktree terminal introuvable : {{name}}",
+    "failedToDeleteTerminalWorktree": "Échec de la suppression du worktree terminal : {{name}}"
   },
   "notification": {
     "accountSwitched": "Compte changé",

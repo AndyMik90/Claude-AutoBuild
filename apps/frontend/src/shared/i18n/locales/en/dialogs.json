@@ -54,7 +54,11 @@
     "merge": "Merge Worktree",
     "mergeDescription": "Merge changes from this worktree into the base branch.",
     "delete": "Delete Worktree?",
-    "deleteDescription": "This will permanently delete the worktree and all uncommitted changes. This action cannot be undone."
+    "deleteDescription": "This will permanently delete the worktree and all uncommitted changes. This action cannot be undone.",
+    "bulkDeleteTitle": "Delete {{count}} Worktrees?",
+    "bulkDeleteDescription": "This will permanently delete the selected worktrees and all their uncommitted changes. This action cannot be undone.",
+    "deleting": "Deleting...",
+    "deleteSelected": "Delete Selected"
   },
   "worktreeCleanup": {
     "title": "Complete Task",
