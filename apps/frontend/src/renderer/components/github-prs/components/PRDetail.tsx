@@ -215,6 +215,14 @@ export function PRDetail({
     }
   }, [postSuccess]);
 
+  // Clear branch update success message after 3 seconds
+  useEffect(() => {
+    if (branchUpdateSuccess) {
+      const timer = setTimeout(() => setBranchUpdateSuccess(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [branchUpdateSuccess]);
+
   // Auto-expand logs section when review starts
   useEffect(() => {
     if (isReviewing) {
@@ -288,6 +296,7 @@ export function PRDetail({
     // Reset branch update state as well
     setBranchUpdateError(null);
     setBranchUpdateSuccess(false);
+    setIsUpdatingBranch(false);
   }, [pr.number]);
 
   // Check for workflows awaiting approval (fork PRs) when PR changes or review completes
@@ -826,7 +835,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                           </>
                         ) : (
                           <>
-                            <RefreshCw className="h-4 w-4 mr-2" />
+                            <GitBranch className="h-4 w-4 mr-2" />
                             {t('prReview.updateBranch')}
                           </>
                         )}

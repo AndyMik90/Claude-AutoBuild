@@ -2355,12 +2355,19 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           debugLog("PR branch updated successfully", { prNumber });
           return { success: true };
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : "Unknown error";
-          debugLog("Failed to update PR branch", {
-            prNumber,
-            error: errorMessage,
-          });
-          return { success: false, error: errorMessage };
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          debugLog("Failed to update PR branch", { prNumber, error: errorMessage });
+
+          let friendlyError = errorMessage;
+          if (errorMessage.includes("permission") || errorMessage.includes("403")) {
+            friendlyError = "You don't have permission to update this branch.";
+          } else if (errorMessage.includes("conflict")) {
+            friendlyError = "Cannot update branch due to merge conflicts.";
+          } else if (errorMessage.includes("already up to date")) {
+            return { success: true }; // Not an error
+          }
+
+          return { success: false, error: friendlyError };
         }
       });
 
