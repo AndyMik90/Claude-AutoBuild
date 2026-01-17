@@ -66,7 +66,16 @@ describe('Terminal copy/paste integration', () => {
   };
 
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
+
+    // Mock requestAnimationFrame to prevent async operations after test teardown
+    global.requestAnimationFrame = vi.fn((callback) => {
+      return setTimeout(callback, 0) as unknown as number;
+    });
+    global.cancelAnimationFrame = vi.fn((id) => {
+      clearTimeout(id);
+    });
 
     // Mock ResizeObserver
     global.ResizeObserver = vi.fn().mockImplementation(function() {
@@ -103,6 +112,8 @@ describe('Terminal copy/paste integration', () => {
   });
 
   afterEach(() => {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
