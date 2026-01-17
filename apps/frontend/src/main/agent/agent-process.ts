@@ -22,6 +22,7 @@ import { buildMemoryEnvVars } from '../memory-env-builder';
 import { readSettingsFile } from '../settings-utils';
 import type { AppSettings } from '../../shared/types/settings';
 import { getOAuthModeClearVars } from './env-utils';
+import { extractErrorMessage } from './error-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo } from '../cli-tool-manager';
 import { isWindows, killProcessGracefully } from '../platform';
@@ -537,6 +538,7 @@ export class AgentProcessManager {
     let allOutput = '';
     let stdoutBuffer = '';
     let stderrBuffer = '';
+    let stderrCollected = ''; // Collect stderr for meaningful error messages
     let sequenceNumber = 0;
     // FIX (ACS-203): Track completed phases to prevent phase overlaps
     // When a phase completes, it's added to this array before transitioning to the next phase
@@ -654,7 +656,10 @@ export class AgentProcessManager {
     });
 
     childProcess.stderr?.on('data', (data: Buffer) => {
-      stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf8'));
+      const chunk = data.toString('utf8');
+      stderrBuffer = processBufferedOutput(stderrBuffer, chunk);
+      // Collect stderr for error messages (keep last 2KB for meaningful error extraction)
+      stderrCollected = (stderrCollected + chunk).slice(-2000);
     });
 
     childProcess.on('exit', (code: number | null) => {
@@ -684,14 +689,20 @@ export class AgentProcessManager {
       }
 
       if (code !== 0 && currentPhase !== 'complete' && currentPhase !== 'failed') {
+        // Extract meaningful error message from stderr using shared utility
+        const errorMessage = extractErrorMessage(stderrCollected, code);
+
         this.emitter.emit('execution-progress', taskId, {
           phase: 'failed',
           phaseProgress: 0,
           overallProgress: this.events.calculateOverallProgress(currentPhase, phaseProgress),
-          message: `Process exited with code ${code}`,
+          message: errorMessage,
           sequenceNumber: ++sequenceNumber,
           completedPhases: [...completedPhases]
         });
+
+        // Also emit error event for UI
+        this.emitter.emit('error', taskId, errorMessage);
       }
 
       this.emitter.emit('exit', taskId, code, processType);
