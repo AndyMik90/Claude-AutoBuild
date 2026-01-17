@@ -17,8 +17,7 @@ import {
 import {
   SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  arrayMove
+  verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
@@ -37,6 +36,15 @@ import type { Task, TaskStatus } from '../../shared/types';
 const VALID_DROP_COLUMNS = new Set<string>(TASK_STATUS_COLUMNS);
 function isValidDropColumn(id: string): id is typeof TASK_STATUS_COLUMNS[number] {
   return VALID_DROP_COLUMNS.has(id);
+}
+
+/**
+ * Get the visual column for a task status.
+ * pr_created tasks are displayed in the 'done' column, so we map them accordingly.
+ * This is used to compare visual positions during drag-and-drop operations.
+ */
+function getVisualColumn(status: TaskStatus): typeof TASK_STATUS_COLUMNS[number] {
+  return status === 'pr_created' ? 'done' : status;
 }
 
 interface KanbanBoardProps {
@@ -428,13 +436,11 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         });
 
         // 4. Sort ordered tasks by their index in validOrder
+        // Pre-compute index map for O(n) sorting instead of O(n²) with indexOf
+        const indexMap = new Map(validOrder.map((id, idx) => [id, idx]));
         const orderedTasks = columnTasks
           .filter(t => validOrderSet.has(t.id))
-          .sort((a, b) => {
-            const indexA = validOrder.indexOf(a.id);
-            const indexB = validOrder.indexOf(b.id);
-            return indexA - indexB;
-          });
+          .sort((a, b) => (indexMap.get(a.id) ?? 0) - (indexMap.get(b.id) ?? 0));
 
         // 5. Prepend new tasks at top, then ordered tasks
         grouped[statusKey] = [...newTasks, ...orderedTasks];
@@ -561,12 +567,24 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Get task order actions from store
   const reorderTasksInColumn = useTaskStore((state) => state.reorderTasksInColumn);
   const moveTaskToColumnTop = useTaskStore((state) => state.moveTaskToColumnTop);
-  const saveTaskOrder = useTaskStore((state) => state.saveTaskOrder);
+  const saveTaskOrderToStorage = useTaskStore((state) => state.saveTaskOrder);
   const loadTaskOrder = useTaskStore((state) => state.loadTaskOrder);
   const setTaskOrder = useTaskStore((state) => state.setTaskOrder);
 
   // Get projectId from tasks (all tasks in KanbanBoard share the same project)
   const projectId = useMemo(() => tasks[0]?.projectId ?? null, [tasks]);
+
+  const saveTaskOrder = (projectIdToSave: string) => {
+    const success = saveTaskOrderToStorage(projectIdToSave);
+    if (!success) {
+      toast({
+        title: t('kanban.orderSaveFailedTitle'),
+        description: t('kanban.orderSaveFailedDescription'),
+        variant: 'destructive'
+      });
+    }
+    return success;
+  };
 
   // Load task order on mount and when project changes
   useEffect(() => {
@@ -651,10 +669,14 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const task = tasks.find((t) => t.id === activeTaskId);
       if (!task) return;
 
-      // Same column: reorder within column using arrayMove
-      if (task.status === overTask.status) {
-        // Reorder tasks within the same column
-        reorderTasksInColumn(task.status, activeTaskId, overId);
+      // Compare visual columns (pr_created maps to 'done' visually)
+      const taskVisualColumn = getVisualColumn(task.status);
+      const overTaskVisualColumn = getVisualColumn(overTask.status);
+
+      // Same visual column: reorder within column
+      if (taskVisualColumn === overTaskVisualColumn) {
+        // Reorder tasks within the same column using the visual column key
+        reorderTasksInColumn(taskVisualColumn, activeTaskId, overId);
 
         // Get projectId for persistence
         const projectId = task.projectId;
@@ -664,9 +686,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         return;
       }
 
-      // Different column: move to that task's column (status change)
-      // Move task to top of target column's order array
-      moveTaskToColumnTop(activeTaskId, overTask.status, task.status);
+      // Different visual column: move to that task's column (status change)
+      // Use the visual column key for ordering to ensure consistency
+      moveTaskToColumnTop(activeTaskId, overTaskVisualColumn, taskVisualColumn);
 
       // Persist task order
       if (projectId) {

@@ -16,7 +16,6 @@ import { promises as fsPromises } from 'fs';
 import { execFileSync, execFile } from 'child_process';
 import { promisify } from 'util';
 import { getSentryEnvForSubprocess } from './sentry';
-import { isWindows, isUnix, getPathDelimiter } from './platform';
 
 const execFileAsync = promisify(execFile);
 
@@ -55,7 +54,7 @@ let npmGlobalPrefixCachePromise: Promise<string | null> | null = null;
 function getNpmGlobalPrefix(): string | null {
   try {
     // On Windows, use npm.cmd for proper command resolution
-    const npmCommand = isWindows() ? 'npm.cmd' : 'npm';
+    const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
     // Use --location=global to bypass workspace context and avoid ENOWORKSPACES error
     const rawPrefix = execFileSync(npmCommand, ['config', 'get', 'prefix', '--location=global'], {
@@ -63,7 +62,7 @@ function getNpmGlobalPrefix(): string | null {
       timeout: 3000,
       windowsHide: true,
       cwd: os.homedir(), // Run from home dir to avoid ENOWORKSPACES error in monorepos
-      shell: isWindows(), // Enable shell on Windows for .cmd resolution
+      shell: process.platform === 'win32', // Enable shell on Windows for .cmd resolution
     }).trim();
 
     if (!rawPrefix) {
@@ -72,7 +71,7 @@ function getNpmGlobalPrefix(): string | null {
 
     // On non-Windows platforms, npm globals are installed in prefix/bin
     // On Windows, they're installed directly in the prefix directory
-    const binPath = isWindows()
+    const binPath = process.platform === 'win32'
       ? rawPrefix
       : path.join(rawPrefix, 'bin');
 
@@ -197,7 +196,8 @@ function buildPathsToAdd(
  */
 export function getAugmentedEnv(additionalPaths?: string[]): Record<string, string> {
   const env = { ...process.env } as Record<string, string>;
-  const pathSeparator = getPathDelimiter();
+  const platform = process.platform as 'darwin' | 'linux' | 'win32';
+  const pathSeparator = platform === 'win32' ? ';' : ':';
 
   // Get all candidate paths (platform + additional)
   const candidatePaths = getExpandedPlatformPaths(additionalPaths);
@@ -208,7 +208,7 @@ export function getAugmentedEnv(additionalPaths?: string[]): Record<string, stri
   let currentPath = env.PATH || '';
 
   // On macOS/Linux, ensure basic system paths are always present
-  if (isUnix()) {
+  if (platform !== 'win32') {
     const pathSetForEssentials = new Set(currentPath.split(pathSeparator).filter(Boolean));
     const missingEssentials = ESSENTIAL_SYSTEM_PATHS.filter(p => !pathSetForEssentials.has(p));
 
@@ -257,12 +257,12 @@ export function getAugmentedEnv(additionalPaths?: string[]): Record<string, stri
  */
 export function findExecutable(command: string): string | null {
   const env = getAugmentedEnv();
-  const pathSeparator = getPathDelimiter();
+  const pathSeparator = process.platform === 'win32' ? ';' : ':';
   const pathDirs = (env.PATH || '').split(pathSeparator);
 
   // On Windows, check Windows-native extensions first (.exe, .cmd) before
   // extensionless files (which are typically bash/sh scripts for Git Bash/Cygwin)
-  const extensions = isWindows()
+  const extensions = process.platform === 'win32'
     ? ['.exe', '.cmd', '.bat', '.ps1', '']
     : [''];
 
@@ -314,14 +314,14 @@ async function getNpmGlobalPrefixAsync(): Promise<string | null> {
   // Start the async fetch
   npmGlobalPrefixCachePromise = (async () => {
     try {
-      const npmCommand = isWindows() ? 'npm.cmd' : 'npm';
+      const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
       const { stdout } = await execFileAsync(npmCommand, ['config', 'get', 'prefix', '--location=global'], {
         encoding: 'utf-8',
         timeout: 3000,
         windowsHide: true,
         cwd: os.homedir(), // Run from home dir to avoid ENOWORKSPACES error in monorepos
-        shell: isWindows(),
+        shell: process.platform === 'win32',
       });
 
       const rawPrefix = stdout.trim();
@@ -330,7 +330,7 @@ async function getNpmGlobalPrefixAsync(): Promise<string | null> {
         return null;
       }
 
-      const binPath = isWindows()
+      const binPath = process.platform === 'win32'
         ? rawPrefix
         : path.join(rawPrefix, 'bin');
 
@@ -360,7 +360,8 @@ async function getNpmGlobalPrefixAsync(): Promise<string | null> {
  */
 export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<Record<string, string>> {
   const env = { ...process.env } as Record<string, string>;
-  const pathSeparator = getPathDelimiter();
+  const platform = process.platform as 'darwin' | 'linux' | 'win32';
+  const pathSeparator = platform === 'win32' ? ';' : ':';
 
   // Get all candidate paths (platform + additional)
   const candidatePaths = getExpandedPlatformPaths(additionalPaths);
@@ -368,7 +369,7 @@ export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<
   // Ensure essential system paths are present (for macOS Keychain access)
   let currentPath = env.PATH || '';
 
-  if (isUnix()) {
+  if (platform !== 'win32') {
     const pathSetForEssentials = new Set(currentPath.split(pathSeparator).filter(Boolean));
     const missingEssentials = ESSENTIAL_SYSTEM_PATHS.filter(p => !pathSetForEssentials.has(p));
 
@@ -420,10 +421,10 @@ export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<
  */
 export async function findExecutableAsync(command: string): Promise<string | null> {
   const env = await getAugmentedEnvAsync();
-  const pathSeparator = getPathDelimiter();
+  const pathSeparator = process.platform === 'win32' ? ';' : ':';
   const pathDirs = (env.PATH || '').split(pathSeparator);
 
-  const extensions = isWindows()
+  const extensions = process.platform === 'win32'
     ? ['.exe', '.cmd', '.bat', '.ps1', '']
     : [''];
 
@@ -469,7 +470,7 @@ export function clearNpmPrefixCache(): void {
  */
 export function shouldUseShell(command: string): boolean {
   // Only Windows needs special handling for .cmd/.bat files
-  if (isUnix()) {
+  if (process.platform !== 'win32') {
     return false;
   }
 

@@ -29,7 +29,7 @@ interface TaskState {
   reorderTasksInColumn: (status: TaskStatus, activeId: string, overId: string) => void;
   moveTaskToColumnTop: (taskId: string, targetStatus: TaskStatus, sourceStatus?: TaskStatus) => void;
   loadTaskOrder: (projectId: string) => void;
-  saveTaskOrder: (projectId: string) => void;
+  saveTaskOrder: (projectId: string) => boolean;
   clearTaskOrder: (projectId: string) => void;
 
   // Selectors
@@ -535,12 +535,14 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   saveTaskOrder: (projectId) => {
     try {
       const state = get();
-      if (!state.taskOrder) return;
+      if (!state.taskOrder) return true;
 
       const key = getTaskOrderKey(projectId);
       localStorage.setItem(key, JSON.stringify(state.taskOrder));
+      return true;
     } catch (error) {
       console.error('Failed to save task order:', error);
+      return false;
     }
   },
 
