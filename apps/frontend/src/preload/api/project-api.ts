@@ -66,32 +66,32 @@ export interface ProjectAPI {
 
   // Graphiti Validation Operations
   validateLLMApiKey: (provider: string, apiKey: string) => Promise<IPCResult<GraphitiValidationResult>>;
-   testGraphitiConnection: (config: {
-     dbPath?: string;
-     database?: string;
-     llmProvider: string;
-     apiKey: string;
-   }) => Promise<IPCResult<GraphitiConnectionTestResult>>;
+  testGraphitiConnection: (config: {
+    dbPath?: string;
+    database?: string;
+    llmProvider: string;
+    apiKey: string;
+  }) => Promise<IPCResult<GraphitiConnectionTestResult>>;
 
-   // Ollama Model Management
-   scanOllamaModels: (baseUrl: string) => Promise<IPCResult<{
-     models: Array<{
-       name: string;
-       size: number;
-       modified_at: string;
-       digest: string;
-     }>;
-   }>>;
-   downloadOllamaModel: (baseUrl: string, modelName: string) => Promise<IPCResult<{ message: string }>>;
-   onDownloadProgress: (callback: (data: {
-     modelName: string;
-     status: string;
-     completed: number;
-     total: number;
-     percentage: number;
-   }) => void) => () => void;
+  // Ollama Model Management
+  scanOllamaModels: (baseUrl: string) => Promise<IPCResult<{
+    models: Array<{
+      name: string;
+      size: number;
+      modified_at: string;
+      digest: string;
+    }>;
+  }>>;
+  downloadOllamaModel: (baseUrl: string, modelName: string) => Promise<IPCResult<{ message: string }>>;
+  onDownloadProgress: (callback: (data: {
+    modelName: string;
+    status: string;
+    completed: number;
+    total: number;
+    percentage: number;
+  }) => void) => () => void;
 
-   // Git Operations
+  // Git Operations
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
   getCurrentGitBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
@@ -120,6 +120,19 @@ export interface ProjectAPI {
       is_embedding: boolean;
       embedding_dim?: number | null;
       description?: string;
+    }>;
+    count: number;
+  }>>;
+  getRecommendedOllamaModels: (baseUrl?: string) => Promise<IPCResult<{
+    recommended: Array<{
+      name: string;
+      description: string;
+      size_estimate: string;
+      dim: number;
+      installed: boolean;
+      compatible: boolean;
+      compatibility_note?: string;
+      badge?: string;
     }>;
     count: number;
   }>>;
@@ -289,6 +302,9 @@ export const createProjectAPI = (): ProjectAPI => ({
 
   listOllamaModels: (baseUrl?: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_LIST_MODELS, baseUrl),
+
+  getRecommendedOllamaModels: (baseUrl?: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_LIST_RECOMMENDED_MODELS, baseUrl),
 
   listOllamaEmbeddingModels: (baseUrl?: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_LIST_EMBEDDING_MODELS, baseUrl),

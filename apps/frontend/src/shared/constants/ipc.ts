@@ -241,7 +241,7 @@ export const IPC_CHANNELS = {
   GITHUB_INVESTIGATION_COMPLETE: 'github:investigationComplete',
   GITHUB_INVESTIGATION_ERROR: 'github:investigationError',
 
-// GitLab integration
+  // GitLab integration
   GITLAB_GET_PROJECTS: 'gitlab:getProjects',
   GITLAB_GET_ISSUES: 'gitlab:getIssues',
   GITLAB_GET_ISSUE: 'gitlab:getIssue',
@@ -421,6 +421,7 @@ export const IPC_CHANNELS = {
   OLLAMA_INSTALL: 'ollama:install',
   OLLAMA_LIST_MODELS: 'ollama:listModels',
   OLLAMA_LIST_EMBEDDING_MODELS: 'ollama:listEmbeddingModels',
+  OLLAMA_LIST_RECOMMENDED_MODELS: 'ollama:listRecommendedModels',
   OLLAMA_PULL_MODEL: 'ollama:pullModel',
   OLLAMA_PULL_PROGRESS: 'ollama:pullProgress',
 

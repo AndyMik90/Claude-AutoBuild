@@ -147,6 +147,7 @@ apps/frontend/out/
 coverage/
 .nyc_output/
 test-results/
+apps/frontend/*.txt
 playwright-report/
 playwright/.cache/
 

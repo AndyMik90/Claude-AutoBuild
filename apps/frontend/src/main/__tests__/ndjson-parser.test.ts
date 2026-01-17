@@ -33,11 +33,11 @@ interface ProgressData {
  */
 function parseNDJSON(chunk: string, bufferRef: { current: string }): ProgressData[] {
   const results: ProgressData[] = [];
-
+  
   let stderrBuffer = bufferRef.current + chunk;
   const lines = stderrBuffer.split('\n');
   stderrBuffer = lines.pop() || '';
-
+  
   lines.forEach((line) => {
     if (line.trim()) {
       try {
@@ -48,7 +48,7 @@ function parseNDJSON(chunk: string, bufferRef: { current: string }): ProgressDat
       }
     }
   });
-
+  
   bufferRef.current = stderrBuffer;
   return results;
 }
@@ -64,7 +64,7 @@ describe('NDJSON Parser', () => {
     it('should parse single JSON object', () => {
       const chunk = '{"status":"downloading","completed":100,"total":1000}\n';
       const results = parseNDJSON(chunk, bufferRef);
-
+      
       expect(results).toHaveLength(1);
       expect(results[0].status).toBe('downloading');
       expect(results[0].completed).toBe(100);
@@ -74,7 +74,7 @@ describe('NDJSON Parser', () => {
     it('should parse multiple JSON objects', () => {
       const chunk = '{"completed":100}\n{"completed":200}\n{"completed":300}\n';
       const results = parseNDJSON(chunk, bufferRef);
-
+      
       expect(results).toHaveLength(3);
       expect(results[0].completed).toBe(100);
       expect(results[1].completed).toBe(200);
@@ -86,7 +86,7 @@ describe('NDJSON Parser', () => {
     it('should preserve incomplete line in buffer', () => {
       const chunk = '{"completed":100}\n{"incomplete":true';
       const results = parseNDJSON(chunk, bufferRef);
-
+      
       expect(results).toHaveLength(1);
       expect(bufferRef.current).toBe('{"incomplete":true');
     });
@@ -96,7 +96,7 @@ describe('NDJSON Parser', () => {
       let results = parseNDJSON(chunk, bufferRef);
       expect(results).toHaveLength(1);
       expect(bufferRef.current).toBe('{"status":"down');
-
+      
       chunk = 'loading"}\n';
       results = parseNDJSON(chunk, bufferRef);
       expect(results).toHaveLength(1);
@@ -109,7 +109,7 @@ describe('NDJSON Parser', () => {
     it('should skip invalid JSON and continue', () => {
       const chunk = '{"completed":100}\nINVALID\n{"completed":200}\n';
       const results = parseNDJSON(chunk, bufferRef);
-
+      
       expect(results).toHaveLength(2);
       expect(results[0].completed).toBe(100);
       expect(results[1].completed).toBe(200);
@@ -118,7 +118,7 @@ describe('NDJSON Parser', () => {
     it('should skip empty lines', () => {
       const chunk = '{"completed":100}\n\n{"completed":200}\n';
       const results = parseNDJSON(chunk, bufferRef);
-
+      
       expect(results).toHaveLength(2);
     });
   });
@@ -133,7 +133,7 @@ describe('NDJSON Parser', () => {
       });
       const chunk = ollamaProgress + '\n';
       const results = parseNDJSON(chunk, bufferRef);
-
+      
       expect(results).toHaveLength(1);
       expect(results[0].status).toBe('downloading');
       expect(results[0].completed).toBe(500000000);
@@ -148,7 +148,7 @@ describe('NDJSON Parser', () => {
       ];
       const chunk = updates.map(u => JSON.stringify(u)).join('\n') + '\n';
       const results = parseNDJSON(chunk, bufferRef);
-
+      
       expect(results).toHaveLength(3);
       expect(results[2].completed).toBe(300000000);
     });
@@ -156,7 +156,7 @@ describe('NDJSON Parser', () => {
     it('should handle success status', () => {
       const chunk = '{"status":"success","digest":"sha256:123"}\n';
       const results = parseNDJSON(chunk, bufferRef);
-
+      
       expect(results).toHaveLength(1);
       expect(results[0].status).toBe('success');
     });
@@ -165,7 +165,7 @@ describe('NDJSON Parser', () => {
   describe('Streaming Scenarios', () => {
     it('should accumulate data across multiple chunks', () => {
       let allResults: ProgressData[] = [];
-
+      
       // Simulate streaming 3 progress updates
       for (let i = 1; i <= 3; i++) {
         const chunk = JSON.stringify({
@@ -175,7 +175,7 @@ describe('NDJSON Parser', () => {
         const results = parseNDJSON(chunk, bufferRef);
         allResults = allResults.concat(results);
       }
-
+      
       expect(allResults).toHaveLength(3);
       expect(allResults[2].completed).toBe(300000000);
     });
@@ -189,7 +189,7 @@ describe('NDJSON Parser', () => {
       };
       const chunk = JSON.stringify(obj) + '\n';
       const results = parseNDJSON(chunk, bufferRef);
-
+      
       expect(results).toHaveLength(1);
       expect(results[0].completed).toBe(123456789);
     });
@@ -197,7 +197,7 @@ describe('NDJSON Parser', () => {
     it('should handle very large numbers', () => {
       const chunk = '{"completed":999999999999,"total":1000000000000}\n';
       const results = parseNDJSON(chunk, bufferRef);
-
+      
       expect(results).toHaveLength(1);
       expect(results[0].completed).toBe(999999999999);
       expect(results[0].total).toBe(1000000000000);
@@ -211,7 +211,7 @@ describe('NDJSON Parser', () => {
       let results = parseNDJSON(chunk, bufferRef);
       expect(results).toHaveLength(1);
       expect(bufferRef.current).toBe('{"other');
-
+      
       // Second call completes the incomplete data
       chunk = '":200}\n';
       results = parseNDJSON(chunk, bufferRef);

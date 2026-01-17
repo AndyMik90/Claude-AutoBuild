@@ -16,13 +16,48 @@ Output:
 
 import argparse
 import json
+import os
 import re
 import sys
 import urllib.error
 import urllib.request
 from typing import Any
 
-DEFAULT_OLLAMA_URL = "http://localhost:11434"
+from core.platform import find_executable, get_platform_description
+
+
+def get_default_ollama_url() -> str:
+    """Get the default Ollama URL from environment or fallback."""
+    env_host = os.environ.get("OLLAMA_HOST", "")
+    if not env_host:
+        return "http://localhost:11434"
+
+    if env_host.startswith(("http://", "https://")):
+        return env_host
+
+    # Handle cases like ":8080"
+    if env_host.startswith(":") and env_host[1:].isdigit():
+        return f"http://localhost{env_host}"
+
+    # Check for IPv6 literals (containing multiple colons)
+    is_ipv6 = ":" in env_host and env_host.count(":") > 1
+
+    if is_ipv6:
+        # Already bracketed? [::1] or [::1]:11434
+        if env_host.startswith("["):
+            if "]:" in env_host:
+                return f"http://{env_host}"
+            return f"http://{env_host}:11434"
+        # Bare IPv6: ::1
+        return f"http://[{env_host}]:11434"
+
+    # IPv4 or hostname
+    if ":" in env_host:
+        return f"http://{env_host}"
+    return f"http://{env_host}:11434"
+
+
+DEFAULT_OLLAMA_URL = get_default_ollama_url()
 
 # Minimum Ollama version required for newer embedding models (qwen3-embedding, etc.)
 # These models were added in Ollama 0.10.0
@@ -214,9 +249,10 @@ def get_embedding_dim(model_name: str) -> int | None:
     """Get the embedding dimension for a known model."""
     name_lower = model_name.lower()
 
-    for known_model, info in KNOWN_EMBEDDING_MODELS.items():
+    # Sort by length descending to match most specific names first
+    for known_model in sorted(KNOWN_EMBEDDING_MODELS.keys(), key=len, reverse=True):
         if known_model in name_lower:
-            return info["dim"]
+            return KNOWN_EMBEDDING_MODELS[known_model]["dim"]
 
     # Default dimensions for common patterns
     if "large" in name_lower:
@@ -251,6 +287,29 @@ def get_model_min_version(model_name: str) -> str | None:
             return KNOWN_EMBEDDING_MODELS[known_model].get("min_version")
 
     return None
+
+
+def cmd_check_installed(args) -> None:
+    """Check if Ollama executable is installed on the system."""
+    executable = find_executable("ollama")
+
+    if executable:
+        output_json(
+            True,
+            data={
+                "installed": True,
+                "path": executable,
+                "platform": get_platform_description(),
+            },
+        )
+    else:
+        output_json(
+            True,
+            data={
+                "installed": False,
+                "message": "Ollama executable not found in system PATH. Please install it from https://ollama.com",
+            },
+        )
 
 
 def cmd_check_status(args) -> None:
@@ -539,6 +598,11 @@ def main():
         "--base-url", help=f"Ollama server URL (default: {DEFAULT_OLLAMA_URL})"
     )
 
+    # check-installed command
+    subparsers.add_parser(
+        "check-installed", help="Check if Ollama executable is installed"
+    )
+
     # list-models command
     list_parser = subparsers.add_parser("list-models", help="List all Ollama models")
     list_parser.add_argument(
@@ -562,11 +626,13 @@ def main():
         "--base-url", help=f"Ollama server URL (default: {DEFAULT_OLLAMA_URL})"
     )
 
-    # pull-model command
     pull_parser = subparsers.add_parser(
         "pull-model", help="Pull (download) an Ollama model"
     )
     pull_parser.add_argument("model", help="Model name to pull (e.g., embeddinggemma)")
+    pull_parser.add_argument(
+        "--base-url", help=f"Ollama server URL (default: {DEFAULT_OLLAMA_URL})"
+    )
 
     args = parser.parse_args()
 
@@ -577,6 +643,7 @@ def main():
 
     commands = {
         "check-status": cmd_check_status,
+        "check-installed": cmd_check_installed,
         "list-models": cmd_list_models,
         "list-embedding-models": cmd_list_embedding_models,
         "get-recommended-models": cmd_get_recommended_models,

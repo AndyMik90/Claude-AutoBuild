@@ -233,6 +233,44 @@
       "description": "Ollama is installed but not running. Start Ollama to use local embedding models.",
       "retry": "Retry",
       "fallbackNote": "Memory will still work with keyword search even without embeddings."
+    },
+    "download": "Download",
+    "downloading": "Downloading...",
+    "installed": "Installed",
+    "retry": "Retry",
+    "iveInstalledIt": "I've installed it",
+    "title": "Ollama Models",
+    "checkingModels": "Checking Ollama models...",
+    "refresh": "Refresh",
+    "footer": "Select an installed model for semantic search. Memory works with keyword search even without embeddings.",
+    "timeRemaining": {
+      "hours": "{{count}}h remaining",
+      "minutes": "{{count}}m remaining",
+      "seconds": "{{count}}s remaining"
+    },
+    "speed": {
+      "mbPerSec": "{{value}} MB/s",
+      "kbPerSec": "{{value}} KB/s",
+      "bPerSec": "{{value}} B/s"
+    },
+    "dimLabel": "({{dim}} dim)",
+    "badges": {
+      "recommended": "Recommended",
+      "quality": "Best Quality",
+      "fast": "Fastest"
+    },
+    "modelDescriptions": {
+      "embeddinggemma": "Google's lightweight embedding model (Recommended)",
+      "nomic-embed-text": "Popular general-purpose embeddings",
+      "mxbai-embed-large": "MixedBread AI large embeddings",
+      "qwen3-embedding:0.6b": "Qwen3 0.6B - Smallest and fastest",
+      "qwen3-embedding:4b": "Qwen3 4B - Balanced quality and speed",
+      "qwen3-embedding:8b": "Qwen3 8B - Best embedding quality"
+    },
+    "errors": {
+      "checkFailed": "Failed to check Ollama models",
+      "downloadFailed": "Failed to download {{modelName}}",
+      "genericDownloadFailed": "Download failed"
     }
   }
 }

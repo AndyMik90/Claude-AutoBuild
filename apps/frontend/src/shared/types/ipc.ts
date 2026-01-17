@@ -55,9 +55,9 @@ import type {
   SDKRateLimitInfo,
   RetryWithProfileRequest,
   CreateTerminalWorktreeRequest,
-  TerminalWorktreeConfig,
   TerminalWorktreeResult,
-  OtherWorktreeInfo,
+  TerminalWorktreeConfig,
+  OtherWorktreeInfo
 } from './terminal';
 import type {
   ClaudeProfileSettings,
@@ -138,6 +138,17 @@ export interface TabState {
   openProjectIds: string[];
   activeProjectId: string | null;
   tabOrder: string[];
+}
+
+export interface OllamaRecommendedModel {
+  name: string;
+  description: string;
+  size_estimate: string;
+  dim: number;
+  installed: boolean;
+  compatible?: boolean;
+  compatibility_note?: string;
+  badge?: string;
 }
 
 export interface ElectronAPI {
@@ -765,6 +776,10 @@ export interface ElectronAPI {
     model: string;
     status: 'completed' | 'failed';
     output: string[];
+  }>>;
+  getRecommendedOllamaModels: (baseUrl?: string) => Promise<IPCResult<{
+    recommended: OllamaRecommendedModel[];
+    count: number;
   }>>;
 
   // Ollama download progress listener
