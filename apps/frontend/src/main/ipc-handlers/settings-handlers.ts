@@ -780,7 +780,7 @@ export function registerSettingsHandlers(
         console.error('[PYTHON_ENV_STATUS] Error:', error);
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to get Python environment status'
+          error: error instanceof Error ? error.message : 'errors:pythonEnv.statusFailed'
         };
       }
     }
@@ -802,7 +802,7 @@ export function registerSettingsHandlers(
         if (!autoBuildPath) {
           return {
             success: false,
-            error: 'Auto-build source path not configured. Please set it in Settings.'
+            error: 'errors:pythonEnv.autoBuildPathMissing'
           };
         }
 
@@ -812,7 +812,7 @@ export function registerSettingsHandlers(
         if (!status.ready) {
           return {
             success: false,
-            error: status.error || 'Failed to initialize Python environment'
+            error: status.error || 'errors:pythonEnv.initializeFailed'
           };
         }
 
@@ -821,7 +821,7 @@ export function registerSettingsHandlers(
         console.error('[PYTHON_ENV_INITIALIZE] Error:', error);
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to initialize Python environment'
+          error: error instanceof Error ? error.message : 'errors:pythonEnv.initializeFailed'
         };
       }
     }

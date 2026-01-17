@@ -13,5 +13,10 @@
     "timeoutWithOutput": "Le processus de fusion a expiré. Une sortie a été reçue - veuillez exécuter `git status` dans le répertoire de votre projet pour vérifier si la fusion s'est partiellement terminée.",
     "timeoutNoOutput": "Le processus de fusion a expiré. Aucune sortie reçue - la fusion n'a peut-être pas démarré.",
     "timeoutLastError": "Dernière erreur : {{lastError}}"
+  },
+  "pythonEnv": {
+    "autoBuildPathMissing": "Le chemin source auto-build n'est pas configuré. Veuillez le définir dans les Paramètres.",
+    "initializeFailed": "Échec de l'initialisation de l'environnement Python",
+    "statusFailed": "Échec de la récupération du statut de l'environnement Python"
   }
 }
