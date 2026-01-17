@@ -220,7 +220,7 @@ export function PRList({
 
   useEffect(() => {
     const trigger = loadMoreTriggerRef.current;
-    if (!trigger) return;
+    if (!trigger || !viewportElement) return;
 
     const observer = new IntersectionObserver(handleIntersection, {
       root: viewportElement,
@@ -233,7 +233,7 @@ export function PRList({
     return () => {
       observer.disconnect();
     };
-  }, [handleIntersection, viewportElement]);
+  }, [handleIntersection, onLoadMore, viewportElement]);
 
   if (isLoading && prs.length === 0) {
     return (

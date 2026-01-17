@@ -31,7 +31,7 @@ export function IssueList({
 
   useEffect(() => {
     const trigger = loadMoreTriggerRef.current;
-    if (!trigger || !onLoadMore) return;
+    if (!trigger || !onLoadMore || !viewportElement) return;
 
     const observer = new IntersectionObserver(handleIntersection, {
       root: viewportElement,
