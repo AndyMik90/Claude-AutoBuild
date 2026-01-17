@@ -17,7 +17,6 @@ This module has been refactored for better maintainability:
 Public API is exported via workspace/__init__.py for backward compatibility.
 """
 
-import subprocess
 from pathlib import Path
 
 # Import git command helper for centralized logging and allowlist compliance
@@ -188,11 +187,9 @@ def merge_existing_build(
     # Detect current branch - this is where user wants changes merged
     # Normal workflow: user is on their feature branch (e.g., version/2.5.5)
     # and wants to merge the spec changes into it, then PR to main
-    current_branch_result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+    current_branch_result = run_git(
+        ["rev-parse", "--abbrev-ref", "HEAD"],
         cwd=project_dir,
-        capture_output=True,
-        text=True,
     )
     current_branch = (
         current_branch_result.stdout.strip()
@@ -569,11 +566,9 @@ def _try_smart_merge_inner(
             base_branch = git_conflicts.get("base_branch", "main")
 
             # Get merge-base for diff
-            merge_base_result = subprocess.run(
-                ["git", "merge-base", base_branch, spec_branch],
+            merge_base_result = run_git(
+                ["merge-base", base_branch, spec_branch],
                 cwd=project_dir,
-                capture_output=True,
-                text=True,
             )
             merge_base = (
                 merge_base_result.stdout.strip()
@@ -655,22 +650,19 @@ def _try_smart_merge_inner(
 
                 # Stage all files in a single git add call for efficiency
                 if files_to_stage:
-                    try:
-                        subprocess.run(
-                            ["git", "add"] + files_to_stage,
-                            cwd=project_dir,
-                            capture_output=True,
-                            text=True,
-                            check=True,
-                        )
-                    except subprocess.CalledProcessError as e:
+                    add_result = run_git(
+                        ["add"] + files_to_stage,
+                        cwd=project_dir,
+                    )
+                    if add_result.returncode != 0:
                         debug_warning(
-                            MODULE, f"Failed to stage files for direct copy: {e.stderr}"
+                            MODULE,
+                            f"Failed to stage files for direct copy: {add_result.stderr}",
                         )
                         # Return failure - files were written but not staged
                         return {
                             "success": False,
-                            "error": f"Failed to stage files: {e.stderr}",
+                            "error": f"Failed to stage files: {add_result.stderr}",
                             "resolved_files": [],
                         }
 
@@ -1137,11 +1129,9 @@ def _resolve_git_conflicts_with_ai(
     )
 
     # Get merge-base commit
-    merge_base_result = subprocess.run(
-        ["git", "merge-base", base_branch, spec_branch],
+    merge_base_result = run_git(
+        ["merge-base", base_branch, spec_branch],
         cwd=project_dir,
-        capture_output=True,
-        text=True,
     )
     merge_base = (
         merge_base_result.stdout.strip() if merge_base_result.returncode == 0 else None
@@ -1194,11 +1184,7 @@ def _resolve_git_conflicts_with_ai(
                     )
                     if binary_content is not None:
                         target_path.write_bytes(binary_content)
-                        subprocess.run(
-                            ["git", "add", target_file_path],
-                            cwd=project_dir,
-                            capture_output=True,
-                        )
+                        run_git(["add", target_file_path], cwd=project_dir)
                         resolved_files.append(target_file_path)
                         debug(MODULE, f"Copied new binary file: {file_path}")
                 else:
@@ -1207,11 +1193,7 @@ def _resolve_git_conflicts_with_ai(
                     )
                     if content is not None:
                         target_path.write_text(content, encoding="utf-8")
-                        subprocess.run(
-                            ["git", "add", target_file_path],
-                            cwd=project_dir,
-                            capture_output=True,
-                        )
+                        run_git(["add", target_file_path], cwd=project_dir)
                         resolved_files.append(target_file_path)
                         if target_file_path != file_path:
                             debug(
@@ -1351,9 +1333,7 @@ def _resolve_git_conflicts_with_ai(
                     target_path = project_dir / file_path
                     target_path.parent.mkdir(parents=True, exist_ok=True)
                     target_path.write_text(merged_content, encoding="utf-8")
-                    subprocess.run(
-                        ["git", "add", file_path], cwd=project_dir, capture_output=True
-                    )
+                    run_git(["add", file_path], cwd=project_dir)
                     resolved_files.append(file_path)
                     # Show appropriate message based on merge type
                     if file_path in auto_merged_simple:
@@ -1372,11 +1352,7 @@ def _resolve_git_conflicts_with_ai(
                     target_path = project_dir / file_path
                     if target_path.exists():
                         target_path.unlink()
-                        subprocess.run(
-                            ["git", "add", file_path],
-                            cwd=project_dir,
-                            capture_output=True,
-                        )
+                        run_git(["add", file_path], cwd=project_dir)
                     resolved_files.append(file_path)
                     print(success(f"    ✓ {file_path} (deleted)"))
             except Exception as e:
@@ -1418,11 +1394,7 @@ def _resolve_git_conflicts_with_ai(
                 target_path = project_dir / result.file_path
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 target_path.write_text(result.merged_content, encoding="utf-8")
-                subprocess.run(
-                    ["git", "add", result.file_path],
-                    cwd=project_dir,
-                    capture_output=True,
-                )
+                run_git(["add", result.file_path], cwd=project_dir)
                 resolved_files.append(result.file_path)
 
                 if result.was_auto_merged:
@@ -1537,11 +1509,7 @@ def _resolve_git_conflicts_with_ai(
                 target_path = project_dir / result.file_path
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 target_path.write_text(result.merged_content, encoding="utf-8")
-                subprocess.run(
-                    ["git", "add", result.file_path],
-                    cwd=project_dir,
-                    capture_output=True,
-                )
+                run_git(["add", result.file_path], cwd=project_dir)
                 resolved_files.append(result.file_path)
 
                 if result.was_auto_merged:
@@ -1570,11 +1538,7 @@ def _resolve_git_conflicts_with_ai(
                 target_path = project_dir / target_file_path
                 if target_path.exists():
                     target_path.unlink()
-                    subprocess.run(
-                        ["git", "add", target_file_path],
-                        cwd=project_dir,
-                        capture_output=True,
-                    )
+                    run_git(["add", target_file_path], cwd=project_dir)
             else:
                 # Modified without path change - simple copy
                 # Check if binary file to use correct read/write method
@@ -1587,11 +1551,7 @@ def _resolve_git_conflicts_with_ai(
                     )
                     if binary_content is not None:
                         target_path.write_bytes(binary_content)
-                        subprocess.run(
-                            ["git", "add", target_file_path],
-                            cwd=project_dir,
-                            capture_output=True,
-                        )
+                        run_git(["add", target_file_path], cwd=project_dir)
                         resolved_files.append(target_file_path)
                         if target_file_path != file_path:
                             debug(
@@ -1604,11 +1564,7 @@ def _resolve_git_conflicts_with_ai(
                     )
                     if content is not None:
                         target_path.write_text(content, encoding="utf-8")
-                        subprocess.run(
-                            ["git", "add", target_file_path],
-                            cwd=project_dir,
-                            capture_output=True,
-                        )
+                        run_git(["add", target_file_path], cwd=project_dir)
                         resolved_files.append(target_file_path)
                         if target_file_path != file_path:
                             debug(
