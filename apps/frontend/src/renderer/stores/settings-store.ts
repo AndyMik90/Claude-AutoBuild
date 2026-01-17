@@ -296,6 +296,18 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 }));
 
 /**
+ * Migrate legacy language codes to current BCP 47 tags.
+ */
+function migrateLanguageCode(settings: AppSettings): AppSettings {
+  const language = settings.language as string | undefined;
+  if (language === 'zh') {
+    return { ...settings, language: 'zh-CN' };
+  }
+
+  return settings;
+}
+
+/**
  * Check if settings need migration for onboardingCompleted flag.
  * Existing users (with tokens or projects configured) should have
  * onboardingCompleted set to true to skip the onboarding wizard.
@@ -333,15 +345,20 @@ export async function loadSettings(): Promise<void> {
   try {
     const result = await window.electronAPI.getSettings();
     if (result.success && result.data) {
-      // Apply migration for onboardingCompleted flag
-      const migratedSettings = migrateOnboardingCompleted(result.data);
+      // Apply migrations
+      const migratedSettings = migrateLanguageCode(migrateOnboardingCompleted(result.data));
       store.setSettings(migratedSettings);
 
-      // If migration changed the settings, persist them
+      // If migrations changed the settings, persist them
+      const updates: Partial<AppSettings> = {};
       if (migratedSettings.onboardingCompleted !== result.data.onboardingCompleted) {
-        await window.electronAPI.saveSettings({
-          onboardingCompleted: migratedSettings.onboardingCompleted
-        });
+        updates.onboardingCompleted = migratedSettings.onboardingCompleted;
+      }
+      if (migratedSettings.language !== result.data.language) {
+        updates.language = migratedSettings.language;
+      }
+      if (Object.keys(updates).length > 0) {
+        await window.electronAPI.saveSettings(updates);
       }
 
       // Only mark settings as loaded on SUCCESS

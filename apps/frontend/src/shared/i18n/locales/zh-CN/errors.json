@@ -1,0 +1,5 @@
+{
+  "task": {
+    "parseImplementationPlan": "解析 {{specId}} 的 implementation_plan.json 失败：{{error}}"
+  }
+}

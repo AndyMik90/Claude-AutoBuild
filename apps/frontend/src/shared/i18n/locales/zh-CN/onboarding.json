@@ -1,0 +1,238 @@
+{
+  "wizard": {
+    "title": "设置向导",
+    "description": "用几个简单步骤配置 Auto Claude 环境",
+    "helpText": "该向导将帮助你用几个步骤完成环境设置。你可以配置 Claude OAuth 令牌、设置记忆功能并创建第一个任务。"
+  },
+  "welcome": {
+    "title": "欢迎使用 Auto Claude",
+    "subtitle": "使用 AI 驱动的代理自主构建软件",
+    "getStarted": "开始",
+    "skip": "跳过设置",
+    "features": {
+      "aiPowered": {
+        "title": "AI 驱动开发",
+        "description": "使用 Claude Code 代理生成代码并构建功能"
+      },
+      "specDriven": {
+        "title": "规格驱动流程",
+        "description": "用清晰规格定义任务，由 Auto Claude 负责实现"
+      },
+      "memory": {
+        "title": "记忆与上下文",
+        "description": "使用 Graphiti 在会话间保持持久记忆"
+      },
+      "parallel": {
+        "title": "并行执行",
+        "description": "并行运行多个代理，加快开发周期"
+      }
+    }
+  },
+  "oauth": {
+    "title": "Claude 认证",
+    "description": "连接你的 Claude 账号以启用 AI 功能",
+    "configureTitle": "配置 Claude 认证",
+    "addAccountsDesc": "添加你的 Claude 账号以启用 AI 功能",
+    "multiAccountInfo": "添加多个 Claude 订阅，在达到使用限制时自动切换。",
+    "noAccountsYet": "尚未配置账号",
+    "badges": {
+      "default": "默认",
+      "active": "当前",
+      "authenticated": "已认证",
+      "needsAuth": "需要认证"
+    },
+    "buttons": {
+      "authenticate": "认证",
+      "setActive": "设为当前",
+      "rename": "重命名",
+      "delete": "删除",
+      "add": "添加",
+      "adding": "添加中...",
+      "showToken": "显示令牌",
+      "hideToken": "隐藏令牌",
+      "copyToken": "复制令牌",
+      "back": "返回",
+      "continue": "继续",
+      "skip": "跳过"
+    },
+    "labels": {
+      "accountName": "账号名称",
+      "namePlaceholder": "配置名称（例如：工作、个人）",
+      "tokenLabel": "OAuth 令牌",
+      "tokenPlaceholder": "在此输入令牌",
+      "tokenHint": "完成 OAuth 登录后，将终端中显示的令牌粘贴到此处。"
+    },
+    "keychainTitle": "安全存储",
+    "keychainDescription": "你的令牌会使用系统钥匙串加密。你可能会看到 macOS 的密码提示——点击“始终允许”即可不再提示。",
+    "toast": {
+      "authSuccess": "配置认证成功",
+      "authSuccessWithEmail": "账号：{{email}}",
+      "authSuccessGeneric": "认证完成。现在可使用该配置。",
+      "authStartFailed": "启动认证失败",
+      "addProfileFailed": "添加配置失败",
+      "tokenSaved": "令牌已保存",
+      "tokenSavedDescription": "你的令牌已成功保存。",
+      "tokenSaveFailed": "保存令牌失败",
+      "tryAgain": "请重试。"
+    }
+  },
+  "memory": {
+    "title": "记忆",
+    "description": "配置代理的跨会话持久记忆",
+    "contextDescription": "Auto Claude 记忆可在编码会话间保留上下文",
+    "enableMemory": "启用记忆",
+    "enableMemoryDescription": "使用 LadybugDB（嵌入式数据库）的跨会话持久记忆",
+    "memoryDisabledInfo": "记忆已禁用。会话洞察仅保存在本地文件中。启用记忆可获得带语义搜索的跨会话持久上下文。",
+    "enableAgentAccess": "启用代理记忆访问",
+    "enableAgentAccessDescription": "允许代理通过 MCP 搜索并写入知识图谱",
+    "mcpServerUrl": "Graphiti MCP 服务器 URL",
+    "mcpServerUrlDescription": "用于代理记忆访问的 Graphiti MCP 服务器地址",
+    "embeddingProvider": "向量嵌入提供商",
+    "embeddingProviderDescription": "语义搜索的提供商（可选，不配置也可使用关键词搜索）",
+    "selectEmbeddingModel": "选择嵌入模型",
+    "openaiApiKey": "OpenAI API Key",
+    "openaiApiKeyDescription": "OpenAI 向量嵌入所需",
+    "openaiGetKey": "获取密钥：",
+    "voyageApiKey": "Voyage AI API Key",
+    "voyageApiKeyDescription": "Voyage AI 向量嵌入所需",
+    "googleApiKey": "Google AI API Key",
+    "googleApiKeyDescription": "Google AI 向量嵌入所需",
+    "azureConfig": "Azure OpenAI 配置",
+    "azureApiKey": "API Key",
+    "azureBaseUrl": "Base URL",
+    "azureEmbeddingDeployment": "嵌入部署名称",
+    "memoryInfo": "记忆会存储你的代码库发现、模式和洞察，使未来会话能够直接使用上下文。无需 Docker，使用嵌入式数据库。",
+    "learnMore": "了解更多关于记忆",
+    "back": "返回",
+    "skip": "跳过",
+    "saving": "保存中...",
+    "saveAndContinue": "保存并继续",
+    "providers": {
+      "ollama": "Ollama（本地 - 免费）",
+      "openai": "OpenAI",
+      "voyage": "Voyage AI",
+      "google": "Google AI",
+      "azure": "Azure OpenAI"
+    }
+  },
+  "completion": {
+    "title": "全部设置完成！",
+    "subtitle": "Auto Claude 已准备好帮助你构建出色的软件",
+    "setupComplete": "设置完成",
+    "setupCompleteDescription": "你的环境已配置完毕，可立即创建任务或按需探索应用。",
+    "whatsNext": "接下来？",
+    "createTask": {
+      "title": "创建任务",
+      "description": "先创建你的第一个任务，体验 Auto Claude。",
+      "action": "打开任务创建器"
+    },
+    "customizeSettings": {
+      "title": "自定义设置",
+      "description": "微调偏好、配置集成或重新运行向导。",
+      "action": "打开设置"
+    },
+    "exploreDocs": {
+      "title": "探索文档",
+      "description": "了解高级功能、最佳实践和故障排除。"
+    },
+    "finish": "完成并开始构建",
+    "rerunHint": "你可以在 设置 → 应用 中随时重新运行该向导"
+  },
+  "steps": {
+    "welcome": "欢迎",
+    "authChoice": "认证方式",
+    "auth": "认证",
+    "claudeCode": "CLI",
+    "devtools": "开发工具",
+    "privacy": "隐私",
+    "memory": "记忆",
+    "done": "完成"
+  },
+  "privacy": {
+    "title": "帮助改进 Auto Claude",
+    "subtitle": "匿名错误报告帮助我们更快修复问题",
+    "whatWeCollect": {
+      "title": "我们收集的内容",
+      "crashReports": "崩溃报告和错误堆栈",
+      "errorMessages": "错误消息（文件路径已匿名化）",
+      "appVersion": "应用版本和平台信息"
+    },
+    "whatWeNeverCollect": {
+      "title": "我们不会收集的内容",
+      "code": "你的代码或项目文件",
+      "filenames": "完整文件路径（用户名已屏蔽）",
+      "apiKeys": "API 密钥或令牌",
+      "personalData": "个人信息或使用数据"
+    },
+    "toggle": {
+      "label": "发送匿名错误报告",
+      "description": "帮助我们识别并修复问题"
+    }
+  },
+  "claudeCode": {
+    "title": "Claude Code CLI",
+    "description": "安装或更新 Claude Code CLI 以启用 AI 功能",
+    "detecting": "正在检查 Claude Code 安装...",
+    "info": {
+      "title": "什么是 Claude Code？",
+      "description": "Claude Code 是 Anthropic 官方 CLI，为 Auto Claude 的 AI 功能提供支持。它提供安全认证与直接访问 Claude 模型。"
+    },
+    "status": {
+      "installed": "已安装",
+      "outdated": "有可用更新",
+      "notFound": "未安装"
+    },
+    "version": {
+      "current": "当前版本",
+      "latest": "最新版本"
+    },
+    "install": {
+      "button": "安装 Claude Code",
+      "updating": "更新 Claude Code",
+      "inProgress": "安装中...",
+      "success": "安装命令已发送到终端，请在终端完成安装。",
+      "instructions": "安装程序将在终端打开。按提示完成安装。"
+    },
+    "learnMore": "了解更多关于 Claude Code"
+  },
+  "devtools": {
+    "title": "开发工具",
+    "description": "选择你偏好的 IDE 和终端以用于 Auto Claude 工作树",
+    "detecting": "正在检测已安装工具...",
+    "detectAgain": "重新检测",
+    "whyConfigure": "为什么要配置这些？",
+    "whyConfigureDescription": "当 Auto Claude 在隔离工作树中构建功能时，你可以直接在首选 IDE 或终端中打开它们以测试和审查更改。",
+    "ide": {
+      "label": "首选 IDE",
+      "description": "Auto Claude 将在此编辑器中打开工作树",
+      "customPath": "自定义 IDE 路径"
+    },
+    "terminal": {
+      "label": "首选终端",
+      "description": "Auto Claude 将在此终端中打开会话",
+      "customPath": "自定义终端路径"
+    },
+    "detectedSummary": "检测到以下工具：",
+    "noToolsDetected": "未检测到其他工具（将使用 VS Code 和系统终端）",
+    "custom": "自定义...",
+    "saveAndContinue": "保存并继续"
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "未安装 Ollama",
+      "description": "Ollama 提供免费的本地嵌入模型用于语义搜索。一键安装即可启用该功能。",
+      "installSuccess": "安装已在终端启动。完成后点击重试。",
+      "installButton": "安装 Ollama",
+      "installing": "安装中...",
+      "retry": "重试",
+      "learnMore": "了解更多",
+      "fallbackNote": "即使没有 Ollama，记忆仍可使用关键词搜索。"
+    },
+    "notRunning": {
+      "title": "Ollama 未运行",
+      "description": "Ollama 已安装但未运行。启动 Ollama 以使用本地嵌入模型。",
+      "retry": "重试",
+      "fallbackNote": "即使没有嵌入，记忆仍可使用关键词搜索。"
+    }
+  }
+}

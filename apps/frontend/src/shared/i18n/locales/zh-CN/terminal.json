@@ -1,0 +1,39 @@
+{
+  "expand": {
+    "expand": "展开终端",
+    "collapse": "折叠终端"
+  },
+  "auth": {
+    "terminalTitle": "认证：{{profileName}}",
+    "maxTerminalsReached": "无法打开认证终端：已达到终端数量上限，请先关闭一个终端。"
+  },
+  "worktree": {
+    "create": "工作树",
+    "createNew": "新建工作树",
+    "existing": "终端工作树",
+    "taskWorktrees": "任务工作树",
+    "createTitle": "创建终端工作树",
+    "createDescription": "为此终端创建隔离工作区。所有工作将在工作树目录中进行。",
+    "name": "工作树名称",
+    "namePlaceholder": "my-feature",
+    "nameRequired": "必须填写工作树名称",
+    "nameInvalid": "名称必须以字母或数字开头和结尾",
+    "nameHelp": "仅限小写字母、数字、短横线和下划线（空格会变成短横线）",
+    "associateTask": "关联任务",
+    "selectTask": "选择任务...",
+    "noTask": "无任务（独立工作树）",
+    "createBranch": "创建 Git 分支",
+    "branchHelp": "将创建分支：{{branch}}",
+    "baseBranch": "基分支",
+    "selectBaseBranch": "选择基分支...",
+    "searchBranch": "搜索分支...",
+    "noBranchFound": "未找到分支",
+    "useProjectDefault": "使用项目默认（{{branch}}）",
+    "baseBranchHelp": "用于创建工作树的分支",
+    "openInIDE": "在 IDE 中打开",
+    "maxReached": "终端工作树最多 12 个",
+    "alreadyExists": "已存在同名工作树",
+    "deleteTitle": "删除工作树？",
+    "deleteDescription": "这将永久删除工作树及其分支，所有未提交的更改将丢失。"
+  }
+}

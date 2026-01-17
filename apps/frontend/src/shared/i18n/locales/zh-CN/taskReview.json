@@ -1,0 +1,58 @@
+{
+  "terminal": {
+    "openTerminal": "打开终端",
+    "openInbuilt": "在内置终端中打开",
+    "openExternal": "在外部终端中打开"
+  },
+  "merge": {
+    "branchHasNewCommits": "{{branch}} 分支有 {{count}} 个新提交。",
+    "branchHasNewCommitsSinceWorktree": "自创建该工作树以来，{{branch}} 分支有 {{count}} 个新提交。",
+    "filesNeedMerging": "{{count}} 个文件需要合并。",
+    "filesNeedIntelligentMerging": "{{count}} 个文件需要智能合并：",
+    "branchHasNewCommitsSinceBuild": "自本次构建开始以来，{{branch}} 分支有 {{count}} 个新提交。",
+    "filesNeedAIMergeDueToRenames": "因 {{renameCount}} 个文件重命名，{{count}} 个文件需要 AI 合并。",
+    "filesNeedAIMergeDueToRenamesPlural": "因 {{renameCount}} 个文件重命名，{{count}} 个文件需要 AI 合并。",
+    "fileRenamesDetected": "检测到 {{count}} 个文件重命名，AI 将处理合并。",
+    "filesRenamedOrMoved": "文件可能已重命名或移动，AI 将处理合并。",
+    "buttons": {
+      "stageWithAIMerge": "使用 AI 合并暂存",
+      "mergeWithAI": "使用 AI 合并",
+      "stageTo": "暂存到 {{branch}}",
+      "mergeTo": "合并到 {{branch}}",
+      "resolving": "解决中...",
+      "staging": "暂存中...",
+      "merging": "合并中..."
+    }
+  },
+  "pr": {
+    "title": "创建拉取请求",
+    "description": "推送分支并为“{{taskTitle}}”创建拉取请求",
+    "errors": {
+      "unknown": "创建拉取请求时发生未知错误",
+      "invalidBranchName": "分支名包含无效字符。仅允许字母、数字、短横线 (-)、下划线 (_)、和斜杠 (/)。",
+      "emptyTitle": "拉取请求标题不能为空。"
+    },
+    "success": {
+      "created": "拉取请求创建成功！",
+      "alreadyExists": "该分支已存在拉取请求"
+    },
+    "actions": {
+      "retry": "重试",
+      "creating": "正在创建 PR...",
+      "create": "创建拉取请求"
+    },
+    "labels": {
+      "sourceBranch": "源分支",
+      "targetBranch": "目标分支",
+      "commits": "提交",
+      "changes": "更改",
+      "prTitle": "PR 标题（可选）",
+      "draftPR": "创建为草稿 PR",
+      "unknown": "未知"
+    },
+    "hints": {
+      "targetBranch": "留空则使用默认分支",
+      "prTitle": "留空则使用任务标题"
+    }
+  }
+}

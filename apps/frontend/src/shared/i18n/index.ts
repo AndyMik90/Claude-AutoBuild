@@ -27,6 +27,19 @@ import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
 import frErrors from './locales/fr/errors.json';
 
+// Import Chinese (Simplified) translation resources
+import zhCnCommon from './locales/zh-CN/common.json';
+import zhCnNavigation from './locales/zh-CN/navigation.json';
+import zhCnSettings from './locales/zh-CN/settings.json';
+import zhCnTasks from './locales/zh-CN/tasks.json';
+import zhCnWelcome from './locales/zh-CN/welcome.json';
+import zhCnOnboarding from './locales/zh-CN/onboarding.json';
+import zhCnDialogs from './locales/zh-CN/dialogs.json';
+import zhCnGitlab from './locales/zh-CN/gitlab.json';
+import zhCnTaskReview from './locales/zh-CN/taskReview.json';
+import zhCnTerminal from './locales/zh-CN/terminal.json';
+import zhCnErrors from './locales/zh-CN/errors.json';
+
 export const defaultNS = 'common';
 
 export const resources = {
@@ -55,6 +68,19 @@ export const resources = {
     taskReview: frTaskReview,
     terminal: frTerminal,
     errors: frErrors
+  },
+  'zh-CN': {
+    common: zhCnCommon,
+    navigation: zhCnNavigation,
+    settings: zhCnSettings,
+    tasks: zhCnTasks,
+    welcome: zhCnWelcome,
+    onboarding: zhCnOnboarding,
+    dialogs: zhCnDialogs,
+    gitlab: zhCnGitlab,
+    taskReview: zhCnTaskReview,
+    terminal: zhCnTerminal,
+    errors: zhCnErrors
   }
 } as const;
 

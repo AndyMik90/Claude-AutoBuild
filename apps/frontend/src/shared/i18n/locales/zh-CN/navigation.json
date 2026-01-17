@@ -1,0 +1,81 @@
+{
+  "sections": {
+    "project": "项目",
+    "tools": "工具"
+  },
+  "items": {
+    "kanban": "看板",
+    "terminals": "代理终端",
+    "insights": "洞察",
+    "roadmap": "路线图",
+    "ideation": "构思",
+    "changelog": "更新日志",
+    "context": "上下文",
+    "githubIssues": "GitHub 问题",
+    "githubPRs": "GitHub PR",
+    "gitlabIssues": "GitLab 问题",
+    "gitlabMRs": "GitLab 合并请求",
+    "worktrees": "工作树",
+    "agentTools": "MCP 概览"
+  },
+  "actions": {
+    "settings": "设置",
+    "help": "帮助与反馈",
+    "newTask": "新建任务"
+  },
+  "tooltips": {
+    "settings": "应用设置",
+    "help": "帮助与反馈"
+  },
+  "messages": {
+    "initializeToCreateTasks": "初始化 Auto Claude 以创建任务"
+  },
+  "updateBanner": {
+    "title": "有可用更新",
+    "version": "版本 {{version}} 已就绪",
+    "updateAndRestart": "更新并重启",
+    "installAndRestart": "安装并重启",
+    "downloading": "下载中...",
+    "dismiss": "忽略",
+    "downloadError": "下载更新失败"
+  },
+  "claudeCode": {
+    "checking": "正在检查 Claude Code...",
+    "upToDate": "Claude Code 已是最新",
+    "updateAvailable": "Claude Code 有可用更新",
+    "notInstalled": "Claude Code 未安装",
+    "error": "检查 Claude Code 时出错",
+    "installed": "已安装",
+    "outdated": "有可用更新",
+    "missing": "未安装",
+    "current": "当前",
+    "latest": "最新",
+    "path": "路径",
+    "lastChecked": "上次检查",
+    "learnMore": "了解 Claude Code",
+    "learnMoreAriaLabel": "了解 Claude Code（在新窗口中打开）",
+    "viewChangelog": "查看 Claude Code 更新日志",
+    "viewChangelogAriaLabel": "查看 Claude Code 更新日志（在新窗口中打开）",
+    "updateWarningTitle": "更新 Claude Code？",
+    "updateWarningDescription": "更新将关闭所有正在运行的 Claude Code 会话。那些会话中未保存的工作可能会丢失。请在继续之前保存你的工作。",
+    "updateAnyway": "仍要更新",
+    "switchVersion": "切换版本",
+    "selectVersion": "选择版本",
+    "loadingVersions": "正在加载版本...",
+    "failedToLoadVersions": "加载版本失败",
+    "installingVersion": "正在安装版本 {{version}}...",
+    "rollbackWarningTitle": "切换到版本 {{version}}？",
+    "rollbackWarningDescription": "切换版本将关闭所有正在运行的 Claude Code 会话。那些会话中未保存的工作可能会丢失。请在继续之前保存你的工作。",
+    "switchAnyway": "仍要切换",
+    "currentVersion": "当前",
+    "switchInstallation": "切换安装",
+    "selectInstallation": "选择安装",
+    "loadingInstallations": "正在加载安装...",
+    "failedToLoadInstallations": "加载安装失败",
+    "activeInstallation": "当前使用",
+    "pathChangeWarningTitle": "切换 CLI 安装？",
+    "pathChangeWarningDescription": "切换 CLI 安装将使用不同的 Claude Code 二进制文件。任何正在运行的会话将继续使用之前的安装，直到重启。",
+    "switchInstallationConfirm": "切换",
+    "versionUnknown": "版本未知"
+  }
+}
