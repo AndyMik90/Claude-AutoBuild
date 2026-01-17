@@ -1,10 +1,10 @@
 import { spawn, execSync, ChildProcess } from 'child_process';
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import { app } from 'electron';
 import { findPythonCommand, getBundledPythonPath } from './python-detector';
-import { isLinux, isWindows } from './platform';
+import { isLinux, isWindows, getPathDelimiter } from './platform';
 
 export interface PythonEnvStatus {
   ready: boolean;
@@ -669,7 +669,17 @@ if sys.version_info >= (3, 12):
    * problematic Python variables removed. This fixes the "Could not find platform
    * independent libraries <prefix>" error on Windows when PYTHONHOME is set.
    *
+   * For Windows with pywin32, this method handles several critical issues:
+   * 1. PYTHONPATH must include win32 and win32/lib for module imports
+   * 2. pywin32_system32 must be in PATH for DLL loading
+   *
+   * Note: The DLL copying performed by fixPywin32() in download-python.cjs is what
+   * actually makes pywin32 work - it copies DLLs to locations where Python's default
+   * DLL search finds them. Adding pywin32_system32 to PATH is an additional fallback.
+   *
    * @see https://github.com/AndyMik90/Auto-Claude/issues/176
+   * @see https://github.com/AndyMik90/Auto-Claude/issues/810
+   * @see https://github.com/mhammond/pywin32/blob/main/win32/Lib/pywin32_bootstrap.py
    */
   getPythonEnv(): Record<string, string> {
     // Start with process.env but explicitly remove problematic Python variables
@@ -681,14 +691,55 @@ if sys.version_info >= (3, 12):
       // Skip PYTHONHOME - it causes the "platform independent libraries" error
       // Use case-insensitive check for Windows compatibility (env vars are case-insensitive on Windows)
       // Skip undefined values (TypeScript type guard)
-      if (key.toUpperCase() !== 'PYTHONHOME' && value !== undefined) {
+      const upperKey = key.toUpperCase();
+      if (upperKey !== 'PYTHONHOME' && value !== undefined) {
         baseEnv[key] = value;
       }
     }
 
-    // Apply our Python configuration on top
+    // Build PYTHONPATH - for Windows with pywin32, we need to include win32 and win32/lib
+    // since the .pth file that normally adds these isn't processed when using PYTHONPATH
+    let pythonPath = this.sitePackagesPath || '';
+    if (this.sitePackagesPath && isWindows()) {
+      const pathSep = getPathDelimiter();  // Platform-appropriate path separator
+      const win32Path = path.join(this.sitePackagesPath, 'win32');
+      const win32LibPath = path.join(this.sitePackagesPath, 'win32', 'lib');
+      pythonPath = [this.sitePackagesPath, win32Path, win32LibPath].join(pathSep);
+    }
+
+    // Windows-specific pywin32 DLL loading fix
+    // On Windows with bundled packages, we need to ensure pywin32 DLLs can be found.
+    // The DLL copying in fixPywin32() is the primary fix - this PATH addition is a fallback.
+    let windowsEnv: Record<string, string> = {};
+    if (this.sitePackagesPath && isWindows()) {
+      const pywin32System32 = path.join(this.sitePackagesPath, 'pywin32_system32');
+
+      // Add pywin32_system32 to PATH for DLL loading
+      // Fix PATH case sensitivity: On Windows, env vars are case-insensitive but Node.js
+      // preserves case. If we have both 'PATH' and 'Path', Node.js lexicographically sorts
+      // and uses the first match, causing issues. Normalize to single 'PATH' key.
+      // See: https://github.com/nodejs/node/issues/9157
+      const pathKey = Object.keys(baseEnv).find(k => k.toUpperCase() === 'PATH');
+      const currentPath = pathKey ? baseEnv[pathKey] : '';
+
+      // Remove any existing PATH variants to avoid duplicates
+      if (pathKey && pathKey !== 'PATH') {
+        delete baseEnv[pathKey];
+      }
+
+      if (currentPath && !currentPath.includes(pywin32System32)) {
+        windowsEnv['PATH'] = `${pywin32System32};${currentPath}`;
+      } else if (!currentPath) {
+        windowsEnv['PATH'] = pywin32System32;
+      } else {
+        // pywin32System32 already in path, but still normalize to 'PATH'
+        windowsEnv['PATH'] = currentPath;
+      }
+    }
+
     return {
       ...baseEnv,
+      ...windowsEnv,
       // Don't write bytecode - not needed and avoids permission issues
       PYTHONDONTWRITEBYTECODE: '1',
       // Use UTF-8 encoding
@@ -696,7 +747,7 @@ if sys.version_info >= (3, 12):
       // Disable user site-packages to avoid conflicts
       PYTHONNOUSERSITE: '1',
       // Override PYTHONPATH if we have bundled packages
-      ...(this.sitePackagesPath ? { PYTHONPATH: this.sitePackagesPath } : {}),
+      ...(pythonPath ? { PYTHONPATH: pythonPath } : {}),
     };
   }
 

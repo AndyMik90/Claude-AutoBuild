@@ -100,26 +100,16 @@ def print_progress(callback: ProgressCallback) -> None:
 
 def get_config(args) -> GitHubRunnerConfig:
     """Build config from CLI args and environment."""
-    import shutil
     import subprocess
+
+    from core.gh_executable import get_gh_executable
 
     token = args.token or os.environ.get("GITHUB_TOKEN", "")
     bot_token = args.bot_token or os.environ.get("GITHUB_BOT_TOKEN")
     repo = args.repo or os.environ.get("GITHUB_REPO", "")
 
-    # Find gh CLI - use shutil.which for cross-platform support
-    gh_path = shutil.which("gh")
-    if not gh_path and sys.platform == "win32":
-        # Fallback: check common Windows installation paths
-        common_paths = [
-            r"C:\Program Files\GitHub CLI\gh.exe",
-            r"C:\Program Files (x86)\GitHub CLI\gh.exe",
-            os.path.expandvars(r"%LOCALAPPDATA%\Programs\GitHub CLI\gh.exe"),
-        ]
-        for path in common_paths:
-            if os.path.exists(path):
-                gh_path = path
-                break
+    # Find gh CLI - use get_gh_executable for cross-platform support
+    gh_path = get_gh_executable()
 
     if os.environ.get("DEBUG"):
         safe_print(f"[DEBUG] gh CLI path: {gh_path}")

@@ -209,6 +209,7 @@ const browserMockAPI: ElectronAPI = {
     deletePRReview: async () => true,
     checkNewCommits: async () => ({ hasNewCommits: false, newCommitCount: 0 }),
     checkMergeReadiness: async () => ({ isDraft: false, mergeable: 'UNKNOWN' as const, isBehind: false, ciStatus: 'none' as const, blockers: [] }),
+    updatePRBranch: async () => ({ success: true }),
     runFollowupReview: () => {},
     getPRLogs: async () => null,
     getWorkflowsAwaitingApproval: async () => ({ awaiting_approval: 0, workflow_runs: [], can_approve: false }),
