@@ -325,13 +325,16 @@ export function registerTaskExecutionHandlers(
       // Persist status to implementation_plan.json to prevent status flip-flop on refresh
       // Uses shared utility for consistency with agent-events-handlers.ts
       // NOTE: This is now async and non-blocking for better UI responsiveness
+      // IMPORTANT: clearPhases=false preserves subtask progress for user-initiated stops.
+      // This allows tasks to resume from where they left off instead of restarting from scratch.
+      // Phases are only cleared on failures/errors that require re-planning (default behavior).
       const planPath = getPlanPath(project, task);
       setImmediate(async () => {
         const persistStart = Date.now();
         try {
-          const persisted = await persistPlanStatus(planPath, 'backlog', project.id);
+          const persisted = await persistPlanStatus(planPath, 'backlog', project.id, { clearPhases: false });
           if (persisted) {
-            console.warn('[TASK_STOP] Updated plan status to backlog');
+            console.warn('[TASK_STOP] Updated plan status to backlog (phases preserved for resumption)');
           }
           if (DEBUG) {
             const delay = persistStart - ipcSentAt;

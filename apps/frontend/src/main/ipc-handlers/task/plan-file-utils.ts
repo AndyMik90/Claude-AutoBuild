@@ -91,6 +91,44 @@ export function mapStatusToPlanStatus(status: TaskStatus): string {
 }
 
 /**
+ * Options for persisting plan status changes.
+ */
+export interface PersistPlanStatusOptions {
+  /**
+   * Whether to clear the phases array when setting status to 'backlog'.
+   * - true (default): Clears phases to force re-planning (use for failures/errors)
+   * - false: Preserves phases to allow resuming progress (use for user-initiated stops)
+   */
+  clearPhases?: boolean;
+}
+
+/**
+ * Update plan object fields for a status change.
+ * Centralizes the logic for updating status, planStatus, updated_at, and optionally clearing phases.
+ *
+ * @param plan - The plan object to modify (mutated in place)
+ * @param status - The new TaskStatus
+ * @param options - Optional settings for the status change
+ */
+function updatePlanForStatusChange(
+  plan: Record<string, unknown>,
+  status: TaskStatus,
+  options: PersistPlanStatusOptions = {}
+): void {
+  const { clearPhases = true } = options;
+  plan.status = status;
+  plan.planStatus = mapStatusToPlanStatus(status);
+  plan.updated_at = new Date().toISOString();
+
+  // When resetting to backlog, optionally clear the phases array to force re-planning
+  // - clearPhases=true (default): Used for failures/errors that require re-planning
+  // - clearPhases=false: Used for user-initiated stops (TASK_STOP) to preserve progress
+  if (status === 'backlog' && clearPhases) {
+    plan.phases = [];
+  }
+}
+
+/**
  * Persist task status to implementation_plan.json file.
  * This is thread-safe and prevents race conditions when multiple handlers update the same file.
  *
@@ -99,7 +137,12 @@ export function mapStatusToPlanStatus(status: TaskStatus): string {
  * @param projectId - Optional project ID to invalidate cache (recommended for performance)
  * @returns true if status was persisted, false if plan file doesn't exist
  */
-export async function persistPlanStatus(planPath: string, status: TaskStatus, projectId?: string): Promise<boolean> {
+export async function persistPlanStatus(
+  planPath: string,
+  status: TaskStatus,
+  projectId?: string,
+  options: PersistPlanStatusOptions = {}
+): Promise<boolean> {
   return withPlanLock(planPath, async () => {
     try {
       console.warn(`[plan-file-utils] Reading implementation_plan.json to update status to: ${status}`, { planPath });
@@ -107,12 +150,10 @@ export async function persistPlanStatus(planPath: string, status: TaskStatus, pr
       const planContent = readFileSync(planPath, 'utf-8');
       const plan = JSON.parse(planContent);
 
-      plan.status = status;
-      plan.planStatus = mapStatusToPlanStatus(status);
-      plan.updated_at = new Date().toISOString();
+      updatePlanForStatusChange(plan, status, options);
 
       writeFileSync(planPath, JSON.stringify(plan, null, 2));
-      console.warn(`[plan-file-utils] Successfully persisted status: ${status} to implementation_plan.json`);
+      console.warn(`[plan-file-utils] Successfully persisted status: ${status} to implementation_plan.json${status === 'backlog' && options.clearPhases !== false ? ' (phases cleared)' : ''}`);
 
       // Invalidate tasks cache since status changed
       if (projectId) {
@@ -157,15 +198,18 @@ export async function persistPlanStatus(planPath: string, status: TaskStatus, pr
  * @param projectId - Optional project ID to invalidate cache (recommended for performance)
  * @returns true if status was persisted, false otherwise
  */
-export function persistPlanStatusSync(planPath: string, status: TaskStatus, projectId?: string): boolean {
+export function persistPlanStatusSync(
+  planPath: string,
+  status: TaskStatus,
+  projectId?: string,
+  options: PersistPlanStatusOptions = {}
+): boolean {
   try {
     // Read file directly without existence check to avoid TOCTOU race condition
     const planContent = readFileSync(planPath, 'utf-8');
     const plan = JSON.parse(planContent);
 
-    plan.status = status;
-    plan.planStatus = mapStatusToPlanStatus(status);
-    plan.updated_at = new Date().toISOString();
+    updatePlanForStatusChange(plan, status, options);
 
     writeFileSync(planPath, JSON.stringify(plan, null, 2));
 
