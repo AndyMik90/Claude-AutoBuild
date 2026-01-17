@@ -154,7 +154,7 @@ The project consists of two main components:
 
 ### Python Backend
 
-The recommended way is to use `npm run install:backend`, but you can also set up manually:
+The recommended way is to use `npm run install:backend` (or `npm run install:all` from the root), which automatically installs both runtime and test dependencies. You can also set up manually:
 
 ```bash
 # Navigate to the backend directory
