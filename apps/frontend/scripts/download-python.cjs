@@ -604,6 +604,143 @@ function checkForBlockedPackages(requirementsPath) {
 }
 
 /**
+ * Fix pywin32 installation for bundled packages.
+ *
+ * When pip installs pywin32 with --target, the post-install script doesn't run,
+ * and the .pth file isn't processed (since PYTHONPATH doesn't process .pth files).
+ *
+ * This means:
+ * 1. `import pywintypes` fails because pywintypes.py is in win32/lib/, not at root
+ * 2. `import _win32sysloader` fails because it's in win32/, not at root
+ * 3. pywin32_system32 needs an __init__.py to be importable as a package
+ *
+ * The fix copies the necessary files to site-packages root so they're directly importable.
+ */
+function fixPywin32(sitePackagesDir) {
+  const pywin32System32 = path.join(sitePackagesDir, 'pywin32_system32');
+  const win32Dir = path.join(sitePackagesDir, 'win32');
+  const win32LibDir = path.join(win32Dir, 'lib');
+
+  if (!fs.existsSync(pywin32System32)) {
+    // pywin32 not installed or not on Windows - nothing to fix
+    return;
+  }
+
+  console.log(`[download-python] Fixing pywin32 for bundled packages...`);
+
+  // 1. Copy pywintypes.py and pythoncom.py from win32/lib/ to root
+  // These are the Python modules that load the DLLs
+  const pyModules = ['pywintypes.py', 'pythoncom.py'];
+  for (const pyModule of pyModules) {
+    const srcPath = path.join(win32LibDir, pyModule);
+    const destPath = path.join(sitePackagesDir, pyModule);
+
+    if (fs.existsSync(srcPath)) {
+      try {
+        fs.copyFileSync(srcPath, destPath);
+        console.log(`[download-python] Copied ${pyModule} to site-packages root`);
+      } catch (err) {
+        console.warn(`[download-python] Failed to copy ${pyModule}: ${err.message}`);
+      }
+    }
+  }
+
+  // 2. Copy _win32sysloader.pyd from win32/ to root
+  // This is required by pywintypes.py to locate and load the DLLs
+  // Filter for .pyd extension to avoid matching unrelated files
+  if (!fs.existsSync(win32Dir)) {
+    console.warn(`[download-python] win32 directory not found: ${win32Dir}`);
+    return;
+  }
+  const sysloaderFiles = fs.readdirSync(win32Dir).filter(f => f.startsWith('_win32sysloader') && f.endsWith('.pyd'));
+  for (const sysloader of sysloaderFiles) {
+    const srcPath = path.join(win32Dir, sysloader);
+    const destPath = path.join(sitePackagesDir, sysloader);
+
+    try {
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`[download-python] Copied ${sysloader} to site-packages root`);
+    } catch (err) {
+      console.warn(`[download-python] Failed to copy ${sysloader}: ${err.message}`);
+    }
+  }
+
+  // 3. Create __init__.py in pywin32_system32/ to make it importable as a package
+  // pywintypes.py does `import pywin32_system32` and then uses pywin32_system32.__path__
+  const initPath = path.join(pywin32System32, '__init__.py');
+  try {
+    // The __init__.py sets up __path__ so pywintypes.py can find the DLLs
+    const initContent = `# Auto-generated for bundled pywin32
+import os
+__path__ = [os.path.dirname(__file__)]
+`;
+    // Use 'wx' flag for atomic exclusive write - fails if file exists (EEXIST)
+    // This avoids TOCTOU race condition where existsSync + writeFileSync could
+    // allow another process to create/modify the file between check and write.
+    // See: https://nodejs.org/api/fs.html#file-system-flags
+    fs.writeFileSync(initPath, initContent, { flag: 'wx' });
+    console.log(`[download-python] Created pywin32_system32/__init__.py`);
+  } catch (err) {
+    // EEXIST means file already exists - that's fine, we wanted to avoid overwriting
+    if (err.code !== 'EEXIST') {
+      console.warn(`[download-python] Failed to create __init__.py: ${err.message}`);
+    }
+  }
+
+  // 4. Copy DLLs to multiple locations for maximum compatibility
+  //
+  // Why we copy DLLs to pywin32_system32/, win32/, AND site-packages root:
+  // - pywin32_system32/: Primary location, used by os.add_dll_directory() in bootstrap
+  // - win32/: Fallback for pywintypes.py's __file__-relative search
+  // - site-packages root: Fallback when other search mechanisms fail
+  //
+  // Trade-off: This duplicates DLLs ~3x (~2MB extra), but ensures pywin32 works
+  // regardless of which DLL search mechanism succeeds. The alternative (single
+  // location) caused intermittent failures depending on Python version and how
+  // the process was spawned. Bundle size trade-off is acceptable for reliability.
+  //
+  // See: https://github.com/AndyMik90/Auto-Claude/issues/810
+  const dllFiles = fs.readdirSync(pywin32System32).filter(f => f.endsWith('.dll'));
+  for (const dll of dllFiles) {
+    const srcPath = path.join(pywin32System32, dll);
+    const destPath = path.join(win32Dir, dll);
+
+    try {
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`[download-python] Copied ${dll} to win32/`);
+    } catch (err) {
+      console.warn(`[download-python] Failed to copy ${dll} to win32/: ${err.message}`);
+    }
+  }
+
+  // 5. Also copy DLLs to site-packages root for maximum compatibility
+  for (const dll of dllFiles) {
+    const srcPath = path.join(pywin32System32, dll);
+    const destPath = path.join(sitePackagesDir, dll);
+
+    try {
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`[download-python] Copied ${dll} to site-packages root`);
+    } catch (err) {
+      console.warn(`[download-python] Failed to copy ${dll}: ${err.message}`);
+    }
+  }
+
+  // Note: We intentionally do NOT create a PYTHONSTARTUP bootstrap script.
+  // PYTHONSTARTUP only runs in interactive Python mode (python REPL), NOT when
+  // running scripts (python script.py). Since all our Python invocations pass
+  // scripts as arguments, PYTHONSTARTUP would never execute.
+  //
+  // The DLL copying above (steps 4 and 5) is what actually makes pywin32 work -
+  // it places DLLs in locations where Python's default DLL search finds them.
+  // The PATH modification in python-env-manager.ts provides an additional fallback.
+  //
+  // See: https://docs.python.org/3/using/cmdline.html (PYTHONSTARTUP documentation)
+
+  console.log(`[download-python] pywin32 fix complete`);
+}
+
+/**
  * Install Python packages into a site-packages directory.
  * Uses pip with optimizations for smaller output.
  */
@@ -653,6 +790,9 @@ function installPackages(pythonBin, requirementsPath, targetSitePackages) {
   }
 
   console.log(`[download-python] Packages installed successfully`);
+
+  // Fix pywin32 for Windows builds (must be done BEFORE stripping)
+  fixPywin32(targetSitePackages);
 
   // Strip unnecessary files
   stripSitePackages(targetSitePackages);
