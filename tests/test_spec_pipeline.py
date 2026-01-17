@@ -592,3 +592,188 @@ class TestSpecOrchestratorAssessment:
             orchestrator = SpecOrchestrator(project_dir=temp_dir)
 
             assert orchestrator.assessment is None
+
+
+class TestFindExistingSpecForTask:
+    """Tests for find_existing_spec_for_task function."""
+
+    def test_finds_similar_task_description(self, temp_dir: Path):
+        """Finds specs with similar task descriptions."""
+        from spec.pipeline.models import find_existing_spec_for_task
+
+        specs_dir = temp_dir / "specs"
+        specs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create existing spec with requirements
+        existing_spec = specs_dir / "001-user-auth"
+        existing_spec.mkdir()
+        (existing_spec / "requirements.json").write_text(json.dumps({
+            "task_description": "Add user authentication with OAuth"
+        }))
+
+        # Search for similar task
+        matches = find_existing_spec_for_task(
+            specs_dir,
+            "Add user authentication system",
+            similarity_threshold=0.5
+        )
+
+        assert len(matches) >= 1
+        assert matches[0]["name"] == "001-user-auth"
+
+    def test_returns_empty_for_no_matches(self, temp_dir: Path):
+        """Returns empty list when no similar specs found."""
+        from spec.pipeline.models import find_existing_spec_for_task
+
+        specs_dir = temp_dir / "specs"
+        specs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create existing spec with different description
+        existing_spec = specs_dir / "001-database-migration"
+        existing_spec.mkdir()
+        (existing_spec / "requirements.json").write_text(json.dumps({
+            "task_description": "Migrate database to PostgreSQL"
+        }))
+
+        # Search for unrelated task
+        matches = find_existing_spec_for_task(
+            specs_dir,
+            "Add shopping cart feature",
+            similarity_threshold=0.7
+        )
+
+        assert len(matches) == 0
+
+    def test_returns_empty_for_nonexistent_dir(self, temp_dir: Path):
+        """Returns empty list when specs directory doesn't exist."""
+        from spec.pipeline.models import find_existing_spec_for_task
+
+        nonexistent_dir = temp_dir / "nonexistent"
+
+        matches = find_existing_spec_for_task(
+            nonexistent_dir,
+            "Any task"
+        )
+
+        assert matches == []
+
+    def test_returns_empty_for_empty_description(self, temp_dir: Path):
+        """Returns empty list for empty task description."""
+        from spec.pipeline.models import find_existing_spec_for_task
+
+        specs_dir = temp_dir / "specs"
+        specs_dir.mkdir(parents=True, exist_ok=True)
+
+        matches = find_existing_spec_for_task(specs_dir, "")
+
+        assert matches == []
+
+    def test_sorted_by_similarity(self, temp_dir: Path):
+        """Results are sorted by similarity (highest first)."""
+        from spec.pipeline.models import find_existing_spec_for_task
+
+        specs_dir = temp_dir / "specs"
+        specs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create specs with varying similarity
+        spec1 = specs_dir / "001-user-login"
+        spec1.mkdir()
+        (spec1 / "requirements.json").write_text(json.dumps({
+            "task_description": "User login page"
+        }))
+
+        spec2 = specs_dir / "002-user-auth-oauth"
+        spec2.mkdir()
+        (spec2 / "requirements.json").write_text(json.dumps({
+            "task_description": "User authentication with OAuth providers"
+        }))
+
+        matches = find_existing_spec_for_task(
+            specs_dir,
+            "User authentication",
+            similarity_threshold=0.3
+        )
+
+        # Should be sorted by similarity
+        if len(matches) >= 2:
+            assert matches[0]["similarity"] >= matches[1]["similarity"]
+
+
+class TestCleanupIncompletePendingFolders:
+    """Tests for cleanup_incomplete_pending_folders function."""
+
+    def test_removes_nested_pattern_folders(self, temp_dir: Path):
+        """Removes folders with nested number patterns like 001-001-pending."""
+        from spec.pipeline.models import cleanup_incomplete_pending_folders
+
+        specs_dir = temp_dir / "specs"
+        specs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create nested pattern folder (bug pattern from retries)
+        nested = specs_dir / "001-001-pending"
+        nested.mkdir()
+
+        cleaned = cleanup_incomplete_pending_folders(specs_dir, force=True)
+
+        assert cleaned >= 1
+        assert not nested.exists()
+
+    def test_removes_empty_pending_folders(self, temp_dir: Path):
+        """Removes empty -pending folders."""
+        from spec.pipeline.models import cleanup_incomplete_pending_folders
+
+        specs_dir = temp_dir / "specs"
+        specs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create empty pending folder
+        empty_pending = specs_dir / "001-pending"
+        empty_pending.mkdir()
+
+        cleaned = cleanup_incomplete_pending_folders(specs_dir, force=True)
+
+        assert cleaned >= 1
+        assert not empty_pending.exists()
+
+    def test_keeps_pending_with_requirements(self, temp_dir: Path):
+        """Keeps pending folders with requirements.json."""
+        from spec.pipeline.models import cleanup_incomplete_pending_folders
+
+        specs_dir = temp_dir / "specs"
+        specs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create pending folder with requirements
+        pending_with_req = specs_dir / "001-pending"
+        pending_with_req.mkdir()
+        (pending_with_req / "requirements.json").write_text("{}")
+
+        cleaned = cleanup_incomplete_pending_folders(specs_dir, force=True)
+
+        assert pending_with_req.exists()
+        assert cleaned == 0  # Should not clean up folders with requirements.json
+
+    def test_keeps_pending_with_spec(self, temp_dir: Path):
+        """Keeps pending folders with spec.md."""
+        from spec.pipeline.models import cleanup_incomplete_pending_folders
+
+        specs_dir = temp_dir / "specs"
+        specs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create pending folder with spec
+        pending_with_spec = specs_dir / "001-pending"
+        pending_with_spec.mkdir()
+        (pending_with_spec / "spec.md").write_text("# Spec")
+
+        cleaned = cleanup_incomplete_pending_folders(specs_dir, force=True)
+
+        assert pending_with_spec.exists()
+        assert cleaned == 0  # Should not clean up folders with spec.md
+
+    def test_returns_zero_for_nonexistent_dir(self, temp_dir: Path):
+        """Returns 0 when specs directory doesn't exist."""
+        from spec.pipeline.models import cleanup_incomplete_pending_folders
+
+        nonexistent_dir = temp_dir / "nonexistent"
+
+        cleaned = cleanup_incomplete_pending_folders(nonexistent_dir)
+
+        assert cleaned == 0
