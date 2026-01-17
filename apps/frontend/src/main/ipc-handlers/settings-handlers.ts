@@ -531,8 +531,7 @@ export function registerSettingsHandlers(
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
         return {
           success: false,
-          error: 'settings:errors.openTerminalFailed',
-          errorParams: { error: errorMsg }
+          error: `Failed to open terminal: ${errorMsg}`,
         };
       }
     }
