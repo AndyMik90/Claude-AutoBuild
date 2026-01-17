@@ -103,5 +103,9 @@ export const terminalMock = {
   onTerminalAuthCreated: () => () => {},
   onTerminalClaudeBusy: () => () => {},
   onTerminalClaudeExit: () => () => {},
-  onTerminalPendingResume: () => () => {}
+  onTerminalPendingResume: () => () => {},
+  openTerminal: async (dirPath: string) => {
+    console.warn('[Browser Mock] openTerminal called for:', dirPath);
+    return { success: true };
+  }
 };

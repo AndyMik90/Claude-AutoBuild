@@ -22,7 +22,23 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-DEFAULT_OLLAMA_URL = "http://localhost:11434"
+import shutil
+import os
+
+def get_default_ollama_url() -> str:
+    """Get the default Ollama URL from environment or fallback."""
+    env_host = os.environ.get("OLLAMA_HOST", "")
+    if env_host:
+        # If it's just a host, add protocol and default port if missing
+        if not env_host.startswith(("http://", "https://")):
+            # Common case: OLLAMA_HOST=0.0.0.0 or OLLAMA_HOST=192.168.1.5
+            if ":" not in env_host:
+                return f"http://{env_host}:11434"
+            return f"http://{env_host}"
+        return env_host
+    return "http://localhost:11434"
+
+DEFAULT_OLLAMA_URL = get_default_ollama_url()
 
 # Minimum Ollama version required for newer embedding models (qwen3-embedding, etc.)
 # These models were added in Ollama 0.10.0
@@ -214,9 +230,10 @@ def get_embedding_dim(model_name: str) -> int | None:
     """Get the embedding dimension for a known model."""
     name_lower = model_name.lower()
 
-    for known_model, info in KNOWN_EMBEDDING_MODELS.items():
+    # Sort by length descending to match most specific names first
+    for known_model in sorted(KNOWN_EMBEDDING_MODELS.keys(), key=len, reverse=True):
         if known_model in name_lower:
-            return info["dim"]
+            return KNOWN_EMBEDDING_MODELS[known_model]["dim"]
 
     # Default dimensions for common patterns
     if "large" in name_lower:
@@ -251,6 +268,29 @@ def get_model_min_version(model_name: str) -> str | None:
             return KNOWN_EMBEDDING_MODELS[known_model].get("min_version")
 
     return None
+
+
+def cmd_check_installed(args) -> None:
+    """Check if Ollama executable is installed on the system."""
+    executable = shutil.which("ollama")
+    
+    if executable:
+        output_json(
+            True,
+            data={
+                "installed": True,
+                "path": executable,
+                "platform": sys.platform,
+            }
+        )
+    else:
+        output_json(
+            True,
+            data={
+                "installed": False,
+                "message": "Ollama executable not found in system PATH. Please install it from https://ollama.com",
+            }
+        )
 
 
 def cmd_check_status(args) -> None:
@@ -539,6 +579,11 @@ def main():
         "--base-url", help=f"Ollama server URL (default: {DEFAULT_OLLAMA_URL})"
     )
 
+    # check-installed command
+    subparsers.add_parser(
+        "check-installed", help="Check if Ollama executable is installed"
+    )
+
     # list-models command
     list_parser = subparsers.add_parser("list-models", help="List all Ollama models")
     list_parser.add_argument(
@@ -577,6 +622,7 @@ def main():
 
     commands = {
         "check-status": cmd_check_status,
+        "check-installed": cmd_check_installed,
         "list-models": cmd_list_models,
         "list-embedding-models": cmd_list_embedding_models,
         "get-recommended-models": cmd_get_recommended_models,

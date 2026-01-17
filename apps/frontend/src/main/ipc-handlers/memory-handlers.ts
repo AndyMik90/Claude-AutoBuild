@@ -360,14 +360,14 @@ export function registerMemoryHandlers(): void {
           // Basic validation for other providers
           llmResult = config.apiKey && config.apiKey.trim()
             ? {
-                success: true,
-                message: `${config.llmProvider} API key format appears valid`,
-                details: { provider: config.llmProvider },
-              }
+              success: true,
+              message: `${config.llmProvider} API key format appears valid`,
+              details: { provider: config.llmProvider },
+            }
             : {
-                success: false,
-                message: 'API key is required',
-              };
+              success: false,
+              message: 'API key is required',
+            };
         }
 
         return {
@@ -416,23 +416,62 @@ export function registerMemoryHandlers(): void {
         };
       }
     }
-   );
+  );
 
-    // ============================================
-    // Ollama Model Discovery & Management
-    // ============================================
+  // Check if Ollama is installed on system
+  ipcMain.handle(
+    IPC_CHANNELS.OLLAMA_CHECK_INSTALLED,
+    async (): Promise<IPCResult<{ installed: boolean; path?: string }>> => {
+      try {
+        const result = await executeOllamaDetector('check-installed');
+        if (!result.success) {
+          return { success: false, error: result.error || 'Failed to check if Ollama is installed' };
+        }
+        return {
+          success: true,
+          data: result.data as { installed: boolean; path?: string },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to check if Ollama is installed',
+        };
+      }
+    }
+  );
 
-    /**
-    * List all available Ollama models (LLMs and embeddings).
-    * Queries Ollama API to get model names, sizes, and metadata.
-    *
-    * @async
-    * @param {string} [baseUrl] - Optional custom Ollama base URL
-    * @returns {Promise<IPCResult<{ models, count }>>} Array of models with metadata
-    */
-   ipcMain.handle(
-     IPC_CHANNELS.OLLAMA_LIST_MODELS,
-     async (_, baseUrl?: string): Promise<IPCResult<{ models: OllamaModel[]; count: number }>> => {
+  // Install Ollama (redirect to download page)
+  ipcMain.handle(
+    IPC_CHANNELS.OLLAMA_INSTALL,
+    async (): Promise<IPCResult<void>> => {
+      try {
+        const { shell } = require('electron');
+        await shell.openExternal('https://ollama.com/download');
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to open Ollama download page',
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // Ollama Model Discovery & Management
+  // ============================================
+
+  /**
+  * List all available Ollama models (LLMs and embeddings).
+  * Queries Ollama API to get model names, sizes, and metadata.
+  *
+  * @async
+  * @param {string} [baseUrl] - Optional custom Ollama base URL
+  * @returns {Promise<IPCResult<{ models, count }>>} Array of models with metadata
+  */
+  ipcMain.handle(
+    IPC_CHANNELS.OLLAMA_LIST_MODELS,
+    async (_, baseUrl?: string): Promise<IPCResult<{ models: OllamaModel[]; count: number }>> => {
       try {
         const result = await executeOllamaDetector('list-models', baseUrl);
 
@@ -460,21 +499,65 @@ export function registerMemoryHandlers(): void {
     }
   );
 
-   /**
-    * List only embedding models from Ollama.
-    * Filters the model list to show only models suitable for semantic search.
-    * Includes dimension info for model compatibility verification.
-    *
-    * @async
-    * @param {string} [baseUrl] - Optional custom Ollama base URL
-    * @returns {Promise<IPCResult<{ embedding_models, count }>>} Filtered embedding models
-    */
-   ipcMain.handle(
-     IPC_CHANNELS.OLLAMA_LIST_EMBEDDING_MODELS,
-     async (
-       _,
-       baseUrl?: string
-     ): Promise<IPCResult<{ embedding_models: OllamaEmbeddingModel[]; count: number }>> => {
+  /**
+   * Get recommended embedding models from the backend detector.
+   * This includes metadata like dimensions and recommended badges.
+   *
+   * @async
+   * @param {string} [baseUrl] - Optional custom Ollama base URL
+   * @returns {Promise<IPCResult<{ recommended: any[], count: number }>>} Recommended models
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.OLLAMA_LIST_RECOMMENDED_MODELS,
+    async (
+      _,
+      baseUrl?: string
+    ): Promise<IPCResult<{ recommended: any[]; count: number }>> => {
+      try {
+        const result = await executeOllamaDetector('get-recommended-models', baseUrl);
+
+        if (!result.success) {
+          return {
+            success: false,
+            error: result.error || 'Failed to get recommended models',
+          };
+        }
+
+        const data = result.data as {
+          recommended: any[];
+          count: number;
+        };
+        return {
+          success: true,
+          data: {
+            recommended: data.recommended,
+            count: data.count,
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get recommended models',
+        };
+      }
+    }
+  );
+
+  /**
+   * List only embedding models from Ollama.
+   * Filters the model list to show only models suitable for semantic search.
+   * Includes dimension info for model compatibility verification.
+   *
+   * @async
+   * @param {string} [baseUrl] - Optional custom Ollama base URL
+   * @returns {Promise<IPCResult<{ embedding_models, count }>>} Filtered embedding models
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.OLLAMA_LIST_EMBEDDING_MODELS,
+    async (
+      _,
+      baseUrl?: string
+    ): Promise<IPCResult<{ embedding_models: OllamaEmbeddingModel[]; count: number }>> => {
       try {
         const result = await executeOllamaDetector('list-embedding-models', baseUrl);
 
@@ -506,31 +589,31 @@ export function registerMemoryHandlers(): void {
     }
   );
 
-   /**
-    * Download (pull) an Ollama model from the Ollama registry.
-    * Spawns a Python subprocess to execute ollama pull command with real-time progress tracking.
-    * Emits OLLAMA_PULL_PROGRESS events to renderer with percentage, speed, and ETA.
-    *
-    * Progress events include:
-    * - modelName: The model being downloaded
-    * - status: Current status (downloading, extracting, etc.)
-    * - completed: Bytes downloaded so far
-    * - total: Total bytes to download
-    * - percentage: Completion percentage (0-100)
-    *
-    * @async
-    * @param {Electron.IpcMainInvokeEvent} event - IPC event object for sending progress updates
-    * @param {string} modelName - Name of the model to download (e.g., 'embeddinggemma')
-    * @param {string} [baseUrl] - Optional custom Ollama base URL
-    * @returns {Promise<IPCResult<OllamaPullResult>>} Result with status and output messages
-    */
-   ipcMain.handle(
-     IPC_CHANNELS.OLLAMA_PULL_MODEL,
-     async (
-       event,
-       modelName: string,
-       baseUrl?: string
-     ): Promise<IPCResult<OllamaPullResult>> => {
+  /**
+   * Download (pull) an Ollama model from the Ollama registry.
+   * Spawns a Python subprocess to execute ollama pull command with real-time progress tracking.
+   * Emits OLLAMA_PULL_PROGRESS events to renderer with percentage, speed, and ETA.
+   *
+   * Progress events include:
+   * - modelName: The model being downloaded
+   * - status: Current status (downloading, extracting, etc.)
+   * - completed: Bytes downloaded so far
+   * - total: Total bytes to download
+   * - percentage: Completion percentage (0-100)
+   *
+   * @async
+   * @param {Electron.IpcMainInvokeEvent} event - IPC event object for sending progress updates
+   * @param {string} modelName - Name of the model to download (e.g., 'embeddinggemma')
+   * @param {string} [baseUrl] - Optional custom Ollama base URL
+   * @returns {Promise<IPCResult<OllamaPullResult>>} Result with status and output messages
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.OLLAMA_PULL_MODEL,
+    async (
+      event,
+      modelName: string,
+      baseUrl?: string
+    ): Promise<IPCResult<OllamaPullResult>> => {
       try {
         const pythonCmd = findPythonCommand();
         if (!pythonCmd) {
@@ -592,11 +675,11 @@ export function registerMemoryHandlers(): void {
               if (line.trim()) {
                 try {
                   const progressData = JSON.parse(line);
-                  
+
                   // Extract progress information
                   if (progressData.completed !== undefined && progressData.total !== undefined) {
-                    const percentage = progressData.total > 0 
-                      ? Math.round((progressData.completed / progressData.total) * 100) 
+                    const percentage = progressData.total > 0
+                      ? Math.round((progressData.completed / progressData.total) * 100)
                       : 0;
 
                     // Emit progress event to renderer
