@@ -570,6 +570,24 @@ export function getSpawnCommand(command: string): string {
  * @param gitExePath - Path to git.exe (e.g., D:\Program Files\Git\mingw64\bin\git.exe)
  * @returns Path to bash.exe if found, null otherwise
  */
+function formatPathForLogs(filePath: string): string {
+  if (!filePath) {
+    return '';
+  }
+  return path.win32.basename(filePath) || path.basename(filePath);
+}
+
+function formatErrorForLogs(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === 'string' || typeof code === 'number' ? String(code) : 'unknown';
+  }
+  if (error instanceof Error) {
+    return error.name;
+  }
+  return 'unknown';
+}
+
 export function deriveGitBashPath(gitExePath: string): string | null {
   if (!isWindows()) {
     return null;
@@ -616,10 +634,10 @@ export function deriveGitBashPath(gitExePath: string): string | null {
       return altBashPath;
     }
 
-    console.warn('[deriveGitBashPath] bash.exe not found at:', bashPath, 'or', altBashPath);
+    console.warn('[deriveGitBashPath] bash.exe not found in standard locations.');
     return null;
   } catch (error) {
-    console.warn('[deriveGitBashPath] Error deriving git-bash path:', error);
+    console.warn('[deriveGitBashPath] Error deriving git-bash path:', formatErrorForLogs(error));
     return null;
   }
 }
@@ -662,11 +680,11 @@ export function getGitBashEnv(
       const bashPath = deriveGitBashPath(gitInfo.path);
       if (bashPath) {
         gitBashEnv['CLAUDE_CODE_GIT_BASH_PATH'] = bashPath;
-        console.log('[env-utils] Setting CLAUDE_CODE_GIT_BASH_PATH:', bashPath);
+        console.log('[env-utils] Setting CLAUDE_CODE_GIT_BASH_PATH:', formatPathForLogs(bashPath));
       }
     }
   } catch (error) {
-    console.warn('[env-utils] Failed to detect git-bash path:', error);
+    console.warn('[env-utils] Failed to detect git-bash path:', formatErrorForLogs(error));
   }
 
   return gitBashEnv;
