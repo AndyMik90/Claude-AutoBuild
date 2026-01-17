@@ -735,14 +735,14 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         </DragOverlay>
       </DndContext>
 
-      {/* Floating action bar for bulk selection */}
+      {/* Floating action bar for bulk selection - card styling from design.json */}
       {selectedTaskIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#232323] bg-[#121216] shadow-lg backdrop-blur-sm">
-            <span className="text-sm font-medium text-foreground">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-surface-card)] shadow-[var(--shadow-lg)] backdrop-blur-sm">
+            <span className="text-sm font-medium text-[var(--color-text-primary)]">
               {t('kanban.selectedCountOther', { count: selectedTaskIds.size })}
             </span>
-            <div className="w-px h-5 bg-[#232323]" />
+            <div className="w-px h-5 bg-[var(--color-border-default)]" />
             <Button
               variant="default"
               size="sm"
