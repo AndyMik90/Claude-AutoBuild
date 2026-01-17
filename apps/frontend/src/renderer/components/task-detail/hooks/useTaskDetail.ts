@@ -107,23 +107,39 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | undefined;
 
-    // IMPORTANT: If execution phase is 'complete' or 'failed', the task is NOT stuck.
-    // It means the process has finished and status update is pending.
-    // This prevents false-positive "stuck" indicators when the process exits normally.
-    const isPhaseTerminal = executionPhase === 'complete' || executionPhase === 'failed';
-    if (isPhaseTerminal) {
+    // IMPORTANT: Check !isActiveTask FIRST before any phase checks
+    // This ensures hasCheckedRunning is always reset when task stops,
+    // even if the task stops while in 'planning' phase
+    if (!isActiveTask) {
+      setIsStuck(false);
+      setHasCheckedRunning(false);
+      return;
+    }
+
+    // Task is active from here on
+
+    // 'planning' phase: Skip stuck check but don't set hasCheckedRunning
+    // (allows stuck detection when task transitions to 'coding')
+    if (executionPhase === 'planning') {
+      setIsStuck(false);
+      return;
+    }
+
+    // Terminal phases: Task finished, no more stuck checks needed
+    if (executionPhase === 'complete' || executionPhase === 'failed') {
       setIsStuck(false);
       setHasCheckedRunning(true);
       return;
     }
 
-    if (isActiveTask && !hasCheckedRunning) {
+    // Active task in coding/validation phase - check if stuck
+    if (!hasCheckedRunning) {
       // Wait 2 seconds before checking - gives process time to spawn and register
       timeoutId = setTimeout(() => {
         checkTaskRunning(task.id).then((actuallyRunning) => {
           // Double-check the phase in case it changed while waiting
           const latestPhase = task.executionProgress?.phase;
-          if (latestPhase === 'complete' || latestPhase === 'failed') {
+          if (latestPhase === 'complete' || latestPhase === 'failed' || latestPhase === 'planning') {
             setIsStuck(false);
           } else {
             setIsStuck(!actuallyRunning);
@@ -131,9 +147,6 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
           setHasCheckedRunning(true);
         });
       }, 2000);
-    } else if (!isActiveTask) {
-      setIsStuck(false);
-      setHasCheckedRunning(false);
     }
 
     return () => {
