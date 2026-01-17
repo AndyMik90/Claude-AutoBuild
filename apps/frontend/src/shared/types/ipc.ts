@@ -164,7 +164,7 @@ export interface ElectronAPI {
   updateTaskStatus: (taskId: string, status: TaskStatus, options?: { forceCleanup?: boolean }) => Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }>;
   recoverStuckTask: (taskId: string, options?: TaskRecoveryOptions) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
-  deleteAndRetryTask: (taskId: string, options?: { recreate?: boolean }) => Promise<IPCResult<{ deleted: boolean; recreatedTask?: Task; cleanedUpWorktree?: boolean }>>;
+  deleteAndRetryTask: (taskId: string, options?: { recreate?: boolean }) => Promise<IPCResult<{ deleted: boolean; recreatedTask?: Task; cleanedUpWorktree?: boolean; recreationSkipped?: string }>>;
 
   // Workspace management (for human review)
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/

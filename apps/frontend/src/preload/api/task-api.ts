@@ -142,7 +142,7 @@ export const createTaskAPI = (): TaskAPI => ({
   deleteAndRetryTask: (
     taskId: string,
     options?: { recreate?: boolean }
-  ): Promise<IPCResult<{ deleted: boolean; recreatedTask?: Task; cleanedUpWorktree?: boolean }>> =>
+  ): Promise<IPCResult<{ deleted: boolean; recreatedTask?: Task; cleanedUpWorktree?: boolean; recreationSkipped?: string }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_DELETE_AND_RETRY, taskId, options),
 
   // Workspace Management

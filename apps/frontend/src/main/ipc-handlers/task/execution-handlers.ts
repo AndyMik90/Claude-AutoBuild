@@ -1175,7 +1175,7 @@ export function registerTaskExecutionHandlers(
   // Delete and retry a stuck/failed task - cleans up worktree and spec, optionally recreates
   ipcMain.handle(
     IPC_CHANNELS.TASK_DELETE_AND_RETRY,
-    async (_, taskId: string, options?: { recreate?: boolean }): Promise<IPCResult<{ deleted: boolean; recreatedTask?: import('../../../shared/types').Task; cleanedUpWorktree?: boolean }>> => {
+    async (_, taskId: string, options?: { recreate?: boolean }): Promise<IPCResult<{ deleted: boolean; recreatedTask?: import('../../../shared/types').Task; cleanedUpWorktree?: boolean; recreationSkipped?: string }>> => {
       const { rm } = await import('fs/promises');
 
       const { task, project } = findTaskAndProject(taskId);
@@ -1263,24 +1263,39 @@ export function registerTaskExecutionHandlers(
       }
 
       // Optionally recreate the task for retry
-      if (options?.recreate && taskTitle && taskDescription) {
+      if (options?.recreate) {
+        // Check for required data to recreate - use explicit null/undefined checks
+        // to allow empty strings if they were intentionally provided
+        if (taskTitle == null || taskDescription == null) {
+          projectStore.invalidateTasksCache(project.id);
+          return {
+            success: true,
+            data: {
+              deleted: true,
+              cleanedUpWorktree,
+              recreationSkipped: 'Missing title or description'
+            }
+          };
+        }
+
         try {
           const { mkdir, writeFile } = await import('fs/promises');
           const specsDir = path.join(project.path, getSpecsDir(project.autoBuildPath));
 
           // Use spec number lock to prevent race conditions when calculating next spec number
-          // This ensures concurrent recreate operations get unique spec numbers
+          // The mkdir is inside the lock to ensure the directory is created atomically
+          // before another concurrent operation can get the same spec number
           const { newSpecId, newSpecDir } = await withSpecNumberLock(
             project.path,
-            (lock) => {
+            async (lock) => {
               const specNum = lock.getNextSpecNumber(project.autoBuildPath);
               const newSpecId = generateSpecId(specNum, taskTitle);
               const newSpecDir = path.join(specsDir, newSpecId);
+              // Create directory inside lock to prevent race condition
+              await mkdir(newSpecDir, { recursive: true });
               return { newSpecId, newSpecDir };
             }
           );
-
-          await mkdir(newSpecDir, { recursive: true });
 
           // Write basic files
           const now = new Date().toISOString();
