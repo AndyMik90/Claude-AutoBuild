@@ -154,7 +154,7 @@ The project consists of two main components:
 
 ### Python Backend
 
-The recommended way is to use `npm run install:backend`, but you can also set up manually:
+The recommended way is to use `npm run install:backend` (or `npm run install:all` from the root), which automatically installs both runtime and test dependencies. You can also set up manually:
 
 ```bash
 # Navigate to the backend directory
@@ -429,7 +429,6 @@ All pull requests and pushes to `main` trigger automated CI checks via GitHub Ac
 |----------|---------|----------------|
 | **CI** | Push to `main`, PRs | Python tests (3.11 & 3.12), Frontend tests |
 | **Lint** | Push to `main`, PRs | Ruff (Python), ESLint + TypeScript (Frontend) |
-| **Test on Tag** | Version tags (`v*`) | Full test suite before release |
 
 ### PR Requirements
 

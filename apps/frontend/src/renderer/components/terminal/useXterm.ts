@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
+import { registerOutputCallback, unregisterOutputCallback } from '../../stores/terminal-store';
 
 // Type augmentation for navigator.userAgentData (modern User-Agent Client Hints API)
 interface NavigatorUAData {
@@ -81,7 +82,11 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     });
 
     const fitAddon = new FitAddon();
-    const webLinksAddon = new WebLinksAddon();
+    const webLinksAddon = new WebLinksAddon((_event, uri) => {
+      window.electronAPI?.openExternal?.(uri).catch((error) => {
+        console.warn('[useXterm] Failed to open URL:', uri, error);
+      });
+    });
     const serializeAddon = new SerializeAddon();
 
     xterm.loadAddon(fitAddon);
@@ -219,8 +224,13 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
     // Use requestAnimationFrame to wait for layout, then fit
     // This is more reliable than a fixed timeout
+    // Fallback to setTimeout for test environments where requestAnimationFrame may not be defined
+    const raf = typeof requestAnimationFrame !== 'undefined'
+      ? requestAnimationFrame
+      : (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 0) as unknown as number;
+
     const performInitialFit = () => {
-      requestAnimationFrame(() => {
+      raf(() => {
         if (fitAddonRef.current && xtermRef.current && terminalRef.current) {
           // Check if container has valid dimensions
           const rect = terminalRef.current.getBoundingClientRect();
@@ -284,6 +294,28 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     };
   }, [terminalId, onCommandEnter, onResize, onDimensionsReady]);
 
+  // Register xterm write callback with terminal-store for global output listener
+  // This allows the global listener to write directly to xterm when terminal is visible
+  useEffect(() => {
+    // Only register if xterm is ready
+    if (!xtermRef.current) return;
+
+    // Create a write function that writes directly to this xterm instance
+    const writeCallback = (data: string) => {
+      if (xtermRef.current && !isDisposedRef.current) {
+        xtermRef.current.write(data);
+      }
+    };
+
+    // Register the callback so global listener can write to this terminal
+    registerOutputCallback(terminalId, writeCallback);
+
+    // Cleanup: unregister callback when component unmounts
+    return () => {
+      unregisterOutputCallback(terminalId);
+    };
+  }, [terminalId]);
+
   // Handle resize on container resize with debouncing
   useEffect(() => {
     const handleResize = debounce(() => {
@@ -312,6 +344,24 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       return () => resizeObserver.disconnect();
     }
   }, [onDimensionsReady]);
+
+  // Listen for terminal refit events (triggered after drag-drop reorder)
+  useEffect(() => {
+    const handleRefitAll = () => {
+      if (fitAddonRef.current && xtermRef.current && terminalRef.current) {
+        const rect = terminalRef.current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          fitAddonRef.current.fit();
+          const cols = xtermRef.current.cols;
+          const rows = xtermRef.current.rows;
+          setDimensions({ cols, rows });
+        }
+      }
+    };
+
+    window.addEventListener('terminal-refit-all', handleRefitAll);
+    return () => window.removeEventListener('terminal-refit-all', handleRefitAll);
+  }, []);
 
   const fit = useCallback(() => {
     if (fitAddonRef.current && xtermRef.current) {

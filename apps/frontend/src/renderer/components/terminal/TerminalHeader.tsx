@@ -188,7 +188,7 @@ export function TerminalHeader({
               e.stopPropagation();
               onToggleExpand();
             }}
-            title={isExpanded ? t('terminal:expand.collapse') : t('terminal:expand.expand')}
+            title={`${isExpanded ? t('terminal:expand.collapse') : t('terminal:expand.expand')} (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Shift+E)`}
           >
             {isExpanded ? (
               <Minimize2 className="h-3.5 w-3.5" />

@@ -5,10 +5,12 @@ import type {
   CreateTerminalWorktreeRequest,
   TerminalWorktreeConfig,
   TerminalWorktreeResult,
+  OtherWorktreeInfo,
 } from '../../../shared/types';
 import path from 'path';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'fs';
-import { execFileSync } from 'child_process';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, symlinkSync, lstatSync } from 'fs';
+import { execFileSync, execFile } from 'child_process';
+import { promisify } from 'util';
 import { minimatch } from 'minimatch';
 import { debugLog, debugError } from '../../../shared/utils/debug-logger';
 import { projectStore } from '../../project-store';
@@ -19,6 +21,11 @@ import {
   getTerminalWorktreeMetadataDir,
   getTerminalWorktreeMetadataPath,
 } from '../../worktree-paths';
+import { getIsolatedGitEnv } from '../../utils/git-isolation';
+import { getToolPath } from '../../cli-tool-manager';
+
+// Promisify execFile for async operations
+const execFileAsync = promisify(execFile);
 
 // Shared validation regex for worktree names - lowercase alphanumeric with dashes/underscores
 // Must start and end with alphanumeric character
@@ -26,6 +33,15 @@ const WORKTREE_NAME_REGEX = /^[a-z0-9][a-z0-9_-]*[a-z0-9]$|^[a-z0-9]$/;
 
 // Validation regex for git branch names - allows alphanumeric, dots, slashes, dashes, underscores
 const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
+
+// Git worktree list porcelain output parsing constants
+const GIT_PORCELAIN = {
+  WORKTREE_PREFIX: 'worktree ',
+  HEAD_PREFIX: 'HEAD ',
+  BRANCH_PREFIX: 'branch ',
+  DETACHED_LINE: 'detached',
+  COMMIT_SHA_LENGTH: 8,
+} as const;
 
 /**
  * Fix repositories that are incorrectly marked with core.bare=true.
@@ -38,9 +54,9 @@ function fixMisconfiguredBareRepo(projectPath: string): boolean {
   try {
     // Check if bare=true is set
     const bareConfig = execFileSync(
-      'git',
+      getToolPath('git'),
       ['config', '--get', 'core.bare'],
-      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], env: getIsolatedGitEnv() }
     ).trim().toLowerCase();
 
     if (bareConfig !== 'true') {
@@ -119,9 +135,9 @@ function fixMisconfiguredBareRepo(projectPath: string): boolean {
     // Fix the misconfiguration
     debugLog('[TerminalWorktree] Detected misconfigured bare repository with source files. Auto-fixing by unsetting core.bare...');
     execFileSync(
-      'git',
+      getToolPath('git'),
       ['config', '--unset', 'core.bare'],
-      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], env: getIsolatedGitEnv() }
     );
     debugLog('[TerminalWorktree] Fixed: core.bare has been unset. Git operations should now work correctly.');
     return true;
@@ -166,10 +182,11 @@ function getDefaultBranch(projectPath: string): string {
 
   for (const branch of ['main', 'master']) {
     try {
-      execFileSync('git', ['rev-parse', '--verify', branch], {
+      execFileSync(getToolPath('git'), ['rev-parse', '--verify', branch], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Auto-detected branch:', branch);
       return branch;
@@ -180,10 +197,11 @@ function getDefaultBranch(projectPath: string): string {
 
   // Fallback to current branch - wrap in try-catch
   try {
-    const currentBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+    const currentBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: getIsolatedGitEnv(),
     }).trim();
     debugLog('[TerminalWorktree] Falling back to current branch:', currentBranch);
     return currentBranch;
@@ -191,6 +209,93 @@ function getDefaultBranch(projectPath: string): string {
     debugError('[TerminalWorktree] Error detecting current branch:', error);
     return 'main'; // Safe default
   }
+}
+
+/**
+ * Symlink node_modules from project root to worktree for TypeScript and tooling support.
+ * This allows pre-commit hooks and IDE features to work without npm install in the worktree.
+ *
+ * @param projectPath - The main project directory
+ * @param worktreePath - Path to the worktree
+ * @returns Array of symlinked paths (relative to worktree)
+ */
+function symlinkNodeModulesToWorktree(projectPath: string, worktreePath: string): string[] {
+  const symlinked: string[] = [];
+
+  // Node modules locations to symlink for TypeScript and tooling support.
+  // These are the standard locations for this monorepo structure.
+  //
+  // Design rationale:
+  // - Hardcoded paths are intentional for simplicity and reliability
+  // - Dynamic discovery (reading workspaces from package.json) would add complexity
+  //   and potential failure points without significant benefit
+  // - This monorepo uses npm workspaces with hoisting, so dependencies are primarily
+  //   in root node_modules with workspace-specific deps in apps/frontend/node_modules
+  //
+  // To add new workspace locations:
+  // 1. Add [sourceRelPath, targetRelPath] tuple below
+  // 2. Update the parallel Python implementation in apps/backend/core/workspace/setup.py
+  // 3. Update the pre-commit hook check in .husky/pre-commit if needed
+  const nodeModulesLocations = [
+    ['node_modules', 'node_modules'],
+    ['apps/frontend/node_modules', 'apps/frontend/node_modules'],
+  ];
+
+  for (const [sourceRel, targetRel] of nodeModulesLocations) {
+    const sourcePath = path.join(projectPath, sourceRel);
+    const targetPath = path.join(worktreePath, targetRel);
+
+    // Skip if source doesn't exist
+    if (!existsSync(sourcePath)) {
+      debugLog('[TerminalWorktree] Skipping symlink - source does not exist:', sourceRel);
+      continue;
+    }
+
+    // Skip if target already exists (don't overwrite existing node_modules)
+    if (existsSync(targetPath)) {
+      debugLog('[TerminalWorktree] Skipping symlink - target already exists:', targetRel);
+      continue;
+    }
+
+    // Also skip if target is a symlink (even if broken)
+    try {
+      lstatSync(targetPath);
+      debugLog('[TerminalWorktree] Skipping symlink - target exists (possibly broken symlink):', targetRel);
+      continue;
+    } catch {
+      // Target doesn't exist at all - good, we can create symlink
+    }
+
+    // Ensure parent directory exists
+    const targetDir = path.dirname(targetPath);
+    if (!existsSync(targetDir)) {
+      mkdirSync(targetDir, { recursive: true });
+    }
+
+    try {
+      // Platform-specific symlink creation:
+      // - Windows: Use 'junction' type which requires absolute paths (no admin rights required)
+      // - Unix (macOS/Linux): Use relative paths for portability (worktree can be moved)
+      if (process.platform === 'win32') {
+        symlinkSync(sourcePath, targetPath, 'junction');
+        debugLog('[TerminalWorktree] Created junction (Windows):', targetRel, '->', sourcePath);
+      } else {
+        // On Unix, use relative symlinks for portability (matches Python implementation)
+        const relativePath = path.relative(path.dirname(targetPath), sourcePath);
+        symlinkSync(relativePath, targetPath);
+        debugLog('[TerminalWorktree] Created symlink (Unix):', targetRel, '->', relativePath);
+      }
+      symlinked.push(targetRel);
+    } catch (error) {
+      // Symlink creation can fail on some systems (e.g., FAT32 filesystem, or permission issues)
+      // Log warning but don't fail - worktree is still usable, just without TypeScript checking
+      // Note: This warning appears in dev console. Users may see TypeScript errors in pre-commit hooks.
+      debugError('[TerminalWorktree] Could not create symlink for', targetRel, ':', error);
+      console.warn(`[TerminalWorktree] Warning: Failed to link ${targetRel} - TypeScript checks may fail in this worktree`);
+    }
+  }
+
+  return symlinked;
 }
 
 function saveWorktreeConfig(projectPath: string, name: string, config: TerminalWorktreeConfig): void {
@@ -295,10 +400,11 @@ async function createTerminalWorktree(
 
     // Fetch the branch from remote
     try {
-      execFileSync('git', ['fetch', 'origin', remoteBranchName], {
+      execFileSync(getToolPath('git'), ['fetch', 'origin', remoteBranchName], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Fetched latest from origin/' + remoteBranchName);
     } catch {
@@ -314,10 +420,11 @@ async function createTerminalWorktree(
     } else {
       // Check if remote version exists and use it for latest code
       try {
-        execFileSync('git', ['rev-parse', '--verify', `origin/${baseBranch}`], {
+        execFileSync(getToolPath('git'), ['rev-parse', '--verify', `origin/${baseBranch}`], {
           cwd: projectPath,
           encoding: 'utf-8',
           stdio: ['pipe', 'pipe', 'pipe'],
+          env: getIsolatedGitEnv(),
         });
         baseRef = `origin/${baseBranch}`;
         debugLog('[TerminalWorktree] Using remote ref:', baseRef);
@@ -327,19 +434,28 @@ async function createTerminalWorktree(
     }
 
     if (createGitBranch) {
-      execFileSync('git', ['worktree', 'add', '-b', branchName, worktreePath, baseRef], {
+      execFileSync(getToolPath('git'), ['worktree', 'add', '-b', branchName, worktreePath, baseRef], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Created worktree with branch:', branchName, 'from', baseRef);
     } else {
-      execFileSync('git', ['worktree', 'add', '--detach', worktreePath, baseRef], {
+      execFileSync(getToolPath('git'), ['worktree', 'add', '--detach', worktreePath, baseRef], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Created worktree in detached HEAD mode from', baseRef);
+    }
+
+    // Symlink node_modules for TypeScript and tooling support
+    // This allows pre-commit hooks to run typecheck without npm install in worktree
+    const symlinkedModules = symlinkNodeModulesToWorktree(projectPath, worktreePath);
+    if (symlinkedModules.length > 0) {
+      debugLog('[TerminalWorktree] Symlinked dependencies:', symlinkedModules.join(', '));
     }
 
     const config: TerminalWorktreeConfig = {
@@ -367,10 +483,11 @@ async function createTerminalWorktree(
         debugLog('[TerminalWorktree] Cleaned up failed worktree directory:', worktreePath);
         // Also prune stale worktree registrations in case git worktree add partially succeeded
         try {
-          execFileSync('git', ['worktree', 'prune'], {
+          execFileSync(getToolPath('git'), ['worktree', 'prune'], {
             cwd: projectPath,
             encoding: 'utf-8',
             stdio: ['pipe', 'pipe', 'pipe'],
+            env: getIsolatedGitEnv(),
           });
           debugLog('[TerminalWorktree] Pruned stale worktree registrations');
         } catch {
@@ -397,6 +514,7 @@ async function listTerminalWorktrees(projectPath: string): Promise<TerminalWorkt
 
   const configs: TerminalWorktreeConfig[] = [];
   const seenNames = new Set<string>();
+  const staleMetadataFiles: string[] = [];
 
   // Scan new metadata directory
   const metadataDir = getTerminalWorktreeMetadataDir(projectPath);
@@ -407,8 +525,15 @@ async function listTerminalWorktrees(projectPath: string): Promise<TerminalWorkt
           const name = file.name.replace('.json', '');
           const config = loadWorktreeConfig(projectPath, name);
           if (config) {
-            configs.push(config);
-            seenNames.add(name);
+            // Verify worktree directory still exists
+            if (existsSync(config.worktreePath)) {
+              configs.push(config);
+              seenNames.add(name);
+            } else {
+              // Mark stale metadata for cleanup
+              staleMetadataFiles.push(path.join(metadataDir, file.name));
+              debugLog('[TerminalWorktree] Found stale metadata for deleted worktree:', name);
+            }
           }
         }
       }
@@ -434,7 +559,123 @@ async function listTerminalWorktrees(projectPath: string): Promise<TerminalWorkt
     }
   }
 
+  // Auto-cleanup stale metadata files (best-effort cleanup before returning)
+  if (staleMetadataFiles.length > 0) {
+    for (const filePath of staleMetadataFiles) {
+      try {
+        rmSync(filePath);
+        debugLog('[TerminalWorktree] Cleaned up stale metadata file:', filePath);
+      } catch (error) {
+        debugError('[TerminalWorktree] Failed to cleanup stale metadata:', filePath, error);
+      }
+    }
+  }
+
   return configs;
+}
+
+/**
+ * List "other" worktrees - worktrees not managed by Auto Claude
+ * These are discovered via `git worktree list` excluding:
+ * - Main worktree (project root)
+ * - .auto-claude/worktrees/terminal/*
+ * - .auto-claude/worktrees/tasks/*
+ * - .auto-claude/worktrees/pr/*
+ */
+async function listOtherWorktrees(projectPath: string): Promise<OtherWorktreeInfo[]> {
+  // Validate projectPath against registered projects
+  if (!isValidProjectPath(projectPath)) {
+    debugError('[TerminalWorktree] Invalid project path for listing other worktrees:', projectPath);
+    return [];
+  }
+
+  const results: OtherWorktreeInfo[] = [];
+
+  // Paths to exclude (normalize for comparison)
+  const normalizedProjectPath = path.resolve(projectPath);
+  const excludePrefixes = [
+    path.join(normalizedProjectPath, '.auto-claude', 'worktrees', 'terminal'),
+    path.join(normalizedProjectPath, '.auto-claude', 'worktrees', 'tasks'),
+    path.join(normalizedProjectPath, '.auto-claude', 'worktrees', 'pr'),
+  ];
+
+  try {
+    const { stdout: output } = await execFileAsync(getToolPath('git'), ['worktree', 'list', '--porcelain'], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      timeout: 30000,
+      env: getIsolatedGitEnv(),
+    });
+
+    // Parse porcelain output
+    // Format:
+    // worktree /path/to/worktree
+    // HEAD abc123...
+    // branch refs/heads/branch-name (or "detached" line)
+    // (blank line)
+
+    let currentWorktree: { path?: string; head?: string; branch?: string | null } = {};
+
+    for (const line of output.split('\n')) {
+      if (line.startsWith(GIT_PORCELAIN.WORKTREE_PREFIX)) {
+        // Save previous worktree if complete
+        if (currentWorktree.path && currentWorktree.head) {
+          processOtherWorktree(currentWorktree, normalizedProjectPath, excludePrefixes, results);
+        }
+        currentWorktree = { path: line.substring(GIT_PORCELAIN.WORKTREE_PREFIX.length) };
+      } else if (line.startsWith(GIT_PORCELAIN.HEAD_PREFIX)) {
+        currentWorktree.head = line.substring(GIT_PORCELAIN.HEAD_PREFIX.length);
+      } else if (line.startsWith(GIT_PORCELAIN.BRANCH_PREFIX)) {
+        // Extract branch name from "refs/heads/branch-name"
+        const fullRef = line.substring(GIT_PORCELAIN.BRANCH_PREFIX.length);
+        currentWorktree.branch = fullRef.replace('refs/heads/', '');
+      } else if (line === GIT_PORCELAIN.DETACHED_LINE) {
+        currentWorktree.branch = null; // Use null for detached HEAD state
+      }
+    }
+
+    // Process final worktree
+    if (currentWorktree.path && currentWorktree.head) {
+      processOtherWorktree(currentWorktree, normalizedProjectPath, excludePrefixes, results);
+    }
+  } catch (error) {
+    debugError('[TerminalWorktree] Error listing other worktrees:', error);
+  }
+
+  return results;
+}
+
+function processOtherWorktree(
+  wt: { path?: string; head?: string; branch?: string | null },
+  mainWorktreePath: string,
+  excludePrefixes: string[],
+  results: OtherWorktreeInfo[]
+): void {
+  if (!wt.path || !wt.head) return;
+
+  const normalizedPath = path.resolve(wt.path);
+
+  // Exclude main worktree
+  if (normalizedPath === mainWorktreePath) {
+    return;
+  }
+
+  // Check if this path starts with any excluded prefix
+  for (const excludePrefix of excludePrefixes) {
+    if (normalizedPath.startsWith(excludePrefix + path.sep) || normalizedPath === excludePrefix) {
+      return; // Skip this worktree
+    }
+  }
+
+  // Extract display name from path (last directory component)
+  const displayName = path.basename(normalizedPath);
+
+  results.push({
+    path: normalizedPath,
+    branch: wt.branch ?? null, // null indicates detached HEAD state
+    commitSha: wt.head.substring(0, GIT_PORCELAIN.COMMIT_SHA_LENGTH),
+    displayName,
+  });
 }
 
 async function removeTerminalWorktree(
@@ -468,10 +709,11 @@ async function removeTerminalWorktree(
 
   try {
     if (existsSync(worktreePath)) {
-      execFileSync('git', ['worktree', 'remove', '--force', worktreePath], {
+      execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Removed git worktree');
     }
@@ -482,10 +724,11 @@ async function removeTerminalWorktree(
         debugError('[TerminalWorktree] Invalid branch name in config:', config.branchName);
       } else {
         try {
-          execFileSync('git', ['branch', '-D', config.branchName], {
+          execFileSync(getToolPath('git'), ['branch', '-D', config.branchName], {
             cwd: projectPath,
             encoding: 'utf-8',
             stdio: ['pipe', 'pipe', 'pipe'],
+            env: getIsolatedGitEnv(),
           });
           debugLog('[TerminalWorktree] Deleted branch:', config.branchName);
         } catch {
@@ -547,6 +790,21 @@ export function registerTerminalWorktreeHandlers(): void {
       deleteBranch: boolean
     ): Promise<IPCResult> => {
       return removeTerminalWorktree(projectPath, name, deleteBranch);
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.TERMINAL_WORKTREE_LIST_OTHER,
+    async (_, projectPath: string): Promise<IPCResult<OtherWorktreeInfo[]>> => {
+      try {
+        const worktrees = await listOtherWorktrees(projectPath);
+        return { success: true, data: worktrees };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to list other worktrees',
+        };
+      }
     }
   );
 }

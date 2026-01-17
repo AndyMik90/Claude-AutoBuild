@@ -31,7 +31,7 @@ from claude_agent_sdk import AgentDefinition
 
 try:
     from ...core.client import create_client
-    from ...phase_config import get_thinking_budget
+    from ...phase_config import get_thinking_budget, resolve_model_id
     from ..context_gatherer import _validate_git_ref
     from ..gh_client import GHClient
     from ..models import (
@@ -61,7 +61,7 @@ except (ImportError, ValueError, SystemError):
         PRReviewResult,
         ReviewSeverity,
     )
-    from phase_config import get_thinking_budget
+    from phase_config import get_thinking_budget, resolve_model_id
     from services.category_utils import map_category
     from services.io_utils import safe_print
     from services.pr_worktree_manager import PRWorktreeManager
@@ -488,7 +488,9 @@ The SDK will run invoked agents in parallel automatically.
                 )
 
             # Use model and thinking level from config (user settings)
-            model = self.config.model or "claude-sonnet-4-5-20250929"
+            # Resolve model shorthand via environment variable override if configured
+            model_shorthand = self.config.model or "sonnet"
+            model = resolve_model_id(model_shorthand)
             thinking_level = self.config.thinking_level or "medium"
             thinking_budget = get_thinking_budget(thinking_level)
 
@@ -531,6 +533,7 @@ The SDK will run invoked agents in parallel automatically.
                 stream_result = await process_sdk_stream(
                     client=client,
                     context_name="ParallelFollowup",
+                    model=model,
                 )
 
                 # Check for stream processing errors
@@ -558,6 +561,17 @@ The SDK will run invoked agents in parallel automatically.
             if structured_output:
                 result_data = self._parse_structured_output(structured_output, context)
             else:
+                # Log when structured output is missing - this shouldn't happen normally
+                # when output_format is configured, so it indicates a problem
+                logger.warning(
+                    "[ParallelFollowup] No structured output received from SDK - "
+                    "falling back to text parsing. Resolution data may be incomplete."
+                )
+                safe_print(
+                    "[ParallelFollowup] WARNING: Structured output not captured, "
+                    "using text fallback (resolution tracking may be incomplete)",
+                    flush=True,
+                )
                 result_data = self._parse_text_output(result_text, context)
 
             # Extract data
@@ -622,6 +636,51 @@ The SDK will run invoked agents in parallel automatically.
                     "[ParallelFollowup] ⚠️ PR branch is behind base - needs update",
                     flush=True,
                 )
+
+            # CRITICAL: Enforce CI pending status - cannot approve with pending checks
+            # This ensures AI compliance with the rule: "Pending CI = NEEDS_REVISION"
+            ci_status = context.ci_status or {}
+            pending_ci = ci_status.get("pending", 0)
+            failing_ci = ci_status.get("failing", 0)
+
+            if failing_ci > 0:
+                # Failing CI blocks merge
+                if verdict in (
+                    MergeVerdict.READY_TO_MERGE,
+                    MergeVerdict.MERGE_WITH_CHANGES,
+                ):
+                    failed_checks = ci_status.get("failed_checks", [])
+                    checks_str = (
+                        ", ".join(failed_checks[:3]) if failed_checks else "unknown"
+                    )
+                    blockers.append(
+                        f"CI Failing: {failing_ci} check(s) failing ({checks_str})"
+                    )
+                    verdict = MergeVerdict.BLOCKED
+                    verdict_reasoning = (
+                        f"Blocked: {failing_ci} CI check(s) failing. "
+                        f"Fix CI issues before merge."
+                    )
+                    safe_print(
+                        f"[ParallelFollowup] ⚠️ CI failing ({failing_ci} checks) - blocking merge",
+                        flush=True,
+                    )
+            elif pending_ci > 0:
+                # Pending CI prevents merge-ready verdicts
+                if verdict in (
+                    MergeVerdict.READY_TO_MERGE,
+                    MergeVerdict.MERGE_WITH_CHANGES,
+                ):
+                    verdict = MergeVerdict.NEEDS_REVISION
+                    verdict_reasoning = (
+                        f"Ready once CI passes: {pending_ci} check(s) still pending. "
+                        f"All code issues addressed, waiting for CI completion."
+                    )
+                    safe_print(
+                        f"[ParallelFollowup] ⏳ CI pending ({pending_ci} checks) - "
+                        f"downgrading verdict to NEEDS_REVISION",
+                        flush=True,
+                    )
 
             for finding in unique_findings:
                 if finding.severity in (
@@ -928,7 +987,34 @@ The SDK will run invoked agents in parallel automatically.
             }
 
         except Exception as e:
+            # Log error visibly so users know structured output parsing failed
             logger.warning(f"[ParallelFollowup] Failed to parse structured output: {e}")
+            safe_print(
+                f"[ParallelFollowup] ERROR: Structured output parsing failed: {e}",
+                flush=True,
+            )
+            safe_print(
+                "[ParallelFollowup] Attempting to extract partial data from raw output...",
+                flush=True,
+            )
+
+            # Try to extract what we can from the raw dict before giving up
+            # This handles cases where Pydantic validation fails but data is present
+            try:
+                partial_result = self._extract_partial_data(data)
+                if partial_result:
+                    safe_print(
+                        f"[ParallelFollowup] Recovered partial data: "
+                        f"{len(partial_result.get('resolved_ids', []))} resolved, "
+                        f"{len(partial_result.get('unresolved_ids', []))} unresolved",
+                        flush=True,
+                    )
+                    return partial_result
+            except Exception as extract_error:
+                logger.warning(
+                    f"[ParallelFollowup] Partial extraction also failed: {extract_error}"
+                )
+
             return self._create_empty_result()
 
     def _parse_text_output(self, text: str, context: FollowupReviewContext) -> dict:
@@ -968,6 +1054,75 @@ The SDK will run invoked agents in parallel automatically.
             "verdict": MergeVerdict.NEEDS_REVISION,
             "verdict_reasoning": "Unable to parse review results",
         }
+
+    def _extract_partial_data(self, data: dict) -> dict | None:
+        """
+        Extract what data we can from raw output when Pydantic validation fails.
+
+        This handles cases where the AI produced valid data but it doesn't exactly
+        match the expected schema (missing optional fields, type mismatches, etc.).
+        """
+        if not isinstance(data, dict):
+            return None
+
+        resolved_ids = []
+        unresolved_ids = []
+        new_finding_ids = []
+
+        # Try to extract resolution verifications
+        resolution_verifications = data.get("resolution_verifications", [])
+        if isinstance(resolution_verifications, list):
+            for rv in resolution_verifications:
+                if isinstance(rv, dict):
+                    finding_id = rv.get("finding_id", "")
+                    status = rv.get("status", "")
+                    if finding_id:
+                        if status == "resolved":
+                            resolved_ids.append(finding_id)
+                        elif status in (
+                            "unresolved",
+                            "partially_resolved",
+                            "cant_verify",
+                        ):
+                            unresolved_ids.append(finding_id)
+
+        # Try to extract new findings
+        new_findings = data.get("new_findings", [])
+        if isinstance(new_findings, list):
+            for nf in new_findings:
+                if isinstance(nf, dict):
+                    finding_id = nf.get("id", "")
+                    if finding_id:
+                        new_finding_ids.append(finding_id)
+
+        # Try to extract verdict
+        verdict_str = data.get("verdict", "NEEDS_REVISION")
+        verdict_map = {
+            "READY_TO_MERGE": MergeVerdict.READY_TO_MERGE,
+            "MERGE_WITH_CHANGES": MergeVerdict.MERGE_WITH_CHANGES,
+            "NEEDS_REVISION": MergeVerdict.NEEDS_REVISION,
+            "BLOCKED": MergeVerdict.BLOCKED,
+        }
+        verdict = verdict_map.get(verdict_str, MergeVerdict.NEEDS_REVISION)
+
+        verdict_reasoning = data.get("verdict_reasoning", "Extracted from partial data")
+
+        # Only return if we got any useful data
+        if resolved_ids or unresolved_ids or new_finding_ids:
+            return {
+                "findings": [],  # Can't reliably extract full findings without validation
+                "resolved_ids": resolved_ids,
+                "unresolved_ids": unresolved_ids,
+                "new_finding_ids": new_finding_ids,
+                "dismissed_false_positive_ids": [],
+                "confirmed_valid_count": 0,
+                "needs_human_review_count": 0,
+                "verdict": verdict,
+                "verdict_reasoning": f"[Partial extraction] {verdict_reasoning}",
+                "agents_invoked": data.get("agents_invoked", []),
+            }
+
+        return None
 
     def _generate_finding_id(self, file: str, line: int, title: str) -> str:
         """Generate a unique finding ID."""

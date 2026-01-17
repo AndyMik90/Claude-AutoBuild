@@ -40,7 +40,9 @@ export class TerminalManager {
 
     // Periodically save session data (every 30 seconds)
     this.saveTimer = setInterval(() => {
-      SessionHandler.persistAllSessions(this.terminals);
+      SessionHandler.persistAllSessionsAsync(this.terminals).catch((error) => {
+        console.error('[TerminalManager] Failed to persist sessions:', error);
+      });
     }, 30000);
   }
 
@@ -291,6 +293,16 @@ export class TerminalManager {
   }
 
   /**
+   * Update display orders for terminals after drag-drop reorder
+   */
+  updateDisplayOrders(
+    projectPath: string,
+    orders: Array<{ terminalId: string; displayOrder: number }>
+  ): void {
+    SessionHandler.updateDisplayOrders(projectPath, orders);
+  }
+
+  /**
    * Restore all sessions from a specific date
    */
   async restoreSessionsFromDate(
@@ -368,9 +380,9 @@ export class TerminalManager {
     const terminal = this.terminals.get(id);
     if (terminal) {
       terminal.worktreeConfig = config;
-      // Persist immediately when worktree config changes
+      // Persist immediately when worktree config changes (async to avoid blocking)
       if (terminal.projectPath) {
-        SessionHandler.persistSession(terminal);
+        SessionHandler.persistSessionAsync(terminal);
       }
     }
   }

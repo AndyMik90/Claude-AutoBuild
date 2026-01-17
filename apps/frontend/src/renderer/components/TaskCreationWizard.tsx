@@ -15,15 +15,10 @@ import { useTranslation } from 'react-i18next';
 import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch, Info } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from './ui/select';
+import { Combobox, type ComboboxOption } from './ui/combobox';
 import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
+import { type FileReferenceData } from './task-form/useImageUpload';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { FileAutocomplete } from './FileAutocomplete';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
@@ -82,6 +77,22 @@ export function TaskCreationWizard({
     return project?.path ?? null;
   }, [projects, projectId]);
 
+  // Convert branches to ComboboxOption[] format for searchable dropdown
+  const branchOptions: ComboboxOption[] = useMemo(() => {
+    const options: ComboboxOption[] = [
+      {
+        value: PROJECT_DEFAULT_BRANCH,
+        label: projectDefaultBranch
+          ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
+          : t('tasks:wizard.gitOptions.useProjectDefault')
+      }
+    ];
+    branches.forEach((branch) => {
+      options.push({ value: branch, label: branch });
+    });
+    return options;
+  }, [branches, projectDefaultBranch, t]);
+
   // Classification fields
   const [category, setCategory] = useState<TaskCategory | ''>('');
   const [priority, setPriority] = useState<TaskPriority | ''>('');
@@ -111,12 +122,19 @@ export function TaskCreationWizard({
 
   // @ autocomplete state
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  // Ref to track latest description value (avoids stale closure in handleFileReferenceDrop)
+  const descriptionValueRef = useRef(description);
   const [autocomplete, setAutocomplete] = useState<{
     show: boolean;
     query: string;
     startPos: number;
     position: { top: number; left: number };
   } | null>(null);
+
+  // Keep description ref in sync for use in callbacks
+  useEffect(() => {
+    descriptionValueRef.current = description;
+  }, [description]);
 
   // Load draft when dialog opens
   useEffect(() => {
@@ -143,12 +161,28 @@ export function TaskCreationWizard({
           setShowClassification(true);
         }
       } else {
-        // No draft - initialize from selected profile
+        // No draft - reset to clean state for new task creation
+        // This ensures no stale data from previous task creation persists
+        setTitle('');
+        setDescription('');
+        setCategory('');
+        setPriority('');
+        setComplexity('');
+        setImpact('');
         setProfileId(settings.selectedAgentProfile || 'auto');
         setModel(selectedProfile.model);
         setThinkingLevel(selectedProfile.thinkingLevel);
         setPhaseModels(settings.customPhaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
         setPhaseThinking(settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
+        setImages([]);
+        setReferencedFiles([]);
+        setRequireReviewBeforeCoding(false);
+        setBaseBranch(PROJECT_DEFAULT_BRANCH);
+        setUseWorktree(true);
+        setIsDraftRestored(false);
+        setShowClassification(false);
+        setShowFileExplorer(false);
+        setShowGitOptions(false);
       }
     }
   }, [open, projectId, settings.selectedAgentProfile, settings.customPhaseModels, settings.customPhaseThinking, selectedProfile.model, selectedProfile.thinkingLevel, selectedProfile.phaseModels, selectedProfile.phaseThinking]);
@@ -292,6 +326,46 @@ export function TaskCreationWizard({
       textarea.setSelectionRange(newCursorPos, newCursorPos);
     });
   }, [autocomplete, description]);
+
+  /**
+   * Handle file reference drop from FileTreeItem drag
+   * Inserts @filename at cursor position or end of description
+   * Uses descriptionValueRef to avoid stale closure issues with rapid consecutive drops
+   */
+  const handleFileReferenceDrop = useCallback((_reference: string, data: FileReferenceData) => {
+    // Construct reference from validated data to avoid using unvalidated text/plain input
+    const reference = `@${data.name}`;
+    // Dismiss any active autocomplete when file is dropped
+    if (autocomplete?.show) {
+      setAutocomplete(null);
+    }
+
+    // Get latest description from ref to avoid stale closure
+    const currentDescription = descriptionValueRef.current;
+
+    // Insert reference at cursor position if textarea is available
+    const textarea = descriptionRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart ?? currentDescription.length;
+      const end = textarea.selectionEnd ?? currentDescription.length;
+      const newDescription =
+        currentDescription.substring(0, start) +
+        reference + ' ' +
+        currentDescription.substring(end);
+      handleDescriptionChange(newDescription);
+      // Focus textarea and set cursor after inserted text
+      // Use queueMicrotask for consistency with handleAutocompleteSelect
+      queueMicrotask(() => {
+        textarea.focus();
+        const newCursorPos = start + reference.length + 1;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      });
+    } else {
+      // Fallback: append to end
+      const separator = currentDescription.endsWith(' ') || currentDescription === '' ? '' : ' ';
+      handleDescriptionChange(currentDescription + separator + reference + ' ');
+    }
+  }, [handleDescriptionChange, autocomplete?.show]);
 
   /**
    * Parse @mentions from description
@@ -574,6 +648,7 @@ export function TaskCreationWizard({
           disabled={isCreating}
           error={error}
           onError={setError}
+          onFileReferenceDrop={handleFileReferenceDrop}
           idPrefix="create"
         >
           {/* File autocomplete popup - positioned relative to TaskFormFields */}
@@ -623,31 +698,20 @@ export function TaskCreationWizard({
               <Label htmlFor="base-branch" className="text-sm font-medium text-foreground">
                 {t('tasks:wizard.gitOptions.baseBranchLabel')}
               </Label>
-              <Select
+              <Combobox
+                id="base-branch"
                 value={baseBranch}
                 onValueChange={setBaseBranch}
+                options={branchOptions}
+                placeholder={projectDefaultBranch
+                  ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
+                  : t('tasks:wizard.gitOptions.useProjectDefault')
+                }
+                searchPlaceholder={t('tasks:wizard.gitOptions.searchBranches')}
+                emptyMessage={t('tasks:wizard.gitOptions.noBranchesFound')}
                 disabled={isCreating || isLoadingBranches}
-              >
-                <SelectTrigger id="base-branch" className="h-9">
-                  <SelectValue placeholder={projectDefaultBranch
-                    ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
-                    : t('tasks:wizard.gitOptions.useProjectDefault')
-                  } />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={PROJECT_DEFAULT_BRANCH}>
-                    {projectDefaultBranch
-                      ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
-                      : t('tasks:wizard.gitOptions.useProjectDefault')
-                    }
-                  </SelectItem>
-                  {branches.map((branch) => (
-                    <SelectItem key={branch} value={branch}>
-                      {branch}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                className="h-9"
+              />
               <p className="text-xs text-muted-foreground">
                 {t('tasks:wizard.gitOptions.helpText')}
               </p>

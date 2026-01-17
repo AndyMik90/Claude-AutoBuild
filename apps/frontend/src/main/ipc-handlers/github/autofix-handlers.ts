@@ -122,7 +122,7 @@ function getAutoFixConfig(project: Project): AutoFixConfig {
       labels: data.auto_fix_labels ?? ['auto-fix'],
       requireHumanApproval: data.require_human_approval ?? true,
       botToken: data.bot_token,
-      model: data.model ?? 'claude-sonnet-4-20250514',
+      model: data.model ?? 'claude-sonnet-4-5-20250929',
       thinkingLevel: data.thinking_level ?? 'medium',
     };
   } catch {
@@ -133,7 +133,7 @@ function getAutoFixConfig(project: Project): AutoFixConfig {
     enabled: false,
     labels: ['auto-fix'],
     requireHumanApproval: true,
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-5-20250929',
     thinkingLevel: 'medium',
   };
 }

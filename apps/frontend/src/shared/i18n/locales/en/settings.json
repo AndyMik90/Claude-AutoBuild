@@ -104,10 +104,10 @@
       "haikuLabel": "Haiku Model (Optional)",
       "sonnetLabel": "Sonnet Model (Optional)",
       "opusLabel": "Opus Model (Optional)",
-      "defaultPlaceholder": "e.g., claude-3-5-sonnet-20241022",
-      "haikuPlaceholder": "e.g., claude-3-5-haiku-20241022",
-      "sonnetPlaceholder": "e.g., claude-3-5-sonnet-20241022",
-      "opusPlaceholder": "e.g., claude-3-5-opus-20241022"
+      "defaultPlaceholder": "e.g., claude-sonnet-4-5-20250929",
+      "haikuPlaceholder": "e.g., claude-haiku-4-5-20251001",
+      "sonnetPlaceholder": "e.g., claude-sonnet-4-5-20250929",
+      "opusPlaceholder": "e.g., claude-opus-4-5-20251101"
     },
     "empty": {
       "title": "No API profiles configured",
@@ -167,7 +167,7 @@
   },
   "modelSelect": {
     "placeholder": "Select a model or type manually",
-    "placeholderManual": "Enter model name (e.g., claude-3-5-sonnet-20241022)",
+    "placeholderManual": "Enter model name (e.g., claude-sonnet-4-5-20250929)",
     "searchPlaceholder": "Search models...",
     "noResults": "No models match your search",
     "discoveryNotAvailable": "Model discovery not available. Enter model name manually."
@@ -448,11 +448,25 @@
       "authSuccessGeneric": "Authentication complete. You can now use this profile.",
       "authStartFailed": "Authentication Failed",
       "addProfileFailed": "Failed to Add Profile",
+      "loadProfilesFailed": "Failed to Load Profiles",
+      "deleteProfileFailed": "Failed to Delete Profile",
+      "renameProfileFailed": "Failed to Rename Profile",
+      "setActiveProfileFailed": "Failed to Set Active Profile",
+      "profileCreatedAuthFailed": "Profile Created - Authentication Needed",
+      "profileCreatedAuthFailedDescription": "Profile was added but authentication could not start. Click the login button to authenticate.",
       "tokenSaved": "Token Saved",
       "tokenSavedDescription": "Your token has been saved successfully.",
       "tokenSaveFailed": "Failed to Save Token",
       "settingsUpdateFailed": "Failed to Update Settings",
-      "tryAgain": "Please try again."
+      "tryAgain": "Please try again.",
+      "terminalCreationFailed": "Failed to create authentication terminal",
+      "terminalCreationFailedDescription": "Unable to start the authentication process. {{error}}",
+      "maxTerminalsReached": "Maximum terminals reached",
+      "maxTerminalsReachedDescription": "Please close some terminals and try again. You can have up to 12 terminals open.",
+      "terminalError": "Terminal Error",
+      "terminalErrorDescription": "Failed to create terminal: {{error}}",
+      "authProcessFailed": "Authentication process failed to start",
+      "authProcessFailedDescription": "The authentication terminal could not be created. Please try again or check the logs for more details."
     }
   },
   "debug": {

@@ -1,6 +1,6 @@
 {
   "name": "auto-claude-ui",
-  "version": "2.7.4",
+  "version": "2.7.5",
   "type": "module",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
   "homepage": "https://github.com/AndyMik90/Auto-Claude",
@@ -107,6 +107,7 @@
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.52.0",
     "@tailwindcss/postcss": "^4.1.17",
+    "@testing-library/dom": "^10.0.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.1.0",
     "@types/minimatch": "^5.1.2",

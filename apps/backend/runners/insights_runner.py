@@ -15,6 +15,12 @@ from pathlib import Path
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Validate platform-specific dependencies BEFORE any imports that might
+# trigger graphiti_core -> real_ladybug -> pywintypes import chain (ACS-253)
+from core.dependency_validator import validate_platform_dependencies
+
+validate_platform_dependencies()
+
 # Load .env file with centralized error handling
 from cli.utils import import_dotenv
 
@@ -41,7 +47,7 @@ from debug import (
     debug_section,
     debug_success,
 )
-from phase_config import resolve_model_id
+from phase_config import get_thinking_budget, resolve_model_id
 
 
 def load_project_context(project_dir: str) -> str:
@@ -172,28 +178,33 @@ async def run_with_sdk(
 
 Current question: {message}"""
 
+    # Convert thinking level to token budget
+    max_thinking_tokens = get_thinking_budget(thinking_level)
+
     debug(
         "insights_runner",
         "Using model configuration",
         model=model,
         thinking_level=thinking_level,
+        max_thinking_tokens=max_thinking_tokens,
     )
 
     try:
+        # Build options dict - only include max_thinking_tokens if not None
+        options_kwargs = {
+            "model": resolve_model_id(model),  # Resolve via API Profile if configured
+            "system_prompt": system_prompt,
+            "allowed_tools": ["Read", "Glob", "Grep"],
+            "max_turns": 30,  # Allow sufficient turns for codebase exploration
+            "cwd": str(project_path),
+        }
+
+        # Only add thinking tokens if the thinking level is not "none"
+        if max_thinking_tokens is not None:
+            options_kwargs["max_thinking_tokens"] = max_thinking_tokens
+
         # Create Claude SDK client with appropriate settings for insights
-        client = ClaudeSDKClient(
-            options=ClaudeAgentOptions(
-                model=resolve_model_id(model),  # Resolve via API Profile if configured
-                system_prompt=system_prompt,
-                allowed_tools=[
-                    "Read",
-                    "Glob",
-                    "Grep",
-                ],
-                max_turns=30,  # Allow sufficient turns for codebase exploration
-                cwd=str(project_path),
-            )
-        )
+        client = ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))
 
         # Use async context manager pattern
         async with client:

@@ -5,6 +5,7 @@ import {
   Send,
   XCircle,
   Loader2,
+  GitBranch,
   GitMerge,
   CheckCircle,
   RefreshCw,
@@ -51,10 +52,11 @@ interface PRDetailProps {
   onCheckNewCommits: () => Promise<NewCommitsCheck>;
   onCancelReview: () => void;
   onPostReview: (selectedFindingIds?: string[], options?: { forceApprove?: boolean }) => Promise<boolean>;
-  onPostComment: (body: string) => void;
+  onPostComment: (body: string) => Promise<boolean>;
   onMergePR: (mergeMethod?: 'merge' | 'squash' | 'rebase') => void;
   onAssignPR: (username: string) => void;
   onGetLogs: () => Promise<PRLogsType | null>;
+  onMarkReviewPosted?: (prNumber: number) => Promise<void>;
 }
 
 function getStatusColor(status: PRReviewResult['overallStatus']): string {
@@ -88,6 +90,7 @@ export function PRDetail({
   onMergePR,
   onAssignPR: _onAssignPR,
   onGetLogs,
+  onMarkReviewPosted,
 }: PRDetailProps) {
   const { t } = useTranslation('common');
   // Selection state for findings
@@ -100,6 +103,10 @@ export function PRDetail({
   const [cleanReviewPosted, setCleanReviewPosted] = useState(false);
   const [cleanReviewError, setCleanReviewError] = useState<string | null>(null);
   const [showCleanReviewErrorDetails, setShowCleanReviewErrorDetails] = useState(false);
+  // Blocked status posting state (for BLOCKED/NEEDS_REVISION verdicts with no findings)
+  const [isPostingBlockedStatus, setIsPostingBlockedStatus] = useState(false);
+  const [blockedStatusPosted, setBlockedStatusPosted] = useState(false);
+  const [blockedStatusError, setBlockedStatusError] = useState<string | null>(null);
   const [isMerging, setIsMerging] = useState(false);
   // Initialize with store value, then sync and update via local checks
   const [newCommitsCheck, setNewCommitsCheck] = useState<NewCommitsCheck | null>(initialNewCommitsCheck ?? null);
@@ -116,6 +123,12 @@ export function PRDetail({
   // Merge readiness state (real-time validation of AI verdict freshness)
   const [mergeReadiness, setMergeReadiness] = useState<MergeReadiness | null>(null);
   const mergeReadinessAbortRef = useRef<AbortController | null>(null);
+
+  // Branch update state (for updating PR branch when behind base)
+  const [isUpdatingBranch, setIsUpdatingBranch] = useState(false);
+  const [branchUpdateError, setBranchUpdateError] = useState<string | null>(null);
+  const [branchUpdateSuccess, setBranchUpdateSuccess] = useState(false);
+  const [mergeReadinessRefreshKey, setMergeReadinessRefreshKey] = useState(0);
 
   // Workflows awaiting approval state (for fork PRs)
   const [workflowsAwaiting, setWorkflowsAwaiting] = useState<WorkflowsAwaitingApprovalResult | null>(null);
@@ -161,30 +174,48 @@ export function PRDetail({
       return;
     }
 
+    // Check for new commits if we have ANY successful review with a commit SHA
+    // This includes follow-up reviews that resolved all issues (no new findings)
+    // New commits = new code that needs to be reviewed, regardless of posting status
+    if (!reviewResult?.success || !reviewResult.reviewedCommitSha) {
+      return;
+    }
+
+    // Skip if we already have a fresh newCommitsCheck from initialNewCommitsCheck (store)
+    // that matches the current review's commit SHA. This prevents redundant API calls
+    // when the useGitHubPRs hook has already checked for new commits on PR selection.
+    // The `lastReviewedCommit` field indicates which commit SHA the check was performed against.
+    if (newCommitsCheck?.lastReviewedCommit === reviewResult.reviewedCommitSha) {
+      return;
+    }
+
+    // Additional guard: if we have any newCommitsCheck result but it lacks lastReviewedCommit,
+    // skip to prevent infinite loops. This handles edge cases where the API returns
+    // a result without the tracking field.
+    if (newCommitsCheck && !newCommitsCheck.lastReviewedCommit) {
+      return;
+    }
+
     // Cancel any pending check
     if (checkNewCommitsAbortRef.current) {
       checkNewCommitsAbortRef.current.abort();
     }
     checkNewCommitsAbortRef.current = new AbortController();
 
-    // Check for new commits if we have ANY successful review with a commit SHA
-    // This includes follow-up reviews that resolved all issues (no new findings)
-    // New commits = new code that needs to be reviewed, regardless of posting status
-    if (reviewResult?.success && reviewResult.reviewedCommitSha) {
-      isCheckingNewCommitsRef.current = true;
-      try {
-        const result = await onCheckNewCommits();
-        // Only update state if not aborted
-        if (!checkNewCommitsAbortRef.current?.signal.aborted) {
-          setNewCommitsCheck(result);
-        }
-      } finally {
-        if (!checkNewCommitsAbortRef.current?.signal.aborted) {
-          isCheckingNewCommitsRef.current = false;
-        }
+    isCheckingNewCommitsRef.current = true;
+    try {
+      const result = await onCheckNewCommits();
+      // Only update state if not aborted
+      if (!checkNewCommitsAbortRef.current?.signal.aborted) {
+        setNewCommitsCheck(result);
       }
+    } finally {
+      // Always reset the checking ref to allow future checks.
+      // The abort only determines whether to update STATE, not whether
+      // the operation tracking should be reset.
+      isCheckingNewCommitsRef.current = false;
     }
-  }, [reviewResult, onCheckNewCommits]);
+  }, [reviewResult, onCheckNewCommits, newCommitsCheck]);
 
   useEffect(() => {
     checkForNewCommits();
@@ -203,6 +234,14 @@ export function PRDetail({
       return () => clearTimeout(timer);
     }
   }, [postSuccess]);
+
+  // Clear branch update success message after 3 seconds
+  useEffect(() => {
+    if (branchUpdateSuccess) {
+      const timer = setTimeout(() => setBranchUpdateSuccess(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [branchUpdateSuccess]);
 
   // Auto-expand logs section when review starts
   useEffect(() => {
@@ -270,6 +309,14 @@ export function PRDetail({
     setCleanReviewError(null);
     setIsPostingCleanReview(false);
     setShowCleanReviewErrorDetails(false);
+    // Reset blocked status state as well
+    setBlockedStatusPosted(false);
+    setBlockedStatusError(null);
+    setIsPostingBlockedStatus(false);
+    // Reset branch update state as well
+    setBranchUpdateError(null);
+    setBranchUpdateSuccess(false);
+    setIsUpdatingBranch(false);
   }, [pr.number]);
 
   // Check for workflows awaiting approval (fork PRs) when PR changes or review completes
@@ -325,7 +372,7 @@ export function PRDetail({
         mergeReadinessAbortRef.current.abort();
       }
     };
-  }, [pr.number, projectId]);
+  }, [pr.number, projectId, mergeReadinessRefreshKey]);
 
   // Handler to approve a workflow
   const handleApproveWorkflow = useCallback(async (runId: number) => {
@@ -360,6 +407,40 @@ export function PRDetail({
     const result = await window.electronAPI.github.getWorkflowsAwaitingApproval('', pr.number);
     setWorkflowsAwaiting(result);
   }, [pr.number, workflowsAwaiting]);
+
+  // Handler to update PR branch when behind base
+  const handleUpdateBranch = useCallback(async () => {
+    // Capture current PR number to prevent state leaks across PR switches
+    const currentPr = pr.number;
+
+    setIsUpdatingBranch(true);
+    setBranchUpdateError(null);
+    setBranchUpdateSuccess(false);
+
+    try {
+      const result = await window.electronAPI.github.updatePRBranch(projectId, pr.number);
+
+      // Only update state if PR hasn't changed
+      if (pr.number === currentPr) {
+        if (result.success) {
+          setBranchUpdateSuccess(true);
+          // Trigger merge readiness refresh to update the UI
+          setMergeReadinessRefreshKey(prev => prev + 1);
+        } else {
+          setBranchUpdateError(result.error || t('prReview.branchUpdateFailed'));
+        }
+      }
+    } catch (err) {
+      if (pr.number === currentPr) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setBranchUpdateError(errorMessage);
+      }
+    } finally {
+      if (pr.number === currentPr) {
+        setIsUpdatingBranch(false);
+      }
+    }
+  }, [pr.number, projectId, t]);
 
   // Count selected findings by type for the button label
   const selectedCount = selectedFindingIds.size;
@@ -681,6 +762,51 @@ ${t('prReview.cleanReviewMessageFooter')}`;
     }
   };
 
+  // Post blocked status comment when verdict is BLOCKED/NEEDS_REVISION but no findings
+  // This handles the edge case where structured output parsing fails but we still have a verdict
+  const handlePostBlockedStatus = async () => {
+    if (!reviewResult) return;
+
+    // Capture current PR number to prevent state leaks across PR switches
+    const currentPr = pr.number;
+
+    setIsPostingBlockedStatus(true);
+    setBlockedStatusError(null);
+    try {
+      // Format the blocked status comment - post the summary which contains blockers
+      const blockedStatusMessage = `${t('prReview.blockedStatusMessageTitle')}
+
+${reviewResult.summary}
+
+---
+
+${t('prReview.blockedStatusMessageFooter')}`;
+
+      const success = await onPostComment(blockedStatusMessage);
+
+      // Only mark as posted on success if PR hasn't changed AND comment was posted successfully
+      if (success && pr.number === currentPr) {
+        setBlockedStatusPosted(true);
+        setBlockedStatusError(null);
+        // Update the store to mark review as posted so PR list reflects the change
+        // Pass prNumber explicitly to avoid race conditions with PR selection changes
+        await onMarkReviewPosted?.(currentPr);
+      } else if (!success && pr.number === currentPr) {
+        setBlockedStatusError('Failed to post comment');
+      }
+    } catch (err) {
+      console.error('Failed to post blocked status comment:', err);
+      const fullError = err instanceof Error ? err.message : String(err);
+      if (pr.number === currentPr) {
+        setBlockedStatusError(fullError);
+      }
+    } finally {
+      if (pr.number === currentPr) {
+        setIsPostingBlockedStatus(false);
+      }
+    }
+  };
+
   const handleMerge = async () => {
     setIsMerging(true);
     try {
@@ -717,6 +843,29 @@ ${t('prReview.cleanReviewMessageFooter')}`;
                       </li>
                     ))}
                   </ul>
+                  {mergeReadiness.isBehind && (
+                    <div className="flex items-center gap-3 mt-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-warning/50 text-warning hover:bg-warning/20"
+                        onClick={handleUpdateBranch}
+                        disabled={isUpdatingBranch}
+                      >
+                        {isUpdatingBranch ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            {t('prReview.updatingBranch')}
+                          </>
+                        ) : (
+                          <>
+                            <GitBranch className="h-4 w-4 mr-2" />
+                            {t('prReview.updateBranch')}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                   <p className="text-xs text-warning/70 mt-2">
                     {t('prReview.rerunReviewSuggestion', 'Consider re-running the review after resolving these issues.')}
                   </p>
@@ -724,6 +873,18 @@ ${t('prReview.cleanReviewMessageFooter')}`;
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {branchUpdateSuccess && (
+          <div className="flex items-center gap-2 text-xs text-success animate-in fade-in duration-200">
+            <CheckCircle className="h-3 w-3" />
+            {t('prReview.branchUpdated')}
+          </div>
+        )}
+        {branchUpdateError && (
+          <div className="text-xs text-destructive animate-in fade-in duration-200">
+            {branchUpdateError}
+          </div>
         )}
 
         {/* Review Status & Actions */}
@@ -777,6 +938,29 @@ ${t('prReview.cleanReviewMessageFooter')}`;
                     <>
                       <MessageSquare className="h-4 w-4 mr-2" />
                       {t('prReview.postCleanReview')}
+                    </>
+                  )}
+                </Button>
+             )}
+
+             {/* Post Blocked Status button - shows when verdict is BLOCKED/NEEDS_REVISION but no findings */}
+             {/* This handles the edge case where structured output parsing fails but we still have a verdict */}
+             {selectedCount === 0 && !hasPostedFindings && !blockedStatusPosted && reviewResult?.overallStatus === 'request_changes' && (
+                <Button
+                  onClick={handlePostBlockedStatus}
+                  disabled={isPostingBlockedStatus || isPosting}
+                  variant="secondary"
+                  className="flex-1 sm:flex-none"
+                >
+                  {isPostingBlockedStatus ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {t('prReview.postingBlockedStatus')}
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      {t('prReview.postBlockedStatus')}
                     </>
                   )}
                 </Button>
@@ -895,6 +1079,22 @@ ${t('prReview.cleanReviewMessageFooter')}`;
                  title={cleanReviewError}
                >
                  {cleanReviewError}
+               </div>
+             )}
+
+             {/* Blocked status posted success message */}
+             {blockedStatusPosted && !postSuccess && !cleanReviewPosted && (
+               <div className="ml-auto flex items-center gap-2 text-amber-600 text-sm font-medium animate-pulse">
+                 <CheckCircle className="h-4 w-4" />
+                 {t('prReview.blockedStatusPosted')}
+               </div>
+             )}
+
+             {/* Blocked status error display */}
+             {blockedStatusError && (
+               <div className="ml-auto flex items-center gap-2 text-destructive text-sm font-medium">
+                 <XCircle className="h-4 w-4" />
+                 {t('prReview.failedPostBlockedStatus')}
                </div>
              )}
           </div>

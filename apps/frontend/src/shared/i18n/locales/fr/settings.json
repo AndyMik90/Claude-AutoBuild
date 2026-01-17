@@ -104,10 +104,10 @@
       "haikuLabel": "Modèle Haiku (optionnel)",
       "sonnetLabel": "Modèle Sonnet (optionnel)",
       "opusLabel": "Modèle Opus (optionnel)",
-      "defaultPlaceholder": "ex. : claude-3-5-sonnet-20241022",
-      "haikuPlaceholder": "ex. : claude-3-5-haiku-20241022",
-      "sonnetPlaceholder": "ex. : claude-3-5-sonnet-20241022",
-      "opusPlaceholder": "ex. : claude-3-5-opus-20241022"
+      "defaultPlaceholder": "ex. : claude-sonnet-4-5-20250929",
+      "haikuPlaceholder": "ex. : claude-haiku-4-5-20251001",
+      "sonnetPlaceholder": "ex. : claude-sonnet-4-5-20250929",
+      "opusPlaceholder": "ex. : claude-opus-4-5-20251101"
     },
     "empty": {
       "title": "Aucun profil API configuré",
@@ -167,7 +167,7 @@
   },
   "modelSelect": {
     "placeholder": "Sélectionner un modèle ou saisir manuellement",
-    "placeholderManual": "Saisir le nom du modèle (ex. : claude-3-5-sonnet-20241022)",
+    "placeholderManual": "Saisir le nom du modèle (ex. : claude-sonnet-4-5-20250929)",
     "searchPlaceholder": "Rechercher des modèles...",
     "noResults": "Aucun modèle ne correspond à votre recherche",
     "discoveryNotAvailable": "Découverte de modèles indisponible. Saisissez le nom du modèle manuellement."
@@ -448,11 +448,25 @@
       "authSuccessGeneric": "Authentification terminée. Vous pouvez maintenant utiliser ce profil.",
       "authStartFailed": "Échec de l'authentification",
       "addProfileFailed": "Échec de l'ajout du profil",
+      "loadProfilesFailed": "Échec du chargement des profils",
+      "deleteProfileFailed": "Échec de la suppression du profil",
+      "renameProfileFailed": "Échec du renommage du profil",
+      "setActiveProfileFailed": "Échec de l'activation du profil",
+      "profileCreatedAuthFailed": "Profil créé - Authentification requise",
+      "profileCreatedAuthFailedDescription": "Le profil a été ajouté mais l'authentification n'a pas pu démarrer. Cliquez sur le bouton de connexion pour vous authentifier.",
       "tokenSaved": "Token enregistré",
       "tokenSavedDescription": "Votre token a été enregistré avec succès.",
       "tokenSaveFailed": "Échec de l'enregistrement du token",
       "settingsUpdateFailed": "Échec de la mise à jour des paramètres",
-      "tryAgain": "Veuillez réessayer."
+      "tryAgain": "Veuillez réessayer.",
+      "terminalCreationFailed": "Échec de la création du terminal d'authentification",
+      "terminalCreationFailedDescription": "Impossible de démarrer le processus d'authentification. {{error}}",
+      "maxTerminalsReached": "Nombre maximum de terminaux atteint",
+      "maxTerminalsReachedDescription": "Veuillez fermer certains terminaux et réessayer. Vous pouvez avoir jusqu'à 12 terminaux ouverts.",
+      "terminalError": "Erreur de terminal",
+      "terminalErrorDescription": "Échec de la création du terminal : {{error}}",
+      "authProcessFailed": "Le processus d'authentification n'a pas pu démarrer",
+      "authProcessFailedDescription": "Le terminal d'authentification n'a pas pu être créé. Veuillez réessayer ou consulter les logs pour plus de détails."
     }
   },
   "debug": {

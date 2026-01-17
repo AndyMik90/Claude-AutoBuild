@@ -1,6 +1,9 @@
 import type * as pty from '@lydell/node-pty';
 import type { BrowserWindow } from 'electron';
-import type { TerminalWorktreeConfig } from '../../shared/types';
+import type { TerminalWorktreeConfig, WindowsShellType } from '../../shared/types';
+
+// Re-export WindowsShellType for backwards compatibility
+export type { WindowsShellType } from '../../shared/types';
 
 /**
  * Terminal process tracking
@@ -21,6 +24,8 @@ export interface TerminalProcess {
   pendingClaudeResume?: boolean;
   /** Whether Claude was invoked with --dangerously-skip-permissions (YOLO mode) */
   dangerouslySkipPermissions?: boolean;
+  /** Shell type for Windows (affects command chaining syntax) */
+  shellType?: WindowsShellType;
 }
 
 /**

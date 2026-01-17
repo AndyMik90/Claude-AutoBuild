@@ -19,7 +19,8 @@
     "view": "View Details",
     "viewPR": "View PR",
     "moveTo": "Move to",
-    "taskActions": "Task actions"
+    "taskActions": "Task actions",
+    "selectTask": "Select task: {{title}}"
   },
   "labels": {
     "running": "Running",
@@ -53,7 +54,6 @@
     "description": "Create your first task to get started"
   },
   "columns": {
-    "error": "Error",
     "backlog": "Planning",
     "in_progress": "In Progress",
     "ai_review": "AI Review",
@@ -72,8 +72,6 @@
     "emptyHumanReviewHint": "Tasks await your approval here",
     "emptyDone": "No completed tasks",
     "emptyDoneHint": "Approved tasks appear here",
-    "emptyError": "No error tasks",
-    "emptyErrorHint": "Error tasks will appear here when parsing fails",
     "emptyDefault": "No tasks",
     "dropHere": "Drop here",
     "showArchived": "Show archived",
@@ -86,7 +84,16 @@
     "worktreeCleanupNotStaged": "This task has a worktree with changes that have not been merged. Delete the worktree to mark as done, or cancel to review the changes first.",
     "keepWorktree": "Keep Worktree",
     "deleteWorktree": "Delete Worktree & Mark Done",
-    "refreshTasks": "Refresh Tasks"
+    "refreshTasks": "Refresh Tasks",
+    "orderSaveFailedTitle": "Reorder not saved",
+    "orderSaveFailedDescription": "Your task order change was applied but couldn't be saved to storage. It will be lost on refresh.",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "selectedCount": "{{count}} selected",
+    "selectedCountOne": "{{count}} task selected",
+    "selectedCountOther": "{{count}} tasks selected",
+    "createPRs": "Create PRs",
+    "clearSelection": "Clear Selection"
   },
   "execution": {
     "phases": {
@@ -154,6 +161,8 @@
       "baseBranchLabel": "Base Branch (optional)",
       "useProjectDefault": "Use project default",
       "useProjectDefaultWithBranch": "Use project default ({{branch}})",
+      "searchBranches": "Search branches...",
+      "noBranchesFound": "No branches found",
       "helpText": "Override the branch this task's worktree will be created from. Leave empty to use the project's configured default branch.",
       "useWorktreeLabel": "Use isolated workspace (recommended)",
       "useWorktreeDescription": "Creates changes in a separate git worktree for safe review before merging. Disable to build directly in your project (faster but riskier)."
@@ -240,5 +249,14 @@
   },
   "subtasks": {
     "untitled": "Untitled subtask"
+  },
+  "bulkPR": {
+    "selectAllInColumn": "Select all tasks in column",
+    "deselectAllInColumn": "Deselect all tasks",
+    "selectionMode": "Selection mode active",
+    "exitSelectionMode": "Exit selection mode",
+    "noTasksToSelect": "No tasks available to select",
+    "confirmBulkAction": "Confirm bulk action for {{count}} tasks",
+    "processingTasks": "Processing selected tasks..."
   }
 }

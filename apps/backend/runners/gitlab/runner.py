@@ -26,6 +26,12 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+# Validate platform-specific dependencies BEFORE any imports that might
+# trigger graphiti_core -> real_ladybug -> pywintypes import chain (ACS-253)
+from core.dependency_validator import validate_platform_dependencies
+
+validate_platform_dependencies()
+
 # Load .env file with centralized error handling
 from cli.utils import import_dotenv
 
@@ -264,7 +270,7 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="claude-sonnet-4-20250514",
+        default="claude-sonnet-4-5-20250929",
         help="AI model to use",
     )
     parser.add_argument(
