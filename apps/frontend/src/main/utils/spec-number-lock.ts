@@ -52,15 +52,13 @@ export class SpecNumberLock {
 
     while (true) {
       try {
-        // Try to create lock file exclusively using 'wx' flag
-        // This will throw if file already exists
-        if (!existsSync(this.lockFile)) {
-          writeFileSync(this.lockFile, String(process.pid), { flag: 'wx' });
-          this.acquired = true;
-          return;
-        }
+        // Try to create lock file exclusively using 'wx' flag (atomic operation)
+        // This will throw EEXIST if file already exists - no pre-check needed
+        writeFileSync(this.lockFile, String(process.pid), { flag: 'wx' });
+        this.acquired = true;
+        return;
       } catch (error: unknown) {
-        // EEXIST means file was created by another process between check and create
+        // EEXIST means lock is held by another process
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
           throw error;
         }
