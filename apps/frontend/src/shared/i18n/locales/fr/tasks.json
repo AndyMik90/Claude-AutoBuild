@@ -19,7 +19,8 @@
     "view": "Voir les détails",
     "viewPR": "Voir la PR",
     "moveTo": "Déplacer vers",
-    "taskActions": "Actions de la tâche"
+    "taskActions": "Actions de la tâche",
+    "selectTask": "Sélectionner la tâche : {{title}}"
   },
   "labels": {
     "running": "En cours",
@@ -83,7 +84,14 @@
     "worktreeCleanupNotStaged": "Cette tâche possède un worktree avec des changements non fusionnés. Supprimez le worktree pour marquer comme terminé, ou annulez pour réviser les changements d'abord.",
     "keepWorktree": "Garder le Worktree",
     "deleteWorktree": "Supprimer le Worktree & Marquer Terminé",
-    "refreshTasks": "Actualiser les tâches"
+    "refreshTasks": "Actualiser les tâches",
+    "selectAll": "Tout sélectionner",
+    "deselectAll": "Tout désélectionner",
+    "selectedCount": "{{count}} sélectionné(s)",
+    "selectedCountOne": "{{count}} tâche sélectionnée",
+    "selectedCountOther": "{{count}} tâches sélectionnées",
+    "createPRs": "Créer les PRs",
+    "clearSelection": "Effacer la sélection"
   },
   "execution": {
     "phases": {
@@ -151,6 +159,8 @@
       "baseBranchLabel": "Branche de base (optionnel)",
       "useProjectDefault": "Utiliser la branche par défaut du projet",
       "useProjectDefaultWithBranch": "Utiliser la branche par défaut du projet ({{branch}})",
+      "searchBranches": "Rechercher des branches...",
+      "noBranchesFound": "Aucune branche trouvée",
       "helpText": "Remplacez la branche à partir de laquelle le worktree de cette tâche sera créé. Laissez vide pour utiliser la branche par défaut configurée du projet.",
       "useWorktreeLabel": "Utiliser un espace de travail isolé (recommandé)",
       "useWorktreeDescription": "Crée les changements dans un worktree git séparé pour une révision sécurisée avant la fusion. Désactivez pour travailler directement dans votre projet (plus rapide mais risqué)."
@@ -237,5 +247,14 @@
   },
   "subtasks": {
     "untitled": "Sous-tâche sans titre"
+  },
+  "bulkPR": {
+    "selectAllInColumn": "Sélectionner toutes les tâches de la colonne",
+    "deselectAllInColumn": "Désélectionner toutes les tâches",
+    "selectionMode": "Mode sélection actif",
+    "exitSelectionMode": "Quitter le mode sélection",
+    "noTasksToSelect": "Aucune tâche disponible à sélectionner",
+    "confirmBulkAction": "Confirmer l'action groupée pour {{count}} tâches",
+    "processingTasks": "Traitement des tâches sélectionnées..."
   }
 }

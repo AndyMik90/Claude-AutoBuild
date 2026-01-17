@@ -78,6 +78,7 @@ export const IPC_CHANNELS = {
   TERMINAL_GET_SESSIONS_FOR_DATE: 'terminal:getSessionsForDate',
   TERMINAL_RESTORE_FROM_DATE: 'terminal:restoreFromDate',
   TERMINAL_CHECK_PTY_ALIVE: 'terminal:checkPtyAlive',
+  TERMINAL_UPDATE_DISPLAY_ORDERS: 'terminal:updateDisplayOrders',  // Persist terminal display order after drag-drop reorder
 
   // Terminal worktree operations (isolated development in worktrees)
   TERMINAL_WORKTREE_CREATE: 'terminal:worktreeCreate',
@@ -374,6 +375,8 @@ export const IPC_CHANNELS = {
   GITHUB_PR_FOLLOWUP_REVIEW: 'github:pr:followupReview',
   GITHUB_PR_CHECK_NEW_COMMITS: 'github:pr:checkNewCommits',
   GITHUB_PR_CHECK_MERGE_READINESS: 'github:pr:checkMergeReadiness',
+  GITHUB_PR_MARK_REVIEW_POSTED: 'github:pr:markReviewPosted',
+  GITHUB_PR_UPDATE_BRANCH: 'github:pr:updateBranch',
 
   // GitHub PR Review events (main -> renderer)
   GITHUB_PR_REVIEW_PROGRESS: 'github:pr:reviewProgress',

@@ -293,6 +293,16 @@ export class TerminalManager {
   }
 
   /**
+   * Update display orders for terminals after drag-drop reorder
+   */
+  updateDisplayOrders(
+    projectPath: string,
+    orders: Array<{ terminalId: string; displayOrder: number }>
+  ): void {
+    SessionHandler.updateDisplayOrders(projectPath, orders);
+  }
+
+  /**
    * Restore all sessions from a specific date
    */
   async restoreSessionsFromDate(

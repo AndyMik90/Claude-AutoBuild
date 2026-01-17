@@ -18,6 +18,8 @@ export interface TerminalSession {
   lastActiveAt: string;  // ISO timestamp
   /** Associated worktree configuration (validated on restore) */
   worktreeConfig?: TerminalWorktreeConfig;
+  /** UI display position for ordering terminals after drag-drop */
+  displayOrder?: number;
 }
 
 /**
@@ -256,11 +258,16 @@ export class TerminalSessionStore {
     // Update existing or add new
     const existingIndex = todaySessions[projectPath].findIndex(s => s.id === session.id);
     if (existingIndex >= 0) {
+      // Preserve displayOrder from existing session if not provided in incoming session
+      // This prevents periodic saves (which don't include displayOrder) from losing tab order
+      const existingSession = todaySessions[projectPath][existingIndex];
       todaySessions[projectPath][existingIndex] = {
         ...session,
         // Limit output buffer size
         outputBuffer: session.outputBuffer.slice(-MAX_OUTPUT_BUFFER),
-        lastActiveAt: new Date().toISOString()
+        lastActiveAt: new Date().toISOString(),
+        // Preserve existing displayOrder if incoming session doesn't have it
+        displayOrder: session.displayOrder ?? existingSession.displayOrder,
       };
     } else {
       todaySessions[projectPath].push({
@@ -521,6 +528,30 @@ export class TerminalSessionStore {
    */
   saveAllPending(): void {
     this.save();
+  }
+
+  /**
+   * Update display orders for multiple terminals (after drag-drop reorder).
+   * This updates the displayOrder property for matching sessions in today's bucket.
+   */
+  updateDisplayOrders(projectPath: string, orders: Array<{ terminalId: string; displayOrder: number }>): void {
+    const todaySessions = this.getTodaysSessions();
+    const sessions = todaySessions[projectPath];
+    if (!sessions) return;
+
+    let hasChanges = false;
+    for (const { terminalId, displayOrder } of orders) {
+      const session = sessions.find(s => s.id === terminalId);
+      if (session && session.displayOrder !== displayOrder) {
+        session.displayOrder = displayOrder;
+        session.lastActiveAt = new Date().toISOString();
+        hasChanges = true;
+      }
+    }
+
+    if (hasChanges) {
+      this.save();
+    }
   }
 
   /**

@@ -62,5 +62,22 @@
       "targetBranch": "Leave empty to use the default branch",
       "prTitle": "Leave empty to use the task title"
     }
+  },
+  "bulkPR": {
+    "title": "Create Pull Requests",
+    "description": "Create pull requests for {{count}} selected tasks",
+    "creating": "Creating PR {{current}} of {{total}}...",
+    "creatingPR": "Creating PR {{current}} of {{total}}",
+    "resultsDescription": "{{success}} succeeded, {{failed}} failed",
+    "tasksToProcess": "Tasks to process",
+    "targetBranchHint": "Leave empty to use each task's default branch. This will be applied to all PRs.",
+    "createAll": "Create {{count}} PRs",
+    "completed": "completed",
+    "succeeded": "succeeded",
+    "failed": "failed",
+    "skipped": "skipped",
+    "alreadyExisted": "already existed",
+    "noWorktree": "No worktree found for this task",
+    "resultsDescriptionWithSkipped": "{{success}} succeeded, {{skipped}} skipped, {{failed}} failed"
   }
 }

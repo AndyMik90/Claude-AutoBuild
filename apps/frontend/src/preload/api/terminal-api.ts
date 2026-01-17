@@ -60,6 +60,10 @@ export interface TerminalAPI {
     rows?: number
   ) => Promise<IPCResult<import('../../shared/types').SessionDateRestoreResult>>;
   checkTerminalPtyAlive: (terminalId: string) => Promise<IPCResult<{ alive: boolean }>>;
+  updateTerminalDisplayOrders: (
+    projectPath: string,
+    orders: Array<{ terminalId: string; displayOrder: number }>
+  ) => Promise<IPCResult>;
 
   // Terminal Worktree Operations (isolated development)
   createTerminalWorktree: (request: CreateTerminalWorktreeRequest) => Promise<TerminalWorktreeResult>;
@@ -171,6 +175,12 @@ export const createTerminalAPI = (): TerminalAPI => ({
 
   checkTerminalPtyAlive: (terminalId: string): Promise<IPCResult<{ alive: boolean }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_CHECK_PTY_ALIVE, terminalId),
+
+  updateTerminalDisplayOrders: (
+    projectPath: string,
+    orders: Array<{ terminalId: string; displayOrder: number }>
+  ): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_UPDATE_DISPLAY_ORDERS, projectPath, orders),
 
   // Terminal Worktree Operations (isolated development)
   createTerminalWorktree: (request: CreateTerminalWorktreeRequest): Promise<TerminalWorktreeResult> =>

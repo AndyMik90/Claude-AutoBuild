@@ -5,6 +5,77 @@ import type { TerminalSession, TerminalWorktreeConfig } from '../../shared/types
 import { terminalBufferManager } from '../lib/terminal-buffer-manager';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
+/**
+ * Module-level Map to store terminal ID -> xterm write callback mappings.
+ *
+ * DESIGN NOTE: This is stored outside of Zustand state because:
+ * 1. Callbacks are functions and shouldn't be serialized in state
+ * 2. The callbacks need to be accessible from the global terminal listener
+ * 3. Registration/unregistration happens on terminal mount/unmount, not state changes
+ *
+ * When a terminal component mounts, it registers its xterm.write function here.
+ * When the global terminal output listener receives data, it calls the callback
+ * if registered (terminal is visible), otherwise just buffers the data.
+ * This allows output to be written to xterm immediately when visible, while
+ * still buffering when the terminal is not rendered (project switched away).
+ */
+const xtermCallbacks = new Map<string, (data: string) => void>();
+
+/**
+ * Register an xterm write callback for a terminal.
+ * Called when a terminal component mounts and xterm is ready.
+ *
+ * @param terminalId - The terminal ID
+ * @param callback - Function to write data to xterm instance
+ */
+export function registerOutputCallback(
+  terminalId: string,
+  callback: (data: string) => void
+): void {
+  xtermCallbacks.set(terminalId, callback);
+  debugLog(`[TerminalStore] Registered output callback for terminal: ${terminalId}`);
+}
+
+/**
+ * Unregister an xterm write callback for a terminal.
+ * Called when a terminal component unmounts.
+ *
+ * @param terminalId - The terminal ID
+ */
+export function unregisterOutputCallback(terminalId: string): void {
+  xtermCallbacks.delete(terminalId);
+  debugLog(`[TerminalStore] Unregistered output callback for terminal: ${terminalId}`);
+}
+
+/**
+ * Write terminal output to the appropriate destination.
+ *
+ * If the terminal has a registered callback (component is mounted and visible),
+ * writes directly to xterm AND buffers. If no callback is registered (terminal
+ * component is unmounted due to project switch), only buffers the data.
+ *
+ * This function is called by the global terminal output listener in
+ * useGlobalTerminalListeners, which ensures output is always captured
+ * regardless of which project is currently active.
+ *
+ * @param terminalId - The terminal ID
+ * @param data - The output data to write
+ */
+export function writeToTerminal(terminalId: string, data: string): void {
+  // Always buffer the data to ensure persistence
+  terminalBufferManager.append(terminalId, data);
+
+  // If terminal has a registered callback, write to xterm immediately
+  const callback = xtermCallbacks.get(terminalId);
+  if (callback) {
+    try {
+      callback(data);
+    } catch (error) {
+      debugError(`[TerminalStore] Error writing to terminal ${terminalId}:`, error);
+    }
+  }
+}
+
 export type TerminalStatus = 'idle' | 'running' | 'claude-active' | 'exited';
 
 export interface Terminal {
@@ -22,6 +93,7 @@ export interface Terminal {
   worktreeConfig?: TerminalWorktreeConfig;  // Associated worktree for isolated development
   isClaudeBusy?: boolean;  // Whether Claude Code is actively processing (for visual indicator)
   pendingClaudeResume?: boolean;  // Whether this terminal has a pending Claude resume (deferred until tab activated)
+  displayOrder?: number;  // Display order for tab persistence (lower = further left)
 }
 
 interface TerminalLayout {
@@ -88,6 +160,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       isClaudeMode: false,
       // outputBuffer removed - managed by terminalBufferManager
       projectPath,
+      displayOrder: state.terminals.length,  // New terminals appear at the end
     };
 
     set((state) => ({
@@ -122,6 +195,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       projectPath: session.projectPath,
       // Worktree config is validated in main process before restore
       worktreeConfig: session.worktreeConfig,
+      // Restore displayOrder for tab position persistence (falls back to end if not set)
+      displayOrder: session.displayOrder ?? state.terminals.length,
     };
 
     // Restore buffer to buffer manager
@@ -163,6 +238,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       createdAt: new Date(),
       isClaudeMode: false,
       projectPath,
+      displayOrder: state.terminals.length,  // New terminals appear at the end
     };
 
     set((state) => ({
@@ -174,8 +250,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   removeTerminal: (id: string) => {
-    // Clean up buffer manager
+    // Clean up buffer manager and output callback
     terminalBufferManager.dispose(id);
+    xtermCallbacks.delete(id);
 
     set((state) => {
       const newTerminals = state.terminals.filter((t) => t.id !== id);
@@ -283,8 +360,15 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         return state;
       }
 
+      // Reorder terminals and update displayOrder values based on new positions
+      const reorderedTerminals = arrayMove(state.terminals, oldIndex, newIndex);
+      const terminalsWithOrder = reorderedTerminals.map((terminal, index) => ({
+        ...terminal,
+        displayOrder: index,
+      }));
+
       return {
-        terminals: arrayMove(state.terminals, oldIndex, newIndex),
+        terminals: terminalsWithOrder,
       };
     });
   },
@@ -388,8 +472,16 @@ export async function restoreTerminalSessions(projectPath: string): Promise<void
       return;
     }
 
-    // Add terminals to the store (they'll be created in the TerminalGrid component)
-    for (const session of result.data) {
+    // Sort sessions by displayOrder before restoring (lower = further left)
+    // Sessions without displayOrder are placed at the end
+    const sortedSessions = [...result.data].sort((a, b) => {
+      const orderA = a.displayOrder ?? Number.MAX_SAFE_INTEGER;
+      const orderB = b.displayOrder ?? Number.MAX_SAFE_INTEGER;
+      return orderA - orderB;
+    });
+
+    // Add terminals to the store in correct order (they'll be created in the TerminalGrid component)
+    for (const session of sortedSessions) {
       store.addRestoredTerminal(session);
     }
 

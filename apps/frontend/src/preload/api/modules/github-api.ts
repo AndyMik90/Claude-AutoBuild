@@ -272,12 +272,14 @@ export interface GitHubAPI {
   postPRComment: (projectId: string, prNumber: number, body: string) => Promise<boolean>;
   mergePR: (projectId: string, prNumber: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
   assignPR: (projectId: string, prNumber: number, username: string) => Promise<boolean>;
+  markReviewPosted: (projectId: string, prNumber: number) => Promise<boolean>;
   getPRReview: (projectId: string, prNumber: number) => Promise<PRReviewResult | null>;
   getPRReviewsBatch: (projectId: string, prNumbers: number[]) => Promise<Record<number, PRReviewResult | null>>;
 
   // Follow-up review operations
   checkNewCommits: (projectId: string, prNumber: number) => Promise<NewCommitsCheck>;
   checkMergeReadiness: (projectId: string, prNumber: number) => Promise<MergeReadiness>;
+  updatePRBranch: (projectId: string, prNumber: number) => Promise<{ success: boolean; error?: string }>;
   runFollowupReview: (projectId: string, prNumber: number) => void;
 
   // PR logs
@@ -677,6 +679,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
   assignPR: (projectId: string, prNumber: number, username: string): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_ASSIGN, projectId, prNumber, username),
 
+  markReviewPosted: (projectId: string, prNumber: number): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_MARK_REVIEW_POSTED, projectId, prNumber),
+
   getPRReview: (projectId: string, prNumber: number): Promise<PRReviewResult | null> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_GET_REVIEW, projectId, prNumber),
 
@@ -689,6 +694,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   checkMergeReadiness: (projectId: string, prNumber: number): Promise<MergeReadiness> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_CHECK_MERGE_READINESS, projectId, prNumber),
+
+  updatePRBranch: (projectId: string, prNumber: number): Promise<{ success: boolean; error?: string }> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_UPDATE_BRANCH, projectId, prNumber),
 
   runFollowupReview: (projectId: string, prNumber: number): void =>
     sendIpc(IPC_CHANNELS.GITHUB_PR_FOLLOWUP_REVIEW, projectId, prNumber),

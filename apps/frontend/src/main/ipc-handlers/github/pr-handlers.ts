@@ -1777,6 +1777,47 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
     }
   );
 
+  // Mark review as posted (persists has_posted_findings to disk)
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_MARK_REVIEW_POSTED,
+    async (_, projectId: string, prNumber: number): Promise<boolean> => {
+      debugLog("markReviewPosted handler called", { projectId, prNumber });
+      const result = await withProjectOrNull(projectId, async (project) => {
+        try {
+          const reviewPath = path.join(getGitHubDir(project), "pr", `review_${prNumber}.json`);
+
+          // Read file directly without separate existence check to avoid TOCTOU race condition
+          // If file doesn't exist, readFileSync will throw ENOENT which we handle below
+          const rawData = fs.readFileSync(reviewPath, "utf-8");
+          // Sanitize data before parsing (review may contain data from GitHub API)
+          const sanitizedData = sanitizeNetworkData(rawData);
+          const data = JSON.parse(sanitizedData);
+
+          // Mark as posted
+          data.has_posted_findings = true;
+          data.posted_at = new Date().toISOString();
+
+          fs.writeFileSync(reviewPath, JSON.stringify(data, null, 2), "utf-8");
+          debugLog("Marked review as posted", { prNumber });
+
+          return true;
+        } catch (error) {
+          // Handle file not found (ENOENT) separately for clearer logging
+          if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+            debugLog("Review file not found", { prNumber });
+            return false;
+          }
+          debugLog("Failed to mark review as posted", {
+            prNumber,
+            error: error instanceof Error ? error.message : error,
+          });
+          return false;
+        }
+      });
+      return result ?? false;
+    }
+  );
+
   // Post comment to PR
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_POST_COMMENT,
@@ -2326,6 +2367,65 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
       });
 
       return result ?? defaultResult;
+    }
+  );
+
+  // Update PR branch (sync with base branch)
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_UPDATE_BRANCH,
+    async (_, projectId: string, prNumber: number): Promise<{ success: boolean; error?: string }> => {
+      debugLog("updateBranch handler called", { projectId, prNumber });
+
+      const updateResult = await withProjectOrNull(projectId, async (project) => {
+        try {
+          const { execFile } = await import("child_process");
+          const { promisify } = await import("util");
+          const execFileAsync = promisify(execFile);
+          debugLog("Updating PR branch", { prNumber });
+
+          // Validate prNumber to prevent command injection
+          if (!Number.isInteger(prNumber) || prNumber <= 0) {
+            throw new Error("Invalid PR number");
+          }
+
+          // Use gh pr update-branch to sync with base branch (async to avoid blocking main process)
+          // --rebase is not used to avoid force-push requirements
+          await execFileAsync("gh", ["pr", "update-branch", String(prNumber)], {
+            cwd: project.path,
+            env: getAugmentedEnv(),
+          });
+
+          debugLog("PR branch updated successfully", { prNumber });
+          return { success: true };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          debugLog("Failed to update PR branch", { prNumber, error: errorMessage });
+
+          // Map common error patterns to user-friendly messages
+          let friendlyError = errorMessage;
+          if (errorMessage.includes("permission") || errorMessage.includes("403")) {
+            friendlyError = "You don't have permission to update this branch.";
+          } else if (errorMessage.includes("401") || errorMessage.toLowerCase().includes("auth") || errorMessage.toLowerCase().includes("token")) {
+            friendlyError = "Authentication failed. Try running 'gh auth login' to re-authenticate.";
+          } else if (errorMessage.includes("404") || errorMessage.includes("not found")) {
+            friendlyError = "Pull request not found. It may have been closed or deleted.";
+          } else if (errorMessage.includes("429") || errorMessage.toLowerCase().includes("rate limit")) {
+            friendlyError = "GitHub API rate limit exceeded. Please wait and try again.";
+          } else if (errorMessage.includes("conflict")) {
+            friendlyError = "Cannot update branch due to merge conflicts. Resolve conflicts manually.";
+          } else if (errorMessage.toLowerCase().includes("protected") || errorMessage.toLowerCase().includes("branch protection")) {
+            friendlyError = "Branch protection rules prevent this update.";
+          } else if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("ETIMEDOUT")) {
+            friendlyError = "Network error. Check your internet connection and try again.";
+          } else if (errorMessage.toLowerCase().includes("already up to date")) {
+            return { success: true }; // Not an error
+          }
+
+          return { success: false, error: friendlyError };
+        }
+      });
+
+      return updateResult ?? { success: false, error: "Project not found" };
     }
   );
 

@@ -37,6 +37,8 @@ export interface TerminalSession {
   outputBuffer: string;
   createdAt: string;
   lastActiveAt: string;
+  /** Display order for tab persistence (lower = further left) */
+  displayOrder?: number;
   /** Associated worktree configuration (validated on restore) */
   worktreeConfig?: TerminalWorktreeConfig;
 }

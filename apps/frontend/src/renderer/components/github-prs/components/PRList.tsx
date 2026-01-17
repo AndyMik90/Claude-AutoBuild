@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { GitPullRequest, User, Clock, FileDiff, Loader2 } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { Badge } from '../../ui/badge';
@@ -207,8 +207,8 @@ export function PRList({
   onLoadMore
 }: PRListProps) {
   const { t } = useTranslation('common');
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
 
   // Intersection Observer for infinite scroll
   const handleIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
@@ -220,11 +220,11 @@ export function PRList({
 
   useEffect(() => {
     const trigger = loadMoreTriggerRef.current;
-    if (!trigger) return;
+    if (!trigger || !viewportElement) return;
 
     const observer = new IntersectionObserver(handleIntersection, {
-      root: null, // Use viewport as root
-      rootMargin: '100px', // Start loading 100px before reaching the bottom
+      root: viewportElement,
+      rootMargin: '100px',
       threshold: 0
     });
 
@@ -233,7 +233,7 @@ export function PRList({
     return () => {
       observer.disconnect();
     };
-  }, [handleIntersection]);
+  }, [handleIntersection, onLoadMore, viewportElement]);
 
   if (isLoading && prs.length === 0) {
     return (
@@ -268,7 +268,7 @@ export function PRList({
   }
 
   return (
-    <ScrollArea className="flex-1" ref={scrollAreaRef}>
+    <ScrollArea className="flex-1" onViewportRef={setViewportElement}>
       <div className="divide-y divide-border">
         {prs.map((pr) => {
           const reviewState = getReviewStateForPR(pr.number);

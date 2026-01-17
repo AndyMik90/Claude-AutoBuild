@@ -88,6 +88,10 @@ export const terminalMock = {
     data: { alive: false }
   }),
 
+  updateTerminalDisplayOrders: async () => ({
+    success: true
+  }),
+
   // Terminal Event Listeners (no-op in browser)
   onTerminalOutput: () => () => {},
   onTerminalExit: () => () => {},
