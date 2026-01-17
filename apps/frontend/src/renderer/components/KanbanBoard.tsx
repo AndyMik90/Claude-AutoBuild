@@ -32,7 +32,7 @@ import { persistTaskStatus, forceCompleteTask, archiveTasks, useTaskStore } from
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import { BulkPRDialog } from './BulkPRDialog';
-import type { Task, TaskStatus } from '../../shared/types';
+import type { Task, TaskStatus, TaskOrderState } from '../../shared/types';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
 const VALID_DROP_COLUMNS = new Set<string>(TASK_STATUS_COLUMNS);
@@ -807,6 +807,22 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
       // Same visual column: reorder within column
       if (taskVisualColumn === overTaskVisualColumn) {
+        // Ensure both tasks are in the order array before reordering
+        // This handles tasks that existed before ordering was enabled
+        const currentColumnOrder = taskOrder?.[taskVisualColumn] ?? [];
+        const activeInOrder = currentColumnOrder.includes(activeTaskId);
+        const overInOrder = currentColumnOrder.includes(overId);
+
+        if (!activeInOrder || !overInOrder) {
+          // Sync the current visual order to the stored order
+          // This ensures existing tasks can be reordered
+          const visualOrder = tasksByStatus[taskVisualColumn].map(t => t.id);
+          setTaskOrder({
+            ...taskOrder,
+            [taskVisualColumn]: visualOrder
+          } as TaskOrderState);
+        }
+
         // Reorder tasks within the same column using the visual column key
         reorderTasksInColumn(taskVisualColumn, activeTaskId, overId);
 

@@ -522,12 +522,28 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       if (stored) {
         const parsed = JSON.parse(stored);
         // Validate structure before assigning - type assertion is compile-time only
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !('backlog' in parsed)) {
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
           console.warn('Invalid task order data in localStorage, resetting to empty');
           set({ taskOrder: createEmptyTaskOrder() });
           return;
         }
-        set({ taskOrder: parsed as TaskOrderState });
+
+        // Helper to validate column values are string arrays
+        const isValidColumnArray = (val: unknown): val is string[] =>
+          Array.isArray(val) && val.every(item => typeof item === 'string');
+
+        // Merge with empty order to handle partial data and validate each column
+        const emptyOrder = createEmptyTaskOrder();
+        const validatedOrder: TaskOrderState = {
+          backlog: isValidColumnArray(parsed.backlog) ? parsed.backlog : emptyOrder.backlog,
+          in_progress: isValidColumnArray(parsed.in_progress) ? parsed.in_progress : emptyOrder.in_progress,
+          ai_review: isValidColumnArray(parsed.ai_review) ? parsed.ai_review : emptyOrder.ai_review,
+          human_review: isValidColumnArray(parsed.human_review) ? parsed.human_review : emptyOrder.human_review,
+          pr_created: isValidColumnArray(parsed.pr_created) ? parsed.pr_created : emptyOrder.pr_created,
+          done: isValidColumnArray(parsed.done) ? parsed.done : emptyOrder.done
+        };
+
+        set({ taskOrder: validatedOrder });
       } else {
         set({ taskOrder: createEmptyTaskOrder() });
       }
@@ -540,7 +556,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   saveTaskOrder: (projectId) => {
     try {
       const state = get();
-      if (!state.taskOrder) return true;
+      if (!state.taskOrder) {
+        // Nothing to save - return false to indicate no save occurred
+        return false;
+      }
 
       const key = getTaskOrderKey(projectId);
       localStorage.setItem(key, JSON.stringify(state.taskOrder));
