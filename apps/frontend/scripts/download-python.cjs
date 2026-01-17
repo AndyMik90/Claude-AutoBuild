@@ -783,10 +783,16 @@ _bootstrap_pywin32()
 `;
 
   try {
-    fs.writeFileSync(startupScriptPath, startupScriptContent);
+    // Use 'wx' flag for atomic write - fails if file already exists (prevents TOCTOU race)
+    fs.writeFileSync(startupScriptPath, startupScriptContent, { flag: 'wx' });
     console.log(`[download-python] Created pywin32 bootstrap script: _auto_claude_startup.py`);
   } catch (err) {
-    console.warn(`[download-python] Failed to create bootstrap script: ${err.message}`);
+    if (err.code === 'EEXIST') {
+      // File already exists, which is fine - another process may have created it
+      console.log(`[download-python] Bootstrap script already exists: _auto_claude_startup.py`);
+    } else {
+      console.warn(`[download-python] Failed to create bootstrap script: ${err.message}`);
+    }
   }
 
   console.log(`[download-python] pywin32 fix complete`);

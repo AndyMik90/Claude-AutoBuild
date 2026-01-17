@@ -4,7 +4,7 @@ import path from 'path';
 import { EventEmitter } from 'events';
 import { app } from 'electron';
 import { findPythonCommand, getBundledPythonPath } from './python-detector';
-import { isLinux, isWindows } from './platform';
+import { isLinux, isWindows, getPathDelimiter } from './platform';
 
 export interface PythonEnvStatus {
   ready: boolean;
@@ -704,8 +704,8 @@ if sys.version_info >= (3, 12):
     // Build PYTHONPATH - for Windows with pywin32, we need to include win32 and win32/lib
     // since the .pth file that normally adds these isn't processed when using PYTHONPATH
     let pythonPath = this.sitePackagesPath || '';
-    if (this.sitePackagesPath && process.platform === 'win32') {
-      const pathSep = ';';  // Windows path separator
+    if (this.sitePackagesPath && isWindows()) {
+      const pathSep = getPathDelimiter();  // Platform-appropriate path separator
       const win32Path = path.join(this.sitePackagesPath, 'win32');
       const win32LibPath = path.join(this.sitePackagesPath, 'win32', 'lib');
       pythonPath = [this.sitePackagesPath, win32Path, win32LibPath].join(pathSep);
@@ -719,7 +719,7 @@ if sys.version_info >= (3, 12):
     // 2. Setting PYTHONSTARTUP to bootstrap script that calls os.add_dll_directory()
     //    and uses site.addsitedir() to process .pth files (which imports pywin32_bootstrap)
     let windowsEnv: Record<string, string> = {};
-    if (this.sitePackagesPath && process.platform === 'win32') {
+    if (this.sitePackagesPath && isWindows()) {
       const pywin32System32 = path.join(this.sitePackagesPath, 'pywin32_system32');
 
       // Add pywin32_system32 to PATH for DLL loading
