@@ -225,12 +225,17 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
                         # Extract tool input for display
                         if inp:
                             if "file_path" in inp:
-                                fp = inp["file_path"]
-                                if len(fp) > 50:
-                                    fp = "..." + fp[-47:]
-                                tool_input_display = fp
+                                tool_input_display = inp["file_path"]
+                            elif "command" in inp:
+                                tool_input_display = inp["command"]
                             elif "pattern" in inp:
-                                tool_input_display = f"pattern: {inp['pattern']}"
+                                tool_input_display = f"/{inp['pattern']}/"
+                            elif "path" in inp:
+                                tool_input_display = inp["path"]
+                            elif "url" in inp:
+                                tool_input_display = inp["url"]
+                            elif "query" in inp:
+                                tool_input_display = f'"{inp["query"]}"'
 
                         debug(
                             "qa_reviewer",

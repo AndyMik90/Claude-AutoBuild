@@ -355,6 +355,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           // This prevents unnecessary re-renders from the memo comparator
           const phaseChanged = progress.phase && progress.phase !== existingProgress.phase;
 
+          // DEBUG: Log message updates
+          if (progress.message) {
+            console.log('[Store] Updating executionProgress.message:', { taskId, message: progress.message, phase: progress.phase });
+          }
           return {
             ...t,
             executionProgress: {

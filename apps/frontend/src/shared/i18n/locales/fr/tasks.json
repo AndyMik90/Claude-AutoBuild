@@ -239,5 +239,17 @@
   },
   "subtasks": {
     "untitled": "Sous-tâche sans titre"
+  },
+  "toolActions": {
+    "reading": "Lecture {{details}}",
+    "searchingFiles": "Recherche fichiers {{details}}",
+    "searchingWeb": "Recherche web {{details}}",
+    "searching": "Recherche {{details}}",
+    "fetching": "Téléchargement {{details}}",
+    "editing": "Édition {{details}}",
+    "writing": "Écriture {{details}}",
+    "running": "Exécution {{details}}",
+    "using": "Utilisation {{details}}",
+    "default": "{{details}}"
   }
 }

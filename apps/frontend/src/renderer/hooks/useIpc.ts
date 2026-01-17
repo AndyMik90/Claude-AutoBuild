@@ -118,6 +118,16 @@ function queueUpdate(taskId: string, update: BatchedUpdate): void {
     }
   }
 
+  // Live tool action messages bypass batching - apply immediately for real-time feedback
+  // These are short-lived status updates (Reading file..., Editing..., etc.)
+  if (update.progress?.message && storeActionsRef) {
+    const isToolActionMessage = /^(Reading|Editing|Writing|Searching|Running|Using)/.test(update.progress.message);
+    if (isToolActionMessage) {
+      storeActionsRef.updateExecutionProgress(taskId, update.progress);
+      return;
+    }
+  }
+
   // For logs, accumulate rather than replace
   let mergedLogs = existing.logs;
   if (update.logs) {

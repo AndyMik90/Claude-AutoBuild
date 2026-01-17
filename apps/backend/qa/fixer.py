@@ -165,14 +165,34 @@ async def run_qa_fixer_session(
                         if inp:
                             if "file_path" in inp:
                                 fp = inp["file_path"]
-                                if len(fp) > 50:
-                                    fp = "..." + fp[-47:]
+                                if len(fp) > 80:
+                                    fp = "..." + fp[-77:]
                                 tool_input_display = fp
                             elif "command" in inp:
                                 cmd = inp["command"]
-                                if len(cmd) > 50:
-                                    cmd = cmd[:47] + "..."
+                                if len(cmd) > 80:
+                                    cmd = cmd[:77] + "..."
                                 tool_input_display = cmd
+                            elif "pattern" in inp:
+                                pat = inp["pattern"]
+                                if len(pat) > 60:
+                                    pat = pat[:57] + "..."
+                                tool_input_display = f"/{pat}/"
+                            elif "path" in inp:
+                                p = inp["path"]
+                                if len(p) > 80:
+                                    p = "..." + p[-77:]
+                                tool_input_display = p
+                            elif "url" in inp:
+                                url = inp["url"]
+                                if len(url) > 80:
+                                    url = url[:77] + "..."
+                                tool_input_display = url
+                            elif "query" in inp:
+                                q = inp["query"]
+                                if len(q) > 60:
+                                    q = q[:57] + "..."
+                                tool_input_display = f'"{q}"'
 
                         debug(
                             "qa_fixer",

@@ -117,6 +117,34 @@ export class AgentEvents {
       return { phase: 'failed', message: log.trim().substring(0, 200) };
     }
 
+
+    // Live tool action detection - update message without changing phase
+    // Works in all phases to show real-time tool activity
+    const toolMatch = log.match(/\[(?:Tool|Fixer Tool|QA Tool):\s*(\w+)\]\s*(.*)?/i);
+    if (toolMatch) {
+        const toolName = toolMatch[1];
+        const details = toolMatch[2]?.trim().replace(/\r$/, '') || '';
+        
+        // Build message with action verb and optional details
+        const toolVerbs: Record<string, string> = {
+          'Read': 'Reading',
+          'Edit': 'Editing',
+          'Write': 'Writing',
+          'Glob': 'Searching files',
+          'Grep': 'Searching',
+          'Bash': 'Running',
+          'Task': 'Running subagent',
+          'WebFetch': 'Fetching',
+          'WebSearch': 'Searching web'
+        };
+        const verb = toolVerbs[toolName] || ('Using ' + toolName);
+        
+        
+        
+        const message = details ? (verb + ' ' + details) : (verb + '...');
+        return { phase: currentPhase, message };
+    }
+
     return null;
   }
 

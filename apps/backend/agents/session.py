@@ -395,20 +395,18 @@ async def run_agent_session(
 
                         # Extract meaningful tool input for display
                         if inp:
-                            if "pattern" in inp:
-                                tool_input_display = f"pattern: {inp['pattern']}"
-                            elif "file_path" in inp:
-                                fp = inp["file_path"]
-                                if len(fp) > 50:
-                                    fp = "..." + fp[-47:]
-                                tool_input_display = fp
+                            if "file_path" in inp:
+                                tool_input_display = inp["file_path"]
                             elif "command" in inp:
-                                cmd = inp["command"]
-                                if len(cmd) > 50:
-                                    cmd = cmd[:47] + "..."
-                                tool_input_display = cmd
+                                tool_input_display = inp["command"]
+                            elif "pattern" in inp:
+                                tool_input_display = f"/{inp['pattern']}/"
                             elif "path" in inp:
                                 tool_input_display = inp["path"]
+                            elif "url" in inp:
+                                tool_input_display = inp["url"]
+                            elif "query" in inp:
+                                tool_input_display = f'"{inp["query"]}"'
 
                         debug(
                             "session",

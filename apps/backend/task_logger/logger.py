@@ -438,7 +438,11 @@ class TaskLogger:
         )
 
         if print_to_console:
-            print(f"\n[Tool: {tool_name}]", flush=True)
+            # Include input for live status display
+            if display_input:
+                print(f"\n[Tool: {tool_name}] {display_input}", flush=True)
+            else:
+                print(f"\n[Tool: {tool_name}]", flush=True)
 
     def tool_end(
         self,

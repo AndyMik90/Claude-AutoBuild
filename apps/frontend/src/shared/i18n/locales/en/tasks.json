@@ -239,5 +239,17 @@
   },
   "subtasks": {
     "untitled": "Untitled subtask"
+  },
+  "toolActions": {
+    "reading": "Reading {{details}}",
+    "searchingFiles": "Searching files {{details}}",
+    "searchingWeb": "Searching web {{details}}",
+    "searching": "Searching {{details}}",
+    "fetching": "Fetching {{details}}",
+    "editing": "Editing {{details}}",
+    "writing": "Writing {{details}}",
+    "running": "Running {{details}}",
+    "using": "Using {{details}}",
+    "default": "{{details}}"
   }
 }
