@@ -194,7 +194,9 @@ def safe_path(filepath: str | Path) -> Path:
             # pathlib returns 'C:\\' (length 3) for absolute paths, 'C:' (length 2) for
             # drive-relative paths, or '\\\\server\\share' for UNC paths
             if i == 0 and (
-                (len(part) >= 2 and part[0].isalpha() and part[1] == ":")  # Drive: C:\ or C:
+                (
+                    len(part) >= 2 and part[0].isalpha() and part[1] == ":"
+                )  # Drive: C:\ or C:
                 or part.startswith("\\\\")  # UNC path anchor
             ):
                 sanitized_parts.append(part)
