@@ -13,7 +13,7 @@ import { getClaudeProfileManager, initializeClaudeProfileManager } from '../clau
 import * as OutputParser from './output-parser';
 import * as SessionHandler from './session-handler';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
-import { escapeShellArg, escapeForWindowsDoubleQuote, buildCdCommand } from '../../shared/utils/shell-escape';
+import { escapeShellArg, escapeForWindowsDoubleQuote, buildCdCommand, type WindowsShellType } from '../../shared/utils/shell-escape';
 import { getClaudeCliInvocation, getClaudeCliInvocationAsync } from '../claude-cli-utils';
 import { isWindows } from '../platform';
 import type {
@@ -61,23 +61,34 @@ function getTempFileExtension(): string {
 /**
  * Build PATH environment variable prefix for Claude CLI invocation.
  *
- * On Windows, uses semicolon separators and cmd.exe escaping.
+ * On Windows cmd.exe, uses `set "PATH=value" && ` syntax.
+ * On Windows PowerShell, uses `$env:PATH = "value"; ` syntax (PowerShell 5.1 doesn't support &&).
  * On Unix/macOS, uses colon separators and bash escaping.
  *
  * @param pathEnv - PATH environment variable value
+ * @param shellType - On Windows, specify 'powershell' or 'cmd' for correct syntax
  * @returns Empty string if no PATH, otherwise platform-specific PATH prefix
  */
-function buildPathPrefix(pathEnv: string): string {
+function buildPathPrefix(pathEnv: string, shellType?: WindowsShellType): string {
   if (!pathEnv) {
     return '';
   }
 
   if (isWindows()) {
-    // Windows: Use semicolon-separated PATH with double-quote escaping
-    // Format: set "PATH=value" where value uses semicolons
+    const escapedPath = escapeForWindowsDoubleQuote(pathEnv);
+
+    if (shellType === 'powershell') {
+      // PowerShell: Use $env:PATH syntax with semicolon separator
+      // PowerShell 5.1 doesn't support '&&', so use ';' instead
+      // Note: In PowerShell, backticks escape special chars, but inside double quotes
+      // we mainly need to escape $ and " characters
+      const psEscapedPath = pathEnv.replace(/`/g, '``').replace(/\$/g, '`$');
+      return `$env:PATH = "${psEscapedPath}"; `;
+    }
+
+    // cmd.exe: Use set "PATH=value" && syntax
     // For values inside double quotes, use escapeForWindowsDoubleQuote() because
     // caret is literal inside double quotes in cmd.exe (only " needs escaping).
-    const escapedPath = escapeForWindowsDoubleQuote(pathEnv);
     return `set "PATH=${escapedPath}" && `;
   }
 
@@ -572,7 +583,7 @@ export function invokeClaude(
     const cwdCommand = buildCdCommand(cwd, terminal.shellType);
     const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
     const escapedClaudeCmd = escapeShellCommand(claudeCmd);
-    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
+    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '', terminal.shellType);
     const needsEnvOverride = profileId && profileId !== previousProfileId;
 
     debugLog('[ClaudeIntegration:invokeClaude] Environment override check:', {
@@ -674,7 +685,7 @@ export function resumeClaude(
 
     const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
     const escapedClaudeCmd = escapeShellCommand(claudeCmd);
-    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
+    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '', terminal.shellType);
 
     // Always use --continue which resumes the most recent session in the current directory.
     // This is more reliable than --resume with session IDs since Auto Claude already restores
@@ -790,7 +801,7 @@ export async function invokeClaudeAsync(
       });
 
     const escapedClaudeCmd = escapeShellCommand(claudeCmd);
-    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
+    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '', terminal.shellType);
     const needsEnvOverride = profileId && profileId !== previousProfileId;
 
     debugLog('[ClaudeIntegration:invokeClaudeAsync] Environment override check:', {
@@ -901,7 +912,7 @@ export async function resumeClaudeAsync(
       });
 
     const escapedClaudeCmd = escapeShellCommand(claudeCmd);
-    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
+    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '', terminal.shellType);
 
     // Always use --continue which resumes the most recent session in the current directory.
     // This is more reliable than --resume with session IDs since Auto Claude already restores
