@@ -17,6 +17,7 @@ import {
 } from './plan-file-utils';
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
+import { getIsolatedGitEnv } from '../../utils/git-isolation';
 
 /**
  * Atomic file write to prevent TOCTOU race conditions.
@@ -403,20 +404,22 @@ export function registerTaskExecutionHandlers(
         // The worktree still has all changes, so nothing is lost
         if (hasWorktree) {
           // Step 1: Unstage all changes
-          const resetResult = spawnSync('git', ['reset', 'HEAD'], {
+          const resetResult = spawnSync(getToolPath('git'), ['reset', 'HEAD'], {
             cwd: project.path,
             encoding: 'utf-8',
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env: getIsolatedGitEnv()
           });
           if (resetResult.status === 0) {
             console.log('[TASK_REVIEW] Unstaged changes in main');
           }
 
           // Step 2: Discard all working tree changes (restore to pre-merge state)
-          const checkoutResult = spawnSync('git', ['checkout', '--', '.'], {
+          const checkoutResult = spawnSync(getToolPath('git'), ['checkout', '--', '.'], {
             cwd: project.path,
             encoding: 'utf-8',
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env: getIsolatedGitEnv()
           });
           if (checkoutResult.status === 0) {
             console.log('[TASK_REVIEW] Discarded working tree changes in main');
@@ -424,10 +427,11 @@ export function registerTaskExecutionHandlers(
 
           // Step 3: Clean untracked files that came from the merge
           // IMPORTANT: Exclude .auto-claude directory to preserve specs and worktree data
-          const cleanResult = spawnSync('git', ['clean', '-fd', '-e', '.auto-claude'], {
+          const cleanResult = spawnSync(getToolPath('git'), ['clean', '-fd', '-e', '.auto-claude'], {
             cwd: project.path,
             encoding: 'utf-8',
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env: getIsolatedGitEnv()
           });
           if (cleanResult.status === 0) {
             console.log('[TASK_REVIEW] Cleaned untracked files in main (excluding .auto-claude)');
@@ -569,7 +573,8 @@ export function registerTaskExecutionHandlers(
                 branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
                   cwd: worktreePath,
                   encoding: 'utf-8',
-                  timeout: 30000
+                  timeout: 30000,
+                  env: getIsolatedGitEnv()
                 }).trim();
               } catch (branchError) {
                 // If we can't get branch name, use the default pattern
@@ -582,7 +587,8 @@ export function registerTaskExecutionHandlers(
               execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
                 cwd: project.path,
                 encoding: 'utf-8',
-                timeout: 30000
+                timeout: 30000,
+                env: getIsolatedGitEnv()
               });
               console.warn(`[TASK_UPDATE_STATUS] Worktree removed: ${worktreePath}`);
 
@@ -591,7 +597,8 @@ export function registerTaskExecutionHandlers(
                 execFileSync(getToolPath('git'), ['branch', '-D', branch], {
                   cwd: project.path,
                   encoding: 'utf-8',
-                  timeout: 30000
+                  timeout: 30000,
+                  env: getIsolatedGitEnv()
                 });
                 console.warn(`[TASK_UPDATE_STATUS] Branch deleted: ${branch}`);
               } catch (branchDeleteError) {
