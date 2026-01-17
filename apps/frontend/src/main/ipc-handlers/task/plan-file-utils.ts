@@ -286,9 +286,11 @@ export async function clearPlanSubtasks(planPath: string, projectId?: string): P
       const planContent = readFileSync(planPath, 'utf-8');
       const plan = JSON.parse(planContent);
 
-      // Clear the tasks array (which contains subtasks)
+      // Clear the phases array (which contains subtasks)
       // This ensures agent will re-plan on restart
-      plan.tasks = [];
+      if (Array.isArray(plan.phases)) {
+        plan.phases = [];
+      }
       plan.updated_at = new Date().toISOString();
 
       writeFileSync(planPath, JSON.stringify(plan, null, 2));
