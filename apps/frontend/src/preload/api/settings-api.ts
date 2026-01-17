@@ -33,6 +33,31 @@ export interface SettingsAPI {
   notifySentryStateChanged: (enabled: boolean) => void;
   getSentryDsn: () => Promise<string>;
   getSentryConfig: () => Promise<{ dsn: string; tracesSampleRate: number; profilesSampleRate: number }>;
+
+  // Python package validation
+  validatePythonPackages: (params: { pythonPath: string; activationScript?: string }) => Promise<IPCResult<{
+    allInstalled: boolean;
+    missingPackages: string[];
+    installLocation: string;
+  }>>;
+  onPythonValidationProgress: (callback: (progress: { current: number; total: number; packageName: string }) => void) => () => void;
+  installPythonRequirements: (params: { pythonPath: string; activationScript?: string }) => Promise<IPCResult>;
+  onPythonInstallProgress: (callback: (progress: string) => void) => () => void;
+  validatePythonEnvironment: (params: { activationScript: string }) => Promise<IPCResult<{
+    valid: boolean;
+    pythonPath: string | null;
+    version: string | null;
+    error: string | null;
+    status: 'valid' | 'missing' | 'wrong_version' | 'error';
+  }>>;
+  reinstallPythonEnvironment: (params: { activationScript: string; pythonVersion?: string }) => Promise<IPCResult<{
+    success: boolean;
+    environmentPath: string | null;
+    pythonVersion: string | null;
+    error: string | null;
+    stepsCompleted: string[];
+  }>>;
+  onPythonReinstallProgress: (callback: (progress: { step: string; completed: number; total: number }) => void) => () => void;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -76,5 +101,52 @@ export const createSettingsAPI = (): SettingsAPI => ({
 
   // Get full Sentry config from main process (DSN + sample rates)
   getSentryConfig: (): Promise<{ dsn: string; tracesSampleRate: number; profilesSampleRate: number }> =>
-    ipcRenderer.invoke(IPC_CHANNELS.GET_SENTRY_CONFIG)
+    ipcRenderer.invoke(IPC_CHANNELS.GET_SENTRY_CONFIG),
+
+  // Python package validation
+  validatePythonPackages: (params: { pythonPath: string; activationScript?: string }): Promise<IPCResult<{
+    allInstalled: boolean;
+    missingPackages: string[];
+    installLocation: string;
+  }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PYTHON_VALIDATE_PACKAGES, params),
+
+  onPythonValidationProgress: (callback: (progress: { current: number; total: number; packageName: string }) => void): () => void => {
+    const handler = (_event: Electron.IpcRendererEvent, progress: { current: number; total: number; packageName: string }) => callback(progress);
+    ipcRenderer.on(IPC_CHANNELS.PYTHON_VALIDATION_PROGRESS, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.PYTHON_VALIDATION_PROGRESS, handler);
+  },
+
+  installPythonRequirements: (params: { pythonPath: string; activationScript?: string }): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PYTHON_INSTALL_REQUIREMENTS, params),
+
+  onPythonInstallProgress: (callback: (progress: string) => void): () => void => {
+    const handler = (_event: Electron.IpcRendererEvent, progress: string) => callback(progress);
+    ipcRenderer.on(IPC_CHANNELS.PYTHON_INSTALL_PROGRESS, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.PYTHON_INSTALL_PROGRESS, handler);
+  },
+
+  validatePythonEnvironment: (params: { activationScript: string }): Promise<IPCResult<{
+    valid: boolean;
+    pythonPath: string | null;
+    version: string | null;
+    error: string | null;
+    status: 'valid' | 'missing' | 'wrong_version' | 'error';
+  }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PYTHON_VALIDATE_ENVIRONMENT, params),
+
+  reinstallPythonEnvironment: (params: { activationScript: string; pythonVersion?: string }): Promise<IPCResult<{
+    success: boolean;
+    environmentPath: string | null;
+    pythonVersion: string | null;
+    error: string | null;
+    stepsCompleted: string[];
+  }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PYTHON_REINSTALL_ENVIRONMENT, params),
+
+  onPythonReinstallProgress: (callback: (progress: { step: string; completed: number; total: number }) => void): () => void => {
+    const handler = (_event: Electron.IpcRendererEvent, progress: { step: string; completed: number; total: number }) => callback(progress);
+    ipcRenderer.on(IPC_CHANNELS.PYTHON_REINSTALL_PROGRESS, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.PYTHON_REINSTALL_PROGRESS, handler);
+  }
 });

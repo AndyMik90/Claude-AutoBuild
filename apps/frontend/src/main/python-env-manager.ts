@@ -3,9 +3,14 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { exec } from 'child_process';
+import { fileURLToPath } from 'url';
 
 const execAsync = promisify(exec);
 import { EventEmitter } from 'events';
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { app } from 'electron';
 import { findPythonCommand, getBundledPythonPath } from './python-detector';
 import { isLinux, isWindows } from './platform';
@@ -826,10 +831,12 @@ function buildPythonCommandWithActivation(
 
 /**
  * Parse requirements.txt and extract package names
+ * Filters out packages that have platform-specific markers that don't match the current platform
  */
 function parseRequirementsTxt(requirementsPath: string): string[] {
   const content = readFileSync(requirementsPath, 'utf-8');
   const packages: string[] = [];
+  const currentPlatform = process.platform; // 'win32', 'linux', 'darwin'
 
   for (const line of content.split('\n')) {
     const trimmed = line.trim();
@@ -840,6 +847,29 @@ function parseRequirementsTxt(requirementsPath: string): string[] {
     // For example: tomli>=2.0.0; python_version < "3.11" won't be installed on Python 3.12
     if (trimmed.includes('python_version < "3.11"') || trimmed.includes("python_version < '3.11'")) {
       continue; // Skip packages only for Python < 3.11
+    }
+
+    // Skip packages with platform markers that don't match current platform
+    // secretstorage>=3.3.3; sys_platform == "linux" should be skipped on Windows
+    if (trimmed.includes('sys_platform')) {
+      // Check for Linux-only packages on non-Linux
+      if (trimmed.includes('sys_platform == "linux"') || trimmed.includes("sys_platform == 'linux'")) {
+        if (currentPlatform !== 'linux') {
+          continue; // Skip Linux-only packages on Windows/macOS
+        }
+      }
+      // Check for Windows-only packages on non-Windows
+      if (trimmed.includes('sys_platform == "win32"') || trimmed.includes("sys_platform == 'win32'")) {
+        if (currentPlatform !== 'win32') {
+          continue; // Skip Windows-only packages on Linux/macOS
+        }
+      }
+      // Check for macOS-only packages on non-macOS
+      if (trimmed.includes('sys_platform == "darwin"') || trimmed.includes("sys_platform == 'darwin'")) {
+        if (currentPlatform !== 'darwin') {
+          continue; // Skip macOS-only packages on Windows/Linux
+        }
+      }
     }
 
     // Extract package name (before version specifier or semicolon)

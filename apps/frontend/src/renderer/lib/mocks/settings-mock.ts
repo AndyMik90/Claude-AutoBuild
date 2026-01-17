@@ -20,6 +20,24 @@ export const settingsMock = {
   getSentryDsn: async () => '',  // No DSN in browser mode
   getSentryConfig: async () => ({ dsn: '', tracesSampleRate: 0, profilesSampleRate: 0 }),
 
+  // Python package validation (mock - not available in browser mode)
+  validatePythonPackages: async () => ({
+    success: true,
+    data: { allInstalled: true, missingPackages: [], installLocation: '' }
+  }),
+  onPythonValidationProgress: () => () => {},
+  installPythonRequirements: async () => ({ success: true }),
+  onPythonInstallProgress: () => () => {},
+  validatePythonEnvironment: async () => ({
+    success: true,
+    data: { valid: true, pythonPath: null, version: null, error: null, status: 'valid' as const }
+  }),
+  reinstallPythonEnvironment: async () => ({
+    success: true,
+    data: { success: true, environmentPath: null, pythonVersion: null, error: null, stepsCompleted: [] }
+  }),
+  onPythonReinstallProgress: () => () => {},
+
   getCliToolsInfo: async () => ({
     success: true,
     data: {

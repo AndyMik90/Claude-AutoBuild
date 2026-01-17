@@ -10,6 +10,7 @@ import { SettingsSection } from './SettingsSection';
 import { AgentProfileSettings } from './AgentProfileSettings';
 import { CondaDetectionDisplay } from './CondaDetectionDisplay';
 import { CondaSetupWizard } from './CondaSetupWizard';
+import { PythonPackageValidator } from './PythonPackageValidator';
 import {
   AVAILABLE_MODELS,
   THINKING_LEVELS,
@@ -110,6 +111,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
   const [isLoadingConda, setIsLoadingConda] = useState(false);
   const [autoClaudeEnvStatus, setAutoClaudeEnvStatus] = useState<CondaEnvValidation | null>(null);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
+  const [isPythonValidating, setIsPythonValidating] = useState(false);
 
   // Fetch CLI tools detection info when component mounts (paths section only)
   useEffect(() => {
@@ -314,17 +316,41 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
       title={t('general.paths')}
       description={t('general.pathsDescription')}
     >
+      {/* Loading Overlay - Show during Python validation */}
+      {isPythonValidating && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+          <p className="text-lg font-medium text-foreground">{t('python.validatingEnvironment')}</p>
+          <p className="text-sm text-muted-foreground mt-2">{t('python.validatingHint')}</p>
+        </div>
+      )}
       <div className="space-y-6">
         <div className="space-y-3">
           <Label htmlFor="pythonPath" className="text-sm font-medium text-foreground">{t('general.pythonPath')}</Label>
           <p className="text-sm text-muted-foreground">{t('general.pythonPathDescription')}</p>
-          <Input
-            id="pythonPath"
-            placeholder={t('general.pythonPathPlaceholder')}
-            className="w-full max-w-lg"
-            value={settings.pythonPath || ''}
-            onChange={(e) => onSettingsChange({ ...settings, pythonPath: e.target.value })}
-          />
+          <div className="flex gap-2 w-full max-w-lg">
+            <Input
+              id="pythonPath"
+              placeholder={t('general.pythonPathPlaceholder')}
+              className="flex-1"
+              value={settings.pythonPath || ''}
+              onChange={(e) => onSettingsChange({ ...settings, pythonPath: e.target.value })}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              onClick={async () => {
+                const path = await window.electronAPI.selectDirectory();
+                if (path) {
+                  onSettingsChange({ ...settings, pythonPath: path });
+                }
+              }}
+            >
+              <FolderOpen className="h-4 w-4 mr-2" />
+              {t('general.browse')}
+            </Button>
+          </div>
           {!settings.pythonPath && (
             <ToolDetectionDisplay
               info={toolsInfo?.python || null}
@@ -369,6 +395,23 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
             {t('general.pythonActivationScriptHint')}
           </p>
         </div>
+
+        {/* Package Validation (only show if pythonPath is set) */}
+        {settings.pythonPath && (
+          <div className="space-y-3 p-4 border border-border rounded-md bg-muted/50">
+            <Label className="text-sm font-medium text-foreground">
+              {t('general.pythonPackageValidation')}
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              {t('general.pythonPackageValidationDescription')}
+            </p>
+            <PythonPackageValidator
+              pythonPath={settings.pythonPath}
+              activationScript={settings.pythonActivationScript}
+              onValidationStateChange={setIsPythonValidating}
+            />
+          </div>
+        )}
 
         <div className="space-y-3">
           <Label htmlFor="gitPath" className="text-sm font-medium text-foreground">{t('general.gitPath')}</Label>

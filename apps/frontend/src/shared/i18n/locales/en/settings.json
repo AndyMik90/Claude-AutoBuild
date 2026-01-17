@@ -242,7 +242,9 @@
       "pythonExecutable": "Python Executable",
       "activationScripts": "Activation Scripts",
       "allFiles": "All Files"
-    }
+    },
+    "pythonPackageValidation": "Package Validation",
+    "pythonPackageValidationDescription": "Verify required packages are installed in the configured Python environment."
   },
   "theme": {
     "title": "Appearance",
@@ -449,8 +451,25 @@
     "deleteEnv": "Delete Environment",
     "deleteActivationScripts": "Also remove activation scripts",
     "pathPlaceholder": "C:\\path\\to\\conda",
-    "validatingEnvironment": "Validating Python environment...",
-    "validatingHint": "This may take a few seconds"
+    "validatingEnvironment": "Validating Python Environment",
+    "validatingHint": "This may take a moment...",
+    "checkingEnvironment": "Checking Python environment...",
+    "environmentValid": "Environment valid",
+    "environmentMissing": "Python environment not found",
+    "wrongVersion": "Python version {{version}} found, requires 3.12+",
+    "reinstalling": "Reinstalling...",
+    "reinstallEnvironment": "Reinstall Environment",
+    "reinstallTitle": "Reinstall Python Environment?",
+    "reinstallWarning": "This will remove the existing environment and create a new one with Python 3.12. All installed packages will be lost.",
+    "reinstallConfirm": "Yes, Reinstall",
+    "checking": "Checking",
+    "validatingPackages": "Validating packages...",
+    "allPackagesInstalled": "All required packages installed",
+    "packagesMissing": "Required packages missing",
+    "missingPackages": "{{count}} missing package(s)",
+    "installing": "Installing...",
+    "installMissing": "Install Missing Packages",
+    "installLocation": "Install location"
   },
   "condaSetup": {
     "title": "Setup Conda Environment",
