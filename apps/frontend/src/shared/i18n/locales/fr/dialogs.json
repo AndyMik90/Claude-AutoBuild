@@ -54,7 +54,11 @@
     "merge": "Fusionner le worktree",
     "mergeDescription": "Fusionner les modifications de ce worktree dans la branche de base.",
     "delete": "Supprimer le worktree ?",
-    "deleteDescription": "Ceci supprimera définitivement le worktree et toutes les modifications non committées. Cette action est irréversible."
+    "deleteDescription": "Ceci supprimera définitivement le worktree et toutes les modifications non committées. Cette action est irréversible.",
+    "bulkDeleteTitle": "Supprimer {{count}} worktrees ?",
+    "bulkDeleteDescription": "Ceci supprimera définitivement les worktrees sélectionnés et toutes leurs modifications non committées. Cette action est irréversible.",
+    "deleting": "Suppression...",
+    "deleteSelected": "Supprimer la sélection"
   },
   "worktreeCleanup": {
     "title": "Terminer la tâche",
