@@ -7,6 +7,9 @@ import type { ExecutionPhase as ExecutionPhaseType, CompletablePhase } from '../
 
 export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'pr_created' | 'done';
 
+// Maps task status columns to ordered task IDs for kanban board reordering
+export type TaskOrderState = Record<TaskStatus, string[]>;
+
 // Reason why a task is in human_review status
 // - 'completed': All subtasks done and QA passed, ready for final approval/merge
 // - 'errors': Subtasks failed during execution

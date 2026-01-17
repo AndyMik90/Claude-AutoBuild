@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment } from '../../shared/types';
+import { arrayMove } from '@dnd-kit/sortable';
+import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState } from '../../shared/types';
 import { debugLog } from '../../shared/utils/debug-logger';
 import { isTerminalPhase } from '../../shared/constants/phase-protocol';
 
@@ -8,6 +9,7 @@ interface TaskState {
   selectedTaskId: string | null;
   isLoading: boolean;
   error: string | null;
+  taskOrder: TaskOrderState | null;  // Per-column task ordering for kanban board
 
   // Actions
   setTasks: (tasks: Task[]) => void;
@@ -22,6 +24,13 @@ interface TaskState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearTasks: () => void;
+  // Task order actions for kanban drag-and-drop reordering
+  setTaskOrder: (order: TaskOrderState) => void;
+  reorderTasksInColumn: (status: TaskStatus, activeId: string, overId: string) => void;
+  moveTaskToColumnTop: (taskId: string, targetStatus: TaskStatus, sourceStatus?: TaskStatus) => void;
+  loadTaskOrder: (projectId: string) => void;
+  saveTaskOrder: (projectId: string) => boolean;
+  clearTaskOrder: (projectId: string) => void;
 
   // Selectors
   getSelectedTask: () => Task | undefined;
@@ -95,18 +104,68 @@ function validatePlanData(plan: ImplementationPlan): boolean {
   return true;
 }
 
+// localStorage key prefix for task order persistence
+const TASK_ORDER_KEY_PREFIX = 'task-order-state';
+
+/**
+ * Get the localStorage key for a project's task order
+ */
+function getTaskOrderKey(projectId: string): string {
+  return `${TASK_ORDER_KEY_PREFIX}-${projectId}`;
+}
+
+/**
+ * Create an empty task order state with all status columns
+ */
+function createEmptyTaskOrder(): TaskOrderState {
+  return {
+    backlog: [],
+    in_progress: [],
+    ai_review: [],
+    human_review: [],
+    pr_created: [],
+    done: []
+  };
+}
+
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
   selectedTaskId: null,
   isLoading: false,
   error: null,
+  taskOrder: null,
 
   setTasks: (tasks) => set({ tasks }),
 
   addTask: (task) =>
-    set((state) => ({
-      tasks: [...state.tasks, task]
-    })),
+    set((state) => {
+      // Determine which column the task belongs to based on its status
+      const status = task.status || 'backlog';
+
+      // Update task order if it exists - new tasks go to top of their column
+      let taskOrder = state.taskOrder;
+      if (taskOrder) {
+        const newTaskOrder = { ...taskOrder };
+
+        // Add task ID to the top of the appropriate column
+        if (newTaskOrder[status]) {
+          // Ensure the task isn't already in the array (safety check)
+          newTaskOrder[status] = newTaskOrder[status].filter(id => id !== task.id);
+          // Add to top (index 0)
+          newTaskOrder[status] = [task.id, ...newTaskOrder[status]];
+        } else {
+          // Initialize column order array if it doesn't exist
+          newTaskOrder[status] = [task.id];
+        }
+
+        taskOrder = newTaskOrder;
+      }
+
+      return {
+        tasks: [...state.tasks, task],
+        taskOrder
+      };
+    }),
 
   updateTask: (taskId, updates) =>
     set((state) => {
@@ -402,7 +461,124 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   setError: (error) => set({ error }),
 
-  clearTasks: () => set({ tasks: [], selectedTaskId: null }),
+  clearTasks: () => set({ tasks: [], selectedTaskId: null, taskOrder: null }),
+
+  // Task order actions for kanban drag-and-drop reordering
+  setTaskOrder: (order) => set({ taskOrder: order }),
+
+  reorderTasksInColumn: (status, activeId, overId) => {
+    set((state) => {
+      if (!state.taskOrder) return state;
+
+      const columnOrder = state.taskOrder[status];
+      if (!columnOrder) return state;
+
+      const oldIndex = columnOrder.indexOf(activeId);
+      const newIndex = columnOrder.indexOf(overId);
+
+      // Both tasks must be in the column order array
+      if (oldIndex === -1 || newIndex === -1) return state;
+
+      return {
+        taskOrder: {
+          ...state.taskOrder,
+          [status]: arrayMove(columnOrder, oldIndex, newIndex)
+        }
+      };
+    });
+  },
+
+  moveTaskToColumnTop: (taskId, targetStatus, sourceStatus) => {
+    set((state) => {
+      if (!state.taskOrder) return state;
+
+      // Create a copy of the task order to modify
+      const newTaskOrder = { ...state.taskOrder };
+
+      // Remove from source column if provided
+      if (sourceStatus && newTaskOrder[sourceStatus]) {
+        newTaskOrder[sourceStatus] = newTaskOrder[sourceStatus].filter(id => id !== taskId);
+      }
+
+      // Add to top of target column
+      if (newTaskOrder[targetStatus]) {
+        // Remove from target column first (in case it already exists there)
+        newTaskOrder[targetStatus] = newTaskOrder[targetStatus].filter(id => id !== taskId);
+        // Add to top (index 0)
+        newTaskOrder[targetStatus] = [taskId, ...newTaskOrder[targetStatus]];
+      } else {
+        // Initialize column order array if it doesn't exist
+        newTaskOrder[targetStatus] = [taskId];
+      }
+
+      return { taskOrder: newTaskOrder };
+    });
+  },
+
+  loadTaskOrder: (projectId) => {
+    try {
+      const key = getTaskOrderKey(projectId);
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Validate structure before assigning - type assertion is compile-time only
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          console.warn('Invalid task order data in localStorage, resetting to empty');
+          set({ taskOrder: createEmptyTaskOrder() });
+          return;
+        }
+
+        // Helper to validate column values are string arrays
+        const isValidColumnArray = (val: unknown): val is string[] =>
+          Array.isArray(val) && val.every(item => typeof item === 'string');
+
+        // Merge with empty order to handle partial data and validate each column
+        const emptyOrder = createEmptyTaskOrder();
+        const validatedOrder: TaskOrderState = {
+          backlog: isValidColumnArray(parsed.backlog) ? parsed.backlog : emptyOrder.backlog,
+          in_progress: isValidColumnArray(parsed.in_progress) ? parsed.in_progress : emptyOrder.in_progress,
+          ai_review: isValidColumnArray(parsed.ai_review) ? parsed.ai_review : emptyOrder.ai_review,
+          human_review: isValidColumnArray(parsed.human_review) ? parsed.human_review : emptyOrder.human_review,
+          pr_created: isValidColumnArray(parsed.pr_created) ? parsed.pr_created : emptyOrder.pr_created,
+          done: isValidColumnArray(parsed.done) ? parsed.done : emptyOrder.done
+        };
+
+        set({ taskOrder: validatedOrder });
+      } else {
+        set({ taskOrder: createEmptyTaskOrder() });
+      }
+    } catch (error) {
+      console.error('Failed to load task order:', error);
+      set({ taskOrder: createEmptyTaskOrder() });
+    }
+  },
+
+  saveTaskOrder: (projectId) => {
+    try {
+      const state = get();
+      if (!state.taskOrder) {
+        // Nothing to save - return false to indicate no save occurred
+        return false;
+      }
+
+      const key = getTaskOrderKey(projectId);
+      localStorage.setItem(key, JSON.stringify(state.taskOrder));
+      return true;
+    } catch (error) {
+      console.error('Failed to save task order:', error);
+      return false;
+    }
+  },
+
+  clearTaskOrder: (projectId) => {
+    try {
+      const key = getTaskOrderKey(projectId);
+      localStorage.removeItem(key);
+      set({ taskOrder: null });
+    } catch (error) {
+      console.error('Failed to clear task order:', error);
+    }
+  },
 
   getSelectedTask: () => {
     const state = get();
