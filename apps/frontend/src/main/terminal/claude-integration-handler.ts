@@ -101,19 +101,28 @@ function buildPathPrefix(pathEnv: string, shellType?: WindowsShellType): string 
 /**
  * Escape a command for safe use in shell commands.
  *
- * On Windows, wraps in double quotes for cmd.exe. Since the value is inside
- * double quotes, we use escapeForWindowsDoubleQuote() (only escapes embedded
- * double quotes as ""). Caret escaping is NOT used inside double quotes.
+ * On Windows cmd.exe, wraps in double quotes.
+ * On Windows PowerShell, uses the call operator & before double quotes,
+ * because PowerShell interprets `--` as the decrement operator otherwise.
  * On Unix/macOS, wraps in single quotes for bash.
  *
  * @param cmd - The command to escape
+ * @param shellType - On Windows, specify 'powershell' or 'cmd' for correct syntax
  * @returns The escaped command safe for use in shell commands
  */
-function escapeShellCommand(cmd: string): string {
+function escapeShellCommand(cmd: string, shellType?: WindowsShellType): string {
   if (isWindows()) {
     // Windows: Wrap in double quotes and escape only embedded double quotes
     // Inside double quotes, caret is literal, so use escapeForWindowsDoubleQuote()
     const escapedCmd = escapeForWindowsDoubleQuote(cmd);
+
+    if (shellType === 'powershell') {
+      // PowerShell: Use call operator & to execute the command
+      // Without &, PowerShell interprets "--flag" as using the decrement operator
+      return `& "${escapedCmd}"`;
+    }
+
+    // cmd.exe: Just quote the path
     return `"${escapedCmd}"`;
   }
   // Unix/macOS: Wrap in single quotes for bash
@@ -582,7 +591,7 @@ export function invokeClaude(
 
     const cwdCommand = buildCdCommand(cwd, terminal.shellType);
     const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
-    const escapedClaudeCmd = escapeShellCommand(claudeCmd);
+    const escapedClaudeCmd = escapeShellCommand(claudeCmd, terminal.shellType);
     const pathPrefix = buildPathPrefix(claudeEnv.PATH || '', terminal.shellType);
     const needsEnvOverride = profileId && profileId !== previousProfileId;
 
@@ -684,7 +693,7 @@ export function resumeClaude(
     SessionHandler.releaseSessionId(terminal.id);
 
     const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
-    const escapedClaudeCmd = escapeShellCommand(claudeCmd);
+    const escapedClaudeCmd = escapeShellCommand(claudeCmd, terminal.shellType);
     const pathPrefix = buildPathPrefix(claudeEnv.PATH || '', terminal.shellType);
 
     // Always use --continue which resumes the most recent session in the current directory.
@@ -800,7 +809,7 @@ export async function invokeClaudeAsync(
         if (timeoutId) clearTimeout(timeoutId);
       });
 
-    const escapedClaudeCmd = escapeShellCommand(claudeCmd);
+    const escapedClaudeCmd = escapeShellCommand(claudeCmd, terminal.shellType);
     const pathPrefix = buildPathPrefix(claudeEnv.PATH || '', terminal.shellType);
     const needsEnvOverride = profileId && profileId !== previousProfileId;
 
@@ -911,7 +920,7 @@ export async function resumeClaudeAsync(
         if (timeoutId) clearTimeout(timeoutId);
       });
 
-    const escapedClaudeCmd = escapeShellCommand(claudeCmd);
+    const escapedClaudeCmd = escapeShellCommand(claudeCmd, terminal.shellType);
     const pathPrefix = buildPathPrefix(claudeEnv.PATH || '', terminal.shellType);
 
     // Always use --continue which resumes the most recent session in the current directory.
