@@ -12,6 +12,8 @@ import platform
 import subprocess
 from typing import TYPE_CHECKING
 
+from core.platform import get_windows_system_path
+
 # Optional import for Linux secret-service support
 # secretstorage provides access to the Freedesktop.org Secret Service API via DBus
 if TYPE_CHECKING:
@@ -392,7 +394,8 @@ def get_sdk_env_vars() -> dict[str, str]:
     Collects relevant env vars (ANTHROPIC_BASE_URL, etc.) that should
     be passed through to the claude-agent-sdk subprocess.
 
-    On Windows, auto-detects CLAUDE_CODE_GIT_BASH_PATH if not already set.
+    On Windows, auto-detects CLAUDE_CODE_GIT_BASH_PATH if not already set
+    and ensures full system PATH is available to Bash sessions.
 
     Returns:
         Dict of env var name -> value for non-empty vars
@@ -409,6 +412,14 @@ def get_sdk_env_vars() -> dict[str, str]:
         bash_path = _find_git_bash_path()
         if bash_path:
             env["CLAUDE_CODE_GIT_BASH_PATH"] = bash_path
+
+    # On Windows, ensure Bash sessions get the full system PATH
+    # This fixes the issue where tools like ddev, mkcert, etc. are not available
+    # in Bash because they're not in the limited COMMON_BIN_PATHS
+    if platform.system() == "Windows":
+        system_path = get_windows_system_path()
+        if system_path:
+            env["PATH"] = system_path
 
     # Explicitly unset PYTHONPATH in SDK subprocess environment to prevent
     # pollution of agent subprocess environments. This fixes ACS-251 where
