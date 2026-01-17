@@ -4,8 +4,6 @@ import os
 import subprocess
 from unittest.mock import patch
 
-import pytest
-
 from core.git_executable import (
     GIT_ENV_VARS_TO_CLEAR,
     get_git_executable,
